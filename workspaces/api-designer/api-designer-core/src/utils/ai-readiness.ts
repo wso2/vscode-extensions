@@ -1,6 +1,7 @@
 import {
     AiReadinessMetrics,
     AiReadinessSummary,
+    AiReadinessBucketSummary,
     AiReadinessCategorySummary,
     AiReadinessViolation,
     GetGovernanceResponse
@@ -43,29 +44,101 @@ export const computeReadinessScoreFromMetrics = (
     return Math.round(Math.max(0, Math.min(100, percentage)));
 };
 
-const buildMissingList = (
-    coverageEntry: { failedPaths?: (string | number)[][] } | undefined,
-    fallbackList: AiReadinessViolation[],
-    lookup: Map<string, AiReadinessViolation>
-): AiReadinessViolation[] => {
-    if (!coverageEntry?.failedPaths || coverageEntry.failedPaths.length === 0) {
-        return fallbackList;
-    }
+// Explicit mapping from rule name to bucket key.
+// Each rule maps to exactly one bucket; no string-matching heuristics.
+const RULE_CATEGORY_MAP: Record<string, string> = {
+    // Summaries
+    'ai-readiness-operation-summary': 'summaries',
 
-    return coverageEntry.failedPaths
-        .map((pathSegments) => {
-            const normalized = pathSegments.map((segment) => String(segment));
-            const key = normalized.join("|");
-            if (lookup.has(key)) {
-                return lookup.get(key)!;
-            }
-            return {
-                pathSegments: normalized,
-                displayPath: normalized.join(" > "),
-                message: "Missing required content"
-            };
-        });
+    // Descriptions
+    'ai-readiness-api-description': 'descriptions',
+    'ai-readiness-operation-description': 'descriptions',
+    'ai-readiness-operation-id': 'descriptions',
+    'ai-readiness-operation-id-casing': 'descriptions',
+    'ai-readiness-operation-tags': 'descriptions',
+    'ai-readiness-parameter-description': 'descriptions',
+    'ai-readiness-parameter-description-length': 'descriptions',
+    'ai-readiness-request-body-description': 'descriptions',
+    'ai-readiness-response-description': 'descriptions',
+    'ai-readiness-error-response-description-length': 'descriptions',
+    'ai-readiness-schema-description': 'descriptions',
+    'ai-readiness-schema-description-length': 'descriptions',
+    'ai-readiness-schema-title': 'descriptions',
+    'ai-readiness-schema-property-description': 'descriptions',
+    'ai-readiness-schema-enum-description': 'descriptions',
+    'ai-readiness-tags-description': 'descriptions',
+    'ai-readiness-tags-external-docs': 'descriptions',
+    'ai-readiness-deprecation-notice': 'descriptions',
+
+    // Examples
+    'ai-readiness-parameter-example': 'examples',
+    'ai-readiness-request-body-example': 'examples',
+    'ai-readiness-response-example': 'examples',
+    'ai-readiness-schema-example': 'examples',
+    'ai-readiness-schema-property-example': 'examples',
+
+    // Error Responses
+    'ai-readiness-success-response': 'errors',
+    'ai-readiness-success-response-content': 'errors',
+    'ai-readiness-success-response-json-schema': 'errors',
+    'ai-readiness-error-responses-4xx': 'errors',
+    'ai-readiness-error-responses-5xx': 'errors',
+    'ai-readiness-error-response-content': 'errors',
+    'ai-readiness-error-response-json-schema': 'errors',
+    'ai-readiness-response-content-type': 'errors',
+    'ai-readiness-error-response-schema': 'errors',
+
+    // Typing
+    'ai-readiness-request-body-schema-typed': 'typing',
+    'ai-readiness-request-body-schema-required': 'typing',
+    'ai-readiness-response-schema-typed': 'typing',
+    'ai-readiness-schema-property-type': 'typing',
+    'ai-readiness-parameter-schema-type': 'typing',
+    'ai-readiness-schema-string-format': 'typing',
+    'ai-readiness-schema-no-empty-object': 'typing',
+    'ai-readiness-schema-property-no-empty-object': 'typing',
+    'ai-readiness-array-items-defined': 'typing',
+    'ai-readiness-array-property-items-defined': 'typing',
+    'ai-readiness-discriminator': 'typing',
+
+    // Error Semantics
+    'ai-readiness-error-schema-fields': 'errorSemantics',
+    'ai-readiness-error-schema-rfc7807': 'errorSemantics',
+    'ai-readiness-error-schema-details': 'errorSemantics',
+    'ai-readiness-error-schema-actionable': 'errorSemantics',
+
+    // Headers
+    'ai-readiness-429-rate-limit-headers': 'headers',
+
+    // Pagination
+    'ai-readiness-list-pagination-params': 'pagination',
+    'ai-readiness-pagination-response-meta': 'pagination',
+
+    // Security
+    'ai-readiness-api-contact': 'security',
+    'ai-readiness-no-interactive-auth': 'security',
+    'ai-readiness-security-defined': 'security',
+    'ai-readiness-security-description': 'security',
+    'ai-readiness-security-on-mutating-ops': 'security',
+
+    // Idempotency
+    'ai-readiness-idempotency-key': 'idempotency',
 };
+
+// Rule counts per bucket — used to proportionally distribute fallback totals
+// when a bucket has no custom-function metrics but has a known rule set.
+const BUCKET_RULE_COUNTS: Record<string, number> = Object.keys(RULE_CATEGORY_MAP).reduce(
+    (acc: Record<string, number>, rule: string) => {
+        const bucketKey = RULE_CATEGORY_MAP[rule];
+        acc[bucketKey] = (acc[bucketKey] ?? 0) + 1;
+        return acc;
+    },
+    {}
+);
+const TOTAL_MAPPED_RULES = Object.keys(BUCKET_RULE_COUNTS).reduce(
+    (sum: number, k: string) => sum + BUCKET_RULE_COUNTS[k],
+    0
+);
 
 const computeCoverage = (
     coverageEntry: { total?: number; passed?: number; failed?: number } | undefined,
@@ -73,11 +146,10 @@ const computeCoverage = (
     missingCount: number
 ): AiReadinessCategorySummary => {
     if (coverageEntry) {
-        const total = Math.max(
-            coverageEntry.total ?? 0,
-            (coverageEntry.passed ?? 0) + (coverageEntry.failed ?? 0)
-        );
-        const passed = Math.min(total, coverageEntry.passed ?? 0);
+        const passed = coverageEntry.passed ?? 0;
+        // Use the larger of: metric-tracked failures vs actual bucket violations (includes standard-function rules)
+        const failed = Math.max(coverageEntry.failed ?? 0, missingCount);
+        const total = passed + failed;
         const percentage = total > 0 ? Math.round((passed / total) * 100) : 100;
         return {
             total,
@@ -96,24 +168,50 @@ const computeCoverage = (
     };
 };
 
+type ViolationBucket = {
+    violations: AiReadinessViolation[];
+    seen: Set<string>;
+};
+
+type BucketDefinition = {
+    key: string;
+    label: string;
+    icon: string;
+    metricKey: string;
+};
+
+const BUCKET_DEFINITIONS: BucketDefinition[] = [
+    { key: "summaries",     label: "Summaries",          icon: "list-unordered",  metricKey: "summaries" },
+    { key: "descriptions",  label: "Descriptions",        icon: "note",            metricKey: "descriptions" },
+    { key: "examples",      label: "Examples",            icon: "symbol-field",    metricKey: "examples" },
+    { key: "errors",        label: "Error Responses",     icon: "error",           metricKey: "errorResponses" },
+    { key: "typing",        label: "Strict Typing",       icon: "symbol-parameter",metricKey: "typing" },
+    { key: "errorSemantics",label: "Error Semantics",     icon: "feedback",        metricKey: "errorSemantics" },
+    { key: "headers",       label: "Rate Limit Headers",  icon: "server-process",  metricKey: "headers" },
+    { key: "pagination",    label: "Pagination",          icon: "list-flat",       metricKey: "pagination" },
+    { key: "security",      label: "Agent Auth",          icon: "shield",          metricKey: "security" },
+    { key: "idempotency",   label: "Idempotency",         icon: "sync",            metricKey: "idempotency" },
+];
+
+const makeBucket = (): ViolationBucket => ({
+    violations: [],
+    seen: new Set()
+});
+
+const addToBucket = (bucket: ViolationBucket, key: string, v: AiReadinessViolation): void => {
+    if (!bucket.seen.has(key)) {
+        bucket.seen.add(key);
+        bucket.violations.push(v);
+    }
+};
+
 export const buildAiReadinessSummary = (governanceResult: GetGovernanceResponse): AiReadinessSummary => {
     const allViolations: AiReadinessViolation[] = [];
 
-    const summaryViolations: AiReadinessViolation[] = [];
-    const summarySeen = new Set<string>();
-    const summaryLookup = new Map<string, AiReadinessViolation>();
-
-    const descriptionViolations: AiReadinessViolation[] = [];
-    const descriptionSeen = new Set<string>();
-    const descriptionLookup = new Map<string, AiReadinessViolation>();
-
-    const exampleViolations: AiReadinessViolation[] = [];
-    const examplesSeen = new Set<string>();
-    const examplesLookup = new Map<string, AiReadinessViolation>();
-
-    const errorResponseViolations: AiReadinessViolation[] = [];
-    const errorsSeen = new Set<string>();
-    const errorsLookup = new Map<string, AiReadinessViolation>();
+    const buckets: Record<string, ViolationBucket> = BUCKET_DEFINITIONS.reduce((acc, def) => {
+        acc[def.key] = makeBucket();
+        return acc;
+    }, {} as Record<string, ViolationBucket>);
 
     const violationEntries = governanceResult.violations ?? [];
     violationEntries.forEach((violation) => {
@@ -126,107 +224,54 @@ export const buildAiReadinessSummary = (governanceResult: GetGovernanceResponse)
         const displayPath = rawSegments.length > 0
             ? rawSegments.join(' > ')
             : (Array.isArray(violation.path) ? violation.path.join(' > ') : (violation.path || 'Unknown path'));
-        const message = violation.message || 'Missing information';
 
-        const code = violation.code || violation.rule || '';
-        const normalizedMessage = violation.message?.toLowerCase() || '';
-        const isSummaryViolation = code.includes('summary') || normalizedMessage.includes('summary');
-        const isDescriptionViolation = code.includes('description') || normalizedMessage.includes('description');
-        const isExamplesViolation = code.includes('example') || normalizedMessage.includes('example');
-        const isErrorResponseViolation = code.includes('response') || normalizedMessage.includes('response');
+        const ruleCode = (violation.rule || violation.code || '').toLowerCase();
+        const key = `${ruleCode}|${rawSegments.join('|')}`;
+        const v: AiReadinessViolation = { pathSegments: rawSegments, displayPath, message: violation.message || 'Missing information' };
+        allViolations.push(v);
 
-        const key = rawSegments.join('|');
-        const normalizedViolation: AiReadinessViolation = { pathSegments: rawSegments, displayPath, message };
-        allViolations.push(normalizedViolation);
-
-        if (isSummaryViolation && !summarySeen.has(key)) {
-            summarySeen.add(key);
-            summaryViolations.push(normalizedViolation);
-            summaryLookup.set(key, normalizedViolation);
-        }
-        if (isDescriptionViolation && !descriptionSeen.has(key)) {
-            descriptionSeen.add(key);
-            descriptionViolations.push(normalizedViolation);
-            descriptionLookup.set(key, normalizedViolation);
-        }
-        if (isExamplesViolation && !examplesSeen.has(key)) {
-            examplesSeen.add(key);
-            exampleViolations.push(normalizedViolation);
-            examplesLookup.set(key, normalizedViolation);
-        }
-        if (isErrorResponseViolation && !errorsSeen.has(key)) {
-            errorsSeen.add(key);
-            errorResponseViolations.push(normalizedViolation);
-            errorsLookup.set(key, normalizedViolation);
+        const bucketKey = RULE_CATEGORY_MAP[ruleCode];
+        if (bucketKey && buckets[bucketKey]) {
+            addToBucket(buckets[bucketKey], key, v);
         }
     });
 
-    const passedChecks = governanceResult.passedChecks || 0;
-    const failedChecks = governanceResult.failedChecks || 0;
-    const totalChecks = governanceResult.totalChecks || (passedChecks + failedChecks);
+    const totalChecks = governanceResult.totalChecks ||
+        (governanceResult.passedChecks || 0) + (governanceResult.failedChecks || 0);
 
-    const fallbackSummaryTotal = Math.ceil(totalChecks * 0.25);
-    const fallbackDescriptionTotal = Math.ceil(totalChecks * 0.25);
-    const fallbackExampleTotal = Math.ceil(totalChecks * 0.25);
-    const fallbackErrorTotal = totalChecks - fallbackSummaryTotal - fallbackDescriptionTotal - fallbackExampleTotal;
+    const cc = governanceResult.aiReadinessMetrics?.categories ?? {};
 
-    const coverageCategories = governanceResult.aiReadinessMetrics?.categories ?? {};
+    const bucketSummaries: AiReadinessBucketSummary[] = BUCKET_DEFINITIONS.map((def) => {
+        // Fallback total is proportional to the number of rules in this bucket vs all mapped rules
+        const fallbackTotal = TOTAL_MAPPED_RULES > 0
+            ? Math.ceil(totalChecks * (BUCKET_RULE_COUNTS[def.key] ?? 0) / TOTAL_MAPPED_RULES)
+            : 0;
 
-    const summaryCoverage = computeCoverage(
-        coverageCategories.summaries,
-        fallbackSummaryTotal,
-        summaryViolations.length
-    );
-    const descriptionCoverage = computeCoverage(
-        coverageCategories.descriptions,
-        fallbackDescriptionTotal,
-        descriptionViolations.length
-    );
-    const exampleCoverage = computeCoverage(
-        coverageCategories.examples,
-        fallbackExampleTotal,
-        exampleViolations.length
-    );
-    const errorCoverage = computeCoverage(
-        coverageCategories.errorResponses,
-        fallbackErrorTotal,
-        errorResponseViolations.length
-    );
+        const coverage = computeCoverage(
+            cc[def.metricKey],
+            fallbackTotal,
+            buckets[def.key].violations.length
+        );
+        return {
+            key: def.key,
+            label: def.label,
+            icon: def.icon,
+            ...coverage,
+            missing: buckets[def.key].violations
+        };
+    });
 
-    const summaryMissing = buildMissingList(coverageCategories.summaries, summaryViolations, summaryLookup);
-    const descriptionMissing = buildMissingList(coverageCategories.descriptions, descriptionViolations, descriptionLookup);
-    const exampleMissing = buildMissingList(coverageCategories.examples, exampleViolations, examplesLookup);
-    const errorMissing = buildMissingList(coverageCategories.errorResponses, errorResponseViolations, errorsLookup);
+    // Average only categories that have actual checks to avoid penalising APIs where a category doesn't apply
+    const activeCoverages = bucketSummaries.filter((bucket) => bucket.total > 0);
+    const averageCoverage = activeCoverages.length > 0
+        ? activeCoverages.reduce((sum, c) => sum + c.percentage, 0) / activeCoverages.length
+        : 0;
 
-    const averageCoverage = (
-        summaryCoverage.percentage
-        + descriptionCoverage.percentage
-        + exampleCoverage.percentage
-        + errorCoverage.percentage
-    ) / 4;
-
-    const score = typeof governanceResult.score === 'number'
-        ? Math.max(0, Math.min(100, Math.round(governanceResult.score)))
-        : Math.round(Math.max(0, Math.min(100, averageCoverage)));
+    const score = Math.round(Math.max(0, Math.min(100, averageCoverage)));
 
     return {
         score,
-        summariesComplete: {
-            ...summaryCoverage,
-            missing: summaryMissing
-        },
-        descriptionsComplete: {
-            ...descriptionCoverage,
-            missing: descriptionMissing
-        },
-        schemasWithExamples: {
-            ...exampleCoverage,
-            missing: exampleMissing
-        },
-        errorResponsesDefined: {
-            ...errorCoverage,
-            missing: errorMissing
-        },
+        buckets: bucketSummaries,
         validation: allViolations.length > 0 ? { violations: allViolations } : undefined
     };
 };

@@ -12,7 +12,7 @@
   "bugs": {
     "url": "https://github.com/wso2/vscode-extensions/issues"
   },
-  "homepage": "https://github.com/wso2/vscode-extensions/tree/main/workspaces/api-designer",
+  "homepage": "https://github.com/wso2/vscode-extensions/tree/rules/workspaces/api-designer",
   "galleryBanner": {
     "color": "#e7eaeb",
     "theme": "light"

@@ -93,12 +93,15 @@ export interface AiReadinessCategorySummary {
     missing?: AiReadinessViolation[];
 }
 
+export interface AiReadinessBucketSummary extends AiReadinessCategorySummary {
+    key: string;
+    label: string;
+    icon?: string;
+}
+
 export interface AiReadinessSummary {
     score: number;
-    summariesComplete: AiReadinessCategorySummary;
-    descriptionsComplete: AiReadinessCategorySummary;
-    schemasWithExamples: AiReadinessCategorySummary;
-    errorResponsesDefined: AiReadinessCategorySummary;
+    buckets: AiReadinessBucketSummary[];
     validation?: {
         violations: AiReadinessViolation[];
     };

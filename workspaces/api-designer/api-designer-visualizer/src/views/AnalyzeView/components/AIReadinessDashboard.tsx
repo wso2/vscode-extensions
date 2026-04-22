@@ -16,12 +16,12 @@
  * under the License.
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
 import { Button, Codicon, Typography } from '@wso2/ui-toolkit';
 import { useVisualizerContext } from '@wso2/api-designer-rpc-client';
-import { buildAiReadinessSummary, AiReadinessSummary, AiReadinessViolation } from '@wso2/api-designer-core';
+import { buildAiReadinessSummary, AiReadinessViolation } from '@wso2/api-designer-core';
 import { postMessage as postVSCodeMessage } from '../../../utils/vscode-api';
 import { LoadingOverlay } from '../../../components/common/LoadingOverlay';
 import { useAIAvailability } from '../../../hooks/useAIAvailability';
@@ -36,7 +36,47 @@ interface AIReadinessDashboardProps {
     refreshToken?: number;
 }
 
-type AIReadinessData = AiReadinessSummary;
+type AIReadinessBucketSummary = {
+    key: string;
+    label: string;
+    icon?: string;
+    filled: number;
+    total: number;
+    percentage: number;
+    missing?: AiReadinessViolation[];
+};
+
+type AIReadinessData = {
+    score: number;
+    buckets: AIReadinessBucketSummary[];
+    validation?: {
+        violations: AiReadinessViolation[];
+    };
+};
+
+const buildEmptyAiReadinessData = (): AIReadinessData => ({
+    score: 0,
+    buckets: []
+});
+
+const normalizeAiReadinessData = (input: unknown): AIReadinessData => {
+    if (!input || typeof input !== 'object') {
+        return buildEmptyAiReadinessData();
+    }
+
+    const raw = input as Record<string, unknown>;
+    const score = typeof raw.score === 'number' ? raw.score : 0;
+    const rawBuckets = raw.buckets;
+    if (!Array.isArray(rawBuckets)) {
+        return buildEmptyAiReadinessData();
+    }
+
+    return {
+        score,
+        buckets: rawBuckets as AIReadinessBucketSummary[],
+        validation: raw.validation as AIReadinessData['validation']
+    };
+};
 
 const getScoreColor = (score: number): string => {
     if (score >= 90) return '#10b981';
@@ -292,6 +332,9 @@ const ModalTabsRow = styled.div`
     padding-left: 16px;
     flex-shrink: 0;
     background: var(--vscode-editor-background);
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
 `;
 
 const ModalTabButton = styled.button<{ $active: boolean }>`
@@ -413,32 +456,20 @@ export const AIReadinessDashboard: React.FC<AIReadinessDashboardProps> = ({ file
     const [aiReadinessData, setAIReadinessData] = useState<AIReadinessData | null>(null);
     const [aiReadinessRuleset, setAIReadinessRuleset] = useState<any>(null);
     const [modalOpen, setModalOpen] = useState(false);
-    const [activeTab, setActiveTab] = useState<'summaries' | 'descriptions' | 'examples' | 'errors'>('summaries');
+    const [activeTab, setActiveTab] = useState<string>('');
 
     const fetchAIReadinessData = useCallback(async () => {
         if (!rpcClient) {
             setError('RPC client not available');
             setLoading(false);
-            setAIReadinessData({
-                score: 0,
-                summariesComplete: { filled: 0, total: 0, percentage: 0 },
-                descriptionsComplete: { filled: 0, total: 0, percentage: 0 },
-                schemasWithExamples: { filled: 0, total: 0, percentage: 0 },
-                errorResponsesDefined: { filled: 0, total: 0, percentage: 0 }
-            });
+            setAIReadinessData(buildEmptyAiReadinessData());
             return;
         }
 
         if (!fileUri || fileUri === 'file:///placeholder') {
             setError('Invalid file path');
             setLoading(false);
-            setAIReadinessData({
-                score: 0,
-                summariesComplete: { filled: 0, total: 0, percentage: 0 },
-                descriptionsComplete: { filled: 0, total: 0, percentage: 0 },
-                schemasWithExamples: { filled: 0, total: 0, percentage: 0 },
-                errorResponsesDefined: { filled: 0, total: 0, percentage: 0 }
-            });
+            setAIReadinessData(buildEmptyAiReadinessData());
             return;
         }
         
@@ -456,13 +487,7 @@ export const AIReadinessDashboard: React.FC<AIReadinessDashboardProps> = ({ file
             setAIReadinessRuleset(ruleset);
             
             if (!ruleset) {
-                setAIReadinessData({
-                    score: 0,
-                    summariesComplete: { filled: 0, total: 0, percentage: 0 },
-                    descriptionsComplete: { filled: 0, total: 0, percentage: 0 },
-                    schemasWithExamples: { filled: 0, total: 0, percentage: 0 },
-                    errorResponsesDefined: { filled: 0, total: 0, percentage: 0 }
-                });
+                setAIReadinessData(buildEmptyAiReadinessData());
                 setLoading(false);
                 return;
             }
@@ -473,7 +498,9 @@ export const AIReadinessDashboard: React.FC<AIReadinessDashboardProps> = ({ file
                 ruleset: ruleset
             });
 
-            const aiReadinessData = result.aiReadinessSummary ?? transformReadinessGovernanceResult(result);
+            const aiReadinessData = normalizeAiReadinessData(
+                result.aiReadinessSummary ?? transformReadinessGovernanceResult(result)
+            );
             setAIReadinessData(aiReadinessData);
             setError(null);
 
@@ -482,13 +509,7 @@ export const AIReadinessDashboard: React.FC<AIReadinessDashboardProps> = ({ file
             setError(errorMessage);
             
             // Set default data so UI can still render
-            setAIReadinessData({
-                score: 0,
-                summariesComplete: { filled: 0, total: 0, percentage: 0 },
-                descriptionsComplete: { filled: 0, total: 0, percentage: 0 },
-                schemasWithExamples: { filled: 0, total: 0, percentage: 0 },
-                errorResponsesDefined: { filled: 0, total: 0, percentage: 0 }
-            });
+            setAIReadinessData(buildEmptyAiReadinessData());
         } finally {
             setLoading(false);
         }
@@ -497,6 +518,21 @@ export const AIReadinessDashboard: React.FC<AIReadinessDashboardProps> = ({ file
     useEffect(() => {
         fetchAIReadinessData();
     }, [fetchAIReadinessData, refreshToken]);
+
+    const visibleBuckets = useMemo<AIReadinessBucketSummary[]>(
+        () => aiReadinessData?.buckets ?? [],
+        [aiReadinessData]
+    );
+
+    useEffect(() => {
+        if (visibleBuckets.length === 0) {
+            setActiveTab('');
+            return;
+        }
+        if (!activeTab || !visibleBuckets.some((bucket) => bucket.key === activeTab)) {
+            setActiveTab(visibleBuckets[0].key);
+        }
+    }, [visibleBuckets, activeTab]);
 
     const openCopilotChat = (context: string, prompt: string) => {
         postVSCodeMessage({
@@ -597,52 +633,23 @@ export const AIReadinessDashboard: React.FC<AIReadinessDashboardProps> = ({ file
                 </ScoreHero>
 
                 <MetricsGrid>
-                    {([
-                        {
-                            key: 'summaries' as const,
-                            icon: 'list-unordered',
-                            label: 'Summaries',
-                            data: aiReadinessData.summariesComplete,
-                            missing: aiReadinessData.summariesComplete.missing
-                        },
-                        {
-                            key: 'descriptions' as const,
-                            icon: 'note',
-                            label: 'Descriptions',
-                            data: aiReadinessData.descriptionsComplete,
-                            missing: aiReadinessData.descriptionsComplete.missing
-                        },
-                        {
-                            key: 'examples' as const,
-                            icon: 'symbol-field',
-                            label: 'Examples',
-                            data: aiReadinessData.schemasWithExamples,
-                            missing: aiReadinessData.schemasWithExamples.missing
-                        },
-                        {
-                            key: 'errors' as const,
-                            icon: 'error',
-                            label: 'Error Responses',
-                            data: aiReadinessData.errorResponsesDefined,
-                            missing: aiReadinessData.errorResponsesDefined.missing
-                        }
-                    ]).map((metric) => {
-                        const progressColor = getScoreColor(metric.data.percentage);
-                        const interactive = !!(metric.missing && metric.missing.length > 0);
+                    {visibleBuckets.map((bucket) => {
+                        const progressColor = getScoreColor(bucket.percentage);
+                        const interactive = !!(bucket.missing && bucket.missing.length > 0);
                         return (
                             <MetricTile
-                                key={metric.key}
+                                key={bucket.key}
                                 $interactive={interactive}
                                 onClick={() => {
                                     if (interactive) {
-                                        setActiveTab(metric.key as 'summaries' | 'descriptions' | 'examples' | 'errors');
+                                        setActiveTab(bucket.key);
                                         setModalOpen(true);
                                     }
                                 }}
                             >
                                 <MetricTileHeader>
                                     <MetricTileTitleCluster>
-                                        <Codicon name={metric.icon} sx={{ fontSize: '14px', color: '#f59e0b' }} />
+                                        <Codicon name={bucket.icon || 'symbol-misc'} sx={{ fontSize: '14px', color: '#f59e0b' }} />
                                         <Typography variant="caption" sx={{
                                             margin: 0,
                                             fontSize: 10,
@@ -651,7 +658,7 @@ export const AIReadinessDashboard: React.FC<AIReadinessDashboardProps> = ({ file
                                             fontWeight: 600,
                                             letterSpacing: 0.5
                                         }}>
-                                            {metric.label}
+                                            {bucket.label}
                                         </Typography>
                                     </MetricTileTitleCluster>
                                     {interactive && (
@@ -659,17 +666,17 @@ export const AIReadinessDashboard: React.FC<AIReadinessDashboardProps> = ({ file
                                     )}
                                 </MetricTileHeader>
                                 <MetricFraction>
-                                    {metric.data.filled}/{metric.data.total}
+                                    {bucket.filled}/{bucket.total}
                                 </MetricFraction>
                                 <MetricProgressRow>
                                     <MetricProgressTrack>
                                         <MetricProgressFill
-                                            $pct={metric.data.percentage}
+                                            $pct={bucket.percentage}
                                             $fillColor={progressColor}
                                         />
                                     </MetricProgressTrack>
                                     <MetricPercentText>
-                                        {Math.round(metric.data.percentage)}%
+                                        {Math.round(bucket.percentage)}%
                                     </MetricPercentText>
                                 </MetricProgressRow>
                             </MetricTile>
@@ -697,25 +704,17 @@ export const AIReadinessDashboard: React.FC<AIReadinessDashboardProps> = ({ file
                         </ModalHeaderBar>
 
                         <ModalTabsRow>
-                            {([
-                                { id: 'summaries' as const, icon: 'list-unordered', label: 'Summaries', color: '#f59e0b' },
-                                { id: 'descriptions' as const, icon: 'note', label: 'Descriptions', color: '#f59e0b' },
-                                { id: 'examples' as const, icon: 'symbol-field', label: 'Examples', color: '#f59e0b' },
-                                { id: 'errors' as const, icon: 'error', label: 'Error Responses', color: '#f59e0b' }
-                            ] as const).map((tab) => {
-                                const count = tab.id === 'summaries' ? aiReadinessData.summariesComplete.missing?.length || 0 :
-                                    tab.id === 'descriptions' ? aiReadinessData.descriptionsComplete.missing?.length || 0 :
-                                    tab.id === 'examples' ? aiReadinessData.schemasWithExamples.missing?.length || 0 :
-                                    aiReadinessData.errorResponsesDefined.missing?.length || 0;
-                                const isActive = activeTab === tab.id;
+                            {visibleBuckets.map((tab) => {
+                                const count = tab.missing?.length || 0;
+                                const isActive = activeTab === tab.key;
                                 return (
                                     <ModalTabButton
-                                        key={tab.id}
+                                        key={tab.key}
                                         type="button"
                                         $active={isActive}
-                                        onClick={() => setActiveTab(tab.id)}
+                                        onClick={() => setActiveTab(tab.key)}
                                     >
-                                        <Codicon name={tab.icon} sx={{ fontSize: '14px', color: tab.color }} />
+                                        <Codicon name={tab.icon || 'symbol-misc'} sx={{ fontSize: '14px', color: '#f59e0b' }} />
                                         {tab.label}
                                         {count > 0 && (
                                             <TabCountPill>
@@ -729,31 +728,19 @@ export const AIReadinessDashboard: React.FC<AIReadinessDashboardProps> = ({ file
 
                         <ModalBodyScroll>
                             {(() => {
-                                const missing = activeTab === 'summaries' ? aiReadinessData.summariesComplete.missing :
-                                    activeTab === 'descriptions' ? aiReadinessData.descriptionsComplete.missing :
-                                    activeTab === 'examples' ? aiReadinessData.schemasWithExamples.missing :
-                                    aiReadinessData.errorResponsesDefined.missing;
+                                const selectedBucket = visibleBuckets.find((bucket) => bucket.key === activeTab);
+                                const missing = selectedBucket?.missing;
 
                                 if (!missing || missing.length === 0) {
                                     return (
                                         <ReadinessEmptyState>
                                             <ReadinessEmptyEmoji>✓</ReadinessEmptyEmoji>
                                             <ReadinessEmptyMessage>
-                                                All {activeTab} are complete!
+                                                All {selectedBucket?.label || activeTab} are complete!
                                             </ReadinessEmptyMessage>
                                         </ReadinessEmptyState>
                                     );
                                 }
-
-                                const getLabel = (tab: string) => {
-                                    switch (tab) {
-                                        case 'summaries': return 'Summaries';
-                                        case 'descriptions': return 'Descriptions';
-                                        case 'examples': return 'Examples';
-                                        case 'errors': return 'Error Responses';
-                                        default: return tab;
-                                    }
-                                };
 
                                 return (
                                     <MissingListStack>
@@ -800,7 +787,8 @@ export const AIReadinessDashboard: React.FC<AIReadinessDashboardProps> = ({ file
                                                             return;
                                                         }
                                                         
-                                                        const prompt = `Fix all missing ${getLabel(activeTab).toLowerCase()} in the OpenAPI specification.
+                                                        const bucketLabel = selectedBucket?.label || activeTab;
+                                                        const prompt = `Fix all missing ${bucketLabel.toLowerCase()} in the OpenAPI specification.
 
 IMPORTANT: You must use the #validateWithSpectralRuleset MCP tool to discover and fix issues. Follow these steps:
 
@@ -827,7 +815,7 @@ IMPORTANT: You must use the #validateWithSpectralRuleset MCP tool to discover an
                                                 />
                                             </FixAllToolbar>
                                         )}
-                                        {missing.map((item, index) => {
+                                        {missing.map((item: AiReadinessViolation, index: number) => {
                                             const pathStr = item.pathSegments && item.pathSegments.length > 0 
                                                 ? ` at /${item.pathSegments.join('/')}` 
                                                 : '';

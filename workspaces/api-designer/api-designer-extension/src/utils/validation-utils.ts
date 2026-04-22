@@ -27,10 +27,7 @@ import * as spectralFormats from '@stoplight/spectral-formats';
 import { logDebug, logWarning, logError } from '../util/logger';
 import {
     AiReadinessMetrics as CoreAiReadinessMetrics,
-    ApiSpecType,
     buildAiReadinessSummary,
-    computeReadinessScoreFromMetrics,
-    detectSpecType,
     GetGovernanceResponse,
     loadYaml
 } from '@wso2/api-designer-core';
@@ -433,8 +430,7 @@ async function runSpectralLinting(
         
         const document = new Document(
             specContent,
-            Parsers.Yaml,
-            specContent
+            Parsers.Yaml
         );
         
         const results = await spectral.run(document);
@@ -554,7 +550,14 @@ export async function validateWithSpectralRuleset(
             severity: ['error', 'warn', 'info', 'hint'][result.severity] || 'info',
             path: result.path || []
         }));
-        
+
+        if (isAiReadinessRuleset) {
+            logDebug(
+                `AI Readiness violations (${violations.length}) for ruleset "${rulesetName}":`,
+                JSON.stringify(violations, null, 2)
+            );
+        }
+
         const violationSummary = {
             totalViolations: results.length,
             errorRules: severityRuleSets.error.size,

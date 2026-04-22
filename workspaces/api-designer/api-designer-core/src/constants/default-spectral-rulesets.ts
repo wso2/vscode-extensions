@@ -23,7 +23,7 @@ import type { SpectralRuleset } from '../rpc-types/api-designer-visualizer/analy
  * Keep in sync with `apiDesigner.spectral.rulesetFolders` default in the extension `package.json`.
  */
 export const DEFAULT_SPECTRAL_RULESET_CATALOG_FOLDER_URL =
-    'https://github.com/Thenujan-Nagaratnam/api-platform/tree/main/api-designer/spectral-rulesets';
+    'https://github.com/Thenujan-Nagaratnam/api-platform/tree/rules/api-designer/spectral-rulesets';
 
 /** JSONPath / key inside each ruleset YAML where Spectral `rules` live */
 export const DEFAULT_SPECTRAL_RULESET_CONTENT_PATH = 'rulesetContent';
