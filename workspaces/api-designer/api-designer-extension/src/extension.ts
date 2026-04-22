@@ -30,11 +30,39 @@ import { registerApiProjects, syncApiDesignerTreeSelection } from './activity-ba
 import { registerMCPTools } from './tools/mcp-tools';
 import { detectSpecType, ApiSpecType } from '@wso2/api-designer-core';
 
+const notifiedFiles = new Set<string>();
+
+function notifyOpenApiFile(document: vscode.TextDocument): void {
+	if (!isApiSpecificationFile(document)) {
+		return;
+	}
+	const config = vscode.workspace.getConfiguration('apiDesigner');
+	if (!config.get<boolean>('notifyOnOpen', true)) {
+		return;
+	}
+	const fsPath = document.uri.fsPath;
+	if (notifiedFiles.has(fsPath)) {
+		return;
+	}
+	notifiedFiles.add(fsPath);
+	vscode.window.showInformationMessage(
+		'This file is an API specification. Open it in API Designer?',
+		'Open in API Designer',
+		"Don't show again"
+	).then(selection => {
+		if (selection === 'Open in API Designer') {
+			vscode.commands.executeCommand('APIDesigner.openApiDesigner', document.uri);
+		} else if (selection === "Don't show again") {
+			config.update('notifyOnOpen', false, vscode.ConfigurationTarget.Global);
+		}
+	});
+}
+
 export async function activate(context: vscode.ExtensionContext) {
 	// Initialize logger first
 	initLogger();
 	logInfo('API Designer extension activating...');
-	
+
 	extension.context = context;
 
 	// Install custom agents to user profile (first-time or on update)
@@ -42,12 +70,18 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Initial check for the active document
 	checkDocumentForApiSpec(vscode.window.activeTextEditor?.document);
+	if (vscode.window.activeTextEditor?.document) {
+		notifyOpenApiFile(vscode.window.activeTextEditor.document);
+	}
 
 	// Add event listeners for document changes and focus
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeTextDocument(event => checkDocumentForApiSpec(event.document)),
 		vscode.window.onDidChangeActiveTextEditor(editor => {
 			checkDocumentForApiSpec(editor?.document);
+			if (editor?.document) {
+				notifyOpenApiFile(editor.document);
+			}
 		})
 	);
 

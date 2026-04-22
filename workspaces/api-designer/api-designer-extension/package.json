@@ -261,6 +261,12 @@
           "description": "Enable printing debug messages to the API Designer output channel",
           "order": 0
         },
+        "apiDesigner.notifyOnOpen": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a notification when opening an OpenAPI or AsyncAPI file, offering to open it in API Designer.",
+          "order": 1
+        },
         "apiDesigner.ai.provider": {
           "type": "string",
           "default": "copilot",
@@ -385,12 +391,12 @@
     "@apidevtools/json-schema-ref-parser": "11.6.1",
     "adm-zip": "0.5.14",
     "js-yaml": "4.1.1",
-    "jsonc-parser": "^3.3.1",
-    "yaml": "^2.6.0",
-    "@stoplight/spectral-core": "^1.20.0",
-    "@stoplight/spectral-formats": "^1.8.0",
-    "@stoplight/spectral-functions": "^1.8.0",
-    "@stoplight/spectral-parsers": "^1.0.5",
-    "@stoplight/spectral-rulesets": "^1.19.1"
+    "jsonc-parser": "3.3.1",
+    "yaml": "2.8.3",
+    "@stoplight/spectral-core": "1.22.0",
+    "@stoplight/spectral-formats": "1.8.2",
+    "@stoplight/spectral-functions": "1.10.2",
+    "@stoplight/spectral-parsers": "1.0.5",
+    "@stoplight/spectral-rulesets": "1.22.1"
   }
 }
