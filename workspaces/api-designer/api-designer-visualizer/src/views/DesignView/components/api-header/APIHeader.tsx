@@ -53,8 +53,7 @@ const HeaderContent = styled.div`
     display: flex;
     align-items: stretch;
     justify-content: space-between;
-    max-width: 1200px;
-    margin: 0 auto;
+    width: 100%;
     gap: 16px;
 `;
 

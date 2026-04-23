@@ -61,8 +61,8 @@ interface MetricBadgeData {
 }
 
 const Container = styled.div`
-    max-width: 1200px;
-    margin: 0 auto 12px;
+    width: 100%;
+    margin: 0 0 12px;
 `;
 
 const MetricsStrip = styled.div`
