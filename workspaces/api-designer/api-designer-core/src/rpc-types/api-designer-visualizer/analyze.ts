@@ -141,6 +141,8 @@ export interface GetGovernanceResponse {
     passed?: Array<{
         rule: string;
         message: string;
+        description?: string;
+        fixSuggestion?: string;
         severity: string;
     }>;
     aiReadinessMetrics?: AiReadinessMetrics;

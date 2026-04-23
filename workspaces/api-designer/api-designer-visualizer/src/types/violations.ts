@@ -26,6 +26,7 @@ export interface NormalizedGovernanceViolation {
     displayPath: string;
     message: string;
     description?: string;
+    fixSuggestion?: string;
     severity: 'error' | 'warn' | 'info' | 'hint';
     rule?: string;
     code?: string;
@@ -55,7 +56,9 @@ export interface GovernanceRulesetData {
 /**
  * Normalize a governance violation to a consistent format
  */
-export function normalizeGovernanceViolation(violation: GovernanceViolation): NormalizedGovernanceViolation {
+export function normalizeGovernanceViolation(
+    violation: GovernanceViolation & { fixSuggestion?: string }
+): NormalizedGovernanceViolation {
     const rawSegments = Array.isArray(violation.path)
         ? violation.path.map((segment) => String(segment))
         : typeof violation.path === 'string'
@@ -72,6 +75,7 @@ export function normalizeGovernanceViolation(violation: GovernanceViolation): No
         displayPath,
         message: violation.message || 'No message provided',
         description: violation.description,
+        fixSuggestion: violation.fixSuggestion,
         severity: (violation.severity || 'info') as 'error' | 'warn' | 'info' | 'hint'
     };
 }

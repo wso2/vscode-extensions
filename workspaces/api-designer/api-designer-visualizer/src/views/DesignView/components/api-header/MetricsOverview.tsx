@@ -77,19 +77,36 @@ const MetricBadge = styled.button<{ $borderColor: string; $bgColor: string }>`
     }
 `;
 
-const MetricCircle = styled.div<{ $color: string }>`
+const MetricCircle = styled.div<{ $color: string; $score: number | null }>`
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
     width: 46px;
     height: 46px;
     border-radius: 999px;
-    border: 2px solid ${({ $color }: { $color: string }) => $color};
-    color: ${({ $color }: { $color: string }) => $color};
+    background: ${({ $color, $score }: { $color: string; $score: number | null }) => {
+        const normalizedScore = Math.max(0, Math.min(100, $score ?? 0));
+        return `conic-gradient(${$color} ${normalizedScore}%, var(--vscode-panel-border) ${normalizedScore}% 100%)`;
+    }};
+    color: var(--vscode-foreground);
     font-size: 12px;
     font-weight: 700;
     line-height: 1;
     flex-shrink: 0;
+
+    &::before {
+        content: '';
+        position: absolute;
+        inset: 4px;
+        border-radius: 999px;
+        background: var(--vscode-editor-background);
+    }
+`;
+
+const MetricCircleText = styled.span`
+    position: relative;
+    z-index: 1;
 `;
 
 const MetricContent = styled.div`
@@ -260,8 +277,10 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ fileUri, aiRea
                             $borderColor={hexToRgba(badgeAccent, 0.42)}
                             $bgColor={hexToRgba(badgeAccent, 0.1)}
                         >
-                            <MetricCircle $color={badgeAccent}>
-                                {badge.score !== null && badge.score !== undefined ? `${badge.score}%` : '--'}
+                            <MetricCircle $color={badgeAccent} $score={badge.score}>
+                                <MetricCircleText>
+                                    {badge.score !== null && badge.score !== undefined ? `${badge.score}%` : '--'}
+                                </MetricCircleText>
                             </MetricCircle>
                             <MetricContent>
                                 <MetricTitle>{badge.label}</MetricTitle>

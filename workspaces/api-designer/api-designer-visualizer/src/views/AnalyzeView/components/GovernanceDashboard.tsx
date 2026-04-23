@@ -107,7 +107,7 @@ export const GovernanceDashboard: React.FC<GovernanceDashboardProps> = ({ fileUr
     const [noConfig, setNoConfig] = useState(false);
     const [violationsModalOpen, setViolationsModalOpen] = useState(false);
     const [selectedRuleset, setSelectedRuleset] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'overview' | 'error' | 'warn' | 'info' | 'passed'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'error' | 'warn' | 'info' | 'rules' | 'passed'>('error');
     const prevFileUriRef = useRef<string | null>(null);
 
     const loadGovernanceRuleset = useCallback(async (ruleset: SpectralRuleset) => {
@@ -295,8 +295,8 @@ export const GovernanceDashboard: React.FC<GovernanceDashboardProps> = ({ fileUr
 
             <RulesGrid>
                 {Array.from(dashboardData.entries()).map(([name, data]) => {
-                    const openModal = () => {
-                        setActiveTab('overview');
+                    const openModal = (tab: 'overview' | 'error' | 'warn' | 'info' | 'rules' | 'passed' = 'error') => {
+                        setActiveTab(tab);
                         setSelectedRuleset(name);
                         setViolationsModalOpen(true);
                     };

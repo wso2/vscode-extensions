@@ -227,6 +227,10 @@ function processRulesInternal(rules: any): any {
         if (rule.recommended !== undefined) {
             processedRule.recommended = rule.recommended;
         }
+
+        if (typeof rule.fixSuggestion === 'string' && rule.fixSuggestion.trim() !== '') {
+            processedRule.fixSuggestion = rule.fixSuggestion;
+        }
         
         // Handle 'then' - can be an array or single object
         if (Array.isArray(rule.then)) {
@@ -407,6 +411,26 @@ async function fetchSpectralRuleset(filePathOrUrl: string, rulesetContentPath: s
 }
 
 /**
+ * Spectral does not document custom rule keys; strip WSO2-only metadata before linting.
+ * The original ruleset object is unchanged so violations can still read e.g. fixSuggestion.
+ */
+function rulesetForSpectralEngine(ruleset: any): any {
+    if (!ruleset?.rules || typeof ruleset.rules !== 'object') {
+        return ruleset;
+    }
+    const rules: Record<string, unknown> = {};
+    for (const [name, cfg] of Object.entries(ruleset.rules)) {
+        if (cfg && typeof cfg === 'object' && !Array.isArray(cfg)) {
+            const { fixSuggestion: _fs, ...rest } = cfg as Record<string, unknown>;
+            rules[name] = rest;
+        } else {
+            rules[name] = cfg;
+        }
+    }
+    return { ...ruleset, rules };
+}
+
+/**
  * Run Spectral linting with a processed ruleset
  */
 async function runSpectralLinting(
@@ -426,7 +450,7 @@ async function runSpectralLinting(
             throw new Error('Invalid ruleset: missing or invalid "rules" property');
         }
         
-        spectral.setRuleset(ruleset);
+        spectral.setRuleset(rulesetForSpectralEngine(ruleset));
         
         const document = new Document(
             specContent,
@@ -551,10 +575,15 @@ export async function validateWithSpectralRuleset(
             const ruleDef = ruleset.rules?.[ruleName];
             const description: string | undefined =
                 ruleDef && typeof ruleDef === 'object' ? (ruleDef as any).description ?? undefined : undefined;
+            const fixSuggestion: string | undefined =
+                ruleDef && typeof ruleDef === 'object' && typeof (ruleDef as any).fixSuggestion === 'string'
+                    ? (ruleDef as any).fixSuggestion
+                    : undefined;
             return {
                 rule: ruleName,
                 message: result.message || 'No message provided',
                 ...(description ? { description } : {}),
+                ...(fixSuggestion ? { fixSuggestion } : {}),
                 severity: ['error', 'warn', 'info', 'hint'][result.severity as number] || 'info',
                 path: result.path || [],
                 ...(result.range ? {
@@ -580,19 +609,32 @@ export async function validateWithSpectralRuleset(
         
         const aiReadinessMetrics = convertCollectorMetricsToCore(metadata?.aiReadiness ?? null);
 
-        const passedRules = Object.entries(ruleset.rules || {}).reduce<Array<{ rule: string; message: string; severity: string }>>(
+        const passedRules = Object.entries(ruleset.rules || {}).reduce<
+            Array<{ rule: string; message: string; description?: string; fixSuggestion?: string; severity: string }>
+        >(
             (acc, [ruleName, ruleConfig]) => {
-                if (!failedRuleCodes.has(ruleName)) {
-                    const description =
-                        (ruleConfig && typeof ruleConfig === 'object' && (ruleConfig as any).description) ||
-                        (ruleConfig && typeof ruleConfig === 'object' && (ruleConfig as any).message) ||
-                        'Rule satisfied';
-                    acc.push({
-                        rule: ruleName,
-                        message: description,
-                        severity: 'passed'
-                    });
+                if (failedRuleCodes.has(ruleName)) {
+                    return acc;
                 }
+                const ruleDef =
+                    ruleConfig && typeof ruleConfig === 'object' ? (ruleConfig as Record<string, unknown>) : null;
+                const description =
+                    ruleDef && typeof ruleDef.description === 'string' ? ruleDef.description : undefined;
+                const yamlMessage =
+                    ruleDef && typeof ruleDef.message === 'string' ? ruleDef.message : undefined;
+                const fixSuggestion =
+                    ruleDef && typeof ruleDef.fixSuggestion === 'string' ? ruleDef.fixSuggestion : undefined;
+                // Message: Spectral `message` (what the rule enforces) — distinct from `description` in the ruleset.
+                const message =
+                    yamlMessage ??
+                    'This rule passed — no matching issues in your API.';
+                acc.push({
+                    rule: ruleName,
+                    message,
+                    ...(description ? { description } : {}),
+                    ...(fixSuggestion ? { fixSuggestion } : {}),
+                    severity: 'passed'
+                });
                 return acc;
             },
             []

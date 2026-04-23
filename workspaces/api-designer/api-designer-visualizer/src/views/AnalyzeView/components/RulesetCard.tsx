@@ -40,14 +40,7 @@ const Card = styled.div`
     gap: 16px;
     width: 100%;
     box-sizing: border-box;
-    cursor: pointer;
-    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-
-    &:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
-        border-color: var(--vscode-focusBorder);
-    }
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 `;
 
 const CardHeader = styled.div`
@@ -219,7 +212,7 @@ export interface RulesetCardData {
 export interface RulesetCardProps {
     name: string;
     data: RulesetCardData;
-    onOpenModal: () => void;
+    onOpenModal: (tab?: 'overview' | 'error' | 'warn' | 'info' | 'rules' | 'passed') => void;
 }
 
 export const RulesetCard: React.FC<RulesetCardProps> = ({ name, data, onOpenModal }) => {
@@ -267,7 +260,7 @@ export const RulesetCard: React.FC<RulesetCardProps> = ({ name, data, onOpenModa
     ).size;
 
     return (
-        <Card onClick={onOpenModal}>
+        <Card>
             <CardHeader>
                 <Typography variant="body1" sx={{ margin: 0, fontSize: 13, fontWeight: 500 }}>
                     {data.icon} {name}
@@ -293,19 +286,33 @@ export const RulesetCard: React.FC<RulesetCardProps> = ({ name, data, onOpenModa
                         { type: 'error' as const, label: 'Errors', count: errorViolationCount, icon: 'error' },
                         { type: 'warning' as const, label: 'Warnings', count: warningViolationCount, icon: 'warning' },
                         { type: 'info' as const, label: 'Endpoints Affected', count: endpointsAffectedCount, icon: 'globe', colors: { bg: 'rgba(14, 165, 233, 0.12)', color: '#0ea5e9' } },
-                        { type: 'passed' as const, label: 'Rules Violated', count: rulesViolatedCount, icon: 'list-unordered', colors: { bg: 'rgba(168, 85, 247, 0.14)', color: '#a855f7' } }
+                        { type: 'rules' as const, label: 'Rules Violated', count: rulesViolatedCount, icon: 'list-unordered', colors: { bg: 'rgba(168, 85, 247, 0.14)', color: '#a855f7' } }
                     ].map((stat) => {
                         const statColors = {
                             error: { bg: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' },
                             warning: { bg: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' },
                             info: { bg: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6' },
+                            rules: { bg: 'rgba(168, 85, 247, 0.14)', color: '#a855f7' },
                             passed: { bg: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }
                         };
                         const colors = stat.colors || statColors[stat.type];
                         return (
                             <StatRow
                                 key={stat.type}
-                                $clickable={false}
+                                $clickable={true}
+                                onClick={() => {
+                                    if (stat.type === 'error') {
+                                        onOpenModal('error');
+                                    } else if (stat.type === 'warning') {
+                                        onOpenModal('warn');
+                                    } else if (stat.type === 'info') {
+                                        onOpenModal('info');
+                                    } else if (stat.type === 'rules') {
+                                        onOpenModal('rules');
+                                    } else {
+                                        onOpenModal('passed');
+                                    }
+                                }}
                             >
                                 <StatLeft>
                                     <StatIconBox $bg={colors.bg} $fg={colors.color}>
@@ -316,6 +323,7 @@ export const RulesetCard: React.FC<RulesetCardProps> = ({ name, data, onOpenModa
                                         <StatValue $color={colors.color}>{stat.count}</StatValue>
                                     </StatTextCol>
                                 </StatLeft>
+                                <Codicon name="chevron-right" sx={{ fontSize: '14px' }} />
                             </StatRow>
                         );
                     })}

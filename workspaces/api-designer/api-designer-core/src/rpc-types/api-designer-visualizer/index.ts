@@ -62,6 +62,8 @@ export type GovernanceViolation = {
     rule: string;
     message: string;
     description?: string;
+    /** Optional fix guidance from the ruleset YAML (e.g. OWASP rules) for dashboards and tooling */
+    fixSuggestion?: string;
     severity: string;
     path?: string[] | string;
     code?: string;

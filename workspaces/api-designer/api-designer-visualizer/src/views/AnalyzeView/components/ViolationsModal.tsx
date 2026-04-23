@@ -25,6 +25,12 @@ import { filterViolations, normalizeGovernanceViolation, NormalizedGovernanceVio
 import { postMessage as postVSCodeMessage } from '../../../utils/vscode-api';
 import { useAIAvailability } from '../../../hooks/useAIAvailability';
 import { AIButton } from '../../../components/ai/AIButton';
+import {
+    shouldShowRuleFamilyChip,
+    ViolationDetailFixCallout,
+    ViolationDetailProseBlock,
+    ViolationMarkdown,
+} from './ViolationDetailRichText';
 
 export interface ViolationsModalData {
     score: number;
@@ -50,8 +56,8 @@ export interface ViolationsModalProps {
     isOpen: boolean;
     rulesetName: string;
     data: ViolationsModalData;
-    activeTab: 'overview' | 'error' | 'warn' | 'info' | 'passed';
-    onTabChange: (tab: 'overview' | 'error' | 'warn' | 'info' | 'passed') => void;
+    activeTab: 'overview' | 'error' | 'warn' | 'info' | 'rules' | 'passed';
+    onTabChange: (tab: 'overview' | 'error' | 'warn' | 'info' | 'rules' | 'passed') => void;
     onClose: () => void;
     specContent?: string;
     fileUri?: string;
@@ -87,6 +93,23 @@ const extractOwaspCategory = (rule?: string): string | null => {
     if (!rule) return null;
     const match = rule.match(/owasp[:\-_](api\d+)/i);
     return match ? match[1].toUpperCase() : null;
+};
+
+const RULE_GROUP_HEADER_SEVERITY_COLOR: Record<string, string> = {
+    error: '#ef4444',
+    warn: '#f59e0b',
+    warning: '#f59e0b',
+    info: '#3b82f6',
+    hint: '#8b5cf6',
+};
+
+/** Lower = more severe. Used to order rule groups and violations (errors first). */
+const violationSeveritySortRank = (s?: string): number => {
+    if (s === 'error') return 0;
+    if (s === 'warn' || s === 'warning') return 1;
+    if (s === 'info') return 2;
+    if (s === 'hint') return 3;
+    return 4;
 };
 
 const getScoreColor = (score: number): string => {
@@ -508,6 +531,147 @@ const IssuesStack = styled.div`
     gap: 8px;
 `;
 
+const EndpointGroup = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+`;
+
+const EndpointGroupHeader = styled.button`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 6px;
+    padding: 10px 12px;
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 8px;
+    background: var(--vscode-editorWidget-background);
+    width: 100%;
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+
+    &:hover {
+        border-color: var(--vscode-panel-border);
+        background: var(--vscode-list-hoverBackground);
+        transform: translateY(-1px);
+    }
+`;
+
+const EndpointName = styled.div`
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--vscode-foreground);
+    font-family: var(--vscode-editor-font-family);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+`;
+
+const EndpointCount = styled.div`
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+    font-weight: 700;
+`;
+
+const EndpointGroupMeta = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+`;
+
+const EndpointViolationsList = styled.div`
+    margin-left: 14px;
+    padding-left: 12px;
+    border-left: 2px solid var(--vscode-panel-border);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+`;
+
+const RuleGroup = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+`;
+
+const RuleGroupHeader = styled.button<{ $accent: string }>`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 6px;
+    padding: 10px 12px;
+    border: 1px solid var(--vscode-panel-border);
+    border-left: 3px solid ${(p: { $accent: string }) => p.$accent};
+    border-radius: 8px;
+    background: var(--vscode-editorWidget-background);
+    width: 100%;
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+
+    &:hover {
+        border-color: var(--vscode-panel-border);
+        border-left-color: ${(p: { $accent: string }) => p.$accent};
+        background: var(--vscode-list-hoverBackground);
+        transform: translateY(-1px);
+    }
+`;
+
+const RuleHeaderContent = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    flex: 1;
+`;
+
+const RuleName = styled.div`
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--vscode-foreground);
+    font-family: var(--vscode-editor-font-family);
+    word-break: break-word;
+`;
+
+const RuleMessage = styled.div`
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+`;
+
+const RuleCount = styled.div`
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+    font-weight: 600;
+`;
+
+const RuleGroupMeta = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+`;
+
+const RulePathList = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-left: 14px;
+    padding-left: 12px;
+    border-left: 2px solid var(--vscode-panel-border);
+`;
+
+const RulePathText = styled.div`
+    font-size: 12px;
+    color: var(--vscode-foreground);
+    font-family: var(--vscode-editor-font-family);
+    word-break: break-word;
+`;
+
 const DetailPane = styled.div`
     flex: 1;
     min-width: 0;
@@ -576,11 +740,21 @@ const DetailLabel = styled.div`
 `;
 
 const DetailRuleTitle = styled.div`
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 10px;
     font-size: 14px;
     font-weight: 700;
     color: var(--vscode-foreground);
     font-family: var(--vscode-editor-font-family);
     word-break: break-word;
+`;
+
+const RuleId = styled.span`
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.35;
 `;
 
 const RuleFamilyChip = styled.span`
@@ -754,6 +928,10 @@ export const ViolationsModal: React.FC<ViolationsModalProps> = ({
 }) => {
     const isAIAvailable = useAIAvailability();
     const [selectedViolationIndex, setSelectedViolationIndex] = React.useState<number | null>(null);
+    const [expandedEndpoints, setExpandedEndpoints] = React.useState<Record<string, boolean>>({});
+    const [hasAutoExpandedEndpoint, setHasAutoExpandedEndpoint] = React.useState(false);
+    const [expandedRules, setExpandedRules] = React.useState<Record<string, boolean>>({});
+    const [hasAutoExpandedRule, setHasAutoExpandedRule] = React.useState(false);
     
     if (!isOpen) return null;
 
@@ -793,13 +971,90 @@ export const ViolationsModal: React.FC<ViolationsModalProps> = ({
             .map((violation) => violation?.rule)
             .filter((rule): rule is string => Boolean(rule))
     ).size;
+    const endpointsAffectedCount = new Set(
+        normalizedViolations
+            .map((violation) => (violation.pathSegments?.[0] === 'paths' ? violation.pathSegments?.[1] : undefined))
+            .filter((endpoint): endpoint is string => Boolean(endpoint))
+    ).size;
     const filteredViolations = activeTab === 'overview'
         ? []
-        : filterViolations(
+        : activeTab === 'info'
+            ? normalizedViolations
+                .filter((violation) => violation.pathSegments?.[0] === 'paths' && Boolean(violation.pathSegments?.[1]))
+                .sort((a: NormalizedGovernanceViolation, b: NormalizedGovernanceViolation) => {
+                    const endpointA = a.pathSegments?.[1] || '';
+                    const endpointB = b.pathSegments?.[1] || '';
+                    if (endpointA !== endpointB) {
+                        return endpointA.localeCompare(endpointB);
+                    }
+                    return (a.rule || '').localeCompare(b.rule || '');
+                })
+            : activeTab === 'rules'
+                ? normalizedViolations
+                    .filter((violation) => Boolean(violation.rule))
+                    .sort((a: NormalizedGovernanceViolation, b: NormalizedGovernanceViolation) => {
+                        const ruleCompare = (a.rule || '').localeCompare(b.rule || '');
+                        if (ruleCompare !== 0) {
+                            return ruleCompare;
+                        }
+                        return (a.displayPath || '').localeCompare(b.displayPath || '');
+                    })
+            : filterViolations(
             normalizedViolations,
             activeTab,
             data.passed ? (data.passed as GovernanceViolation[]).map(normalizeGovernanceViolation) : undefined
         ).sort((a: NormalizedGovernanceViolation, b: NormalizedGovernanceViolation) => (a.rule || '').localeCompare(b.rule || ''));
+    const endpointGroups = React.useMemo(() => {
+        if (activeTab !== 'info') {
+            return [];
+        }
+        const groups = new Map<string, Array<{ violation: NormalizedGovernanceViolation; index: number }>>();
+        filteredViolations.forEach((violation, index) => {
+            const endpoint = violation.pathSegments?.[1] || '/';
+            const existing = groups.get(endpoint) || [];
+            existing.push({ violation, index });
+            groups.set(endpoint, existing);
+        });
+
+        return Array.from(groups.entries())
+            .map(([endpoint, items]) => ({ endpoint, items }))
+            .sort((a, b) => a.endpoint.localeCompare(b.endpoint));
+    }, [activeTab, filteredViolations]);
+    const ruleGroups = React.useMemo(() => {
+        if (activeTab !== 'rules') {
+            return [];
+        }
+        const groups = new Map<string, Array<{ violation: NormalizedGovernanceViolation; index: number }>>();
+        filteredViolations.forEach((violation, index) => {
+            const rule = violation.rule || 'unknown-rule';
+            const existing = groups.get(rule) || [];
+            existing.push({ violation, index });
+            groups.set(rule, existing);
+        });
+
+        return Array.from(groups.entries())
+            .map(([rule, items]) => {
+                const sortedItems = [...items].sort((a, b) => {
+                    const ra = violationSeveritySortRank(a.violation.severity);
+                    const rb = violationSeveritySortRank(b.violation.severity);
+                    if (ra !== rb) {
+                        return ra - rb;
+                    }
+                    return (a.violation.displayPath || '').localeCompare(b.violation.displayPath || '');
+                });
+                const worst = Math.min(
+                    ...sortedItems.map((i) => violationSeveritySortRank(i.violation.severity))
+                );
+                return { rule, items: sortedItems, worst };
+            })
+            .sort((a, b) => {
+                if (a.worst !== b.worst) {
+                    return a.worst - b.worst;
+                }
+                return a.rule.localeCompare(b.rule);
+            })
+            .map(({ rule, items }) => ({ rule, items }));
+    }, [activeTab, filteredViolations]);
     const totalViolationCount = errorViolationCount + warningViolationCount + infoViolationCount;
     const severityDistribution = {
         error: totalViolationCount > 0 ? (errorViolationCount / totalViolationCount) * 100 : 0,
@@ -845,9 +1100,69 @@ export const ViolationsModal: React.FC<ViolationsModalProps> = ({
         setSelectedViolationIndex(null);
     }, [activeTab, rulesetName, filteredViolations.length]);
 
+    React.useEffect(() => {
+        if (activeTab !== 'info') {
+            setExpandedEndpoints({});
+        }
+    }, [activeTab]);
+
+    React.useEffect(() => {
+        if (activeTab !== 'rules') {
+            setExpandedRules({});
+        }
+    }, [activeTab]);
+
+    React.useEffect(() => {
+        if (activeTab !== 'info' || endpointGroups.length === 0) {
+            return;
+        }
+
+        if (hasAutoExpandedEndpoint) {
+            return;
+        }
+
+        const firstEndpoint = endpointGroups[0]?.endpoint;
+        if (!firstEndpoint) {
+            return;
+        }
+
+        setExpandedEndpoints({ [firstEndpoint]: true });
+        setHasAutoExpandedEndpoint(true);
+    }, [activeTab, endpointGroups, hasAutoExpandedEndpoint]);
+
+    React.useEffect(() => {
+        if (activeTab !== 'rules' || ruleGroups.length === 0) {
+            return;
+        }
+
+        if (hasAutoExpandedRule) {
+            return;
+        }
+
+        const firstRule = ruleGroups[0]?.rule;
+        if (!firstRule) {
+            return;
+        }
+
+        setExpandedRules({ [firstRule]: true });
+        setHasAutoExpandedRule(true);
+    }, [activeTab, ruleGroups, hasAutoExpandedRule]);
+
+    React.useEffect(() => {
+        if (!isOpen) {
+            setExpandedEndpoints({});
+            setHasAutoExpandedEndpoint(false);
+            setExpandedRules({});
+            setHasAutoExpandedRule(false);
+        }
+    }, [isOpen]);
+
     const selectedViolation =
         selectedViolationIndex !== null ? filteredViolations[selectedViolationIndex] : null;
     const selectedRuleFamily = selectedViolation ? extractRuleFamily(selectedViolation.rule) : null;
+    const showRuleFamilyChip = Boolean(
+        selectedRuleFamily && shouldShowRuleFamilyChip(selectedViolation?.rule, selectedRuleFamily)
+    );
     const yamlLines = React.useMemo(() => {
         if (!specContent || !selectedViolation?.range) return null;
         return extractYamlLines(specContent, selectedViolation.range);
@@ -868,10 +1183,10 @@ export const ViolationsModal: React.FC<ViolationsModalProps> = ({
 
                 <TabBar>
                     {[
-                        { key: 'overview' as const, label: 'Overview', count: violationSummary.totalViolations || 0, icon: 'dashboard', color: '#8b5cf6' },
                         { key: 'error' as const, label: 'Errors', count: errorViolationCount, icon: 'error', color: '#ef4444' },
                         { key: 'warn' as const, label: 'Warnings', count: warningViolationCount, icon: 'warning', color: '#f59e0b' },
-                        { key: 'info' as const, label: 'Info', count: infoViolationCount, icon: 'info', color: '#3b82f6' },
+                        { key: 'info' as const, label: 'Endpoints Affected', count: endpointsAffectedCount, icon: 'globe', color: '#3b82f6' },
+                        { key: 'rules' as const, label: 'Rules Violated', count: rulesViolatedCount, icon: 'list-unordered', color: '#a855f7' },
                         { key: 'passed' as const, label: 'Passed', count: data.passedChecks || 0, icon: 'check', color: '#10b981' }
                     ].map((tab) => {
                         const isActive = activeTab === tab.key;
@@ -1035,7 +1350,7 @@ export const ViolationsModal: React.FC<ViolationsModalProps> = ({
                                     {filteredViolations.length > 0 && (
                                         <FixAllToolbar>
                                             <ViolationsListTitle>Violations</ViolationsListTitle>
-                                            {activeTab !== 'passed' && (
+                                            {(activeTab === 'error' || activeTab === 'warn' || activeTab === 'info') && (
                                             <NoWrapAIButton
                                                 isAvailable={isAIAvailable && !!fileUri && !!ruleset?.fileUrl && !!ruleset?.rulesetContentPath}
                                                 onClick={() => {
@@ -1067,40 +1382,187 @@ IMPORTANT: You must use the #validateWithSpectralRuleset MCP tool to discover an
                                             )}
                                         </FixAllToolbar>
                                     )}
-                                    {filteredViolations.map((violation: NormalizedGovernanceViolation, idx: number) => {
-                                        const severityColors: Record<string, string> = {
-                                            error: '#ef4444',
-                                            warn: '#f59e0b',
-                                            warning: '#f59e0b',
-                                            info: '#3b82f6',
-                                            hint: '#8b5cf6',
-                                            passed: '#10b981'
-                                        };
-                                        const severity = violation.severity || (activeTab === 'passed' ? 'passed' : activeTab);
-                                        const borderColor = severityColors[severity] || severityColors[activeTab] || severityColors.info;
+                                    {activeTab === 'info' ? (
+                                        endpointGroups.map((group) => (
+                                            <EndpointGroup key={group.endpoint}>
+                                                <EndpointGroupHeader
+                                                    type="button"
+                                                    onClick={() =>
+                                                        setExpandedEndpoints((prev) => ({
+                                                            ...prev,
+                                                            [group.endpoint]: !prev[group.endpoint]
+                                                        }))
+                                                    }
+                                                >
+                                                    <EndpointName title={group.endpoint}>{group.endpoint}</EndpointName>
+                                                    <EndpointGroupMeta>
+                                                        <EndpointCount>{group.items.length} violation(s)</EndpointCount>
+                                                        <Codicon
+                                                            name={expandedEndpoints[group.endpoint] ? 'chevron-down' : 'chevron-right'}
+                                                            sx={{ fontSize: '14px', color: 'var(--vscode-descriptionForeground)' }}
+                                                        />
+                                                    </EndpointGroupMeta>
+                                                </EndpointGroupHeader>
+                                                {expandedEndpoints[group.endpoint] && (
+                                                    <EndpointViolationsList>
+                                                        {group.items.map(({ violation, index }) => {
+                                                            const severityColors: Record<string, string> = {
+                                                                error: '#ef4444',
+                                                                warn: '#f59e0b',
+                                                                warning: '#f59e0b',
+                                                                info: '#3b82f6',
+                                                                hint: '#8b5cf6',
+                                                                passed: '#10b981'
+                                                            };
+                                                            const severity = violation.severity || 'info';
+                                                            const borderColor = severityColors[severity] || severityColors.info;
 
-                                        const pathStr =
-                                            violation.pathSegments && violation.pathSegments.length > 0
-                                                ? ` at /${violation.pathSegments.join('/')}`
-                                                : '';
-                                        return (
-                                            <ViolationCard
-                                                key={idx}
-                                                $accent={borderColor}
-                                                $selected={selectedViolationIndex === idx}
-                                                onClick={() =>
-                                                    setSelectedViolationIndex(selectedViolationIndex === idx ? null : idx)
-                                                }
-                                            >
-                                                <ViolationBody>
-                                                    <ViolationMessage $hasPath={!!pathStr}>
-                                                        {violation.message || 'No message provided'}
-                                                    </ViolationMessage>
-                                                    {pathStr && <ViolationPath>{pathStr}</ViolationPath>}
-                                                </ViolationBody>
-                                            </ViolationCard>
-                                        );
-                                    })}
+                                                            const pathStr =
+                                                                violation.pathSegments && violation.pathSegments.length > 0
+                                                                    ? ` at /${violation.pathSegments.join('/')}`
+                                                                    : '';
+                                                            return (
+                                                                <ViolationCard
+                                                                    key={`${group.endpoint}-${index}`}
+                                                                    $accent={borderColor}
+                                                                    $selected={selectedViolationIndex === index}
+                                                                    onClick={() =>
+                                                                        setSelectedViolationIndex(selectedViolationIndex === index ? null : index)
+                                                                    }
+                                                                >
+                                                                    <ViolationBody>
+                                                                        <ViolationMessage $hasPath={!!pathStr}>
+                                                                            {violation.message || 'No message provided'}
+                                                                        </ViolationMessage>
+                                                                        {pathStr && <ViolationPath>{pathStr}</ViolationPath>}
+                                                                    </ViolationBody>
+                                                                </ViolationCard>
+                                                            );
+                                                        })}
+                                                    </EndpointViolationsList>
+                                                )}
+                                            </EndpointGroup>
+                                        ))
+                                    ) : activeTab === 'rules' ? (
+                                        ruleGroups.map((group) => {
+                                            const uniquePaths = Array.from(
+                                                new Set(
+                                                    group.items
+                                                        .map(({ violation }) => violation.displayPath || '/')
+                                                        .filter(Boolean)
+                                                )
+                                            );
+                                            const firstMessage = group.items[0]?.violation?.message || 'No message provided';
+                                            const worstInGroup = group.items[0]?.violation?.severity || 'info';
+                                            const ruleHeaderAccent =
+                                                RULE_GROUP_HEADER_SEVERITY_COLOR[worstInGroup]
+                                                || RULE_GROUP_HEADER_SEVERITY_COLOR.info;
+                                            return (
+                                                <RuleGroup key={group.rule}>
+                                                    <RuleGroupHeader
+                                                        type="button"
+                                                        $accent={ruleHeaderAccent}
+                                                        onClick={() =>
+                                                            setExpandedRules((prev) => ({
+                                                                ...prev,
+                                                                [group.rule]: !prev[group.rule]
+                                                            }))
+                                                        }
+                                                    >
+                                                        <RuleHeaderContent>
+                                                            <RuleName title={group.rule}>{group.rule}</RuleName>
+                                                            <RuleMessage title={firstMessage}>{firstMessage}</RuleMessage>
+                                                        </RuleHeaderContent>
+                                                        <RuleGroupMeta>
+                                                            <RuleCount>{group.items.length} violation(s)</RuleCount>
+                                                            <Codicon
+                                                                name={expandedRules[group.rule] ? 'chevron-down' : 'chevron-right'}
+                                                                sx={{ fontSize: '14px', color: 'var(--vscode-descriptionForeground)' }}
+                                                            />
+                                                        </RuleGroupMeta>
+                                                    </RuleGroupHeader>
+                                                    {expandedRules[group.rule] && (
+                                                        <RulePathList>
+                                                            {uniquePaths.map((pathValue) => {
+                                                                const matchedItem = group.items.find(
+                                                                    ({ violation }) => (violation.displayPath || '/') === pathValue
+                                                                );
+                                                                const pathIndex = matchedItem?.index;
+                                                                if (pathIndex === undefined) {
+                                                                    return null;
+                                                                }
+                                                                const matchedSeverity = matchedItem.violation.severity || 'info';
+                                                                const severityColors: Record<string, string> = {
+                                                                    error: '#ef4444',
+                                                                    warn: '#f59e0b',
+                                                                    warning: '#f59e0b',
+                                                                    info: '#3b82f6',
+                                                                    hint: '#8b5cf6',
+                                                                    passed: '#10b981'
+                                                                };
+                                                                const borderColor = severityColors[matchedSeverity] || severityColors.info;
+                                                                return (
+                                                                    <ViolationCard
+                                                                        key={`${group.rule}-${pathValue}`}
+                                                                        $accent={borderColor}
+                                                                        $selected={selectedViolationIndex === pathIndex}
+                                                                        onClick={() =>
+                                                                            setSelectedViolationIndex(
+                                                                                selectedViolationIndex === pathIndex ? null : pathIndex
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        <ViolationBody>
+                                                                            <RulePathText>{pathValue}</RulePathText>
+                                                                        </ViolationBody>
+                                                                    </ViolationCard>
+                                                                );
+                                                            })}
+                                                        </RulePathList>
+                                                    )}
+                                                </RuleGroup>
+                                            );
+                                        })
+                                    ) : (
+                                        filteredViolations.map((violation: NormalizedGovernanceViolation, idx: number) => {
+                                            const severityColors: Record<string, string> = {
+                                                error: '#ef4444',
+                                                warn: '#f59e0b',
+                                                warning: '#f59e0b',
+                                                info: '#3b82f6',
+                                                hint: '#8b5cf6',
+                                                passed: '#10b981'
+                                            };
+                                            const severity = violation.severity || (activeTab === 'passed' ? 'passed' : activeTab);
+                                            const borderColor = severityColors[severity] || severityColors[activeTab] || severityColors.info;
+
+                                            const pathStr =
+                                                violation.pathSegments && violation.pathSegments.length > 0
+                                                    ? ` at /${violation.pathSegments.join('/')}`
+                                                    : '';
+                                            const listTitle =
+                                                activeTab === 'passed'
+                                                    ? violation.rule || violation.message || 'Passed'
+                                                    : violation.message || 'No message provided';
+                                            return (
+                                                <ViolationCard
+                                                    key={idx}
+                                                    $accent={borderColor}
+                                                    $selected={selectedViolationIndex === idx}
+                                                    onClick={() =>
+                                                        setSelectedViolationIndex(selectedViolationIndex === idx ? null : idx)
+                                                    }
+                                                >
+                                                    <ViolationBody>
+                                                        <ViolationMessage $hasPath={!!pathStr}>
+                                                            {listTitle}
+                                                        </ViolationMessage>
+                                                        {pathStr && <ViolationPath>{pathStr}</ViolationPath>}
+                                                    </ViolationBody>
+                                                </ViolationCard>
+                                            );
+                                        })
+                                    )}
                                 </IssuesStack>
                             </IssuesPane>
                             {selectedViolation ? (
@@ -1127,33 +1589,55 @@ IMPORTANT: You must use the #validateWithSpectralRuleset MCP tool to discover an
                                         <DetailHeaderContent>
                                             <DetailLabel>Rule</DetailLabel>
                                             <DetailRuleTitle>
-                                                {selectedViolation.rule || 'unknown-rule'}
-                                                {selectedRuleFamily && <RuleFamilyChip>{selectedRuleFamily}</RuleFamilyChip>}
+                                                <RuleId>{selectedViolation.rule || 'unknown-rule'}</RuleId>
+                                                {showRuleFamilyChip && (
+                                                    <RuleFamilyChip title="Rule family / style">
+                                                        {selectedRuleFamily}
+                                                    </RuleFamilyChip>
+                                                )}
                                             </DetailRuleTitle>
                                         </DetailHeaderContent>
                                     </DetailHeaderRow>
                                     <DetailSection>
                                         <DetailLabel>Severity</DetailLabel>
                                         <SeverityBadge
-                                            $color={selectedViolation.severity === 'error'
-                                                ? '#ef4444'
-                                                : selectedViolation.severity === 'warn'
-                                                    ? '#f59e0b'
-                                                    : selectedViolation.severity === 'hint'
-                                                        ? '#8b5cf6'
-                                                        : '#3b82f6'}
+                                            $color={activeTab === 'passed'
+                                                ? '#10b981'
+                                                : selectedViolation.severity === 'error'
+                                                    ? '#ef4444'
+                                                    : selectedViolation.severity === 'warn'
+                                                        ? '#f59e0b'
+                                                        : selectedViolation.severity === 'hint'
+                                                            ? '#8b5cf6'
+                                                            : '#3b82f6'}
                                         >
                                             {selectedViolation.severity || activeTab}
                                         </SeverityBadge>
                                     </DetailSection>
                                     <DetailSection>
                                         <DetailLabel>Message</DetailLabel>
-                                        <DetailText>{selectedViolation.message || 'No message provided'}</DetailText>
+                                        <ViolationDetailProseBlock>
+                                            <ViolationMarkdown>
+                                                {selectedViolation.message || 'No message provided'}
+                                            </ViolationMarkdown>
+                                        </ViolationDetailProseBlock>
                                     </DetailSection>
                                     {selectedViolation.description && (
                                         <DetailSection>
                                             <DetailLabel>Description</DetailLabel>
-                                            <DetailText>{selectedViolation.description}</DetailText>
+                                            <ViolationDetailProseBlock>
+                                                <ViolationMarkdown>{selectedViolation.description}</ViolationMarkdown>
+                                            </ViolationDetailProseBlock>
+                                        </DetailSection>
+                                    )}
+                                    {selectedViolation.fixSuggestion && (
+                                        <DetailSection>
+                                            <DetailLabel>Fix suggestion</DetailLabel>
+                                            <ViolationDetailFixCallout>
+                                                <ViolationMarkdown>
+                                                    {selectedViolation.fixSuggestion}
+                                                </ViolationMarkdown>
+                                            </ViolationDetailFixCallout>
                                         </DetailSection>
                                     )}
                                     <DetailSection>
@@ -1198,7 +1682,11 @@ IMPORTANT: You must use the #validateWithSpectralRuleset MCP tool to discover an
                             <ViolationsEmptyText>
                                 {activeTab === 'passed'
                                     ? 'No passed checks to display'
-                                    : `No ${activeTab} violations found`}
+                                    : activeTab === 'info'
+                                        ? 'No endpoint-based violations found'
+                                        : activeTab === 'rules'
+                                            ? 'No rule-based violations found'
+                                        : `No ${activeTab} violations found`}
                             </ViolationsEmptyText>
                         </ViolationsEmpty>
                     )}

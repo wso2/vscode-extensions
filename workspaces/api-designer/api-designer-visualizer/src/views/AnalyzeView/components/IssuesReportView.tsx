@@ -23,6 +23,12 @@ import { NormalizedGovernanceViolation } from '../../../types/violations';
 import { postMessage as postVSCodeMessage } from '../../../utils/vscode-api';
 import { useAIAvailability } from '../../../hooks/useAIAvailability';
 import { AIButton } from '../../../components/ai/AIButton';
+import {
+    shouldShowRuleFamilyChip,
+    ViolationDetailFixCallout,
+    ViolationDetailProseBlock,
+    ViolationMarkdown,
+} from './ViolationDetailRichText';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -595,16 +601,21 @@ const SeverityBadge = styled.span<{ $color: string }>`
     text-transform: uppercase;
 `;
 
-const DetailRuleTitle = styled.div`
-    font-size: 14px;
-    font-weight: 700;
+const DetailRuleId = styled.span`
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.35;
     font-family: var(--vscode-editor-font-family, monospace);
     color: var(--vscode-foreground);
-    word-break: break-all;
+    word-break: break-word;
+`;
+
+const DetailRuleTitle = styled.div`
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 8px 10px;
     flex-wrap: wrap;
+    margin-bottom: 4px;
 `;
 
 const DetailText = styled.div`
@@ -777,6 +788,9 @@ export const IssuesReportView: React.FC<IssuesReportViewProps> = ({
 
     const selectedViolation = selectedIdx !== null ? filteredViolations[selectedIdx] : null;
     const selectedRuleFamily = selectedViolation ? extractRuleFamily(selectedViolation.rule) : null;
+    const showRuleFamilyChip = Boolean(
+        selectedRuleFamily && shouldShowRuleFamilyChip(selectedViolation?.rule, selectedRuleFamily)
+    );
     const selectedRuleReference = selectedViolation ? getRuleReference(selectedViolation.rule) : null;
 
     const yamlLines = useMemo(() => {
@@ -1096,12 +1110,14 @@ export const IssuesReportView: React.FC<IssuesReportViewProps> = ({
                             {/* Rule + severity */}
                             <div>
                                 <DetailRuleTitle>
-                                    {selectedViolation.rule || 'unknown'}
+                                    <DetailRuleId>{selectedViolation.rule || 'unknown'}</DetailRuleId>
                                     <SeverityBadge $color={SEVERITY_COLORS[selectedViolation.severity] ?? '#3b82f6'}>
                                         {selectedViolation.severity}
                                     </SeverityBadge>
-                                    {selectedRuleFamily && (
-                                        <RuleFamilyChip style={{ fontSize: '10px' }}>{selectedRuleFamily.toUpperCase()}</RuleFamilyChip>
+                                    {showRuleFamilyChip && (
+                                        <RuleFamilyChip style={{ fontSize: '9px' }} title="Rule family / style">
+                                            {selectedRuleFamily.toUpperCase()}
+                                        </RuleFamilyChip>
                                     )}
                                 </DetailRuleTitle>
                             </div>
@@ -1109,16 +1125,27 @@ export const IssuesReportView: React.FC<IssuesReportViewProps> = ({
                             {/* Message */}
                             <div>
                                 <DetailSectionLabel>Message</DetailSectionLabel>
-                                <DetailText>{selectedViolation.message}</DetailText>
+                                <ViolationDetailProseBlock>
+                                    <ViolationMarkdown>{selectedViolation.message || '—'}</ViolationMarkdown>
+                                </ViolationDetailProseBlock>
                             </div>
 
                             {/* Description */}
                             {selectedViolation.description && (
                                 <div>
-                                    <DetailSectionLabel>Rule Description</DetailSectionLabel>
-                                    <DetailText style={{ color: 'var(--vscode-descriptionForeground)', fontStyle: 'italic' }}>
-                                        {selectedViolation.description}
-                                    </DetailText>
+                                    <DetailSectionLabel>Description</DetailSectionLabel>
+                                    <ViolationDetailProseBlock>
+                                        <ViolationMarkdown>{selectedViolation.description}</ViolationMarkdown>
+                                    </ViolationDetailProseBlock>
+                                </div>
+                            )}
+
+                            {selectedViolation.fixSuggestion && (
+                                <div>
+                                    <DetailSectionLabel>Fix suggestion</DetailSectionLabel>
+                                    <ViolationDetailFixCallout>
+                                        <ViolationMarkdown>{selectedViolation.fixSuggestion}</ViolationMarkdown>
+                                    </ViolationDetailFixCallout>
                                 </div>
                             )}
 
