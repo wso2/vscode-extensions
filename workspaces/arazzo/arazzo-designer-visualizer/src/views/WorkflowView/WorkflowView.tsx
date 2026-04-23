@@ -250,6 +250,9 @@ export function WorkflowView(props: WorkflowViewProps) {
     // which edge to highlight when a step ends. Initialized to 'virtual_start' so
     // the first step highlights the Start → Step edge.
     const prevStepRef = useRef<string>('virtual_start');
+    // Tracks the workflow ID of the currently running trace so events from a
+    // different workflow are ignored when this view is showing a different one.
+    const activeTraceWorkflowIdRef = useRef<string | undefined>(undefined);
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [graphKey, setGraphKey] = useState(0);
@@ -274,6 +277,11 @@ export function WorkflowView(props: WorkflowViewProps) {
     // Listen for trace events and update step node overlays
     rpcClient?.onTraceEvent((event: WebviewTraceEvent) => {
         if (event.arazzo_span_kind === 'workflow' && event.lifecycle === 'start') {
+            // Record which workflow this trace run is for so we can ignore events
+            // from a different workflow when this view is showing a different one.
+            activeTraceWorkflowIdRef.current = event.attributes?.['workflow.id'];
+            // Only reset and highlight if the running workflow matches the one shown.
+            if (activeTraceWorkflowIdRef.current !== workflowId) { return; }
             // New workflow run started — reset step tracking and clear all highlights
             prevStepRef.current = 'virtual_start';
             setNodes(prev => prev.map(node => {
@@ -294,6 +302,8 @@ export function WorkflowView(props: WorkflowViewProps) {
             );
 
         } else if (event.arazzo_span_kind === 'step') {
+            // Ignore events from a different workflow than the one being visualized
+            if (activeTraceWorkflowIdRef.current !== workflowId) { return; }
             const stepId = event.attributes?.['step.id'] || event.name;
 
             if (event.lifecycle === 'start') {
@@ -394,6 +404,7 @@ export function WorkflowView(props: WorkflowViewProps) {
                 prevStepRef.current = stepId;
             }
         } else if (event.arazzo_span_kind === 'workflow' && event.lifecycle === 'end') {
+            if (activeTraceWorkflowIdRef.current !== workflowId) { return; }
             // Workflow finished — colour every endNode green regardless of how the workflow ended
             setNodes(prev => {
                 const endNodeIds = new Set(prev.filter(n => n.type === 'endNode').map(n => n.id));
@@ -411,6 +422,7 @@ export function WorkflowView(props: WorkflowViewProps) {
             });
 
         } else if (event.arazzo_span_kind === 'retry') {
+            if (activeTraceWorkflowIdRef.current !== workflowId) { return; }
             const stepId = event.attributes?.['step.id'] || event.name;
             const attempt = parseInt(event.attributes?.['retry.attempt'] || '1', 10);
 
