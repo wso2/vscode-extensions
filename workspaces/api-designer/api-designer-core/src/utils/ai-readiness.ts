@@ -49,9 +49,14 @@ export const computeReadinessScoreFromMetrics = (
 const RULE_CATEGORY_MAP: Record<string, string> = {
     // Summaries
     'ai-readiness-operation-summary': 'summaries',
+    'ai-readiness-callback-operation-summary': 'summaries',
+    'ai-readiness-webhook-operation-summary': 'summaries',
+    'ai-readiness-path-item-summary': 'summaries',
 
     // Descriptions
     'ai-readiness-api-description': 'descriptions',
+    'ai-readiness-server-description': 'descriptions',
+    'ai-readiness-path-item-description': 'descriptions',
     'ai-readiness-operation-description': 'descriptions',
     'ai-readiness-operation-id': 'descriptions',
     'ai-readiness-operation-id-casing': 'descriptions',
@@ -72,10 +77,15 @@ const RULE_CATEGORY_MAP: Record<string, string> = {
 
     // Examples
     'ai-readiness-parameter-example': 'examples',
+    'ai-readiness-path-parameter-example': 'examples',
+    'ai-readiness-parameter-content-example': 'examples',
+    'ai-readiness-path-parameter-content-example': 'examples',
     'ai-readiness-request-body-example': 'examples',
     'ai-readiness-response-example': 'examples',
+    'ai-readiness-response-header-example': 'examples',
     'ai-readiness-schema-example': 'examples',
     'ai-readiness-schema-property-example': 'examples',
+    'ai-readiness-component-header-example': 'examples',
 
     // Error Responses
     'ai-readiness-success-response': 'errors',
@@ -99,6 +109,7 @@ const RULE_CATEGORY_MAP: Record<string, string> = {
     'ai-readiness-schema-property-no-empty-object': 'typing',
     'ai-readiness-array-items-defined': 'typing',
     'ai-readiness-array-property-items-defined': 'typing',
+    'ai-readiness-schema-validation-constraints': 'typing',
     'ai-readiness-discriminator': 'typing',
 
     // Error Semantics
@@ -184,7 +195,7 @@ const BUCKET_DEFINITIONS: BucketDefinition[] = [
     { key: "summaries",     label: "Summaries",          icon: "list-unordered",  metricKey: "summaries" },
     { key: "descriptions",  label: "Descriptions",        icon: "note",            metricKey: "descriptions" },
     { key: "examples",      label: "Examples",            icon: "symbol-field",    metricKey: "examples" },
-    { key: "errors",        label: "Error Responses",     icon: "error",           metricKey: "errorResponses" },
+    { key: "errors",        label: "Responses",           icon: "error",           metricKey: "errorResponses" },
     { key: "typing",        label: "Strict Typing",       icon: "symbol-parameter",metricKey: "typing" },
     { key: "errorSemantics",label: "Error Semantics",     icon: "feedback",        metricKey: "errorSemantics" },
     { key: "headers",       label: "Rate Limit Headers",  icon: "server-process",  metricKey: "headers" },

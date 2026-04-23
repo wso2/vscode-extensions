@@ -38,6 +38,7 @@ import { ExampleObjectEditor } from '../example/ExampleObjectEditor';
 import { LinkEditor } from '../link/LinkEditor';
 import { CallbackEditor } from '../callback/CallbackEditor';
 import { APIHeader } from '../api-header/APIHeader';
+import { MetricsOverview } from '../api-header/MetricsOverview';
 import { ValidationStatusBar } from '../../../../components/validation/ValidationStatusBar';
 import { ValidationIssuesModal } from '../../../../components/validation/ValidationIssuesModal';
 import { BasicInfoSection } from '../api-info/BasicInfoSection';
@@ -143,6 +144,10 @@ export const OpenAPIEditor: React.FC<OpenAPIEditorProps> = ({
                 fileUri={fileUri}
             />
             <EditorContentWrapper>
+                <MetricsOverview
+                    fileUri={fileUri}
+                    aiReadinessScore={aiReadinessScore}
+                />
                 <ValidationStatusBar
                     validationData={validationData}
                     onViewAll={(type) => {

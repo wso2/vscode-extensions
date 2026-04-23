@@ -26,11 +26,30 @@ import { initLogger, logInfo, disposeLogger } from './util/logger';
 import { ApiDesignerPanel } from './visualizer/api-designer-panel';
 import { initializeSpectralRulesetAutomation } from './spectral/rulesetAutomation';
 import { checkAndInstallCustomAgents, reinstallCustomAgents } from './util/customAgentsInstaller';
-import { registerApiProjects, syncApiDesignerTreeSelection } from './activity-bar/api-projects';
 import { registerMCPTools } from './tools/mcp-tools';
 import { detectSpecType, ApiSpecType } from '@wso2/api-designer-core';
 
-const notifiedFiles = new Set<string>();
+class ApiDesignerCodeLensProvider implements vscode.CodeLensProvider {
+	provideCodeLenses(document: vscode.TextDocument): vscode.CodeLens[] {
+		if (!isApiSpecificationFile(document)) {
+			return [];
+		}
+
+		const topOfFile = new vscode.Range(0, 0, 0, 0);
+		return [
+			new vscode.CodeLens(topOfFile, {
+				title: 'Open in API Designer',
+				command: 'APIDesigner.openApiDesigner',
+				arguments: [document.uri]
+			}),
+			new vscode.CodeLens(topOfFile, {
+				title: 'Check API Agent Readines',
+				command: 'APIDesigner.openApiDesigner',
+				arguments: [document.uri, 'analyze']
+			})
+		];
+	}
+}
 
 function notifyOpenApiFile(document: vscode.TextDocument): void {
 	if (!isApiSpecificationFile(document)) {
@@ -40,11 +59,7 @@ function notifyOpenApiFile(document: vscode.TextDocument): void {
 	if (!config.get<boolean>('notifyOnOpen', true)) {
 		return;
 	}
-	const fsPath = document.uri.fsPath;
-	if (notifiedFiles.has(fsPath)) {
-		return;
-	}
-	notifiedFiles.add(fsPath);
+
 	vscode.window.showInformationMessage(
 		'This file is an API specification. Open it in API Designer?',
 		'Open in API Designer',
@@ -85,14 +100,19 @@ export async function activate(context: vscode.ExtensionContext) {
 		})
 	);
 
+	const codeLensSelector: vscode.DocumentSelector = [
+		{ language: 'yaml', scheme: 'file' },
+		{ language: 'json', scheme: 'file' }
+	];
+	context.subscriptions.push(
+		vscode.languages.registerCodeLensProvider(codeLensSelector, new ApiDesignerCodeLensProvider())
+	);
+
 	RPCLayer.init();
 	activateHistory();
 	activateVisualizer(context);
 	StateMachine.initialize();
 	initializeSpectralRulesetAutomation(context);
-	
-	// Register new activity bar sections
-	registerApiProjects(context);
 	
 	// Register MCP tools for Language Model API
 	registerMCPTools(context);
@@ -263,7 +283,6 @@ async function openApiDesigner(uri?: vscode.Uri, viewType?: string) {
 			currentPanel.updateViewType(viewType);
 		}
 
-		void syncApiDesignerTreeSelection(vscode.Uri.file(filePath), currentPanel.getViewType());
 		return;
 	}
 	

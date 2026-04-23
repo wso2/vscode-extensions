@@ -20,6 +20,7 @@ import React from 'react';
 import styled from '@emotion/styled';
 import { Typography, Codicon } from '@wso2/ui-toolkit';
 import { GovernanceViolation } from '@wso2/api-designer-core';
+import { normalizeGovernanceViolation } from '../../../types/violations';
 
 const getScoreColor = (score: number): string => {
     if (score >= 90) return '#10b981';
@@ -39,6 +40,14 @@ const Card = styled.div`
     gap: 16px;
     width: 100%;
     box-sizing: border-box;
+    cursor: pointer;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+
+    &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+        border-color: var(--vscode-focusBorder);
+    }
 `;
 
 const CardHeader = styled.div`
@@ -47,6 +56,12 @@ const CardHeader = styled.div`
     align-items: flex-start;
     margin-bottom: 4px;
     gap: 12px;
+`;
+
+const HeaderActions = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
 `;
 
 const ScoreBadge = styled.div<{ $color: string }>`
@@ -204,7 +219,7 @@ export interface RulesetCardData {
 export interface RulesetCardProps {
     name: string;
     data: RulesetCardData;
-    onOpenModal: (tab: 'error' | 'warn' | 'info' | 'passed') => void;
+    onOpenModal: () => void;
 }
 
 export const RulesetCard: React.FC<RulesetCardProps> = ({ name, data, onOpenModal }) => {
@@ -235,24 +250,33 @@ export const RulesetCard: React.FC<RulesetCardProps> = ({ name, data, onOpenModa
         }
     });
 
-    const errorRuleCount = violationSummary.errorRules || 0;
-    const warningRuleCount = violationSummary.warningRules || 0;
-    const infoRuleCount = (violationSummary.infoRules || 0) + (violationSummary.hintRules || 0);
-
     const errorViolationCount = violationSummary.errorViolations ?? computedViolationCounts.error;
     const warningViolationCount = violationSummary.warningViolations ?? computedViolationCounts.warn;
-    const infoViolationCount = (violationSummary.infoViolations ?? computedViolationCounts.info)
-        + (violationSummary.hintViolations ?? computedViolationCounts.hint);
+    const normalizedViolations = (data.violations || []).map(normalizeGovernanceViolation);
+    const endpointsAffectedCount = new Set(
+        normalizedViolations
+            .map((violation) =>
+                violation?.pathSegments?.[0] === 'paths' ? violation.pathSegments?.[1] : undefined
+            )
+            .filter((endpoint): endpoint is string => Boolean(endpoint))
+    ).size;
+    const rulesViolatedCount = new Set(
+        normalizedViolations
+            .map((violation) => violation?.rule)
+            .filter((rule): rule is string => Boolean(rule))
+    ).size;
 
     return (
-        <Card>
+        <Card onClick={onOpenModal}>
             <CardHeader>
                 <Typography variant="body1" sx={{ margin: 0, fontSize: 13, fontWeight: 500 }}>
                     {data.icon} {name}
                 </Typography>
-                <ScoreBadge $color={scoreColor}>
-                    {data.score}% {data.badgeLabel || 'COMPLIANT'}
-                </ScoreBadge>
+                <HeaderActions>
+                    <ScoreBadge $color={scoreColor}>
+                        {data.score}% {data.badgeLabel || 'COMPLIANT'}
+                    </ScoreBadge>
+                </HeaderActions>
             </CardHeader>
 
             <BodyRow>
@@ -266,10 +290,10 @@ export const RulesetCard: React.FC<RulesetCardProps> = ({ name, data, onOpenModa
 
                 <StatsColumn>
                     {[
-                        { type: 'error' as const, label: 'Errors', count: errorRuleCount, violationCount: errorViolationCount, icon: 'error', tab: 'error' as const },
-                        { type: 'warning' as const, label: 'Warnings', count: warningRuleCount, violationCount: warningViolationCount, icon: 'warning', tab: 'warn' as const },
-                        { type: 'info' as const, label: 'Info', count: infoRuleCount, violationCount: infoViolationCount, icon: 'info', tab: 'info' as const },
-                        { type: 'passed' as const, label: 'Passed', count: data.passedChecks || 0, violationCount: data.passedChecks || 0, icon: 'check', tab: 'passed' as const }
+                        { type: 'error' as const, label: 'Errors', count: errorViolationCount, icon: 'error' },
+                        { type: 'warning' as const, label: 'Warnings', count: warningViolationCount, icon: 'warning' },
+                        { type: 'info' as const, label: 'Endpoints Affected', count: endpointsAffectedCount, icon: 'globe', colors: { bg: 'rgba(14, 165, 233, 0.12)', color: '#0ea5e9' } },
+                        { type: 'passed' as const, label: 'Rules Violated', count: rulesViolatedCount, icon: 'list-unordered', colors: { bg: 'rgba(168, 85, 247, 0.14)', color: '#a855f7' } }
                     ].map((stat) => {
                         const statColors = {
                             error: { bg: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' },
@@ -277,14 +301,11 @@ export const RulesetCard: React.FC<RulesetCardProps> = ({ name, data, onOpenModa
                             info: { bg: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6' },
                             passed: { bg: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }
                         };
-                        const colors = statColors[stat.type];
-                        const isClickable = stat.count > 0;
-
+                        const colors = stat.colors || statColors[stat.type];
                         return (
                             <StatRow
                                 key={stat.type}
-                                $clickable={isClickable}
-                                onClick={() => isClickable && onOpenModal(stat.tab)}
+                                $clickable={false}
                             >
                                 <StatLeft>
                                     <StatIconBox $bg={colors.bg} $fg={colors.color}>
@@ -295,9 +316,6 @@ export const RulesetCard: React.FC<RulesetCardProps> = ({ name, data, onOpenModa
                                         <StatValue $color={colors.color}>{stat.count}</StatValue>
                                     </StatTextCol>
                                 </StatLeft>
-                                {isClickable && (
-                                    <Codicon name="chevron-right" sx={{ fontSize: '16px', opacity: 0.5 }} />
-                                )}
                             </StatRow>
                         );
                     })}

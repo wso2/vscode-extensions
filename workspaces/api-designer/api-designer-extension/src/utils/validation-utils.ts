@@ -434,6 +434,8 @@ async function runSpectralLinting(
         );
         
         const results = await spectral.run(document);
+
+        logDebug('Spectral results:', JSON.stringify(results, null, 2));
         
         const metadata = options.metricsCollector
             ? { aiReadiness: options.metricsCollector.export() }
@@ -543,20 +545,26 @@ export async function validateWithSpectralRuleset(
         const passedRuleCount = Math.max(0, totalRules - failedRuleCount);
         const score = Math.round((passedRuleCount / totalRules) * 100);
         
-        // Format violations
-        const violations = results.map(result => ({
-            rule: result.code || 'unknown',
-            message: result.message || 'No message provided',
-            severity: ['error', 'warn', 'info', 'hint'][result.severity] || 'info',
-            path: result.path || []
-        }));
-
-        if (isAiReadinessRuleset) {
-            logDebug(
-                `AI Readiness violations (${violations.length}) for ruleset "${rulesetName}":`,
-                JSON.stringify(violations, null, 2)
-            );
-        }
+        // Format violations — include description and source range for inline YAML preview
+        const violations = results.map(result => {
+            const ruleName = result.code || 'unknown';
+            const ruleDef = ruleset.rules?.[ruleName];
+            const description: string | undefined =
+                ruleDef && typeof ruleDef === 'object' ? (ruleDef as any).description ?? undefined : undefined;
+            return {
+                rule: ruleName,
+                message: result.message || 'No message provided',
+                ...(description ? { description } : {}),
+                severity: ['error', 'warn', 'info', 'hint'][result.severity as number] || 'info',
+                path: result.path || [],
+                ...(result.range ? {
+                    range: {
+                        start: { line: result.range.start.line, character: result.range.start.character },
+                        end: { line: result.range.end.line, character: result.range.end.character }
+                    }
+                } : {})
+            };
+        });
 
         const violationSummary = {
             totalViolations: results.length,

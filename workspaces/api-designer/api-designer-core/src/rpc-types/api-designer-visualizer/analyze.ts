@@ -129,9 +129,14 @@ export interface GetGovernanceResponse {
     violations: Array<{
         rule: string;
         message: string;
+        description?: string;
         severity: string;
         path?: string[] | string;
         code?: string;
+        range?: {
+            start: { line: number; character: number };
+            end: { line: number; character: number };
+        };
     }>;
     passed?: Array<{
         rule: string;

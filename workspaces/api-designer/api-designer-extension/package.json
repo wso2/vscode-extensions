@@ -161,35 +161,6 @@
         }
       }
     ],
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "apiDesignerExplorer",
-          "title": "API Designer",
-          "icon": "$(bracket)"
-        }
-      ]
-    },
-    "views": {
-      "apiDesignerExplorer": [
-        {
-          "id": "apiDesignerProjects",
-          "name": "APIs"
-        }
-      ]
-    },
-    "viewsWelcome": [
-      {
-        "view": "apiDesignerProjects",
-        "contents": "Welcome to API Designer. To start working, please open a folder.\n[Open Folder](command:vscode.openFolder)",
-        "when": "workbenchState == empty"
-      },
-      {
-        "view": "apiDesignerProjects",
-        "contents": "No OpenAPI files found in this workspace.\n[Create New API](command:api-designer.createAPIFromPanel)",
-        "when": "workbenchState != empty"
-      }
-    ],
     "commands": [
       {
         "command": "APIDesigner.openApiDesigner",
@@ -209,12 +180,6 @@
         "title": "Create API Specification",
         "category": "API Designer",
         "icon": "$(add)"
-      },
-      {
-        "command": "api-designer.refreshApiProjects",
-        "title": "Refresh API Projects",
-        "category": "API Designer",
-        "icon": "$(refresh)"
       }
     ],
     "menus": {
@@ -228,18 +193,6 @@
           "command": "APIDesigner.showCode",
           "group": "navigation@3",
           "when": "isViewOpenAPI"
-        }
-      ],
-      "view/title": [
-        {
-          "command": "api-designer.createAPIFromPanel",
-          "when": "view == apiDesignerProjects",
-          "group": "navigation@1"
-        },
-        {
-          "command": "api-designer.refreshApiProjects",
-          "when": "view == apiDesignerProjects",
-          "group": "navigation@2"
         }
       ]
     },

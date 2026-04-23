@@ -100,13 +100,14 @@ const RulesGrid = styled.div`
 export const GovernanceDashboard: React.FC<GovernanceDashboardProps> = ({ fileUri, refreshToken }) => {
     const { rpcClient } = useVisualizerContext();
     const [dashboardData, setDashboardData] = useState<Map<string, any>>(new Map());
+    const [specContent, setSpecContent] = useState<string>('');
     const governanceRulesetsRef = useRef<SpectralRuleset[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [noConfig, setNoConfig] = useState(false);
     const [violationsModalOpen, setViolationsModalOpen] = useState(false);
     const [selectedRuleset, setSelectedRuleset] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'error' | 'warn' | 'info' | 'passed'>('error');
+    const [activeTab, setActiveTab] = useState<'overview' | 'error' | 'warn' | 'info' | 'passed'>('overview');
     const prevFileUriRef = useRef<string | null>(null);
 
     const loadGovernanceRuleset = useCallback(async (ruleset: SpectralRuleset) => {
@@ -199,6 +200,26 @@ export const GovernanceDashboard: React.FC<GovernanceDashboardProps> = ({ fileUr
         fetchDashboardData();
     }, [fetchDashboardData, refreshToken]);
 
+    useEffect(() => {
+        const fetchSpecContent = async () => {
+            if (!rpcClient || !fileUri || fileUri === 'file:///placeholder') {
+                setSpecContent('');
+                return;
+            }
+
+            try {
+                const response = await rpcClient.getApiDesignerVisualizerRpcClient().getAPISpecContent({
+                    filePath: fileUri
+                });
+                setSpecContent(response?.content || '');
+            } catch {
+                setSpecContent('');
+            }
+        };
+
+        fetchSpecContent();
+    }, [rpcClient, fileUri, refreshToken]);
+
     const openCopilotChat = (context: string, prompt: string) => {
         postVSCodeMessage({
             command: 'openCopilotChat',
@@ -274,8 +295,8 @@ export const GovernanceDashboard: React.FC<GovernanceDashboardProps> = ({ fileUr
 
             <RulesGrid>
                 {Array.from(dashboardData.entries()).map(([name, data]) => {
-                    const openModalWithTab = (tab: 'error' | 'warn' | 'info' | 'passed') => {
-                        setActiveTab(tab);
+                    const openModal = () => {
+                        setActiveTab('overview');
                         setSelectedRuleset(name);
                         setViolationsModalOpen(true);
                     };
@@ -285,7 +306,7 @@ export const GovernanceDashboard: React.FC<GovernanceDashboardProps> = ({ fileUr
                             key={name}
                             name={name}
                             data={data}
-                            onOpenModal={openModalWithTab}
+                            onOpenModal={openModal}
                         />
                     );
                 })}
@@ -329,6 +350,7 @@ export const GovernanceDashboard: React.FC<GovernanceDashboardProps> = ({ fileUr
                         isOpen={violationsModalOpen}
                         rulesetName={selectedRuleset}
                         data={dashboardData.get(selectedRuleset)!}
+                        specContent={specContent}
                         activeTab={activeTab}
                         onTabChange={setActiveTab}
                         onClose={() => {

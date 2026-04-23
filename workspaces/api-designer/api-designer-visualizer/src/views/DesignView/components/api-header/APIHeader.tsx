@@ -16,10 +16,9 @@
  * under the License.
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import styled from '@emotion/styled';
-import { Button, Badge, Codicon } from '@wso2/ui-toolkit';
-import { postMessage as postVSCodeMessage } from '../../../../utils/vscode-api';
+import { Button, Codicon } from '@wso2/ui-toolkit';
 import { SpecTypeBadge } from '../../../../components/common/SpecTypeBadge';
 
 export interface AIReadinessData {
@@ -64,14 +63,6 @@ const HeaderLeft = styled.div`
     min-width: 0;
     display: flex;
     flex-direction: column;
-`;
-
-const HeaderRight = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-shrink: 0;
-    width: 25%;
 `;
 
 const TitleRow = styled.div`
@@ -150,150 +141,6 @@ const OpenAPIBadge = styled.span`
     flex-shrink: 0;
 `;
 
-const AIReadinessBadge = styled.div<{ bgColor: string; borderColor: string }>`
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    padding: 8px 14px;
-    border-radius: 8px;
-    font-family: var(--vscode-font-family);
-    cursor: pointer;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    box-sizing: border-box;
-    position: relative;
-    background: ${(props: { bgColor: string }) => props.bgColor};
-    border: 1.5px solid ${(props: { borderColor: string }) => props.borderColor};
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
-    width: 100%;
-    height: 56px;
-    overflow: hidden;
-    
-    &:hover {
-        border-color: ${(props: { borderColor: string }) => props.borderColor};
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        transform: translateY(-2px);
-    }
-    
-    &:active {
-        transform: translateY(0);
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-`;
-
-const AIReadinessIcon = styled.div<{ bgColor: string; iconColor: string }>`
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
-    background: ${(props: { bgColor: string }) => props.bgColor};
-    flex-shrink: 0;
-    position: relative;
-    
-    &::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        border-radius: 8px;
-        padding: 2px;
-        background: linear-gradient(135deg, ${(props: { iconColor: string }) => props.iconColor}, transparent);
-        -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-        -webkit-mask-composite: xor;
-        mask-composite: exclude;
-        opacity: 0.3;
-    }
-`;
-
-const CircularProgressWrapper = styled.div`
-    width: 40px;
-    height: 40px;
-    position: relative;
-    flex-shrink: 0;
-`;
-
-const CircularProgressSVG = styled.svg`
-    width: 100%;
-    height: 100%;
-    transform: rotate(-90deg);
-`;
-
-const CircularProgressTrack = styled.circle`
-    fill: none;
-    stroke: var(--vscode-panel-border);
-    stroke-width: 2.5;
-    opacity: 0.2;
-`;
-
-const CircularProgressBar = styled.circle<{ color: string; dashOffset: number }>`
-    fill: none;
-    stroke: ${(props: { color: string }) => props.color};
-    stroke-width: 2.5;
-    stroke-linecap: round;
-    stroke-dasharray: 106.81;
-    stroke-dashoffset: ${(props: { dashOffset: number }) => props.dashOffset};
-    transition: stroke-dashoffset 0.5s ease;
-`;
-
-const ProgressValue = styled.div<{ color: string }>`
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 10px;
-    font-weight: 700;
-    color: ${(props: { color: string }) => props.color};
-    line-height: 1;
-    text-align: center;
-`;
-
-const AIReadinessContent = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    min-width: 0;
-    flex: 1;
-    overflow: hidden;
-`;
-
-const AIReadinessValue = styled.div<{ color: string }>`
-    display: flex;
-    align-items: baseline;
-    gap: 4px;
-    font-size: 14px;
-    font-weight: 600;
-    line-height: 1.3;
-    color: ${(props: { color: string }) => props.color};
-    letter-spacing: -0.01em;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    min-width: 0;
-`;
-
-const AIReadinessDescription = styled.div`
-    font-size: 10px;
-    color: var(--vscode-descriptionForeground);
-    line-height: 1.3;
-    opacity: 0.85;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    min-width: 0;
-`;
-
-const ArrowIcon = styled.div<{ isHovered: boolean; color: string }>`
-    display: flex;
-    align-items: center;
-    opacity: ${(props: { isHovered: boolean }) => props.isHovered ? '1' : '0.5'};
-    flex-shrink: 0;
-    color: ${(props: { color: string }) => props.color};
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    transform: ${(props: { isHovered: boolean }) => props.isHovered ? 'translateX(3px)' : 'translateX(0)'};
-`;
-
 const EditButtonWrapper = styled.div`
     opacity: 0.7;
     transition: opacity 0.2s ease;
@@ -320,55 +167,6 @@ const Description = styled.p`
     max-height: calc(1.5em * 2);
 `;
 
-/** Same thresholds and hex values as Analyze `AIReadinessDashboard` `getScoreColor`. */
-const scoreToAccentHex = (score: number): string => {
-    if (score >= 90) return '#10b981';
-    if (score >= 75) return '#3b82f6';
-    if (score >= 50) return '#f59e0b';
-    return '#ef4444';
-};
-
-const hexToRgba = (hex: string, alpha: number): string => {
-    const h = hex.replace('#', '');
-    const r = parseInt(h.slice(0, 2), 16);
-    const g = parseInt(h.slice(2, 4), 16);
-    const b = parseInt(h.slice(4, 6), 16);
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-};
-
-const getAiReadinessCardPresentation = (
-    readiness: number | null | undefined
-): { color: string; bg: string; border: string; label: string; description: string } => {
-    if (readiness === null || readiness === undefined) {
-        const color = '#60a5fa';
-        return {
-            color,
-            bg: hexToRgba(color, 0.12),
-            border: hexToRgba(color, 0.4),
-            label: 'Not analyzed',
-            description: 'Click to analyze AI readiness'
-        };
-    }
-    const color = scoreToAccentHex(readiness);
-    let description: string;
-    if (readiness >= 90) {
-        description = 'Excellent — ready for AI integration';
-    } else if (readiness >= 75) {
-        description = 'Good — solid foundation for AI usage';
-    } else if (readiness >= 50) {
-        description = 'Fair — improvements recommended';
-    } else {
-        description = 'Poor — major improvements required';
-    }
-    return {
-        color,
-        bg: hexToRgba(color, 0.12),
-        border: hexToRgba(color, 0.4),
-        label: `${readiness}% AI Ready`,
-        description
-    };
-};
-
 export const APIHeader: React.FC<APIHeaderProps> = ({
     title,
     description,
@@ -377,22 +175,8 @@ export const APIHeader: React.FC<APIHeaderProps> = ({
     specType,
     onEditClick,
     readOnly = false,
-    showDescription = true,
-    aiReadinessScore,
-    fileUri
+    showDescription = true
 }) => {
-    const readiness = aiReadinessScore?.score ?? null;
-    const readinessPresentation = getAiReadinessCardPresentation(readiness);
-    const [isHovered, setIsHovered] = useState(false);
-
-    const handleNavigateToAnalyze = () => {
-        postVSCodeMessage({
-            command: 'switchView',
-            viewType: 'analyze',
-            fileUri: fileUri
-        });
-    };
-
     return (
         <HeaderContainer>
             <HeaderContent>
@@ -407,13 +191,13 @@ export const APIHeader: React.FC<APIHeaderProps> = ({
                                 <VersionBadge>v{version || '1.0.0'}</VersionBadge>
                                 {!readOnly && onEditClick && (
                                     <EditButtonWrapper>
-                                <Button 
-                                    appearance="icon" 
-                                    onClick={onEditClick}
-                                    tooltip="Edit API Info"
-                                >
+                                        <Button
+                                            appearance="icon"
+                                            onClick={onEditClick}
+                                            tooltip="Edit API Info"
+                                        >
                                             <Codicon name="edit" sx={{ fontSize: '14px' }} />
-                                </Button>
+                                        </Button>
                                     </EditButtonWrapper>
                                 )}
                             </PrimaryBadges>
@@ -423,51 +207,6 @@ export const APIHeader: React.FC<APIHeaderProps> = ({
                         <Description title={description}>{description}</Description>
                     )}
                 </HeaderLeft>
-                {aiReadinessScore !== null && aiReadinessScore !== undefined && (
-                    <HeaderRight>
-                        <AIReadinessBadge
-                            onClick={handleNavigateToAnalyze}
-                            title="Click to view detailed AI readiness analysis"
-                            onMouseEnter={() => setIsHovered(true)}
-                            onMouseLeave={() => setIsHovered(false)}
-                            bgColor={readinessPresentation.bg}
-                            borderColor={readinessPresentation.border}
-                        >
-                            {readiness !== null && readiness !== undefined ? (
-                                <CircularProgressWrapper>
-                                    <CircularProgressSVG viewBox="0 0 38 38">
-                                        <CircularProgressTrack cx="19" cy="19" r="17" />
-                                        <CircularProgressBar 
-                                            cx="19" 
-                                            cy="19" 
-                                            r="17" 
-                                            color={readinessPresentation.color}
-                                            dashOffset={2 * Math.PI * 17 * (1 - readiness / 100)}
-                                        />
-                                    </CircularProgressSVG>
-                                    <ProgressValue color={readinessPresentation.color}>
-                                        {readiness}%
-                                    </ProgressValue>
-                                </CircularProgressWrapper>
-                            ) : (
-                                <AIReadinessIcon bgColor={readinessPresentation.bg} iconColor={readinessPresentation.color}>
-                                    <Codicon name="circuit-board" sx={{ fontSize: '16px', color: readinessPresentation.color }} />
-                                </AIReadinessIcon>
-                            )}
-                            <AIReadinessContent>
-                                <AIReadinessValue color={readinessPresentation.color}>
-                                    {readinessPresentation.label}
-                                </AIReadinessValue>
-                                <AIReadinessDescription>
-                                    {readinessPresentation.description}
-                                </AIReadinessDescription>
-                            </AIReadinessContent>
-                            <ArrowIcon isHovered={isHovered} color={readinessPresentation.color}>
-                                <Codicon name="chevron-right" sx={{ fontSize: '16px' }} />
-                            </ArrowIcon>
-                        </AIReadinessBadge>
-                    </HeaderRight>
-                )}
             </HeaderContent>
         </HeaderContainer>
     );

@@ -25,9 +25,14 @@ export interface NormalizedGovernanceViolation {
     pathSegments: string[];
     displayPath: string;
     message: string;
+    description?: string;
     severity: 'error' | 'warn' | 'info' | 'hint';
     rule?: string;
     code?: string;
+    range?: {
+        start: { line: number; character: number };
+        end: { line: number; character: number };
+    };
 }
 
 /**
@@ -66,6 +71,7 @@ export function normalizeGovernanceViolation(violation: GovernanceViolation): No
         pathSegments: rawSegments,
         displayPath,
         message: violation.message || 'No message provided',
+        description: violation.description,
         severity: (violation.severity || 'info') as 'error' | 'warn' | 'info' | 'hint'
     };
 }
