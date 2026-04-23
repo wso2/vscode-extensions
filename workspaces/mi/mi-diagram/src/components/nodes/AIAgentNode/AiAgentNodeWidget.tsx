@@ -209,6 +209,12 @@ export function AiAgentNodeWidget(props: CallNodeWidgetProps) {
                 documentUri: node.documentUri,
                 connectorName: stNode.tag.split(".")[0]
             });
+
+            if (!connectorData) {
+                console.error(`Connector data not found for connector: ${stNode.tag.split(".")[0]}`);
+                return;
+            }
+
             const connectionData: any = await rpcClient.getMiDiagramRpcClient().getConnectorConnections({
                 documentUri: node.documentUri,
                 connectorName: stNode.tag.split(".")[0]
@@ -292,6 +298,13 @@ export function AiAgentNodeWidget(props: CallNodeWidgetProps) {
                     documentUri: node.documentUri,
                     connectorName: stNode.tag.split(".")[0]
                 });
+
+                if (!connectorData) {
+                    console.error(`Connector data not found for connector: ${stNode.tag.split(".")[0]}`);
+                    setIsLoading(false);
+                    return;
+                }
+
                 const connectionData: any = await rpcClient.getMiDiagramRpcClient().getConnectorConnections({
                     documentUri: node.documentUri,
                     connectorName: stNode.tag.split(".")[0]

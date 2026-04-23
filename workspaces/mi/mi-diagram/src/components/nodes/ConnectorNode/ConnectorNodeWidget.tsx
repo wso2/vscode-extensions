@@ -167,7 +167,7 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
             }
 
             const connectorIcon = await rpcClient.getMiDiagramRpcClient().getConnectorIcon({
-                connectorName: node.stNode?.connectorName ?? (node.stNode as any).mediator.connectorName,
+                connectorName: node.stNode?.connectorName ?? (node.stNode as any).mediator?.connectorName,
                 documentUri: node.documentUri
             });
 
@@ -177,6 +177,11 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
                 documentUri: node.documentUri,
                 connectorName: connectorNode.tag.split(".")[0]
             });
+
+            if (!connectorData) {
+                console.error(`Connector data not found for connector: ${connectorNode.tag.split(".")[0]}`);
+                return;
+            }
 
             const connectionData: any = await rpcClient.getMiDiagramRpcClient().getConnectorConnections({
                 documentUri: node.documentUri,
@@ -207,6 +212,12 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
 
     const handlePopoverClose = () => {
         setIsPopoverOpen(false);
+    }
+
+    const hasError = () => {
+        if (hasDiagnotics) return true;
+        if (node.stNode.tag === 'tool' && !isMCPTool && !(node.stNode as Tool).mediator) return true;
+        return false;
     }
 
     const getConnectionNodeRange = async () => {
@@ -318,7 +329,7 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
             <Tooltip content={!isPopoverOpen && tooltip ? <TooltipEl /> : ""} position={'bottom'} containerPosition={'absolute'}>
                 <S.Node
                     selected={node.isSelected()}
-                    hasError={hasDiagnotics}
+                    hasError={hasError()}
                     hovered={isHovered || isActiveBreakpoint}
                     isActiveBreakpoint={isActiveBreakpoint}
                     onMouseEnter={() => setIsHovered(true)}

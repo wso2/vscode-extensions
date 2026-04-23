@@ -19,6 +19,7 @@
 import { ParamConfig, ParamValueConfig } from "../components/Form/ParamManager/ParamManager";
 
 export const FirstCharToUpperCase = (str: string) => {
+    if (!str) return str;
     return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
