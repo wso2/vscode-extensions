@@ -30,6 +30,7 @@ import { ViolationsModal } from './ViolationsModal';
 interface GovernanceDashboardProps {
     fileUri: string;
     refreshToken?: number;
+    rulesetFilter?: 'all' | 'owasp' | 'wso2-rest';
 }
 
 const getRulesetDisplay = (name: string) => {
@@ -97,7 +98,7 @@ const RulesGrid = styled.div`
     box-sizing: border-box;
 `;
 
-export const GovernanceDashboard: React.FC<GovernanceDashboardProps> = ({ fileUri, refreshToken }) => {
+export const GovernanceDashboard: React.FC<GovernanceDashboardProps> = ({ fileUri, refreshToken, rulesetFilter = 'all' }) => {
     const { rpcClient } = useVisualizerContext();
     const [dashboardData, setDashboardData] = useState<Map<string, any>>(new Map());
     const [specContent, setSpecContent] = useState<string>('');
@@ -171,17 +172,28 @@ export const GovernanceDashboard: React.FC<GovernanceDashboardProps> = ({ fileUr
             });
 
             const { governanceRulesets } = rulesetsResponse;
+            const filteredGovernanceRulesets = governanceRulesets.filter((ruleset: SpectralRuleset) => {
+                if (!ruleset?.name) return false;
+                const name = ruleset.name.toLowerCase();
+                if (rulesetFilter === 'owasp') {
+                    return name.includes('owasp') || name.includes('security');
+                }
+                if (rulesetFilter === 'wso2-rest') {
+                    return name.includes('design') || name.includes('rest');
+                }
+                return true;
+            });
             
-            if (!governanceRulesets || governanceRulesets.length === 0) {
+            if (!filteredGovernanceRulesets || filteredGovernanceRulesets.length === 0) {
                 setNoConfig(true);
                 setLoading(false);
                 return;
             }
 
-            governanceRulesetsRef.current = governanceRulesets;
+            governanceRulesetsRef.current = filteredGovernanceRulesets;
 
             await Promise.allSettled(
-                governanceRulesets.map(async (ruleset: SpectralRuleset) => {
+                filteredGovernanceRulesets.map(async (ruleset: SpectralRuleset) => {
                     if (!ruleset || !ruleset.name) {
                         return;
                     }
@@ -194,7 +206,7 @@ export const GovernanceDashboard: React.FC<GovernanceDashboardProps> = ({ fileUr
         } finally {
             setLoading(false);
         }
-    }, [fileUri, rpcClient, loadGovernanceRuleset]);
+    }, [fileUri, rpcClient, loadGovernanceRuleset, rulesetFilter]);
 
     useEffect(() => {
         fetchDashboardData();
@@ -234,7 +246,11 @@ export const GovernanceDashboard: React.FC<GovernanceDashboardProps> = ({ fileUr
     const complianceHeader = (
         <ComplianceHeaderBar>
             <Typography variant="body1" sx={{ margin: 0, fontSize: 16, fontWeight: 600, color: 'var(--vscode-foreground)' }}>
-                Compliance Analysis
+                {rulesetFilter === 'owasp'
+                    ? 'OWASP Security Analysis'
+                    : rulesetFilter === 'wso2-rest'
+                        ? 'WSO2 REST API Guidelines Analysis'
+                        : 'Compliance Analysis'}
             </Typography>
         </ComplianceHeaderBar>
     );

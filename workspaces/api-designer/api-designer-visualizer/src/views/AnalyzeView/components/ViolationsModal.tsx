@@ -189,14 +189,28 @@ const ModalTitle = styled.h3`
 
 const TabBar = styled.div`
     display: flex;
+    flex-wrap: nowrap;
     gap: 0;
     border-bottom: 1px solid var(--vscode-panel-border);
     padding-left: 16px;
     flex-shrink: 0;
+    min-width: 0;
     background: var(--vscode-editor-background);
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+
+    &::-webkit-scrollbar {
+        height: 6px;
+    }
+    &::-webkit-scrollbar-thumb {
+        background: var(--vscode-scrollbarSlider-background);
+        border-radius: 3px;
+    }
 `;
 
 const TabButton = styled.button<{ $active: boolean }>`
+    flex-shrink: 0;
     background: none;
     border: none;
     padding: 12px 16px;
@@ -227,6 +241,8 @@ const TabCount = styled.span`
 
 const ModalBody = styled.div`
     flex: 1;
+    display: flex;
+    flex-direction: column;
     padding: 20px;
     min-height: 0;
     overflow: hidden;
@@ -235,8 +251,9 @@ const ModalBody = styled.div`
 const OverviewLayout = styled.div`
     display: flex;
     flex-direction: column;
+    flex: 1;
+    min-height: 0;
     gap: 14px;
-    height: 100%;
     overflow-y: auto;
     padding-right: 4px;
 `;
@@ -514,14 +531,19 @@ const NavButtonCount = styled.span`
 
 const SplitBody = styled.div`
     display: flex;
-    height: 100%;
+    flex: 1;
     min-height: 0;
+    min-width: 0;
     gap: 12px;
+    overflow: hidden;
+    overflow-x: hidden;
 `;
 
 const IssuesPane = styled.div`
     flex: 0 0 40%;
     min-width: 0;
+    min-height: 0;
+    overflow-x: hidden;
     overflow-y: auto;
 `;
 
@@ -529,12 +551,19 @@ const IssuesStack = styled.div`
     display: flex;
     flex-direction: column;
     gap: 8px;
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+    overflow-x: hidden;
+    box-sizing: border-box;
 `;
 
 const EndpointGroup = styled.div`
     display: flex;
     flex-direction: column;
     gap: 6px;
+    min-width: 0;
+    width: 100%;
 `;
 
 const EndpointGroupHeader = styled.button`
@@ -548,6 +577,9 @@ const EndpointGroupHeader = styled.button`
     border-radius: 8px;
     background: var(--vscode-editorWidget-background);
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     cursor: pointer;
     text-align: left;
     transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
@@ -560,6 +592,8 @@ const EndpointGroupHeader = styled.button`
 `;
 
 const EndpointName = styled.div`
+    flex: 1;
+    min-width: 0;
     font-size: 12px;
     font-weight: 700;
     color: var(--vscode-foreground);
@@ -579,21 +613,29 @@ const EndpointGroupMeta = styled.div`
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-shrink: 0;
 `;
 
 const EndpointViolationsList = styled.div`
-    margin-left: 14px;
-    padding-left: 12px;
+    padding-left: 26px;
     border-left: 2px solid var(--vscode-panel-border);
+    margin-left: 0;
     display: flex;
     flex-direction: column;
     gap: 8px;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
 `;
 
 const RuleGroup = styled.div`
     display: flex;
     flex-direction: column;
     gap: 6px;
+    min-width: 0;
+    width: 100%;
 `;
 
 const RuleGroupHeader = styled.button<{ $accent: string }>`
@@ -608,6 +650,9 @@ const RuleGroupHeader = styled.button<{ $accent: string }>`
     border-radius: 8px;
     background: var(--vscode-editorWidget-background);
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     cursor: pointer;
     text-align: left;
     transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
@@ -654,15 +699,21 @@ const RuleGroupMeta = styled.div`
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-shrink: 0;
 `;
 
 const RulePathList = styled.div`
     display: flex;
     flex-direction: column;
     gap: 6px;
-    margin-left: 14px;
-    padding-left: 12px;
+    padding-left: 26px;
     border-left: 2px solid var(--vscode-panel-border);
+    margin-left: 0;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
 `;
 
 const RulePathText = styled.div`
@@ -675,6 +726,8 @@ const RulePathText = styled.div`
 const DetailPane = styled.div`
     flex: 1;
     min-width: 0;
+    min-height: 0;
+    overflow-x: hidden;
     overflow-y: auto;
     border: 1px solid var(--vscode-panel-border);
     border-radius: 8px;
@@ -833,12 +886,17 @@ const FixAllToolbar = styled.div`
     margin-bottom: 8px;
     padding-bottom: 12px;
     border-bottom: 1px solid var(--vscode-panel-border);
+    min-width: 0;
 `;
 
 const ViolationsListTitle = styled.div`
     font-size: 13px;
     font-weight: 700;
     color: var(--vscode-foreground);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 `;
 
 const NoWrapAIButton = styled(AIButton)`
@@ -851,6 +909,10 @@ const NoWrapShrinkAIButton = styled(AIButton)`
 `;
 
 const ViolationCard = styled.div<{ $accent: string; $selected: boolean }>`
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     padding: 12px;
     background: ${({ $selected }: { $selected: boolean }) =>
         $selected ? 'var(--vscode-list-activeSelectionBackground)' : 'var(--vscode-editor-background)'};
@@ -871,6 +933,7 @@ const ViolationCard = styled.div<{ $accent: string; $selected: boolean }>`
 
 const ViolationBody = styled.div`
     flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -879,16 +942,24 @@ const ViolationBody = styled.div`
 const ViolationMessage = styled.div<{ $hasPath: boolean }>`
     color: var(--vscode-foreground);
     margin-bottom: ${({ $hasPath }: { $hasPath: boolean }) => ($hasPath ? 4 : 0)}px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 `;
 
 const ViolationPath = styled.div`
     color: var(--vscode-descriptionForeground);
     font-size: 11px;
     font-family: var(--vscode-editor-font-family);
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 `;
 
 const ViolationsEmpty = styled.div`
     display: flex;
+    flex: 1;
+    min-height: 0;
     flex-direction: column;
     align-items: center;
     justify-content: center;
@@ -1099,18 +1170,6 @@ export const ViolationsModal: React.FC<ViolationsModalProps> = ({
 
         setSelectedViolationIndex(null);
     }, [activeTab, rulesetName, filteredViolations.length]);
-
-    React.useEffect(() => {
-        if (activeTab !== 'info') {
-            setExpandedEndpoints({});
-        }
-    }, [activeTab]);
-
-    React.useEffect(() => {
-        if (activeTab !== 'rules') {
-            setExpandedRules({});
-        }
-    }, [activeTab]);
 
     React.useEffect(() => {
         if (activeTab !== 'info' || endpointGroups.length === 0) {

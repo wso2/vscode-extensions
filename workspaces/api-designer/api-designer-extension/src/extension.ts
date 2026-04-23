@@ -41,11 +41,6 @@ class ApiDesignerCodeLensProvider implements vscode.CodeLensProvider {
 				title: 'Open in API Designer',
 				command: 'APIDesigner.openApiDesigner',
 				arguments: [document.uri]
-			}),
-			new vscode.CodeLens(topOfFile, {
-				title: 'Check API Agent Readines',
-				command: 'APIDesigner.openApiDesigner',
-				arguments: [document.uri, 'analyze']
 			})
 		];
 	}

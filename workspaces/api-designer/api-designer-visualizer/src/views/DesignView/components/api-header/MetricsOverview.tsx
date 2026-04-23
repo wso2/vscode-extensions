@@ -20,14 +20,26 @@ import React, { useEffect, useMemo, useState } from 'react';
 import styled from '@emotion/styled';
 import { useVisualizerContext } from '@wso2/api-designer-rpc-client';
 import { SpectralRuleset } from '@wso2/api-designer-core';
+import { Codicon } from '@wso2/ui-toolkit';
 import { postMessage as postVSCodeMessage } from '../../../../utils/vscode-api';
+
+export interface ValidationIssuePathItem {
+    path: string[];
+    message: string;
+    range?: {
+        start: { line: number; character: number };
+        end: { line: number; character: number };
+    };
+}
 
 export interface ValidationData {
     errorCount: number;
     warningCount: number;
     isValid: boolean;
-    errors?: Array<{ path: string[]; message: string }>;
-    warnings?: Array<{ path: string[]; message: string }>;
+    errors?: ValidationIssuePathItem[];
+    warnings?: ValidationIssuePathItem[];
+    /** Raw spec text from the last validation run (same string Spectral used — for line-accurate snippets). */
+    specContent?: string;
 }
 
 export interface AIReadinessData {
@@ -45,6 +57,7 @@ interface MetricBadgeData {
     label: string;
     description: string;
     score: number | null;
+    analyzeSection: 'ai-readiness' | 'owasp' | 'wso2-rest' | 'all';
 }
 
 const Container = styled.div`
@@ -117,6 +130,16 @@ const MetricContent = styled.div`
     min-width: 0;
 `;
 
+const ReportLinkHint = styled.div`
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--vscode-textLink-foreground);
+    margin-top: 4px;
+`;
+
 const MetricTitle = styled.div`
     font-size: 14px;
     font-weight: 600;
@@ -147,23 +170,28 @@ const hexToRgba = (hex: string, alpha: number): string => {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
-const resolveBadgeMeta = (rulesetName: string): { label: string; description: string } => {
+const resolveBadgeMeta = (
+    rulesetName: string
+): { label: string; description: string; analyzeSection: 'owasp' | 'wso2-rest' | 'all' } => {
     const normalized = rulesetName.toLowerCase();
     if (normalized.includes('security') || normalized.includes('owasp')) {
         return {
             label: 'Secure',
-            description: 'Explains how much secure your API is based on OWASP guidelines'
+            description: 'Explains how much secure your API is based on OWASP guidelines',
+            analyzeSection: 'owasp'
         };
     }
     if (normalized.includes('design') || normalized.includes('rest')) {
         return {
             label: 'Compliant',
-            description: 'Explains how much compliant your API is with WSO2 REST API guidelines'
+            description: 'Explains how much compliant your API is with WSO2 REST API guidelines',
+            analyzeSection: 'wso2-rest'
         };
     }
     return {
         label: rulesetName,
-        description: 'Spectral governance score for this ruleset'
+        description: 'Spectral governance score for this ruleset',
+        analyzeSection: 'all'
     };
 };
 
@@ -220,7 +248,8 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ fileUri, aiRea
                             key: ruleset.name,
                             label: meta.label,
                             description: meta.description,
-                            score: governance?.score ?? null
+                            score: governance?.score ?? null,
+                            analyzeSection: meta.analyzeSection
                         } as MetricBadgeData;
                     })
                 );
@@ -243,7 +272,8 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ fileUri, aiRea
                 key: 'ai-ready',
                 label: 'AI Ready',
                 description: 'Explains how much ready your API is to be consumed by agents',
-                score: readiness
+                score: readiness,
+                analyzeSection: 'ai-readiness'
             },
             ...governanceMetrics
         ],
@@ -254,11 +284,12 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ fileUri, aiRea
         return null;
     }
 
-    const navigateToAnalyze = () => {
+    const navigateToAnalyze = (analyzeSection: MetricBadgeData['analyzeSection']) => {
         postVSCodeMessage({
             command: 'switchView',
             viewType: 'analyze',
-            fileUri
+            fileUri,
+            analyzeSection
         });
     };
 
@@ -272,7 +303,7 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ fileUri, aiRea
                     return (
                         <MetricBadge
                             key={badge.key}
-                            onClick={navigateToAnalyze}
+                            onClick={() => navigateToAnalyze(badge.analyzeSection)}
                             title="Click to view detailed analysis"
                             $borderColor={hexToRgba(badgeAccent, 0.42)}
                             $bgColor={hexToRgba(badgeAccent, 0.1)}
@@ -285,6 +316,10 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ fileUri, aiRea
                             <MetricContent>
                                 <MetricTitle>{badge.label}</MetricTitle>
                                 <MetricDescription>{badge.description}</MetricDescription>
+                                <ReportLinkHint>
+                                    See full report
+                                    <Codicon name="arrow-right" sx={{ fontSize: '12px' }} />
+                                </ReportLinkHint>
                             </MetricContent>
                         </MetricBadge>
                     );

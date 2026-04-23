@@ -550,6 +550,63 @@ const operationIdConsistencyFunction = (collector: AiReadinessMetricsCollector):
         return violations;
     };
 
+interface OperationIdUniqueOptions {
+    category?: string;
+}
+
+const operationIdUniqueFunction = (collector: AiReadinessMetricsCollector): IFunction =>
+    function aiReadinessOperationIdUnique(targetVal, rawOpts): IFunctionResult[] {
+        const opts = (rawOpts || {}) as OperationIdUniqueOptions;
+        if (!targetVal || typeof targetVal !== 'object') return [];
+
+        const root = targetVal as Record<string, unknown>;
+        const pathsObj = root.paths;
+        if (!pathsObj || typeof pathsObj !== 'object') return [];
+
+        const opMethods = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options', 'trace'];
+        const occurrences = new Map<string, PathTuple[]>();
+
+        Object.entries(pathsObj as Record<string, unknown>).forEach(([pathKey, pathItem]) => {
+            if (!pathItem || typeof pathItem !== 'object') return;
+            opMethods.forEach((method) => {
+                const operation = (pathItem as Record<string, unknown>)[method];
+                if (!operation || typeof operation !== 'object') return;
+                const operationId = (operation as Record<string, unknown>).operationId;
+                if (typeof operationId !== 'string' || operationId.trim().length === 0) return;
+                const opId = operationId.trim();
+                const opPath: PathTuple = ['paths', pathKey, method, 'operationId'];
+                const list = occurrences.get(opId) || [];
+                list.push(opPath);
+                occurrences.set(opId, list);
+            });
+        });
+
+        const duplicatePaths = new Set<string>();
+        occurrences.forEach((paths) => {
+            if (paths.length > 1) {
+                paths.forEach((p) => duplicatePaths.add(JSON.stringify(p)));
+            }
+        });
+
+        const violations: IFunctionResult[] = [];
+        occurrences.forEach((paths, operationId) => {
+            const isDuplicate = paths.length > 1;
+            paths.forEach((path) => {
+                if (opts.category) {
+                    collector.record(opts.category, !isDuplicate, { recordPath: path });
+                }
+                if (isDuplicate) {
+                    violations.push({
+                        message: `operationId '${operationId}' is duplicated across multiple operations`,
+                        path
+                    });
+                }
+            });
+        });
+
+        return violations;
+    };
+
 const schemaConstraintsFunction = (collector: AiReadinessMetricsCollector): IFunction =>
     function aiReadinessSchemaHasConstraints(targetVal, rawOpts, context): IFunctionResult[] {
         const opts = (rawOpts || {}) as SchemaConstraintsOptions;
@@ -586,7 +643,8 @@ export const createAiReadinessFunctions = (collector: AiReadinessMetricsCollecto
     aiReadinessSchemaNoEmptyObject: schemaNoEmptyObjectFunction(collector),
     aiReadinessArrayItemsDefined: arrayItemsDefinedFunction(collector),
     aiReadinessOperationIdConsistency: operationIdConsistencyFunction(collector),
-    aiReadinessSchemaHasConstraints: schemaConstraintsFunction(collector)
+    aiReadinessSchemaHasConstraints: schemaConstraintsFunction(collector),
+    aiReadinessOperationIdUnique: operationIdUniqueFunction(collector),
 });
 
 const replaceFunctionInThen = (thenClause: any, functions: Record<string, IFunction>) => {

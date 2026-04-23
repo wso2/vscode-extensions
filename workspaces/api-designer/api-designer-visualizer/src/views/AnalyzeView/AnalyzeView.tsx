@@ -20,7 +20,7 @@ import React from 'react';
 import styled from '@emotion/styled';
 import { useVisualizerContext } from '@wso2/api-designer-rpc-client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { WelcomeHome } from './components/WelcomeHome';
+import { AnalyzeSingleReportPage, AnalyzeReportKey } from './components/AnalyzeSingleReportPage';
 import { FeatureComingSoon } from '../../components/common/FeatureComingSoon';
 import { APIHeader } from '../DesignView/components/api-header/APIHeader';
 import { loadYaml, isOpenAPI, isAsyncAPI, getSpecType } from '@wso2/api-designer-core';
@@ -72,47 +72,43 @@ const ContentArea = styled.div`
 
 interface AnalyzeViewProps {
     fileUri?: string;
+    initialReportView?: AnalyzeReportView;
 }
 
-export const AnalyzeView: React.FC<AnalyzeViewProps> = ({ fileUri: propFileUri }) => {
+type AnalyzeReportView = 'all' | AnalyzeReportKey;
+
+export const AnalyzeView: React.FC<AnalyzeViewProps> = ({ fileUri: propFileUri, initialReportView = 'all' }) => {
     // Use shared hook for fileUri management
     const currentFileUri = useFileUri(propFileUri);
     const { shouldShowWaiting, shouldShowInitializing } = useLoadingState(currentFileUri);
     const [refreshToken, setRefreshToken] = React.useState<number>(Date.now());
-    
-    // Handle refresh-triggering messages
+    const debounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const scheduleRefresh = React.useCallback(() => {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => setRefreshToken(Date.now()), 2000);
+    }, []);
+
+    // Refresh only when the spec content actually changes — navigation/validation events
+    // are excluded because they fire during page open and would cause an immediate double-load.
     React.useEffect(() => {
         const messageHandler = (event: MessageEvent) => {
-            const message = event.data;
-            switch (message.command) {
-                case 'setFileUri':
-                case 'switchView':
-                    // Refresh when file URI changes
-                    setRefreshToken(Date.now());
-                    break;
-                case 'validationResult':
-                case 'updateValidation':
-                    // Refresh governance dashboard when validation data is updated
-                    setRefreshToken(Date.now());
-                    break;
-                case 'aiReadinessScore':
-                case 'updateAIReadiness':
-                    // Refresh AI readiness dashboard when AI readiness data is updated
-                    setRefreshToken(Date.now());
-                    break;
+            switch (event.data?.command) {
                 case 'fileContentChanged':
                 case 'openApiContentChanged':
                 case 'updateSpec':
                 case 'update':
-                    // Refresh dashboards when OpenAPI content is updated
-                    setRefreshToken(Date.now());
+                    scheduleRefresh();
                     break;
             }
         };
-        
+
         window.addEventListener('message', messageHandler);
-        return () => window.removeEventListener('message', messageHandler);
-    }, []);
+        return () => {
+            window.removeEventListener('message', messageHandler);
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+        };
+    }, [scheduleRefresh]);
     
     // Show loading states
     if (shouldShowWaiting) {
@@ -125,13 +121,17 @@ export const AnalyzeView: React.FC<AnalyzeViewProps> = ({ fileUri: propFileUri }
     
     return (
         <QueryClientProvider client={queryClient}>
-            <AnalyzeViewContent fileUri={currentFileUri} refreshToken={refreshToken} />
+            <AnalyzeViewContent fileUri={currentFileUri} refreshToken={refreshToken} initialReportView={initialReportView} />
         </QueryClientProvider>
     );
 };
 
 // Separate component to access RPC client after context is available
-const AnalyzeViewContent: React.FC<{ fileUri: string; refreshToken: number }> = ({ fileUri, refreshToken }) => {
+const AnalyzeViewContent: React.FC<{ fileUri: string; refreshToken: number; initialReportView: AnalyzeReportView }> = ({
+    fileUri,
+    refreshToken,
+    initialReportView
+}) => {
     const { rpcClient } = useVisualizerContext();
     const [rpcReady, setRpcReady] = React.useState(false);
     const [specInfo, setSpecInfo] = React.useState<{
@@ -141,6 +141,7 @@ const AnalyzeViewContent: React.FC<{ fileUri: string; refreshToken: number }> = 
         openApiVersion?: string;
         specType?: 'openapi' | 'asyncapi';
     } | null>(null);
+    const [reportView, setReportView] = React.useState<AnalyzeReportView>(initialReportView);
     
     React.useEffect(() => {
         if (rpcClient && !rpcReady) {
@@ -152,6 +153,10 @@ const AnalyzeViewContent: React.FC<{ fileUri: string; refreshToken: number }> = 
             }
         }
     }, [rpcClient, rpcReady]);
+
+    React.useEffect(() => {
+        setReportView(initialReportView);
+    }, [initialReportView]);
     
     // Fetch spec info for header
     React.useEffect(() => {
@@ -220,7 +225,11 @@ const AnalyzeViewContent: React.FC<{ fileUri: string; refreshToken: number }> = 
                         description="Analysis capabilities for AsyncAPI specifications are coming soon." 
                     />
                 ) : (
-                    <WelcomeHome fileUri={fileUri} refreshToken={refreshToken} />
+                    <AnalyzeSingleReportPage
+                        fileUri={fileUri}
+                        refreshToken={refreshToken}
+                        reportKey={reportView === 'all' ? 'ai-readiness' : reportView}
+                    />
                 )}
             </ContentArea>
         </AnalyzeContainer>

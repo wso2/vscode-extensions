@@ -36,9 +36,15 @@ interface WelcomeHomeProps {
     fileUri: string;
     refreshToken?: number;
     specType?: 'openapi' | 'asyncapi'; // Spec type for context
+    reportView?: 'all' | 'ai-readiness' | 'owasp' | 'wso2-rest';
 }
 
-export const WelcomeHome: React.FC<WelcomeHomeProps> = ({ fileUri, refreshToken, specType = 'openapi' }) => {
+export const WelcomeHome: React.FC<WelcomeHomeProps> = ({
+    fileUri,
+    refreshToken,
+    specType = 'openapi',
+    reportView = 'all'
+}) => {
     const [dashboardRefreshToken, setDashboardRefreshToken] = useState<number>(Date.now());
     
     // Update refresh token when prop changes
@@ -50,14 +56,25 @@ export const WelcomeHome: React.FC<WelcomeHomeProps> = ({ fileUri, refreshToken,
 
     return (
         <WelcomeRoot>
-            {/* AI Readiness Dashboard */}
-            <AIReadinessDashboard fileUri={fileUri} refreshToken={dashboardRefreshToken} />
+            {(reportView === 'all' || reportView === 'ai-readiness') && (
+                <AIReadinessDashboard fileUri={fileUri} refreshToken={dashboardRefreshToken} />
+            )}
 
-            {/* Governance Dashboard */}
-            <GovernanceDashboard
-                fileUri={fileUri}
-                refreshToken={dashboardRefreshToken}
-            />
+            {(reportView === 'all' || reportView === 'owasp') && (
+                <GovernanceDashboard
+                    fileUri={fileUri}
+                    refreshToken={dashboardRefreshToken}
+                    rulesetFilter={reportView === 'owasp' ? 'owasp' : 'all'}
+                />
+            )}
+
+            {reportView === 'wso2-rest' && (
+                <GovernanceDashboard
+                    fileUri={fileUri}
+                    refreshToken={dashboardRefreshToken}
+                    rulesetFilter="wso2-rest"
+                />
+            )}
         </WelcomeRoot>
     );
 };

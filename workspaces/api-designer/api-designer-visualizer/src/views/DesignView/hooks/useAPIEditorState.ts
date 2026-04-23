@@ -146,7 +146,8 @@ export function useAPIEditorState(initialSpec?: OpenAPISpec | null): UseAPIEdito
                         warningCount: message.data?.warningCount ?? 0,
                         isValid: message.data?.isValid ?? true,
                         errors: message.data?.errors ?? [],
-                        warnings: message.data?.warnings ?? []
+                        warnings: message.data?.warnings ?? [],
+                        specContent: typeof message.data?.specContent === 'string' ? message.data.specContent : undefined
                     });
                     break;
                 case 'updateAIReadiness':

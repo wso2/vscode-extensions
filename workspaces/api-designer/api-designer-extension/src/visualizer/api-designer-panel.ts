@@ -79,6 +79,7 @@ export class ApiDesignerPanel {
     private _copilotCreateWatchDisposable: vscode.Disposable | undefined;
     private _copilotCreateFallbackTimer: ReturnType<typeof setTimeout> | undefined;
     private _viewType: string;
+    private _analyzeSection: 'all' | 'ai-readiness' | 'owasp' | 'wso2-rest' = 'all';
     private _lastSpec: unknown = null;
     private _specType: ApiSpecType | null = null;
     private _specService: SpecificationService | null = null;
@@ -171,7 +172,8 @@ export class ApiDesignerPanel {
                                 this._panel.webview.postMessage({
                                     command: 'switchView',
                                     viewType: this._viewType,
-                                    fileUri: this._currentFilePath
+                                    fileUri: this._currentFilePath,
+                                    analyzeSection: this._viewType === 'analyze' ? this._analyzeSection : undefined
                                 });
                             }
                         }, 10);
@@ -202,7 +204,8 @@ export class ApiDesignerPanel {
                             this._panel.webview.postMessage({
                                 command: 'switchView',
                                 viewType: this._viewType,
-                                fileUri: this._currentFilePath
+                                fileUri: this._currentFilePath,
+                                analyzeSection: this._viewType === 'analyze' ? this._analyzeSection : undefined
                             });
                             // Only send switchToEditor for preview/design views
                             if (this._viewType === 'preview' || this._viewType === 'design') {
@@ -250,8 +253,26 @@ export class ApiDesignerPanel {
                         // Handle view switching from webview
                         if (message.viewType) {
                             const incoming = String(message.viewType);
+                            if (incoming === 'analyze') {
+                                const section = message.analyzeSection;
+                                if (section === 'ai-readiness' || section === 'owasp' || section === 'wso2-rest' || section === 'all') {
+                                    this._analyzeSection = section;
+                                } else {
+                                    this._analyzeSection = 'all';
+                                }
+                            } else {
+                                this._analyzeSection = 'all';
+                            }
                             // updateViewType no-ops when unchanged and skips tree sync — still align the tree
                             if (this._viewType === incoming) {
+                                if (this._panel && !this._isDisposed) {
+                                    this._panel.webview.postMessage({
+                                        command: 'switchView',
+                                        viewType: incoming,
+                                        fileUri: this._currentFilePath,
+                                        analyzeSection: incoming === 'analyze' ? this._analyzeSection : undefined
+                                    });
+                                }
                                 this.scheduleSyncActivityBarTree();
                             } else {
                                 this.updateViewType(incoming);
@@ -512,7 +533,8 @@ export class ApiDesignerPanel {
                     this._panel.webview.postMessage({
                         command: 'switchView',
                         viewType: newViewType,
-                        fileUri: this._currentFilePath
+                        fileUri: this._currentFilePath,
+                        analyzeSection: newViewType === 'analyze' ? this._analyzeSection : undefined
                     });
                 }
             }, 10);
@@ -1058,17 +1080,33 @@ export class ApiDesignerPanel {
             // and applies the appropriate Spectral ruleset
             const validationResult = await validateAPISpec(content);
             
-            // Keep paths as arrays (Spectral returns arrays)
+            // Keep paths as arrays (Spectral returns arrays); include range for snippet preview in the webview
             const errors = (validationResult.errors || []).map((err: any) => ({
                 path: Array.isArray(err.path) ? err.path : (err.path ? [err.path] : []),
-                message: err.message || 'Unknown error'
+                message: err.message || 'Unknown error',
+                ...(err.range
+                    ? {
+                        range: {
+                            start: { line: err.range.start.line, character: err.range.start.character },
+                            end: { line: err.range.end.line, character: err.range.end.character }
+                        }
+                    }
+                    : {})
             }));
             const warnings = (validationResult.warnings || []).map((warn: any) => ({
                 path: Array.isArray(warn.path) ? warn.path : (warn.path ? [warn.path] : []),
-                message: warn.message || 'Unknown warning'
+                message: warn.message || 'Unknown warning',
+                ...(warn.range
+                    ? {
+                        range: {
+                            start: { line: warn.range.start.line, character: warn.range.start.character },
+                            end: { line: warn.range.end.line, character: warn.range.end.character }
+                        }
+                    }
+                    : {})
             }));
-            
-            // Send validation data to webview
+
+            // Send validation data to webview (spec text matches what Spectral validated — line numbers align)
             this._panel.webview.postMessage({
                 command: 'updateValidation',
                 data: {
@@ -1076,7 +1114,8 @@ export class ApiDesignerPanel {
                     warningCount: validationResult.warningCount || 0,
                     isValid: validationResult.isValid || false,
                     errors,
-                    warnings
+                    warnings,
+                    specContent: content
                 }
             });
         } catch (error) {

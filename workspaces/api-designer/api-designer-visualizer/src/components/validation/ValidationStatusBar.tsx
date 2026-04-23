@@ -19,13 +19,9 @@
 import React from 'react';
 import styled from '@emotion/styled';
 import { Codicon } from '@wso2/ui-toolkit';
+import type { ValidationData } from '../../views/DesignView/components/api-header/MetricsOverview';
 
-export interface ValidationData {
-    errorCount?: number;
-    warningCount?: number;
-    errors?: Array<{ path: string[]; message: string }>;
-    warnings?: Array<{ path: string[]; message: string }>;
-}
+export type { ValidationData };
 
 export interface ValidationStatusBarProps {
     validationData?: ValidationData | null;

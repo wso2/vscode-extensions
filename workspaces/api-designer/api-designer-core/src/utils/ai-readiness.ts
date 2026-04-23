@@ -58,8 +58,8 @@ const RULE_CATEGORY_MAP: Record<string, string> = {
     'ai-readiness-server-description': 'descriptions',
     'ai-readiness-path-item-description': 'descriptions',
     'ai-readiness-operation-description': 'descriptions',
-    'ai-readiness-operation-id': 'descriptions',
-    'ai-readiness-operation-id-casing': 'descriptions',
+    'ai-readiness-operation-id': 'operationIds',
+    'ai-readiness-operation-id-casing': 'operationIds',
     'ai-readiness-operation-tags': 'descriptions',
     'ai-readiness-parameter-description': 'descriptions',
     'ai-readiness-parameter-description-length': 'descriptions',
@@ -194,6 +194,7 @@ type BucketDefinition = {
 const BUCKET_DEFINITIONS: BucketDefinition[] = [
     { key: "summaries",     label: "Summaries",          icon: "list-unordered",  metricKey: "summaries" },
     { key: "descriptions",  label: "Descriptions",        icon: "note",            metricKey: "descriptions" },
+    { key: "operationIds",  label: "Operation IDs",       icon: "symbol-method",   metricKey: "operationIds" },
     { key: "examples",      label: "Examples",            icon: "symbol-field",    metricKey: "examples" },
     { key: "errors",        label: "Responses",           icon: "error",           metricKey: "errorResponses" },
     { key: "typing",        label: "Strict Typing",       icon: "symbol-parameter",metricKey: "typing" },

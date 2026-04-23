@@ -53,7 +53,7 @@ rulesetContent:
       message: "Server should have a description (e.g., production, staging) for AI context"
       fixSuggestion: >-
         On each `servers[]` entry, set `description` to the environment and audience (e.g. "Production, customer-facing, EU only").
-      severity: info
+      severity: warn
       given: $.servers[*]
       then:
         field: description
@@ -107,7 +107,7 @@ rulesetContent:
       message: "Path item should include a summary for better AI route understanding"
       fixSuggestion: >-
         Set `summary` on the path item to describe the resource or route group before drilling into per-method details.
-      severity: info
+      severity: warn
       given: $.paths[*]
       then:
         field: summary
@@ -118,7 +118,7 @@ rulesetContent:
       message: "Path item should include a description for better AI route understanding"
       fixSuggestion: >-
         Add a `description` on the path item for shared behavior, pagination, or resource lifecycle across methods.
-      severity: info
+      severity: warn
       given: $.paths[*]
       then:
         field: description
@@ -160,6 +160,18 @@ rulesetContent:
         function: aiReadinessOperationIdConsistency
         functionOptions:
           allowedStyles: [camel, snake, kebab, pascal]
+
+    ai-readiness-operation-id-unique:
+      description: operationIds must be unique across all operations
+      message: "operationId values must be unique across the API for reliable AI references"
+      fixSuggestion: >-
+        Rename duplicate `operationId` values so each operation has one unique identifier across paths and methods.
+      severity: warn
+      given: $
+      then:
+        function: aiReadinessOperationIdUnique
+        functionOptions:
+          category: operationIds
 
     ai-readiness-operation-tags:
       description: All operations should have tags for AI categorization
@@ -643,7 +655,7 @@ rulesetContent:
       message: "String property '{{property}}' should use a format modifier (e.g., date-time, email, uuid) for unambiguous AI interpretation"
       fixSuggestion: >-
         Add `format` for strings that are dates, emails, UUIDs, URIs, etc., per OpenAPI/JSON Schema conventions.
-      severity: info
+      severity: warn
       given: $.components.schemas[*].properties[?(@.type == 'string')]
       then:
         field: format
@@ -894,7 +906,7 @@ rulesetContent:
       message: "Tag '{{value.name}}' should have external documentation for AI learning"
       fixSuggestion: >-
         Add `externalDocs` with a URL to deeper docs, tutorials, or domain context for that tag.
-      severity: info
+      severity: warn
       given: $.tags[*]
       then:
         field: externalDocs
@@ -909,7 +921,7 @@ rulesetContent:
       message: "Schema with oneOf/anyOf should define a discriminator for AI understanding"
       fixSuggestion: >-
         Add `discriminator` with `propertyName` and optional `mapping` to tie variants to a stable property value.
-      severity: info
+      severity: warn
       given: $.components.schemas[?(@.oneOf || @.anyOf)]
       then:
         field: discriminator
