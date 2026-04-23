@@ -23,6 +23,8 @@ import { StepNodeData } from './StepNodeModel';
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
 import { ThemeColors } from '@wso2/ui-toolkit';
+import successIcon from '../../../resources/icons/success.svg';
+import failIcon from '../../../resources/icons/fail.svg';
 
 // ---- Trace status overlay styles ----
 
@@ -36,28 +38,19 @@ type TraceIndicatorProps = { traceState: 'running' | 'passed' | 'failed' };
 
 const TraceIndicator = styled.div<TraceIndicatorProps>`
     position: absolute;
-    top: -6px;
-    right: -6px;
-    width: 18px;
-    height: 18px;
+    top: 1px;
+    right: 1px;
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 10;
     background-color: ${({ traceState }: TraceIndicatorProps) =>
-        traceState === 'running' ? ThemeColors.PRIMARY
-        : traceState === 'passed' ? (ThemeColors as any).TESTING_PASSED
-        : ThemeColors.ERROR};
+        traceState === 'running' ? ThemeColors.PRIMARY : 'transparent'};
     animation: ${({ traceState }: TraceIndicatorProps) => traceState === 'running' ? pulse : 'none'} 1s ease-in-out infinite;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
-`;
-
-const IndicatorIcon = styled.span`
-    color: #fff;
-    font-size: 11px;
-    font-weight: bold;
-    line-height: 1;
+    box-shadow: ${({ traceState }: TraceIndicatorProps) => traceState === 'running' ? '0 1px 4px rgba(0, 0, 0, 0.3)' : 'none'};
 `;
 
 const DurationLabel = styled.div`
@@ -85,9 +78,10 @@ export const StepNodeWidget: React.FC<NodeProps<StepNodeData>> = (props) => {
             {/* Trace status indicator */}
             {traceStatus && (
                 <TraceIndicator traceState={traceStatus.state}>
-                    <IndicatorIcon>
-                        {traceStatus.state === 'running' ? '' : traceStatus.state === 'passed' ? '\u2713' : '\u2717'}
-                    </IndicatorIcon>
+                    {traceStatus.state === 'running' ? null
+                        : traceStatus.state === 'passed'
+                            ? <img src={successIcon} width={14} height={14} />
+                            : <img src={failIcon} width={14} height={14} />}
                 </TraceIndicator>
             )}
             {/* Duration label */}
