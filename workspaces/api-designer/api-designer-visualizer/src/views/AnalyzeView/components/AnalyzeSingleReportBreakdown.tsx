@@ -1,7 +1,8 @@
 import React from 'react';
 import styled from '@emotion/styled';
-import { AnalyzeReportKey, scoreColor } from '../hooks/useReport';
+import { AnalyzeReportKey } from '../hooks/useReport';
 import { BREAKDOWN_TITLES } from './AnalyzeSingleReportHelpers';
+import { AIReadinessBucketGrid } from './AIReadinessBucketGrid';
 
 interface BreakdownItem {
     id: string;
@@ -19,6 +20,17 @@ interface AiBucketSummaryItem {
     filled: number;
     total: number;
     percentage: number;
+    rules?: Array<{ key: string; label: string; filled: number; total: number; percentage: number }>;
+}
+
+interface ViolationRow {
+    id: string;
+    rule: string;
+    message: string;
+    severity: string;
+    path: string;
+    endpoint: string;
+    method: string;
 }
 
 interface AnalyzeSingleReportBreakdownProps {
@@ -26,6 +38,10 @@ interface AnalyzeSingleReportBreakdownProps {
     aiBucketSummary: AiBucketSummaryItem[];
     breakdownSummary: BreakdownItem[];
     totalRows: number;
+    violations: ViolationRow[];
+    expandedBucketKeys: Set<string>;
+    onToggleBucket: (key: string) => void;
+    onViewIssues: () => void;
 }
 
 const SectionBlock = styled.div`
@@ -49,50 +65,6 @@ const SectionTitleText = styled.div`
     color: var(--vscode-foreground);
 `;
 
-const AiBreakdownGrid = styled.div`
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 10px;
-    padding: 14px;
-`;
-
-const AiBreakdownTile = styled.div`
-    background: var(--vscode-editorWidget-background);
-    border: 1px solid var(--vscode-panel-border);
-    border-radius: 8px;
-    padding: 10px 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-`;
-
-const AiTileHead = styled.div`
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 8px;
-`;
-
-const AiTileLabel = styled.div`
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--vscode-descriptionForeground);
-`;
-
-const AiTileFraction = styled.div`
-    font-size: 17px;
-    font-weight: 700;
-    color: var(--vscode-foreground);
-`;
-
-const AiTilePercent = styled.div`
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--vscode-descriptionForeground);
-    text-align: right;
-`;
 
 const OwaspGrid = styled.div`
     display: grid;
@@ -229,29 +201,23 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
     aiBucketSummary,
     breakdownSummary,
     totalRows,
+    violations,
+    expandedBucketKeys,
+    onToggleBucket,
+    onViewIssues,
 }) => (
     <SectionBlock>
         <SectionHeader>
             <SectionTitleText>{BREAKDOWN_TITLES[reportKey]}</SectionTitleText>
         </SectionHeader>
         {reportKey === 'ai-readiness' ? (
-            <AiBreakdownGrid>
-                {aiBucketSummary.map((bucket) => {
-                    const color = scoreColor(bucket.percentage);
-                    return (
-                        <AiBreakdownTile key={bucket.key}>
-                            <AiTileHead>
-                                <AiTileLabel>{bucket.label}</AiTileLabel>
-                                <AiTileFraction>{bucket.filled}/{bucket.total}</AiTileFraction>
-                            </AiTileHead>
-                            <ProgressTrack>
-                                <ProgressFill $width={bucket.percentage} $severity={bucket.percentage < 60 ? 'error' : 'warn'} />
-                            </ProgressTrack>
-                            <AiTilePercent style={{ color }}>{Math.round(bucket.percentage)}%</AiTilePercent>
-                        </AiBreakdownTile>
-                    );
-                })}
-            </AiBreakdownGrid>
+            <AIReadinessBucketGrid
+                subBuckets={aiBucketSummary}
+                expandedKeys={expandedBucketKeys}
+                onToggle={onToggleBucket}
+                violations={violations}
+                onViewIssues={onViewIssues}
+            />
         ) : (
             <OwaspGrid>
                 {breakdownSummary.map((cat) => {

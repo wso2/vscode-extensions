@@ -192,9 +192,9 @@ export const AnalyzeSingleReportOverview: React.FC<AnalyzeSingleReportOverviewPr
                 </MetricTile>
 
                 <MetricTile $accent="var(--vscode-focusBorder)">
-                    <MetricLabel>Endpoints Affected</MetricLabel>
+                    <MetricLabel>Operations affected</MetricLabel>
                     <MetricValue>{stats.endpointCount}</MetricValue>
-                    <MetricSub>of all defined paths</MetricSub>
+                    <MetricSub>distinct path + method</MetricSub>
                 </MetricTile>
 
             </MetricsGrid>

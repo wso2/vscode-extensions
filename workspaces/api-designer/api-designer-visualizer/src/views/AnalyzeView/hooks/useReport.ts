@@ -43,6 +43,7 @@ export interface ReportState {
             filled: number;
             total: number;
             percentage: number;
+            rules?: Array<{ key: string; label: string; filled: number; total: number; percentage: number }>;
         }>;
     };
 }

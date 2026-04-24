@@ -78,6 +78,7 @@ export interface AiReadinessCoverage {
 
 export interface AiReadinessMetrics {
     categories: Record<string, AiReadinessCoverage>;
+    rules?: Record<string, AiReadinessCoverage>;
 }
 
 export interface AiReadinessViolation {
@@ -93,10 +94,19 @@ export interface AiReadinessCategorySummary {
     missing?: AiReadinessViolation[];
 }
 
+export interface AiReadinessRuleSummary {
+    key: string;
+    label: string;
+    filled: number;
+    total: number;
+    percentage: number;
+}
+
 export interface AiReadinessBucketSummary extends AiReadinessCategorySummary {
     key: string;
     label: string;
     icon?: string;
+    rules?: AiReadinessRuleSummary[];
 }
 
 export interface AiReadinessSummary {

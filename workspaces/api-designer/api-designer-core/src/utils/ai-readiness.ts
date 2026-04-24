@@ -4,6 +4,7 @@ import {
     AiReadinessBucketSummary,
     AiReadinessCategorySummary,
     AiReadinessViolation,
+    AiReadinessRuleSummary,
     GetGovernanceResponse
 } from "../rpc-types/api-designer-visualizer/types";
 
@@ -136,8 +137,7 @@ const RULE_CATEGORY_MAP: Record<string, string> = {
     'ai-readiness-idempotency-key': 'idempotency',
 };
 
-// Rule counts per bucket — used to proportionally distribute fallback totals
-// when a bucket has no custom-function metrics but has a known rule set.
+// Rule counts per bucket
 const BUCKET_RULE_COUNTS: Record<string, number> = Object.keys(RULE_CATEGORY_MAP).reduce(
     (acc: Record<string, number>, rule: string) => {
         const bucketKey = RULE_CATEGORY_MAP[rule];
@@ -146,39 +146,6 @@ const BUCKET_RULE_COUNTS: Record<string, number> = Object.keys(RULE_CATEGORY_MAP
     },
     {}
 );
-const TOTAL_MAPPED_RULES = Object.keys(BUCKET_RULE_COUNTS).reduce(
-    (sum: number, k: string) => sum + BUCKET_RULE_COUNTS[k],
-    0
-);
-
-const computeCoverage = (
-    coverageEntry: { total?: number; passed?: number; failed?: number } | undefined,
-    fallbackTotal: number,
-    missingCount: number
-): AiReadinessCategorySummary => {
-    if (coverageEntry) {
-        const passed = coverageEntry.passed ?? 0;
-        // Use the larger of: metric-tracked failures vs actual bucket violations (includes standard-function rules)
-        const failed = Math.max(coverageEntry.failed ?? 0, missingCount);
-        const total = passed + failed;
-        const percentage = total > 0 ? Math.round((passed / total) * 100) : 100;
-        return {
-            total,
-            filled: passed,
-            percentage: Math.max(0, Math.min(100, percentage))
-        };
-    }
-
-    const total = Math.max(0, fallbackTotal);
-    const filled = Math.max(0, total - missingCount);
-    const percentage = total > 0 ? Math.round((filled / total) * 100) : 100;
-    return {
-        total,
-        filled,
-        percentage: Math.max(0, Math.min(100, percentage))
-    };
-};
-
 type ViolationBucket = {
     violations: AiReadinessViolation[];
     seen: Set<string>;
@@ -189,20 +156,21 @@ type BucketDefinition = {
     label: string;
     icon: string;
     metricKey: string;
+    weight: number;
 };
 
 const BUCKET_DEFINITIONS: BucketDefinition[] = [
-    { key: "summaries",     label: "Summaries",          icon: "list-unordered",  metricKey: "summaries" },
-    { key: "descriptions",  label: "Descriptions",        icon: "note",            metricKey: "descriptions" },
-    { key: "operationIds",  label: "Operation IDs",       icon: "symbol-method",   metricKey: "operationIds" },
-    { key: "examples",      label: "Examples",            icon: "symbol-field",    metricKey: "examples" },
-    { key: "errors",        label: "Responses",           icon: "error",           metricKey: "errorResponses" },
-    { key: "typing",        label: "Strict Typing",       icon: "symbol-parameter",metricKey: "typing" },
-    { key: "errorSemantics",label: "Error Semantics",     icon: "feedback",        metricKey: "errorSemantics" },
-    { key: "headers",       label: "Rate Limit Headers",  icon: "server-process",  metricKey: "headers" },
-    { key: "pagination",    label: "Pagination",          icon: "list-flat",       metricKey: "pagination" },
-    { key: "security",      label: "Agent Auth",          icon: "shield",          metricKey: "security" },
-    { key: "idempotency",   label: "Idempotency",         icon: "sync",            metricKey: "idempotency" },
+    { key: "summaries",      label: "Summaries",           icon: "list-unordered",   metricKey: "summaries",      weight: 1.2 },
+    { key: "descriptions",   label: "Descriptions",        icon: "note",             metricKey: "descriptions",   weight: 1.0 },
+    { key: "operationIds",   label: "Operation IDs",       icon: "symbol-method",    metricKey: "operationIds",   weight: 1.3 },
+    { key: "examples",       label: "Examples",            icon: "symbol-field",     metricKey: "examples",       weight: 1.0 },
+    { key: "errors",         label: "Responses",           icon: "error",            metricKey: "errorResponses", weight: 1.25 },
+    { key: "typing",         label: "Strict Typing",       icon: "symbol-parameter", metricKey: "typing",         weight: 1.1 },
+    { key: "errorSemantics", label: "Error Semantics",     icon: "feedback",         metricKey: "errorSemantics", weight: 1.35 },
+    { key: "headers",        label: "Rate Limit Headers",  icon: "server-process",   metricKey: "headers",        weight: 1.15 },
+    { key: "pagination",     label: "Pagination",          icon: "list-flat",        metricKey: "pagination",     weight: 1.1 },
+    { key: "security",       label: "Agent Auth",          icon: "shield",           metricKey: "security",       weight: 1.5 },
+    { key: "idempotency",    label: "Idempotency",         icon: "sync",             metricKey: "idempotency",    weight: 1.4 },
 ];
 
 const makeBucket = (): ViolationBucket => ({
@@ -248,38 +216,69 @@ export const buildAiReadinessSummary = (governanceResult: GetGovernanceResponse)
         }
     });
 
-    const totalChecks = governanceResult.totalChecks ||
-        (governanceResult.passedChecks || 0) + (governanceResult.failedChecks || 0);
+    const rc = governanceResult.aiReadinessMetrics?.rules ?? {};
 
-    const cc = governanceResult.aiReadinessMetrics?.categories ?? {};
+    // Per-rule violation counts (for coverage fallback)
+    const ruleViolationCounts = new Map<string, number>();
+    violationEntries.forEach((violation) => {
+        const ruleCode = (violation.rule || violation.code || '').toLowerCase();
+        ruleViolationCounts.set(ruleCode, (ruleViolationCounts.get(ruleCode) ?? 0) + 1);
+    });
 
     const bucketSummaries: AiReadinessBucketSummary[] = BUCKET_DEFINITIONS.map((def) => {
-        // Fallback total is proportional to the number of rules in this bucket vs all mapped rules
-        const fallbackTotal = TOTAL_MAPPED_RULES > 0
-            ? Math.ceil(totalChecks * (BUCKET_RULE_COUNTS[def.key] ?? 0) / TOTAL_MAPPED_RULES)
-            : 0;
+        const rulesInBucket = Object.keys(RULE_CATEGORY_MAP).filter(r => RULE_CATEGORY_MAP[r] === def.key);
 
-        const coverage = computeCoverage(
-            cc[def.metricKey],
-            fallbackTotal,
-            buckets[def.key].violations.length
-        );
+        const rules: AiReadinessRuleSummary[] = rulesInBucket
+            .map((ruleKey) => {
+                const ruleMetric = rc[ruleKey];
+                const ruleViolationCount = ruleViolationCounts.get(ruleKey) ?? 0;
+                const failedByMetric = (ruleMetric?.failed ?? 0) > 0;
+                const failedByViolation = ruleViolationCount > 0;
+                const failed = failedByMetric || failedByViolation;
+                const ruleCoverage: AiReadinessCategorySummary = {
+                    total: 1,
+                    filled: failed ? 0 : 1,
+                    percentage: failed ? 0 : 100,
+                };
+
+                const label = ruleKey
+                    .replace(/^ai-readiness-/, '')
+                    .replace(/-/g, ' ')
+                    .replace(/^\w/, (c) => c.toUpperCase());
+                return { key: ruleKey, label, ...ruleCoverage } as AiReadinessRuleSummary;
+            })
+            .filter((r): r is AiReadinessRuleSummary => r !== null);
+
+        const total = rulesInBucket.length || (BUCKET_RULE_COUNTS[def.key] ?? 0);
+        const filled = rules.reduce((sum, rule) => sum + (rule.filled > 0 ? 1 : 0), 0);
+        const percentage = total > 0 ? Math.round((filled / total) * 100) : 100;
+
         return {
             key: def.key,
             label: def.label,
             icon: def.icon,
-            ...coverage,
-            missing: buckets[def.key].violations
+            total,
+            filled,
+            percentage: Math.max(0, Math.min(100, percentage)),
+            missing: buckets[def.key].violations,
+            rules,
         };
     });
 
-    // Average only categories that have actual checks to avoid penalising APIs where a category doesn't apply
-    const activeCoverages = bucketSummaries.filter((bucket) => bucket.total > 0);
-    const averageCoverage = activeCoverages.length > 0
-        ? activeCoverages.reduce((sum, c) => sum + c.percentage, 0) / activeCoverages.length
+    const weighted = BUCKET_DEFINITIONS.reduce(
+        (acc, def) => {
+            const bucket = bucketSummaries.find((b) => b.key === def.key);
+            if (!bucket || bucket.total <= 0) return acc;
+            return {
+                weightedSum: acc.weightedSum + (bucket.percentage * def.weight),
+                totalWeight: acc.totalWeight + def.weight,
+            };
+        },
+        { weightedSum: 0, totalWeight: 0 }
+    );
+    const score = weighted.totalWeight > 0
+        ? Math.round(Math.max(0, Math.min(100, weighted.weightedSum / weighted.totalWeight)))
         : 0;
-
-    const score = Math.round(Math.max(0, Math.min(100, averageCoverage)));
 
     return {
         score,

@@ -120,6 +120,14 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
     const isAIAvailable = useAIAvailability();
 
     const [activeTab, setActiveTab] = React.useState<ActiveTab>('issues');
+    const [expandedBucketKeys, setExpandedBucketKeys] = React.useState<Set<string>>(new Set());
+    const toggleBucketKey = React.useCallback((key: string) => {
+        setExpandedBucketKeys((prev) => {
+            const next = new Set(prev);
+            next.has(key) ? next.delete(key) : next.add(key);
+            return next;
+        });
+    }, []);
     const [severityFilter, setSeverityFilter] = React.useState<'all' | SeverityLevel>('all');
     const [groupBy, setGroupBy] = React.useState<GroupBy>('none');
     const [sortBy, setSortBy] = React.useState<SortBy>('severity');
@@ -148,7 +156,12 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
     const stats = React.useMemo(() => {
         const errors = rows.filter((r) => r.severity === 'error').length;
         const warnings = rows.filter((r) => r.severity === 'warn').length;
-        const endpointCount = new Set(rows.map((r) => `${r.method}:${r.endpoint}`)).size;
+        // Count distinct operations (path + HTTP method). Global/root issues are excluded.
+        const endpointCount = new Set(
+            rows
+                .filter((r) => r.endpoint && r.endpoint !== 'global' && r.method && r.method !== 'GLOBAL')
+                .map((r) => `${r.method}:${r.endpoint}`),
+        ).size;
         const rulesCount = new Set(rows.map((r) => r.rule)).size;
         return { errors, warnings, endpointCount, rulesCount };
     }, [rows]);
@@ -195,6 +208,7 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
                 filled: bucket.filled,
                 total: bucket.total,
                 percentage: bucket.percentage,
+                rules: bucket.rules,
             }));
         }
         return [];
@@ -301,6 +315,10 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
                 aiBucketSummary={aiBucketSummary}
                 breakdownSummary={breakdownSummary}
                 totalRows={rows.length}
+                violations={rows}
+                expandedBucketKeys={expandedBucketKeys}
+                onToggleBucket={toggleBucketKey}
+                onViewIssues={() => setActiveTab('issues')}
             />
 
             <AnalyzeSingleReportIssueExplorer

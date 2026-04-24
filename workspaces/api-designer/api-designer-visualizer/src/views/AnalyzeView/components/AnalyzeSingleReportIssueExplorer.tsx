@@ -48,8 +48,8 @@ const IssueExplorerBlock = styled.div`
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    height: min(72vh, 760px);
-    min-height: 520px;
+    height: min(85vh, 1000px);
+    min-height: 620px;
 `;
 const SectionHeader = styled.div`
     display: flex; align-items: center; justify-content: space-between; gap: 8px;
@@ -121,7 +121,7 @@ const TableFooter = styled.div`
 `;
 const DetailColumn = styled.div`height: 100%; min-height: 0;`;
 const DetailCard = styled.div`
-    border: 1px solid var(--vscode-panel-border); border-radius: 0; overflow: hidden;
+    border: 1px solid var(--vscode-panel-border); border-radius: 8px; overflow: hidden; margin: 10px;
     background: var(--vscode-editor-background); height: 100%; display: flex; flex-direction: column;
 `;
 const DetailHeader = styled.div`

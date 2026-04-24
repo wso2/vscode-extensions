@@ -1,4 +1,8 @@
-import type { IFunction, IFunctionResult } from '@stoplight/spectral-core';
+import type { IFunction, IFunctionResult, RulesetFunctionContext } from '@stoplight/spectral-core';
+
+// IRule interface omits `name`; the concrete Rule class has it at runtime.
+const getRuleName = (context: RulesetFunctionContext): string =>
+    (context.rule as unknown as { name: string }).name ?? '';
 
 export type AiReadinessCategory =
     | 'summaries'
@@ -24,60 +28,65 @@ export interface AiReadinessCoverageStats {
 
 export interface AiReadinessMetrics {
     categories: Record<AiReadinessCategory | string, AiReadinessCoverageStats>;
+    rules?: Record<string, AiReadinessCoverageStats>;
 }
 
 interface RecordOptions {
     recordPath?: PathTuple;
+    rule?: string;
 }
 
 export class AiReadinessMetricsCollector {
     private readonly categories = new Map<string, AiReadinessCoverageStats>();
+    private readonly ruleStats = new Map<string, AiReadinessCoverageStats>();
 
-    private ensureCategory(category: string): AiReadinessCoverageStats {
-        let stats = this.categories.get(category);
+    private ensureEntry(map: Map<string, AiReadinessCoverageStats>, key: string): AiReadinessCoverageStats {
+        let stats = map.get(key);
         if (!stats) {
-            stats = {
-                total: 0,
-                passed: 0,
-                failed: 0,
-                passedPaths: [],
-                failedPaths: []
-            };
-            this.categories.set(category, stats);
+            stats = { total: 0, passed: 0, failed: 0, passedPaths: [], failedPaths: [] };
+            map.set(key, stats);
         }
         return stats;
     }
 
-    record(category: string, passed: boolean, options?: RecordOptions): void {
-        const stats = this.ensureCategory(category);
+    private recordTo(stats: AiReadinessCoverageStats, passed: boolean, path?: PathTuple): void {
         stats.total += 1;
-        const path = options?.recordPath ? [...options.recordPath] : undefined;
-
         if (passed) {
             stats.passed += 1;
-            if (path) {
-                stats.passedPaths.push(path);
-            }
+            if (path) stats.passedPaths.push(path);
         } else {
             stats.failed += 1;
-            if (path) {
-                stats.failedPaths.push(path);
-            }
+            if (path) stats.failedPaths.push(path);
         }
     }
 
-    export(): AiReadinessMetrics {
-        const categories: Record<string, AiReadinessCoverageStats> = {};
-        for (const [key, value] of this.categories.entries()) {
-            categories[key] = {
+    record(category: string, passed: boolean, options?: RecordOptions): void {
+        const path = options?.recordPath ? [...options.recordPath] : undefined;
+        this.recordTo(this.ensureEntry(this.categories, category), passed, path);
+        if (options?.rule) {
+            this.recordTo(this.ensureEntry(this.ruleStats, options.rule), passed, path);
+        }
+    }
+
+    private exportMap(map: Map<string, AiReadinessCoverageStats>): Record<string, AiReadinessCoverageStats> {
+        const out: Record<string, AiReadinessCoverageStats> = {};
+        for (const [key, value] of map.entries()) {
+            out[key] = {
                 total: value.total,
                 passed: value.passed,
                 failed: value.failed,
-                passedPaths: value.passedPaths.map(path => [...path]),
-                failedPaths: value.failedPaths.map(path => [...path])
+                passedPaths: value.passedPaths.map(p => [...p]),
+                failedPaths: value.failedPaths.map(p => [...p]),
             };
         }
-        return { categories };
+        return out;
+    }
+
+    export(): AiReadinessMetrics {
+        return {
+            categories: this.exportMap(this.categories),
+            rules: this.exportMap(this.ruleStats),
+        };
     }
 }
 
@@ -150,7 +159,7 @@ const fieldCoverageFunction = (collector: AiReadinessMetricsCollector): IFunctio
             ? [...context.path, selectedField]
             : [...context.path];
 
-        collector.record(opts.category, passes, { recordPath: path });
+        collector.record(opts.category, passes, { recordPath: path, rule: getRuleName(context) });
 
         if (passes) {
             return [];
@@ -181,7 +190,7 @@ const errorResponseCoverageFunction = (collector: AiReadinessMetricsCollector): 
             ? requiredCodes.some(code => responses && Object.prototype.hasOwnProperty.call(responses, code))
             : false;
 
-        collector.record(opts.category, !!hasRequired, { recordPath: [...context.path, 'responses'] });
+        collector.record(opts.category, !!hasRequired, { recordPath: [...context.path, 'responses'], rule: getRuleName(context) });
 
         if (hasRequired) {
             return [];
@@ -208,7 +217,7 @@ const schemaTypingFunction = (collector: AiReadinessMetricsCollector): IFunction
         const hasType = typeof schema.type === 'string' && schema.type.trim().length > 0;
         const hasRef = typeof schema.$ref === 'string';
         const passed = hasType || hasRef;
-        collector.record(opts.category, passed, { recordPath: [...context.path] });
+        collector.record(opts.category, passed, { recordPath: [...context.path], rule: getRuleName(context) });
         if (passed) return [];
         return [{ message: context.rule.message ?? 'Schema must have an explicit type defined', path: [...context.path] }];
     };
@@ -249,7 +258,7 @@ const errorSchemaStructureFunction = (collector: AiReadinessMetricsCollector): I
             : {};
         const missingFields = requiredFields.filter(f => !(f in properties));
         const passed = missingFields.length === 0;
-        collector.record(opts.category, passed, { recordPath: [...context.path] });
+        collector.record(opts.category, passed, { recordPath: [...context.path], rule: getRuleName(context) });
         if (passed) return [];
         return [{ message: context.rule.message ?? `Error schema missing fields: ${missingFields.join(', ')}`, path: [...context.path] }];
     };
@@ -270,7 +279,7 @@ const rateLimitHeaderFunction = (collector: AiReadinessMetricsCollector): IFunct
         const headerNames = Object.keys(headers).map(h => h.toLowerCase());
         const passed = headerNames.includes('retry-after') ||
             headerNames.some(h => h.startsWith('x-ratelimit-') || h.startsWith('x-rate-limit-'));
-        collector.record(opts.category, passed, { recordPath: [...context.path] });
+        collector.record(opts.category, passed, { recordPath: [...context.path], rule: getRuleName(context) });
         if (passed) return [];
         return [{ message: context.rule.message ?? '429 response must include Retry-After or X-RateLimit-* headers', path: [...context.path] }];
     };
@@ -297,7 +306,7 @@ const paginationParamsFunction = (collector: AiReadinessMetricsCollector): IFunc
         const hasLimit = paramNames.includes('limit') || paramNames.includes('page_size') ||
             paramNames.includes('pagesize') || paramNames.includes('per_page');
         const passed = hasCursorOrPage && hasLimit;
-        collector.record(opts.category, passed, { recordPath: [...context.path] });
+        collector.record(opts.category, passed, { recordPath: [...context.path], rule: getRuleName(context) });
         if (passed) return [];
         return [{ message: context.rule.message ?? 'List endpoint should have pagination parameters (cursor/page and limit)', path: [...context.path] }];
     };
@@ -320,7 +329,7 @@ const securitySchemeFunction = (collector: AiReadinessMetricsCollector): IFuncti
             hasInteractiveFlow = ('implicit' in flows) || ('authorizationCode' in flows);
         }
         const passed = !hasInteractiveFlow;
-        collector.record(opts.category, passed, { recordPath: [...context.path] });
+        collector.record(opts.category, passed, { recordPath: [...context.path], rule: getRuleName(context) });
         if (passed) return [];
         return [{ message: context.rule.message ?? 'Security scheme uses interactive OAuth flow not suitable for AI agents', path: [...context.path] }];
     };
@@ -343,7 +352,7 @@ const idempotencyFunction = (collector: AiReadinessMetricsCollector): IFunction 
                 typeof param.name === 'string' &&
                 param.name.toLowerCase() === 'idempotency-key';
         });
-        collector.record(opts.category, passed, { recordPath: [...context.path] });
+        collector.record(opts.category, passed, { recordPath: [...context.path], rule: getRuleName(context) });
         if (passed) return [];
         return [{ message: context.rule.message ?? 'Mutating operation should support Idempotency-Key header for safe retries', path: [...context.path] }];
     };
@@ -374,7 +383,7 @@ const errorSchemaAnyFieldsFunction = (collector: AiReadinessMetricsCollector): I
             ? schema.properties as Record<string, unknown>
             : {};
         const passed = anyFields.length === 0 || anyFields.some(f => f in properties);
-        collector.record(opts.category, passed, { recordPath: [...context.path] });
+        collector.record(opts.category, passed, { recordPath: [...context.path], rule: getRuleName(context) });
         if (passed) return [];
         return [{ message: context.rule.message ?? `Error schema should include one of: ${anyFields.join(', ')}`, path: [...context.path] }];
     };
@@ -398,7 +407,7 @@ const paginationMetaFunction = (collector: AiReadinessMetricsCollector): IFuncti
             ['total', 'total_count', 'totalcount', 'count', 'total_items', 'totalitems'].includes(p)
         );
         const passed = hasMoreField || hasCursorField || hasTotalField;
-        collector.record(opts.category, passed, { recordPath: [...context.path] });
+        collector.record(opts.category, passed, { recordPath: [...context.path], rule: getRuleName(context) });
         if (passed) return [];
         return [{ message: context.rule.message ?? 'List response schema should include pagination metadata (has_more, next_cursor, or total)', path: [...context.path] }];
     };
@@ -416,7 +425,7 @@ const schemaNoEmptyObjectFunction = (collector: AiReadinessMetricsCollector): IF
             && Object.keys(schema.properties as Record<string, unknown>).length > 0;
         const hasAdditional = schema.additionalProperties !== undefined;
         const passed = hasRef || hasComposition || hasProperties || hasAdditional;
-        collector.record(opts.category, passed, { recordPath: [...context.path] });
+        collector.record(opts.category, passed, { recordPath: [...context.path], rule: getRuleName(context) });
         if (passed) return [];
         return [{ message: context.rule.message ?? 'Object schema must define properties or additionalProperties — empty object types are ambiguous for AI', path: [...context.path] }];
     };
@@ -429,7 +438,7 @@ const arrayItemsDefinedFunction = (collector: AiReadinessMetricsCollector): IFun
             : {};
         if (schema.type !== 'array') return [];
         const passed = schema.items !== undefined && schema.items !== null;
-        collector.record(opts.category, passed, { recordPath: [...context.path] });
+        collector.record(opts.category, passed, { recordPath: [...context.path], rule: getRuleName(context) });
         if (passed) return [];
         return [{ message: context.rule.message ?? 'Array schema must define an items schema — untyped arrays are ambiguous for AI', path: [...context.path] }];
     };
@@ -452,7 +461,7 @@ const serversDefinedFunction = (collector: AiReadinessMetricsCollector): IFuncti
                 return typeof url === 'string' && url.trim().length > 0;
             });
         if (opts.category) {
-            collector.record(opts.category, passed, { recordPath: [...context.path, 'servers'] });
+            collector.record(opts.category, passed, { recordPath: [...context.path, 'servers'], rule: getRuleName(context) });
         }
         if (passed) return [];
         return [{ message: context.rule.message ?? 'API must define at least one non-empty server URL', path: [...context.path, 'servers'] }];
@@ -509,7 +518,7 @@ const operationIdConsistencyFunction = (collector: AiReadinessMetricsCollector):
         if (operationIds.length <= 1) {
             operationIds.forEach((entry) => {
                 if (opts.category) {
-                    collector.record(opts.category, true, { recordPath: entry.path });
+                    collector.record(opts.category, true, { recordPath: entry.path, rule: getRuleName(context) });
                 }
             });
             return [];
@@ -527,7 +536,7 @@ const operationIdConsistencyFunction = (collector: AiReadinessMetricsCollector):
         if (!dominantStyle) {
             operationIds.forEach((entry) => {
                 if (opts.category) {
-                    collector.record(opts.category, true, { recordPath: entry.path });
+                    collector.record(opts.category, true, { recordPath: entry.path, rule: getRuleName(context) });
                 }
             });
             return [];
@@ -537,7 +546,7 @@ const operationIdConsistencyFunction = (collector: AiReadinessMetricsCollector):
         operationIds.forEach((entry) => {
             const passed = entry.style === dominantStyle || !allowedStyles.has(entry.style);
             if (opts.category) {
-                collector.record(opts.category, passed, { recordPath: entry.path });
+                collector.record(opts.category, passed, { recordPath: entry.path, rule: getRuleName(context) });
             }
             if (!passed) {
                 violations.push({
@@ -555,7 +564,7 @@ interface OperationIdUniqueOptions {
 }
 
 const operationIdUniqueFunction = (collector: AiReadinessMetricsCollector): IFunction =>
-    function aiReadinessOperationIdUnique(targetVal, rawOpts): IFunctionResult[] {
+    function aiReadinessOperationIdUnique(targetVal, rawOpts, context): IFunctionResult[] {
         const opts = (rawOpts || {}) as OperationIdUniqueOptions;
         if (!targetVal || typeof targetVal !== 'object') return [];
 
@@ -593,7 +602,7 @@ const operationIdUniqueFunction = (collector: AiReadinessMetricsCollector): IFun
             const isDuplicate = paths.length > 1;
             paths.forEach((path) => {
                 if (opts.category) {
-                    collector.record(opts.category, !isDuplicate, { recordPath: path });
+                    collector.record(opts.category, !isDuplicate, { recordPath: path, rule: getRuleName(context) });
                 }
                 if (isDuplicate) {
                     violations.push({
@@ -620,7 +629,7 @@ const schemaConstraintsFunction = (collector: AiReadinessMetricsCollector): IFun
             passed = schema.minimum !== undefined || schema.maximum !== undefined;
         }
 
-        collector.record(opts.category, passed, { recordPath: [...context.path] });
+        collector.record(opts.category, passed, { recordPath: [...context.path], rule: getRuleName(context) });
         if (passed) return [];
         return [{
             message: context.rule.message ?? 'Scalar schema should define validation constraints for deterministic AI generation',
