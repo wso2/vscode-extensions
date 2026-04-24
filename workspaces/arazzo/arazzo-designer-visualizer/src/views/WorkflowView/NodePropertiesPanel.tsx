@@ -293,7 +293,17 @@ export function NodePropertiesPanel({ node, workflow, definition, traceSpans }: 
     // Filter spans for the selected node
     const allSpans = traceSpans ?? [];
     const filteredSpans = node.type === 'stepNode'
-        ? allSpans.filter(s => s.attributes?.['step.id'] === node.id)
+        ? (() => {
+            const stepSpanIds = new Set(
+                allSpans
+                    .filter(s => s.arazzo_span_kind === 'step' && s.attributes?.['step.id'] === node.id)
+                    .map(s => s.context.span_id)
+            );
+            return allSpans.filter(s =>
+                s.attributes?.['step.id'] === node.id ||
+                (s.parent_id != null && stepSpanIds.has(s.parent_id))
+            );
+        })()
         : node.type === 'startNode'
             ? allSpans.filter(s => s.arazzo_span_kind === 'workflow')
             : [];
