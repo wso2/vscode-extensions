@@ -5,6 +5,7 @@ import {
     AiReadinessCategorySummary,
     AiReadinessViolation,
     AiReadinessRuleSummary,
+    AiReadinessDimensionSummary,
     GetGovernanceResponse
 } from "../rpc-types/api-designer-visualizer/types";
 
@@ -61,6 +62,7 @@ const RULE_CATEGORY_MAP: Record<string, string> = {
     'ai-readiness-operation-description': 'descriptions',
     'ai-readiness-operation-id': 'operationIds',
     'ai-readiness-operation-id-casing': 'operationIds',
+    'ai-readiness-operation-id-unique': 'operationIds',
     'ai-readiness-operation-tags': 'descriptions',
     'ai-readiness-parameter-description': 'descriptions',
     'ai-readiness-parameter-description-length': 'descriptions',
@@ -173,6 +175,213 @@ const BUCKET_DEFINITIONS: BucketDefinition[] = [
     { key: "idempotency",    label: "Idempotency",         icon: "sync",             metricKey: "idempotency",    weight: 1.4 },
 ];
 
+/** Weights for combining sub-bucket percentages inside one dimension (arithmetic mean). */
+const SUB_BUCKET_WEIGHTS: Record<string, number> = {
+    summaries: 1.2,
+    descriptions: 1.0,
+    operationIds: 1.3,
+    examples: 1.0,
+    typing: 1.1,
+    errors: 1.25,
+    errorSemantics: 1.35,
+    headers: 1.15,
+    pagination: 1.1,
+    security: 1.5,
+    idempotency: 1.4,
+};
+
+const SUBBUCKET_RULE_MAP: Record<string, string[]> = {
+    summaries: [
+        'ai-readiness-operation-summary',
+        'ai-readiness-callback-operation-summary',
+        'ai-readiness-webhook-operation-summary',
+        'ai-readiness-path-item-summary',
+    ],
+    descriptions: [
+        'ai-readiness-api-description',
+        'ai-readiness-server-description',
+        'ai-readiness-path-item-description',
+        'ai-readiness-operation-description',
+        'ai-readiness-operation-tags',
+        'ai-readiness-parameter-description',
+        'ai-readiness-parameter-description-length',
+        'ai-readiness-request-body-description',
+        'ai-readiness-response-description',
+        'ai-readiness-error-response-description-length',
+        'ai-readiness-schema-description',
+        'ai-readiness-schema-description-length',
+        'ai-readiness-schema-title',
+        'ai-readiness-schema-property-description',
+        'ai-readiness-schema-enum-description',
+        'ai-readiness-tags-description',
+        'ai-readiness-tags-external-docs',
+        'ai-readiness-deprecation-notice',
+    ],
+    operationIds: [
+        'ai-readiness-operation-id',
+        'ai-readiness-operation-id-casing',
+        'ai-readiness-operation-id-unique',
+    ],
+    examples: [
+        'ai-readiness-parameter-example',
+        'ai-readiness-path-parameter-example',
+        'ai-readiness-parameter-content-example',
+        'ai-readiness-path-parameter-content-example',
+        'ai-readiness-request-body-example',
+        'ai-readiness-response-example',
+        'ai-readiness-response-header-example',
+        'ai-readiness-schema-example',
+        'ai-readiness-schema-property-example',
+        'ai-readiness-component-header-example',
+    ],
+    typing: [
+        'ai-readiness-request-body-schema-typed',
+        'ai-readiness-request-body-schema-required',
+        'ai-readiness-response-schema-typed',
+        'ai-readiness-schema-property-type',
+        'ai-readiness-parameter-schema-type',
+        'ai-readiness-schema-string-format',
+        'ai-readiness-schema-no-empty-object',
+        'ai-readiness-schema-property-no-empty-object',
+        'ai-readiness-array-items-defined',
+        'ai-readiness-array-property-items-defined',
+        'ai-readiness-schema-validation-constraints',
+        'ai-readiness-discriminator',
+    ],
+    errors: [
+        'ai-readiness-success-response',
+        'ai-readiness-success-response-content',
+        'ai-readiness-success-response-json-schema',
+        'ai-readiness-error-responses-4xx',
+        'ai-readiness-error-responses-5xx',
+        'ai-readiness-error-response-content',
+        'ai-readiness-error-response-json-schema',
+        'ai-readiness-response-content-type',
+        'ai-readiness-error-response-schema',
+    ],
+    errorSemantics: [
+        'ai-readiness-error-schema-fields',
+        'ai-readiness-error-schema-rfc7807',
+        'ai-readiness-error-schema-details',
+        'ai-readiness-error-schema-actionable',
+    ],
+    headers: ['ai-readiness-429-rate-limit-headers'],
+    pagination: [
+        'ai-readiness-list-pagination-params',
+        'ai-readiness-pagination-response-meta',
+    ],
+    security: [
+        'ai-readiness-api-contact',
+        'ai-readiness-no-interactive-auth',
+        'ai-readiness-security-defined',
+        'ai-readiness-security-description',
+        'ai-readiness-security-on-mutating-ops',
+    ],
+    idempotency: ['ai-readiness-idempotency-key'],
+};
+
+const RULE_TO_SUBBUCKET: Record<string, string> = {};
+for (const subKey of Object.keys(SUBBUCKET_RULE_MAP)) {
+    const rules = SUBBUCKET_RULE_MAP[subKey];
+    for (let i = 0; i < rules.length; i++) {
+        RULE_TO_SUBBUCKET[rules[i]] = subKey;
+    }
+}
+
+/** Maps a Spectral rule id to an AI-readiness sub-bucket key (for issue grouping in the UI). */
+export const getAiReadinessRuleSubBucket = (rule: string): string | null => {
+    const normalized = (rule || '').toLowerCase();
+    return RULE_TO_SUBBUCKET[normalized] ?? null;
+};
+
+export const formatAiReadinessRuleLabel = (rule: string): string => {
+    const stripped = rule.replace(/^ai-readiness-/i, '').replace(/-/g, ' ');
+    return stripped.charAt(0).toUpperCase() + stripped.slice(1);
+};
+
+type DimensionDefinition = {
+    key: string;
+    label: string;
+    description: string;
+    whyItMatters: string;
+    icon: string;
+    subBucketKeys: string[];
+    /** Weight in overall weighted harmonic mean (JAIRF-style); four dimensions sum to 1 */
+    aggregationWeight: number;
+};
+
+const AI_READINESS_DIMENSIONS: DimensionDefinition[] = [
+    {
+        key: 'discovery',
+        label: 'Semantic Discovery',
+        description: 'Can AI agents find the right endpoint and understand its intent?',
+        whyItMatters:
+            'AI agents rely on summaries, descriptions, and stable operation identifiers to select the right tool for a task. Without them, agents must infer behavior through trial and error, leading to incorrect calls and hallucinated responses.',
+        icon: 'search',
+        subBucketKeys: ['summaries', 'descriptions', 'operationIds'],
+        aggregationWeight: 0.26,
+    },
+    {
+        key: 'contract',
+        label: 'Contract Integrity',
+        description: 'Can AI agents construct valid requests and interpret responses without guessing?',
+        whyItMatters:
+            'Agents generate payloads based on schemas and examples. Ambiguous types, missing required fields, or absent examples cause agents to produce invalid requests or misinterpret response data.',
+        icon: 'symbol-interface',
+        subBucketKeys: ['examples', 'typing', 'errors'],
+        aggregationWeight: 0.26,
+    },
+    {
+        key: 'resilience',
+        label: 'Resilience & Recovery',
+        description: 'Can AI agents handle failures, rate limits, and large datasets gracefully?',
+        whyItMatters:
+            'Autonomous agents operate without human supervision. Structured error schemas let agents self-correct, rate limit headers prevent hammering, and pagination metadata tells agents when to stop iterating.',
+        icon: 'refresh',
+        subBucketKeys: ['errorSemantics', 'headers', 'pagination'],
+        aggregationWeight: 0.24,
+    },
+    {
+        key: 'security',
+        label: 'Security & Integrity',
+        description: 'Is the API safe for autonomous agent access over the long term?',
+        whyItMatters:
+            'Agents cannot complete interactive browser-based OAuth flows. Undefined security requirements risk agents making unintended state changes. Idempotency support prevents duplicate side-effects when agents retry operations.',
+        icon: 'shield',
+        subBucketKeys: ['security', 'idempotency'],
+        aggregationWeight: 0.24,
+    },
+];
+
+const HARMONIC_EPS = 1e-6;
+
+function weightedHarmonicMean(items: Array<{ value: number; weight: number }>): number {
+    let sumW = 0;
+    let denom = 0;
+    for (const { value, weight } of items) {
+        if (weight <= 0) continue;
+        sumW += weight;
+        denom += weight / Math.max(HARMONIC_EPS, value + HARMONIC_EPS);
+    }
+    if (sumW <= 0 || denom <= 0) return 0;
+    return Math.min(100, Math.max(0, sumW / denom));
+}
+
+function dimensionScoreFromSubBuckets(subs: AiReadinessBucketSummary[]): number {
+    const active = subs.filter((s) => s.total > 0);
+    if (active.length === 0) {
+        return 100;
+    }
+    let weightedSum = 0;
+    let totalWeight = 0;
+    for (const b of active) {
+        const w = SUB_BUCKET_WEIGHTS[b.key] ?? 1;
+        weightedSum += b.percentage * w;
+        totalWeight += w;
+    }
+    return totalWeight > 0 ? weightedSum / totalWeight : 0;
+}
+
 const makeBucket = (): ViolationBucket => ({
     violations: [],
     seen: new Set()
@@ -216,7 +425,10 @@ export const buildAiReadinessSummary = (governanceResult: GetGovernanceResponse)
         }
     });
 
-    const rc = governanceResult.aiReadinessMetrics?.rules ?? {};
+    const internalMetrics =
+        (governanceResult as GetGovernanceResponse & { aiReadinessMetrics?: AiReadinessMetrics | null })
+            .aiReadinessMetrics;
+    const rc = internalMetrics?.rules ?? {};
 
     // Per-rule violation counts (for coverage fallback)
     const ruleViolationCounts = new Map<string, number>();
@@ -265,23 +477,33 @@ export const buildAiReadinessSummary = (governanceResult: GetGovernanceResponse)
         };
     });
 
-    const weighted = BUCKET_DEFINITIONS.reduce(
-        (acc, def) => {
-            const bucket = bucketSummaries.find((b) => b.key === def.key);
-            if (!bucket || bucket.total <= 0) return acc;
-            return {
-                weightedSum: acc.weightedSum + (bucket.percentage * def.weight),
-                totalWeight: acc.totalWeight + def.weight,
-            };
-        },
-        { weightedSum: 0, totalWeight: 0 }
-    );
-    const score = weighted.totalWeight > 0
-        ? Math.round(Math.max(0, Math.min(100, weighted.weightedSum / weighted.totalWeight)))
-        : 0;
+    const bucketByKey = new Map(bucketSummaries.map((b) => [b.key, b]));
+
+    const dimensions: AiReadinessDimensionSummary[] = AI_READINESS_DIMENSIONS.map((dim) => {
+        const subBuckets = dim.subBucketKeys
+            .map((k) => bucketByKey.get(k))
+            .filter((b): b is AiReadinessBucketSummary => !!b);
+        const rawScore = dimensionScoreFromSubBuckets(subBuckets);
+        const score = Math.round(Math.max(0, Math.min(100, rawScore)));
+        return {
+            key: dim.key,
+            label: dim.label,
+            description: dim.description,
+            whyItMatters: dim.whyItMatters,
+            icon: dim.icon,
+            score,
+            aggregationWeight: dim.aggregationWeight,
+            subBuckets,
+        };
+    });
+
+    const harmonicInputs = dimensions.map((d) => ({ value: d.score, weight: d.aggregationWeight }));
+    const score = Math.round(weightedHarmonicMean(harmonicInputs));
 
     return {
         score,
+        aggregation: 'weighted_harmonic_mean' as const,
+        dimensions,
         buckets: bucketSummaries,
         validation: allViolations.length > 0 ? { violations: allViolations } : undefined
     };

@@ -1,18 +1,9 @@
 import React from 'react';
 import styled from '@emotion/styled';
 import { Codicon } from '@wso2/ui-toolkit';
-import { AI_READINESS_TOP_BUCKETS, AI_READINESS_SUB_BUCKET_WEIGHTS, AITopBucket } from './AnalyzeSingleReportHelpers';
+import type { AiReadinessDimensionSummary } from '@wso2/api-designer-core';
 import { AIReadinessBucketDetail } from './AIReadinessBucketDetail';
 import { scoreColor } from '../hooks/useReport';
-
-interface AiBucketSummaryItem {
-    key: string;
-    label: string;
-    filled: number;
-    total: number;
-    percentage: number;
-    rules?: Array<{ key: string; label: string; filled: number; total: number; percentage: number }>;
-}
 
 interface ViolationRow {
     id: string;
@@ -25,37 +16,11 @@ interface ViolationRow {
 }
 
 interface Props {
-    subBuckets: AiBucketSummaryItem[];
+    dimensions: AiReadinessDimensionSummary[];
     expandedKeys: Set<string>;
     onToggle: (key: string) => void;
     violations: ViolationRow[];
     onViewIssues: () => void;
-}
-
-interface TopBucketData extends AITopBucket {
-    score: number;
-    activeSubBuckets: AiBucketSummaryItem[];
-}
-
-function computeTopBuckets(subBuckets: AiBucketSummaryItem[]): TopBucketData[] {
-    const subMap = new Map(subBuckets.map((b) => [b.key, b]));
-    return AI_READINESS_TOP_BUCKETS.map((topBucket) => {
-        const active = topBucket.subBuckets
-            .map((key) => subMap.get(key))
-            .filter((b): b is AiBucketSummaryItem => !!b && b.total > 0);
-        const { weightedSum, totalWeight } = active.reduce(
-            (acc, b) => {
-                const weight = AI_READINESS_SUB_BUCKET_WEIGHTS[b.key] ?? 1;
-                return {
-                    weightedSum: acc.weightedSum + (b.percentage * weight),
-                    totalWeight: acc.totalWeight + weight,
-                };
-            },
-            { weightedSum: 0, totalWeight: 0 }
-        );
-        const score = totalWeight > 0 ? (weightedSum / totalWeight) : 0;
-        return { ...topBucket, score, activeSubBuckets: active };
-    });
 }
 
 const Grid = styled.div`
@@ -156,63 +121,59 @@ const Chip = styled.div`
 `;
 
 export const AIReadinessBucketGrid: React.FC<Props> = ({
-    subBuckets,
+    dimensions,
     expandedKeys,
     onToggle,
     violations,
     onViewIssues,
-}) => {
-    const topBuckets = React.useMemo(() => computeTopBuckets(subBuckets), [subBuckets]);
+}) => (
+    <Grid>
+        {dimensions.map((dimension) => {
+            const isSelected = expandedKeys.has(dimension.key);
+            const roundedScore = Math.round(dimension.score);
+            const pctColor = scoreColor(dimension.score);
+            const activeSubBuckets = dimension.subBuckets.filter((b) => b.total > 0);
 
-    return (
-        <Grid>
-            {topBuckets.map((bucket) => {
-                const isSelected = expandedKeys.has(bucket.key);
-                const roundedScore = Math.round(bucket.score);
-                const pctColor = scoreColor(bucket.score);
+            return (
+                <CardWrapper key={dimension.key}>
+                    <Card
+                        $selected={isSelected}
+                        onClick={() => onToggle(dimension.key)}
+                        role="button"
+                        aria-expanded={isSelected}
+                    >
+                        <CardMain>
+                            <CardPercentCol>
+                                <CardPercent $color={pctColor} aria-label={`${roundedScore} percent`}>
+                                    {roundedScore}%
+                                </CardPercent>
+                            </CardPercentCol>
+                            <CardBody>
+                                <CardTitleGroup>
+                                    <CardIcon>
+                                        <Codicon name={dimension.icon as any} sx={{ fontSize: '14px' }} />
+                                    </CardIcon>
+                                    <CardTitle>{dimension.label}</CardTitle>
+                                </CardTitleGroup>
+                                <CardDescription>{dimension.description}</CardDescription>
+                                <ChipRow>
+                                    {activeSubBuckets.map((sub) => (
+                                        <Chip key={sub.key}>{sub.label}</Chip>
+                                    ))}
+                                </ChipRow>
+                            </CardBody>
+                        </CardMain>
+                    </Card>
 
-                return (
-                    <CardWrapper key={bucket.key}>
-                        <Card
-                            $selected={isSelected}
-                            onClick={() => onToggle(bucket.key)}
-                            role="button"
-                            aria-expanded={isSelected}
-                        >
-                            <CardMain>
-                                <CardPercentCol>
-                                    <CardPercent $color={pctColor} aria-label={`${roundedScore} percent`}>
-                                        {roundedScore}%
-                                    </CardPercent>
-                                </CardPercentCol>
-                                <CardBody>
-                                    <CardTitleGroup>
-                                        <CardIcon>
-                                            <Codicon name={bucket.icon as any} sx={{ fontSize: '14px' }} />
-                                        </CardIcon>
-                                        <CardTitle>{bucket.label}</CardTitle>
-                                    </CardTitleGroup>
-                                    <CardDescription>{bucket.description}</CardDescription>
-                                    <ChipRow>
-                                        {bucket.activeSubBuckets.map((sub) => (
-                                            <Chip key={sub.key}>{sub.label}</Chip>
-                                        ))}
-                                    </ChipRow>
-                                </CardBody>
-                            </CardMain>
-                        </Card>
-
-                        {isSelected && (
-                            <AIReadinessBucketDetail
-                                bucket={bucket}
-                                subBuckets={bucket.activeSubBuckets}
-                                violations={violations}
-                                onViewIssues={onViewIssues}
-                            />
-                        )}
-                    </CardWrapper>
-                );
-            })}
-        </Grid>
-    );
-};
+                    {isSelected && (
+                        <AIReadinessBucketDetail
+                            dimension={dimension}
+                            violations={violations}
+                            onViewIssues={onViewIssues}
+                        />
+                    )}
+                </CardWrapper>
+            );
+        })}
+    </Grid>
+);

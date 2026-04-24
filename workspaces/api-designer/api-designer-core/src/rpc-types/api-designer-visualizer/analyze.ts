@@ -109,8 +109,31 @@ export interface AiReadinessBucketSummary extends AiReadinessCategorySummary {
     rules?: AiReadinessRuleSummary[];
 }
 
-export interface AiReadinessSummary {
+/** One of four JAIRF-style pillars: pre-scored on the server. */
+export interface AiReadinessDimensionSummary {
+    key: string;
+    label: string;
+    description: string;
+    whyItMatters: string;
+    icon: string;
+    /** 0–100: weighted arithmetic mean of sub-bucket percentages in this dimension */
     score: number;
+    /** Weight in the overall weighted harmonic mean (JAIRF-style); all four sum to 1 */
+    aggregationWeight: number;
+    subBuckets: AiReadinessBucketSummary[];
+}
+
+export type AiReadinessAggregation = 'weighted_harmonic_mean';
+
+export interface AiReadinessSummary {
+    /**
+     * Overall AI readiness 0–100: weighted harmonic mean of {@link AiReadinessDimensionSummary.score},
+     * using each dimension’s {@link AiReadinessDimensionSummary.aggregationWeight}.
+     */
+    score: number;
+    aggregation: AiReadinessAggregation;
+    dimensions: AiReadinessDimensionSummary[];
+    /** Flat list of all sub-buckets (same items nested under dimensions) */
     buckets: AiReadinessBucketSummary[];
     validation?: {
         violations: AiReadinessViolation[];
@@ -155,7 +178,6 @@ export interface GetGovernanceResponse {
         fixSuggestion?: string;
         severity: string;
     }>;
-    aiReadinessMetrics?: AiReadinessMetrics;
     aiReadinessSummary?: AiReadinessSummary;
 }
 

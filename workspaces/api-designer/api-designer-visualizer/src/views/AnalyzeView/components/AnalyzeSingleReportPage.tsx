@@ -198,22 +198,6 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
         return Array.from(map.values()).sort((a, b) => b.count - a.count || a.key.localeCompare(b.key));
     }, [rows, reportKey]);
 
-    const aiBucketSummary = React.useMemo(() => {
-        if (reportKey !== 'ai-readiness') return [];
-        const buckets = report?.aiReadinessSummary?.buckets;
-        if (Array.isArray(buckets) && buckets.length > 0) {
-            return buckets.map((bucket) => ({
-                key: bucket.key,
-                label: bucket.label,
-                filled: bucket.filled,
-                total: bucket.total,
-                percentage: bucket.percentage,
-                rules: bucket.rules,
-            }));
-        }
-        return [];
-    }, [reportKey, report]);
-
     const endpointSummary = React.useMemo(() => {
         const map = new Map<string, { count: number; errors: number; warnings: number; method: string; endpoint: string; rules: Map<string, number> }>();
         rows.forEach((row) => {
@@ -312,7 +296,7 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
 
             <AnalyzeSingleReportBreakdown
                 reportKey={reportKey}
-                aiBucketSummary={aiBucketSummary}
+                aiReadinessDimensions={report?.aiReadinessSummary?.dimensions ?? []}
                 breakdownSummary={breakdownSummary}
                 totalRows={rows.length}
                 violations={rows}

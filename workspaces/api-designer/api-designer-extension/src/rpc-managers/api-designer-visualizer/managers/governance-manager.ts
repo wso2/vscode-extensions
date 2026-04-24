@@ -30,7 +30,6 @@ import {
     SpectralRuleset,
     ValidateAPISpecRequest,
     ValidateAPISpecResponse,
-    computeReadinessScoreFromMetrics,
     getDefaultAiReadinessSpectralRuleset,
     getDefaultGovernanceSpectralRulesets,
     loadYaml
@@ -493,9 +492,8 @@ export class GovernanceManager extends BaseRpcManager {
             });
 
             const summaryScore = governanceResult.aiReadinessSummary?.score ?? null;
-            const metricsScore = computeReadinessScoreFromMetrics(governanceResult.aiReadinessMetrics);
             const fallbackScore = typeof governanceResult?.score === 'number' ? governanceResult.score : null;
-            const finalScore = summaryScore ?? metricsScore ?? fallbackScore;
+            const finalScore = summaryScore ?? fallbackScore;
 
             return finalScore;
         } catch (error: unknown) {

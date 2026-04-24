@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { SpectralRuleset } from '@wso2/api-designer-core';
+import { SpectralRuleset, type AiReadinessSummary } from '@wso2/api-designer-core';
 import { normalizeGovernanceViolation, NormalizedGovernanceViolation } from '../../../types/violations';
 
 export type AnalyzeReportKey = 'ai-readiness' | 'owasp' | 'wso2-rest';
@@ -34,18 +34,7 @@ export interface ReportState {
     totalChecks: number;
     violations: NormalizedGovernanceViolation[];
     ruleset?: SpectralRuleset;
-    aiReadinessSummary?: {
-        score?: number;
-        buckets?: Array<{
-            key: string;
-            label: string;
-            icon?: string;
-            filled: number;
-            total: number;
-            percentage: number;
-            rules?: Array<{ key: string; label: string; filled: number; total: number; percentage: number }>;
-        }>;
-    };
+    aiReadinessSummary?: AiReadinessSummary;
 }
 
 // ── Utilities ──────────────────────────────────────────────────────────────
@@ -200,16 +189,23 @@ export const useReportData = (
 
                 if (disposed) return;
 
+                const governanceScore = governance?.score ?? 0;
+                const aiSummary = governance?.aiReadinessSummary;
+                const headlineScore =
+                    reportKey === 'ai-readiness' && typeof aiSummary?.score === 'number'
+                        ? aiSummary.score
+                        : governanceScore;
+
                 setReport({
                     rulesetName: selectedRuleset.name,
-                    score: governance?.score ?? 0,
+                    score: headlineScore,
                     passedChecks: governance?.passedChecks ?? 0,
                     totalChecks:
                         governance?.totalChecks ??
                         (governance?.passedChecks ?? 0) + (governance?.violations?.length ?? 0),
                     violations: (governance?.violations || []).map(normalizeGovernanceViolation),
                     ruleset: selectedRuleset,
-                    aiReadinessSummary: governance?.aiReadinessSummary,
+                    aiReadinessSummary: aiSummary,
                 });
                 setSpecContent(contentResponse?.content || '');
             } catch (e: any) {

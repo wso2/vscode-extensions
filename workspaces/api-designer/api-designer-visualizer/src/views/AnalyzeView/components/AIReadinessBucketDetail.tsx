@@ -1,7 +1,8 @@
 import React from 'react';
 import styled from '@emotion/styled';
 import { Codicon } from '@wso2/ui-toolkit';
-import { AITopBucket, getRuleSubBucket, formatRuleLabel } from './AnalyzeSingleReportHelpers';
+import type { AiReadinessDimensionSummary } from '@wso2/api-designer-core';
+import { formatAiReadinessRuleLabel, getAiReadinessRuleSubBucket } from '@wso2/api-designer-core';
 
 interface RuleStat {
     key: string;
@@ -31,8 +32,7 @@ interface ViolationRow {
 }
 
 interface Props {
-    bucket: AITopBucket;
-    subBuckets: AiBucketSummaryItem[];
+    dimension: AiReadinessDimensionSummary;
     violations: ViolationRow[];
     onViewIssues: () => void;
 }
@@ -62,7 +62,7 @@ function buildRuleSummaries(
 ): RuleSummary[] {
     const map = new Map<string, { count: number; paths: FailingPath[] }>();
     violations.forEach((v) => {
-        if (getRuleSubBucket(v.rule) !== subBucketKey) return;
+        if (getAiReadinessRuleSubBucket(v.rule) !== subBucketKey) return;
         const cur = map.get(v.rule) ?? { count: 0, paths: [] };
         cur.count++;
         // Deduplicate paths by display string
@@ -76,7 +76,7 @@ function buildRuleSummaries(
         const violationData = map.get(ruleStat.key) ?? { count: 0, paths: [] };
         return {
             rule: ruleStat.key,
-            label: ruleStat.label || formatRuleLabel(ruleStat.key),
+            label: ruleStat.label || formatAiReadinessRuleLabel(ruleStat.key),
             count: violationData.count,
             paths: violationData.paths,
             passed: violationData.count === 0,
@@ -88,7 +88,7 @@ function buildRuleSummaries(
         .filter(([rule]) => !(rules ?? []).some((r) => r.key === rule))
         .map(([rule, { count, paths }]) => ({
             rule,
-            label: formatRuleLabel(rule),
+            label: formatAiReadinessRuleLabel(rule),
             count,
             paths,
             passed: count === 0,
@@ -366,17 +366,19 @@ const SubBucketRowComponent: React.FC<{
 
 // ── Main component ────────────────────────────────────────────────────────
 
-export const AIReadinessBucketDetail: React.FC<Props> = ({ bucket, subBuckets, violations, onViewIssues }) => {
-    const totalViolations = violations.filter(
-        (v) => bucket.subBuckets.includes(getRuleSubBucket(v.rule) ?? ''),
-    ).length;
+export const AIReadinessBucketDetail: React.FC<Props> = ({ dimension, violations, onViewIssues }) => {
+    const subKeys = new Set(dimension.subBuckets.map((s) => s.key));
+    const totalViolations = violations.filter((v) => {
+        const sk = getAiReadinessRuleSubBucket(v.rule);
+        return sk != null && subKeys.has(sk);
+    }).length;
 
     return (
         <Container>
-            <WhyBlock>{bucket.whyItMatters}</WhyBlock>
+            <WhyBlock>{dimension.whyItMatters}</WhyBlock>
 
             <SubBucketList>
-                {subBuckets.map((sub) => (
+                {dimension.subBuckets.map((sub) => (
                     <SubBucketRowComponent
                         key={sub.key}
                         sub={sub}

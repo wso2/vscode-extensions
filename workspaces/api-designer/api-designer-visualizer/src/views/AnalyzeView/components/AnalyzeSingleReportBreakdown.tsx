@@ -1,5 +1,6 @@
 import React from 'react';
 import styled from '@emotion/styled';
+import type { AiReadinessDimensionSummary } from '@wso2/api-designer-core';
 import { AnalyzeReportKey } from '../hooks/useReport';
 import { BREAKDOWN_TITLES } from './AnalyzeSingleReportHelpers';
 import { AIReadinessBucketGrid } from './AIReadinessBucketGrid';
@@ -14,15 +15,6 @@ interface BreakdownItem {
     docsUrl?: string;
 }
 
-interface AiBucketSummaryItem {
-    key: string;
-    label: string;
-    filled: number;
-    total: number;
-    percentage: number;
-    rules?: Array<{ key: string; label: string; filled: number; total: number; percentage: number }>;
-}
-
 interface ViolationRow {
     id: string;
     rule: string;
@@ -35,7 +27,7 @@ interface ViolationRow {
 
 interface AnalyzeSingleReportBreakdownProps {
     reportKey: AnalyzeReportKey;
-    aiBucketSummary: AiBucketSummaryItem[];
+    aiReadinessDimensions: AiReadinessDimensionSummary[];
     breakdownSummary: BreakdownItem[];
     totalRows: number;
     violations: ViolationRow[];
@@ -198,7 +190,7 @@ const OwaspDocsLink = styled.a`
 
 export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdownProps> = ({
     reportKey,
-    aiBucketSummary,
+    aiReadinessDimensions,
     breakdownSummary,
     totalRows,
     violations,
@@ -212,7 +204,7 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
         </SectionHeader>
         {reportKey === 'ai-readiness' ? (
             <AIReadinessBucketGrid
-                subBuckets={aiBucketSummary}
+                dimensions={aiReadinessDimensions}
                 expandedKeys={expandedBucketKeys}
                 onToggle={onToggleBucket}
                 violations={violations}

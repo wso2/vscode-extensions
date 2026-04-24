@@ -556,7 +556,6 @@ export async function validateWithSpectralRuleset(
             }
         });
         
-        const totalViolations = results.length;
         const failedRuleCodes = new Set<string>([
             ...severityRuleSets.error,
             ...severityRuleSets.warning,
@@ -647,11 +646,13 @@ export async function validateWithSpectralRuleset(
             failedChecks: failedRuleCount,
             violationSummary,
             violations: violations,
-            passed: passedRules,
-            aiReadinessMetrics
+            passed: passedRules
         };
 
-        const summary = buildAiReadinessSummary(response);
+        const summary = buildAiReadinessSummary({
+            ...response,
+            aiReadinessMetrics
+        } as GetGovernanceResponse);
         if (summary) {
             response.aiReadinessSummary = summary;
         }
