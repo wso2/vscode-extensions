@@ -100,6 +100,27 @@ func (h *HTTPExecutor) ExecuteRequest(method, requestURL string, parameters map[
 	// --- Telemetry: HTTP span start ---
 	httpSpanID := telemetry.GenerateSpanID()
 	httpStart := time.Now()
+	httpStartAttrs := map[string]string{
+		"http.method": strings.ToUpper(method),
+		"http.url":    requestURL,
+	}
+	if len(pathParams) > 0 {
+		if b, err := json.Marshal(pathParams); err == nil {
+			httpStartAttrs["http.request.path_params"] = string(b)
+		}
+	}
+	if len(queryParams) > 0 {
+		if b, err := json.Marshal(queryParams); err == nil {
+			httpStartAttrs["http.request.query_params"] = string(b)
+		}
+	}
+	if requestBody != nil {
+		if payload := requestBody["payload"]; payload != nil {
+			if b, err := json.Marshal(payload); err == nil {
+				httpStartAttrs["http.request.body"] = string(b)
+			}
+		}
+	}
 	h.Sink.Send(telemetry.TraceEvent{
 		Lifecycle:  telemetry.LifecycleStart,
 		Context:    telemetry.SpanContext{TraceID: traceID, SpanID: httpSpanID},
@@ -109,10 +130,7 @@ func (h *HTTPExecutor) ExecuteRequest(method, requestURL string, parameters map[
 		ArazzoKind: telemetry.SpanKindHTTP,
 		StartTime:  httpStart,
 		StatusCode: telemetry.SpanStatusUnset,
-		Attributes: map[string]string{
-			"http.method": strings.ToUpper(method),
-			"http.url":    requestURL,
-		},
+		Attributes: httpStartAttrs,
 	})
 
 	// Execute the request

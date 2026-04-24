@@ -5,6 +5,7 @@
 package executor
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
@@ -90,6 +91,14 @@ func (se *StepExecutor) ExecuteStep(step map[string]interface{}, workflow map[st
 		}
 		if result.StatusCode > 0 {
 			attrs["http.status_code"] = fmt.Sprintf("%d", result.StatusCode)
+		}
+		// Include extracted step outputs in the end span
+		if stData, ok := state.StepsData[stepID].(map[string]interface{}); ok {
+			if outs := stData["outputs"]; outs != nil {
+				if b, err := json.Marshal(outs); err == nil {
+					attrs["step.outputs"] = string(b)
+				}
+			}
 		}
 		stepEnd := time.Now()
 		se.Sink.Send(telemetry.TraceEvent{
