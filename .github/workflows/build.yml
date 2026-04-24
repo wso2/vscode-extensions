@@ -67,7 +67,12 @@ on:
       runMIE2ETests:
         type: boolean
         required: false
-        default: false 
+        default: false
+      ballerinaLsTag:
+        description: Override Ballerina LS download tag (latest, prerelease, v1.5.0)
+        type: string
+        required: false
+        default: ''
 
 env:
   ballerina_version: 2201.7.2
@@ -193,6 +198,7 @@ jobs:
         uses: ./.github/actions/build
         with:
           isPreRelease: ${{ inputs.isPreRelease }}
+          ballerinaLsTag: ${{ inputs.ballerinaLsTag }}
           enableCache: ${{ inputs.enableCache }}
           enableLSCache: ${{ !inputs.isReleaseBuild }}
           ballerina: ${{ inputs.ballerina }}

@@ -3,6 +3,11 @@ inputs:
   isPreRelease:
     default: true
     type: boolean
+  ballerinaLsTag:
+    description: Override Ballerina LS download tag (latest, prerelease, v1.5.0). Overrides isPreRelease for LS download.
+    type: string
+    required: false
+    default: ''
   enableCache:
     default: true
     type: boolean
@@ -147,13 +152,22 @@ runs:
         key: mi-ls
         retention-days: 1
 
+    - name: Resolve Ballerina LS version
+      id: resolve-ballerina-ls-version
+      if: ${{ inputs.enableLSCache == 'true' }}
+      shell: bash
+      run: node workspaces/ballerina/ballerina-extension/scripts/download-ls.js --resolve-version
+      env:
+        BALLERINA_LS_TAG: ${{ inputs.ballerinaLsTag != '' && inputs.ballerinaLsTag || (inputs.isPreRelease == 'true' && 'prerelease' || 'latest') }}
+        GITHUB_TOKEN: ${{ inputs.token }}
+
     - name: Restore Ballerina LS from cache
       id: ballerina-ls-cache
       if: ${{ inputs.enableLSCache == 'true' }}
       uses: actions/cache@v4
       with:
         path: workspaces/ballerina/ballerina-extension/ls
-        key: ballerina-ls
+        key: ballerina-ls-${{ steps.resolve-ballerina-ls-version.outputs.version }}
         retention-days: 1
 
     - name: Build repo
@@ -163,6 +177,7 @@ runs:
         node common/scripts/install-run-rush.js build --verbose
       env:
         isPreRelease: ${{ inputs.isPreRelease == 'true' }}
+        BALLERINA_LS_TAG: ${{ inputs.enableLSCache == 'true' && steps.resolve-ballerina-ls-version.outputs.version || (inputs.ballerinaLsTag != '' && inputs.ballerinaLsTag || (inputs.isPreRelease == 'true' && 'prerelease' || 'latest')) }}
         BALLERINA_AUTH_ORG: ${{ inputs.BALLERINA_AUTH_ORG }}
         BALLERINA_AUTH_CLIENT_ID: ${{ inputs.BALLERINA_AUTH_CLIENT_ID }}
         BALLERINA_DEV_COPLIOT_ROOT_URL: ${{ inputs.BALLERINA_DEV_COPLIOT_ROOT_URL }}
