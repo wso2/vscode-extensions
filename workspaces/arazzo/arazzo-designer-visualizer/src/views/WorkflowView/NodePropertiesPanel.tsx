@@ -20,7 +20,7 @@ import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import styled from '@emotion/styled';
 import { Node } from '@xyflow/react';
-import { ArazzoWorkflow, ArazzoDefinition } from '@wso2/arazzo-designer-core';
+import { ArazzoWorkflow, ArazzoDefinition, WebviewTraceEvent } from '@wso2/arazzo-designer-core';
 import { resolveReference, isReference, isReferenceLike, getReferencePath } from '../../utils/referenceUtils';
 import { MODERN } from '../../constants';
 
@@ -200,6 +200,32 @@ const EmptyState = styled.div`
     font-size: 13px;
 `;
 
+const TabBar = styled.div`
+    display: flex;
+    border-bottom: 1px solid var(--vscode-panel-border);
+    margin-bottom: 12px;
+`;
+
+const Tab = styled.button<{ active: boolean }>`
+    padding: 6px 14px;
+    font-size: 12px;
+    font-family: var(--vscode-font-family);
+    background: none;
+    border: none;
+    border-bottom: 2px solid ${({ active }: { active: boolean }) => active ? 'var(--vscode-focusBorder)' : 'transparent'};
+    color: ${({ active }: { active: boolean }) => active ? 'var(--vscode-foreground)' : 'var(--vscode-descriptionForeground)'};
+    cursor: pointer;
+    font-weight: ${({ active }: { active: boolean }) => active ? '600' : '400'};
+    margin-bottom: -1px;
+`;
+
+const SpansContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 4px;
+`;
+
 const RefPath = styled.div`
     margin-top: 4px;
     font-size: 10px;
@@ -213,11 +239,13 @@ interface NodePropertiesPanelProps {
     node: Node | null;
     workflow?: ArazzoWorkflow | undefined;
     definition?: ArazzoDefinition | undefined;
+    traceSpans?: WebviewTraceEvent[];
 }
 
-export function NodePropertiesPanel({ node, workflow, definition }: NodePropertiesPanelProps) {
+export function NodePropertiesPanel({ node, workflow, definition, traceSpans }: NodePropertiesPanelProps) {
     const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['general']));
     const [expandedArrayItems, setExpandedArrayItems] = useState<Set<string>>(new Set());
+    const [activeTab, setActiveTab] = useState<'properties' | 'spans'>('properties');
 
     // When the selected node changes (panel opens or different node selected),
     // auto-expand top-level sections relevant to that node while keeping
@@ -253,6 +281,7 @@ export function NodePropertiesPanel({ node, workflow, definition }: NodeProperti
 
         setExpandedSections(ids);
         setExpandedArrayItems(new Set());
+        setActiveTab('properties');
     }, [node?.id, node?.type, workflow]);
 
     // Early return AFTER all hooks have been declared
@@ -260,6 +289,32 @@ export function NodePropertiesPanel({ node, workflow, definition }: NodeProperti
 
     const nodeData = node.data || {};
     const { label, iconClass, ...stepData } = nodeData;
+
+    // Filter spans for the selected node
+    const allSpans = traceSpans ?? [];
+    const filteredSpans = node.type === 'stepNode'
+        ? allSpans.filter(s => s.attributes?.['step.id'] === node.id)
+        : node.type === 'startNode'
+            ? allSpans.filter(s => s.arazzo_span_kind === 'workflow')
+            : [];
+
+    const renderTabBar = () => (
+        <TabBar>
+            <Tab active={activeTab === 'properties'} onClick={() => setActiveTab('properties')}>Properties</Tab>
+            <Tab active={activeTab === 'spans'} onClick={() => setActiveTab('spans')}>Spans</Tab>
+        </TabBar>
+    );
+
+    const renderSpansTab = () => (
+        <SpansContainer>
+            {filteredSpans.length === 0
+                ? <EmptyState>No spans recorded for this node.</EmptyState>
+                : filteredSpans.map((span, i) => (
+                    <JsonBlock key={i}>{JSON.stringify(span, null, 2)}</JsonBlock>
+                ))
+            }
+        </SpansContainer>
+    );
 
     const toggleSection = (sectionId: string) => {
         const newExpanded = new Set(expandedSections);
@@ -423,7 +478,7 @@ export function NodePropertiesPanel({ node, workflow, definition }: NodeProperti
         const wf = workflow;
         if (!wf) return <EmptyState>No workflow data available</EmptyState>;
 
-        return (
+        const startNodeContent = (
             <Container>
                 <Section>
                     <SectionHeader>Workflow</SectionHeader>
@@ -800,6 +855,12 @@ export function NodePropertiesPanel({ node, workflow, definition }: NodeProperti
                 )}
             </Container>
         );
+        return (
+            <>
+                {renderTabBar()}
+                {activeTab === 'properties' ? startNodeContent : renderSpansTab()}
+            </>
+        );
     }
 
     const sections: JSX.Element[] = [];
@@ -928,5 +989,10 @@ export function NodePropertiesPanel({ node, workflow, definition }: NodeProperti
         }
     }
 
-    return <Container>{sections}</Container>;
+    return (
+        <>
+            {renderTabBar()}
+            {activeTab === 'properties' ? <Container>{sections}</Container> : renderSpansTab()}
+        </>
+    );
 }

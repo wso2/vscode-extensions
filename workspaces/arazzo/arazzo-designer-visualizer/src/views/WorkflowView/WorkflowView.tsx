@@ -262,6 +262,7 @@ export function WorkflowView(props: WorkflowViewProps) {
     const [isPanelOpen, setIsPanelOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [loadingError, setLoadingError] = useState<string | null>(null);
+    const [traceSpans, setTraceSpans] = useState<WebviewTraceEvent[]>([]);
 
     // Edge types configuration
     const edgeTypes = {
@@ -276,14 +277,18 @@ export function WorkflowView(props: WorkflowViewProps) {
 
     // Listen for trace events and update step node overlays
     rpcClient?.onTraceEvent((event: WebviewTraceEvent) => {
+        // Accumulate every event so the properties panel can display spans
+        setTraceSpans(prev => [...prev, event]);
+
         if (event.arazzo_span_kind === 'workflow' && event.lifecycle === 'start') {
             // Record which workflow this trace run is for so we can ignore events
             // from a different workflow when this view is showing a different one.
             activeTraceWorkflowIdRef.current = event.attributes?.['workflow.id'];
             // Only reset and highlight if the running workflow matches the one shown.
             if (activeTraceWorkflowIdRef.current !== workflowId) { return; }
-            // New workflow run started — reset step tracking and clear all highlights
+            // New workflow run started — reset step tracking, clear all highlights and spans
             prevStepRef.current = 'virtual_start';
+            setTraceSpans([]);
             setNodes(prev => prev.map(node => {
                 if (node.type === 'stepNode' || node.type === 'conditionNode' || node.type === 'endNode') {
                     return { ...node, data: { ...node.data, traceStatus: undefined } };
@@ -763,7 +768,7 @@ export function WorkflowView(props: WorkflowViewProps) {
                     </StyledButton>
                 </SidePanelTitleContainer>
                 <SidePanelBody onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-                    <NodePropertiesPanel node={selectedNode} workflow={workflow} definition={arazzoDefinition} />
+                    <NodePropertiesPanel node={selectedNode} workflow={workflow} definition={arazzoDefinition} traceSpans={traceSpans} />
                 </SidePanelBody>
             </SidePanel>
         </div>
