@@ -236,6 +236,36 @@ func (se *StepExecutor) ExecuteStep(step map[string]interface{}, workflow map[st
 	// Determine next action
 	nextAction := se.ActionHandler.DetermineNextAction(step, success, state)
 
+	// Build a failure reason string for the span StatusMessage when the step failed
+	// due to an HTTP error response (transport errors are handled separately above).
+	failureReason := ""
+	if !success {
+		bodySnippet := ""
+		switch b := respBody.(type) {
+		case string:
+			if len(b) > 200 {
+				bodySnippet = b[:200] + "..."
+			} else {
+				bodySnippet = b
+			}
+		default:
+			if b != nil {
+				if bs, err := json.Marshal(b); err == nil {
+					s := string(bs)
+					if len(s) > 200 {
+						s = s[:200] + "..."
+					}
+					bodySnippet = s
+				}
+			}
+		}
+		if bodySnippet != "" {
+			failureReason = fmt.Sprintf("HTTP %d: %s", statusCode, bodySnippet)
+		} else {
+			failureReason = fmt.Sprintf("HTTP %d", statusCode)
+		}
+	}
+
 	return endStep(&models.StepResult{
 		StepID:       stepID,
 		Success:      success,
@@ -243,6 +273,7 @@ func (se *StepExecutor) ExecuteStep(step map[string]interface{}, workflow map[st
 		ResponseBody: respBody,
 		Headers:      respHeaders,
 		Outputs:      outputs,
+		Error:        failureReason,
 		NextAction:   nextAction,
 	})
 }
