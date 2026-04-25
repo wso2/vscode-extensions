@@ -38,7 +38,8 @@ func serveCmd(args []string) {
 	bearerToken := fs.String("bearer-token", "", "Bearer token for API authentication")
 	apiKey := fs.String("api-key", "", "API key for authentication")
 	apiKeyHeader := fs.String("api-key-header", "X-API-Key", "Header name for API key")
-	traceEndpoint := fs.String("trace-endpoint", "", "URL of the tracer server to receive span events (e.g. http://127.0.0.1:59600/span-events)")
+	traceEndpoint := fs.String("trace-endpoint", "", "URL of the local tracer server to receive span events (e.g. http://127.0.0.1:59600/span-events)")
+	otlpEndpoint := fs.String("otlp-endpoint", "", "Base URL of an OTLP/HTTP trace backend (e.g. http://localhost:4318 for Jaeger/Honeycomb)")
 
 	fs.Parse(args)
 
@@ -62,13 +63,27 @@ func serveCmd(args []string) {
 		AuthHeaders:  make(map[string]string),
 	}
 
-	// Create trace sink
+	// Create trace sink — combine whichever endpoints are configured.
+	// VS Code plugin always passes --trace-endpoint (local custom JSON sink).
+	// Standalone users can pass --otlp-endpoint to reach Jaeger, Honeycomb, etc.
+	// Both flags may be provided simultaneously.
 	var sink telemetry.SpanEventSink
+	var sinks []telemetry.SpanEventSink
 	if *traceEndpoint != "" {
-		log.Printf("Tracing enabled → %s", *traceEndpoint)
-		sink = telemetry.NewHTTPSink(*traceEndpoint)
-	} else {
+		log.Printf("Local tracing enabled → %s", *traceEndpoint)
+		sinks = append(sinks, telemetry.NewHTTPSink(*traceEndpoint))
+	}
+	if *otlpEndpoint != "" {
+		log.Printf("OTLP tracing enabled → %s/v1/traces", *otlpEndpoint)
+		sinks = append(sinks, telemetry.NewOTLPSink(*otlpEndpoint))
+	}
+	switch len(sinks) {
+	case 0:
 		sink = &telemetry.NoopSink{}
+	case 1:
+		sink = sinks[0]
+	default:
+		sink = telemetry.NewMultiSink(sinks...)
 	}
 	defer sink.Shutdown()
 
@@ -94,6 +109,21 @@ Commands:
   serve    Start the MCP server for an Arazzo file
   help     Show this help message
 
-Example:
-  arazzo-designer-cli serve -f my-workflow.arazzo.yaml -p 8080`)
+Flags (serve):
+  -f                Path to the Arazzo YAML file (required)
+  -p                Port to listen on (default 8080)
+  --trace-endpoint  Local tracer server URL (used by the VS Code extension)
+  --otlp-endpoint   OTLP/HTTP base URL for external tracing (e.g. http://localhost:4318)
+  --bearer-token    Bearer token for API auth
+  --api-key         API key for API auth
+
+Examples:
+  # VS Code plugin (automatic)
+  arazzo-designer-cli serve -f workflow.arazzo.yaml --trace-endpoint http://127.0.0.1:59600/span-events
+
+  # Standalone with Jaeger
+  arazzo-designer-cli serve -f workflow.arazzo.yaml -p 8080 --otlp-endpoint http://localhost:4318
+
+  # Both simultaneously
+  arazzo-designer-cli serve -f workflow.arazzo.yaml --trace-endpoint http://127.0.0.1:59600/span-events --otlp-endpoint http://localhost:4318`)
 }
