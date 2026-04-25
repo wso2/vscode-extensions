@@ -248,7 +248,7 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ fileUri, aiRea
                             key: ruleset.name,
                             label: meta.label,
                             description: meta.description,
-                            score: governance?.score ?? null,
+                            score: governance?.report?.overview?.score ?? null,
                             analyzeSection: meta.analyzeSection
                         } as MetricBadgeData;
                     })

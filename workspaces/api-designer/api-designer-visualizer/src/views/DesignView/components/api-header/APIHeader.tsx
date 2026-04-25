@@ -38,6 +38,8 @@ export interface APIHeaderProps {
     showDescription?: boolean;
     aiReadinessScore?: AIReadinessData | null;
     fileUri?: string;
+    onBackClick?: () => void;
+    backButtonLabel?: string;
 }
 
 const HeaderContainer = styled.div`
@@ -62,6 +64,35 @@ const HeaderLeft = styled.div`
     min-width: 0;
     display: flex;
     flex-direction: column;
+`;
+
+const BackButton = styled.button`
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 26px;
+    width: fit-content;
+    margin-bottom: 8px;
+    padding: 0 8px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--vscode-descriptionForeground);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: border-color 120ms ease, background 120ms ease, color 120ms ease;
+
+    &:hover {
+        color: var(--vscode-foreground);
+        border-color: var(--vscode-panel-border);
+        background: var(--vscode-list-hoverBackground);
+    }
+
+    &:focus-visible {
+        outline: 1px solid var(--vscode-focusBorder);
+        outline-offset: 1px;
+    }
 `;
 
 const TitleRow = styled.div`
@@ -174,12 +205,20 @@ export const APIHeader: React.FC<APIHeaderProps> = ({
     specType,
     onEditClick,
     readOnly = false,
-    showDescription = true
+    showDescription = true,
+    onBackClick,
+    backButtonLabel = 'Back to Design'
 }) => {
     return (
         <HeaderContainer>
             <HeaderContent>
                 <HeaderLeft>
+                    {onBackClick && (
+                        <BackButton onClick={onBackClick}>
+                            <Codicon name="arrow-left" sx={{ fontSize: '13px' }} />
+                            {backButtonLabel}
+                        </BackButton>
+                    )}
                     <TitleRow>
                         <Title>{title || 'Untitled API'}</Title>
                         <BadgeContainer>

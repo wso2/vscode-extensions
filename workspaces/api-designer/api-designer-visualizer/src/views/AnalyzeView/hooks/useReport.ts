@@ -3,8 +3,8 @@
  */
 
 import React from 'react';
-import { SpectralRuleset, type AiReadinessSummary } from '@wso2/api-designer-core';
-import { normalizeGovernanceViolation, NormalizedGovernanceViolation } from '../../../types/violations';
+import { SpectralRuleset, type GetGovernanceResponse, type UnifiedAnalyzeReport } from '@wso2/api-designer-core';
+import { NormalizedGovernanceViolation } from '../../../types/violations';
 
 export type AnalyzeReportKey = 'ai-readiness' | 'owasp' | 'wso2-rest';
 
@@ -25,6 +25,7 @@ export interface IssueRow {
     method: string;
     severity: SeverityLevel;
     line: number;
+    breakdownKeys?: string[];
 }
 
 export interface ReportState {
@@ -34,7 +35,7 @@ export interface ReportState {
     totalChecks: number;
     violations: NormalizedGovernanceViolation[];
     ruleset?: SpectralRuleset;
-    aiReadinessSummary?: AiReadinessSummary;
+    report: UnifiedAnalyzeReport;
 }
 
 // ── Utilities ──────────────────────────────────────────────────────────────
@@ -51,9 +52,8 @@ export const scoreGrade = (score: number): string => {
 
 export const scoreColor = (score: number): string => {
     if (score >= 90) return 'var(--vscode-testing-iconPassed, #22c55e)';
-    if (score >= 75) return '#84cc16';
-    if (score >= 60) return 'var(--vscode-editorWarning-foreground)';
-    if (score >= 40) return '#f97316';
+    if (score >= 75) return '#3b82f6';
+    if (score >= 50) return 'var(--vscode-editorWarning-foreground)';
     return 'var(--vscode-errorForeground)';
 };
 
@@ -105,6 +105,7 @@ export const buildIssueRows = (violations: NormalizedGovernanceViolation[]): Iss
             method,
             severity: toSeverity(violation.severity),
             line: (violation.range?.start.line ?? -1) + 1,
+            breakdownKeys: (violation as NormalizedGovernanceViolation & { breakdownKeys?: string[] }).breakdownKeys,
         };
     });
 
@@ -185,27 +186,47 @@ export const useReportData = (
                 const [governance, contentResponse] = await Promise.all([
                     client.getGovernance({ filePath: fileUri, name: selectedRuleset.name, ruleset: selectedRuleset }),
                     client.getAPISpecContent({ filePath: fileUri }),
-                ]);
+                ]) as [GetGovernanceResponse, { content?: string }];
 
                 if (disposed) return;
 
-                const governanceScore = governance?.score ?? 0;
-                const aiSummary = governance?.aiReadinessSummary;
+                const unifiedReport = governance.report;
+                if (!unifiedReport) {
+                    throw new Error('Governance report payload is missing.');
+                }
+
+                const aiSummary = unifiedReport.reportId === 'ai-readiness' ? unifiedReport.aiReadinessSummary : undefined;
                 const headlineScore =
                     reportKey === 'ai-readiness' && typeof aiSummary?.score === 'number'
                         ? aiSummary.score
-                        : governanceScore;
+                        : unifiedReport.overview.score;
+
+                const normalizedViolations = Object.values(
+                    (unifiedReport.violationsById || {}) as Record<string, any>
+                ).map((violation) => ({
+                        pathSegments: violation.pathSegments,
+                        displayPath: violation.displayPath,
+                        message: violation.message,
+                        description: violation.description,
+                        fixSuggestion: violation.fixSuggestion,
+                        severity: violation.severity,
+                        rule: violation.rule,
+                        code: violation.code,
+                        range: violation.range,
+                        breakdownKeys: violation.breakdownKeys,
+                    } as NormalizedGovernanceViolation & { breakdownKeys?: string[] }));
+
+                const passedChecks = unifiedReport.overview.passedChecks;
+                const totalChecks = unifiedReport.overview.totalChecks;
 
                 setReport({
                     rulesetName: selectedRuleset.name,
                     score: headlineScore,
-                    passedChecks: governance?.passedChecks ?? 0,
-                    totalChecks:
-                        governance?.totalChecks ??
-                        (governance?.passedChecks ?? 0) + (governance?.violations?.length ?? 0),
-                    violations: (governance?.violations || []).map(normalizeGovernanceViolation),
+                    passedChecks,
+                    totalChecks,
+                    violations: normalizedViolations,
                     ruleset: selectedRuleset,
-                    aiReadinessSummary: aiSummary,
+                    report: unifiedReport,
                 });
                 setSpecContent(contentResponse?.content || '');
             } catch (e: any) {

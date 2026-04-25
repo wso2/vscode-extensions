@@ -54,7 +54,12 @@ export type {
     FileTreeNode,
     RulesetMetadata,
     AiReadinessMetrics,
-    AiReadinessCoverage
+    AiReadinessCoverage,
+    UnifiedAnalyzeReport,
+    UnifiedAnalyzeReportKey,
+    UnifiedBreakdownCategory,
+    UnifiedOverviewMetric,
+    UnifiedViolation
 } from "./types";
 
 // Export GovernanceViolation type alias for convenience

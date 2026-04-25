@@ -1,19 +1,10 @@
 import React from 'react';
 import styled from '@emotion/styled';
+import { Codicon } from '@wso2/ui-toolkit';
 import type { AiReadinessDimensionSummary } from '@wso2/api-designer-core';
 import { AnalyzeReportKey } from '../hooks/useReport';
 import { BREAKDOWN_TITLES } from './AnalyzeSingleReportHelpers';
 import { AIReadinessBucketGrid } from './AIReadinessBucketGrid';
-
-interface BreakdownItem {
-    id: string;
-    key: string;
-    name: string;
-    count: number;
-    errors: number;
-    warnings: number;
-    docsUrl?: string;
-}
 
 interface ViolationRow {
     id: string;
@@ -28,12 +19,24 @@ interface ViolationRow {
 interface AnalyzeSingleReportBreakdownProps {
     reportKey: AnalyzeReportKey;
     aiReadinessDimensions: AiReadinessDimensionSummary[];
-    breakdownSummary: BreakdownItem[];
     totalRows: number;
     violations: ViolationRow[];
     expandedBucketKeys: Set<string>;
     onToggleBucket: (key: string) => void;
-    onViewIssues: () => void;
+    onViewIssues: (subBucketKey?: string) => void;
+    unifiedCategories?: Array<{
+        id: string;
+        label: string;
+        description?: string;
+        total: number;
+        errors: number;
+        warnings: number;
+        percentage: number;
+        affectedEndpoints: number;
+        docsUrl?: string;
+        viewIssuesFilter: { key: string; label: string };
+        topRules?: string[];
+    }>;
 }
 
 const SectionBlock = styled.div`
@@ -188,77 +191,221 @@ const OwaspDocsLink = styled.a`
     &:hover { text-decoration: underline; }
 `;
 
+const Wso2Grid = styled.div`
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    padding: 14px;
+`;
+
+const Wso2CategoryName = styled.div`
+    margin-top: 2px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--vscode-foreground);
+`;
+
+const Wso2Meta = styled.div`
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+`;
+
+const Wso2RuleList = styled.div`
+    margin-top: 2px;
+    font-size: 11px;
+    color: var(--vscode-foreground);
+`;
+
+const Wso2PassRow = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+`;
+
+const Wso2PassIcon = styled.span`
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: white;
+    background: var(--vscode-testing-iconPassed, #22c55e);
+`;
+
+const Wso2Details = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+`;
+
+const Wso2DetailsText = styled.div`
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+`;
+
+const ViewIssuesLink = styled.button`
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 12px;
+    color: var(--vscode-textLink-foreground);
+    cursor: pointer;
+    font-family: inherit;
+    &:hover {
+        text-decoration: underline;
+    }
+`;
+
 export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdownProps> = ({
     reportKey,
     aiReadinessDimensions,
-    breakdownSummary,
     totalRows,
     violations,
     expandedBucketKeys,
     onToggleBucket,
     onViewIssues,
-}) => (
-    <SectionBlock>
-        <SectionHeader>
-            <SectionTitleText>{BREAKDOWN_TITLES[reportKey]}</SectionTitleText>
-        </SectionHeader>
-        {reportKey === 'ai-readiness' ? (
-            <AIReadinessBucketGrid
-                dimensions={aiReadinessDimensions}
-                expandedKeys={expandedBucketKeys}
-                onToggle={onToggleBucket}
-                violations={violations}
-                onViewIssues={onViewIssues}
-            />
-        ) : (
-            <OwaspGrid>
-                {breakdownSummary.map((cat) => {
-                    if (cat.count === 0) {
+    unifiedCategories,
+}) => {
+    const categoriesFromBackend = React.useMemo(() => unifiedCategories || [], [unifiedCategories]);
+
+    return (
+        <SectionBlock>
+            <SectionHeader>
+                <SectionTitleText>{BREAKDOWN_TITLES[reportKey]}</SectionTitleText>
+            </SectionHeader>
+            {reportKey === 'ai-readiness' ? (
+                <AIReadinessBucketGrid
+                    dimensions={aiReadinessDimensions}
+                    expandedKeys={expandedBucketKeys}
+                    onToggle={onToggleBucket}
+                    violations={violations}
+                    onViewIssues={onViewIssues}
+                />
+            ) : reportKey === 'wso2-rest' ? (
+                <Wso2Grid>
+                    {categoriesFromBackend.map((cat) => {
+                        if (cat.total === 0) {
+                            return (
+                                <OwaspPassCard key={cat.id}>
+                                    <OwaspPassIcon>✓</OwaspPassIcon>
+                                    <div>
+                                        <OwaspPassCategoryId>{cat.label}</OwaspPassCategoryId>
+                                        <OwaspPassCategoryName>{cat.description}</OwaspPassCategoryName>
+                                        <OwaspPassSubtext>No issues found</OwaspPassSubtext>
+                                    </div>
+                                </OwaspPassCard>
+                            );
+                        }
+                        const dominantSeverity = cat.errors > 0 ? 'error' as const : 'warn' as const;
+                        const accentColor = cat.errors > 0
+                            ? 'var(--vscode-errorForeground)'
+                            : 'var(--vscode-editorWarning-foreground)';
+                        const percentage = cat.percentage ?? (totalRows > 0 ? Math.round((cat.total / totalRows) * 100) : 0);
                         return (
-                            <OwaspPassCard key={cat.id}>
-                                <OwaspPassIcon>✓</OwaspPassIcon>
-                                <div>
-                                    <OwaspPassCategoryId>{cat.id}</OwaspPassCategoryId>
-                                    <OwaspPassCategoryName>{cat.name}</OwaspPassCategoryName>
-                                    <OwaspPassSubtext>No issues found</OwaspPassSubtext>
-                                </div>
-                            </OwaspPassCard>
+                            <OwaspIssueCard key={cat.id} $dominantSeverity={dominantSeverity}>
+                                <OwaspIssueHeader>
+                                    <div>
+                                        <OwaspCategoryId $color={accentColor}>{cat.label}</OwaspCategoryId>
+                                        <OwaspCategoryName>{cat.description}</OwaspCategoryName>
+                                    </div>
+                                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                                        <OwaspIssueCount $color={accentColor}>{cat.total}</OwaspIssueCount>
+                                        <OwaspIssueCountLabel $color={accentColor}>issues</OwaspIssueCountLabel>
+                                    </div>
+                                </OwaspIssueHeader>
+                                <ProgressTrack>
+                                    <ProgressFill $width={percentage} $severity={dominantSeverity} />
+                                </ProgressTrack>
+                                <OwaspFooter>
+                                    <Wso2Details>
+                                        <Wso2DetailsText>{percentage}% of total issues</Wso2DetailsText>
+                                        <Wso2DetailsText>{cat.affectedEndpoints} endpoints impacted</Wso2DetailsText>
+                                    </Wso2Details>
+                                    <ViewIssuesLink onClick={() => onViewIssues(cat.viewIssuesFilter.key)}>
+                                        View issues
+                                        <Codicon name="arrow-right" sx={{ fontSize: '11px' }} />
+                                    </ViewIssuesLink>
+                                </OwaspFooter>
+                                <Wso2RuleList>
+                                    Top failing rules: {cat.topRules && cat.topRules.length > 0 ? cat.topRules.join(', ') : 'No dominant rule'}
+                                </Wso2RuleList>
+                            </OwaspIssueCard>
                         );
-                    }
-                    const dominantSeverity = cat.errors > 0 ? 'error' as const : 'warn' as const;
-                    const accentColor = cat.errors > 0
-                        ? 'var(--vscode-errorForeground)'
-                        : 'var(--vscode-editorWarning-foreground)';
-                    const percentage = totalRows > 0 ? Math.round((cat.count / totalRows) * 100) : 0;
-                    return (
-                        <OwaspIssueCard key={cat.id} $dominantSeverity={dominantSeverity}>
-                            <OwaspIssueHeader>
-                                <div>
-                                    <OwaspCategoryId $color={accentColor}>{cat.id}</OwaspCategoryId>
-                                    <OwaspCategoryName>{cat.name}</OwaspCategoryName>
-                                </div>
-                                <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                                    <OwaspIssueCount $color={accentColor}>{cat.count}</OwaspIssueCount>
-                                    <OwaspIssueCountLabel $color={accentColor}>issues</OwaspIssueCountLabel>
-                                </div>
-                            </OwaspIssueHeader>
-                            <ProgressTrack>
-                                <ProgressFill $width={percentage} $severity={dominantSeverity} />
-                            </ProgressTrack>
-                            <OwaspFooter>
-                                <span style={{ fontSize: 11, color: 'var(--vscode-descriptionForeground)' }}>
-                                    {percentage}% of total issues
-                                </span>
-                                {cat.docsUrl && (
-                                    <OwaspDocsLink href={cat.docsUrl} target="_blank" rel="noreferrer">
-                                        Docs →
-                                    </OwaspDocsLink>
-                                )}
-                            </OwaspFooter>
-                        </OwaspIssueCard>
-                    );
-                })}
-            </OwaspGrid>
-        )}
-    </SectionBlock>
-);
+                    })}
+                </Wso2Grid>
+            ) : (
+                <OwaspGrid>
+                    {categoriesFromBackend.map((cat) => {
+                        const category = {
+                            id: cat.id,
+                            key: cat.viewIssuesFilter.key,
+                            name: cat.label,
+                            count: cat.total,
+                            errors: cat.errors,
+                            warnings: cat.warnings,
+                            docsUrl: cat.docsUrl,
+                            percentage: cat.percentage,
+                        };
+                        if (category.count === 0) {
+                            return (
+                                <OwaspPassCard key={category.id}>
+                                    <OwaspPassIcon>✓</OwaspPassIcon>
+                                    <div>
+                                        <OwaspPassCategoryId>{category.id}</OwaspPassCategoryId>
+                                        <OwaspPassCategoryName>{category.name}</OwaspPassCategoryName>
+                                        <OwaspPassSubtext>No issues found</OwaspPassSubtext>
+                                    </div>
+                                </OwaspPassCard>
+                            );
+                        }
+                        const dominantSeverity = category.errors > 0 ? 'error' as const : 'warn' as const;
+                        const accentColor = category.errors > 0
+                            ? 'var(--vscode-errorForeground)'
+                            : 'var(--vscode-editorWarning-foreground)';
+                        const percentage = category.percentage ?? (totalRows > 0 ? Math.round((category.count / totalRows) * 100) : 0);
+                        return (
+                            <OwaspIssueCard key={category.id} $dominantSeverity={dominantSeverity}>
+                                <OwaspIssueHeader>
+                                    <div>
+                                        <OwaspCategoryId $color={accentColor}>{category.id}</OwaspCategoryId>
+                                        <OwaspCategoryName>{category.name}</OwaspCategoryName>
+                                    </div>
+                                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                                        <OwaspIssueCount $color={accentColor}>{category.count}</OwaspIssueCount>
+                                        <OwaspIssueCountLabel $color={accentColor}>issues</OwaspIssueCountLabel>
+                                    </div>
+                                </OwaspIssueHeader>
+                                <ProgressTrack>
+                                    <ProgressFill $width={percentage} $severity={dominantSeverity} />
+                                </ProgressTrack>
+                                <OwaspFooter>
+                                    <span style={{ fontSize: 11, color: 'var(--vscode-descriptionForeground)' }}>
+                                        {percentage}% of total issues
+                                    </span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        {category.docsUrl && (
+                                            <OwaspDocsLink href={category.docsUrl} target="_blank" rel="noreferrer">
+                                                Docs →
+                                            </OwaspDocsLink>
+                                        )}
+                                        <ViewIssuesLink onClick={() => onViewIssues(category.key)}>
+                                            View issues
+                                            <Codicon name="arrow-right" sx={{ fontSize: '11px' }} />
+                                        </ViewIssuesLink>
+                                    </div>
+                                </OwaspFooter>
+                            </OwaspIssueCard>
+                        );
+                    })}
+                </OwaspGrid>
+            )}
+        </SectionBlock>
+    );
+};

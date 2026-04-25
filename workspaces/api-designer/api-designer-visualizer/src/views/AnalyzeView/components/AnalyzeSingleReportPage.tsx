@@ -4,8 +4,8 @@
 
 import React from 'react';
 import styled from '@emotion/styled';
-import { Codicon } from '@wso2/ui-toolkit';
 import { useVisualizerContext } from '@wso2/api-designer-rpc-client';
+import { getAiReadinessRuleSubBucket } from '@wso2/api-designer-core';
 import { postMessage as postVSCodeMessage } from '../../../utils/vscode-api';
 import { useAIAvailability } from '../../../hooks/useAIAvailability';
 import {
@@ -21,12 +21,7 @@ import {
 } from '../hooks/useReport';
 import { AnalyzeSingleReportOverview } from './AnalyzeSingleReportOverview';
 import { AnalyzeSingleReportBreakdown } from './AnalyzeSingleReportBreakdown';
-import {
-    REPORT_TITLES,
-    OWASP_CATEGORIES,
-    buildRulesetFileUrl,
-    getRuleBucket,
-} from './AnalyzeSingleReportHelpers';
+import { REPORT_TITLES, buildRulesetFileUrl } from './AnalyzeSingleReportHelpers';
 import { AnalyzeSingleReportIssueExplorer } from './AnalyzeSingleReportIssueExplorer';
 
 export type { AnalyzeReportKey };
@@ -36,8 +31,6 @@ interface AnalyzeSingleReportPageProps {
     refreshToken: number;
     reportKey: AnalyzeReportKey;
 }
-
-type ActiveTab = 'issues' | 'endpoints';
 
 const openCopilotChat = (context: string, prompt: string) =>
     postVSCodeMessage({ command: 'openCopilotChat', data: { context, prompt } });
@@ -88,28 +81,6 @@ const MessageCard = styled.div`
     font-size: 13px;
 `;
 
-const BackButton = styled.button`
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    height: 30px;
-    padding: 0 10px;
-    border: 1px solid var(--vscode-panel-border);
-    border-radius: 6px;
-    background: var(--vscode-editorWidget-background);
-    color: var(--vscode-foreground);
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: border-color 120ms ease, background 120ms ease, transform 120ms ease;
-
-    &:hover {
-        border-color: var(--vscode-focusBorder);
-        background: var(--vscode-list-hoverBackground);
-        transform: translateY(-1px);
-    }
-`;
-
 export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = ({
     fileUri,
     refreshToken,
@@ -118,8 +89,8 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
     const { rpcClient } = useVisualizerContext();
     const { loading, error, report, specContent } = useReportData(rpcClient, fileUri, refreshToken, reportKey);
     const isAIAvailable = useAIAvailability();
+    const effectiveReportId = report?.report.reportId;
 
-    const [activeTab, setActiveTab] = React.useState<ActiveTab>('issues');
     const [expandedBucketKeys, setExpandedBucketKeys] = React.useState<Set<string>>(new Set());
     const toggleBucketKey = React.useCallback((key: string) => {
         setExpandedBucketKeys((prev) => {
@@ -134,19 +105,76 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
     const [sortDir, setSortDir] = React.useState<SortDir>('asc');
     const [search, setSearch] = React.useState('');
     const [selectedIssueId, setSelectedIssueId] = React.useState<string | null>(null);
+    const [selectedAiBucketKey, setSelectedAiBucketKey] = React.useState<string | null>(null);
+    const [selectedAiMainBucketKey, setSelectedAiMainBucketKey] = React.useState<string | null>(null);
+    const [selectedBreakdownKey, setSelectedBreakdownKey] = React.useState<string | null>(null);
+    const issueExplorerRef = React.useRef<HTMLDivElement | null>(null);
 
     const rows = React.useMemo(() => buildIssueRows(report?.violations || []), [report]);
-    const { filteredRows, groupedRows } = useIssueFilters(rows, { severityFilter, search, sortBy, sortDir, groupBy });
+    const aiBucketOptions = React.useMemo(() => {
+        const dimensions = (
+            report?.report.reportId === 'ai-readiness' ? report.report.aiReadinessSummary.dimensions : []
+        ) as Array<{
+            key: string;
+            label: string;
+            subBuckets: Array<{ key: string; label: string }>;
+        }>;
+        return dimensions.map((dimension: { key: string; label: string; subBuckets: Array<{ key: string; label: string }> }) => ({
+            key: dimension.key,
+            label: dimension.label,
+            subBuckets: (dimension.subBuckets || []).map((subBucket: { key: string; label: string }) => ({
+                key: subBucket.key,
+                label: subBucket.label
+            }))
+        }));
+    }, [report]);
+    const subBucketToMainBucketMap = React.useMemo(() => {
+        const map = new Map<string, string>();
+        aiBucketOptions.forEach((bucket: { key: string; subBuckets: Array<{ key: string }> }) => {
+            bucket.subBuckets.forEach((subBucket: { key: string }) => {
+                map.set(subBucket.key, bucket.key);
+            });
+        });
+        return map;
+    }, [aiBucketOptions]);
+    const scopedRows = React.useMemo(() => {
+        if (effectiveReportId === 'ai-readiness') {
+            return rows.filter((row) => {
+                const subBucket = getAiReadinessRuleSubBucket(row.rule);
+                if (!subBucket) return false;
+                const mainBucket = subBucketToMainBucketMap.get(subBucket) || null;
+                if (selectedAiMainBucketKey && mainBucket !== selectedAiMainBucketKey) return false;
+                if (selectedAiBucketKey && subBucket !== selectedAiBucketKey) return false;
+                return true;
+            });
+        }
+
+        if (!selectedBreakdownKey) return rows;
+
+        if (effectiveReportId === 'owasp' || effectiveReportId === 'rest-api-readiness') {
+            return rows.filter((row) => row.breakdownKeys?.includes(selectedBreakdownKey));
+        }
+
+        return rows;
+    }, [
+        rows,
+        effectiveReportId,
+        selectedAiMainBucketKey,
+        selectedAiBucketKey,
+        subBucketToMainBucketMap,
+        selectedBreakdownKey,
+    ]);
+    const { filteredRows, groupedRows } = useIssueFilters(scopedRows, { severityFilter, search, sortBy, sortDir, groupBy });
 
     React.useEffect(() => {
-        if (!rows.length) {
+        if (!scopedRows.length) {
             setSelectedIssueId(null);
             return;
         }
-        if (!selectedIssueId || !rows.some((r) => r.id === selectedIssueId)) {
-            setSelectedIssueId(rows[0].id);
+        if (!selectedIssueId || !scopedRows.some((r) => r.id === selectedIssueId)) {
+            setSelectedIssueId(scopedRows[0].id);
         }
-    }, [rows, selectedIssueId]);
+    }, [scopedRows, selectedIssueId]);
 
     const selectedIssue = React.useMemo(
         () => filteredRows.find((r) => r.id === selectedIssueId) || filteredRows[0] || null,
@@ -165,72 +193,38 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
         const rulesCount = new Set(rows.map((r) => r.rule)).size;
         return { errors, warnings, endpointCount, rulesCount };
     }, [rows]);
+    const issueStats = React.useMemo(() => {
+        const errors = scopedRows.filter((r) => r.severity === 'error').length;
+        const warnings = scopedRows.filter((r) => r.severity === 'warn').length;
+        return { errors, warnings };
+    }, [scopedRows]);
 
-    const breakdownSummary = React.useMemo<Array<{
-        id: string; key: string; name: string; count: number; errors: number; warnings: number; docsUrl?: string;
-    }>>(() => {
-        if (reportKey === 'owasp') {
-            const map = new Map<string, { count: number; errors: number; warnings: number }>();
-            rows.forEach((row) => {
-                const m = row.rule.toUpperCase().match(/API\d+/);
-                const key = m?.[0] || null;
-                if (!key) return;
-                const cur = map.get(key) || { count: 0, errors: 0, warnings: 0 };
-                cur.count++;
-                if (row.severity === 'error') cur.errors++;
-                if (row.severity === 'warn') cur.warnings++;
-                map.set(key, cur);
-            });
-            return OWASP_CATEGORIES.map((cat) => ({
-                id: cat.id, key: cat.key, name: cat.name, docsUrl: cat.docsUrl,
-                ...(map.get(cat.key) || { count: 0, errors: 0, warnings: 0 }),
-            })).sort((a, b) => b.count - a.count || a.key.localeCompare(b.key));
+    const breakdownFilterOptions = React.useMemo<Array<{ key: string; label: string }>>(
+        () => (effectiveReportId && effectiveReportId !== 'ai-readiness' ? report?.report.issueExplorer.breakdownFilterOptions || [] : []),
+        [effectiveReportId, report]
+    );
+
+    const handleViewIssues = React.useCallback((targetKey?: string) => {
+        const nextKey = targetKey || null;
+        if (effectiveReportId === 'ai-readiness') {
+            setSelectedAiBucketKey(nextKey);
+            setSelectedAiMainBucketKey(nextKey ? (subBucketToMainBucketMap.get(nextKey) || null) : null);
+            setSelectedBreakdownKey(null);
+        } else {
+            setSelectedAiBucketKey(null);
+            setSelectedAiMainBucketKey(null);
+            setSelectedBreakdownKey(nextKey);
         }
-        const map = new Map<string, { id: string; key: string; name: string; count: number; errors: number; warnings: number }>();
-        rows.forEach((row) => {
-            const bucket = getRuleBucket(row.rule, reportKey);
-            const cur = map.get(bucket.id) || { id: bucket.id, key: bucket.id, name: bucket.name, count: 0, errors: 0, warnings: 0 };
-            cur.count++;
-            if (row.severity === 'error') cur.errors++;
-            if (row.severity === 'warn') cur.warnings++;
-            map.set(bucket.id, cur);
+        setSeverityFilter('all');
+        setGroupBy('none');
+        setSortBy('severity');
+        setSortDir('asc');
+        setSearch('');
+        setSelectedIssueId(null);
+        window.requestAnimationFrame(() => {
+            issueExplorerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
-        return Array.from(map.values()).sort((a, b) => b.count - a.count || a.key.localeCompare(b.key));
-    }, [rows, reportKey]);
-
-    const endpointSummary = React.useMemo(() => {
-        const map = new Map<string, { count: number; errors: number; warnings: number; method: string; endpoint: string; rules: Map<string, number> }>();
-        rows.forEach((row) => {
-            const key = `${row.method} ${row.endpoint}`;
-            const cur = map.get(key) || { count: 0, errors: 0, warnings: 0, method: row.method, endpoint: row.endpoint, rules: new Map() };
-            cur.count++;
-            if (row.severity === 'error') cur.errors++;
-            if (row.severity === 'warn') cur.warnings++;
-            cur.rules.set(row.rule, (cur.rules.get(row.rule) || 0) + 1);
-            map.set(key, cur);
-        });
-        return Array.from(map.values())
-            .map((item) => ({
-                ...item,
-                topRules: Array.from(item.rules.entries()).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([r]) => r),
-                dominantSeverity: item.errors > 0 ? 'error' as const : 'warn' as const,
-            }))
-            .sort((a, b) => b.count - a.count);
-    }, [rows]);
-
-    const ruleFrequency = React.useMemo(() => {
-        const map = new Map<string, { total: number; errors: number; warnings: number }>();
-        rows.forEach((row) => {
-            const cur = map.get(row.rule) || { total: 0, errors: 0, warnings: 0 };
-            cur.total++;
-            if (row.severity === 'error') cur.errors++;
-            if (row.severity === 'warn') cur.warnings++;
-            map.set(row.rule, cur);
-        });
-        return Array.from(map.entries()).sort((a, b) => b[1].total - a[1].total).map(([rule, value]) => ({ rule, ...value }));
-    }, [rows]);
-
-    const goBackToDesign = () => postVSCodeMessage({ command: 'switchView', viewType: 'preview', fileUri });
+    }, [effectiveReportId, subBucketToMainBucketMap]);
     const title = REPORT_TITLES[reportKey];
     const score = Math.max(0, Math.min(100, Number(report?.score || 0)));
     const gradeColor = scoreColor(score);
@@ -245,10 +239,6 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
                         <HeaderTitle>{title}</HeaderTitle>
                         <HeaderSubtitle>Loading report…</HeaderSubtitle>
                     </HeaderTitleGroup>
-                    <BackButton onClick={goBackToDesign}>
-                        <Codicon name="arrow-left" sx={{ fontSize: '13px' }} />
-                        Back to Design
-                    </BackButton>
                 </HeaderBar>
             </Root>
         );
@@ -262,15 +252,15 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
                         <HeaderTitle>{title}</HeaderTitle>
                         <HeaderSubtitle>Unable to generate report</HeaderSubtitle>
                     </HeaderTitleGroup>
-                    <BackButton onClick={goBackToDesign}>
-                        <Codicon name="arrow-left" sx={{ fontSize: '13px' }} />
-                        Back to Design
-                    </BackButton>
                 </HeaderBar>
                 <MessageCard>{error || 'No report data available.'}</MessageCard>
             </Root>
         );
     }
+
+    const resolvedReportId = report.report.reportId;
+    const issueExplorerReportKey: AnalyzeReportKey = resolvedReportId === 'rest-api-readiness' ? 'wso2-rest' : resolvedReportId;
+    const aiReadinessDimensions = resolvedReportId === 'ai-readiness' ? report.report.aiReadinessSummary.dimensions : [];
 
     return (
         <Root>
@@ -279,10 +269,6 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
                     <HeaderTitle>{title}</HeaderTitle>
                     <HeaderSubtitle>{report.rulesetName}</HeaderSubtitle>
                 </HeaderTitleGroup>
-                <BackButton onClick={goBackToDesign}>
-                    <Codicon name="arrow-left" sx={{ fontSize: '13px' }} />
-                    Back to Design
-                </BackButton>
             </HeaderBar>
 
             <AnalyzeSingleReportOverview
@@ -296,45 +282,85 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
 
             <AnalyzeSingleReportBreakdown
                 reportKey={reportKey}
-                aiReadinessDimensions={report?.aiReadinessSummary?.dimensions ?? []}
-                breakdownSummary={breakdownSummary}
+                aiReadinessDimensions={aiReadinessDimensions}
                 totalRows={rows.length}
                 violations={rows}
                 expandedBucketKeys={expandedBucketKeys}
                 onToggleBucket={toggleBucketKey}
-                onViewIssues={() => setActiveTab('issues')}
+                onViewIssues={handleViewIssues}
+                unifiedCategories={report.report.breakdown.categories}
             />
 
-            <AnalyzeSingleReportIssueExplorer
-                activeTab={activeTab}
-                setActiveTab={setActiveTab}
-                rows={rows}
-                stats={{ errors: stats.errors, warnings: stats.warnings }}
-                filteredRows={filteredRows}
-                groupedRows={groupedRows}
-                selectedIssue={selectedIssue}
-                setSelectedIssueId={setSelectedIssueId}
-                severityFilter={severityFilter}
-                setSeverityFilter={setSeverityFilter}
-                groupBy={groupBy}
-                setGroupBy={setGroupBy}
-                sortBy={sortBy}
-                setSortBy={setSortBy}
-                sortDir={sortDir}
-                setSortDir={setSortDir}
-                search={search}
-                setSearch={setSearch}
-                aiEnabled={aiEnabled}
-                reportKey={reportKey}
-                reportName={report.rulesetName}
-                fileUri={fileUri}
-                rulesetFileUrl={rulesetFileUrl}
-                rulesetContentPath={report.ruleset?.rulesetContentPath}
-                specContent={specContent}
-                endpointSummary={endpointSummary}
-                ruleFrequency={ruleFrequency}
-                onOpenCopilotChat={openCopilotChat}
-            />
+            <div ref={issueExplorerRef}>
+                <AnalyzeSingleReportIssueExplorer
+                    rows={scopedRows}
+                    stats={issueStats}
+                    filteredRows={filteredRows}
+                    groupedRows={groupedRows}
+                    selectedIssue={selectedIssue}
+                    setSelectedIssueId={setSelectedIssueId}
+                    severityFilter={severityFilter}
+                    setSeverityFilter={setSeverityFilter}
+                    groupBy={groupBy}
+                    setGroupBy={setGroupBy}
+                    sortBy={sortBy}
+                    setSortBy={setSortBy}
+                    sortDir={sortDir}
+                    setSortDir={setSortDir}
+                    search={search}
+                    setSearch={setSearch}
+                    aiEnabled={aiEnabled}
+                    reportKey={issueExplorerReportKey}
+                    reportName={report.rulesetName}
+                    fileUri={fileUri}
+                    rulesetFileUrl={rulesetFileUrl}
+                    rulesetContentPath={report.ruleset?.rulesetContentPath}
+                    specContent={specContent}
+                    onOpenCopilotChat={openCopilotChat}
+                    aiBucketFilter={resolvedReportId === 'ai-readiness' ? {
+                        mainBucketKey: selectedAiMainBucketKey,
+                        subBucketKey: selectedAiBucketKey,
+                        summaryLabel: (() => {
+                            if (!selectedAiMainBucketKey && !selectedAiBucketKey) return null;
+                            const main = aiBucketOptions.find((o: { key: string }) => o.key === selectedAiMainBucketKey);
+                            const sub = main?.subBuckets.find((s: { key: string }) => s.key === selectedAiBucketKey);
+                            if (main && sub) return `${main.label} > ${sub.label}`;
+                            if (main) return main.label;
+                            return null;
+                        })(),
+                        options: aiBucketOptions,
+                        onChangeMainBucket: (key: string | null) => {
+                            setSelectedAiMainBucketKey(key);
+                            if (!key) {
+                                setSelectedAiBucketKey(null);
+                                return;
+                            }
+                            if (selectedAiBucketKey) {
+                                const selectedMain = subBucketToMainBucketMap.get(selectedAiBucketKey);
+                                if (selectedMain !== key) {
+                                    setSelectedAiBucketKey(null);
+                                }
+                            }
+                        },
+                        onChangeSubBucket: (key: string | null) => {
+                            setSelectedAiBucketKey(key);
+                            if (!key) return;
+                            const main = subBucketToMainBucketMap.get(key) || null;
+                            setSelectedAiMainBucketKey(main);
+                        },
+                        onClear: () => {
+                            setSelectedAiMainBucketKey(null);
+                            setSelectedAiBucketKey(null);
+                        }
+                    } : undefined}
+                    breakdownFilter={resolvedReportId !== 'ai-readiness' ? {
+                        selectedKey: selectedBreakdownKey,
+                        summaryLabel: breakdownFilterOptions.find((option) => option.key === selectedBreakdownKey)?.label || null,
+                        options: breakdownFilterOptions,
+                        onChange: (key: string | null) => setSelectedBreakdownKey(key),
+                    } : undefined}
+                />
+            </div>
         </Root>
     );
 };

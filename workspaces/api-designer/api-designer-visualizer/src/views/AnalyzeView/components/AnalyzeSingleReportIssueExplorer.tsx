@@ -4,11 +4,7 @@ import { AIButton } from '../../../components/ai/AIButton';
 import { AnalyzeReportKey, GroupBy, IssueRow, SeverityLevel, SortBy, SortDir } from '../hooks/useReport';
 import { REPORT_TITLES, extractSnippetLines, getMethodStyle, getReferenceTag } from './AnalyzeSingleReportHelpers';
 
-type ActiveTab = 'issues' | 'endpoints';
-
 interface AnalyzeSingleReportIssueExplorerProps {
-    activeTab: ActiveTab;
-    setActiveTab: React.Dispatch<React.SetStateAction<ActiveTab>>;
     rows: IssueRow[];
     stats: { errors: number; warnings: number };
     filteredRows: IssueRow[];
@@ -32,12 +28,26 @@ interface AnalyzeSingleReportIssueExplorerProps {
     rulesetFileUrl?: string;
     rulesetContentPath?: string;
     specContent: string;
-    endpointSummary: Array<{
-        count: number; errors: number; warnings: number; method: string; endpoint: string;
-        topRules: string[]; dominantSeverity: 'error' | 'warn';
-    }>;
-    ruleFrequency: Array<{ rule: string; total: number; errors: number; warnings: number }>;
     onOpenCopilotChat: (context: string, prompt: string) => void;
+    aiBucketFilter?: {
+        mainBucketKey: string | null;
+        subBucketKey: string | null;
+        summaryLabel?: string | null;
+        options: Array<{
+            key: string;
+            label: string;
+            subBuckets: Array<{ key: string; label: string }>;
+        }>;
+        onChangeMainBucket: (key: string | null) => void;
+        onChangeSubBucket: (key: string | null) => void;
+        onClear: () => void;
+    };
+    breakdownFilter?: {
+        selectedKey: string | null;
+        summaryLabel?: string | null;
+        options: Array<{ key: string; label: string }>;
+        onChange: (key: string | null) => void;
+    };
 }
 
 const Row = styled.div`display: flex; align-items: center; gap: 8px;`;
@@ -59,21 +69,11 @@ const SectionHeader = styled.div`
 const SectionTitleText = styled.div`
     font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--vscode-foreground);
 `;
-const TabBar = styled.div`
-    display: flex; gap: 4px; background: var(--vscode-editorWidget-background);
-    border: 1px solid var(--vscode-panel-border); border-radius: 8px; padding: 4px; width: fit-content;
-`;
-const TabBtn = styled.button<{ $active: boolean }>`
-    border: none; border-radius: 5px; height: 28px; padding: 0 14px; font-size: 12px; font-weight: 600; cursor: pointer;
-    background: ${({ $active }: { $active: boolean }) => ($active ? 'var(--vscode-button-background)' : 'transparent')};
-    color: ${({ $active }: { $active: boolean }) => ($active ? 'var(--vscode-button-foreground)' : 'var(--vscode-foreground)')};
-    opacity: ${({ $active }: { $active: boolean }) => ($active ? 1 : 0.75)};
-`;
 const IssueExplorerBody = styled.div`flex: 1; min-height: 0; overflow: hidden;`;
 const IssuesLayout = styled.div`display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 10px; height: 100%;`;
 const Panel = styled.div`
-    border: 1px solid var(--vscode-panel-border); border-radius: 0; background: var(--vscode-editor-background);
-    overflow: hidden; display: flex; flex-direction: column; min-height: 0;
+    border: 1px solid var(--vscode-panel-border); border-radius: 8px; background: var(--vscode-editor-background);
+    overflow: hidden; display: flex; flex-direction: column; min-height: 0; margin: 10px 0 10px 10px;
 `;
 const Toolbar = styled.div`
     border-bottom: 1px solid var(--vscode-panel-border); padding: 8px 12px;
@@ -94,6 +94,21 @@ const Spacer = styled.div`flex: 1;`;
 const CtrlSelect = styled.select`
     height: 26px; border: 1px solid var(--vscode-panel-border); border-radius: 6px;
     background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); padding: 0 8px; font-size: 11px;
+`;
+const ActiveFilterPill = styled.div`
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 24px;
+    padding: 0 9px;
+    border: 1px solid var(--vscode-focusBorder);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--vscode-focusBorder) 12%, transparent);
+    color: var(--vscode-foreground);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
 `;
 const EmptyState = styled.div`padding: 32px; text-align: center; color: var(--vscode-descriptionForeground); font-size: 13px;`;
 const IssueCardsBody = styled.div`flex: 1; overflow-y: auto; padding: 8px;`;
@@ -121,7 +136,7 @@ const TableFooter = styled.div`
 `;
 const DetailColumn = styled.div`height: 100%; min-height: 0;`;
 const DetailCard = styled.div`
-    border: 1px solid var(--vscode-panel-border); border-radius: 8px; overflow: hidden; margin: 10px;
+    border: 1px solid var(--vscode-panel-border); border-radius: 8px; overflow: hidden; margin: 10px 10px 10px 0;
     background: var(--vscode-editor-background); height: 100%; display: flex; flex-direction: column;
 `;
 const DetailHeader = styled.div`
@@ -154,33 +169,6 @@ const YamlLine = styled.div<{ $highlight: boolean }>`
 `;
 const YamlLineNum = styled.span`flex: 0 0 36px; text-align: right; padding-right: 10px; border-right: 1px solid var(--vscode-panel-border); margin-right: 10px;`;
 const YamlLineText = styled.span`white-space: pre; color: var(--vscode-editor-foreground);`;
-const EndpointTabLayout = styled.div`padding: 14px; display: flex; flex-direction: column; gap: 14px; height: 100%; min-height: 0; overflow: auto;`;
-const EndpointGrid = styled.div`display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;`;
-const EndpointCardV2 = styled.div<{ $severity: 'error' | 'warn' }>`
-    border: 1px solid var(--vscode-panel-border); border-left: 3px solid ${({ $severity }: { $severity: 'error' | 'warn' }) =>
-        $severity === 'error' ? 'var(--vscode-errorForeground)' : 'var(--vscode-editorWarning-foreground)'};
-    border-radius: 8px; background: var(--vscode-editorWidget-background); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;
-`;
-const ProgressTrack = styled.div`height: 4px; border-radius: 2px; background: var(--vscode-panel-border); overflow: hidden;`;
-const ProgressFill = styled.div<{ $width: number; $severity: 'error' | 'warn' }>`
-    width: ${({ $width }: { $width: number }) => Math.min($width, 100)}%;
-    height: 100%;
-    background: ${({ $severity }: { $severity: 'error' | 'warn' }) =>
-        $severity === 'error' ? 'var(--vscode-errorForeground)' : 'var(--vscode-editorWarning-foreground)'};
-`;
-const RuleChips = styled.div`display: flex; flex-wrap: wrap; gap: 4px;`;
-const RuleChip = styled.span`border: 1px solid var(--vscode-panel-border); border-radius: 4px; padding: 2px 6px; font-size: 10px;`;
-const RuleFreqSection = styled.div`border: 1px solid var(--vscode-panel-border); border-radius: 8px; overflow: hidden;`;
-const RuleFreqHead = styled.div`display: grid; grid-template-columns: 1fr 46px 60px 70px 100px; gap: 10px; padding: 8px 14px; border-bottom: 1px solid var(--vscode-panel-border);`;
-const RuleFreqRow = styled.div`display: grid; grid-template-columns: 1fr 46px 60px 70px 100px; gap: 10px; padding: 7px 14px; border-bottom: 1px solid var(--vscode-panel-border);`;
-const RuleFreqName = styled.span`font-size: 11px; font-family: var(--vscode-editor-font-family, monospace);`;
-const RuleFreqNum = styled.span<{ $color?: string }>`font-size: 11px; font-weight: 700; color: ${({ $color }: { $color?: string }) => $color || 'var(--vscode-foreground)'}; text-align: center;`;
-const RuleFreqBarTrack = styled.div`height: 6px; border-radius: 3px; background: var(--vscode-panel-border); overflow: hidden;`;
-const RuleFreqBarFill = styled.div<{ $width: number; $hasErrors: boolean }>`
-    width: ${({ $width }: { $width: number }) => Math.min($width, 100)}%;
-    height: 100%;
-    background: ${({ $hasErrors }: { $hasErrors: boolean }) => ($hasErrors ? 'var(--vscode-errorForeground)' : 'var(--vscode-editorWarning-foreground)')};
-`;
 
 const MethodBadge: React.FC<{ method: string }> = ({ method }) => {
     const style = getMethodStyle(method);
@@ -193,23 +181,18 @@ const MethodBadge: React.FC<{ method: string }> = ({ method }) => {
 
 export const AnalyzeSingleReportIssueExplorer: React.FC<AnalyzeSingleReportIssueExplorerProps> = (props) => {
     const {
-        activeTab, setActiveTab, rows, stats, filteredRows, groupedRows, selectedIssue, setSelectedIssueId,
+        rows, stats, filteredRows, groupedRows, selectedIssue, setSelectedIssueId,
         severityFilter, setSeverityFilter, groupBy, setGroupBy, sortBy, setSortBy, sortDir, setSortDir, search, setSearch,
-        aiEnabled, reportKey, reportName, fileUri, rulesetFileUrl, rulesetContentPath, specContent, endpointSummary, ruleFrequency, onOpenCopilotChat,
+        aiEnabled, reportKey, reportName, fileUri, rulesetFileUrl, rulesetContentPath, specContent, onOpenCopilotChat, aiBucketFilter, breakdownFilter,
     } = props;
 
     return (
         <IssueExplorerBlock>
             <SectionHeader>
                 <SectionTitleText>Issue Explorer</SectionTitleText>
-                <TabBar>
-                    <TabBtn $active={activeTab === 'issues'} onClick={() => setActiveTab('issues')}>Issues</TabBtn>
-                    <TabBtn $active={activeTab === 'endpoints'} onClick={() => setActiveTab('endpoints')}>Endpoints</TabBtn>
-                </TabBar>
             </SectionHeader>
             <IssueExplorerBody>
-                {activeTab === 'issues' && (
-                    <IssuesLayout>
+                <IssuesLayout>
                         <Panel>
                             <Toolbar>
                                 <ToolbarRow>
@@ -219,6 +202,52 @@ export const AnalyzeSingleReportIssueExplorer: React.FC<AnalyzeSingleReportIssue
                                     <Spacer />
                                     <SearchInput placeholder="Search rules, paths, messages…" value={search} onChange={(e) => setSearch(e.target.value)} />
                                 </ToolbarRow>
+                                {reportKey === 'ai-readiness' && aiBucketFilter && (
+                                    <ToolbarRow>
+                                        <CtrlSelect
+                                            value={aiBucketFilter.mainBucketKey || ''}
+                                            onChange={(e) => aiBucketFilter.onChangeMainBucket(e.target.value || null)}
+                                        >
+                                            <option value="">All</option>
+                                            {aiBucketFilter.options.map((bucket) => (
+                                                <option key={bucket.key} value={bucket.key}>{bucket.label}</option>
+                                            ))}
+                                        </CtrlSelect>
+                                        <CtrlSelect
+                                            value={aiBucketFilter.subBucketKey || ''}
+                                            onChange={(e) => aiBucketFilter.onChangeSubBucket(e.target.value || null)}
+                                            disabled={!aiBucketFilter.mainBucketKey}
+                                        >
+                                            <option value="">All</option>
+                                            {(aiBucketFilter.options.find((o) => o.key === aiBucketFilter.mainBucketKey)?.subBuckets || []).map((subBucket) => (
+                                                <option key={subBucket.key} value={subBucket.key}>{subBucket.label}</option>
+                                            ))}
+                                        </CtrlSelect>
+                                        {aiBucketFilter.summaryLabel && (
+                                            <ActiveFilterPill>
+                                                Filtered: {aiBucketFilter.summaryLabel}
+                                            </ActiveFilterPill>
+                                        )}
+                                    </ToolbarRow>
+                                )}
+                                {reportKey !== 'ai-readiness' && breakdownFilter && (
+                                    <ToolbarRow>
+                                        <CtrlSelect
+                                            value={breakdownFilter.selectedKey || ''}
+                                            onChange={(e) => breakdownFilter.onChange(e.target.value || null)}
+                                        >
+                                            <option value="">All</option>
+                                            {breakdownFilter.options.map((option) => (
+                                                <option key={option.key} value={option.key}>{option.label}</option>
+                                            ))}
+                                        </CtrlSelect>
+                                        {breakdownFilter.summaryLabel && (
+                                            <ActiveFilterPill>
+                                                Filtered: {breakdownFilter.summaryLabel}
+                                            </ActiveFilterPill>
+                                        )}
+                                    </ToolbarRow>
+                                )}
                                 <ToolbarRow>
                                     <CtrlSelect value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupBy)}>
                                         <option value="none">No grouping</option><option value="rule">Group by rule</option><option value="endpoint">Group by endpoint</option>
@@ -299,50 +328,7 @@ export const AnalyzeSingleReportIssueExplorer: React.FC<AnalyzeSingleReportIssue
                                 </DetailCard>
                             )}
                         </DetailColumn>
-                    </IssuesLayout>
-                )}
-                {activeTab === 'endpoints' && (
-                    <Panel>
-                        {endpointSummary.length === 0 ? <EmptyState>No endpoint issues detected.</EmptyState> : (
-                            <EndpointTabLayout>
-                                <EndpointGrid>
-                                    {endpointSummary.map((item) => {
-                                        const progressWidth = Math.max(4, (item.count / Math.max(1, rows.length)) * 100);
-                                        const accentColor = item.errors > 0 ? 'var(--vscode-errorForeground)' : 'var(--vscode-editorWarning-foreground)';
-                                        return (
-                                            <EndpointCardV2 key={`${item.method}:${item.endpoint}`} $severity={item.dominantSeverity}>
-                                                <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                                    <div style={{ minWidth: 0, flex: 1 }}><MethodBadge method={item.method} /><div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.endpoint}>{item.endpoint}</div></div>
-                                                    <div style={{ textAlign: 'right', flexShrink: 0 }}><div style={{ fontSize: 26, fontWeight: 800, lineHeight: 1, color: accentColor }}>{item.count}</div><div style={{ fontSize: 10, color: accentColor }}>issues</div></div>
-                                                </Row>
-                                                <ProgressTrack><ProgressFill $width={progressWidth} $severity={item.dominantSeverity} /></ProgressTrack>
-                                                {item.topRules.length > 0 && <RuleChips>{item.topRules.map((rule) => <RuleChip key={rule}>{rule}</RuleChip>)}</RuleChips>}
-                                            </EndpointCardV2>
-                                        );
-                                    })}
-                                </EndpointGrid>
-                                {ruleFrequency.length > 0 && (
-                                    <RuleFreqSection>
-                                        <RuleFreqHead><div>Rule</div><div style={{ textAlign: 'center' }}>Total</div><div style={{ textAlign: 'center' }}>Errors</div><div style={{ textAlign: 'center' }}>Warnings</div><div>Frequency</div></RuleFreqHead>
-                                        {ruleFrequency.map(({ rule, total, errors, warnings }) => {
-                                            const maxTotal = Math.max(1, ruleFrequency[0]?.total || 1);
-                                            const width = (total / maxTotal) * 100;
-                                            return (
-                                                <RuleFreqRow key={rule}>
-                                                    <RuleFreqName title={rule}>{rule}</RuleFreqName>
-                                                    <RuleFreqNum>{total}</RuleFreqNum>
-                                                    <RuleFreqNum $color={errors > 0 ? 'var(--vscode-errorForeground)' : 'var(--vscode-descriptionForeground)'}>{errors > 0 ? errors : '—'}</RuleFreqNum>
-                                                    <RuleFreqNum $color={warnings > 0 ? 'var(--vscode-editorWarning-foreground)' : 'var(--vscode-descriptionForeground)'}>{warnings > 0 ? warnings : '—'}</RuleFreqNum>
-                                                    <div><RuleFreqBarTrack><RuleFreqBarFill $width={width} $hasErrors={errors > 0} /></RuleFreqBarTrack></div>
-                                                </RuleFreqRow>
-                                            );
-                                        })}
-                                    </RuleFreqSection>
-                                )}
-                            </EndpointTabLayout>
-                        )}
-                    </Panel>
-                )}
+                </IssuesLayout>
             </IssueExplorerBody>
         </IssueExplorerBlock>
     );

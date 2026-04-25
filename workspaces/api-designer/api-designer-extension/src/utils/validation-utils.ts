@@ -29,7 +29,8 @@ import {
     AiReadinessMetrics as CoreAiReadinessMetrics,
     buildAiReadinessSummary,
     GetGovernanceResponse,
-    loadYaml
+    loadYaml,
+    spectralViolationsToUnifiedById,
 } from '@wso2/api-designer-core';
 import { AiReadinessMetricsCollector, createAiReadinessFunctions, applyAiReadinessFunctionsToRuleset } from './ai-readiness-functions';
 import type { AiReadinessMetrics as CollectorAiReadinessMetrics } from './ai-readiness-functions';
@@ -639,25 +640,48 @@ export async function validateWithSpectralRuleset(
             []
         );
 
-        const response: GetGovernanceResponse = {
+        const response: any = {};
+        Object.assign(response, {
             score: score,
+            checks: {
+                total: totalRules,
+                passed: passedRuleCount,
+                failed: failedRuleCount,
+            },
+            summary: {
+                total: results.length,
+                bySeverityRules: {
+                    error: severityRuleSets.error.size,
+                    warning: severityRuleSets.warning.size,
+                    info: severityRuleSets.info.size,
+                    hint: severityRuleSets.hint.size,
+                },
+                bySeverityViolations: {
+                    error: severityViolationCounts.error,
+                    warning: severityViolationCounts.warn,
+                    info: severityViolationCounts.info,
+                    hint: severityViolationCounts.hint,
+                },
+            },
             totalChecks: totalRules,
             passedChecks: passedRuleCount,
             failedChecks: failedRuleCount,
             violationSummary,
             violations: violations,
+            passedRules: passedRules,
             passed: passedRules
-        };
+        });
 
+        const violationsById = spectralViolationsToUnifiedById(violations);
         const summary = buildAiReadinessSummary({
-            ...response,
-            aiReadinessMetrics
-        } as GetGovernanceResponse);
+            report: { violationsById },
+            aiReadinessMetrics,
+        });
         if (summary) {
             response.aiReadinessSummary = summary;
         }
 
-        return response;
+        return response as GetGovernanceResponse;
     } catch (error: any) {
         logError(`Error validating with dynamic ruleset ${rulesetName}:`, error);
         throw new Error(`Failed to validate with ${rulesetName}: ${error.message}`);

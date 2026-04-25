@@ -27,6 +27,66 @@ export const OWASP_CATEGORIES = [
     { id: 'API10:2023', key: 'API10', name: 'Unsafe Consumption of APIs', docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xaa-unsafe-consumption-of-apis/' },
 ];
 
+export type Wso2ThemeDef = {
+    id: string;
+    title: string;
+    description: string;
+    keywords: string[];
+};
+
+export const WSO2_THEMES: Wso2ThemeDef[] = [
+    {
+        id: 'resource-design',
+        title: 'Resource Design',
+        description: 'How clear and predictable resource paths and REST nouns are.',
+        keywords: ['resource', 'path', 'uri', 'url', 'noun', 'plural', 'hierarchy']
+    },
+    {
+        id: 'operations-methods',
+        title: 'Operations & Methods',
+        description: 'Whether HTTP methods and operation shapes follow REST semantics.',
+        keywords: ['method', 'http', 'operation', 'get', 'post', 'put', 'patch', 'delete', 'idempotent']
+    },
+    {
+        id: 'contracts-responses',
+        title: 'Contracts & Responses',
+        description: 'Consistency of status codes, response models, and payload contracts.',
+        keywords: ['response', 'status', 'schema', 'contract', 'payload', 'content-type', 'example']
+    },
+    {
+        id: 'documentation',
+        title: 'Documentation Quality',
+        description: 'How usable the API is from summaries, descriptions, and examples.',
+        keywords: ['summary', 'description', 'document', 'docs', 'example', 'title', 'operationid']
+    },
+    {
+        id: 'security-governance',
+        title: 'Security & Governance',
+        description: 'Authentication, authorization, and governance controls for safe APIs.',
+        keywords: ['security', 'auth', 'oauth', 'scope', 'token', 'header', 'https', 'tls']
+    },
+    {
+        id: 'versioning-lifecycle',
+        title: 'Versioning & Lifecycle',
+        description: 'Version strategy and lifecycle clarity for consumers.',
+        keywords: ['version', 'deprecated', 'sunset', 'lifecycle', 'compatibility']
+    }
+];
+
+export const pickWso2Theme = (rule: string, message: string): Wso2ThemeDef => {
+    const haystack = `${rule} ${message}`.toLowerCase();
+    let bestTheme = WSO2_THEMES[0];
+    let bestScore = 0;
+    WSO2_THEMES.forEach((theme) => {
+        const score = theme.keywords.reduce((sum, keyword) => sum + (haystack.includes(keyword) ? 1 : 0), 0);
+        if (score > bestScore) {
+            bestScore = score;
+            bestTheme = theme;
+        }
+    });
+    return bestScore > 0 ? bestTheme : WSO2_THEMES[0];
+};
+
 const METHOD_COLORS: Record<string, { color: string; bg: string }> = {
     GET: { color: 'var(--vscode-editorInfo-foreground, #3b82f6)', bg: 'color-mix(in srgb, var(--vscode-editorInfo-foreground, #3b82f6) 14%, transparent)' },
     POST: { color: 'var(--vscode-testing-iconPassed, #22c55e)', bg: 'color-mix(in srgb, var(--vscode-testing-iconPassed, #22c55e) 14%, transparent)' },

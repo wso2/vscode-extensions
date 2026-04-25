@@ -20,7 +20,7 @@ interface Props {
     expandedKeys: Set<string>;
     onToggle: (key: string) => void;
     violations: ViolationRow[];
-    onViewIssues: () => void;
+    onViewIssues: (subBucketKey?: string) => void;
 }
 
 const Grid = styled.div`
@@ -41,10 +41,12 @@ const Card = styled.div<{ $selected: boolean }>`
     border-bottom: ${({ $selected }: { $selected: boolean }) => $selected ? '1px solid var(--vscode-panel-border)' : 'none'};
     padding: 14px;
     cursor: pointer;
-    transition: background 120ms ease;
+    transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+    position: relative;
 
     &:hover {
         background: var(--vscode-list-hoverBackground);
+        transform: translateY(-1px);
     }
 `;
 
@@ -81,6 +83,24 @@ const CardTitleGroup = styled.div`
     display: flex;
     align-items: center;
     gap: 7px;
+`;
+
+const ExpandHint = styled.div<{ $selected: boolean }>`
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    color: ${({ $selected }: { $selected: boolean }) =>
+        $selected ? 'var(--vscode-focusBorder)' : 'var(--vscode-descriptionForeground)'};
+`;
+
+const ExpandChevron = styled.span<{ $selected: boolean }>`
+    display: inline-flex;
+    align-items: center;
+    transform: rotate(${({ $selected }: { $selected: boolean }) => ($selected ? '90deg' : '0deg')});
+    transition: transform 150ms ease;
 `;
 
 const CardIcon = styled.div`
@@ -154,6 +174,12 @@ export const AIReadinessBucketGrid: React.FC<Props> = ({
                                         <Codicon name={dimension.icon as any} sx={{ fontSize: '14px' }} />
                                     </CardIcon>
                                     <CardTitle>{dimension.label}</CardTitle>
+                                    <ExpandHint $selected={isSelected}>
+                                        {isSelected ? 'Collapse' : 'Expand'}
+                                        <ExpandChevron $selected={isSelected}>
+                                            <Codicon name="chevron-right" sx={{ fontSize: '12px' }} />
+                                        </ExpandChevron>
+                                    </ExpandHint>
                                 </CardTitleGroup>
                                 <CardDescription>{dimension.description}</CardDescription>
                                 <ChipRow>

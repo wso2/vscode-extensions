@@ -6,8 +6,85 @@ import {
     AiReadinessViolation,
     AiReadinessRuleSummary,
     AiReadinessDimensionSummary,
-    GetGovernanceResponse
+    type UnifiedViolation,
 } from "../rpc-types/api-designer-visualizer/types";
+
+/**
+ * Build {@link UnifiedViolation} map from raw Spectral lint results.
+ * Use this before {@link buildAiReadinessSummary} so the summary only consumes unified `violationsById`.
+ */
+export function spectralViolationsToUnifiedById(
+    violations: Array<{
+        rule: string;
+        code?: string;
+        message: string;
+        path?: string[] | string;
+        description?: string;
+        fixSuggestion?: string;
+        severity: string;
+        range?: {
+            start: { line: number; character: number };
+            end: { line: number; character: number };
+        };
+    }>,
+): Record<string, UnifiedViolation> {
+    const normalizePath = (path?: string[] | string): string[] => {
+        if (Array.isArray(path)) {
+            return path.map((segment) => String(segment));
+        }
+        if (typeof path === "string") {
+            return path.split(">").map((s) => s.trim()).filter(Boolean);
+        }
+        return [];
+    };
+
+    const HTTP_METHODS = ["get", "post", "put", "patch", "delete", "head", "options", "trace"];
+
+    const extractEndpoint = (pathSegments: string[]): { endpoint: string; method: string } => {
+        const pathsIndex = pathSegments.indexOf("paths");
+        if (pathsIndex >= 0) {
+            const endpoint = pathSegments[pathsIndex + 1] || "global";
+            const methodRaw = pathSegments[pathsIndex + 2] || "";
+            const method = HTTP_METHODS.indexOf(methodRaw) >= 0 ? methodRaw.toUpperCase() : "GLOBAL";
+            return { endpoint, method };
+        }
+        return { endpoint: "global", method: "GLOBAL" };
+    };
+
+    const out: Record<string, UnifiedViolation> = {};
+    violations.forEach((v, index) => {
+        const pathSegments = normalizePath(v.path);
+        const displayPath = pathSegments.length > 0 ? pathSegments.join(" > ") : "Unknown path";
+        const { endpoint, method } = extractEndpoint(pathSegments);
+        const id = `${v.rule || v.code || "unknown"}:${index}`;
+        const normalizedSeverity: UnifiedViolation["severity"] =
+            v.severity === "error" || v.severity === "warn" || v.severity === "hint" || v.severity === "info"
+                ? v.severity
+                : "info";
+        out[id] = {
+            id,
+            rule: v.rule || v.code || "unknown-rule",
+            message: v.message || "No message provided",
+            description: v.description,
+            fixSuggestion: v.fixSuggestion,
+            severity: normalizedSeverity,
+            code: v.code,
+            pathSegments,
+            displayPath,
+            endpoint,
+            method,
+            line: (v.range?.start.line ?? -1) + 1,
+            range: v.range,
+            breakdownKeys: [],
+        };
+    });
+    return out;
+}
+
+export type BuildAiReadinessSummaryInput = {
+    report: { violationsById: Record<string, UnifiedViolation> };
+    aiReadinessMetrics?: AiReadinessMetrics | null;
+};
 
 export const computeReadinessScoreFromMetrics = (
     metrics?: AiReadinessMetrics | null
@@ -156,23 +233,24 @@ type ViolationBucket = {
 type BucketDefinition = {
     key: string;
     label: string;
+    description: string;
     icon: string;
     metricKey: string;
     weight: number;
 };
 
 const BUCKET_DEFINITIONS: BucketDefinition[] = [
-    { key: "summaries",      label: "Summaries",           icon: "list-unordered",   metricKey: "summaries",      weight: 1.2 },
-    { key: "descriptions",   label: "Descriptions",        icon: "note",             metricKey: "descriptions",   weight: 1.0 },
-    { key: "operationIds",   label: "Operation IDs",       icon: "symbol-method",    metricKey: "operationIds",   weight: 1.3 },
-    { key: "examples",       label: "Examples",            icon: "symbol-field",     metricKey: "examples",       weight: 1.0 },
-    { key: "errors",         label: "Responses",           icon: "error",            metricKey: "errorResponses", weight: 1.25 },
-    { key: "typing",         label: "Strict Typing",       icon: "symbol-parameter", metricKey: "typing",         weight: 1.1 },
-    { key: "errorSemantics", label: "Error Semantics",     icon: "feedback",         metricKey: "errorSemantics", weight: 1.35 },
-    { key: "headers",        label: "Rate Limit Headers",  icon: "server-process",   metricKey: "headers",        weight: 1.15 },
-    { key: "pagination",     label: "Pagination",          icon: "list-flat",        metricKey: "pagination",     weight: 1.1 },
-    { key: "security",       label: "Agent Auth",          icon: "shield",           metricKey: "security",       weight: 1.5 },
-    { key: "idempotency",    label: "Idempotency",         icon: "sync",             metricKey: "idempotency",    weight: 1.4 },
+    { key: "summaries",      label: "Summaries",           description: "Clear operation summaries help agents pick the right endpoint quickly.", icon: "list-unordered",   metricKey: "summaries",      weight: 1.2 },
+    { key: "descriptions",   label: "Descriptions",        description: "Detailed descriptions reduce ambiguity in agent execution flows.", icon: "note",             metricKey: "descriptions",   weight: 1.0 },
+    { key: "operationIds",   label: "Operation IDs",       description: "Stable operation IDs improve deterministic tool calling for agents.", icon: "symbol-method",    metricKey: "operationIds",   weight: 1.3 },
+    { key: "examples",       label: "Examples",            description: "Request and response examples help agents construct valid payloads.", icon: "symbol-field",     metricKey: "examples",       weight: 1.0 },
+    { key: "errors",         label: "Responses",           description: "Defined success and error responses help agents interpret outcomes correctly and avoid invalid request/response handling.", icon: "error",            metricKey: "errorResponses", weight: 1.25 },
+    { key: "typing",         label: "Strict Typing",       description: "Strong typing keeps agent-generated requests aligned with schema constraints.", icon: "symbol-parameter", metricKey: "typing",         weight: 1.1 },
+    { key: "errorSemantics", label: "Error Semantics",     description: "Consistent status semantics let agents reason about failures correctly.", icon: "feedback",         metricKey: "errorSemantics", weight: 1.35 },
+    { key: "headers",        label: "Rate Limit Headers",  description: "Rate limit and retry headers prevent unsafe autonomous request bursts.", icon: "server-process",   metricKey: "headers",        weight: 1.15 },
+    { key: "pagination",     label: "Pagination",          description: "Pagination metadata helps agents iterate large datasets safely.", icon: "list-flat",        metricKey: "pagination",     weight: 1.1 },
+    { key: "security",       label: "Agent Auth",          description: "Explicit security requirements reduce risk in autonomous access.", icon: "shield",           metricKey: "security",       weight: 1.5 },
+    { key: "idempotency",    label: "Idempotency",         description: "Idempotency protection avoids duplicate side effects on retries.", icon: "sync",             metricKey: "idempotency",    weight: 1.4 },
 ];
 
 /** Weights for combining sub-bucket percentages inside one dimension (arithmetic mean). */
@@ -394,7 +472,7 @@ const addToBucket = (bucket: ViolationBucket, key: string, v: AiReadinessViolati
     }
 };
 
-export const buildAiReadinessSummary = (governanceResult: GetGovernanceResponse): AiReadinessSummary => {
+export const buildAiReadinessSummary = (input: BuildAiReadinessSummaryInput): AiReadinessSummary => {
     const allViolations: AiReadinessViolation[] = [];
 
     const buckets: Record<string, ViolationBucket> = BUCKET_DEFINITIONS.reduce((acc, def) => {
@@ -402,21 +480,17 @@ export const buildAiReadinessSummary = (governanceResult: GetGovernanceResponse)
         return acc;
     }, {} as Record<string, ViolationBucket>);
 
-    const violationEntries = governanceResult.violations ?? [];
-    violationEntries.forEach((violation) => {
-        const rawSegments = Array.isArray(violation.path)
-            ? violation.path.map((segment) => String(segment))
-            : typeof violation.path === "string"
-                ? violation.path.split('>').map((segment: string) => segment.trim()).filter(Boolean)
-                : [];
-
-        const displayPath = rawSegments.length > 0
-            ? rawSegments.join(' > ')
-            : (Array.isArray(violation.path) ? violation.path.join(' > ') : (violation.path || 'Unknown path'));
-
-        const ruleCode = (violation.rule || violation.code || '').toLowerCase();
-        const key = `${ruleCode}|${rawSegments.join('|')}`;
-        const v: AiReadinessViolation = { pathSegments: rawSegments, displayPath, message: violation.message || 'Missing information' };
+    const violationEntries = Object.keys(input.report.violationsById).map(
+        (k) => input.report.violationsById[k],
+    );
+    violationEntries.forEach((violation: UnifiedViolation) => {
+        const ruleCode = (violation.rule || violation.code || "").toLowerCase();
+        const key = `${ruleCode}|${violation.pathSegments.join("|")}`;
+        const v: AiReadinessViolation = {
+            pathSegments: violation.pathSegments,
+            displayPath: violation.displayPath,
+            message: violation.message || "Missing information",
+        };
         allViolations.push(v);
 
         const bucketKey = RULE_CATEGORY_MAP[ruleCode];
@@ -425,16 +499,14 @@ export const buildAiReadinessSummary = (governanceResult: GetGovernanceResponse)
         }
     });
 
-    const internalMetrics =
-        (governanceResult as GetGovernanceResponse & { aiReadinessMetrics?: AiReadinessMetrics | null })
-            .aiReadinessMetrics;
+    const internalMetrics = input.aiReadinessMetrics;
     const rc = internalMetrics?.rules ?? {};
 
     // Per-rule violation counts (for coverage fallback)
     const ruleViolationCounts = new Map<string, number>();
-    violationEntries.forEach((violation) => {
-        const ruleCode = (violation.rule || violation.code || '').toLowerCase();
-        ruleViolationCounts.set(ruleCode, (ruleViolationCounts.get(ruleCode) ?? 0) + 1);
+    violationEntries.forEach((violation: UnifiedViolation) => {
+        const rcKey = (violation.rule || violation.code || "").toLowerCase();
+        ruleViolationCounts.set(rcKey, (ruleViolationCounts.get(rcKey) ?? 0) + 1);
     });
 
     const bucketSummaries: AiReadinessBucketSummary[] = BUCKET_DEFINITIONS.map((def) => {
@@ -468,6 +540,7 @@ export const buildAiReadinessSummary = (governanceResult: GetGovernanceResponse)
         return {
             key: def.key,
             label: def.label,
+            description: def.description,
             icon: def.icon,
             total,
             filled,

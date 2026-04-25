@@ -25,6 +25,7 @@ import { FeatureComingSoon } from '../../components/common/FeatureComingSoon';
 import { APIHeader } from '../DesignView/components/api-header/APIHeader';
 import { loadYaml, isOpenAPI, isAsyncAPI, getSpecType } from '@wso2/api-designer-core';
 import { logger } from '../../utils/logger';
+import { postMessage as postVSCodeMessage } from '../../utils/vscode-api';
 import { useFileUri, useLoadingState } from '../../hooks';
 import { ViewContainer, LoadingContainer } from '../../components/common/ViewContainer';
 import { WaitingForFileMessage, InitializingMessage } from '../../components/common/LoadingStates';
@@ -217,6 +218,7 @@ const AnalyzeViewContent: React.FC<{ fileUri: string; refreshToken: number; init
                 specType={specInfo?.specType}
                 readOnly={true}
                 showDescription={false}
+                onBackClick={() => postVSCodeMessage({ command: 'switchView', viewType: 'preview', fileUri })}
             />
             <ContentArea>
                 {specInfo?.specType === 'asyncapi' ? (

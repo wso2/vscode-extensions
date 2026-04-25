@@ -27,6 +27,7 @@ import {
     GetApplicableRulesetsResponse,
     GetGovernanceRequest,
     GetGovernanceResponse,
+    type UnifiedAnalyzeReport as CoreUnifiedAnalyzeReport,
     SpectralRuleset,
     ValidateAPISpecRequest,
     ValidateAPISpecResponse,
@@ -41,9 +42,99 @@ import {
 import { getAllSpectralRulesets as getAllSpectralRulesetsFromConfig } from '../../../spectral/rulesetAutomation';
 import { BaseRpcManager } from './base-rpc-manager';
 
+/** Payload returned by `validateWithSpectralRuleset` before `report` / `reportId` are applied. */
+type SpectralGovernancePayload = {
+    violations?: Array<{
+        rule: string;
+        code?: string;
+        message: string;
+        description?: string;
+        fixSuggestion?: string;
+        severity: string;
+        path?: string[] | string;
+        range?: {
+            start: { line: number; character: number };
+            end: { line: number; character: number };
+        };
+    }>;
+    score?: number;
+    passedChecks?: number;
+    totalChecks?: number;
+};
+
 type ApiPlatformConfigLike = {
     spectralRulesets?: unknown[];
     api?: { wso2Artifact?: string };
+};
+
+type GovernanceRulesetMetadata = {
+    name: string;
+    description?: string;
+    ruleCategory?: string;
+    ruleType?: string;
+    artifactType?: string;
+    documentationLink?: string;
+    provider?: string;
+};
+
+type UnifiedViolation = {
+    id: string;
+    rule: string;
+    message: string;
+    description?: string;
+    fixSuggestion?: string;
+    severity: 'error' | 'warn' | 'info' | 'hint';
+    code?: string;
+    pathSegments: string[];
+    displayPath: string;
+    endpoint: string;
+    method: string;
+    line: number;
+    range?: {
+        start: { line: number; character: number };
+        end: { line: number; character: number };
+    };
+    breakdownKeys: string[];
+};
+
+type UnifiedBreakdownCategory = {
+    id: string;
+    label: string;
+    description?: string;
+    status: 'passed' | 'failed';
+    total: number;
+    errors: number;
+    warnings: number;
+    percentage: number;
+    affectedEndpoints: number;
+    docsUrl?: string;
+    viewIssuesFilter: {
+        key: string;
+        label: string;
+    };
+    topRules?: string[];
+};
+
+/** Result shape from {@link GovernanceManager.buildUnifiedReport} before RPC typing. */
+type BuiltUnifiedReport = {
+    schemaVersion: '1';
+    reportId: 'ai-readiness' | 'owasp' | 'rest-api-readiness';
+    title: string;
+    violationsById: Record<string, UnifiedViolation>;
+    overview: {
+        score: number;
+        passedChecks: number;
+        totalChecks: number;
+        metrics: Array<{ id: string; label: string; value: number | string; hint?: string; accent?: 'success' | 'error' | 'warning' | 'info' | 'neutral' }>;
+    };
+    breakdown: {
+        title: string;
+        categories: UnifiedBreakdownCategory[];
+    };
+    issueExplorer: {
+        breakdownFilterOptions: Array<{ key: string; label: string }>;
+    };
+    aiReadinessSummary?: unknown;
 };
 
 /**
@@ -53,6 +144,240 @@ type ApiPlatformConfigLike = {
 export class GovernanceManager extends BaseRpcManager {
     constructor() {
         super('GovernanceManager');
+    }
+
+    private readonly OWASP_CATEGORIES = [
+        { key: 'API1:2023', label: 'Broken Object Level Authorization' },
+        { key: 'API2:2023', label: 'Broken Authentication' },
+        { key: 'API3:2023', label: 'Broken Object Property Level Authorization' },
+        { key: 'API4:2023', label: 'Unrestricted Resource Consumption' },
+        { key: 'API5:2023', label: 'Broken Function Level Authorization' },
+        { key: 'API6:2023', label: 'Unrestricted Access to Sensitive Business Flows' },
+        { key: 'API7:2023', label: 'Server Side Request Forgery' },
+        { key: 'API8:2023', label: 'Security Misconfiguration' },
+        { key: 'API9:2023', label: 'Improper Inventory Management' },
+        { key: 'API10:2023', label: 'Unsafe Consumption of APIs' },
+    ] as const;
+
+    private readonly WSO2_THEMES = [
+        { id: 'resource-design', title: 'Resource Design', description: 'How clear and predictable resource paths and REST nouns are.', keywords: ['resource', 'path', 'uri', 'url', 'noun', 'plural', 'hierarchy'] },
+        { id: 'operations-methods', title: 'Operations & Methods', description: 'Whether HTTP methods and operation shapes follow REST semantics.', keywords: ['method', 'http', 'operation', 'get', 'post', 'put', 'patch', 'delete', 'idempotent'] },
+        { id: 'contracts-responses', title: 'Contracts & Responses', description: 'Consistency of status codes, response models, and payload contracts.', keywords: ['response', 'status', 'schema', 'contract', 'payload', 'content-type', 'example'] },
+        { id: 'documentation', title: 'Documentation Quality', description: 'How usable the API is from summaries, descriptions, and examples.', keywords: ['summary', 'description', 'document', 'docs', 'example', 'title', 'operationid'] },
+        { id: 'security-governance', title: 'Security & Governance', description: 'Authentication, authorization, and governance controls for safe APIs.', keywords: ['security', 'auth', 'oauth', 'scope', 'token', 'header', 'https', 'tls'] },
+        { id: 'versioning-lifecycle', title: 'Versioning & Lifecycle', description: 'Version strategy and lifecycle clarity for consumers.', keywords: ['version', 'deprecated', 'sunset', 'lifecycle', 'compatibility'] },
+    ] as const;
+
+    private inferReportKey(name: string): 'ai-readiness' | 'owasp' | 'rest-api-readiness' {
+        const lower = name.toLowerCase();
+        if (lower.includes('ai') && lower.includes('readiness')) return 'ai-readiness';
+        if (lower.includes('owasp') || lower.includes('security')) return 'owasp';
+        return 'rest-api-readiness';
+    }
+
+    private async readRulesetMetadata(
+        rulesetPath: string,
+        rulesetName: string
+    ): Promise<GovernanceRulesetMetadata> {
+        const base: GovernanceRulesetMetadata = {
+            name: rulesetName,
+        };
+
+        // Best-effort inference for remote rulesets where content is not read here.
+        if (rulesetPath.startsWith('http://') || rulesetPath.startsWith('https://')) {
+            if (rulesetName.toLowerCase().includes('wso2')) {
+                base.provider = 'WSO2';
+            }
+            return base;
+        }
+
+        try {
+            const content = await readFile(rulesetPath, 'utf8');
+            const parsed = loadYaml(content) as Record<string, unknown> | undefined;
+            if (!parsed || typeof parsed !== 'object') return base;
+
+            return {
+                name: typeof parsed.name === 'string' ? parsed.name : rulesetName,
+                description: typeof parsed.description === 'string' ? parsed.description : undefined,
+                ruleCategory: typeof parsed.ruleCategory === 'string' ? parsed.ruleCategory : undefined,
+                ruleType: typeof parsed.ruleType === 'string' ? parsed.ruleType : undefined,
+                artifactType: typeof parsed.artifactType === 'string' ? parsed.artifactType : undefined,
+                documentationLink: typeof parsed.documentationLink === 'string' ? parsed.documentationLink : undefined,
+                provider: typeof parsed.provider === 'string' ? parsed.provider : undefined,
+            };
+        } catch {
+            return base;
+        }
+    }
+
+    private normalizePath(path?: string[] | string): string[] {
+        if (Array.isArray(path)) return path.map((segment) => String(segment));
+        if (typeof path === 'string') return path.split('>').map((segment) => segment.trim()).filter(Boolean);
+        return [];
+    }
+
+    private extractEndpoint(pathSegments: string[]): { endpoint: string; method: string } {
+        const pathsIndex = pathSegments.indexOf('paths');
+        if (pathsIndex >= 0) {
+            const endpoint = pathSegments[pathsIndex + 1] || 'global';
+            const methodRaw = pathSegments[pathsIndex + 2] || '';
+            const method = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options', 'trace'].includes(methodRaw)
+                ? methodRaw.toUpperCase()
+                : 'GLOBAL';
+            return { endpoint, method };
+        }
+        return { endpoint: 'global', method: 'GLOBAL' };
+    }
+
+    private pickWso2Theme(rule: string, message: string): (typeof this.WSO2_THEMES)[number] {
+        const haystack = `${rule} ${message}`.toLowerCase();
+        let bestTheme: (typeof this.WSO2_THEMES)[number] = this.WSO2_THEMES[0] as (typeof this.WSO2_THEMES)[number];
+        let bestScore = 0;
+        this.WSO2_THEMES.forEach((theme) => {
+            const score = theme.keywords.reduce((sum, keyword) => sum + (haystack.includes(keyword) ? 1 : 0), 0);
+            if (score > bestScore) {
+                bestScore = score;
+                bestTheme = theme;
+            }
+        });
+        return bestScore > 0 ? bestTheme : this.WSO2_THEMES[0];
+    }
+
+    private buildUnifiedReport(name: string, response: SpectralGovernancePayload): BuiltUnifiedReport {
+        const reportId = this.inferReportKey(name);
+        const rawViolations = response.violations || [];
+        const violationsById: Record<string, UnifiedViolation> = {};
+        const categoryBuckets = new Map<string, { label: string; description?: string; docsUrl?: string; violationIds: string[] }>();
+
+        rawViolations.forEach((violation, index) => {
+            const pathSegments = this.normalizePath(violation.path);
+            const displayPath = pathSegments.length > 0 ? pathSegments.join(' > ') : 'Unknown path';
+            const { endpoint, method } = this.extractEndpoint(pathSegments);
+            const id = `${violation.rule || violation.code || 'unknown'}:${index}`;
+            const normalizedSeverity = (violation.severity === 'error' || violation.severity === 'warn' || violation.severity === 'hint' || violation.severity === 'info')
+                ? violation.severity
+                : 'info';
+
+            let breakdownKeys: string[] = [];
+            if (reportId === 'owasp') {
+                const raw = (violation.rule || '').toUpperCase().match(/API\d+(?::\d{4})?/)?.[0] || 'GENERAL';
+                const key = raw.includes(':') ? raw : `${raw}:2023`;
+                breakdownKeys = [key];
+                if (!categoryBuckets.has(key)) {
+                    const category = this.OWASP_CATEGORIES.find((item) => item.key === key);
+                    categoryBuckets.set(key, { label: category?.label || key, docsUrl: undefined, violationIds: [] });
+                }
+                categoryBuckets.get(key)?.violationIds.push(id);
+            } else if (reportId === 'rest-api-readiness') {
+                const theme = this.pickWso2Theme(violation.rule || '', violation.message || '');
+                breakdownKeys = [theme.id];
+                if (!categoryBuckets.has(theme.id)) {
+                    categoryBuckets.set(theme.id, { label: theme.title, description: theme.description, violationIds: [] });
+                }
+                categoryBuckets.get(theme.id)?.violationIds.push(id);
+            }
+
+            violationsById[id] = {
+                id,
+                rule: violation.rule || violation.code || 'unknown-rule',
+                message: violation.message || 'No message provided',
+                description: violation.description,
+                fixSuggestion: undefined,
+                severity: normalizedSeverity,
+                code: violation.code,
+                pathSegments,
+                displayPath,
+                endpoint,
+                method,
+                line: ((violation.range?.start.line ?? -1) + 1),
+                range: violation.range,
+                breakdownKeys,
+            };
+        });
+
+        const endpointCount = new Set(
+            Object.values(violationsById)
+                .filter((v) => v.endpoint !== 'global' && v.method !== 'GLOBAL')
+                .map((v) => `${v.method}:${v.endpoint}`)
+        ).size;
+        const errors = Object.values(violationsById).filter((v) => v.severity === 'error').length;
+        const warnings = Object.values(violationsById).filter((v) => v.severity === 'warn').length;
+
+        let categories: UnifiedBreakdownCategory[] = [];
+        if (reportId === 'owasp') {
+            categories = this.OWASP_CATEGORIES.map((item) => {
+                const bucket = categoryBuckets.get(item.key);
+                const ids = bucket?.violationIds || [];
+                const total = ids.length;
+                const categoryErrors = ids.filter((id) => violationsById[id]?.severity === 'error').length;
+                const categoryWarnings = ids.filter((id) => violationsById[id]?.severity === 'warn').length;
+                return {
+                    id: item.key,
+                    label: item.label,
+                    status: total > 0 ? 'failed' : 'passed',
+                    total,
+                    errors: categoryErrors,
+                    warnings: categoryWarnings,
+                    percentage: rawViolations.length > 0 ? Math.round((total / rawViolations.length) * 100) : 0,
+                    affectedEndpoints: new Set(ids.map((id) => `${violationsById[id]?.method} ${violationsById[id]?.endpoint}`)).size,
+                    docsUrl: `https://owasp.org/API-Security/editions/2023/`,
+                    viewIssuesFilter: { key: item.key, label: item.label },
+                };
+            });
+        } else if (reportId === 'rest-api-readiness') {
+            categories = this.WSO2_THEMES.map((theme) => {
+                const bucket = categoryBuckets.get(theme.id);
+                const ids = bucket?.violationIds || [];
+                const total = ids.length;
+                const categoryErrors = ids.filter((id) => violationsById[id]?.severity === 'error').length;
+                const categoryWarnings = ids.filter((id) => violationsById[id]?.severity === 'warn').length;
+                const ruleCounts = new Map<string, number>();
+                ids.forEach((id) => {
+                    const rule = violationsById[id]?.rule || '';
+                    ruleCounts.set(rule, (ruleCounts.get(rule) || 0) + 1);
+                });
+                return {
+                    id: theme.id,
+                    label: theme.title,
+                    description: theme.description,
+                    status: total > 0 ? 'failed' : 'passed',
+                    total,
+                    errors: categoryErrors,
+                    warnings: categoryWarnings,
+                    percentage: rawViolations.length > 0 ? Math.round((total / rawViolations.length) * 100) : 0,
+                    affectedEndpoints: new Set(ids.map((id) => `${violationsById[id]?.method} ${violationsById[id]?.endpoint}`)).size,
+                    viewIssuesFilter: { key: theme.id, label: theme.title },
+                    topRules: Array.from(ruleCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([rule]) => rule),
+                };
+            });
+        }
+
+        return {
+            schemaVersion: '1',
+            reportId,
+            title: name,
+            violationsById,
+            overview: {
+                score: response.score ?? 0,
+                passedChecks: response.passedChecks ?? 0,
+                totalChecks: response.totalChecks ?? 0,
+                metrics: [
+                    { id: 'errors', label: 'Errors', value: errors, accent: 'error' },
+                    { id: 'warnings', label: 'Warnings', value: warnings, accent: 'warning' },
+                    { id: 'operations', label: 'Operations affected', value: endpointCount, accent: 'info' },
+                ],
+            },
+            breakdown: {
+                title: reportId === 'owasp' ? 'OWASP Breakdown' : reportId === 'rest-api-readiness' ? 'WSO2 REST Guidelines Breakdown' : 'AI Readiness Breakdown',
+                categories,
+            },
+            issueExplorer: {
+                breakdownFilterOptions: categories.map((category) => ({
+                    key: category.viewIssuesFilter.key,
+                    label: category.viewIssuesFilter.label,
+                })),
+            },
+        };
     }
 
     /**
@@ -171,7 +496,23 @@ export class GovernanceManager extends BaseRpcManager {
                 gitRootPath,
                 authToken
             );
-            return result as GetGovernanceResponse;
+            const response = result as SpectralGovernancePayload & {
+                metadata?: GovernanceRulesetMetadata;
+                schemaVersion?: '2';
+                reportId?: 'ai-readiness' | 'owasp' | 'rest-api-readiness';
+                report?: BuiltUnifiedReport;
+                aiReadinessSummary?: unknown;
+            };
+            response.metadata = await this.readRulesetMetadata(rulesetConfig.filePath, params.name);
+            const unifiedReport = this.buildUnifiedReport(params.name, response);
+            const aiReadinessSummary = (response as { aiReadinessSummary?: unknown }).aiReadinessSummary;
+            if (aiReadinessSummary) {
+                unifiedReport.aiReadinessSummary = aiReadinessSummary;
+            }
+            (response as GetGovernanceResponse & { schemaVersion?: '2' }).schemaVersion = '2';
+            (response as GetGovernanceResponse).reportId = unifiedReport.reportId;
+            (response as GetGovernanceResponse).report = unifiedReport as CoreUnifiedAnalyzeReport;
+            return response as GetGovernanceResponse;
         } catch (error: unknown) {
             this.logError(`Error checking ${params.name}:`, error);
             throw new Error(`Failed to check ${params.name}: ${(error as { message?: string }).message || 'Unknown error'}`);
@@ -491,11 +832,20 @@ export class GovernanceManager extends BaseRpcManager {
                 ruleset: aiReadinessRuleset
             });
 
-            const summaryScore = governanceResult.aiReadinessSummary?.score ?? null;
-            const fallbackScore = typeof governanceResult?.score === 'number' ? governanceResult.score : null;
-            const finalScore = summaryScore ?? fallbackScore;
-
-            return finalScore;
+            const { report } = governanceResult;
+            if (!report) {
+                return null;
+            }
+            if (report.reportId === 'ai-readiness' && 'aiReadinessSummary' in report && report.aiReadinessSummary) {
+                const s = (report as { aiReadinessSummary: { score?: number } }).aiReadinessSummary.score;
+                if (typeof s === 'number') {
+                    return s;
+                }
+            }
+            if (typeof report.overview?.score === 'number') {
+                return report.overview.score;
+            }
+            return null;
         } catch (error: unknown) {
             this.logError('Failed to calculate AI readiness score', error);
             return null;

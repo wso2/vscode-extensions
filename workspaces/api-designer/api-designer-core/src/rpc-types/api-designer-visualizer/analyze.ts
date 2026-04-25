@@ -105,6 +105,7 @@ export interface AiReadinessRuleSummary {
 export interface AiReadinessBucketSummary extends AiReadinessCategorySummary {
     key: string;
     label: string;
+    description?: string;
     icon?: string;
     rules?: AiReadinessRuleSummary[];
 }
@@ -140,45 +141,111 @@ export interface AiReadinessSummary {
     };
 }
 
-/**
- * Response with governance/validation results
- */
-export interface GetGovernanceResponse {
-    score: number;
-    passedChecks: number;
-    failedChecks: number;
-    totalChecks: number;
-    violationSummary?: {
-        totalViolations: number;
-        errorRules: number;
-        warningRules: number;
-        infoRules: number;
-        hintRules: number;
-        errorViolations?: number;
-        warningViolations?: number;
-        infoViolations?: number;
-        hintViolations?: number;
+export type GovernanceReportId = 'ai-readiness' | 'owasp' | 'rest-api-readiness';
+
+/** Alias for {@link GovernanceReportId} (discriminant of {@link UnifiedAnalyzeReport}). */
+export type UnifiedAnalyzeReportKey = GovernanceReportId;
+
+export interface UnifiedViolation {
+    id: string;
+    rule: string;
+    message: string;
+    description?: string;
+    fixSuggestion?: string;
+    severity: 'error' | 'warn' | 'info' | 'hint';
+    code?: string;
+    pathSegments: string[];
+    displayPath: string;
+    endpoint: string;
+    method: string;
+    line: number;
+    range?: {
+        start: { line: number; character: number };
+        end: { line: number; character: number };
     };
-    violations: Array<{
-        rule: string;
-        message: string;
-        description?: string;
-        severity: string;
-        path?: string[] | string;
-        code?: string;
-        range?: {
-            start: { line: number; character: number };
-            end: { line: number; character: number };
-        };
-    }>;
-    passed?: Array<{
-        rule: string;
-        message: string;
-        description?: string;
-        fixSuggestion?: string;
-        severity: string;
-    }>;
-    aiReadinessSummary?: AiReadinessSummary;
+    /**
+     * Backend-derived breakdown scopes this violation belongs to.
+     * Frontend must filter by these keys instead of deriving grouping logic.
+     */
+    breakdownKeys: string[];
+}
+
+export interface UnifiedOverviewMetric {
+    id: string;
+    label: string;
+    value: number | string;
+    hint?: string;
+    accent?: 'success' | 'error' | 'warning' | 'info' | 'neutral';
+}
+
+export interface UnifiedBreakdownCategory {
+    id: string;
+    label: string;
+    description?: string;
+    status: 'passed' | 'failed';
+    total: number;
+    errors: number;
+    warnings: number;
+    percentage: number;
+    affectedEndpoints: number;
+    docsUrl?: string;
+    viewIssuesFilter: {
+        key: string;
+        label: string;
+    };
+    topRules?: string[];
+}
+
+export interface UnifiedAnalyzeReportBase {
+    title: string;
+    violationsById: Record<string, UnifiedViolation>;
+    overview: {
+        score: number;
+        passedChecks: number;
+        totalChecks: number;
+        metrics: UnifiedOverviewMetric[];
+    };
+    breakdown: {
+        title: string;
+        categories: UnifiedBreakdownCategory[];
+    };
+    issueExplorer: {
+        breakdownFilterOptions: Array<{ key: string; label: string }>;
+    };
+}
+
+export interface AiReadinessAnalyzeReport extends UnifiedAnalyzeReportBase {
+    reportId: 'ai-readiness';
+    aiReadinessSummary: AiReadinessSummary;
+}
+
+export interface OwaspAnalyzeReport extends UnifiedAnalyzeReportBase {
+    reportId: 'owasp';
+}
+
+export interface RestApiReadinessAnalyzeReport extends UnifiedAnalyzeReportBase {
+    reportId: 'rest-api-readiness';
+}
+
+export type UnifiedAnalyzeReport =
+    | AiReadinessAnalyzeReport
+    | OwaspAnalyzeReport
+    | RestApiReadinessAnalyzeReport;
+
+export interface GovernanceRulesetMetadata {
+    name: string;
+    description?: string;
+    ruleCategory?: string;
+    ruleType?: string;
+    artifactType?: string;
+    documentationLink?: string;
+    provider?: string;
+}
+
+export interface GetGovernanceResponse {
+    reportId: GovernanceReportId;
+    metadata?: GovernanceRulesetMetadata;
+    report: UnifiedAnalyzeReport;
 }
 
 /**
