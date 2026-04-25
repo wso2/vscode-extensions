@@ -691,7 +691,7 @@ export async function validateWithSpectralRuleset(
 /**
  * Validates API specification (OpenAPI or AsyncAPI) using Spectral with appropriate ruleset
  */
-export async function validateAPISpec(apiSpec: any): Promise<any> {
+export async function validateApiSpec(apiSpec: any): Promise<any> {
     const specContent = typeof apiSpec === 'string' ? apiSpec : yaml.dump(apiSpec);
     
     // Use spec service to get appropriate validation ruleset

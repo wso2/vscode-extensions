@@ -36,7 +36,7 @@ import {
     loadYaml
 } from '@wso2/api-designer-core';
 import { 
-    validateAPISpec,
+    validateApiSpec,
     validateWithSpectralRuleset
 } from '../../../utils/validation-utils';
 import { getAllSpectralRulesets as getAllSpectralRulesetsFromConfig } from '../../../spectral/rulesetAutomation';
@@ -519,13 +519,13 @@ export class GovernanceManager extends BaseRpcManager {
         }
     }
 
-    async validateAPISpec(params: ValidateAPISpecRequest): Promise<ValidateAPISpecResponse> {
+    async validateApiSpec(params: ValidateAPISpecRequest): Promise<ValidateAPISpecResponse> {
         try {
             // Read the API spec file content
             const content = await readFile(params.filePath, 'utf8');
             
             // Validate the spec
-            const result = await validateAPISpec(content);
+            const result = await validateApiSpec(content);
             return result;
         } catch (error: unknown) {
             this.logError('Error validating API spec:', error);

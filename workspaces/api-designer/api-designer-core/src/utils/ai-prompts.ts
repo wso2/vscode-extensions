@@ -123,7 +123,7 @@ ${description}
 
 Requirements:
 - Return a complete, valid YAML ${specName} spec with ${specStructure}.
-- After creating the spec, run #validateAPISpec and fix every validation issue that is reported.
+- After creating the spec, run #validateApiSpec and fix every validation issue that is reported.
 - If new issues are reported, iterate until validation passes with zero errors.
 - Keep responses concise (no extra commentary).`;
 }

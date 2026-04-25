@@ -17,7 +17,7 @@
  */
 
 import * as vscode from 'vscode';
-import { validateAPISpec, validateWithSpectralRuleset, convertOpenAPIToWSO2YAML } from '../utils/validation-utils';
+import { validateApiSpec, validateWithSpectralRuleset } from '../utils/validation-utils';
 import { logError, logDebug } from '../util/logger';
 import { loadYaml } from '@wso2/api-designer-core';
 
@@ -38,14 +38,6 @@ const makeToolResult = (text: string): LanguageModelToolResultLike => {
 
     return { content: [{ type: 'text', value: text }] };
 };
-
-/**
- * Parameters for validateAPISpec tool
- */
-interface IValidateAPISpecParameters {
-    apiSpec?: string | object;
-    fileUri?: string; // Optional: if provided, read from file
-}
 
 /**
  * Tool for validating API specifications (OpenAPI or AsyncAPI)
@@ -77,7 +69,7 @@ export class ValidateAPISpecTool {
             }
 
             // Directly import and use existing function
-            const result = await validateAPISpec(spec);
+            const result = await validateApiSpec(spec);
 
             // Format result as readable text
             const resultText = `Validation Results:
@@ -202,91 +194,6 @@ ${JSON.stringify(result, null, 2)}
 }
 
 /**
- * Parameters for convertOpenAPIToWSO2YAML tool
- */
-interface IConvertOpenAPIToWSO2YAMLParameters {
-    apiSpec?: string | object;
-    fileUri?: string; // Optional: if provided, read from file
-    existingArtifact?: string | object;
-    userProvidedName?: string;
-    userProvidedVersion?: string;
-    userProvidedContext?: string;
-    userProvidedDescription?: string;
-}
-
-/**
- * Tool for converting OpenAPI specifications to WSO2 API Platform YAML format
- */
-export class ConvertOpenAPIToWSO2YAMLTool {
-    async invoke(
-        options: any,
-        _token: vscode.CancellationToken
-    ): Promise<LanguageModelToolResultLike> {
-        try {
-            let spec: string | object | undefined = options.input.apiSpec;
-            let existingArtifact: any = options.input.existingArtifact;
-
-            // If fileUri provided, read file content
-            if (options.input.fileUri) {
-                const uri = vscode.Uri.parse(options.input.fileUri);
-                const content = await vscode.workspace.fs.readFile(uri);
-                const contentString = Buffer.from(content).toString('utf-8');
-                
-                // Try to parse as YAML/JSON, otherwise use as string
-                try {
-                    spec = loadYaml(contentString) as string | object;
-                } catch {
-                    spec = contentString;
-                }
-            }
-
-            // Parse existingArtifact if it's a string
-            if (existingArtifact && typeof existingArtifact === 'string') {
-                try {
-                    existingArtifact = loadYaml(existingArtifact) as any;
-                } catch {
-                    // Keep as string if parsing fails
-                }
-            }
-
-            if (!spec) {
-                return makeToolResult('Error: No API specification provided. Please provide either apiSpec or fileUri.');
-            }
-
-            // Directly import and use existing function
-            const result = convertOpenAPIToWSO2YAML(
-                spec,
-                existingArtifact,
-                options.input.userProvidedName,
-                options.input.userProvidedVersion,
-                options.input.userProvidedContext,
-                options.input.userProvidedDescription
-            );
-
-            return makeToolResult(`WSO2 API Platform YAML:\n\n\`\`\`yaml\n${result}\n\`\`\``);
-        } catch (error) {
-            logError('Error in ConvertOpenAPIToWSO2YAMLTool:', error);
-            return makeToolResult(`Error converting OpenAPI to WSO2 YAML: ${(error as Error).message}`);
-        }
-    }
-
-    async prepareInvocation(
-        options: any,
-        _token: vscode.CancellationToken
-    ) {
-        const source = options.input.fileUri 
-            ? `file: ${options.input.fileUri}`
-            : options.input.apiSpec 
-                ? 'provided specification'
-                : 'unknown source';
-
-        return {
-            invocationMessage: `Converting API specification from ${source} to WSO2 API Platform YAML format`,
-        };
-    }
-}
-
-/**
  * Register all MCP tools with VS Code Language Model API
  */
 export function registerMCPTools(context: vscode.ExtensionContext): void {
@@ -303,10 +210,6 @@ export function registerMCPTools(context: vscode.ExtensionContext): void {
 
     context.subscriptions.push(
         vscodeLM.lm.registerTool('api-designer_validateWithSpectralRuleset', new validateWithSpectralRulesetTool())
-    );
-
-    context.subscriptions.push(
-        vscodeLM.lm.registerTool('api-designer_convertOpenAPIToWSO2YAML', new ConvertOpenAPIToWSO2YAMLTool())
     );
 
     logDebug('MCP tools registered successfully');

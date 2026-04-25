@@ -50,7 +50,7 @@ import {
     CheckAIAvailabilityRequest,
     CheckAIAvailabilityResponse,
     getGovernance,
-    validateAPISpec,
+    validateApiSpec,
     fetchRulesetsFromFolder,
     getApplicableRulesets,
     readFile,
@@ -96,8 +96,8 @@ export class ApiDesignerVisualizerRpcClient implements APIDesignerVisualizerAPI 
         return this._messenger.sendRequest(getGovernance, HOST_EXTENSION, params);
     }
 
-    validateAPISpec(params: ValidateAPISpecRequest): Promise<ValidateAPISpecResponse> {
-        return this._messenger.sendRequest(validateAPISpec, HOST_EXTENSION, params);
+    validateApiSpec(params: ValidateAPISpecRequest): Promise<ValidateAPISpecResponse> {
+        return this._messenger.sendRequest(validateApiSpec, HOST_EXTENSION, params);
     }
 
     fetchRulesetsFromFolder(params: FetchRulesetsFromFolderRequest): Promise<FetchRulesetsFromFolderResponse> {

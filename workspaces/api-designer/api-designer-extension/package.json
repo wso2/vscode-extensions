@@ -34,14 +34,14 @@
   "contributes": {
     "languageModelTools": [
       {
-        "name": "api-designer_validateAPISpec",
+        "name": "api-designer_validateApiSpec",
         "tags": [
           "validation",
           "openapi",
           "asyncapi",
           "api-designer"
         ],
-        "toolReferenceName": "validateAPISpec",
+        "toolReferenceName": "validateApiSpec",
         "displayName": "Validate API Specification",
         "modelDescription": "Validates an API specification (OpenAPI or AsyncAPI) against standard rules using Spectral. Automatically detects spec type and applies appropriate ruleset.",
         "canBeReferencedInPrompt": true,
@@ -111,53 +111,6 @@
             "fileUrl",
             "rulesetContentPath"
           ]
-        }
-      },
-      {
-        "name": "api-designer_convertOpenAPIToWSO2YAML",
-        "tags": [
-          "conversion",
-          "openapi",
-          "wso2",
-          "api-designer"
-        ],
-        "toolReferenceName": "convertOpenAPIToWSO2YAML",
-        "displayName": "Convert OpenAPI to WSO2 YAML",
-        "modelDescription": "Converts an OpenAPI specification to WSO2 API Platform YAML format",
-        "canBeReferencedInPrompt": true,
-        "icon": "$(file-code)",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "apiSpec": {
-              "type": ["string", "object"],
-              "description": "The OpenAPI specification to convert (can be YAML/JSON string or object)"
-            },
-            "fileUri": {
-              "type": "string",
-              "description": "Optional: URI of the file containing the OpenAPI specification. If provided, this takes precedence over apiSpec."
-            },
-            "existingArtifact": {
-              "type": ["string", "object"],
-              "description": "Optional: Existing WSO2 artifact to merge with (preserves custom policies and configurations)"
-            },
-            "userProvidedName": {
-              "type": "string",
-              "description": "Optional: Custom API name (overrides OpenAPI info.title)"
-            },
-            "userProvidedVersion": {
-              "type": "string",
-              "description": "Optional: Custom API version (overrides OpenAPI info.version)"
-            },
-            "userProvidedContext": {
-              "type": "string",
-              "description": "Optional: Custom API context path"
-            },
-            "userProvidedDescription": {
-              "type": "string",
-              "description": "Optional: Custom API description (overrides OpenAPI info.description)"
-            }
-          }
         }
       }
     ],

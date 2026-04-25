@@ -61,7 +61,7 @@ export const writeAPISpecContent: RequestType<WriteAPISpecContentRequest, WriteA
 export const importJSON: NotificationType<void> = { method: `${_preFix}/importJSON` };
 
 export const getGovernance: RequestType<GetGovernanceRequest, GetGovernanceResponse> = { method: `${_preFix}/getGovernance` };
-export const validateAPISpec: RequestType<ValidateAPISpecRequest, ValidateAPISpecResponse> = { method: `${_preFix}/validateAPISpec` };
+export const validateApiSpec: RequestType<ValidateAPISpecRequest, ValidateAPISpecResponse> = { method: `${_preFix}/validateApiSpec` };
 export const fetchRulesetsFromFolder: RequestType<FetchRulesetsFromFolderRequest, FetchRulesetsFromFolderResponse> = { method: `${_preFix}/fetchRulesetsFromFolder` };
 export const getApplicableRulesets: RequestType<GetApplicableRulesetsRequest, GetApplicableRulesetsResponse> = { method: `${_preFix}/getApplicableRulesets` };
 export const checkAIAvailability: RequestType<CheckAIAvailabilityRequest, CheckAIAvailabilityResponse> = { method: `${_preFix}/checkAIAvailability` };

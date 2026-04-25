@@ -26,7 +26,7 @@ import { parseTree, findNodeAtLocation, Node as JsonNode } from 'jsonc-parser';
 import { extension } from '../APIDesignerExtensionContext';
 import { getComposerJSFiles } from '../util';
 import { logDebug, logError, logInfo, logWarning } from '../util/logger';
-import { validateAPISpec } from '../utils/validation-utils';
+import { validateApiSpec } from '../utils/validation-utils';
 import { SpecContentManager } from '../rpc-managers/api-designer-visualizer/managers/spec-content-manager';
 import { GovernanceManager } from '../rpc-managers/api-designer-visualizer/managers/governance-manager';
 import { RPCLayer } from '../RPCLayer';
@@ -1078,7 +1078,7 @@ export class ApiDesignerPanel {
             
             // Uses spec-agnostic validation - automatically detects OpenAPI or AsyncAPI
             // and applies the appropriate Spectral ruleset
-            const validationResult = await validateAPISpec(content);
+            const validationResult = await validateApiSpec(content);
             
             // Keep paths as arrays (Spectral returns arrays); include range for snippet preview in the webview
             const errors = (validationResult.errors || []).map((err: any) => ({

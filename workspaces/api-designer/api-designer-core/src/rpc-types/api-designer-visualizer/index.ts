@@ -85,7 +85,7 @@ export interface APIDesignerVisualizerAPI {
     writeAPISpecContent: (params: WriteAPISpecContentRequest) => Promise<WriteAPISpecContentResponse>;
     importJSON: () => Promise<Schema | undefined>;
     getGovernance: (params: GetGovernanceRequest) => Promise<GetGovernanceResponse>;
-    validateAPISpec: (params: ValidateAPISpecRequest) => Promise<ValidateAPISpecResponse>;
+    validateApiSpec: (params: ValidateAPISpecRequest) => Promise<ValidateAPISpecResponse>;
     /** List YAML rulesets discovered under a folder URL or workspace path (GitHub or local). */
     fetchRulesetsFromFolder: (params: FetchRulesetsFromFolderRequest) => Promise<FetchRulesetsFromFolderResponse>;
     /**

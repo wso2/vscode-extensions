@@ -30,7 +30,7 @@ export * from "./rpc-types/api-designer-visualizer/types";
 export {
     getAPISpecContent,
     writeAPISpecContent,
-    validateAPISpec,
+    validateApiSpec,
     fetchRulesetsFromFolder,
     getApplicableRulesets,
     readFile,

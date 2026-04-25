@@ -38,7 +38,7 @@ import {
     openView,
     writeAPISpecContent,
     getGovernance,
-    validateAPISpec,
+    validateApiSpec,
     fetchRulesetsFromFolder,
     getApplicableRulesets,
     getWorkspaceFileTree,
@@ -99,8 +99,8 @@ export function registerApiDesignerVisualizerRpcHandlers(messenger: Messenger) {
     messenger.onRequest(getGovernance, (args: GetGovernanceRequest) => 
         governanceManager.getGovernance(args)
     );
-    messenger.onRequest(validateAPISpec, (args: ValidateAPISpecRequest) => 
-        governanceManager.validateAPISpec(args)
+    messenger.onRequest(validateApiSpec, (args: ValidateAPISpecRequest) => 
+        governanceManager.validateApiSpec(args)
     );
     
     // Spectral rulesets (now part of GovernanceManager)

@@ -480,11 +480,11 @@ export const ValidationIssuesModal: React.FC<ValidationIssuesModalProps> = ({
                 issues,
             });
 
-            prompt += `\n\nIMPORTANT: You must use the #validateAPISpec MCP tool to discover and fix issues. Follow these steps:
+            prompt += `\n\nIMPORTANT: You must use the #validateApiSpec MCP tool to discover and fix issues. Follow these steps:
 
-1. Call the validateAPISpec tool with fileUri parameter pointing to the ${specTypeName} file to discover all validation ${activeTab}s
-2. After fixing the issue, call validateAPISpec again to verify the fix and discover remaining ${activeTab}s
-3. Continue this process until validateAPISpec reports no issues
+1. Call the validateApiSpec tool with fileUri parameter pointing to the ${specTypeName} file to discover all validation ${activeTab}s
+2. After fixing the issue, call validateApiSpec again to verify the fix and discover remaining ${activeTab}s
+3. Continue this process until validateApiSpec reports no issues
 
 Note: The validation tool works for both OpenAPI and AsyncAPI specifications automatically.`;
 
