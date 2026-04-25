@@ -21,6 +21,7 @@ import ReactMarkdown from 'react-markdown';
 import styled from '@emotion/styled';
 import { Node } from '@xyflow/react';
 import { ArazzoWorkflow, ArazzoDefinition, WebviewTraceEvent } from '@wso2/arazzo-designer-core';
+import { LogsTab } from './LogsTab';
 import { resolveReference, isReference, isReferenceLike, getReferencePath } from '../../utils/referenceUtils';
 import { MODERN } from '../../constants';
 
@@ -219,13 +220,6 @@ const Tab = styled.button<{ active: boolean }>`
     margin-bottom: -1px;
 `;
 
-const SpansContainer = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 4px;
-`;
-
 const RefPath = styled.div`
     margin-top: 4px;
     font-size: 10px;
@@ -245,7 +239,7 @@ interface NodePropertiesPanelProps {
 export function NodePropertiesPanel({ node, workflow, definition, traceSpans }: NodePropertiesPanelProps) {
     const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['general']));
     const [expandedArrayItems, setExpandedArrayItems] = useState<Set<string>>(new Set());
-    const [activeTab, setActiveTab] = useState<'properties' | 'spans'>('properties');
+    const [activeTab, setActiveTab] = useState<'properties' | 'logs'>('properties');
 
     // When the selected node changes (panel opens or different node selected),
     // auto-expand top-level sections relevant to that node while keeping
@@ -311,19 +305,8 @@ export function NodePropertiesPanel({ node, workflow, definition, traceSpans }: 
     const renderTabBar = () => (
         <TabBar>
             <Tab active={activeTab === 'properties'} onClick={() => setActiveTab('properties')}>Properties</Tab>
-            <Tab active={activeTab === 'spans'} onClick={() => setActiveTab('spans')}>Spans</Tab>
+            <Tab active={activeTab === 'logs'} onClick={() => setActiveTab('logs')}>Logs</Tab>
         </TabBar>
-    );
-
-    const renderSpansTab = () => (
-        <SpansContainer>
-            {filteredSpans.length === 0
-                ? <EmptyState>No spans recorded for this node.</EmptyState>
-                : filteredSpans.map((span, i) => (
-                    <JsonBlock key={i}>{JSON.stringify(span, null, 2)}</JsonBlock>
-                ))
-            }
-        </SpansContainer>
     );
 
     const toggleSection = (sectionId: string) => {
@@ -868,7 +851,7 @@ export function NodePropertiesPanel({ node, workflow, definition, traceSpans }: 
         return (
             <>
                 {renderTabBar()}
-                {activeTab === 'properties' ? startNodeContent : renderSpansTab()}
+                {activeTab === 'properties' ? startNodeContent : <LogsTab spans={filteredSpans} />}
             </>
         );
     }
@@ -1002,7 +985,7 @@ export function NodePropertiesPanel({ node, workflow, definition, traceSpans }: 
     return (
         <>
             {renderTabBar()}
-            {activeTab === 'properties' ? <Container>{sections}</Container> : renderSpansTab()}
+            {activeTab === 'properties' ? <Container>{sections}</Container> : <LogsTab spans={filteredSpans} />}
         </>
     );
 }
