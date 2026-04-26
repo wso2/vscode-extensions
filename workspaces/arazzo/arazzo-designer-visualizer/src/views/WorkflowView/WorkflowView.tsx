@@ -286,9 +286,8 @@ export function WorkflowView(props: WorkflowViewProps) {
             activeTraceWorkflowIdRef.current = event.attributes?.['workflow.id'];
             // Only reset and highlight if the running workflow matches the one shown.
             if (activeTraceWorkflowIdRef.current !== workflowId) { return; }
-            // New workflow run started — reset step tracking, clear all highlights and spans
+            // New workflow run started — reset step tracking and clear all highlights
             prevStepRef.current = 'virtual_start';
-            setTraceSpans([]);
             setNodes(prev => prev.map(node => {
                 if (node.type === 'stepNode' || node.type === 'conditionNode' || node.type === 'endNode') {
                     return { ...node, data: { ...node.data, traceStatus: undefined } };

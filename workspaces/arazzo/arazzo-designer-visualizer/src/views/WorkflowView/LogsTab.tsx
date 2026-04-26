@@ -84,6 +84,29 @@ function groupSpansIntoExecutions(spans: WebviewTraceEvent[]): StepExecution[] {
     return Array.from(execMap.values());
 }
 
+/**
+ * Groups a flat list of spans into per-workflow-run buckets using trace_id.
+ * Each unique trace_id represents one workflow execution run.
+ */
+interface RunGroup {
+    traceId: string;
+    executions: StepExecution[];
+}
+
+function groupSpansByRun(spans: WebviewTraceEvent[]): RunGroup[] {
+    const runOrder: string[] = [];
+    const runMap = new Map<string, WebviewTraceEvent[]>();
+    for (const span of spans) {
+        const tid = span.context.trace_id ?? 'unknown';
+        if (!runMap.has(tid)) { runMap.set(tid, []); runOrder.push(tid); }
+        runMap.get(tid)!.push(span);
+    }
+    return runOrder.map(tid => ({
+        traceId: tid,
+        executions: groupSpansIntoExecutions(runMap.get(tid)!),
+    }));
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -490,54 +513,41 @@ function HttpPairCard({ pair, stepOutputs }: { pair: HttpPair; stepOutputs: any 
     );
 }
 
-/** Renders one execution card (one step run, possibly with retries shown via index). */
-function ExecutionCard({ exec, index }: { exec: StepExecution; index: number }) {
-    const status = getExecStatus(exec);
-    const name = exec.stepStart?.name ?? exec.stepEnd?.name ?? `Execution ${index + 1}`;
-    const duration = exec.stepEnd?.duration_ms;
+/** Renders the body content for one step execution (General info + HTTP spans). */
+function ExecutionBody({ exec }: { exec: StepExecution }) {
     const traceId = exec.stepStart?.context.trace_id ?? exec.stepEnd?.context.trace_id;
     const failureReason = exec.stepEnd?.status_message;
     const stepOutputs = tryParseJson(exec.stepEnd?.attributes?.['step.outputs']);
 
     return (
-        <Card status={status}>
-            <CardHeader>
-                <CardHeaderLeft>
-                    <StatusDot status={status} />
-                    {name}
-                    {index > 0 && <RetryBadge>(retry #{index})</RetryBadge>}
-                </CardHeaderLeft>
-                {duration != null && <DurationText>{formatDuration(duration)}</DurationText>}
-            </CardHeader>
-            <CardBody>
-                {failureReason && <ErrorBlock>{failureReason}</ErrorBlock>}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {failureReason && <ErrorBlock>{failureReason}</ErrorBlock>}
 
-                <Collapsible title="General" defaultOpen={false}>
-                    <InfoGrid>
-                        <InfoLabel>Trace ID</InfoLabel>
-                        <InfoValue>{traceId ?? '—'}</InfoValue>
-                        <InfoLabel>Span ID</InfoLabel>
-                        <InfoValue>{exec.spanId}</InfoValue>
-                        {exec.stepStart?.start_time && (
-                            <>
-                                <InfoLabel>Started</InfoLabel>
-                                <InfoValue>{formatTime(exec.stepStart.start_time)}</InfoValue>
-                            </>
-                        )}
-                        {exec.stepEnd?.end_time && (
-                            <>
-                                <InfoLabel>Ended</InfoLabel>
-                                <InfoValue>{formatTime(exec.stepEnd.end_time)}</InfoValue>
-                            </>
-                        )}
-                    </InfoGrid>
-                </Collapsible>
+            <Collapsible title="General" defaultOpen={false}>
+                <InfoGrid>
+                    <InfoLabel>Trace ID</InfoLabel>
+                    <InfoValue>{traceId ?? '—'}</InfoValue>
+                    <InfoLabel>Span ID</InfoLabel>
+                    <InfoValue>{exec.spanId}</InfoValue>
+                    {exec.stepStart?.start_time && (
+                        <>
+                            <InfoLabel>Started</InfoLabel>
+                            <InfoValue>{formatTime(exec.stepStart.start_time)}</InfoValue>
+                        </>
+                    )}
+                    {exec.stepEnd?.end_time && (
+                        <>
+                            <InfoLabel>Ended</InfoLabel>
+                            <InfoValue>{formatTime(exec.stepEnd.end_time)}</InfoValue>
+                        </>
+                    )}
+                </InfoGrid>
+            </Collapsible>
 
-                {exec.httpPairs.map((pair, i) => (
-                    <HttpPairCard key={i} pair={pair} stepOutputs={stepOutputs} />
-                ))}
-            </CardBody>
-        </Card>
+            {exec.httpPairs.map((pair, i) => (
+                <HttpPairCard key={i} pair={pair} stepOutputs={stepOutputs} />
+            ))}
+        </div>
     );
 }
 
@@ -556,7 +566,7 @@ export function LogsTab({ spans }: LogsTabProps) {
         return <EmptyState>No logs recorded for this node yet.</EmptyState>;
     }
 
-    const executions = groupSpansIntoExecutions(spans);
+    const runs = groupSpansByRun(spans);
 
     return (
         <Wrapper>
@@ -573,9 +583,41 @@ export function LogsTab({ spans }: LogsTabProps) {
                 </CardsContainer>
             ) : (
                 <CardsContainer>
-                    {executions.map((exec, i) => (
-                        <ExecutionCard key={exec.spanId} exec={exec} index={i} />
-                    ))}
+                    {runs.map((run, runIndex) => {
+                        const allStatuses = run.executions.map(getExecStatus);
+                        const runStatus: ExecStatus = allStatuses.includes('error') ? 'error'
+                            : allStatuses.includes('running') ? 'running' : 'ok';
+                        const totalDuration = run.executions.reduce(
+                            (sum, e) => sum + (e.stepEnd?.duration_ms ?? 0), 0
+                        );
+                        const isLatest = runIndex === runs.length - 1;
+
+                        const title = (
+                            <>
+                                <StatusDot status={runStatus} />
+                                <span style={{ flex: 1 }}>{`Execution ${runIndex + 1}`}</span>
+                                {totalDuration > 0 && <DurationText>{formatDuration(totalDuration)}</DurationText>}
+                            </>
+                        );
+
+                        return (
+                            <Collapsible key={run.traceId} title={title} defaultOpen={isLatest}>
+                                {run.executions.length === 1 ? (
+                                    <ExecutionBody exec={run.executions[0]} />
+                                ) : (
+                                    run.executions.map((exec, i) => (
+                                        <Collapsible
+                                            key={exec.spanId}
+                                            title={`Attempt ${i + 1}`}
+                                            defaultOpen={i === run.executions.length - 1}
+                                        >
+                                            <ExecutionBody exec={exec} />
+                                        </Collapsible>
+                                    ))
+                                )}
+                            </Collapsible>
+                        );
+                    })}
                 </CardsContainer>
             )}
         </Wrapper>
