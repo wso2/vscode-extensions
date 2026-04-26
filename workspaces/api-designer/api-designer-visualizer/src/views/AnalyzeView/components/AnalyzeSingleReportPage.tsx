@@ -300,7 +300,14 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
                     aiBucketFilter={resolvedReportId === 'ai-readiness' ? {
                         mainBucketKey: selectedAiMainBucketKey,
                         subBucketKey: selectedAiBucketKey,
+                        isLlmSelected: selectedBreakdownKey === 'llm-validation',
+                        llmOptionLabel: report?.llmValidation?.status === 'stale' ? 'LLM Findings (Stale)' : 'LLM Findings',
                         summaryLabel: (() => {
+                            if (selectedBreakdownKey === 'llm-validation') {
+                                return report?.llmValidation?.status === 'stale'
+                                    ? 'LLM Findings (Stale)'
+                                    : 'LLM Findings';
+                            }
                             if (!selectedAiMainBucketKey && !selectedAiBucketKey) return null;
                             const main = aiBucketOptions.find((o: { key: string }) => o.key === selectedAiMainBucketKey);
                             const sub = main?.subBuckets.find((s: { key: string }) => s.key === selectedAiBucketKey);
@@ -309,7 +316,15 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
                             return null;
                         })(),
                         options: aiBucketOptions,
+                        onSelectLlm: () => {
+                            setSelectedAiMainBucketKey(null);
+                            setSelectedAiBucketKey(null);
+                            setSelectedBreakdownKey('llm-validation');
+                        },
                         onChangeMainBucket: (key: string | null) => {
+                            if (selectedBreakdownKey === 'llm-validation') {
+                                setSelectedBreakdownKey(null);
+                            }
                             setSelectedAiMainBucketKey(key);
                             if (!key) {
                                 setSelectedAiBucketKey(null);
@@ -323,12 +338,16 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
                             }
                         },
                         onChangeSubBucket: (key: string | null) => {
+                            if (selectedBreakdownKey === 'llm-validation') {
+                                setSelectedBreakdownKey(null);
+                            }
                             setSelectedAiBucketKey(key);
                             if (!key) return;
                             const main = subBucketToMainBucketMap.get(key) || null;
                             setSelectedAiMainBucketKey(main);
                         },
                         onClear: () => {
+                            setSelectedBreakdownKey(null);
                             setSelectedAiMainBucketKey(null);
                             setSelectedAiBucketKey(null);
                         }

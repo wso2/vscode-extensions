@@ -280,15 +280,29 @@ export const useReportData = (
                 const passedChecks = unifiedReport.overview.passedChecks;
                 const totalChecks = unifiedReport.overview.totalChecks;
 
-                setReport({
-                    rulesetName: selectedRuleset.name,
-                    score: unifiedReport.overview.score,
-                    passedChecks,
-                    totalChecks,
-                    violations: normalizedViolations,
-                    ruleset: selectedRuleset,
-                    report: unifiedReport,
-                    llmValidation: (governance as GetGovernanceResponse & { llmValidation?: ReportState['llmValidation'] }).llmValidation,
+                setReport((prev) => {
+                    const incomingLlmValidation = (governance as GetGovernanceResponse & {
+                        llmValidation?: ReportState['llmValidation'];
+                    }).llmValidation;
+                    // Some stale payloads may not include cached findings.
+                    // Preserve the previous result so users can still inspect prior issues while stale.
+                    const llmValidation =
+                        incomingLlmValidation?.status === 'stale' &&
+                        !incomingLlmValidation.result &&
+                        prev?.llmValidation?.result
+                            ? { ...incomingLlmValidation, result: prev.llmValidation.result }
+                            : incomingLlmValidation;
+
+                    return {
+                        rulesetName: selectedRuleset.name,
+                        score: unifiedReport.overview.score,
+                        passedChecks,
+                        totalChecks,
+                        violations: normalizedViolations,
+                        ruleset: selectedRuleset,
+                        report: unifiedReport,
+                        llmValidation,
+                    };
                 });
                 setSpecContent(contentResponse?.content || '');
             } catch (e: any) {

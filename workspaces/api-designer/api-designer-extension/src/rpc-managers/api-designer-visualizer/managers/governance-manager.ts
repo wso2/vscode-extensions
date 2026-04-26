@@ -185,26 +185,39 @@ export class GovernanceManager extends BaseRpcManager {
     }
 
     private async persistLlmState(filePath: string, state: LlmValidationState): Promise<void> {
+        // Keep only the latest cache entry in memory.
+        GovernanceManager.llmStateByApiHash.clear();
         GovernanceManager.llmStateByApiHash.set(state.apiHash, state);
         try {
             const cachePath = this.getWorkspaceCachePath(filePath);
             await mkdir(path.dirname(cachePath), { recursive: true });
-            const workspaceCache = await this.readWorkspaceCache(filePath);
-            workspaceCache[state.apiHash] = state;
-            await writeFile(cachePath, JSON.stringify(workspaceCache, null, 2), 'utf8');
+            // Keep only the latest cache entry on disk.
+            await writeFile(cachePath, JSON.stringify(state, null, 2), 'utf8');
         } catch {
             // best-effort workspace cache persistence
         }
     }
 
-    private async readWorkspaceCache(filePath: string): Promise<Record<string, LlmValidationState>> {
+    private async readWorkspaceCache(filePath: string): Promise<LlmValidationState | null> {
         try {
             const cachePath = this.getWorkspaceCachePath(filePath);
             const content = await readFile(cachePath, 'utf8');
-            const parsed = JSON.parse(content) as Record<string, LlmValidationState>;
-            return parsed && typeof parsed === 'object' ? parsed : {};
+            const parsed = JSON.parse(content) as unknown;
+            if (!parsed || typeof parsed !== 'object') {
+                return null;
+            }
+            // Backward compatibility: old cache format was Record<apiHash, state>.
+            if ('status' in (parsed as Record<string, unknown>) && 'apiHash' in (parsed as Record<string, unknown>)) {
+                return parsed as LlmValidationState;
+            }
+            const legacyStates = Object.values(parsed as Record<string, LlmValidationState>)
+                .filter((state): state is LlmValidationState => !!state && typeof state === 'object');
+            if (legacyStates.length === 0) {
+                return null;
+            }
+            return legacyStates.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
         } catch {
-            return {};
+            return null;
         }
     }
 
@@ -212,7 +225,7 @@ export class GovernanceManager extends BaseRpcManager {
         const inMemory = GovernanceManager.llmStateByApiHash.get(apiHash);
         if (inMemory) return inMemory;
         const workspaceCache = await this.readWorkspaceCache(filePath);
-        if (workspaceCache[apiHash]) return workspaceCache[apiHash];
+        if (workspaceCache?.apiHash === apiHash) return workspaceCache;
         return undefined;
     }
 
@@ -397,9 +410,10 @@ export class GovernanceManager extends BaseRpcManager {
             const apiHash = this.computeApiHash(content);
             const force = options?.force === true;
             const workspaceCache = await this.readWorkspaceCache(filePath);
-            const hasAnyWorkspaceCache = Object.keys(workspaceCache).length > 0;
+            const hasAnyWorkspaceCache = !!workspaceCache;
             const cached = await this.resolveCachedLlmState(filePath, apiHash);
             if (cached?.status === 'ready' && !force) {
+                GovernanceManager.llmStateByApiHash.clear();
                 GovernanceManager.llmStateByApiHash.set(apiHash, cached);
                 return;
             }
@@ -747,15 +761,21 @@ export class GovernanceManager extends BaseRpcManager {
             const content = await readFile(params.filePath, 'utf8');
             const apiHash = this.computeApiHash(content);
             const workspaceCache = await this.readWorkspaceCache(params.filePath);
-            const hasAnyWorkspaceCache = Object.keys(workspaceCache).length > 0;
+            const hasAnyWorkspaceCache = !!workspaceCache;
             let llmValidation = await this.resolveCachedLlmState(params.filePath, apiHash);
             if (!llmValidation) {
                 if (hasAnyWorkspaceCache) {
+                    // Preserve the most recent ready result as stale findings so UI can still display prior issues.
+                    const latestReady =
+                        workspaceCache?.status === 'ready' && !!workspaceCache.result
+                            ? workspaceCache
+                            : undefined;
                     llmValidation = {
                         status: 'stale',
                         apiHash,
-                        updatedAt: Date.now(),
+                        updatedAt: latestReady?.updatedAt || Date.now(),
                         error: 'OpenAPI spec changed since the last LLM validation. Click Re-evaluate to refresh.',
+                        ...(latestReady?.result ? { result: latestReady.result } : {}),
                     };
                 } else {
                     void this.ensureLlmValidationForFile(params.filePath);

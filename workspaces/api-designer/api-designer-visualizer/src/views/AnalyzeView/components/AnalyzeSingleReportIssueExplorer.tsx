@@ -32,7 +32,9 @@ interface AnalyzeSingleReportIssueExplorerProps {
     aiBucketFilter?: {
         mainBucketKey: string | null;
         subBucketKey: string | null;
+        isLlmSelected?: boolean;
         summaryLabel?: string | null;
+        llmOptionLabel?: string;
         options: Array<{
             key: string;
             label: string;
@@ -40,6 +42,7 @@ interface AnalyzeSingleReportIssueExplorerProps {
         }>;
         onChangeMainBucket: (key: string | null) => void;
         onChangeSubBucket: (key: string | null) => void;
+        onSelectLlm?: () => void;
         onClear: () => void;
     };
     breakdownFilter?: {
@@ -220,9 +223,7 @@ const IssueCard = styled.button<{ $selected: boolean; $severity: SeverityLevel }
             ? 'var(--vscode-errorForeground)'
             : $severity === 'warn'
                 ? 'var(--vscode-editorWarning-foreground)'
-                : $severity === 'info'
-                    ? 'var(--vscode-editorInfo-foreground, #3b82f6)'
-                    : 'var(--vscode-panel-border)'};
+                : 'var(--vscode-editorInfo-foreground, #3b82f6)'};
     background: ${({ $selected }: { $selected: boolean }) =>
         $selected ? 'color-mix(in srgb, var(--vscode-list-activeSelectionBackground) 80%, var(--vscode-editorWidget-background))' : 'var(--vscode-editorWidget-background)'};
 `;
@@ -353,6 +354,8 @@ export const AnalyzeSingleReportIssueExplorer: React.FC<AnalyzeSingleReportIssue
         aiEnabled, reportKey, reportName, fileUri, rulesetFileUrl, rulesetContentPath, specContent, onOpenCopilotChat, aiBucketFilter, breakdownFilter,
     } = props;
 
+    const LLM_FILTER_VALUE = '__llm_validation__';
+
     return (
         <SectionShell>
             <SectionHeader>
@@ -374,11 +377,20 @@ export const AnalyzeSingleReportIssueExplorer: React.FC<AnalyzeSingleReportIssue
                     </CtrlSelect>
                     {reportKey === 'ai-readiness' && aiBucketFilter ? (
                         <CtrlSelect
-                            value={aiBucketFilter.subBucketKey ? `${aiBucketFilter.mainBucketKey}:${aiBucketFilter.subBucketKey}` : aiBucketFilter.mainBucketKey || ''}
+                            value={
+                                aiBucketFilter.isLlmSelected
+                                    ? LLM_FILTER_VALUE
+                                    : (aiBucketFilter.subBucketKey
+                                        ? `${aiBucketFilter.mainBucketKey}:${aiBucketFilter.subBucketKey}`
+                                        : aiBucketFilter.mainBucketKey || '')
+                            }
                             onChange={(e) => {
                                 const val = e.target.value;
-                                if (!val) { aiBucketFilter.onClear(); }
-                                else if (val.includes(':')) {
+                                if (!val) {
+                                    aiBucketFilter.onClear();
+                                } else if (val === LLM_FILTER_VALUE) {
+                                    aiBucketFilter.onSelectLlm?.();
+                                } else if (val.includes(':')) {
                                     const [main, sub] = val.split(':');
                                     aiBucketFilter.onChangeMainBucket(main);
                                     aiBucketFilter.onChangeSubBucket(sub);
@@ -389,6 +401,7 @@ export const AnalyzeSingleReportIssueExplorer: React.FC<AnalyzeSingleReportIssue
                             }}
                         >
                             <option value="">All categories</option>
+                            <option value={LLM_FILTER_VALUE}>{aiBucketFilter.llmOptionLabel || 'LLM Findings'}</option>
                             {aiBucketFilter.options.map((b) => (
                                 <React.Fragment key={b.key}>
                                     <option value={b.key}>{b.label}</option>

@@ -42,6 +42,7 @@ interface AnalyzeSingleReportBreakdownProps {
         status: 'pending' | 'ready' | 'failed' | 'stale';
         result?: { score?: number; findings?: unknown[] };
         error?: string;
+        updatedAt?: number;
     };
 }
 
@@ -354,17 +355,28 @@ const LlmActions = styled.div`
 `;
 
 const ReevaluateButton = styled.button`
-    padding: 5px 12px;
+    padding: 6px 14px;
     border-radius: 6px;
     border: 1px solid var(--vscode-button-border, var(--vscode-panel-border));
-    background: var(--vscode-button-secondaryBackground);
-    color: var(--vscode-button-secondaryForeground);
+    background: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
     cursor: pointer;
     font-size: 11px;
+    font-weight: 700;
     font-family: inherit;
     white-space: nowrap;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--vscode-focusBorder) 35%, transparent);
+    transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+
     &:hover {
-        background: var(--vscode-button-secondaryHoverBackground);
+        background: var(--vscode-button-hoverBackground);
+        border-color: var(--vscode-focusBorder);
+    }
+
+    &:focus-visible {
+        outline: none;
+        border-color: var(--vscode-focusBorder);
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--vscode-focusBorder) 55%, transparent);
     }
 `;
 
@@ -418,6 +430,11 @@ function getBucketColors(cat: { total: number; errors: number; warnings: number 
     };
 }
 
+const formatEvaluationTimestamp = (timestamp?: number): string | null => {
+    if (!timestamp || Number.isNaN(timestamp)) return null;
+    return new Date(timestamp).toLocaleString();
+};
+
 
 // ── Main component ─────────────────────────────────────────────────────────
 
@@ -449,13 +466,15 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
         }
         if (llmValidation.status === 'stale') {
             const staleCount = llmValidation.result?.findings?.length || 0;
+            const lastEvaluated = formatEvaluationTimestamp(llmValidation.updatedAt);
+            const lastEvaluatedLabel = lastEvaluated ? ` Last evaluated: ${lastEvaluated}.` : '';
             return {
                 statusLabel: 'Stale',
                 statusColor: 'var(--vscode-editorWarning-foreground)',
                 statusBg: 'color-mix(in srgb, var(--vscode-editorWarning-foreground) 14%, transparent)',
                 meta: staleCount > 0
-                    ? `Showing ${staleCount} cached finding${staleCount !== 1 ? 's' : ''} from the previous evaluation. Re-evaluate to refresh against current spec.`
-                    : (llmValidation.error || 'OpenAPI spec changed — re-evaluate to refresh agent results.'),
+                    ? `Showing ${staleCount} cached finding${staleCount !== 1 ? 's' : ''} from the previous evaluation.${lastEvaluatedLabel} Re-evaluate to refresh against current spec.`
+                    : `${llmValidation.error || 'OpenAPI spec changed — re-evaluate to refresh agent results.'}${lastEvaluatedLabel}`,
                 icon: '⚠',
                 score: null,
             };
