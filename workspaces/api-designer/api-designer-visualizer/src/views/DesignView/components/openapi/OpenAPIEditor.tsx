@@ -327,12 +327,7 @@ export const OpenAPIEditor: React.FC<OpenAPIEditorProps> = ({
                     openAPI={spec as any}
                     onClose={editorModals.closeOperationForm}
                     onSave={actions.handleSaveOperation}
-                    onAutoSave={(() => {
-                        if (!spec.paths || !editorModals.operationFormPath || !editorModals.operationFormMethod) return undefined;
-                        const existingOperation = spec.paths[editorModals.operationFormPath]?.[editorModals.operationFormMethod];
-                        const hasExistingContent = existingOperation && Object.keys(existingOperation).length > 0;
-                        return hasExistingContent ? (operationData: any) => actions.handleSaveOperation(operationData, false) : undefined;
-                    })()}
+                    onAutoSave={(operationData: any) => actions.handleSaveOperation(operationData, false)}
                     onRemove={actions.handleRemoveOperation}
                     onCopilot={() => {
                         if (editorModals.operationFormPath && editorModals.operationFormMethod && spec.paths) {

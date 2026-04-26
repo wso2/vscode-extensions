@@ -17,10 +17,11 @@
  */
 import React, { useEffect, useRef, useState } from 'react';
 import styled from "@emotion/styled";
-import { Typography, TextField, Button, Codicon, Dropdown, OptionProps, Tooltip } from '@wso2/ui-toolkit';
+import { Typography, TextField, Button, Codicon, Dropdown, OptionProps, Tooltip, AutoResizeTextArea } from '@wso2/ui-toolkit';
 import { SchemaTypes } from '../../../../constants';
 import { OpenAPI } from '../../../../Definitions/ServiceDefinitions';
 import { css } from '@emotion/react';
+import { inferSchemaFromJsonSample } from '../../../../utils/jsonSchemaInference';
 
 
 export interface Schema {
@@ -117,6 +118,28 @@ const SchemaToolbarRow = styled.div`
     display: flex;
     align-items: center;
     margin-bottom: 10px;
+`;
+
+const ToolbarActions = styled.div`
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+`;
+
+const JsonImportPanel = styled.div`
+    margin-bottom: 10px;
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 6px;
+    padding: 10px;
+    background: color-mix(in srgb, var(--vscode-editorWidget-background) 80%, transparent);
+`;
+
+const JsonImportActions = styled.div`
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 8px;
 `;
 
 const PropertyRow = styled.div`
@@ -508,6 +531,9 @@ export const SchemaEditor: React.FC<SchemaEditorProps> = (props: SchemaEditorPro
     const { schema: initialSchema, schemaName, sx, onSchemaChange, variant = 'h4', openAPI, onNameChange, isRoot = true, excludeSchemaName } = props;
     const [schema, setSchema] = useState<Schema | undefined>(initialSchema);
     const [arrayExampleError, setArrayExampleError] = useState<string>('');
+    const [showJsonImport, setShowJsonImport] = useState<boolean>(false);
+    const [jsonInput, setJsonInput] = useState<string>('');
+    const [jsonImportError, setJsonImportError] = useState<string>('');
 
     const handleSchemaUpdate = (updatedProperties: { [key: string]: Schema }) => {
         const updatedSchema = {
@@ -560,6 +586,25 @@ export const SchemaEditor: React.FC<SchemaEditorProps> = (props: SchemaEditorPro
         onSchemaChange(newSchema);
     };
 
+    const handleApplyJsonSample = () => {
+        const trimmed = jsonInput.trim();
+        if (!trimmed) {
+            setJsonImportError('Paste a JSON value to generate schema.');
+            return;
+        }
+
+        try {
+            const parsed = JSON.parse(trimmed) as unknown;
+            const inferredSchema = inferSchemaFromJsonSample(parsed);
+            setSchema(inferredSchema);
+            onSchemaChange(inferredSchema);
+            setJsonImportError('');
+            setShowJsonImport(false);
+        } catch {
+            setJsonImportError('Invalid JSON. Paste a valid JSON object/array/value.');
+        }
+    };
+
     useEffect(() => {
         // Update the schema when the initial schema changes
         setSchema(initialSchema);
@@ -610,7 +655,58 @@ export const SchemaEditor: React.FC<SchemaEditorProps> = (props: SchemaEditorPro
                         <Codicon name='plus' sx={{ marginTop: '2px' }} />
                     </Button>
                 )}
+                <ToolbarActions>
+                    <Button
+                        appearance="secondary"
+                        tooltip="Import a JSON sample payload and auto-generate the schema"
+                        onClick={() => {
+                            setShowJsonImport((prev) => !prev);
+                            setJsonImportError('');
+                        }}
+                        sx={{ fontSize: '11px', whiteSpace: 'nowrap' }}
+                    >
+                        <Codicon name="copy" sx={{ marginRight: '4px' }} />
+                        Import JSON
+                    </Button>
+                </ToolbarActions>
             </SchemaToolbarRow>
+            {showJsonImport && (
+                <JsonImportPanel>
+                    <AutoResizeTextArea
+                        label="Import JSON Sample"
+                        value={jsonInput}
+                        onTextChange={setJsonInput}
+                        placeholder='Paste JSON payload, e.g. {"id":1,"name":"Alice"}'
+                        growRange={{ start: 4, offset: 24 }}
+                        sx={{ width: '100%', boxSizing: 'border-box', fontFamily: 'monospace', fontSize: '12px' }}
+                        errorMsg={jsonImportError}
+                    />
+                    <JsonImportActions>
+                        <Button
+                            appearance="icon"
+                            tooltip="Clear"
+                            onClick={() => {
+                                setJsonInput('');
+                                setJsonImportError('');
+                            }}
+                        >
+                            <Codicon name="clear-all" />
+                        </Button>
+                        <Button
+                            appearance="secondary"
+                            onClick={() => {
+                                setShowJsonImport(false);
+                                setJsonImportError('');
+                            }}
+                        >
+                            Cancel
+                        </Button>
+                        <Button appearance="primary" onClick={handleApplyJsonSample}>
+                            Generate Schema
+                        </Button>
+                    </JsonImportActions>
+                </JsonImportPanel>
+            )}
             {schema.type === 'object' && schema.properties && (
                 <SchemaProperties 
                     properties={schema.properties} 
