@@ -14,6 +14,12 @@ export const BREAKDOWN_TITLES: Record<AnalyzeReportKey, string> = {
     'wso2-rest': 'WSO2 REST Guidelines Breakdown',
 };
 
+export const BREAKDOWN_SUBTITLES: Record<AnalyzeReportKey, string> = {
+    'ai-readiness': 'Evaluate how well your API is prepared for AI agent consumption',
+    owasp: 'Coverage across the OWASP API Security Top 10 (2023)',
+    'wso2-rest': 'Compliance with WSO2 REST API design guidelines',
+};
+
 export const OWASP_CATEGORIES = [
     { id: 'API1:2023', key: 'API1', name: 'Broken Object Level Authorization', docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/' },
     { id: 'API2:2023', key: 'API2', name: 'Broken Authentication', docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa2-broken-authentication/' },

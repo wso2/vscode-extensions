@@ -73,19 +73,18 @@ const BackButton = styled.button`
     height: 26px;
     width: fit-content;
     margin-bottom: 8px;
-    padding: 0 8px;
-    border: 1px solid transparent;
+    padding: 0 10px;
+    border: 1px solid var(--vscode-panel-border);
     border-radius: 4px;
-    background: transparent;
-    color: var(--vscode-descriptionForeground);
+    background: var(--vscode-editorWidget-background);
+    color: var(--vscode-foreground);
     font-size: 11px;
     font-weight: 500;
     cursor: pointer;
-    transition: border-color 120ms ease, background 120ms ease, color 120ms ease;
+    transition: border-color 120ms ease, background 120ms ease;
 
     &:hover {
-        color: var(--vscode-foreground);
-        border-color: var(--vscode-panel-border);
+        border-color: var(--vscode-focusBorder);
         background: var(--vscode-list-hoverBackground);
     }
 

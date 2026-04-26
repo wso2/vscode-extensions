@@ -50,6 +50,7 @@ export interface AIReadinessData {
 interface MetricsOverviewProps {
     fileUri?: string;
     aiReadinessScore?: AIReadinessData | null;
+    validationData?: ValidationData | null;
 }
 
 interface MetricBadgeData {
@@ -59,6 +60,8 @@ interface MetricBadgeData {
     score: number | null;
     analyzeSection: 'ai-readiness' | 'owasp' | 'wso2-rest' | 'all';
 }
+
+type GovernanceSection = 'owasp' | 'wso2-rest';
 
 const Container = styled.div`
     width: 100%;
@@ -170,41 +173,60 @@ const hexToRgba = (hex: string, alpha: number): string => {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
-const resolveBadgeMeta = (
-    rulesetName: string
-): { label: string; description: string; analyzeSection: 'owasp' | 'wso2-rest' | 'all' } => {
-    const normalized = rulesetName.toLowerCase();
-    if (normalized.includes('security') || normalized.includes('owasp')) {
+const getRulesetForSection = (rulesets: SpectralRuleset[], section: GovernanceSection): SpectralRuleset | undefined => {
+    if (section === 'owasp') {
+        return rulesets.find((ruleset) => {
+            const name = (ruleset.name || '').toLowerCase();
+            return name.includes('owasp') || name.includes('security');
+        });
+    }
+    return rulesets.find((ruleset) => {
+        const name = (ruleset.name || '').toLowerCase();
+        return name.includes('design') || name.includes('rest');
+    });
+};
+
+const getRulesetCandidatesForSection = (rulesets: SpectralRuleset[], section: GovernanceSection): SpectralRuleset[] => {
+    const primary = getRulesetForSection(rulesets, section);
+    const match = (ruleset: SpectralRuleset) => {
+        const name = (ruleset.name || '').toLowerCase();
+        return section === 'owasp'
+            ? name.includes('owasp') || name.includes('security')
+            : name.includes('design') || name.includes('rest');
+    };
+    const filtered = rulesets.filter(match);
+    if (!primary) {
+        return filtered;
+    }
+    return [primary, ...filtered.filter((ruleset) => ruleset.name !== primary.name)];
+};
+
+const getSectionMeta = (section: GovernanceSection): { label: string; description: string } => {
+    if (section === 'owasp') {
         return {
             label: 'Secure',
             description: 'Explains how much secure your API is based on OWASP guidelines',
-            analyzeSection: 'owasp'
-        };
-    }
-    if (normalized.includes('design') || normalized.includes('rest')) {
-        return {
-            label: 'Compliant',
-            description: 'Explains how much compliant your API is with WSO2 REST API guidelines',
-            analyzeSection: 'wso2-rest'
         };
     }
     return {
-        label: rulesetName,
-        description: 'Spectral governance score for this ruleset',
-        analyzeSection: 'all'
+        label: 'Compliant',
+        description: 'Explains how much compliant your API is with WSO2 REST API guidelines',
     };
 };
 
-export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ fileUri, aiReadinessScore }) => {
+export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ fileUri, aiReadinessScore, validationData }) => {
     const { rpcClient } = useVisualizerContext();
     const [governanceMetrics, setGovernanceMetrics] = useState<MetricBadgeData[]>([]);
     const readiness = aiReadinessScore?.score ?? null;
     const defaultAccent = '#3b82f6';
 
     useEffect(() => {
+        let isActive = true;
         const fetchGovernanceMetrics = async () => {
             if (!rpcClient || !fileUri || fileUri === 'file:///placeholder') {
-                setGovernanceMetrics([]);
+                if (isActive) {
+                    setGovernanceMetrics([]);
+                }
                 return;
             }
 
@@ -213,58 +235,53 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ fileUri, aiRea
                     filePath: fileUri
                 });
                 const governanceRulesets = rulesetsResponse.governanceRulesets || [];
-                const preferredRulesets: SpectralRuleset[] = [];
-                const securityRuleset = governanceRulesets.find((ruleset) => {
-                    const name = ruleset.name.toLowerCase();
-                    return name.includes('security') || name.includes('owasp');
-                });
-                const complianceRuleset = governanceRulesets.find((ruleset) => {
-                    const name = ruleset.name.toLowerCase();
-                    return name.includes('design') || name.includes('rest');
-                });
-
-                if (securityRuleset) {
-                    preferredRulesets.push(securityRuleset);
-                }
-                if (complianceRuleset && complianceRuleset.name !== securityRuleset?.name) {
-                    preferredRulesets.push(complianceRuleset);
-                }
-                for (const ruleset of governanceRulesets) {
-                    if (preferredRulesets.length >= 2) break;
-                    if (!preferredRulesets.some((existing) => existing.name === ruleset.name)) {
-                        preferredRulesets.push(ruleset);
-                    }
-                }
+                const sectionTargets: GovernanceSection[] = ['owasp', 'wso2-rest'];
 
                 const results = await Promise.allSettled(
-                    preferredRulesets.slice(0, 2).map(async (ruleset) => {
-                        const governance = await rpcClient.getApiDesignerVisualizerRpcClient().getGovernance({
-                            filePath: fileUri,
-                            name: ruleset.name,
-                            ruleset
-                        });
-                        const meta = resolveBadgeMeta(ruleset.name);
-                        return {
-                            key: ruleset.name,
-                            label: meta.label,
-                            description: meta.description,
-                            score: governance?.report?.overview?.score ?? null,
-                            analyzeSection: meta.analyzeSection
-                        } as MetricBadgeData;
+                    sectionTargets.map(async (section) => {
+                        const expectedReportId = section === 'owasp' ? 'owasp' : 'rest-api-readiness';
+                        const candidates = getRulesetCandidatesForSection(governanceRulesets, section);
+                        for (const ruleset of candidates) {
+                            const governance = await rpcClient.getApiDesignerVisualizerRpcClient().getGovernance({
+                                filePath: fileUri,
+                                name: ruleset.name,
+                                ruleset
+                            });
+                            const reportId = governance?.report?.reportId;
+                            if (reportId !== expectedReportId) {
+                                continue;
+                            }
+                            const meta = getSectionMeta(section);
+                            return {
+                                key: section,
+                                label: meta.label,
+                                description: meta.description,
+                                score: governance?.report?.overview?.score ?? null,
+                                analyzeSection: section
+                            } as MetricBadgeData;
+                        }
+                        throw new Error(`No matching ${expectedReportId} ruleset found`);
                     })
                 );
 
                 const metrics = results
                     .filter((result): result is PromiseFulfilledResult<MetricBadgeData> => result.status === 'fulfilled')
                     .map((result) => result.value);
-                setGovernanceMetrics(metrics);
+                if (isActive) {
+                    setGovernanceMetrics(metrics);
+                }
             } catch {
-                setGovernanceMetrics([]);
+                if (isActive) {
+                    setGovernanceMetrics([]);
+                }
             }
         };
 
         fetchGovernanceMetrics();
-    }, [rpcClient, fileUri]);
+        return () => {
+            isActive = false;
+        };
+    }, [rpcClient, fileUri, validationData]);
 
     const metricBadges = useMemo<MetricBadgeData[]>(
         () => [

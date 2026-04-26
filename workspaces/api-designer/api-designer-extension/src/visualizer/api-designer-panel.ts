@@ -320,6 +320,15 @@ export class ApiDesignerPanel {
                         // Handle folder selection request
                         this.handleSelectFolder();
                         break;
+                    case 'openExternal':
+                        if (typeof message.url === 'string' && message.url.trim().length > 0) {
+                            try {
+                                await vscode.env.openExternal(vscode.Uri.parse(message.url));
+                            } catch (err) {
+                                logError('ApiDesignerPanel: Failed to open external URL', err);
+                            }
+                        }
+                        break;
                     case 'createFromTemplate':
                         // Handle creating API spec from template
                         await this.handleCreateFromTemplate(message.data);

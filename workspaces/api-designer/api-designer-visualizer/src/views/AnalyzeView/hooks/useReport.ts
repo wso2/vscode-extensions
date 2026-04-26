@@ -65,20 +65,24 @@ export interface ReportState {
 
 export const severityRank: Record<SeverityLevel, number> = { error: 3, warn: 2, info: 1, hint: 0 };
 
-export const scoreGrade = (score: number): string => {
-    if (score >= 90) return 'A';
-    if (score >= 75) return 'B';
-    if (score >= 60) return 'C';
-    if (score >= 40) return 'D';
-    return 'F';
+type ScoreBand = { min: number; grade: string; color: string };
+
+const SCORE_BANDS: ScoreBand[] = [
+    { min: 90, grade: 'A', color: 'var(--vscode-testing-iconPassed, #22c55e)' },
+    { min: 75, grade: 'B', color: '#3b82f6' },
+    { min: 60, grade: 'C', color: 'var(--vscode-editorWarning-foreground)' },
+    { min: 40, grade: 'D', color: '#f97316' },
+    { min: 0, grade: 'F', color: 'var(--vscode-errorForeground)' },
+];
+
+const getScoreBand = (score: number): ScoreBand => {
+    const normalizedScore = Math.max(0, Math.min(100, Number(score) || 0));
+    return SCORE_BANDS.find((band) => normalizedScore >= band.min) || SCORE_BANDS[SCORE_BANDS.length - 1];
 };
 
-export const scoreColor = (score: number): string => {
-    if (score >= 90) return 'var(--vscode-testing-iconPassed, #22c55e)';
-    if (score >= 75) return '#3b82f6';
-    if (score >= 50) return 'var(--vscode-editorWarning-foreground)';
-    return 'var(--vscode-errorForeground)';
-};
+export const scoreGrade = (score: number): string => getScoreBand(score).grade;
+
+export const scoreColor = (score: number): string => getScoreBand(score).color;
 
 export const extractEndpoint = (segments: string[]): { endpoint: string; method: string } => {
     const pathsIndex = segments.indexOf('paths');

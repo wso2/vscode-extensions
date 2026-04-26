@@ -1,10 +1,10 @@
 import React from 'react';
 import styled from '@emotion/styled';
-import { Codicon } from '@wso2/ui-toolkit';
 import type { AiReadinessDimensionSummary } from '@wso2/api-designer-core';
 import { AnalyzeReportKey } from '../hooks/useReport';
-import { BREAKDOWN_TITLES } from './AnalyzeSingleReportHelpers';
+import { BREAKDOWN_TITLES, BREAKDOWN_SUBTITLES } from './AnalyzeSingleReportHelpers';
 import { AIReadinessBucketGrid } from './AIReadinessBucketGrid';
+import { postMessage } from '../../../utils/vscode-api';
 
 interface ViolationRow {
     id: string;
@@ -45,276 +45,385 @@ interface AnalyzeSingleReportBreakdownProps {
     };
 }
 
-const SectionBlock = styled.div`
-    border: 1px solid var(--vscode-panel-border);
-    border-radius: 10px;
-    background: var(--vscode-editor-background);
-    overflow: hidden;
+// ── Section shell ─────────────────────────────────────────────────────────
+
+const Section = styled.div`
+    margin-bottom: 4px;
 `;
 
 const SectionHeader = styled.div`
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--vscode-panel-border);
-    background: var(--vscode-editorGroupHeader-tabsBackground);
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding-bottom: 14px;
+    margin-bottom: 18px;
+    border-bottom: 2px solid var(--vscode-panel-border);
 `;
 
-const SectionTitleText = styled.div`
-    font-size: 12px;
+const SectionHeading = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+`;
+
+const SectionTitle = styled.div`
+    font-size: 15px;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
     color: var(--vscode-foreground);
+    letter-spacing: -0.01em;
+    line-height: 1.2;
 `;
 
+const SectionSubtitle = styled.div`
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+    line-height: 1.5;
+`;
 
-const OwaspGrid = styled.div`
+const SectionBadge = styled.div`
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--vscode-descriptionForeground);
+    white-space: nowrap;
+    flex-shrink: 0;
+`;
+
+// ── Flat bucket grid (OWASP / REST) ──────────────────────────────────────
+
+const BucketGrid = styled.div`
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
-    padding: 14px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+
+    @media (max-width: 900px) {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    @media (max-width: 600px) {
+        grid-template-columns: 1fr;
+    }
 `;
 
-const ProgressTrack = styled.div`
-    margin-top: 8px;
-    height: 4px;
-    border-radius: 2px;
-    background: var(--vscode-panel-border);
-    overflow: hidden;
-`;
-
-const ProgressFill = styled.div<{ $width: number; $severity: 'error' | 'warn' }>`
-    width: ${({ $width }: { $width: number }) => Math.min($width, 100)}%;
-    height: 100%;
-    border-radius: 2px;
-    background: ${({ $severity }: { $severity: 'error' | 'warn' }) =>
-        $severity === 'error' ? 'var(--vscode-errorForeground)' : 'var(--vscode-editorWarning-foreground)'};
-`;
-
-const OwaspIssueCard = styled.div<{ $dominantSeverity: 'error' | 'warn' }>`
-    border: 1px solid var(--vscode-panel-border);
-    border-left: 3px solid ${({ $dominantSeverity }: { $dominantSeverity: 'error' | 'warn' }) =>
-        $dominantSeverity === 'error' ? 'var(--vscode-errorForeground)' : 'var(--vscode-editorWarning-foreground)'};
-    border-radius: 8px;
+const Bucket = styled.div<{ $borderColor: string }>`
     background: var(--vscode-editorWidget-background);
+    border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 82%, transparent);
+    border-left: 4px solid ${({ $borderColor }: { $borderColor: string }) => $borderColor};
+    border-radius: 8px;
     padding: 14px 16px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--vscode-editorWidget-background) 72%, transparent), 0 3px 10px rgba(0, 0, 0, 0.12);
 `;
 
-const OwaspPassCard = styled.div`
-    border: 1px solid color-mix(in srgb, var(--vscode-testing-iconPassed, #22c55e) 40%, var(--vscode-panel-border));
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--vscode-testing-iconPassed, #22c55e) 8%, transparent);
-    padding: 14px 16px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-`;
-
-const OwaspPassIcon = styled.div`
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: var(--vscode-testing-iconPassed, #22c55e);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 16px;
-    font-weight: 700;
-`;
-
-const OwaspPassCategoryId = styled.div`
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--vscode-testing-iconPassed, #22c55e);
-`;
-
-const OwaspPassCategoryName = styled.div`
-    font-size: 13px;
-    font-weight: 700;
-    color: color-mix(in srgb, var(--vscode-testing-iconPassed, #22c55e) 70%, var(--vscode-foreground));
-    margin-top: 2px;
-`;
-
-const OwaspPassSubtext = styled.div`
-    font-size: 11px;
-    color: color-mix(in srgb, var(--vscode-testing-iconPassed, #22c55e) 80%, var(--vscode-descriptionForeground));
-    margin-top: 2px;
-`;
-
-const OwaspIssueHeader = styled.div`
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 8px;
-`;
-
-const OwaspCategoryId = styled.div<{ $color: string }>`
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: ${({ $color }: { $color: string }) => $color};
-`;
-
-const OwaspCategoryName = styled.div`
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--vscode-foreground);
-    line-height: 1.3;
-    margin-top: 3px;
-`;
-
-const OwaspIssueCount = styled.div<{ $color: string }>`
-    font-size: 28px;
-    font-weight: 800;
-    line-height: 1;
-    color: ${({ $color }: { $color: string }) => $color};
-    text-align: right;
-`;
-
-const OwaspIssueCountLabel = styled.div<{ $color: string }>`
-    font-size: 11px;
-    color: ${({ $color }: { $color: string }) => $color};
-    text-align: right;
-`;
-
-const OwaspFooter = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-`;
-
-const OwaspDocsLink = styled.a`
-    font-size: 11px;
-    color: var(--vscode-textLink-foreground);
-    text-decoration: none;
-    &:hover { text-decoration: underline; }
-`;
-
-const Wso2Grid = styled.div`
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
-    padding: 14px;
-`;
-
-const Wso2CategoryName = styled.div`
-    margin-top: 2px;
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--vscode-foreground);
-`;
-
-const Wso2Meta = styled.div`
-    font-size: 11px;
+const BucketId = styled.div`
+    font-size: 10px;
+    font-family: var(--vscode-editor-font-family, ui-monospace, monospace);
     color: var(--vscode-descriptionForeground);
 `;
 
-const Wso2RuleList = styled.div`
-    margin-top: 2px;
-    font-size: 11px;
+const BucketTitle = styled.div`
+    font-size: 13px;
+    font-weight: 700;
     color: var(--vscode-foreground);
+    line-height: 1.4;
 `;
 
-const Wso2PassRow = styled.div`
+const BucketDesc = styled.div`
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground);
+    line-height: 1.5;
+    flex: 1;
+`;
+
+const BucketStatusRow = styled.div`
     display: flex;
     align-items: center;
-    gap: 8px;
+    justify-content: space-between;
+    margin-top: 4px;
+    padding-top: 10px;
+    border-top: 1px solid var(--vscode-panel-border);
 `;
 
-const Wso2PassIcon = styled.span`
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
+const BucketBadge = styled.span<{ $color: string; $bg: string }>`
     display: inline-flex;
     align-items: center;
-    justify-content: center;
+    gap: 5px;
     font-size: 11px;
     font-weight: 700;
-    color: white;
-    background: var(--vscode-testing-iconPassed, #22c55e);
+    border-radius: 4px;
+    padding: 2px 8px;
+    color: ${({ $color }: { $color: string; $bg: string }) => $color};
+    background: ${({ $bg }: { $color: string; $bg: string }) => $bg};
+
+    &::before {
+        content: '';
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: currentColor;
+        flex-shrink: 0;
+    }
 `;
 
-const Wso2Details = styled.div`
+const BucketActions = styled.div`
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 8px;
 `;
 
-const Wso2DetailsText = styled.div`
+const DocsLink = styled.button`
     font-size: 11px;
-    color: var(--vscode-descriptionForeground);
+    font-weight: 500;
+    color: var(--vscode-textLink-foreground);
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 4px;
+    padding: 2px 8px;
+    background: transparent;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.12s, border-color 0.12s;
+
+    &:hover {
+        background: color-mix(in srgb, var(--vscode-textLink-foreground) 10%, transparent);
+        border-color: var(--vscode-textLink-foreground);
+    }
 `;
+
+const ExtLinkSvg = () => (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'inline-block', verticalAlign: 'middle', marginLeft: 3, opacity: 0.7 }}>
+        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+        <polyline points="15 3 21 3 21 9" />
+        <line x1="10" y1="14" x2="21" y2="3" />
+    </svg>
+);
+
+const LinkBtn = styled.button`
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--vscode-textLink-foreground);
+    cursor: pointer;
+    font-size: 11px;
+    padding: 3px 9px;
+    font-family: inherit;
+    transition: background 0.12s, border-color 0.12s;
+
+    &:hover {
+        background: color-mix(in srgb, var(--vscode-textLink-foreground) 10%, transparent);
+        border-color: var(--vscode-textLink-foreground);
+    }
+`;
+
+// ── AI Readiness LLM tile ─────────────────────────────────────────────────
 
 const AiBreakdownStack = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    padding: 10px;
+    gap: 14px;
 `;
 
-const LlmTile = styled.div`
-    border: 1px solid var(--vscode-panel-border);
+// LLM tile is visually distinct from the dimension accordion cards:
+// - Accent color background tint instead of flat surface
+// - Top border instead of left border
+// - "AI" badge to signal it's AI-powered, not a rule-based dimension
+const LlmTile = styled.div<{ $statusColor: string }>`
+    border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 82%, transparent);
+    border-top: 3px solid ${({ $statusColor }: { $statusColor: string }) => $statusColor};
     border-radius: 8px;
-    background: var(--vscode-editorWidget-background);
-    padding: 12px;
+    background: color-mix(in srgb, ${({ $statusColor }: { $statusColor: string }) => $statusColor} 5%, var(--vscode-editorWidget-background));
+    padding: 16px 20px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 18px;
+    align-items: center;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--vscode-editorWidget-background) 72%, transparent), 0 4px 12px rgba(0, 0, 0, 0.14);
+    position: relative;
+`;
+
+const LlmAiBadge = styled.div`
+    position: absolute;
+    top: -1px;
+    right: 14px;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    background: var(--vscode-button-background, #0078d4);
+    color: var(--vscode-button-foreground, #fff);
+    padding: 2px 8px;
+    border-radius: 0 0 5px 5px;
+`;
+
+const LlmScoreBlock = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    align-items: center;
+    gap: 2px;
+    min-width: 58px;
+`;
+
+const LlmScoreValue = styled.div<{ $color: string }>`
+    font-size: 20px;
+    font-weight: 900;
+    font-family: var(--vscode-editor-font-family, ui-monospace, monospace);
+    line-height: 1;
+    color: ${({ $color }: { $color: string }) => $color};
+`;
+
+const LlmScoreLabel = styled.div`
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--vscode-descriptionForeground);
+`;
+
+const LlmStatusIcon = styled.div<{ $color: string }>`
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: color-mix(in srgb, ${({ $color }: { $color: string }) => $color} 14%, transparent);
+    border: 1.5px solid color-mix(in srgb, ${({ $color }: { $color: string }) => $color} 35%, transparent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: ${({ $color }: { $color: string }) => $color};
+    font-size: 20px;
+    flex-shrink: 0;
+`;
+
+const LlmInfo = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
 `;
 
 const LlmTitle = styled.div`
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 700;
     color: var(--vscode-foreground);
+`;
+
+const LlmDescription = styled.div`
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+    line-height: 1.45;
+    opacity: 0.9;
 `;
 
 const LlmMeta = styled.div`
     font-size: 11px;
     color: var(--vscode-descriptionForeground);
+    line-height: 1.4;
+`;
+
+const LlmStatusPill = styled.span<{ $color: string; $bg: string }>`
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-radius: 4px;
+    padding: 2px 8px;
+    width: fit-content;
+    color: ${({ $color }: { $color: string; $bg: string }) => $color};
+    background: ${({ $bg }: { $color: string; $bg: string }) => $bg};
+
+    &::before {
+        content: '';
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: currentColor;
+        flex-shrink: 0;
+    }
+`;
+
+const LlmActions = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex-shrink: 0;
+    align-items: flex-end;
 `;
 
 const ReevaluateButton = styled.button`
-    width: fit-content;
-    padding: 4px 8px;
+    padding: 5px 12px;
     border-radius: 6px;
     border: 1px solid var(--vscode-button-border, var(--vscode-panel-border));
     background: var(--vscode-button-secondaryBackground);
     color: var(--vscode-button-secondaryForeground);
     cursor: pointer;
     font-size: 11px;
+    font-family: inherit;
+    white-space: nowrap;
     &:hover {
         background: var(--vscode-button-secondaryHoverBackground);
     }
 `;
 
-const ViewIssuesLink = styled.button`
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    background: none;
-    border: none;
-    padding: 0;
-    font-size: 12px;
+const ViewIssuesBtn = styled.button`
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--vscode-focusBorder);
+    background: color-mix(in srgb, var(--vscode-focusBorder) 10%, transparent);
     color: var(--vscode-textLink-foreground);
     cursor: pointer;
+    font-size: 11px;
     font-family: inherit;
+    white-space: nowrap;
     &:hover {
-        text-decoration: underline;
+        background: color-mix(in srgb, var(--vscode-focusBorder) 20%, transparent);
     }
 `;
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+
+function getBucketColors(cat: { total: number; errors: number; warnings: number }) {
+    if (cat.total === 0) {
+        return {
+            borderColor: 'var(--vscode-testing-iconPassed, #10B981)',
+            badgeColor: 'var(--vscode-testing-iconPassed, #10B981)',
+            badgeBg: 'color-mix(in srgb, var(--vscode-testing-iconPassed, #10B981) 15%, transparent)',
+            badgeText: 'Clear',
+        };
+    }
+    if (cat.errors > 0) {
+        return {
+            borderColor: 'var(--vscode-errorForeground)',
+            badgeColor: 'var(--vscode-errorForeground)',
+            badgeBg: 'color-mix(in srgb, var(--vscode-errorForeground) 15%, transparent)',
+            badgeText: `${cat.errors} error${cat.errors !== 1 ? 's' : ''}`,
+        };
+    }
+    if (cat.warnings > 0) {
+        return {
+            borderColor: 'var(--vscode-editorWarning-foreground)',
+            badgeColor: 'var(--vscode-editorWarning-foreground)',
+            badgeBg: 'color-mix(in srgb, var(--vscode-editorWarning-foreground) 15%, transparent)',
+            badgeText: `${cat.warnings} warning${cat.warnings !== 1 ? 's' : ''}`,
+        };
+    }
+    return {
+        borderColor: 'var(--vscode-editorInfo-foreground, #38BDF8)',
+        badgeColor: 'var(--vscode-editorInfo-foreground, #38BDF8)',
+        badgeBg: 'color-mix(in srgb, var(--vscode-editorInfo-foreground, #38BDF8) 15%, transparent)',
+        badgeText: `${cat.total} issue${cat.total !== 1 ? 's' : ''}`,
+    };
+}
+
+
+// ── Main component ─────────────────────────────────────────────────────────
 
 export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdownProps> = ({
     reportKey,
     aiReadinessDimensions,
-    totalRows,
     violations,
     expandedBucketKeys,
     onToggleBucket,
@@ -323,38 +432,97 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
     unifiedCategories,
     llmValidation,
 }) => {
-    const categoriesFromBackend = React.useMemo(() => unifiedCategories || [], [unifiedCategories]);
-    const llmLabel = React.useMemo(() => {
-        if (!llmValidation || llmValidation.status === 'pending') return 'Running in background...';
-        if (llmValidation.status === 'stale') return llmValidation.error || 'OpenAPI spec changed. Re-evaluate to refresh.';
-        if (llmValidation.status === 'failed') return llmValidation.error || 'Validation failed';
+    const categories = unifiedCategories || [];
+    const title = BREAKDOWN_TITLES[reportKey];
+    const subtitle = BREAKDOWN_SUBTITLES[reportKey];
+
+    const llmInfo = React.useMemo(() => {
+        if (!llmValidation || llmValidation.status === 'pending') {
+            return {
+                statusLabel: 'Running',
+                statusColor: 'var(--vscode-editorInfo-foreground, #38BDF8)',
+                statusBg: 'color-mix(in srgb, var(--vscode-editorInfo-foreground, #38BDF8) 14%, transparent)',
+                meta: 'Agent validation is running in the background…',
+                icon: '⏳',
+                score: null,
+            };
+        }
+        if (llmValidation.status === 'stale') {
+            return {
+                statusLabel: 'Stale',
+                statusColor: 'var(--vscode-editorWarning-foreground)',
+                statusBg: 'color-mix(in srgb, var(--vscode-editorWarning-foreground) 14%, transparent)',
+                meta: llmValidation.error || 'OpenAPI spec changed — re-evaluate to refresh agent results.',
+                icon: '⚠',
+                score: null,
+            };
+        }
+        if (llmValidation.status === 'failed') {
+            return {
+                statusLabel: 'Failed',
+                statusColor: 'var(--vscode-errorForeground)',
+                statusBg: 'color-mix(in srgb, var(--vscode-errorForeground) 14%, transparent)',
+                meta: llmValidation.error || 'Validation failed. Try re-evaluating.',
+                icon: '✕',
+                score: null,
+            };
+        }
         const count = llmValidation.result?.findings?.length || 0;
-        return `${count} findings`;
+        const score = llmValidation.result?.score ?? 0;
+        return {
+            statusLabel: 'Ready',
+            statusColor: 'var(--vscode-testing-iconPassed, #10B981)',
+            statusBg: 'color-mix(in srgb, var(--vscode-testing-iconPassed, #10B981) 14%, transparent)',
+            meta: count > 0 ? `${count} finding${count !== 1 ? 's' : ''} identified by the agent` : 'No issues found — your API looks ready!',
+            icon: '✓',
+            score,
+        };
     }, [llmValidation]);
 
+    const badge = reportKey === 'ai-readiness'
+        ? `${aiReadinessDimensions.length} dimension${aiReadinessDimensions.length !== 1 ? 's' : ''}`
+        : `${categories.length} categor${categories.length !== 1 ? 'ies' : 'y'}`;
+
     return (
-        <SectionBlock>
+        <Section>
             <SectionHeader>
-                <SectionTitleText>{BREAKDOWN_TITLES[reportKey]}</SectionTitleText>
+                <SectionHeading>
+                    <SectionTitle>{title}</SectionTitle>
+                    {subtitle && <SectionSubtitle>{subtitle}</SectionSubtitle>}
+                </SectionHeading>
+                <SectionBadge>{badge}</SectionBadge>
             </SectionHeader>
+
             {reportKey === 'ai-readiness' ? (
                 <AiBreakdownStack>
-                    <LlmTile>
-                        <LlmTitle>LLM AI Readiness Validation</LlmTitle>
-                        <LlmMeta>
-                            {llmValidation?.status === 'ready'
-                                ? `Score ${llmValidation.result?.score ?? 0}/100 - ${llmLabel}`
-                                : llmLabel}
-                        </LlmMeta>
-                        {llmValidation?.status === 'ready' && (
-                            <ViewIssuesLink onClick={() => onViewIssues('llm-validation')}>
-                                View issues
-                                <Codicon name="arrow-right" sx={{ fontSize: '11px' }} />
-                            </ViewIssuesLink>
+                    <LlmTile $statusColor={llmInfo.statusColor}>
+                        <LlmAiBadge>AI Powered</LlmAiBadge>
+                        {llmInfo.score !== null ? (
+                            <LlmScoreBlock>
+                                <LlmScoreValue $color={llmInfo.statusColor}>{Math.round(llmInfo.score)}%</LlmScoreValue>
+                                <LlmScoreLabel>LLM Score</LlmScoreLabel>
+                            </LlmScoreBlock>
+                        ) : (
+                            <LlmStatusIcon $color={llmInfo.statusColor}>{llmInfo.icon}</LlmStatusIcon>
                         )}
-                        {(llmValidation?.status === 'stale' || llmValidation?.status === 'failed') && (
-                            <ReevaluateButton onClick={onReevaluateLlm}>Re-evaluate</ReevaluateButton>
-                        )}
+                        <LlmInfo>
+                            <LlmTitle>Agent-Based Semantic & Contextual AI Readiness Review</LlmTitle>
+                            <LlmDescription>
+                                This is evaluated by an agent for contextual AI-consumption quality signals, including whether API contact information is present and useful.
+                            </LlmDescription>
+                            <LlmStatusPill $color={llmInfo.statusColor} $bg={llmInfo.statusBg}>{llmInfo.statusLabel}</LlmStatusPill>
+                            <LlmMeta>{llmInfo.meta}</LlmMeta>
+                        </LlmInfo>
+                        <LlmActions>
+                            {llmValidation?.status === 'ready' && (
+                                <ViewIssuesBtn onClick={() => onViewIssues('llm-validation')}>View findings</ViewIssuesBtn>
+                            )}
+                            {(llmValidation?.status === 'stale' || llmValidation?.status === 'failed' || !llmValidation || llmValidation.status === 'pending') && (
+                                <ReevaluateButton onClick={onReevaluateLlm}>
+                                    {llmValidation?.status === 'pending' ? 'Running…' : 'Re-evaluate'}
+                                </ReevaluateButton>
+                            )}
+                        </LlmActions>
                     </LlmTile>
                     <AIReadinessBucketGrid
                         dimensions={aiReadinessDimensions}
@@ -364,124 +532,35 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
                         onViewIssues={onViewIssues}
                     />
                 </AiBreakdownStack>
-            ) : reportKey === 'wso2-rest' ? (
-                <Wso2Grid>
-                    {categoriesFromBackend.map((cat) => {
-                        if (cat.total === 0) {
-                            return (
-                                <OwaspPassCard key={cat.id}>
-                                    <OwaspPassIcon>✓</OwaspPassIcon>
-                                    <div>
-                                        <OwaspPassCategoryId>{cat.label}</OwaspPassCategoryId>
-                                        <OwaspPassCategoryName>{cat.description}</OwaspPassCategoryName>
-                                        <OwaspPassSubtext>No issues found</OwaspPassSubtext>
-                                    </div>
-                                </OwaspPassCard>
-                            );
-                        }
-                        const dominantSeverity = cat.errors > 0 ? 'error' as const : 'warn' as const;
-                        const accentColor = cat.errors > 0
-                            ? 'var(--vscode-errorForeground)'
-                            : 'var(--vscode-editorWarning-foreground)';
-                        const percentage = cat.percentage ?? (totalRows > 0 ? Math.round((cat.total / totalRows) * 100) : 0);
-                        return (
-                            <OwaspIssueCard key={cat.id} $dominantSeverity={dominantSeverity}>
-                                <OwaspIssueHeader>
-                                    <div>
-                                        <OwaspCategoryId $color={accentColor}>{cat.label}</OwaspCategoryId>
-                                        <OwaspCategoryName>{cat.description}</OwaspCategoryName>
-                                    </div>
-                                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                                        <OwaspIssueCount $color={accentColor}>{cat.total}</OwaspIssueCount>
-                                        <OwaspIssueCountLabel $color={accentColor}>issues</OwaspIssueCountLabel>
-                                    </div>
-                                </OwaspIssueHeader>
-                                <ProgressTrack>
-                                    <ProgressFill $width={percentage} $severity={dominantSeverity} />
-                                </ProgressTrack>
-                                <OwaspFooter>
-                                    <Wso2Details>
-                                        <Wso2DetailsText>{percentage}% of total issues</Wso2DetailsText>
-                                        <Wso2DetailsText>{cat.affectedEndpoints} endpoints impacted</Wso2DetailsText>
-                                    </Wso2Details>
-                                    <ViewIssuesLink onClick={() => onViewIssues(cat.viewIssuesFilter.key)}>
-                                        View issues
-                                        <Codicon name="arrow-right" sx={{ fontSize: '11px' }} />
-                                    </ViewIssuesLink>
-                                </OwaspFooter>
-                                <Wso2RuleList>
-                                    Top failing rules: {cat.topRules && cat.topRules.length > 0 ? cat.topRules.join(', ') : 'No dominant rule'}
-                                </Wso2RuleList>
-                            </OwaspIssueCard>
-                        );
-                    })}
-                </Wso2Grid>
             ) : (
-                <OwaspGrid>
-                    {categoriesFromBackend.map((cat) => {
-                        const category = {
-                            id: cat.id,
-                            key: cat.viewIssuesFilter.key,
-                            name: cat.label,
-                            count: cat.total,
-                            errors: cat.errors,
-                            warnings: cat.warnings,
-                            docsUrl: cat.docsUrl,
-                            percentage: cat.percentage,
-                        };
-                        if (category.count === 0) {
-                            return (
-                                <OwaspPassCard key={category.id}>
-                                    <OwaspPassIcon>✓</OwaspPassIcon>
-                                    <div>
-                                        <OwaspPassCategoryId>{category.id}</OwaspPassCategoryId>
-                                        <OwaspPassCategoryName>{category.name}</OwaspPassCategoryName>
-                                        <OwaspPassSubtext>No issues found</OwaspPassSubtext>
-                                    </div>
-                                </OwaspPassCard>
-                            );
-                        }
-                        const dominantSeverity = category.errors > 0 ? 'error' as const : 'warn' as const;
-                        const accentColor = category.errors > 0
-                            ? 'var(--vscode-errorForeground)'
-                            : 'var(--vscode-editorWarning-foreground)';
-                        const percentage = category.percentage ?? (totalRows > 0 ? Math.round((category.count / totalRows) * 100) : 0);
+                <BucketGrid>
+                    {categories.map((cat) => {
+                        const { borderColor, badgeColor, badgeBg, badgeText } = getBucketColors(cat);
                         return (
-                            <OwaspIssueCard key={category.id} $dominantSeverity={dominantSeverity}>
-                                <OwaspIssueHeader>
-                                    <div>
-                                        <OwaspCategoryId $color={accentColor}>{category.id}</OwaspCategoryId>
-                                        <OwaspCategoryName>{category.name}</OwaspCategoryName>
-                                    </div>
-                                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                                        <OwaspIssueCount $color={accentColor}>{category.count}</OwaspIssueCount>
-                                        <OwaspIssueCountLabel $color={accentColor}>issues</OwaspIssueCountLabel>
-                                    </div>
-                                </OwaspIssueHeader>
-                                <ProgressTrack>
-                                    <ProgressFill $width={percentage} $severity={dominantSeverity} />
-                                </ProgressTrack>
-                                <OwaspFooter>
-                                    <span style={{ fontSize: 11, color: 'var(--vscode-descriptionForeground)' }}>
-                                        {percentage}% of total issues
-                                    </span>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        {category.docsUrl && (
-                                            <OwaspDocsLink href={category.docsUrl} target="_blank" rel="noreferrer">
-                                                Docs →
-                                            </OwaspDocsLink>
+                            <Bucket key={cat.id} $borderColor={borderColor}>
+                                <BucketId>{cat.id}</BucketId>
+                                <BucketTitle>{cat.label}</BucketTitle>
+                                {cat.description && <BucketDesc>{cat.description}</BucketDesc>}
+                                <BucketStatusRow>
+                                    <BucketBadge $color={badgeColor} $bg={badgeBg}>{badgeText}</BucketBadge>
+                                    <BucketActions>
+                                        {cat.docsUrl && (
+                                            <DocsLink onClick={() => postMessage({ command: 'openExternal', url: cat.docsUrl })}>
+                                                Docs<ExtLinkSvg />
+                                            </DocsLink>
                                         )}
-                                        <ViewIssuesLink onClick={() => onViewIssues(category.key)}>
-                                            View issues
-                                            <Codicon name="arrow-right" sx={{ fontSize: '11px' }} />
-                                        </ViewIssuesLink>
-                                    </div>
-                                </OwaspFooter>
-                            </OwaspIssueCard>
+                                        {cat.total > 0 && (
+                                            <LinkBtn onClick={() => onViewIssues(cat.viewIssuesFilter.key)}>
+                                                View issues
+                                            </LinkBtn>
+                                        )}
+                                    </BucketActions>
+                                </BucketStatusRow>
+                            </Bucket>
                         );
                     })}
-                </OwaspGrid>
+                </BucketGrid>
             )}
-        </SectionBlock>
+        </Section>
     );
 };

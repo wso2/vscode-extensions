@@ -2,7 +2,7 @@ import React from 'react';
 import styled from '@emotion/styled';
 import { AIButton } from '../../../components/ai/AIButton';
 import { AnalyzeReportKey, GroupBy, IssueRow, SeverityLevel, SortBy, SortDir } from '../hooks/useReport';
-import { REPORT_TITLES, extractSnippetLines, getMethodStyle, getReferenceTag } from './AnalyzeSingleReportHelpers';
+import { extractSnippetLines, getMethodStyle } from './AnalyzeSingleReportHelpers';
 
 interface AnalyzeSingleReportIssueExplorerProps {
     rows: IssueRow[];
@@ -51,6 +51,45 @@ interface AnalyzeSingleReportIssueExplorerProps {
 }
 
 const Row = styled.div`display: flex; align-items: center; gap: 8px;`;
+const SectionShell = styled.div``;
+
+const SectionHeader = styled.div`
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding-bottom: 14px;
+    margin-bottom: 18px;
+    border-bottom: 2px solid var(--vscode-panel-border);
+`;
+
+const SectionHeading = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+`;
+
+const SectionTitle = styled.div`
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--vscode-foreground);
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+`;
+
+const SectionSubtitle = styled.div`
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+    line-height: 1.5;
+`;
+
+const SectionBadge = styled.div`
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--vscode-descriptionForeground);
+    white-space: nowrap;
+    flex-shrink: 0;
+`;
+
 const IssueExplorerBlock = styled.div`
     border: 1px solid var(--vscode-panel-border);
     border-radius: 10px;
@@ -59,36 +98,92 @@ const IssueExplorerBlock = styled.div`
     display: flex;
     flex-direction: column;
     height: min(85vh, 1000px);
-    min-height: 620px;
-`;
-const SectionHeader = styled.div`
-    display: flex; align-items: center; justify-content: space-between; gap: 8px;
-    padding: 10px 12px; border-bottom: 1px solid var(--vscode-panel-border);
-    background: var(--vscode-editorGroupHeader-tabsBackground);
-`;
-const SectionTitleText = styled.div`
-    font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--vscode-foreground);
+    min-height: 560px;
 `;
 const IssueExplorerBody = styled.div`flex: 1; min-height: 0; overflow: hidden;`;
-const IssuesLayout = styled.div`display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 10px; height: 100%;`;
-const Panel = styled.div`
-    border: 1px solid var(--vscode-panel-border); border-radius: 8px; background: var(--vscode-editor-background);
-    overflow: hidden; display: flex; flex-direction: column; min-height: 0; margin: 10px 0 10px 10px;
+const IssuesLayout = styled.div`display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); height: 100%; border-top: 1px solid var(--vscode-panel-border);`;
+const IssueListPanel = styled.div`
+    border-right: 1px solid var(--vscode-panel-border);
+    overflow: hidden; display: flex; flex-direction: column; min-height: 0;
 `;
 const Toolbar = styled.div`
-    border-bottom: 1px solid var(--vscode-panel-border); padding: 8px 12px;
-    display: flex; flex-direction: column; gap: 6px; background: var(--vscode-editorGroupHeader-tabsBackground);
+    border-bottom: 1px solid var(--vscode-panel-border); padding: 10px 16px;
+    display: flex; flex-direction: column; gap: 8px; background: var(--vscode-editorWidget-background);
+    flex-shrink: 0;
 `;
 const ToolbarRow = styled.div`display: flex; flex-wrap: wrap; align-items: center; gap: 6px;`;
 const FilterChip = styled.button<{ $active: boolean }>`
-    height: 26px; border-radius: 6px; font-size: 11px; font-weight: 600; padding: 0 10px; cursor: pointer;
-    border: 1px solid ${({ $active }: { $active: boolean }) => ($active ? 'var(--vscode-button-background)' : 'var(--vscode-panel-border)')};
-    background: ${({ $active }: { $active: boolean }) => ($active ? 'var(--vscode-button-background)' : 'var(--vscode-editor-background)')};
-    color: ${({ $active }: { $active: boolean }) => ($active ? 'var(--vscode-button-foreground)' : 'var(--vscode-foreground)')};
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    user-select: none;
+    transition: background 0.12s, color 0.12s, border-color 0.12s, box-shadow 0.12s;
+    border: 1px solid ${({ $active }: { $active: boolean }) => ($active ? 'var(--vscode-focusBorder)' : 'var(--vscode-panel-border)')};
+    background: ${({ $active }: { $active: boolean }) => ($active ? 'var(--vscode-input-background)' : 'var(--vscode-editorWidget-background)')};
+    color: ${({ $active }: { $active: boolean }) => ($active ? 'var(--vscode-foreground)' : 'var(--vscode-descriptionForeground)')};
+    box-shadow: ${({ $active }: { $active: boolean }) => ($active ? '0 0 0 1px var(--vscode-focusBorder)' : 'none')};
+
+    &:hover {
+        background: var(--vscode-input-background);
+        color: var(--vscode-foreground);
+        border-color: var(--vscode-focusBorder);
+    }
 `;
+
+const ChipDot = styled.span<{ $color: string }>`
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: ${({ $color }: { $color: string }) => $color};
+`;
+
+const ToolbarSep = styled.div`
+    width: 1px;
+    height: 20px;
+    background: var(--vscode-panel-border);
+    flex-shrink: 0;
+`;
+
+const SearchWrap = styled.div`
+    position: relative;
+    flex: 1;
+    min-width: 160px;
+`;
+
+const SearchIcon = styled.span`
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--vscode-descriptionForeground);
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+`;
+
 const SearchInput = styled.input`
-    height: 26px; min-width: 220px; border: 1px solid var(--vscode-panel-border); border-radius: 6px;
-    background: var(--vscode-input-background); color: var(--vscode-input-foreground); padding: 0 10px; font-size: 12px;
+    width: 100%;
+    height: 32px;
+    padding: 0 10px 0 32px;
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 8px;
+    background: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    font-size: 12px;
+    font-family: inherit;
+    outline: none;
+    box-sizing: border-box;
+
+    &:focus { border-color: var(--vscode-focusBorder); }
+    &::placeholder { color: var(--vscode-input-placeholderForeground); }
 `;
 const Spacer = styled.div`flex: 1;`;
 const CtrlSelect = styled.select`
@@ -121,7 +216,13 @@ const IssueCard = styled.button<{ $selected: boolean; $severity: SeverityLevel }
     width: 100%; border: 1px solid var(--vscode-panel-border); border-radius: 8px; text-align: left; display: flex;
     flex-direction: column; gap: 4px; padding: 8px 10px; margin-bottom: 8px; cursor: pointer; color: var(--vscode-foreground);
     border-left: 3px solid ${({ $severity }: { $severity: SeverityLevel }) =>
-        $severity === 'error' ? 'var(--vscode-errorForeground)' : $severity === 'warn' ? 'var(--vscode-editorWarning-foreground)' : 'var(--vscode-panel-border)'};
+        $severity === 'error'
+            ? 'var(--vscode-errorForeground)'
+            : $severity === 'warn'
+                ? 'var(--vscode-editorWarning-foreground)'
+                : $severity === 'info'
+                    ? 'var(--vscode-editorInfo-foreground, #3b82f6)'
+                    : 'var(--vscode-panel-border)'};
     background: ${({ $selected }: { $selected: boolean }) =>
         $selected ? 'color-mix(in srgb, var(--vscode-list-activeSelectionBackground) 80%, var(--vscode-editorWidget-background))' : 'var(--vscode-editorWidget-background)'};
 `;
@@ -134,10 +235,10 @@ const TableFooter = styled.div`
     padding: 6px 12px; font-size: 11px; color: var(--vscode-descriptionForeground);
     border-top: 1px solid var(--vscode-panel-border); background: var(--vscode-editorGroupHeader-tabsBackground);
 `;
-const DetailColumn = styled.div`height: 100%; min-height: 0;`;
+const DetailColumn = styled.div`height: 100%; min-height: 0; overflow: hidden; display: flex; flex-direction: column;`;
 const DetailCard = styled.div`
-    border: 1px solid var(--vscode-panel-border); border-radius: 8px; overflow: hidden; margin: 10px 10px 10px 0;
-    background: var(--vscode-editor-background); height: 100%; display: flex; flex-direction: column;
+    overflow: hidden; flex: 1;
+    background: var(--vscode-editor-background); display: flex; flex-direction: column;
 `;
 const DetailHeader = styled.div`
     background: var(--vscode-editorGroupHeader-tabsBackground); border-bottom: 1px solid var(--vscode-panel-border);
@@ -145,23 +246,88 @@ const DetailHeader = styled.div`
 `;
 const DetailHeaderTitle = styled.span`font-size: 12px; font-weight: 700; color: var(--vscode-foreground);`;
 const DetailHeaderMeta = styled.span`font-size: 11px; color: var(--vscode-descriptionForeground);`;
-const DetailBody = styled.div`padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; flex: 1; overflow-y: auto;`;
+const DetailBody = styled.div`padding: 14px; display: flex; flex-direction: column; gap: 10px; flex: 1; overflow-y: auto;`;
+const RuleTitle = styled.div`
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--vscode-foreground);
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+`;
 const DetailSection = styled.div`display: flex; flex-direction: column; gap: 4px;`;
 const DetailLabel = styled.div`
-    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--vscode-descriptionForeground);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--vscode-descriptionForeground);
 `;
-const DetailValue = styled.div`font-size: 12px; color: var(--vscode-foreground); word-break: break-word; line-height: 1.45;`;
+const DetailValue = styled.div`
+    font-size: 12px;
+    color: var(--vscode-foreground);
+    word-break: break-word;
+    line-height: 1.45;
+    border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 60%, transparent);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--vscode-editorWidget-background) 82%, transparent);
+    padding: 8px 10px;
+`;
 const SeverityPill = styled.span<{ $severity: SeverityLevel }>`
-    display: inline-flex; align-items: center; justify-content: center; min-width: 54px; height: 18px; border-radius: 4px;
-    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
     color: ${({ $severity }: { $severity: SeverityLevel }) =>
-        $severity === 'error' ? 'var(--vscode-errorForeground)' : $severity === 'warn' ? 'var(--vscode-editorWarning-foreground)' : 'var(--vscode-descriptionForeground)'};
+        $severity === 'error'
+            ? 'var(--vscode-errorForeground)'
+            : $severity === 'warn'
+                ? 'var(--vscode-editorWarning-foreground)'
+                : 'var(--vscode-editorInfo-foreground, #3b82f6)'};
+    background: ${({ $severity }: { $severity: SeverityLevel }) =>
+        $severity === 'error'
+            ? 'color-mix(in srgb, var(--vscode-errorForeground) 18%, transparent)'
+            : $severity === 'warn'
+                ? 'color-mix(in srgb, var(--vscode-editorWarning-foreground) 18%, transparent)'
+                : 'color-mix(in srgb, var(--vscode-editorInfo-foreground, #3b82f6) 18%, transparent)'};
+    border: 1px solid ${({ $severity }: { $severity: SeverityLevel }) =>
+        $severity === 'error'
+            ? 'color-mix(in srgb, var(--vscode-errorForeground) 40%, var(--vscode-panel-border))'
+            : $severity === 'warn'
+                ? 'color-mix(in srgb, var(--vscode-editorWarning-foreground) 40%, var(--vscode-panel-border))'
+                : 'color-mix(in srgb, var(--vscode-editorInfo-foreground, #3b82f6) 40%, var(--vscode-panel-border))'};
+
+    &::before {
+        content: '';
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: currentColor;
+        flex-shrink: 0;
+    }
 `;
-const MessageBox = styled.div`border: 1px solid var(--vscode-panel-border); border-radius: 6px; padding: 8px 10px; font-size: 12px;`;
-const SuggestionBox = styled.div`border: 1px solid var(--vscode-panel-border); border-radius: 6px; padding: 8px 10px; font-size: 12px;`;
-const ReferenceBox = styled.div`border: 1px solid var(--vscode-panel-border); border-radius: 6px; padding: 8px 10px;`;
+const MessageBox = styled.div`
+    border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 60%, transparent);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 12px;
+    background: color-mix(in srgb, var(--vscode-editorWidget-background) 82%, transparent);
+`;
+const SuggestionBox = styled.div`
+    border: 1px solid color-mix(in srgb, var(--vscode-testing-iconPassed, #22c55e) 36%, var(--vscode-panel-border));
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 12px;
+    background: color-mix(in srgb, var(--vscode-testing-iconPassed, #22c55e) 12%, transparent);
+    color: color-mix(in srgb, var(--vscode-testing-iconPassed, #22c55e) 76%, var(--vscode-foreground));
+    line-height: 1.45;
+`;
 const YamlBlock = styled.div`
-    background: var(--vscode-editor-background); border: 1px solid var(--vscode-panel-border); border-radius: 4px;
+    background: var(--vscode-editor-background); border: 1px solid var(--vscode-panel-border); border-radius: 8px;
     overflow: auto; font-family: var(--vscode-editor-font-family, monospace); font-size: 11px; max-height: 220px;
 `;
 const YamlLine = styled.div<{ $highlight: boolean }>`
@@ -169,6 +335,7 @@ const YamlLine = styled.div<{ $highlight: boolean }>`
 `;
 const YamlLineNum = styled.span`flex: 0 0 36px; text-align: right; padding-right: 10px; border-right: 1px solid var(--vscode-panel-border); margin-right: 10px;`;
 const YamlLineText = styled.span`white-space: pre; color: var(--vscode-editor-foreground);`;
+const EndPointValue = styled(DetailValue)`display: inline-flex; align-items: center; gap: 8px;`;
 
 const MethodBadge: React.FC<{ method: string }> = ({ method }) => {
     const style = getMethodStyle(method);
@@ -187,90 +354,86 @@ export const AnalyzeSingleReportIssueExplorer: React.FC<AnalyzeSingleReportIssue
     } = props;
 
     return (
-        <IssueExplorerBlock>
+        <SectionShell>
             <SectionHeader>
-                <SectionTitleText>Issue Explorer</SectionTitleText>
+                <SectionHeading>
+                    <SectionTitle>Issue Explorer</SectionTitle>
+                    <SectionSubtitle>Browse, filter and inspect all violations in detail</SectionSubtitle>
+                </SectionHeading>
+                <SectionBadge id="issueCountBadge">{rows.length} issue{rows.length !== 1 ? 's' : ''}</SectionBadge>
             </SectionHeader>
+        <IssueExplorerBlock>
+            <Toolbar>
+                <ToolbarRow>
+                    <FilterChip $active={severityFilter === 'all'} onClick={() => setSeverityFilter('all')}>All</FilterChip>
+                    <FilterChip $active={severityFilter === 'error'} onClick={() => setSeverityFilter('error')}><ChipDot $color="var(--vscode-errorForeground)" />Errors</FilterChip>
+                    <FilterChip $active={severityFilter === 'warn'} onClick={() => setSeverityFilter('warn')}><ChipDot $color="var(--vscode-editorWarning-foreground)" />Warnings</FilterChip>
+                    <ToolbarSep />
+                    <CtrlSelect value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupBy)}>
+                        <option value="none">No grouping</option><option value="rule">Group by rule</option><option value="endpoint">Group by endpoint</option>
+                    </CtrlSelect>
+                    {reportKey === 'ai-readiness' && aiBucketFilter ? (
+                        <CtrlSelect
+                            value={aiBucketFilter.subBucketKey ? `${aiBucketFilter.mainBucketKey}:${aiBucketFilter.subBucketKey}` : aiBucketFilter.mainBucketKey || ''}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                if (!val) { aiBucketFilter.onClear(); }
+                                else if (val.includes(':')) {
+                                    const [main, sub] = val.split(':');
+                                    aiBucketFilter.onChangeMainBucket(main);
+                                    aiBucketFilter.onChangeSubBucket(sub);
+                                } else {
+                                    aiBucketFilter.onChangeMainBucket(val);
+                                    aiBucketFilter.onChangeSubBucket(null);
+                                }
+                            }}
+                        >
+                            <option value="">All categories</option>
+                            {aiBucketFilter.options.map((b) => (
+                                <React.Fragment key={b.key}>
+                                    <option value={b.key}>{b.label}</option>
+                                    {b.subBuckets.map((s) => (
+                                        <option key={s.key} value={`${b.key}:${s.key}`}>{b.label} › {s.label}</option>
+                                    ))}
+                                </React.Fragment>
+                            ))}
+                        </CtrlSelect>
+                    ) : breakdownFilter ? (
+                        <CtrlSelect value={breakdownFilter.selectedKey || ''} onChange={(e) => breakdownFilter.onChange(e.target.value || null)}>
+                            <option value="">All categories</option>
+                            {breakdownFilter.options.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+                        </CtrlSelect>
+                    ) : null}
+                    <ToolbarSep />
+                    <SearchWrap>
+                        <SearchIcon>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        </SearchIcon>
+                        <SearchInput placeholder="Search rules, messages, paths…" value={search} onChange={(e) => setSearch(e.target.value)} />
+                    </SearchWrap>
+                    <Spacer />
+                    <AIButton
+                        isAvailable={aiEnabled}
+                        title="Fix All with AI"
+                        label="Fix All with AI"
+                        onClick={() => {
+                            const sevLabel = severityFilter === 'error' ? 'error' : severityFilter === 'warn' ? 'warning' : 'all';
+                            const prompt = `Fix ${sevLabel === 'all' ? 'all' : `all ${sevLabel}`} violations in the ${reportName} ruleset.\n\nIMPORTANT: Use the #validateWithSpectralRuleset MCP tool:\n1. Call validateWithSpectralRuleset with fileUri: "${fileUri}", rulesetName: "${reportName}", fileUrl: "${rulesetFileUrl}", rulesetContentPath: "${rulesetContentPath}" to find violations.\n2. Fix each violation, then call validateWithSpectralRuleset again to verify.\n3. Repeat until no ${sevLabel === 'all' ? '' : sevLabel + ' '}violations remain.`;
+                            onOpenCopilotChat(JSON.stringify({ fileUri, rulesetName: reportName, fileUrl: rulesetFileUrl, rulesetContentPath, severityFilter }), prompt);
+                        }}
+                    />
+                </ToolbarRow>
+                {((reportKey === 'ai-readiness' && aiBucketFilter?.summaryLabel) || (reportKey !== 'ai-readiness' && breakdownFilter?.summaryLabel)) && (
+                    <ToolbarRow>
+                        <ActiveFilterPill>
+                            Filtered: {reportKey === 'ai-readiness' ? aiBucketFilter?.summaryLabel : breakdownFilter?.summaryLabel}
+                        </ActiveFilterPill>
+                    </ToolbarRow>
+                )}
+            </Toolbar>
             <IssueExplorerBody>
                 <IssuesLayout>
-                        <Panel>
-                            <Toolbar>
-                                <ToolbarRow>
-                                    <FilterChip $active={severityFilter === 'all'} onClick={() => setSeverityFilter('all')}>All ({rows.length})</FilterChip>
-                                    <FilterChip $active={severityFilter === 'error'} onClick={() => setSeverityFilter('error')}>Errors ({stats.errors})</FilterChip>
-                                    <FilterChip $active={severityFilter === 'warn'} onClick={() => setSeverityFilter('warn')}>Warnings ({stats.warnings})</FilterChip>
-                                    <Spacer />
-                                    <SearchInput placeholder="Search rules, paths, messages…" value={search} onChange={(e) => setSearch(e.target.value)} />
-                                </ToolbarRow>
-                                {reportKey === 'ai-readiness' && aiBucketFilter && (
-                                    <ToolbarRow>
-                                        <CtrlSelect
-                                            value={aiBucketFilter.mainBucketKey || ''}
-                                            onChange={(e) => aiBucketFilter.onChangeMainBucket(e.target.value || null)}
-                                        >
-                                            <option value="">All</option>
-                                            {aiBucketFilter.options.map((bucket) => (
-                                                <option key={bucket.key} value={bucket.key}>{bucket.label}</option>
-                                            ))}
-                                        </CtrlSelect>
-                                        <CtrlSelect
-                                            value={aiBucketFilter.subBucketKey || ''}
-                                            onChange={(e) => aiBucketFilter.onChangeSubBucket(e.target.value || null)}
-                                            disabled={!aiBucketFilter.mainBucketKey}
-                                        >
-                                            <option value="">All</option>
-                                            {(aiBucketFilter.options.find((o) => o.key === aiBucketFilter.mainBucketKey)?.subBuckets || []).map((subBucket) => (
-                                                <option key={subBucket.key} value={subBucket.key}>{subBucket.label}</option>
-                                            ))}
-                                        </CtrlSelect>
-                                        {aiBucketFilter.summaryLabel && (
-                                            <ActiveFilterPill>
-                                                Filtered: {aiBucketFilter.summaryLabel}
-                                            </ActiveFilterPill>
-                                        )}
-                                    </ToolbarRow>
-                                )}
-                                {reportKey !== 'ai-readiness' && breakdownFilter && (
-                                    <ToolbarRow>
-                                        <CtrlSelect
-                                            value={breakdownFilter.selectedKey || ''}
-                                            onChange={(e) => breakdownFilter.onChange(e.target.value || null)}
-                                        >
-                                            <option value="">All</option>
-                                            {breakdownFilter.options.map((option) => (
-                                                <option key={option.key} value={option.key}>{option.label}</option>
-                                            ))}
-                                        </CtrlSelect>
-                                        {breakdownFilter.summaryLabel && (
-                                            <ActiveFilterPill>
-                                                Filtered: {breakdownFilter.summaryLabel}
-                                            </ActiveFilterPill>
-                                        )}
-                                    </ToolbarRow>
-                                )}
-                                <ToolbarRow>
-                                    <CtrlSelect value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupBy)}>
-                                        <option value="none">No grouping</option><option value="rule">Group by rule</option><option value="endpoint">Group by endpoint</option>
-                                    </CtrlSelect>
-                                    <CtrlSelect value={sortBy} onChange={(e) => setSortBy(e.target.value as SortBy)}>
-                                        <option value="severity">Sort by severity</option><option value="rule">Sort by rule</option><option value="line">Sort by line</option>
-                                    </CtrlSelect>
-                                    <CtrlSelect value={sortDir} onChange={(e) => setSortDir(e.target.value as SortDir)}>
-                                        <option value="asc">Ascending</option><option value="desc">Descending</option>
-                                    </CtrlSelect>
-                                    <Spacer />
-                                    <AIButton
-                                        isAvailable={aiEnabled}
-                                        title="Fix All with AI"
-                                        label="Fix All with AI"
-                                        onClick={() => {
-                                            const sevLabel = severityFilter === 'error' ? 'error' : severityFilter === 'warn' ? 'warning' : 'all';
-                                            const prompt = `Fix ${sevLabel === 'all' ? 'all' : `all ${sevLabel}`} violations in the ${reportName} ruleset.\n\nIMPORTANT: Use the #validateWithSpectralRuleset MCP tool:\n1. Call validateWithSpectralRuleset with fileUri: "${fileUri}", rulesetName: "${reportName}", fileUrl: "${rulesetFileUrl}", rulesetContentPath: "${rulesetContentPath}" to find violations.\n2. Fix each violation, then call validateWithSpectralRuleset again to verify.\n3. Repeat until no ${sevLabel === 'all' ? '' : sevLabel + ' '}violations remain.`;
-                                            onOpenCopilotChat(JSON.stringify({ fileUri, rulesetName: reportName, fileUrl: rulesetFileUrl, rulesetContentPath, severityFilter }), prompt);
-                                        }}
-                                    />
-                                </ToolbarRow>
-                            </Toolbar>
+                        <IssueListPanel>
                             <IssueCardsBody>
                                 {filteredRows.length === 0 ? <EmptyState>No issues match your filters.</EmptyState> : groupedRows.map((group) => (
                                     <IssueGroup key={group.key}>
@@ -285,7 +448,7 @@ export const AnalyzeSingleReportIssueExplorer: React.FC<AnalyzeSingleReportIssue
                                 ))}
                             </IssueCardsBody>
                             <TableFooter>Showing {filteredRows.length} of {rows.length} issues</TableFooter>
-                        </Panel>
+                        </IssueListPanel>
                         <DetailColumn>
                             {!selectedIssue ? <EmptyState>Select an issue to view details.</EmptyState> : (
                                 <DetailCard>
@@ -305,15 +468,30 @@ export const AnalyzeSingleReportIssueExplorer: React.FC<AnalyzeSingleReportIssue
                                         </Row>
                                     </DetailHeader>
                                     <DetailBody>
-                                        <DetailSection><DetailLabel>Rule</DetailLabel><DetailValue style={{ fontFamily: 'var(--vscode-editor-font-family, monospace)', fontSize: 11 }}>{selectedIssue.rule}</DetailValue></DetailSection>
-                                        <DetailSection><DetailLabel>Severity &amp; location</DetailLabel><Row><SeverityPill $severity={selectedIssue.severity}>{selectedIssue.severity}</SeverityPill><span style={{ fontSize: 11, color: 'var(--vscode-descriptionForeground)' }}>{selectedIssue.line > 0 ? `Line ${selectedIssue.line}` : 'No line info'}</span></Row></DetailSection>
-                                        <DetailSection><DetailLabel>Path</DetailLabel><Row><MethodBadge method={selectedIssue.method} /><DetailValue style={{ fontFamily: 'var(--vscode-editor-font-family, monospace)', fontSize: 11 }}>{selectedIssue.endpoint}</DetailValue></Row></DetailSection>
-                                        {selectedIssue.violation.description && <DetailSection><DetailLabel>Description</DetailLabel><DetailValue>{selectedIssue.violation.description}</DetailValue></DetailSection>}
+                                        <RuleTitle>{selectedIssue.rule}</RuleTitle>
+                                        <Row><SeverityPill $severity={selectedIssue.severity}>{selectedIssue.severity}</SeverityPill></Row>
                                         <DetailSection><DetailLabel>Message</DetailLabel><MessageBox>{selectedIssue.message}</MessageBox></DetailSection>
-                                        {selectedIssue.violation.fixSuggestion && <DetailSection><DetailLabel>Fix suggestion</DetailLabel><SuggestionBox>{selectedIssue.violation.fixSuggestion}</SuggestionBox></DetailSection>}
-                                        {getReferenceTag(selectedIssue.rule, reportKey) && (
-                                            <DetailSection><DetailLabel>Reference</DetailLabel><ReferenceBox><div style={{ fontSize: 12, fontWeight: 700, color: 'var(--vscode-textLink-foreground)' }}>{getReferenceTag(selectedIssue.rule, reportKey)}</div><div style={{ fontSize: 11, color: 'var(--vscode-descriptionForeground)', marginTop: 2 }}>{reportKey === 'owasp' ? 'OWASP API Security Top 10' : REPORT_TITLES[reportKey]}</div></ReferenceBox></DetailSection>
-                                        )}
+                                        {selectedIssue.violation.description && <DetailSection><DetailLabel>Description</DetailLabel><DetailValue>{selectedIssue.violation.description}</DetailValue></DetailSection>}
+                                        {selectedIssue.violation.fixSuggestion && <DetailSection><DetailLabel>fixSuggestion</DetailLabel><SuggestionBox>{selectedIssue.violation.fixSuggestion}</SuggestionBox></DetailSection>}
+                                        <DetailSection>
+                                            <DetailLabel>Endpoint</DetailLabel>
+                                            <EndPointValue style={{ fontFamily: 'var(--vscode-editor-font-family, monospace)', fontSize: 11 }}>
+                                                <MethodBadge method={selectedIssue.method} />
+                                                <span>{selectedIssue.endpoint}</span>
+                                            </EndPointValue>
+                                        </DetailSection>
+                                        <DetailSection><DetailLabel>Path</DetailLabel><DetailValue style={{ fontFamily: 'var(--vscode-editor-font-family, monospace)', fontSize: 11 }}>{selectedIssue.path}</DetailValue></DetailSection>
+                                        <DetailSection>
+                                            <DetailLabel>Location</DetailLabel>
+                                            <DetailValue style={{ fontFamily: 'var(--vscode-editor-font-family, monospace)', fontSize: 11 }}>
+                                                {selectedIssue.line > 0
+                                                    ? `Line ${selectedIssue.line}${selectedIssue.violation.range?.end?.line != null && selectedIssue.violation.range.end.line + 1 !== selectedIssue.line
+                                                        ? `-${selectedIssue.violation.range.end.line + 1}`
+                                                        : ''
+                                                    }`
+                                                    : 'No line info'}
+                                            </DetailValue>
+                                        </DetailSection>
                                         {(() => {
                                             const snippetLines = extractSnippetLines(specContent, selectedIssue.violation.range);
                                             if (!snippetLines) return null;
@@ -331,5 +509,6 @@ export const AnalyzeSingleReportIssueExplorer: React.FC<AnalyzeSingleReportIssue
                 </IssuesLayout>
             </IssueExplorerBody>
         </IssueExplorerBlock>
+        </SectionShell>
     );
 };

@@ -1,203 +1,232 @@
 import React from 'react';
 import styled from '@emotion/styled';
+import { scoreGrade } from '../hooks/useReport';
 
 interface AnalyzeSingleReportOverviewProps {
     score: number;
     gradeColor: string;
-    stats: {
-        errors: number;
-        warnings: number;
-        endpointCount: number;
-        rulesCount: number;
-    };
+    title: string;
+    subtitle?: string;
     totalIssues: number;
     passedChecks: number;
     totalChecks: number;
 }
 
-const SectionBlock = styled.div`
+// ── Overview grid: grade card left | meta + metrics right ─────────────────
+
+const OverviewRow = styled.div`
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 14px;
+    align-items: start;
+
+    @media (max-width: 800px) {
+        grid-template-columns: 1fr;
+    }
+`;
+
+// ── Grade card ─────────────────────────────────────────────────────────────
+
+const GradeCard = styled.div<{ $topColor: string }>`
+    background: var(--vscode-editorWidget-background);
     border: 1px solid var(--vscode-panel-border);
-    border-radius: 8px;
-    background: var(--vscode-sideBar-background);
-    padding: 20px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    width: 100%;
-    box-sizing: border-box;
+    border-top: 3px solid ${({ $topColor }: { $topColor: string }) => $topColor};
+    border-radius: 10px;
+    padding: 16px 20px;
+    text-align: center;
+    min-width: 178px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
 `;
 
-const CardTopRow = styled.div`
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 4px;
-`;
-
-const OverviewTitle = styled.div`
-    font-size: 16px;
+const GradeLabel = styled.div`
+    font-size: 9px;
     font-weight: 700;
-    color: var(--vscode-foreground);
-`;
-
-const ScorePill = styled.div<{ $color: string }>`
-    padding: 4px 12px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 600;
     text-transform: uppercase;
-    background: transparent;
-    border: 1px solid ${({ $color }: { $color: string }) => $color};
-    color: ${({ $color }: { $color: string }) => $color};
+    letter-spacing: 0.12em;
+    color: var(--vscode-descriptionForeground);
+    margin-bottom: 8px;
 `;
 
-const ScoreHero = styled.div`
+const GradeRing = styled.div<{ $score: number; $ringColor: string }>`
+    --score: ${({ $score }: { $score: number }) => $score};
+    --ring-color: ${({ $ringColor }: { $ringColor: string }) => $ringColor};
+    width: 118px;
+    height: 118px;
+    margin: 0 auto 8px;
+    border-radius: 50%;
+    background:
+        radial-gradient(circle at center, var(--vscode-editorWidget-background) 56%, transparent 57%),
+        conic-gradient(var(--ring-color) calc(var(--score) * 1%), var(--vscode-panel-border) 0);
     display: flex;
-    justify-content: center;
     align-items: center;
-    padding: 24px 16px;
+    justify-content: center;
+    position: relative;
+`;
+
+const GradeRingInner = styled.div`
+    position: absolute;
+    width: 84px;
+    height: 84px;
+    border-radius: 50%;
     border: 1px solid var(--vscode-panel-border);
     background: var(--vscode-editorWidget-background);
-    border-radius: 6px;
+`;
+
+const GradeCenter = styled.div`
+    position: relative;
+    z-index: 1;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-`;
-
-const ScoreNumberRow = styled.div<{ $color: string }>`
-    font-size: 36px;
-    font-weight: 700;
+    align-items: center;
     line-height: 1;
+`;
+
+const GradeLetter = styled.div<{ $color: string }>`
+    font-size: 36px;
+    font-weight: 900;
     color: ${({ $color }: { $color: string }) => $color};
+    font-family: var(--vscode-editor-font-family, ui-monospace, monospace);
+    line-height: 1;
+`;
+
+const GradeScore = styled.div`
+    margin-top: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--vscode-descriptionForeground);
+    letter-spacing: 0.03em;
+`;
+
+// ── Right column ───────────────────────────────────────────────────────────
+
+const MetaBlock = styled.div`
     display: flex;
-    align-items: baseline;
+    flex-direction: column;
+    gap: 14px;
 `;
 
-const ScorePercentSuffix = styled.span`
-    font-size: 20px;
-    font-weight: 600;
-    margin-left: 2px;
+const ReportTitle = styled.h1`
+    margin: 0 0 2px;
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--vscode-foreground);
+    line-height: 1.2;
+    letter-spacing: -0.01em;
 `;
 
-const ScoreCaption = styled.div`
-    font-size: 12px;
+const ReportSubtitle = styled.div`
+    font-size: 11px;
     color: var(--vscode-descriptionForeground);
 `;
+
+// ── Metrics grid ───────────────────────────────────────────────────────────
 
 const MetricsGrid = styled.div`
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: repeat(4, 1fr);
     gap: 12px;
+
+    @media (max-width: 900px) {
+        grid-template-columns: repeat(2, 1fr);
+    }
 `;
 
-const MetricTile = styled.div<{ $accent: string }>`
-    border: 1px solid var(--vscode-panel-border);
-    border-left: 3px solid ${({ $accent }: { $accent: string }) => $accent};
-    border-radius: 6px;
-    padding: 12px;
+const MetricCard = styled.div<{ $topColor: string }>`
     background: var(--vscode-editorWidget-background);
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+    border: 1px solid var(--vscode-panel-border);
+    border-top: 3px solid ${({ $topColor }: { $topColor: string }) => $topColor};
+    border-radius: 10px;
+    padding: 16px 18px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 `;
 
 const MetricLabel = styled.div`
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.08em;
     color: var(--vscode-descriptionForeground);
+    margin-bottom: 10px;
 `;
 
-const MetricValue = styled.div`
+const MetricValue = styled.div<{ $color?: string }>`
     font-size: 24px;
-    font-weight: 700;
-    color: var(--vscode-foreground);
+    font-weight: 800;
+    color: ${({ $color }: { $color?: string }) => $color || 'var(--vscode-foreground)'};
+    line-height: 1;
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
 `;
 
-const MetricSub = styled.div`
-    font-size: 11px;
+const MetricSuffix = styled.span`
+    font-size: 14px;
+    font-weight: 600;
     color: var(--vscode-descriptionForeground);
 `;
 
-const MetricProgressTrack = styled.div`
-    width: 100%;
-    height: 4px;
-    background: var(--vscode-input-background);
-    border-radius: 2px;
-    overflow: hidden;
-`;
-
-const MetricProgressFill = styled.div<{ $pct: number; $fillColor: string }>`
-    width: ${({ $pct }: { $pct: number }) => Math.max(0, Math.min(100, $pct))}%;
-    height: 100%;
-    background: ${({ $fillColor }: { $fillColor: string }) => $fillColor};
-`;
+// ── Component ──────────────────────────────────────────────────────────────
 
 export const AnalyzeSingleReportOverview: React.FC<AnalyzeSingleReportOverviewProps> = ({
     score,
     gradeColor,
-    stats,
+    title,
+    subtitle,
     totalIssues,
     passedChecks,
     totalChecks,
 }) => {
-    const checksPassedPct = totalChecks > 0 ? Math.round((passedChecks / totalChecks) * 100) : 0;
-    const errorPct = totalIssues > 0 ? Math.round((stats.errors / totalIssues) * 100) : 0;
-    const warningPct = totalIssues > 0 ? Math.round((stats.warnings / totalIssues) * 100) : 0;
+    const normalizedScore = Math.max(0, Math.min(100, Math.round(score)));
+    const grade = scoreGrade(normalizedScore);
 
     return (
-        <SectionBlock>
-            <CardTopRow>
-                <OverviewTitle>Overview</OverviewTitle>
-                <ScorePill $color={gradeColor}>{Math.round(score)}% Score</ScorePill>
-            </CardTopRow>
+        <OverviewRow>
+            <GradeCard $topColor={gradeColor}>
+                <GradeLabel>API Score</GradeLabel>
+                <GradeRing $score={normalizedScore} $ringColor={gradeColor}>
+                    <GradeRingInner />
+                    <GradeCenter>
+                        <GradeLetter $color={gradeColor}>{grade}</GradeLetter>
+                        <GradeScore>{normalizedScore}&thinsp;/&thinsp;100</GradeScore>
+                    </GradeCenter>
+                </GradeRing>
+            </GradeCard>
 
-            <ScoreHero>
-                <ScoreNumberRow $color={gradeColor}>
-                    {Math.round(score)}
-                    <ScorePercentSuffix>%</ScorePercentSuffix>
-                </ScoreNumberRow>
-                <ScoreCaption>API Readiness Score</ScoreCaption>
-            </ScoreHero>
+            <MetaBlock>
+                <div>
+                    <ReportTitle>{title}</ReportTitle>
+                    {subtitle && <ReportSubtitle>{subtitle}</ReportSubtitle>}
+                </div>
 
-            <MetricsGrid>
-                <MetricTile $accent="var(--vscode-testing-iconPassed, #22c55e)">
-                    <MetricLabel>Checks Passed</MetricLabel>
-                    <MetricValue>{passedChecks}/{totalChecks}</MetricValue>
-                    <MetricProgressTrack>
-                        <MetricProgressFill $pct={checksPassedPct} $fillColor="var(--vscode-testing-iconPassed, #22c55e)" />
-                    </MetricProgressTrack>
-                    <MetricSub>{checksPassedPct}% pass rate</MetricSub>
-                </MetricTile>
+                <MetricsGrid>
+                    <MetricCard $topColor={gradeColor}>
+                        <MetricLabel>Score</MetricLabel>
+                        <MetricValue $color={gradeColor}>
+                            {normalizedScore}
+                            <MetricSuffix>/100</MetricSuffix>
+                        </MetricValue>
+                    </MetricCard>
 
-                <MetricTile $accent="var(--vscode-errorForeground)">
-                    <MetricLabel>Errors</MetricLabel>
-                    <MetricValue>{stats.errors}</MetricValue>
-                    <MetricProgressTrack>
-                        <MetricProgressFill $pct={errorPct} $fillColor="var(--vscode-errorForeground)" />
-                    </MetricProgressTrack>
-                    <MetricSub>Severity 0 · Critical</MetricSub>
-                </MetricTile>
+                    <MetricCard $topColor="var(--vscode-testing-iconPassed, #10B981)">
+                        <MetricLabel>Passed Checks</MetricLabel>
+                        <MetricValue $color="var(--vscode-testing-iconPassed, #10B981)">
+                            {passedChecks}
+                        </MetricValue>
+                    </MetricCard>
 
-                <MetricTile $accent="var(--vscode-editorWarning-foreground)">
-                    <MetricLabel>Warnings</MetricLabel>
-                    <MetricValue>{stats.warnings}</MetricValue>
-                    <MetricProgressTrack>
-                        <MetricProgressFill $pct={warningPct} $fillColor="var(--vscode-editorWarning-foreground)" />
-                    </MetricProgressTrack>
-                    <MetricSub>Severity 1 · Advisory</MetricSub>
-                </MetricTile>
+                    <MetricCard $topColor="var(--vscode-panel-border)">
+                        <MetricLabel>Total Checks</MetricLabel>
+                        <MetricValue>{totalChecks}</MetricValue>
+                    </MetricCard>
 
-                <MetricTile $accent="var(--vscode-focusBorder)">
-                    <MetricLabel>Operations affected</MetricLabel>
-                    <MetricValue>{stats.endpointCount}</MetricValue>
-                    <MetricSub>distinct path + method</MetricSub>
-                </MetricTile>
-
-            </MetricsGrid>
-        </SectionBlock>
+                    <MetricCard $topColor={totalIssues > 0 ? 'var(--vscode-errorForeground)' : 'var(--vscode-testing-iconPassed, #10B981)'}>
+                        <MetricLabel>Issues</MetricLabel>
+                        <MetricValue $color={totalIssues > 0 ? 'var(--vscode-errorForeground)' : 'var(--vscode-testing-iconPassed, #10B981)'}>
+                            {totalIssues}
+                        </MetricValue>
+                    </MetricCard>
+                </MetricsGrid>
+            </MetaBlock>
+        </OverviewRow>
     );
 };

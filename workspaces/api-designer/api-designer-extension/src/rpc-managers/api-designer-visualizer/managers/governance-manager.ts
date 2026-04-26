@@ -427,16 +427,16 @@ export class GovernanceManager extends BaseRpcManager {
     }
 
     private readonly OWASP_CATEGORIES = [
-        { key: 'API1:2023', label: 'Broken Object Level Authorization' },
-        { key: 'API2:2023', label: 'Broken Authentication' },
-        { key: 'API3:2023', label: 'Broken Object Property Level Authorization' },
-        { key: 'API4:2023', label: 'Unrestricted Resource Consumption' },
-        { key: 'API5:2023', label: 'Broken Function Level Authorization' },
-        { key: 'API6:2023', label: 'Unrestricted Access to Sensitive Business Flows' },
-        { key: 'API7:2023', label: 'Server Side Request Forgery' },
-        { key: 'API8:2023', label: 'Security Misconfiguration' },
-        { key: 'API9:2023', label: 'Improper Inventory Management' },
-        { key: 'API10:2023', label: 'Unsafe Consumption of APIs' },
+        { key: 'API1:2023', label: 'Broken Object Level Authorization', docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/' },
+        { key: 'API2:2023', label: 'Broken Authentication', docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa2-broken-authentication/' },
+        { key: 'API3:2023', label: 'Broken Object Property Level Authorization', docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa3-broken-object-property-level-authorization/' },
+        { key: 'API4:2023', label: 'Unrestricted Resource Consumption', docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa4-unrestricted-resource-consumption/' },
+        { key: 'API5:2023', label: 'Broken Function Level Authorization', docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa5-broken-function-level-authorization/' },
+        { key: 'API6:2023', label: 'Unrestricted Access to Sensitive Business Flows', docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa6-unrestricted-access-to-sensitive-business-flows/' },
+        { key: 'API7:2023', label: 'Server Side Request Forgery', docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa7-server-side-request-forgery/' },
+        { key: 'API8:2023', label: 'Security Misconfiguration', docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa8-security-misconfiguration/' },
+        { key: 'API9:2023', label: 'Improper Inventory Management', docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa9-improper-inventory-management/' },
+        { key: 'API10:2023', label: 'Unsafe Consumption of APIs', docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xaa-unsafe-consumption-of-apis/' },
     ] as const;
 
     private readonly WSO2_THEMES = [
@@ -545,7 +545,7 @@ export class GovernanceManager extends BaseRpcManager {
                 breakdownKeys = [key];
                 if (!categoryBuckets.has(key)) {
                     const category = this.OWASP_CATEGORIES.find((item) => item.key === key);
-                    categoryBuckets.set(key, { label: category?.label || key, docsUrl: undefined, violationIds: [] });
+                    categoryBuckets.set(key, { label: category?.label || key, docsUrl: category?.docsUrl, violationIds: [] });
                 }
                 categoryBuckets.get(key)?.violationIds.push(id);
             } else if (reportId === 'rest-api-readiness') {
@@ -562,7 +562,7 @@ export class GovernanceManager extends BaseRpcManager {
                 rule: violation.rule || violation.code || 'unknown-rule',
                 message: violation.message || 'No message provided',
                 description: violation.description,
-                fixSuggestion: undefined,
+                fixSuggestion: violation.fixSuggestion,
                 severity: normalizedSeverity,
                 code: violation.code,
                 pathSegments,
@@ -600,7 +600,7 @@ export class GovernanceManager extends BaseRpcManager {
                     warnings: categoryWarnings,
                     percentage: rawViolations.length > 0 ? Math.round((total / rawViolations.length) * 100) : 0,
                     affectedEndpoints: new Set(ids.map((id) => `${violationsById[id]?.method} ${violationsById[id]?.endpoint}`)).size,
-                    docsUrl: `https://owasp.org/API-Security/editions/2023/`,
+                    docsUrl: item.docsUrl,
                     viewIssuesFilter: { key: item.key, label: item.label },
                 };
             });
@@ -1144,16 +1144,31 @@ export class GovernanceManager extends BaseRpcManager {
             if (!report) {
                 return null;
             }
+            let spectralScore: number | null = null;
             if (report.reportId === 'ai-readiness' && 'aiReadinessSummary' in report && report.aiReadinessSummary) {
                 const s = (report as { aiReadinessSummary: { score?: number } }).aiReadinessSummary.score;
                 if (typeof s === 'number') {
-                    return s;
+                    spectralScore = s;
                 }
             }
-            if (typeof report.overview?.score === 'number') {
-                return report.overview.score;
+            if (spectralScore === null && typeof report.overview?.score === 'number') {
+                spectralScore = report.overview.score;
             }
-            return null;
+
+            if (spectralScore === null) {
+                return null;
+            }
+
+            const llmScore = governanceResult.llmValidation?.status === 'ready'
+                && typeof governanceResult.llmValidation.result?.score === 'number'
+                ? governanceResult.llmValidation.result.score
+                : null;
+
+            if (llmScore === null) {
+                return spectralScore;
+            }
+
+            return Math.round((spectralScore * 0.7) + (llmScore * 0.3));
         } catch (error: unknown) {
             this.logError('Failed to calculate AI readiness score', error);
             return null;

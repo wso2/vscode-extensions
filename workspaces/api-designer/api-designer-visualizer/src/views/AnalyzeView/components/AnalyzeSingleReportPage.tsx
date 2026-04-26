@@ -42,36 +42,9 @@ const Root = styled.div`
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 28px;
 `;
 
-const HeaderBar = styled.div`
-    border-bottom: 1px solid var(--vscode-panel-border);
-    padding: 8px 2px 12px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-`;
-
-const HeaderTitle = styled.h2`
-    margin: 0;
-    font-size: 18px;
-    font-weight: 700;
-    color: var(--vscode-foreground);
-`;
-
-const HeaderTitleGroup = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-`;
-
-const HeaderSubtitle = styled.div`
-    font-size: 12px;
-    color: var(--vscode-descriptionForeground);
-    margin-top: 0;
-`;
 
 const MessageCard = styled.div`
     border: 1px solid var(--vscode-panel-border);
@@ -248,7 +221,13 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
         setManualRefreshTick((value) => value + 1);
     }, []);
     const title = REPORT_TITLES[reportKey];
-    const score = Math.max(0, Math.min(100, Number(report?.score || 0)));
+    const spectralScore = Math.max(0, Math.min(100, Number(report?.score || 0)));
+    const llmScore = report?.report?.reportId === 'ai-readiness' && report?.llmValidation?.status === 'ready'
+        ? (report.llmValidation.result?.score ?? null)
+        : null;
+    const score = llmScore !== null
+        ? Math.round(spectralScore * 0.7 + llmScore * 0.3)
+        : spectralScore;
     const gradeColor = scoreColor(score);
     const rulesetFileUrl = buildRulesetFileUrl(report?.ruleset);
     const aiEnabled = isAIAvailable && !!fileUri && !!rulesetFileUrl && !!report?.ruleset?.rulesetContentPath;
@@ -256,12 +235,7 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
     if (loading) {
         return (
             <Root>
-                <HeaderBar>
-                    <HeaderTitleGroup>
-                        <HeaderTitle>{title}</HeaderTitle>
-                        <HeaderSubtitle>Loading report…</HeaderSubtitle>
-                    </HeaderTitleGroup>
-                </HeaderBar>
+                <MessageCard>Loading…</MessageCard>
             </Root>
         );
     }
@@ -269,12 +243,6 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
     if (error || !report) {
         return (
             <Root>
-                <HeaderBar>
-                    <HeaderTitleGroup>
-                        <HeaderTitle>{title}</HeaderTitle>
-                        <HeaderSubtitle>Unable to generate report</HeaderSubtitle>
-                    </HeaderTitleGroup>
-                </HeaderBar>
                 <MessageCard>{error || 'No report data available.'}</MessageCard>
             </Root>
         );
@@ -286,17 +254,11 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
 
     return (
         <Root>
-            <HeaderBar>
-                <HeaderTitleGroup>
-                    <HeaderTitle>{title}</HeaderTitle>
-                    <HeaderSubtitle>{report.rulesetName}</HeaderSubtitle>
-                </HeaderTitleGroup>
-            </HeaderBar>
-
             <AnalyzeSingleReportOverview
                 score={score}
                 gradeColor={gradeColor}
-                stats={stats}
+                title={title}
+                subtitle={report.rulesetName}
                 totalIssues={rows.length}
                 passedChecks={report.passedChecks}
                 totalChecks={report.totalChecks}
