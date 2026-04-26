@@ -184,6 +184,9 @@ export class ApiDesignerPanel {
         
         // Send immediately - views need state as soon as possible
         sendInitialState();
+        if (this._viewType === 'design' && this._currentFilePath) {
+            void this.governanceManager.ensureLlmValidationForFile(this._currentFilePath);
+        }
         
         // Also send again after a short delay to catch any race conditions
         setTimeout(sendInitialState, 100);
@@ -324,6 +327,11 @@ export class ApiDesignerPanel {
                     case 'createFromCopilot':
                         // Handle creating API spec with AI/Copilot
                         await this.handleCreateFromCopilot(message.data);
+                        break;
+                    case 'reevaluateLlmValidation':
+                        if (this._currentFilePath) {
+                            await this.governanceManager.ensureLlmValidationForFile(this._currentFilePath, { force: true });
+                        }
                         break;
                 }
             },
@@ -487,6 +495,9 @@ export class ApiDesignerPanel {
         }
 
         this._viewType = newViewType;
+            if (newViewType === 'design' && this._currentFilePath) {
+                void this.governanceManager.ensureLlmValidationForFile(this._currentFilePath);
+            }
         
         // Store reference to avoid accessing disposed object
         const panel = this._panel;

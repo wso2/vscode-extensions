@@ -16,7 +16,9 @@
  * under the License.
  */
 
-import { readFile } from 'fs/promises';
+import { mkdir, readFile, writeFile } from 'fs/promises';
+import { createHash } from 'crypto';
+import * as path from 'path';
 import * as vscode from 'vscode';
 import {
     FetchRulesetsFromFolderRequest,
@@ -115,6 +117,30 @@ type UnifiedBreakdownCategory = {
     topRules?: string[];
 };
 
+type LlmValidationFinding = {
+    id: string;
+    rule: string;
+    message: string;
+    severity: 'error' | 'warn' | 'info' | 'hint';
+    pathSegments: string[];
+    displayPath: string;
+    suggestion?: string;
+};
+
+type LlmValidationResult = {
+    score: number;
+    summary: string;
+    findings: LlmValidationFinding[];
+};
+
+type LlmValidationState = {
+    status: 'pending' | 'ready' | 'failed' | 'stale';
+    apiHash: string;
+    updatedAt: number;
+    result?: LlmValidationResult;
+    error?: string;
+};
+
 /** Result shape from {@link GovernanceManager.buildUnifiedReport} before RPC typing. */
 type BuiltUnifiedReport = {
     schemaVersion: '1';
@@ -142,8 +168,184 @@ type BuiltUnifiedReport = {
  * Handles API spec validation, governance checks, and Spectral ruleset management
  */
 export class GovernanceManager extends BaseRpcManager {
+    private static llmStateByApiHash = new Map<string, LlmValidationState>();
+    private static llmJobsByApiHash = new Map<string, Promise<void>>();
+
     constructor() {
         super('GovernanceManager');
+    }
+
+    private computeApiHash(content: string): string {
+        return createHash('sha256').update(content, 'utf8').digest('hex');
+    }
+
+    private getWorkspaceCachePath(filePath: string): string {
+        return path.join(path.dirname(filePath), '.api-platform', '.cache', 'llm-ai-readiness.json');
+    }
+
+    private async persistLlmState(filePath: string, state: LlmValidationState): Promise<void> {
+        GovernanceManager.llmStateByApiHash.set(state.apiHash, state);
+        try {
+            const cachePath = this.getWorkspaceCachePath(filePath);
+            await mkdir(path.dirname(cachePath), { recursive: true });
+            const workspaceCache = await this.readWorkspaceCache(filePath);
+            workspaceCache[state.apiHash] = state;
+            await writeFile(cachePath, JSON.stringify(workspaceCache, null, 2), 'utf8');
+        } catch {
+            // best-effort workspace cache persistence
+        }
+    }
+
+    private async readWorkspaceCache(filePath: string): Promise<Record<string, LlmValidationState>> {
+        try {
+            const cachePath = this.getWorkspaceCachePath(filePath);
+            const content = await readFile(cachePath, 'utf8');
+            const parsed = JSON.parse(content) as Record<string, LlmValidationState>;
+            return parsed && typeof parsed === 'object' ? parsed : {};
+        } catch {
+            return {};
+        }
+    }
+
+    private async resolveCachedLlmState(filePath: string, apiHash: string): Promise<LlmValidationState | undefined> {
+        const inMemory = GovernanceManager.llmStateByApiHash.get(apiHash);
+        if (inMemory) return inMemory;
+        const workspaceCache = await this.readWorkspaceCache(filePath);
+        if (workspaceCache[apiHash]) return workspaceCache[apiHash];
+        return undefined;
+    }
+
+    private buildLlmPrompt(specContent: string): string {
+        return [
+            'You are validating API AI readiness.',
+            'Analyze the OpenAPI content and return strict JSON only with this shape:',
+            '{"score":number,"summary":string,"findings":[{"rule":string,"message":string,"severity":"error|warn|info|hint","path":"dot.path.or.empty","suggestion":"optional"}]}',
+            'Rules:',
+            '- Score must be 0-100',
+            '- Keep summary under 220 chars',
+            '- At most 20 findings',
+            '- Use concise actionable messages',
+            '',
+            'OpenAPI document:',
+            specContent
+        ].join('\n');
+    }
+
+    private normalizeLlmResult(rawText: string): LlmValidationResult {
+        const text = rawText.trim();
+        const firstBrace = text.indexOf('{');
+        const lastBrace = text.lastIndexOf('}');
+        const jsonText = firstBrace >= 0 && lastBrace > firstBrace ? text.slice(firstBrace, lastBrace + 1) : text;
+        const parsed = JSON.parse(jsonText) as {
+            score?: number;
+            summary?: string;
+            findings?: Array<{ rule?: string; message?: string; severity?: string; path?: string; suggestion?: string }>;
+        };
+        const score = Math.max(0, Math.min(100, Math.round(Number(parsed.score ?? 0))));
+        const findings = (parsed.findings || []).slice(0, 20).map((finding, index) => {
+            const pathSegments = String(finding.path || '').split('.').map((segment) => segment.trim()).filter(Boolean);
+            const severity: LlmValidationFinding['severity'] =
+                (finding.severity === 'error' || finding.severity === 'warn' || finding.severity === 'hint' || finding.severity === 'info')
+                    ? finding.severity
+                    : 'info';
+            return {
+                id: `llm:${index}`,
+                rule: String(finding.rule || 'llm.validation'),
+                message: String(finding.message || 'Potential AI readiness issue detected'),
+                severity,
+                pathSegments,
+                displayPath: pathSegments.length > 0 ? pathSegments.join(' > ') : 'General',
+                suggestion: finding.suggestion ? String(finding.suggestion) : undefined,
+            };
+        });
+        return {
+            score,
+            summary: String(parsed.summary || 'LLM AI readiness validation completed.'),
+            findings,
+        };
+    }
+
+    private async executeLlmValidation(specContent: string): Promise<LlmValidationResult> {
+        const vscodeAny = vscode as any;
+        if (!vscodeAny.lm?.selectChatModels) {
+            throw new Error('Language model API is not available');
+        }
+        const models = await vscodeAny.lm.selectChatModels({ vendor: 'copilot' });
+        if (!Array.isArray(models) || models.length === 0) {
+            throw new Error('No Copilot chat model available');
+        }
+        const model = models[0];
+        const userMessage = vscodeAny.LanguageModelChatMessage?.User
+            ? vscodeAny.LanguageModelChatMessage.User(this.buildLlmPrompt(specContent))
+            : { role: 'user', content: this.buildLlmPrompt(specContent) };
+        const response = await model.sendRequest([userMessage], {}, new vscode.CancellationTokenSource().token);
+        let output = '';
+        for await (const chunk of response.text) {
+            output += String(chunk);
+        }
+        return this.normalizeLlmResult(output);
+    }
+
+    private async startLlmJob(filePath: string, apiHash: string, specContent: string): Promise<void> {
+        const existing = GovernanceManager.llmJobsByApiHash.get(apiHash);
+        if (existing) return existing;
+        const job = (async () => {
+            try {
+                const result = await this.executeLlmValidation(specContent);
+                await this.persistLlmState(filePath, {
+                    status: 'ready',
+                    apiHash,
+                    updatedAt: Date.now(),
+                    result,
+                });
+            } catch (error) {
+                await this.persistLlmState(filePath, {
+                    status: 'failed',
+                    apiHash,
+                    updatedAt: Date.now(),
+                    error: (error as { message?: string })?.message || 'LLM validation failed',
+                });
+            } finally {
+                GovernanceManager.llmJobsByApiHash.delete(apiHash);
+            }
+        })();
+        GovernanceManager.llmJobsByApiHash.set(apiHash, job);
+        return job;
+    }
+
+    public async ensureLlmValidationForFile(filePath: string, options?: { force?: boolean }): Promise<void> {
+        try {
+            const specContent = await readFile(filePath, 'utf8');
+            const apiHash = this.computeApiHash(specContent);
+            const force = options?.force === true;
+            const workspaceCache = await this.readWorkspaceCache(filePath);
+            const hasAnyWorkspaceCache = Object.keys(workspaceCache).length > 0;
+            const cached = await this.resolveCachedLlmState(filePath, apiHash);
+            if (cached?.status === 'ready' && !force) {
+                GovernanceManager.llmStateByApiHash.set(apiHash, cached);
+                return;
+            }
+            if (!force) {
+                if (cached?.status === 'failed') {
+                    return;
+                }
+                if (!cached && hasAnyWorkspaceCache) {
+                    // Auto run only on first-ever spec hash for this API. Later hash changes require manual re-evaluation.
+                    return;
+                }
+            }
+            if (cached?.status === 'pending' && GovernanceManager.llmJobsByApiHash.has(apiHash)) {
+                return;
+            }
+            await this.persistLlmState(filePath, {
+                status: 'pending',
+                apiHash,
+                updatedAt: Date.now(),
+            });
+            void this.startLlmJob(filePath, apiHash, specContent);
+        } catch (error) {
+            this.logWarning('Failed to schedule LLM validation', error);
+        }
     }
 
     private readonly OWASP_CATEGORIES = [
@@ -421,7 +623,6 @@ export class GovernanceManager extends BaseRpcManager {
         }
         
         // For local paths, use path.join
-        const path = require('path');
         return path.join(sourceFolder, fileName);
     }
 
@@ -466,6 +667,34 @@ export class GovernanceManager extends BaseRpcManager {
     async getGovernance(params: GetGovernanceRequest): Promise<GetGovernanceResponse> {
         try {
             const content = await readFile(params.filePath, 'utf8');
+            const apiHash = this.computeApiHash(content);
+            const workspaceCache = await this.readWorkspaceCache(params.filePath);
+            const hasAnyWorkspaceCache = Object.keys(workspaceCache).length > 0;
+            let llmValidation = await this.resolveCachedLlmState(params.filePath, apiHash);
+            if (!llmValidation) {
+                if (hasAnyWorkspaceCache) {
+                    llmValidation = {
+                        status: 'stale',
+                        apiHash,
+                        updatedAt: Date.now(),
+                        error: 'OpenAPI spec changed since the last LLM validation. Click Re-evaluate to refresh.',
+                    };
+                } else {
+                    void this.ensureLlmValidationForFile(params.filePath);
+                    llmValidation = {
+                        status: 'pending',
+                        apiHash,
+                        updatedAt: Date.now(),
+                    };
+                }
+            } else if (llmValidation.status === 'pending') {
+                void this.ensureLlmValidationForFile(params.filePath);
+                llmValidation = llmValidation || {
+                    status: 'pending',
+                    apiHash,
+                    updatedAt: Date.now(),
+                };
+            }
             
             // Require ruleset parameter
             if (!params.ruleset || !params.ruleset.sourceFolder || !params.ruleset.fileName) {
@@ -512,6 +741,7 @@ export class GovernanceManager extends BaseRpcManager {
             (response as GetGovernanceResponse & { schemaVersion?: '2' }).schemaVersion = '2';
             (response as GetGovernanceResponse).reportId = unifiedReport.reportId;
             (response as GetGovernanceResponse).report = unifiedReport as CoreUnifiedAnalyzeReport;
+            (response as any).llmValidation = llmValidation;
             return response as GetGovernanceResponse;
         } catch (error: unknown) {
             this.logError(`Error checking ${params.name}:`, error);

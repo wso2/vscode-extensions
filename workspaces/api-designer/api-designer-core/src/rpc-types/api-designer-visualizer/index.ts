@@ -59,7 +59,11 @@ export type {
     UnifiedAnalyzeReportKey,
     UnifiedBreakdownCategory,
     UnifiedOverviewMetric,
-    UnifiedViolation
+    UnifiedViolation,
+    LlmValidationState,
+    LlmValidationResult,
+    LlmValidationFinding,
+    LlmValidationStatus
 } from "./types";
 
 // Export GovernanceViolation type alias for convenience

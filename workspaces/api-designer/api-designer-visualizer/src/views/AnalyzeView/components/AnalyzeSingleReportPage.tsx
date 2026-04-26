@@ -12,6 +12,7 @@ import {
     useReportData,
     useIssueFilters,
     buildIssueRows,
+    buildLlmIssueRows,
     scoreColor,
     SeverityLevel,
     GroupBy,
@@ -87,7 +88,13 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
     reportKey,
 }) => {
     const { rpcClient } = useVisualizerContext();
-    const { loading, error, report, specContent } = useReportData(rpcClient, fileUri, refreshToken, reportKey);
+    const [manualRefreshTick, setManualRefreshTick] = React.useState(0);
+    const { loading, error, report, specContent } = useReportData(
+        rpcClient,
+        fileUri,
+        refreshToken + manualRefreshTick,
+        reportKey
+    );
     const isAIAvailable = useAIAvailability();
     const effectiveReportId = report?.report.reportId;
 
@@ -111,6 +118,7 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
     const issueExplorerRef = React.useRef<HTMLDivElement | null>(null);
 
     const rows = React.useMemo(() => buildIssueRows(report?.violations || []), [report]);
+    const llmRows = React.useMemo(() => buildLlmIssueRows(report?.llmValidation), [report?.llmValidation]);
     const aiBucketOptions = React.useMemo(() => {
         const dimensions = (
             report?.report.reportId === 'ai-readiness' ? report.report.aiReadinessSummary.dimensions : []
@@ -139,6 +147,9 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
     }, [aiBucketOptions]);
     const scopedRows = React.useMemo(() => {
         if (effectiveReportId === 'ai-readiness') {
+            if (selectedBreakdownKey === 'llm-validation') {
+                return llmRows;
+            }
             return rows.filter((row) => {
                 const subBucket = getAiReadinessRuleSubBucket(row.rule);
                 if (!subBucket) return false;
@@ -158,6 +169,7 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
         return rows;
     }, [
         rows,
+        llmRows,
         effectiveReportId,
         selectedAiMainBucketKey,
         selectedAiBucketKey,
@@ -207,9 +219,15 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
     const handleViewIssues = React.useCallback((targetKey?: string) => {
         const nextKey = targetKey || null;
         if (effectiveReportId === 'ai-readiness') {
-            setSelectedAiBucketKey(nextKey);
-            setSelectedAiMainBucketKey(nextKey ? (subBucketToMainBucketMap.get(nextKey) || null) : null);
-            setSelectedBreakdownKey(null);
+            if (nextKey === 'llm-validation') {
+                setSelectedAiBucketKey(null);
+                setSelectedAiMainBucketKey(null);
+                setSelectedBreakdownKey('llm-validation');
+            } else {
+                setSelectedAiBucketKey(nextKey);
+                setSelectedAiMainBucketKey(nextKey ? (subBucketToMainBucketMap.get(nextKey) || null) : null);
+                setSelectedBreakdownKey(null);
+            }
         } else {
             setSelectedAiBucketKey(null);
             setSelectedAiMainBucketKey(null);
@@ -225,6 +243,10 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
             issueExplorerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
     }, [effectiveReportId, subBucketToMainBucketMap]);
+    const handleReevaluateLlm = React.useCallback(() => {
+        postVSCodeMessage({ command: 'reevaluateLlmValidation' });
+        setManualRefreshTick((value) => value + 1);
+    }, []);
     const title = REPORT_TITLES[reportKey];
     const score = Math.max(0, Math.min(100, Number(report?.score || 0)));
     const gradeColor = scoreColor(score);
@@ -288,7 +310,9 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
                 expandedBucketKeys={expandedBucketKeys}
                 onToggleBucket={toggleBucketKey}
                 onViewIssues={handleViewIssues}
+                onReevaluateLlm={handleReevaluateLlm}
                 unifiedCategories={report.report.breakdown.categories}
+                llmValidation={report.llmValidation}
             />
 
             <div ref={issueExplorerRef}>

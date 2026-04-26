@@ -3,7 +3,11 @@
  */
 
 import React from 'react';
-import { SpectralRuleset, type GetGovernanceResponse, type UnifiedAnalyzeReport } from '@wso2/api-designer-core';
+import {
+    SpectralRuleset,
+    type GetGovernanceResponse,
+    type UnifiedAnalyzeReport
+} from '@wso2/api-designer-core';
 import { NormalizedGovernanceViolation } from '../../../types/violations';
 
 export type AnalyzeReportKey = 'ai-readiness' | 'owasp' | 'wso2-rest';
@@ -36,6 +40,25 @@ export interface ReportState {
     violations: NormalizedGovernanceViolation[];
     ruleset?: SpectralRuleset;
     report: UnifiedAnalyzeReport;
+    llmValidation?: {
+        status: 'pending' | 'ready' | 'failed' | 'stale';
+        apiHash: string;
+        updatedAt: number;
+        result?: {
+            score: number;
+            summary: string;
+            findings: Array<{
+                id: string;
+                rule: string;
+                message: string;
+                severity: 'error' | 'warn' | 'info' | 'hint';
+                pathSegments: string[];
+                displayPath: string;
+                suggestion?: string;
+            }>;
+        };
+        error?: string;
+    };
 }
 
 // ── Utilities ──────────────────────────────────────────────────────────────
@@ -109,6 +132,35 @@ export const buildIssueRows = (violations: NormalizedGovernanceViolation[]): Iss
         };
     });
 
+export const buildLlmIssueRows = (llmValidation?: ReportState['llmValidation']): IssueRow[] => {
+    if (llmValidation?.status !== 'ready' || !llmValidation.result?.findings) {
+        return [];
+    }
+    return llmValidation.result.findings.map((finding, index: number) => {
+        const { endpoint, method } = extractEndpoint(finding.pathSegments || []);
+        return {
+            id: `llm:${finding.id || index}`,
+            violation: {
+                pathSegments: finding.pathSegments || [],
+                displayPath: finding.displayPath || 'General',
+                message: finding.message,
+                description: finding.suggestion,
+                severity: finding.severity,
+                rule: finding.rule,
+                code: finding.rule,
+            } as unknown as NormalizedGovernanceViolation,
+            rule: finding.rule || 'llm.validation',
+            message: finding.message || 'LLM validation finding',
+            path: finding.displayPath || 'General',
+            endpoint,
+            method,
+            severity: toSeverity(finding.severity),
+            line: -1,
+            breakdownKeys: ['llm-validation'],
+        };
+    });
+};
+
 const sortRows = (rows: IssueRow[], sortBy: SortBy, sortDir: SortDir): IssueRow[] => {
     const list = [...rows];
     list.sort((a, b) => {
@@ -154,13 +206,21 @@ export const useReportData = (
     const [error, setError] = React.useState<string | null>(null);
     const [report, setReport] = React.useState<ReportState | null>(null);
     const [specContent, setSpecContent] = React.useState('');
+    const [pollTick, setPollTick] = React.useState(0);
 
     React.useEffect(() => {
         let disposed = false;
 
         const load = async () => {
             if (!rpcClient || !fileUri) return;
-            setLoading(true);
+            const isBackgroundLlmPoll =
+                pollTick > 0 &&
+                report?.llmValidation?.status === 'pending' &&
+                !!report;
+            // Keep already-rendered report mounted; only show full-screen loading for first load.
+            if (!isBackgroundLlmPoll && !report) {
+                setLoading(true);
+            }
             setError(null);
 
             try {
@@ -227,6 +287,7 @@ export const useReportData = (
                     violations: normalizedViolations,
                     ruleset: selectedRuleset,
                     report: unifiedReport,
+                    llmValidation: (governance as GetGovernanceResponse & { llmValidation?: ReportState['llmValidation'] }).llmValidation,
                 });
                 setSpecContent(contentResponse?.content || '');
             } catch (e: any) {
@@ -235,15 +296,22 @@ export const useReportData = (
                     setReport(null);
                 }
             } finally {
-                if (!disposed) setLoading(false);
+                if (!disposed) {
+                    setLoading(false);
+                }
             }
         };
 
         load();
+        let pollTimer: ReturnType<typeof setTimeout> | undefined;
+        if (report?.llmValidation?.status === 'pending') {
+            pollTimer = setTimeout(() => setPollTick((tick) => tick + 1), 3000);
+        }
         return () => {
             disposed = true;
+            if (pollTimer) clearTimeout(pollTimer);
         };
-    }, [rpcClient, fileUri, refreshToken, reportKey]);
+    }, [rpcClient, fileUri, refreshToken, reportKey, pollTick, report?.llmValidation?.status]);
 
     return { loading, error, report, specContent };
 };

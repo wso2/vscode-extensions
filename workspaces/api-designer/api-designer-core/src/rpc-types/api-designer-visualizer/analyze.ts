@@ -68,6 +68,32 @@ export interface GetGovernanceRequest {
     ruleset?: SpectralRuleset; // Optional: If provided, use this ruleset directly instead of looking up in config
 }
 
+export type LlmValidationStatus = 'pending' | 'ready' | 'failed' | 'stale';
+
+export interface LlmValidationFinding {
+    id: string;
+    rule: string;
+    message: string;
+    severity: 'error' | 'warn' | 'info' | 'hint';
+    pathSegments: string[];
+    displayPath: string;
+    suggestion?: string;
+}
+
+export interface LlmValidationResult {
+    score: number;
+    summary: string;
+    findings: LlmValidationFinding[];
+}
+
+export interface LlmValidationState {
+    status: LlmValidationStatus;
+    apiHash: string;
+    updatedAt: number;
+    result?: LlmValidationResult;
+    error?: string;
+}
+
 export interface AiReadinessCoverage {
     total: number;
     passed: number;
@@ -246,6 +272,7 @@ export interface GetGovernanceResponse {
     reportId: GovernanceReportId;
     metadata?: GovernanceRulesetMetadata;
     report: UnifiedAnalyzeReport;
+    llmValidation?: LlmValidationState;
 }
 
 /**

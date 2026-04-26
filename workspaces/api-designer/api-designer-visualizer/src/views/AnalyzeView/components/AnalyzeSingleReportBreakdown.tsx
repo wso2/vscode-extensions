@@ -24,6 +24,7 @@ interface AnalyzeSingleReportBreakdownProps {
     expandedBucketKeys: Set<string>;
     onToggleBucket: (key: string) => void;
     onViewIssues: (subBucketKey?: string) => void;
+    onReevaluateLlm: () => void;
     unifiedCategories?: Array<{
         id: string;
         label: string;
@@ -37,6 +38,11 @@ interface AnalyzeSingleReportBreakdownProps {
         viewIssuesFilter: { key: string; label: string };
         topRules?: string[];
     }>;
+    llmValidation?: {
+        status: 'pending' | 'ready' | 'failed' | 'stale';
+        result?: { score?: number; findings?: unknown[] };
+        error?: string;
+    };
 }
 
 const SectionBlock = styled.div`
@@ -247,6 +253,48 @@ const Wso2DetailsText = styled.div`
     color: var(--vscode-descriptionForeground);
 `;
 
+const AiBreakdownStack = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+`;
+
+const LlmTile = styled.div`
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 8px;
+    background: var(--vscode-editorWidget-background);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+`;
+
+const LlmTitle = styled.div`
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--vscode-foreground);
+`;
+
+const LlmMeta = styled.div`
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+`;
+
+const ReevaluateButton = styled.button`
+    width: fit-content;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--vscode-button-border, var(--vscode-panel-border));
+    background: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+    cursor: pointer;
+    font-size: 11px;
+    &:hover {
+        background: var(--vscode-button-secondaryHoverBackground);
+    }
+`;
+
 const ViewIssuesLink = styled.button`
     display: inline-flex;
     align-items: center;
@@ -271,9 +319,18 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
     expandedBucketKeys,
     onToggleBucket,
     onViewIssues,
+    onReevaluateLlm,
     unifiedCategories,
+    llmValidation,
 }) => {
     const categoriesFromBackend = React.useMemo(() => unifiedCategories || [], [unifiedCategories]);
+    const llmLabel = React.useMemo(() => {
+        if (!llmValidation || llmValidation.status === 'pending') return 'Running in background...';
+        if (llmValidation.status === 'stale') return llmValidation.error || 'OpenAPI spec changed. Re-evaluate to refresh.';
+        if (llmValidation.status === 'failed') return llmValidation.error || 'Validation failed';
+        const count = llmValidation.result?.findings?.length || 0;
+        return `${count} findings`;
+    }, [llmValidation]);
 
     return (
         <SectionBlock>
@@ -281,13 +338,32 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
                 <SectionTitleText>{BREAKDOWN_TITLES[reportKey]}</SectionTitleText>
             </SectionHeader>
             {reportKey === 'ai-readiness' ? (
-                <AIReadinessBucketGrid
-                    dimensions={aiReadinessDimensions}
-                    expandedKeys={expandedBucketKeys}
-                    onToggle={onToggleBucket}
-                    violations={violations}
-                    onViewIssues={onViewIssues}
-                />
+                <AiBreakdownStack>
+                    <LlmTile>
+                        <LlmTitle>LLM AI Readiness Validation</LlmTitle>
+                        <LlmMeta>
+                            {llmValidation?.status === 'ready'
+                                ? `Score ${llmValidation.result?.score ?? 0}/100 - ${llmLabel}`
+                                : llmLabel}
+                        </LlmMeta>
+                        {llmValidation?.status === 'ready' && (
+                            <ViewIssuesLink onClick={() => onViewIssues('llm-validation')}>
+                                View issues
+                                <Codicon name="arrow-right" sx={{ fontSize: '11px' }} />
+                            </ViewIssuesLink>
+                        )}
+                        {(llmValidation?.status === 'stale' || llmValidation?.status === 'failed') && (
+                            <ReevaluateButton onClick={onReevaluateLlm}>Re-evaluate</ReevaluateButton>
+                        )}
+                    </LlmTile>
+                    <AIReadinessBucketGrid
+                        dimensions={aiReadinessDimensions}
+                        expandedKeys={expandedBucketKeys}
+                        onToggle={onToggleBucket}
+                        violations={violations}
+                        onViewIssues={onViewIssues}
+                    />
+                </AiBreakdownStack>
             ) : reportKey === 'wso2-rest' ? (
                 <Wso2Grid>
                     {categoriesFromBackend.map((cat) => {
