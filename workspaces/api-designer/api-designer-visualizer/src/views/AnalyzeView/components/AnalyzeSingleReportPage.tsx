@@ -221,13 +221,7 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
         setManualRefreshTick((value) => value + 1);
     }, []);
     const title = REPORT_TITLES[reportKey];
-    const spectralScore = Math.max(0, Math.min(100, Number(report?.score || 0)));
-    const llmScore = report?.report?.reportId === 'ai-readiness' && report?.llmValidation?.status === 'ready'
-        ? (report.llmValidation.result?.score ?? null)
-        : null;
-    const score = llmScore !== null
-        ? Math.round(spectralScore * 0.7 + llmScore * 0.3)
-        : spectralScore;
+    const score = Math.max(0, Math.min(100, Number(report?.score || 0)));
     const gradeColor = scoreColor(score);
     const rulesetFileUrl = buildRulesetFileUrl(report?.ruleset);
     const aiEnabled = isAIAvailable && !!fileUri && !!rulesetFileUrl && !!report?.ruleset?.rulesetContentPath;

@@ -816,6 +816,14 @@ export class GovernanceManager extends BaseRpcManager {
             if (aiReadinessSummary) {
                 unifiedReport.aiReadinessSummary = aiReadinessSummary;
             }
+            if (unifiedReport.reportId === 'ai-readiness' && typeof unifiedReport.overview?.score === 'number') {
+                const llmScore = llmValidation?.status === 'ready' && typeof llmValidation.result?.score === 'number'
+                    ? llmValidation.result.score
+                    : null;
+                if (llmScore !== null) {
+                    unifiedReport.overview.score = Math.round((unifiedReport.overview.score * 0.7) + (llmScore * 0.3));
+                }
+            }
             (response as GetGovernanceResponse & { schemaVersion?: '2' }).schemaVersion = '2';
             (response as GetGovernanceResponse).reportId = unifiedReport.reportId;
             (response as GetGovernanceResponse).report = unifiedReport as CoreUnifiedAnalyzeReport;
@@ -1144,31 +1152,12 @@ export class GovernanceManager extends BaseRpcManager {
             if (!report) {
                 return null;
             }
-            let spectralScore: number | null = null;
-            if (report.reportId === 'ai-readiness' && 'aiReadinessSummary' in report && report.aiReadinessSummary) {
-                const s = (report as { aiReadinessSummary: { score?: number } }).aiReadinessSummary.score;
-                if (typeof s === 'number') {
-                    spectralScore = s;
-                }
+            if (typeof report.overview?.score === 'number') {
+                // Single source of truth: getGovernance() already applies the blended
+                // AI readiness score when agent results are available.
+                return report.overview.score;
             }
-            if (spectralScore === null && typeof report.overview?.score === 'number') {
-                spectralScore = report.overview.score;
-            }
-
-            if (spectralScore === null) {
-                return null;
-            }
-
-            const llmScore = governanceResult.llmValidation?.status === 'ready'
-                && typeof governanceResult.llmValidation.result?.score === 'number'
-                ? governanceResult.llmValidation.result.score
-                : null;
-
-            if (llmScore === null) {
-                return spectralScore;
-            }
-
-            return Math.round((spectralScore * 0.7) + (llmScore * 0.3));
+            return null;
         } catch (error: unknown) {
             this.logError('Failed to calculate AI readiness score', error);
             return null;

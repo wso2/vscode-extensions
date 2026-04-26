@@ -259,12 +259,6 @@ export const useReportData = (
                     throw new Error('Governance report payload is missing.');
                 }
 
-                const aiSummary = unifiedReport.reportId === 'ai-readiness' ? unifiedReport.aiReadinessSummary : undefined;
-                const headlineScore =
-                    reportKey === 'ai-readiness' && typeof aiSummary?.score === 'number'
-                        ? aiSummary.score
-                        : unifiedReport.overview.score;
-
                 const normalizedViolations = Object.values(
                     (unifiedReport.violationsById || {}) as Record<string, any>
                 ).map((violation) => ({
@@ -285,7 +279,7 @@ export const useReportData = (
 
                 setReport({
                     rulesetName: selectedRuleset.name,
-                    score: headlineScore,
+                    score: unifiedReport.overview.score,
                     passedChecks,
                     totalChecks,
                     violations: normalizedViolations,
