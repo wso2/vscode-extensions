@@ -145,12 +145,7 @@ const AnalyzeViewContent: React.FC<{ fileUri: string; refreshToken: number; init
     
     React.useEffect(() => {
         if (rpcClient && !rpcReady) {
-            try {
-                rpcClient.webviewReady();
-                setRpcReady(true);
-            } catch (err: any) {
-                setRpcReady(true);
-            }
+            setRpcReady(true);
         }
     }, [rpcClient, rpcReady]);
 

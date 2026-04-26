@@ -31,6 +31,8 @@ const vscodeWithLM = vscode as VSCodeWithLM;
  * Handles AI availability checks
  */
 export class AIRpcManager extends BaseRpcManager {
+    private static lastAvailability: boolean | undefined;
+
     constructor() {
         super('AIRpcManager');
     }
@@ -47,7 +49,10 @@ export class AIRpcManager extends BaseRpcManager {
             try {
                 const { AIProviderFactory } = await import('../../../ai/ai-provider-factory');
                 const available = await AIProviderFactory.hasAvailableProvider();
-                this.logDebug(`AI Chat available: ${available}`);
+                if (AIRpcManager.lastAvailability !== available) {
+                    this.logDebug(`AI Chat available: ${available}`);
+                    AIRpcManager.lastAvailability = available;
+                }
                 return { available };
             } catch (error) {
                 this.logDebug(`Error checking AI availability: ${error}`);

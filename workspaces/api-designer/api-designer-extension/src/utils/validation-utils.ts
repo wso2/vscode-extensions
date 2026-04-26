@@ -35,6 +35,19 @@ import {
 import { AiReadinessMetricsCollector, createAiReadinessFunctions, applyAiReadinessFunctionsToRuleset } from './ai-readiness-functions';
 import type { AiReadinessMetrics as CollectorAiReadinessMetrics } from './ai-readiness-functions';
 
+const RULESET_CACHE_TTL_MS = 5 * 60 * 1000;
+const rulesetCache = new Map<string, { cachedAt: number; rulesetContent: string }>();
+
+function getRulesetCacheKey(
+    filePathOrUrl: string,
+    rulesetContentPath: string,
+    gitRootPath?: string,
+    authToken?: string
+): string {
+    const authMarker = authToken ? 'auth' : 'noauth';
+    return [filePathOrUrl, rulesetContentPath || '', gitRootPath || '', authMarker].join('::');
+}
+
 const convertCollectorMetricsToCore = (
     metrics?: CollectorAiReadinessMetrics | null
 ): CoreAiReadinessMetrics | undefined => {
@@ -315,8 +328,6 @@ async function downloadRulesetContent(url: string, rulesetContentPath: string, a
         // Convert GitHub blob URLs to raw URLs
         const rawUrl = url.replace('github.com', 'raw.githubusercontent.com').replace('/blob/', '/');
         
-        logDebug(`Downloading from URL: ${rawUrl}`);
-        
         // Try without auth first (works for public repos)
         let headers: Record<string, string> = {};
         let response = await fetch(rawUrl, { headers });
@@ -363,30 +374,41 @@ function extractRulesetContent(yamlText: string, rulesetContentPath: string): st
  */
 async function fetchSpectralRuleset(filePathOrUrl: string, rulesetContentPath: string, gitRootPath?: string, authToken?: string): Promise<{ ruleset: any }> {
     try {
+        const cacheKey = getRulesetCacheKey(filePathOrUrl, rulesetContentPath, gitRootPath, authToken);
+        const cached = rulesetCache.get(cacheKey);
+        let rulesetContent: string | null = null;
+        if (cached && Date.now() - cached.cachedAt < RULESET_CACHE_TTL_MS) {
+            rulesetContent = cached.rulesetContent;
+        }
+
         // Fix corrupted URLs (https:/ -> https://)
         let cleanedPathOrUrl = filePathOrUrl;
         if (filePathOrUrl.includes('https:/') && !filePathOrUrl.includes('https://')) {
             cleanedPathOrUrl = filePathOrUrl.replace(/https:\//g, 'https://');
         }
-        
-        let rulesetContent: string;
-        
-        // Handle URLs - download content directly
-        if (isUrl(cleanedPathOrUrl)) {
-            rulesetContent = await downloadRulesetContent(cleanedPathOrUrl, rulesetContentPath, authToken);
-        } else {
-            // Resolve local file paths (relative paths are resolved from git root if available)
-            let rulesetPath = cleanedPathOrUrl;
-            if (gitRootPath && !filePathOrUrl.startsWith('/')) {
-                rulesetPath = path.join(gitRootPath, filePathOrUrl);
-            }
-            
-            // Read local file content
-            rulesetContent = await fsPromises.readFile(rulesetPath, 'utf8');
-        }
 
-        // Extract rulesetContent if present
-        rulesetContent = extractRulesetContent(rulesetContent, rulesetContentPath);
+        if (!rulesetContent) {
+            // Handle URLs - download content directly
+            if (isUrl(cleanedPathOrUrl)) {
+                rulesetContent = await downloadRulesetContent(cleanedPathOrUrl, rulesetContentPath, authToken);
+            } else {
+                // Resolve local file paths (relative paths are resolved from git root if available)
+                let rulesetPath = cleanedPathOrUrl;
+                if (gitRootPath && !filePathOrUrl.startsWith('/')) {
+                    rulesetPath = path.join(gitRootPath, filePathOrUrl);
+                }
+                
+                // Read local file content
+                rulesetContent = await fsPromises.readFile(rulesetPath, 'utf8');
+            }
+
+            // Extract rulesetContent if present and cache the extracted YAML.
+            rulesetContent = extractRulesetContent(rulesetContent, rulesetContentPath);
+            rulesetCache.set(cacheKey, {
+                cachedAt: Date.now(),
+                rulesetContent
+            });
+        }
         
         // Parse the YAML content to get the ruleset object
         const rulesetObject = loadYaml(rulesetContent) as any;
@@ -400,13 +422,14 @@ async function fetchSpectralRuleset(filePathOrUrl: string, rulesetContentPath: s
             throw new Error(`Invalid ruleset format: expected object, got ${typeof rulesetObject}`);
         }
         
-        // Process the ruleset using the dedicated processor
+        // Process the ruleset using the dedicated processor.
+        // We intentionally rebuild this object per call because it contains function references
+        // that are not safe to JSON-clone/store as serialized objects.
         const processedRuleset = processRuleset(rulesetObject);
         
         return { ruleset: processedRuleset };
     } catch (error: any) {
         logError(`Error fetching spectral ruleset:`, error);
-        logError('Error stack:', error.stack);
         throw error;
     }
 }
@@ -459,8 +482,6 @@ async function runSpectralLinting(
         );
         
         const results = await spectral.run(document);
-
-        logDebug('Spectral results:', JSON.stringify(results, null, 2));
         
         const metadata = options.metricsCollector
             ? { aiReadiness: options.metricsCollector.export() }
@@ -468,16 +489,7 @@ async function runSpectralLinting(
         
         return { results, metadata };
     } catch (error: any) {
-        logError('Spectral error details:', error);
-        if (error.message) {
-            logError('Error message:', error.message);
-        }
-        if (error.errors && Array.isArray(error.errors)) {
-            logError('Aggregate errors:');
-            error.errors.forEach((err: any, index: number) => {
-                logError(`  [${index}]:`, err.message || err);
-            });
-        }
+        logError('Spectral linting failed', error);
         throw error;
     }
 }
@@ -714,9 +726,8 @@ export async function validateApiSpec(apiSpec: any): Promise<any> {
         };
     }
     
-    // Get the default validation ruleset for this spec type
-    const rulesetName = specService.getDefaultValidationRuleset();
-    const rulesetDisplayName = specService.getDefaultValidationRulesetName();
+    // Resolve default validation ruleset for this spec type.
+    specService.getDefaultValidationRuleset();
     
     // Run Spectral linting with appropriate ruleset
     let spectralResults: any[] = [];
@@ -724,7 +735,6 @@ export async function validateApiSpec(apiSpec: any): Promise<any> {
         const spectral = new Spectral();
         
         await spectral.setRuleset(oas as any);
-        logDebug(`Using ${rulesetDisplayName} ruleset for validation`);
         
         const document = new Document(specContent, Parsers.Yaml);
         

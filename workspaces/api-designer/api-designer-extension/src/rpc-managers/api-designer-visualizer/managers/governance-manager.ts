@@ -65,11 +65,6 @@ type SpectralGovernancePayload = {
     totalChecks?: number;
 };
 
-type ApiPlatformConfigLike = {
-    spectralRulesets?: unknown[];
-    api?: { wso2Artifact?: string };
-};
-
 type GovernanceRulesetMetadata = {
     name: string;
     description?: string;
@@ -181,7 +176,7 @@ export class GovernanceManager extends BaseRpcManager {
     }
 
     private getWorkspaceCachePath(filePath: string): string {
-        return path.join(path.dirname(filePath), '.api-platform', '.cache', 'llm-ai-readiness.json');
+        return path.join(path.dirname(filePath), '.cache', 'llm-ai-readiness.json');
     }
 
     private async persistLlmState(filePath: string, state: LlmValidationState): Promise<void> {
@@ -355,7 +350,7 @@ export class GovernanceManager extends BaseRpcManager {
     }
 
     private async executeLlmValidationWithCopilotCli(filePath: string, apiHash: string): Promise<LlmValidationResult> {
-        const outputPath = path.join(path.dirname(filePath), '.api-platform', '.cache', `llm-ai-readiness-agent-${apiHash}.json`);
+        const outputPath = path.join(path.dirname(filePath), '.cache', `llm-ai-readiness-agent-${apiHash}.json`);
         await mkdir(path.dirname(outputPath), { recursive: true });
         const query = this.buildAgentPrompt(filePath, outputPath);
         await this.runCopilotCliPrompt(query, filePath, outputPath);
@@ -1027,7 +1022,7 @@ export class GovernanceManager extends BaseRpcManager {
                             sourceFolder: ruleset.sourceFolder,
                             fileName: ruleset.fileName,
                             rulesetContentPath: ruleset.rulesetContentPath || '',
-                            // Include additional metadata for display purposes only (not saved to config.yaml)
+                            // Include additional metadata for display purposes only.
                             description: ruleset.description,
                             enabled: true,
                             ruleCategory: ruleset.ruleCategory,
@@ -1066,70 +1061,12 @@ export class GovernanceManager extends BaseRpcManager {
         const DEFAULT_GOVERNANCE_RULESETS = getDefaultGovernanceSpectralRulesets();
         const DEFAULT_AI_READINESS_RULESET = getDefaultAiReadinessSpectralRuleset();
 
-        const buildResponse = (governanceRulesets: SpectralRuleset[]): GetApplicableRulesetsResponse => ({
-            governanceRulesets: governanceRulesets.map(ruleset => ({ ...ruleset })),
+        const buildResponse = (): GetApplicableRulesetsResponse => ({
+            governanceRulesets: DEFAULT_GOVERNANCE_RULESETS.map(ruleset => ({ ...ruleset })),
             aiReadinessRuleset: { ...DEFAULT_AI_READINESS_RULESET }
         });
 
-        try {
-            const fileUri = vscode.Uri.file(params.filePath);
-            const workspaceFolder = vscode.workspace.getWorkspaceFolder(fileUri);
-
-            if (!workspaceFolder) {
-                this.logInfo('No workspace folder detected. Returning default governance rulesets');
-                return buildResponse(DEFAULT_GOVERNANCE_RULESETS);
-            }
-
-            // Look for config.yaml in the same directory as the API file (not workspace root)
-            const apiFileDir = vscode.Uri.joinPath(fileUri, '..');
-            const configPath = vscode.Uri.joinPath(apiFileDir, '.api-platform', 'config.yaml');
-            let config: ApiPlatformConfigLike | null = null;
-
-            try {
-                const configContent = await readFile(configPath.fsPath, 'utf-8');
-                config = loadYaml(configContent) as ApiPlatformConfigLike;
-                this.logInfo(`Loaded API Platform config from ${configPath.fsPath}`);
-            } catch (error) {
-                this.logInfo(`No API Platform config found at ${configPath.fsPath}. Using default governance rulesets`);
-                return buildResponse(DEFAULT_GOVERNANCE_RULESETS);
-            }
-
-            if (!config) {
-                this.logWarning('Config could not be parsed. Using default governance rulesets');
-                return buildResponse(DEFAULT_GOVERNANCE_RULESETS);
-            }
-
-            const governanceRulesets = this.normalizeSpectralRulesets(config.spectralRulesets, 'getApplicableRulesets');
-
-            const currentApi = config.api;
-            const hasDeploymentArtifact = Boolean(currentApi?.wso2Artifact);
-
-            if (governanceRulesets.length === 0) {
-                this.logInfo('Config contains no governance rulesets. Falling back to defaults');
-                return buildResponse(DEFAULT_GOVERNANCE_RULESETS);
-            }
-
-            const filteredGovernanceRulesets = governanceRulesets.filter(ruleset => {
-                if (!ruleset?.name) {
-                    return true;
-                }
-
-                const nameLower = ruleset.name.toLowerCase();
-                if (nameLower.includes('api management') && !hasDeploymentArtifact) {
-                    this.logInfo(`Skipping "${ruleset.name}" ruleset because current API has no deployment artifact`);
-                    return false;
-                }
-
-                return true;
-            });
-
-            this.logInfo(`Using ${filteredGovernanceRulesets.length} governance rulesets from config`);
-            return buildResponse(filteredGovernanceRulesets);
-
-        } catch (error: unknown) {
-            this.logError('Error getting applicable rulesets', error);
-            return buildResponse(DEFAULT_GOVERNANCE_RULESETS);
-        }
+        return buildResponse();
     }
 
     async getAllSpectralRulesets(params: GetAllSpectralRulesetsRequest): Promise<GetAllSpectralRulesetsResponse> {
@@ -1184,4 +1121,3 @@ export class GovernanceManager extends BaseRpcManager {
         }
     }
 }
-

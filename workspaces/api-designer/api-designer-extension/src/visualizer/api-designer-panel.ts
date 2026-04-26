@@ -931,9 +931,6 @@ export class ApiDesignerPanel {
                 window.acquireVsCodeApi = function() {
                     if (!apiInstance && originalAcquire) {
                         apiInstance = originalAcquire();
-                        console.log('VS Code API acquired (first call)');
-                    } else if (apiInstance) {
-                        console.log('VS Code API already acquired, returning existing instance');
                     }
                     return apiInstance;
                 };
@@ -955,7 +952,6 @@ export class ApiDesignerPanel {
                         try {
                             const viewType = ${JSON.stringify(viewType)};
                             const initialFileUri = ${JSON.stringify(initialFileUri)};
-                            console.log('[Webview] Rendering with viewType:', viewType);
                             visualizerWebview.renderWebview(
                                 document.getElementById("root"), 
                                 { viewType: viewType, initialFileUri: initialFileUri }

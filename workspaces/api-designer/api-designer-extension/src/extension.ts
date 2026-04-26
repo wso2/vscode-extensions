@@ -25,7 +25,6 @@ import { RPCLayer } from './RPCLayer';
 import { initLogger, logInfo, disposeLogger } from './util/logger';
 import { ApiDesignerPanel } from './visualizer/api-designer-panel';
 import { initializeSpectralRulesetAutomation } from './spectral/rulesetAutomation';
-import { checkAndInstallCustomAgents, reinstallCustomAgents } from './util/customAgentsInstaller';
 import { registerMCPTools } from './tools/mcp-tools';
 import { detectSpecType, ApiSpecType } from '@wso2/api-designer-core';
 
@@ -74,9 +73,6 @@ export async function activate(context: vscode.ExtensionContext) {
 	logInfo('API Designer extension activating...');
 
 	extension.context = context;
-
-	// Install custom agents to user profile (first-time or on update)
-	await checkAndInstallCustomAgents(context);
 
 	// Initial check for the active document
 	checkDocumentForApiSpec(vscode.window.activeTextEditor?.document);
@@ -146,11 +142,6 @@ export async function activate(context: vscode.ExtensionContext) {
 		return openApiDesigner(uri, viewType);
 	});
 	context.subscriptions.push(openApiDesignerDisposable);
-
-	// Register custom agents management command
-	context.subscriptions.push(
-		vscode.commands.registerCommand('APIDesigner.reinstallCustomAgents', () => reinstallCustomAgents(context))
-	);
 
 	// Register API Preview commands
 	context.subscriptions.push(
