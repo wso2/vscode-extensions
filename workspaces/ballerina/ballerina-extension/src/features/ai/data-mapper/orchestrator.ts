@@ -97,8 +97,8 @@ async function generateAIPoweredDataMappings(dataMapperModelResponse: DataMapper
                 existingSubMappings
             );
 
-            if (Object.keys(aiGeneratedMappings).length === 0) {
-                throw new Error("No valid fields were identified for mapping between the given input and output records.");
+            if (aiGeneratedMappings.length === 0) {
+                throw new Error("No valid fields were identified for mapping between the given input and output types.");
             }
 
             return { mappings: aiGeneratedMappings };

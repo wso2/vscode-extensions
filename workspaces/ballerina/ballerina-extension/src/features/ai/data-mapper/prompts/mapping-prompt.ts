@@ -32,6 +32,17 @@ ${subMappings}
 **Mapping Context (These are mapping tips with HIGHEST PRIORITY):**
 ${mappingTips}
 
+## Root-Level Semantic Check (MUST DO FIRST)
+
+Before evaluating individual fields, determine whether the **root input and output types** are semantically compatible — i.e., they represent the same or closely related real-world concept.
+
+- If the root types are **fundamentally unrelated** (e.g., \`UserAccount\` vs \`ShoppingCart\`, \`WeatherReport\` vs \`OrderDetails\`), return an empty array — do not generate any mappings.
+- If the root types are **related or overlapping** (e.g., \`User\` vs \`UserProfile\`, \`Order\` vs \`OrderSummary\`), proceed to evaluate fields.
+
+When mapping fields within related types, use your judgment — shared data types alone are not a reason to map. Field-level relevance is highly context-dependent in nested structures, so prefer omitting an ambiguous mapping over generating a wrong one.
+
+**Exception:** User-defined mappings and sub-mappings provided above always bypass this semantic gate and must be honored as-is, per the Priority Hierarchy below.
+
 ## Priority Hierarchy
 
 When generating mapping expressions, follow this strict order of priority:
