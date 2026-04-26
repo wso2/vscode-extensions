@@ -864,39 +864,6 @@ export class GovernanceManager extends BaseRpcManager {
         }
     }
 
-    /**
-     * Normalize rulesets array, filtering out invalid entries
-     */
-    normalizeSpectralRulesets(rulesets: unknown[] | undefined, context: string): SpectralRuleset[] {
-        if (!Array.isArray(rulesets) || rulesets.length === 0) {
-            return [];
-        }
-
-        const normalizedRulesets: SpectralRuleset[] = [];
-
-        for (const ruleset of rulesets) {
-            if (!ruleset) {
-                this.logWarning(`${context}: Encountered undefined ruleset entry`);
-                continue;
-            }
-
-            const rulesetObj = ruleset as { name?: string; sourceFolder?: string; fileName?: string; rulesetContentPath?: string };
-            if (!rulesetObj.sourceFolder || !rulesetObj.fileName) {
-                this.logWarning(`${context}: Ruleset "${rulesetObj.name ?? '<unnamed>'}" is missing required fields (sourceFolder and fileName)`);
-                continue;
-            }
-
-            normalizedRulesets.push({
-                name: rulesetObj.name || '<unnamed>',
-                sourceFolder: rulesetObj.sourceFolder,
-                fileName: rulesetObj.fileName,
-                rulesetContentPath: rulesetObj.rulesetContentPath || ''
-            });
-        }
-
-        return normalizedRulesets;
-    }
-
     async fetchRulesetsFromFolder(params: FetchRulesetsFromFolderRequest): Promise<FetchRulesetsFromFolderResponse> {
         try {
             const { fetchRulesetsFromFolders } = await import('../../../util/github-utils.js');

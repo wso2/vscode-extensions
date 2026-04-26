@@ -21,12 +21,10 @@ import {
     APIDesignerVisualizerAPI,
     GetAPISpecContentRequest,
     GetAPISpecContentResponse,
-    GoToSourceRequest,
     OpenViewRequest,
     WriteAPISpecContentRequest,
     WriteAPISpecContentResponse,
     getAPISpecContent,
-    goToSource,
     importJSON,
     openView,
     writeAPISpecContent,
@@ -74,10 +72,6 @@ export class ApiDesignerVisualizerRpcClient implements APIDesignerVisualizerAPI 
 
     openView(params: OpenViewRequest): void {
         return this._messenger.sendNotification(openView, HOST_EXTENSION, params);
-    }
-
-    goToSource(params: GoToSourceRequest): void {
-        return this._messenger.sendNotification(goToSource, HOST_EXTENSION, params);
     }
 
     getAPISpecContent(params: GetAPISpecContentRequest): Promise<GetAPISpecContentResponse> {

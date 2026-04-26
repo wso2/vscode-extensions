@@ -1,45 +1,34 @@
 # API Designer for Visual Studio Code
 
-A powerful extension part of the WSO2 API Platform to deliver a unified, AI-assisted workspace for API design, governance, mocking, testing, and seamless integration with the API Platform.
+API Designer is an OpenAPI-first extension for designing and analyzing API specifications directly in VS Code.
 
 ## Features
 
-### Design
-Design and edit OpenAPI specifications with a unified interface that combines visual editing and live preview. Add endpoints, configure schemas, and see real-time validation feedback. The editor and preview are integrated in one place for seamless API development.
+### Design OpenAPI Specs
+- Visual editor for OpenAPI 3.x files.
+- Edit paths, operations, request bodies, responses, parameters, headers, and reusable components.
+- Built-in schema editing support, including **Import JSON** to generate schema definitions from sample payloads.
 
-### Govern
-Ensure compliance with organizational standards using Spectral rulesets. Get real-time compliance scoring and detailed violation reports. Analyze your APIs for governance, security, and AI readiness.
+### Analyze Governance and AI Readiness
+- Validate specs with Spectral-based governance reports.
+- View categorized issues, severity breakdowns, and report scores.
+- Includes AI Readiness analysis with agent-assisted evaluation and cached stale findings support.
 
-**Built-in Rulesets:**
-- WSO2 REST API Design Guidelines
-- OWASP API Security Standards
-- AI Readiness Guidelines
-- Custom rulesets from GitHub or local files
-
-### Mock
-Mock your API endpoints to test and validate your API design before implementation. Generate mock responses based on your OpenAPI specification.
-
-### Test
-Test your API endpoints directly from the extension. Run test scenarios and validate API behavior against your OpenAPI specification.
-
-### Document
-Create and manage API documentation. Generate comprehensive documentation from your OpenAPI specification with support for multiple documentation formats.
-
-### Manage
-Organize multiple APIs in a single project. Manage governance rulesets, documentation, deployment configurations, and generate WSO2 deployment artifacts. Configure project settings and deployment targets for WSO2 API Platform.
+### Ruleset Support
+- Built-in default governance rulesets:
+  - WSO2 REST API Design Guidelines
+  - OWASP API Security Top 10
+  - WSO2 REST API AI Readiness Guidelines
+- Additional rulesets can be discovered from configured GitHub/local folders via extension settings.
 
 ## Quick Start
 
-1. **Install** the extension from the VS Code Marketplace or from a VSIX file
-2. **Open the Activity Bar**: Click the API Designer icon in the VS Code Activity Bar (left sidebar)
-3. **View Your APIs**: The "APIs" view shows all OpenAPI files in your workspace
-4. **Select a View**: Click on any OpenAPI file to see available views:
-   - **Design**: Visual editor with integrated preview
-   - **Analyze**: Governance and validation
-   - **Mock**: Mock API endpoints
-   - **Test**: Test API endpoints
-   - **Document**: Manage documentation
-   - **Manage**: Project configuration and deployment
+1. Install the extension from Marketplace or VSIX.
+2. Open an OpenAPI YAML/JSON file.
+3. Run **Open API Designer** (CodeLens, editor title action, or command palette).
+4. Use:
+   - **Design** view to edit the API.
+   - **Analyze** view to run governance and AI readiness checks.
 
 ## Resources
 

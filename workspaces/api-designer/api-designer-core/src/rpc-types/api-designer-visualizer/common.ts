@@ -29,23 +29,6 @@ export interface HistoryEntryResponse {
     history: HistoryEntry[];
 }
 
-export interface GoToSourceRequest {
-    filePath: string;
-    position?: Range;
-    focusPath?: (string | number)[];
-}
-
-export interface Range {
-    start: {
-        line: number;
-        column: number;
-    };
-    end: {
-        line: number;
-        column: number;
-    };
-}
-
 export interface FileChangedNotification {
     filePath: string;
     timestamp: number;

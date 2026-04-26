@@ -74,13 +74,6 @@ export class AIProviderFactory {
     }
 
     /**
-     * Get all registered providers
-     */
-    static getAllProviders(): IAIProvider[] {
-        return Array.from(this.providers.values());
-    }
-
-    /**
      * Check if any provider is available
      */
     static async hasAvailableProvider(): Promise<boolean> {

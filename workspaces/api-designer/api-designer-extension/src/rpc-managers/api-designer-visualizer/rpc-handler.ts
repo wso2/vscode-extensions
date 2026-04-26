@@ -19,7 +19,6 @@
  */
 import {
     GetAPISpecContentRequest,
-    GoToSourceRequest,
     OpenViewRequest,
     WriteAPISpecContentRequest,
     GetGovernanceRequest,
@@ -33,7 +32,6 @@ import {
     CheckAIAvailabilityRequest,
     GetAllSpectralRulesetsRequest,
     getAPISpecContent,
-    goToSource,
     importJSON,
     openView,
     writeAPISpecContent,
@@ -77,11 +75,6 @@ export function registerApiDesignerVisualizerRpcHandlers(messenger: Messenger) {
             logError(`${CONTEXT}: Error handling openView request`, error);
             throw error;
         }
-    });
-    
-    messenger.onNotification(goToSource, (_args: GoToSourceRequest) => {
-        // ADD YOUR IMPLEMENTATION HERE
-        throw new Error('Not implemented');
     });
     
     // API Spec content operations

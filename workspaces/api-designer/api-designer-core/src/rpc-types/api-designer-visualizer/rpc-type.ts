@@ -19,7 +19,6 @@
  */
 import {
     OpenViewRequest,
-    GoToSourceRequest,
     GetAPISpecContentRequest,
     GetAPISpecContentResponse,
     WriteAPISpecContentResponse,
@@ -69,7 +68,6 @@ export const getAllSpectralRulesets: RequestType<GetAllSpectralRulesetsRequest, 
 
 export const onDocumentFileChanged: NotificationType<DocumentFileChangedNotification> = { method: `${_preFix}/onDocumentFileChanged` };
 
-export const goToSource: NotificationType<GoToSourceRequest> = { method: `${_preFix}/goToSource` };
 export const onFileChanged: NotificationType<FileChangedNotification> = { method: `${_preFix}/onFileChanged` };
 export const readFile: RequestType<ReadFileRequest, ReadFileResponse> = { method: `${_preFix}/readFile` };
 export const writeFile: RequestType<WriteFileRequest, WriteFileResponse> = { method: `${_preFix}/writeFile` };

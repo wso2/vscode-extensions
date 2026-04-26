@@ -18,7 +18,6 @@
 
 import {
     OpenViewRequest,
-    GoToSourceRequest,
     GetAPISpecContentRequest,
     GetAPISpecContentResponse,
     WriteAPISpecContentResponse,
@@ -83,7 +82,6 @@ export type GovernanceViolation = {
 
 export interface APIDesignerVisualizerAPI {
     openView: (params: OpenViewRequest) => void;
-    goToSource: (params: GoToSourceRequest) => void;
     getAPISpecContent: (params: GetAPISpecContentRequest) => Promise<GetAPISpecContentResponse>;
     writeAPISpecContent: (params: WriteAPISpecContentRequest) => Promise<WriteAPISpecContentResponse>;
     importJSON: () => Promise<Schema | undefined>;
@@ -109,7 +107,6 @@ export interface APIDesignerVisualizerAPI {
 
 export type {
     OpenViewRequest,
-    GoToSourceRequest,
     GetAPISpecContentRequest,
     GetAPISpecContentResponse,
     WriteAPISpecContentRequest,

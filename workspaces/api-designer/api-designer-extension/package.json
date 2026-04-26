@@ -1,7 +1,7 @@
 {
   "name": "api-designer",
   "displayName": "API Designer",
-  "description": "An extension which gives a development environment for designing, developing, debugging, and testing API solutions.",
+  "description": "OpenAPI-first API Designer for visual editing, governance validation, and AI readiness analysis in VS Code.",
   "version": "0.1.0",
   "publisher": "wso2",
   "license": "Apache-2.0",
@@ -175,12 +175,10 @@
           "type": "string",
           "default": "copilot",
           "enum": [
-            "copilot",
-            "claude"
+            "copilot"
           ],
           "enumDescriptions": [
-            "GitHub Copilot (requires GitHub Copilot extension)",
-            "Claude Code (requires Claude Code extension)"
+            "GitHub Copilot (requires GitHub Copilot extension)"
           ],
           "description": "AI provider to use for code generation and assistance",
           "order": 1
@@ -199,7 +197,7 @@
         },
         "apiDesigner.spectral.selectedRulesets": {
           "type": "array",
-          "description": "Rulesets discovered from the configured folders and whether they are enabled.",
+          "description": "Rulesets discovered from configured folders and whether they are enabled for selection and analysis.",
           "default": [],
           "items": {
             "type": "object",
@@ -223,7 +221,7 @@
               "enabled": {
                 "type": "boolean",
                 "default": true,
-                "description": "Whether the ruleset should be used when initializing an API project"
+                "description": "Whether the ruleset is enabled for governance/ruleset selection workflows"
               }
             },
             "required": [
