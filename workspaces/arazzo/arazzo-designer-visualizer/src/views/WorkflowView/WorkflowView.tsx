@@ -42,6 +42,7 @@ import { SidePanel, SidePanelTitleContainer, SidePanelBody, Button, Codicon, The
 import styled from "@emotion/styled";
 import * as C from '../../constants/nodeConstants';
 import { NodePropertiesPanel } from './NodePropertiesPanel';
+import { WorkflowSelectionScreen } from './WorkflowSelectionScreen';
 import { MODERN } from '../../constants';
 
 interface WorkflowViewProps {
@@ -253,6 +254,9 @@ export function WorkflowView(props: WorkflowViewProps) {
     // Tracks the workflow ID of the currently running trace so events from a
     // different workflow are ignored when this view is showing a different one.
     const activeTraceWorkflowIdRef = useRef<string | undefined>(undefined);
+    // Tracks the effective ID of the workflow currently displayed. Kept as a ref so
+    // trace handler closures (which accumulate across renders) always read the latest value.
+    const effectiveWorkflowIdRef = useRef<string | undefined>(workflowId);
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [graphKey, setGraphKey] = useState(0);
@@ -263,6 +267,9 @@ export function WorkflowView(props: WorkflowViewProps) {
     const [isLoading, setIsLoading] = useState(true);
     const [loadingError, setLoadingError] = useState<string | null>(null);
     const [traceSpans, setTraceSpans] = useState<WebviewTraceEvent[]>([]);
+    // When the workflow ID in the file has been renamed/removed, this holds the
+    // list of available workflows so the user can pick the correct one.
+    const [workflowNotFoundOptions, setWorkflowNotFoundOptions] = useState<ArazzoWorkflow[] | null>(null);
 
     // Edge types configuration
     const edgeTypes = {
@@ -285,7 +292,7 @@ export function WorkflowView(props: WorkflowViewProps) {
             // from a different workflow when this view is showing a different one.
             activeTraceWorkflowIdRef.current = event.attributes?.['workflow.id'];
             // Only reset and highlight if the running workflow matches the one shown.
-            if (activeTraceWorkflowIdRef.current !== workflowId) { return; }
+            if (activeTraceWorkflowIdRef.current !== effectiveWorkflowIdRef.current) { return; }
             // New workflow run started — reset step tracking and clear all highlights
             prevStepRef.current = 'virtual_start';
             setNodes(prev => prev.map(node => {
@@ -307,7 +314,7 @@ export function WorkflowView(props: WorkflowViewProps) {
 
         } else if (event.arazzo_span_kind === 'step') {
             // Ignore events from a different workflow than the one being visualized
-            if (activeTraceWorkflowIdRef.current !== workflowId) { return; }
+            if (activeTraceWorkflowIdRef.current !== effectiveWorkflowIdRef.current) { return; }
             const stepId = event.attributes?.['step.id'] || event.name;
 
             if (event.lifecycle === 'start') {
@@ -408,7 +415,7 @@ export function WorkflowView(props: WorkflowViewProps) {
                 prevStepRef.current = stepId;
             }
         } else if (event.arazzo_span_kind === 'workflow' && event.lifecycle === 'end') {
-            if (activeTraceWorkflowIdRef.current !== workflowId) { return; }
+            if (activeTraceWorkflowIdRef.current !== effectiveWorkflowIdRef.current) { return; }
             // Workflow finished — colour every endNode green regardless of how the workflow ended
             setNodes(prev => {
                 const endNodeIds = new Set(prev.filter(n => n.type === 'endNode').map(n => n.id));
@@ -426,7 +433,7 @@ export function WorkflowView(props: WorkflowViewProps) {
             });
 
         } else if (event.arazzo_span_kind === 'retry') {
-            if (activeTraceWorkflowIdRef.current !== workflowId) { return; }
+            if (activeTraceWorkflowIdRef.current !== effectiveWorkflowIdRef.current) { return; }
             const stepId = event.attributes?.['step.id'] || event.name;
             const attempt = parseInt(event.attributes?.['retry.attempt'] || '1', 10);
 
@@ -524,36 +531,42 @@ export function WorkflowView(props: WorkflowViewProps) {
         fetchData();
     }, [fileUri, workflowId]);
 
+    /** Builds and mounts the graph for the given workflow. */
+    const applyWorkflow = useCallback((wf: ArazzoWorkflow, definition: ArazzoDefinition) => {
+        effectiveWorkflowIdRef.current = wf.workflowId;
+        setWorkflow(wf);
+        setWorkflowNotFoundOptions(null);
+        setNodes([]);
+        setEdges([]);
+        buildGraphFromWorkflow(wf, isVertical, definition).then(({ nodes: builtNodes, edges: builtEdges }) => {
+            console.log('Graph built successfully:', { nodes: builtNodes, edges: builtEdges });
+            setNodes(builtNodes);
+            setEdges(builtEdges);
+            setGraphKey(prev => prev + 1);
+            setTimeout(() => reactFlowWrapper.current?.focus(), 50);
+        }).catch(err => {
+            console.error("Error building graph layout:", err);
+        });
+    }, [isVertical]);
+
     // Build graph when workflow data is available
     useEffect(() => {
         console.log('WorkflowView useEffect triggered', { arazzoDefinition, workflowId });
         if (arazzoDefinition) {
-            const targetWorkflowId = workflowId || arazzoDefinition.workflows?.[0]?.workflowId;
+            const targetWorkflowId = effectiveWorkflowIdRef.current || workflowId || arazzoDefinition.workflows?.[0]?.workflowId;
             console.log('Target workflow ID:', targetWorkflowId);
             if (targetWorkflowId) {
-                const workflow = arazzoDefinition.workflows?.find(wf => wf.workflowId === targetWorkflowId);
-                console.log('Found workflow:', workflow);
-                if (workflow) {
-                    // Keep workflow in state for Start node rendering
-                    setWorkflow(workflow);
-
-                    // Clear existing graph
-                    setNodes([]);
-                    setEdges([]);
-
-                    // Build new graph
-                    console.log('Building graph...');
-                    buildGraphFromWorkflow(workflow, isVertical, arazzoDefinition).then(({ nodes: builtNodes, edges: builtEdges }) => {
-                        console.log('Graph built successfully:', { nodes: builtNodes, edges: builtEdges });
-                        setNodes(builtNodes);
-                        setEdges(builtEdges);
-                        setGraphKey(prev => prev + 1); // Force complete re-mount to clear artifacts
-
-                        // Center view after render
-                        setTimeout(() => reactFlowWrapper.current?.focus(), 50);
-                    }).catch(err => {
-                        console.error("Error building graph layout:", err);
-                    });
+                const found = arazzoDefinition.workflows?.find(wf => wf.workflowId === targetWorkflowId);
+                console.log('Found workflow:', found);
+                if (found) {
+                    applyWorkflow(found, arazzoDefinition);
+                } else {
+                    // The workflow we were showing is no longer in the file (renamed/deleted).
+                    // Show the selection screen so the user can pick the correct one.
+                    const available = arazzoDefinition.workflows ?? [];
+                    if (available.length > 0) {
+                        setWorkflowNotFoundOptions(available);
+                    }
                 }
             }
         }
@@ -657,6 +670,15 @@ export function WorkflowView(props: WorkflowViewProps) {
             <LoaderContainer>
                 <DataValue>No Arazzo definition available</DataValue>
             </LoaderContainer>
+        );
+    }
+
+    if (workflowNotFoundOptions) {
+        return (
+            <WorkflowSelectionScreen
+                options={workflowNotFoundOptions}
+                onSelect={(wf) => applyWorkflow(wf, arazzoDefinition)}
+            />
         );
     }
 
