@@ -19,7 +19,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 /**
- * Common types shared between OpenAPI and AsyncAPI specifications
+ * Common types shared for API specifications
  */
 
 export interface Info {
@@ -51,8 +51,6 @@ export interface Server {
     url: string;
     description?: string;
     variables?: { [variableName: string]: ServerVariable };
-    protocol?: string; // AsyncAPI specific
-    protocolVersion?: string; // AsyncAPI specific
     [key: string]: any;
 }
 
@@ -144,7 +142,7 @@ export interface OAuthFlow {
  * Common specification metadata
  */
 export interface SpecMetadata {
-    type: 'openapi' | 'asyncapi';
+    type: 'openapi';
     version: string;
     info: Info;
     servers?: Server[];

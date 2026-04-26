@@ -38,12 +38,11 @@
         "tags": [
           "validation",
           "openapi",
-          "asyncapi",
           "api-designer"
         ],
         "toolReferenceName": "validateApiSpec",
         "displayName": "Validate API Specification",
-        "modelDescription": "Validates an API specification (OpenAPI or AsyncAPI) against standard rules using Spectral. Automatically detects spec type and applies appropriate ruleset.",
+        "modelDescription": "Validates an OpenAPI specification against standard rules using Spectral.",
         "canBeReferencedInPrompt": true,
         "icon": "$(check)",
         "inputSchema": {
@@ -51,7 +50,7 @@
           "properties": {
             "apiSpec": {
               "type": ["string", "object"],
-              "description": "The API specification to validate (can be YAML/JSON string or object). Works with both OpenAPI and AsyncAPI."
+              "description": "The OpenAPI specification to validate (can be YAML/JSON string or object)."
             },
             "fileUri": {
               "type": "string",
@@ -65,13 +64,12 @@
         "tags": [
           "validation",
           "openapi",
-          "asyncapi",
           "ruleset",
           "api-designer"
         ],
         "toolReferenceName": "validateWithSpectralRuleset",
         "displayName": "Validate with Dynamic Ruleset",
-        "modelDescription": "Validates an API specification (OpenAPI or AsyncAPI) against a custom dynamic ruleset (e.g., governance rules, AI readiness rules)",
+        "modelDescription": "Validates an OpenAPI specification against a custom dynamic ruleset (e.g., governance rules, AI readiness rules)",
         "canBeReferencedInPrompt": true,
         "icon": "$(checklist)",
         "inputSchema": {
@@ -79,7 +77,7 @@
           "properties": {
             "apiSpec": {
               "type": "string",
-              "description": "The API specification to validate (YAML/JSON string). Works with both OpenAPI and AsyncAPI."
+              "description": "The OpenAPI specification to validate (YAML/JSON string)."
             },
             "fileUri": {
               "type": "string",
@@ -170,7 +168,7 @@
         "apiDesigner.notifyOnOpen": {
           "type": "boolean",
           "default": true,
-          "description": "Show a notification when opening an OpenAPI or AsyncAPI file, offering to open it in API Designer.",
+          "description": "Show a notification when opening an OpenAPI file, offering to open it in API Designer.",
           "order": 1
         },
         "apiDesigner.ai.provider": {

@@ -46,7 +46,7 @@ const queryClient = new QueryClient({
   });
 
 export interface WebviewProps {
-    viewType: 'create' | 'preview' | string;
+    viewType: string;
     /** Seeded from extension HTML so the first paint has the document path (postMessage can arrive before React attaches listeners). */
     initialFileUri?: string;
     [key: string]: any;
@@ -178,18 +178,10 @@ function UnifiedWebview({
     }
 }
 
-export function renderWebview(target: HTMLElement, props: WebviewProps | string) {
+export function renderWebview(target: HTMLElement, props: WebviewProps) {
     const root = createRoot(target);
-    
-    // Handle legacy string mode parameter for backward compatibility
-    let viewType: string;
-    let initialFileUri = '';
-    if (typeof props === 'string') {
-        viewType = props;
-    } else {
-        viewType = props.viewType || 'preview';
-        initialFileUri = props.initialFileUri || '';
-    }
+    const viewType = props.viewType || 'preview';
+    const initialFileUri = props.initialFileUri || '';
     
     root.render(
         <React.StrictMode>

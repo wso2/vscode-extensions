@@ -137,7 +137,10 @@ export const buildIssueRows = (violations: NormalizedGovernanceViolation[]): Iss
     });
 
 export const buildLlmIssueRows = (llmValidation?: ReportState['llmValidation']): IssueRow[] => {
-    if (llmValidation?.status !== 'ready' || !llmValidation.result?.findings) {
+    const canShowCachedFindings =
+        llmValidation?.status === 'ready' ||
+        llmValidation?.status === 'stale';
+    if (!canShowCachedFindings || !llmValidation.result?.findings) {
         return [];
     }
     return llmValidation.result.findings.map((finding, index: number) => {

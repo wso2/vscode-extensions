@@ -131,23 +131,11 @@ export function SpecInfoEditor({
     const [licenseUrl, setLicenseUrl] = useState((spec?.info as any)?.license?.url || '');
     
     // Servers and tags state (for overview mode)
-    // Handle both array (OpenAPI) and object (AsyncAPI) formats for servers
     const getServersArray = useCallback((serversValue: any): Array<{ url: string; description?: string }> => {
         if (Array.isArray(serversValue)) {
             return serversValue;
-        } else if (serversValue && typeof serversValue === 'object') {
-            // AsyncAPI format: object with server names as keys
-            return Object.entries(serversValue).map(([name, server]: [string, any]) => ({
-                url: server.url || '',
-                description: server.description || name
-            }));
         }
         return [];
-    }, []);
-
-    // Detect if servers should be saved as object (AsyncAPI) or array (OpenAPI)
-    const isServersObject = useCallback((serversValue: any): boolean => {
-        return serversValue && !Array.isArray(serversValue) && typeof serversValue === 'object';
     }, []);
 
     const [servers, setServers] = useState<Array<{ url: string; description?: string }>>(
@@ -202,32 +190,12 @@ export function SpecInfoEditor({
         
         // Update servers and tags (for overview mode)
         if (mode === 'overview') {
-            // Handle servers: array for OpenAPI, object for AsyncAPI
-            if (servers.length > 0) {
-                if (isServersObject(baseSpec?.servers)) {
-                    // AsyncAPI format: convert array to object
-                    const serversObj: Record<string, any> = {};
-                    servers.forEach((server, index) => {
-                        const serverName = `server${index + 1}`;
-                        serversObj[serverName] = {
-                            url: server.url,
-                            protocol: 'http', // Default, can be updated later
-                            ...(server.description ? { description: server.description } : {})
-                        };
-                    });
-                    (updatedSpec as any).servers = serversObj;
-                } else {
-                    // OpenAPI format: keep as array
-                    (updatedSpec as any).servers = servers;
-                }
-            } else {
-                (updatedSpec as any).servers = undefined;
-            }
+            (updatedSpec as any).servers = servers.length > 0 ? servers : undefined;
             (updatedSpec as any).tags = tags.length > 0 ? tags : undefined;
         }
         
         return updatedSpec;
-    }, [title, version, description, termsOfService, contactName, contactEmail, contactUrl, licenseName, licenseUrl, mode, servers, tags, isServersObject]);
+    }, [title, version, description, termsOfService, contactName, contactEmail, contactUrl, licenseName, licenseUrl, mode, servers, tags]);
 
     // Use bidirectional sync hook (EXACT same pattern as OperationEditorModal)
     const {
@@ -293,33 +261,13 @@ export function SpecInfoEditor({
             
             // Update servers and tags (for overview mode)
             if (mode === 'overview') {
-                // Handle servers: array for OpenAPI, object for AsyncAPI
-                if (servers.length > 0) {
-                    if (isServersObject(prev?.servers)) {
-                        // AsyncAPI format: convert array to object
-                        const serversObj: Record<string, any> = {};
-                        servers.forEach((server, index) => {
-                            const serverName = `server${index + 1}`;
-                            serversObj[serverName] = {
-                                url: server.url,
-                                protocol: 'http', // Default, can be updated later
-                                ...(server.description ? { description: server.description } : {})
-                            };
-                        });
-                        (updatedSpec as any).servers = serversObj;
-                    } else {
-                        // OpenAPI format: keep as array
-                        (updatedSpec as any).servers = servers;
-                    }
-                } else {
-                    (updatedSpec as any).servers = undefined;
-                }
+                (updatedSpec as any).servers = servers.length > 0 ? servers : undefined;
                 (updatedSpec as any).tags = tags.length > 0 ? tags : undefined;
             }
             
             return updatedSpec;
         });
-    }, [title, version, description, termsOfService, contactName, contactEmail, contactUrl, licenseName, licenseUrl, mode, servers, tags, isServersObject, isOpen, setLocalSpec]);
+    }, [title, version, description, termsOfService, contactName, contactEmail, contactUrl, licenseName, licenseUrl, mode, servers, tags, isOpen, setLocalSpec]);
 
     // Handle save - called when Save button is clicked (EXACT same pattern as OperationEditorModal)
     const handleSave = useCallback(() => {

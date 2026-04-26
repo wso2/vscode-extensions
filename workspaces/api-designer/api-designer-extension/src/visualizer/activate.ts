@@ -83,7 +83,7 @@ export function activateVisualizer(context: vscode.ExtensionContext) {
                 return;
             }
             
-            // Handle API specification files (OpenAPI or AsyncAPI)
+            // Handle OpenAPI specification files
             if (isApiSpecificationFile(document) && ApiDesignerPanel.currentPanel && !ApiDesignerPanel.currentPanel.isDisposed()) {
                 // Skip update if this save came from the webview (validation is already refreshed there)
                 if (ApiDesignerPanel.currentPanel.isSavingFromWebview()) {
@@ -177,7 +177,7 @@ export function activateVisualizer(context: vscode.ExtensionContext) {
 }
 
 /**
- * Check if a document is an API specification file (OpenAPI or AsyncAPI)
+ * Check if a document is an OpenAPI specification file
  */
 function isApiSpecificationFile(document: vscode.TextDocument): boolean {
     if (document.uri.scheme === 'webview') {

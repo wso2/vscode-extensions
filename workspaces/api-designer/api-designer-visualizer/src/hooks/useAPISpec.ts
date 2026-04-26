@@ -21,12 +21,10 @@ import { postMessage as postVSCodeMessage } from '../utils/vscode-api';
 
 export interface APISpec {
     openapi?: string;
-    asyncapi?: string;
     info?: any;
     servers?: any[];
     tags?: any[];
     paths?: Record<string, any>;
-    channels?: Record<string, any>;
     components?: Record<string, any>;
 }
 
@@ -44,7 +42,7 @@ export interface UseAPISpecReturn {
 }
 
 /**
- * Hook for managing API specification state (OpenAPI or AsyncAPI)
+ * Hook for managing API specification state (OpenAPI)
  * Handles spec updates, saving, and message listening
  */
 export function useAPISpec(

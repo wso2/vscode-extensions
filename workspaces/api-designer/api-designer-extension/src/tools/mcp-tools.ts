@@ -40,7 +40,7 @@ const makeToolResult = (text: string): LanguageModelToolResultLike => {
 };
 
 /**
- * Tool for validating API specifications (OpenAPI or AsyncAPI)
+ * Tool for validating OpenAPI specifications
  */
 export class ValidateAPISpecTool {
     async invoke(
@@ -122,7 +122,7 @@ interface IvalidateWithSpectralRulesetParameters {
 }
 
 /**
- * Tool for validating API specifications (OpenAPI or AsyncAPI) against custom dynamic rulesets
+ * Tool for validating OpenAPI specifications against custom dynamic rulesets
  */
 export class validateWithSpectralRulesetTool {
     async invoke(

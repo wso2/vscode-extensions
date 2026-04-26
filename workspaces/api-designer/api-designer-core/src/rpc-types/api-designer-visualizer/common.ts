@@ -139,7 +139,7 @@ export interface OpenFileInBrowserResponse {
 export interface GetWorkspaceFileTreeRequest {
     workspaceUri: string;
     path?: string; // Optional subdirectory path
-    filterType?: 'openapi' | 'asyncapi' | 'artifact' | 'documentation' | 'tests' | 'ruleset'; // Optional filter
+    filterType?: 'openapi' | 'artifact' | 'documentation' | 'tests' | 'ruleset'; // Optional filter
 }
 
 export interface GetWorkspaceFileTreeResponse {

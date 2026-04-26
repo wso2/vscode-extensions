@@ -22,7 +22,6 @@ import { Button, Codicon, Typography } from '@wso2/ui-toolkit';
 import { isEqual } from 'lodash';
 import { ApiSpecType, buildGenericEditPrompt } from '@wso2/api-designer-core';
 import { LoadingOverlay } from '../../components/common/LoadingOverlay';
-import { AsyncAPIEditor } from './components/asyncapi/AsyncAPIEditor';
 import { OpenAPIEditor } from './components/openapi/OpenAPIEditor';
 import { useFileUri } from '../../hooks/useFileUri';
 import { useAPIEditorState } from './hooks/useAPIEditorState';
@@ -36,7 +35,6 @@ import { postMessage as postVSCodeMessage } from '../../utils/vscode-api';
 
 interface OpenAPISpec {
     openapi?: string;
-    asyncapi?: string;
     info?: {
         title?: string;
         description?: string;
@@ -55,7 +53,6 @@ interface OpenAPISpec {
     servers?: any;
     tags?: any[];
     paths?: Record<string, any>;
-    channels?: Record<string, any>;
     components?: {
         schemas?: Record<string, any>;
         responses?: Record<string, any>;
@@ -66,7 +63,6 @@ interface OpenAPISpec {
         examples?: Record<string, any>;
         links?: Record<string, any>;
         callbacks?: Record<string, any>;
-        messages?: Record<string, any>;
     };
 }
 
@@ -164,7 +160,7 @@ export const APIEditor: React.FC<APIEditorProps> = ({ initialSpec: propInitialSp
     const handleAIPromptSubmit = useCallback((userQuery: string) => {
         if (!aiPromptDialog.config) return;
 
-        const detectedSpecType = state.specType === ApiSpecType.ASYNCAPI ? ApiSpecType.ASYNCAPI : ApiSpecType.OPENAPI;
+        const detectedSpecType = ApiSpecType.OPENAPI;
         
         const fullPrompt = buildGenericEditPrompt({
             specType: detectedSpecType,
@@ -289,23 +285,6 @@ export const APIEditor: React.FC<APIEditorProps> = ({ initialSpec: propInitialSp
                     <LoadingOverlay message="Loading API specification..." fullScreen />
                 )}
             </LoadingContainer>
-        );
-    }
-
-    // Route to AsyncAPI editor if spec is AsyncAPI
-    if (state.specType === ApiSpecType.ASYNCAPI && state.spec) {
-        return (
-            <AsyncAPIEditor
-                spec={state.spec as any}
-                specType={state.specType}
-                validationData={state.validationData}
-                aiReadinessScore={state.aiReadinessScore}
-                validationModal={state.validationModal}
-                fileUri={fileUri}
-                saveSpec={saveSpec}
-                setValidationModal={state.setValidationModal}
-                onAIPromptSubmit={handleAIPromptSubmit}
-            />
         );
     }
 

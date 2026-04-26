@@ -600,10 +600,6 @@ export class ApiDesignerPanel {
                 this._specType = ApiSpecType.OPENAPI;
                 this._specService = SpecificationFactory.getService(ApiSpecType.OPENAPI);
                 logDebug('ApiDesignerPanel: Detected OpenAPI from preview data');
-            } else if ('asyncapi' in dataObj) {
-                this._specType = ApiSpecType.ASYNCAPI;
-                this._specService = SpecificationFactory.getService(ApiSpecType.ASYNCAPI);
-                logDebug('ApiDesignerPanel: Detected AsyncAPI from preview data');
             }
         }
         
@@ -672,9 +668,6 @@ export class ApiDesignerPanel {
                     if (parsed.openapi) {
                         this._specType = ApiSpecType.OPENAPI;
                         this._specService = SpecificationFactory.getService(ApiSpecType.OPENAPI);
-                    } else if (parsed.asyncapi) {
-                        this._specType = ApiSpecType.ASYNCAPI;
-                        this._specService = SpecificationFactory.getService(ApiSpecType.ASYNCAPI);
                     }
                     
                     // Store for future use
@@ -1096,8 +1089,7 @@ export class ApiDesignerPanel {
             const document = await vscode.workspace.openTextDocument(this._currentFilePath);
             const content = document.getText();
             
-            // Uses spec-agnostic validation - automatically detects OpenAPI or AsyncAPI
-            // and applies the appropriate Spectral ruleset
+            // Uses OpenAPI validation with Spectral
             const validationResult = await validateApiSpec(content);
             
             // Keep paths as arrays (Spectral returns arrays); include range for snippet preview in the webview
@@ -1290,37 +1282,19 @@ export class ApiDesignerPanel {
                 return;
             }
 
-            // Determine API type (default to OpenAPI)
-            const apiType = data.apiType || ApiSpecType.OPENAPI;
-            const isOpenAPI = apiType === ApiSpecType.OPENAPI;
-
-            // Create API spec based on type
-            let apiSpec: any;
-            if (isOpenAPI) {
-                apiSpec = {
-                    openapi: '3.0.1',
-                    info: {
-                        title: data.name,
-                        version: data.version,
-                        ...(data.context ? { description: data.context } : {})
-                    },
-                    paths: {}
-                };
-            } else {
-                // AsyncAPI
-                apiSpec = {
-                    asyncapi: '2.6.0',
-                    info: {
-                        title: data.name,
-                        version: data.version,
-                        ...(data.context ? { description: data.context } : {})
-                    },
-                    channels: {}
-                };
-            }
+            const apiType = ApiSpecType.OPENAPI;
+            const apiSpec: any = {
+                openapi: '3.0.1',
+                info: {
+                    title: data.name,
+                    version: data.version,
+                    ...(data.context ? { description: data.context } : {})
+                },
+                paths: {}
+            };
 
             // Generate filename
-            const fileName = `${data.name.toLowerCase().replace(/\s+/g, '-')}.${isOpenAPI ? 'openapi' : 'asyncapi'}.yaml`;
+            const fileName = `${data.name.toLowerCase().replace(/\s+/g, '-')}.openapi.yaml`;
             const fileUri = vscode.Uri.joinPath(folderUri, fileName);
 
             // Check if file exists
@@ -1522,9 +1496,8 @@ export class ApiDesignerPanel {
                 return;
             }
 
-            // Determine API type (default to OpenAPI)
-            const apiType = data.apiType || ApiSpecType.OPENAPI;
-            const apiTypeName = apiType === ApiSpecType.OPENAPI ? 'OpenAPI' : 'AsyncAPI';
+            const apiType = ApiSpecType.OPENAPI;
+            const apiTypeName = 'OpenAPI';
 
             this._panel.webview.postMessage({
                 command: 'setLoading',
@@ -1535,7 +1508,7 @@ export class ApiDesignerPanel {
             const externalUrls = this.parseExternalReferenceUrls(data.externalReferenceUrls);
             const useWorkspaceSearchGuidance = data.includeWorkspaceSpecs !== false;
 
-            const prompt = buildGenerateAPISpecPrompt(data.description, folderPath, apiType, {
+            const prompt = buildGenerateAPISpecPrompt(data.description, folderPath, {
                 useWorkspaceSearchGuidance,
                 externalReferenceUrls: externalUrls
             });
@@ -1567,22 +1540,17 @@ export class ApiDesignerPanel {
      * Generate YAML content from API spec object
      */
     private generateYAML(spec: any): string {
-        const isOpenAPI = spec.openapi !== undefined;
-        const specVersion = isOpenAPI ? spec.openapi : spec.asyncapi;
+        const specVersion = spec.openapi;
         const info = spec.info || {};
         
-        let yaml = `${isOpenAPI ? 'openapi' : 'asyncapi'}: ${specVersion}\n`;
+        let yaml = `openapi: ${specVersion}\n`;
         yaml += `info:\n`;
         yaml += `  title: ${info.title}\n`;
         yaml += `  version: ${info.version}\n`;
         if (info.description) {
             yaml += `  description: ${info.description}\n`;
         }
-        if (isOpenAPI) {
-            yaml += `paths: {}\n`;
-        } else {
-            yaml += `channels: {}\n`;
-        }
+        yaml += `paths: {}\n`;
         
         return yaml;
     }
@@ -1613,7 +1581,7 @@ export class ApiDesignerPanel {
 
             // Single navigation message: avoids clearing loading before leave-create (create form flash)
             if (this._panel && !this._isDisposed) {
-                const parsedSpec = spec && (spec.openapi || spec.asyncapi) ? spec : null;
+                const parsedSpec = spec && spec.openapi ? spec : null;
                 this._panel.webview.postMessage({
                     command: 'openDesigner',
                     filePath,
@@ -1621,7 +1589,7 @@ export class ApiDesignerPanel {
                 });
 
                 // Also send updateSpec as a backup in case the component is already mounted
-                if (spec && (spec.openapi || spec.asyncapi)) {
+                if (spec && spec.openapi) {
                     setTimeout(() => {
                         if (this._panel && !this._isDisposed) {
                             this._panel.webview.postMessage({

@@ -448,11 +448,14 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
             };
         }
         if (llmValidation.status === 'stale') {
+            const staleCount = llmValidation.result?.findings?.length || 0;
             return {
                 statusLabel: 'Stale',
                 statusColor: 'var(--vscode-editorWarning-foreground)',
                 statusBg: 'color-mix(in srgb, var(--vscode-editorWarning-foreground) 14%, transparent)',
-                meta: llmValidation.error || 'OpenAPI spec changed — re-evaluate to refresh agent results.',
+                meta: staleCount > 0
+                    ? `Showing ${staleCount} cached finding${staleCount !== 1 ? 's' : ''} from the previous evaluation. Re-evaluate to refresh against current spec.`
+                    : (llmValidation.error || 'OpenAPI spec changed — re-evaluate to refresh agent results.'),
                 icon: '⚠',
                 score: null,
             };
@@ -482,6 +485,7 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
     const badge = reportKey === 'ai-readiness'
         ? `${aiReadinessDimensions.length} dimension${aiReadinessDimensions.length !== 1 ? 's' : ''}`
         : `${categories.length} categor${categories.length !== 1 ? 'ies' : 'y'}`;
+    const hasLlmFindings = (llmValidation?.result?.findings?.length || 0) > 0;
 
     return (
         <Section>
@@ -514,7 +518,7 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
                             <LlmMeta>{llmInfo.meta}</LlmMeta>
                         </LlmInfo>
                         <LlmActions>
-                            {llmValidation?.status === 'ready' && (
+                            {(llmValidation?.status === 'ready' || (llmValidation?.status === 'stale' && hasLlmFindings)) && (
                                 <ViewIssuesBtn onClick={() => onViewIssues('llm-validation')}>View findings</ViewIssuesBtn>
                             )}
                             {(llmValidation?.status === 'stale' || llmValidation?.status === 'failed' || !llmValidation || llmValidation.status === 'pending') && (

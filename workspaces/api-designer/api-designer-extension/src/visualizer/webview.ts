@@ -233,7 +233,8 @@ export class VisualizerWebview {
             <script>
             function render() {
                 visualizerWebview.renderWebview(
-                    document.getElementById("root"), "visualizer"
+                    document.getElementById("root"),
+                    { viewType: "preview", initialFileUri: "" }
                 );
             }
             render();

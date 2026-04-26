@@ -20,40 +20,35 @@
  * Supported API specification types
  */
 export enum ApiSpecType {
-    OPENAPI = 'openapi',
-    ASYNCAPI = 'asyncapi'
+    OPENAPI = 'openapi'
 }
 
 /**
  * File extensions for API specifications
  */
 export const SPEC_FILE_EXTENSIONS = {
-    [ApiSpecType.OPENAPI]: ['.yaml', '.yml', '.json'],
-    [ApiSpecType.ASYNCAPI]: ['.yaml', '.yml', '.json']
+    [ApiSpecType.OPENAPI]: ['.yaml', '.yml', '.json']
 } as const;
 
 /**
  * Specification version patterns
  */
 export const SPEC_VERSION_PATTERNS = {
-    [ApiSpecType.OPENAPI]: /^\s*openapi\s*:\s*['"]?([0-9]+\.[0-9]+)/i,
-    [ApiSpecType.ASYNCAPI]: /^\s*asyncapi\s*:\s*['"]?([0-9]+\.[0-9]+)/i
+    [ApiSpecType.OPENAPI]: /^\s*openapi\s*:\s*['"]?([0-9]+\.[0-9]+)/i
 } as const;
 
 /**
  * Specification field names in parsed objects
  */
 export const SPEC_FIELD_NAMES = {
-    [ApiSpecType.OPENAPI]: 'openapi',
-    [ApiSpecType.ASYNCAPI]: 'asyncapi'
+    [ApiSpecType.OPENAPI]: 'openapi'
 } as const;
 
 /**
  * Default specification versions
  */
 export const DEFAULT_SPEC_VERSIONS = {
-    [ApiSpecType.OPENAPI]: '3.1.0',
-    [ApiSpecType.ASYNCAPI]: '3.0.0'
+    [ApiSpecType.OPENAPI]: '3.1.0'
 } as const;
 
 /**

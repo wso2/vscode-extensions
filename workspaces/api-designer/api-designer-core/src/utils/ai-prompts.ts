@@ -84,29 +84,26 @@ export function buildGenerateOpenAPIPrompt(
     folderPath?: string,
     options?: BuildGenerateAPISpecPromptOptions
 ): string {
-    return buildGenerateAPISpecPrompt(description, folderPath, ApiSpecType.OPENAPI, options);
+    return buildGenerateAPISpecPrompt(description, folderPath, options);
 }
 
 /**
- * Build AI prompt for generating API specification (OpenAPI or AsyncAPI)
+ * Build AI prompt for generating API specification (OpenAPI)
  */
 export function buildGenerateAPISpecPrompt(
     description: string,
     folderPath?: string,
-    apiType: ApiSpecType = ApiSpecType.OPENAPI,
     options?: BuildGenerateAPISpecPromptOptions
 ): string {
     const savePathLine = folderPath ? `\nSave the file in: ${folderPath}` : '';
-    const specName = apiType === ApiSpecType.OPENAPI ? 'OpenAPI' : 'AsyncAPI';
-    const specVersion = apiType === ApiSpecType.OPENAPI ? '3.0/3.1' : '2.x/3.0';
-    const specStructure = apiType === ApiSpecType.OPENAPI 
-        ? 'paths, components, and other OpenAPI elements'
-        : 'channels, messages, servers, and other AsyncAPI elements';
+    const specName = 'OpenAPI';
+    const specVersion = '3.0/3.1';
+    const specStructure = 'paths, components, and other OpenAPI elements';
 
     const wsBlock =
         options?.useWorkspaceSearchGuidance === true
             ? `\nWorkspace resources:
-- Search this workspace for existing API specifications (OpenAPI/AsyncAPI YAML or JSON), JSON Schema files, and shared components. Use codebase search, file search, or open relevant files as needed.
+- Search this workspace for existing API specifications (OpenAPI YAML or JSON), JSON Schema files, and shared components. Use codebase search, file search, or open relevant files as needed.
 - Reuse naming, \`components\`/\`schemas\`, security schemes, tags, and patterns from those resources where appropriate. Prefer consistency with existing APIs here over inventing duplicate or conflicting models.\n`
             : '';
 
@@ -342,8 +339,8 @@ export interface ValidationFixContext {
  * Build prompt for fixing validation issues
  */
 export function buildFixValidationIssuesPrompt(context: ValidationFixContext): string {
-    const { specType, issueType, count, issues = [] } = context;
-    const specName = specType === ApiSpecType.OPENAPI ? 'OpenAPI' : 'AsyncAPI';
+    const { issueType, count, issues = [] } = context;
+    const specName = 'OpenAPI';
     
     let prompt = `Fix all ${issueType}${count !== 1 ? 's' : ''} in the ${specName} specification.`;
     
@@ -378,8 +375,8 @@ export interface GenericEditContext {
  * Build generic prompt for AI-assisted editing
  */
 export function buildGenericEditPrompt(context: GenericEditContext): string {
-    const { specType, path, context: specContext, userQuery } = context;
-    const specName = specType === ApiSpecType.OPENAPI ? 'OpenAPI' : 'AsyncAPI';
+    const { path, context: specContext, userQuery } = context;
+    const specName = 'OpenAPI';
     
     let prompt = userQuery;
     

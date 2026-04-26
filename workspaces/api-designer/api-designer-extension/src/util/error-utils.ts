@@ -76,7 +76,7 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
     [ErrorCode.FILE_PARSE_ERROR]: 'Failed to parse file. Please check the file format.',
 
     [ErrorCode.SPEC_INVALID]: 'Invalid API specification. Please check the specification format.',
-    [ErrorCode.SPEC_TYPE_UNKNOWN]: 'Unknown API specification type. Supported types: OpenAPI, AsyncAPI.',
+    [ErrorCode.SPEC_TYPE_UNKNOWN]: 'Unknown API specification type. Supported type: OpenAPI.',
     [ErrorCode.SPEC_PARSE_ERROR]: 'Failed to parse API specification. Please check the syntax.',
 
     [ErrorCode.VALIDATION_ERROR]: 'Validation failed. Please check the validation errors.',

@@ -46,16 +46,6 @@ export function detectSpecType(content: string): SpecDetectionResult {
         };
     }
 
-    // Check for AsyncAPI
-    const asyncApiMatch = SPEC_VERSION_PATTERNS[ApiSpecType.ASYNCAPI].exec(firstLines);
-    if (asyncApiMatch) {
-        return {
-            type: ApiSpecType.ASYNCAPI,
-            version: asyncApiMatch[1],
-            confidence: 'high'
-        };
-    }
-
         // Try parsing as JSON/YAML and checking object properties
         try {
             let parsed: unknown;
@@ -78,29 +68,11 @@ export function detectSpecType(content: string): SpecDetectionResult {
                 };
             }
 
-            // Check for AsyncAPI
-            const asyncApiField = SPEC_FIELD_NAMES[ApiSpecType.ASYNCAPI];
-            if (asyncApiField in parsedObj) {
-                return {
-                    type: ApiSpecType.ASYNCAPI,
-                    version: String(parsedObj[asyncApiField] || ''),
-                    confidence: 'high'
-                };
-            }
-
-            // Check for info object (common to both)
+            // Check for info object and infer OpenAPI from structure
             if ('info' in parsedObj) {
-                // Try to infer from structure
                 if ('paths' in parsedObj) {
                     return {
                         type: ApiSpecType.OPENAPI,
-                        version: null,
-                        confidence: 'medium'
-                    };
-                }
-                if ('channels' in parsedObj) {
-                    return {
-                        type: ApiSpecType.ASYNCAPI,
                         version: null,
                         confidence: 'medium'
                     };
@@ -126,10 +98,6 @@ export function detectSpecTypeFromPath(filePath: string): ApiSpecType | null {
         return ApiSpecType.OPENAPI;
     }
     
-    if (lowerPath.includes('asyncapi')) {
-        return ApiSpecType.ASYNCAPI;
-    }
-
     // Check file extension
     if (lowerPath.endsWith('.yaml') || lowerPath.endsWith('.yml') || lowerPath.endsWith('.json')) {
         // Can't determine from path alone, return null

@@ -31,7 +31,7 @@ export interface ValidationError {
 }
 
 /**
- * Request to validate API specification (OpenAPI or AsyncAPI)
+ * Request to validate API specification (OpenAPI)
  */
 export interface ValidateAPISpecRequest {
     filePath: string;
@@ -169,9 +169,6 @@ export interface AiReadinessSummary {
 
 export type GovernanceReportId = 'ai-readiness' | 'owasp' | 'rest-api-readiness';
 
-/** Alias for {@link GovernanceReportId} (discriminant of {@link UnifiedAnalyzeReport}). */
-export type UnifiedAnalyzeReportKey = GovernanceReportId;
-
 export interface UnifiedViolation {
     id: string;
     rule: string;
@@ -189,10 +186,6 @@ export interface UnifiedViolation {
         start: { line: number; character: number };
         end: { line: number; character: number };
     };
-    /**
-     * Backend-derived breakdown scopes this violation belongs to.
-     * Frontend must filter by these keys instead of deriving grouping logic.
-     */
     breakdownKeys: string[];
 }
 

@@ -49,7 +49,7 @@ interface ValidationIssuesModalProps {
     activeTab?: 'error' | 'warning';
     onTabChange?: (tab: 'error' | 'warning') => void;
     fileUri?: string;
-    specType?: 'openapi' | 'asyncapi';
+    specType?: 'openapi';
 }
 
 const fadeIn = keyframes`
@@ -466,8 +466,8 @@ export const ValidationIssuesModal: React.FC<ValidationIssuesModalProps> = ({
 
     const handleFixAll = () => {
         if (currentIssues.length > 0 && fileUri) {
-            const specTypeName = specType === 'asyncapi' ? 'AsyncAPI' : 'OpenAPI';
-            const detectedSpecType = specType === 'asyncapi' ? ApiSpecType.ASYNCAPI : ApiSpecType.OPENAPI;
+            const specTypeName = 'OpenAPI';
+            const detectedSpecType = ApiSpecType.OPENAPI;
             const issues = currentIssues.map(issue => ({
                 message: issue.message,
                 path: issue.path,
@@ -486,7 +486,7 @@ export const ValidationIssuesModal: React.FC<ValidationIssuesModalProps> = ({
 2. After fixing the issue, call validateApiSpec again to verify the fix and discover remaining ${activeTab}s
 3. Continue this process until validateApiSpec reports no issues
 
-Note: The validation tool works for both OpenAPI and AsyncAPI specifications automatically.`;
+Note: The validation tool validates OpenAPI specifications automatically.`;
 
             postVSCodeMessage({
                 command: 'openAIChat',
@@ -504,7 +504,7 @@ Note: The validation tool works for both OpenAPI and AsyncAPI specifications aut
     };
 
     const handleFixIndividual = (issue: ValidationIssuePathItem) => {
-        const specTypeName = specType === 'asyncapi' ? 'AsyncAPI' : 'OpenAPI';
+        const specTypeName = 'OpenAPI';
         const pathStr =
             Array.isArray(issue.path) && issue.path.length > 0 ? ` at /${issue.path.join('/')}` : '';
         const issueMessage = `${issue.message}${pathStr}`;

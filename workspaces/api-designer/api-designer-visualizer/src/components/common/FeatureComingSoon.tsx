@@ -61,7 +61,7 @@ interface FeatureComingSoonProps {
 
 export const FeatureComingSoon: React.FC<FeatureComingSoonProps> = ({ 
     featureName = "Feature", 
-    description = "Support for AsyncAPI specifications in this view is currently under development." 
+    description = "This capability is currently under development." 
 }) => {
     return (
         <Container>

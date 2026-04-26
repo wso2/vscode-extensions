@@ -53,12 +53,10 @@ import { ValidationModalState } from '../../hooks/useAPIEditorState';
 
 interface OpenAPISpec {
     openapi?: string;
-    asyncapi?: string;
     info?: any;
     servers?: any[];
     tags?: any[];
     paths?: Record<string, any>;
-    channels?: Record<string, any>;
     components?: any;
 }
 
@@ -116,7 +114,7 @@ export const OpenAPIEditor: React.FC<OpenAPIEditorProps> = ({
     const handleAIPromptSubmit = useCallback((userQuery: string) => {
         if (!aiPromptDialog.config) return;
 
-        const detectedSpecType = specType === ApiSpecType.ASYNCAPI ? ApiSpecType.ASYNCAPI : ApiSpecType.OPENAPI;
+        const detectedSpecType = ApiSpecType.OPENAPI;
         
         const fullPrompt = buildGenericEditPrompt({
             specType: detectedSpecType,
@@ -127,7 +125,7 @@ export const OpenAPIEditor: React.FC<OpenAPIEditorProps> = ({
 
         openAIChat(aiPromptDialog.config.context, fullPrompt);
         aiPromptDialog.closePrompt();
-    }, [aiPromptDialog, openAIChat, specType]);
+    }, [aiPromptDialog, openAIChat]);
 
     return (
         <EditorContainer>

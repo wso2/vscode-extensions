@@ -180,10 +180,6 @@ export function resolveResponseHoverColor(responseCode: string): string {
     }
 }
 
-// Legacy function names for backward compatibility (will be removed in future)
-export const resolveResonseColor = resolveResponseColor;
-export const resolveResonseHoverColor = resolveResponseHoverColor;
-
 // ============================================================================
 // Parameter Utilities
 // ============================================================================

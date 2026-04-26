@@ -163,7 +163,3 @@ export const StateMachinePopup = {
         return typeof state === 'object' && 'open' in state && state.open === 'active';
     }
 };
-
-export function openPopupView(type: EVENT_TYPE, viewLocation?: PopupVisualizerLocation) {
-    popupStateService.send({ type: type, viewLocation: viewLocation });
-}

@@ -20,7 +20,7 @@ import React from 'react';
 import styled from '@emotion/styled';
 import { Codicon } from '@wso2/ui-toolkit';
 
-const Badge = styled.div<{ specType: 'openapi' | 'asyncapi' }>`
+const Badge = styled.div<{ specType: 'openapi' }>`
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -28,15 +28,9 @@ const Badge = styled.div<{ specType: 'openapi' | 'asyncapi' }>`
     border-radius: 12px;
     font-size: 12px;
     font-weight: 600;
-    background: ${(props: { specType: 'openapi' | 'asyncapi' }) => props.specType === 'openapi' 
-        ? 'rgba(59, 130, 246, 0.15)' 
-        : 'rgba(168, 85, 247, 0.15)'};
-    color: ${(props: { specType: 'openapi' | 'asyncapi' }) => props.specType === 'openapi'
-        ? 'rgb(96, 165, 250)'
-        : 'rgb(192, 132, 252)'};
-    border: 1px solid ${(props: { specType: 'openapi' | 'asyncapi' }) => props.specType === 'openapi'
-        ? 'rgba(59, 130, 246, 0.3)'
-        : 'rgba(168, 85, 247, 0.3)'};
+    background: rgba(59, 130, 246, 0.15);
+    color: rgb(96, 165, 250);
+    border: 1px solid rgba(59, 130, 246, 0.3);
 `;
 
 const IconWrapper = styled.span`
@@ -46,20 +40,20 @@ const IconWrapper = styled.span`
 `;
 
 interface SpecTypeBadgeProps {
-    specType: 'openapi' | 'asyncapi';
+    specType: 'openapi';
     showIcon?: boolean;
     version?: string;
 }
 
 export const SpecTypeBadge: React.FC<SpecTypeBadgeProps> = ({ specType, showIcon = true, version }) => {
-    const displayText = specType === 'openapi' ? 'OpenAPI' : 'AsyncAPI';
+    const displayText = 'OpenAPI';
     const fullText = version ? `${displayText} ${version}` : displayText;
     
     return (
         <Badge specType={specType}>
             {showIcon && (
                 <IconWrapper>
-                    <Codicon name={specType === 'openapi' ? 'symbol-interface' : 'symbol-event'} />
+                    <Codicon name="symbol-interface" />
                 </IconWrapper>
             )}
             <span>{fullText}</span>

@@ -29,22 +29,12 @@ export function isOpenAPI(spec: unknown): boolean {
 }
 
 /**
- * Check if spec is AsyncAPI
- * @param spec - The API specification object
- * @returns True if spec is AsyncAPI
- */
-export function isAsyncAPI(spec: unknown): boolean {
-    return typeof spec === 'object' && spec !== null && 'asyncapi' in spec;
-}
-
-/**
  * Get spec type from spec object
  * @param spec - The API specification object
  * @returns ApiSpecType or null if type cannot be determined
  */
 export function getSpecType(spec: unknown): ApiSpecType | null {
     if (isOpenAPI(spec)) return ApiSpecType.OPENAPI;
-    if (isAsyncAPI(spec)) return ApiSpecType.ASYNCAPI;
     return null;
 }
 
@@ -60,8 +50,6 @@ export function getSpecTypeString(spec: unknown): string {
     switch (type) {
         case ApiSpecType.OPENAPI:
             return 'OpenAPI';
-        case ApiSpecType.ASYNCAPI:
-            return 'AsyncAPI';
         default:
             return 'Unknown';
     }

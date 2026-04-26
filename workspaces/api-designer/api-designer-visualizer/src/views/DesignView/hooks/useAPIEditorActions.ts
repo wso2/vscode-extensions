@@ -26,12 +26,10 @@ import { ComponentType } from '../components/components-section/ComponentsSectio
 
 interface OpenAPISpec {
     openapi?: string;
-    asyncapi?: string;
     info?: any;
     servers?: any[];
     tags?: any[];
     paths?: Record<string, any>;
-    channels?: Record<string, any>;
     components?: any;
 }
 

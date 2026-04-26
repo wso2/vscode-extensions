@@ -254,19 +254,13 @@ const BUCKET_DEFINITIONS: BucketDefinition[] = [
 ];
 
 /** Weights for combining sub-bucket percentages inside one dimension (arithmetic mean). */
-const SUB_BUCKET_WEIGHTS: Record<string, number> = {
-    summaries: 1.2,
-    descriptions: 1.0,
-    operationIds: 1.3,
-    examples: 1.0,
-    typing: 1.1,
-    errors: 1.25,
-    errorSemantics: 1.35,
-    headers: 1.15,
-    pagination: 1.1,
-    security: 1.5,
-    idempotency: 1.4,
-};
+const SUB_BUCKET_WEIGHTS: Record<string, number> = BUCKET_DEFINITIONS.reduce(
+    (acc: Record<string, number>, def) => {
+        acc[def.key] = def.weight;
+        return acc;
+    },
+    {}
+);
 
 const SUBBUCKET_RULE_MAP: Record<string, string[]> = {
     summaries: [

@@ -24,12 +24,10 @@ import { useDebouncedValidation } from '../../../hooks/useDebouncedValidation';
 
 interface OpenAPISpec {
     openapi?: string;
-    asyncapi?: string;
     info?: any;
     servers?: any;
     tags?: any[];
     paths?: Record<string, any>;
-    channels?: Record<string, any>;
     components?: any;
 }
 
@@ -89,7 +87,6 @@ export function useAPIEditorState(initialSpec?: OpenAPISpec | null): UseAPIEdito
     const detectedSpecType = useMemo(() => {
         if (!spec) return null;
         if (spec.openapi) return ApiSpecType.OPENAPI;
-        if (spec.asyncapi) return ApiSpecType.ASYNCAPI;
         return null;
     }, [spec]);
 
@@ -104,7 +101,6 @@ export function useAPIEditorState(initialSpec?: OpenAPISpec | null): UseAPIEdito
     const detectSpecTypeFromData = useCallback((data: any): ApiSpecType | null => {
         if (!data) return null;
         if (data.openapi) return ApiSpecType.OPENAPI;
-        if (data.asyncapi) return ApiSpecType.ASYNCAPI;
         return null;
     }, []);
 

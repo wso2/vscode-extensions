@@ -19,7 +19,6 @@
 import { ApiSpecType } from './constants';
 import { SpecificationService } from './specification-service';
 import { OpenAPIService } from './openapi-service';
-import { AsyncAPIService } from './asyncapi-service';
 import { detectSpecType } from './detector';
 import { getSpecType } from '../utils/spec-type-utils';
 
@@ -37,9 +36,6 @@ export class SpecificationFactory {
             switch (specType) {
                 case ApiSpecType.OPENAPI:
                     this.services.set(specType, new OpenAPIService());
-                    break;
-                case ApiSpecType.ASYNCAPI:
-                    this.services.set(specType, new AsyncAPIService());
                     break;
                 default:
                     throw new Error(`Unsupported specification type: ${specType}`);
@@ -65,9 +61,6 @@ export class SpecificationFactory {
     static getServiceFromType(specType: string): SpecificationService | null {
         if (specType === ApiSpecType.OPENAPI || specType === 'openapi') {
             return this.getService(ApiSpecType.OPENAPI);
-        }
-        if (specType === ApiSpecType.ASYNCAPI || specType === 'asyncapi') {
-            return this.getService(ApiSpecType.ASYNCAPI);
         }
         return null;
     }

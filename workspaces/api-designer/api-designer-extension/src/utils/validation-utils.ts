@@ -18,7 +18,7 @@
 
 import * as yaml from 'js-yaml';
 import { Spectral, Document } from '@stoplight/spectral-core';
-import { oas, asyncapi } from '@stoplight/spectral-rulesets';
+import { oas } from '@stoplight/spectral-rulesets';
 import * as Parsers from '@stoplight/spectral-parsers';
 import * as fsPromises from 'fs/promises';
 import * as path from 'path';
@@ -483,7 +483,7 @@ async function runSpectralLinting(
 }
 
 /**
- * Validates API specification (OpenAPI or AsyncAPI) with a dynamic Spectral ruleset
+ * Validates OpenAPI specification with a dynamic Spectral ruleset
  */
 export async function validateWithSpectralRuleset(
     apiSpec: string,
@@ -689,7 +689,7 @@ export async function validateWithSpectralRuleset(
 }
 
 /**
- * Validates API specification (OpenAPI or AsyncAPI) using Spectral with appropriate ruleset
+ * Validates OpenAPI specification using Spectral
  */
 export async function validateApiSpec(apiSpec: any): Promise<any> {
     const specContent = typeof apiSpec === 'string' ? apiSpec : yaml.dump(apiSpec);
@@ -723,14 +723,8 @@ export async function validateApiSpec(apiSpec: any): Promise<any> {
     try {
         const spectral = new Spectral();
         
-        // Use appropriate ruleset based on spec type
-        if (rulesetName === 'asyncapi') {
-            await spectral.setRuleset(asyncapi as any);
-            logDebug(`Using ${rulesetDisplayName} ruleset for validation`);
-        } else {
-            await spectral.setRuleset(oas as any);
-            logDebug(`Using ${rulesetDisplayName} ruleset for validation`);
-        }
+        await spectral.setRuleset(oas as any);
+        logDebug(`Using ${rulesetDisplayName} ruleset for validation`);
         
         const document = new Document(specContent, Parsers.Yaml);
         
@@ -788,220 +782,3 @@ export async function validateApiSpec(apiSpec: any): Promise<any> {
     };
 }
 
-/**
- * Helper to format version string to vX.Y format
- */
-function formatVersion(version?: string): string {
-    if (!version) return 'v1.0';
-    
-    // Remove existing 'v' prefix if present
-    let clean = version.toLowerCase().startsWith('v') ? version.substring(1) : version;
-    
-    // Split by dots and take first two parts
-    const parts = clean.split('.');
-    const major = parts[0] || '1';
-    const minor = parts[1] || '0';
-    
-    return `v${major}.${minor}`;
-}
-
-/**
- * Converts an OpenAPI specification to WSO2 API Platform YAML format
- */
-export function convertOpenAPIToWSO2YAML(
-    apiSpec: any, 
-    existingArtifact?: any,
-    userProvidedName?: string,
-    userProvidedVersion?: string,
-    userProvidedContext?: string,
-    userProvidedDescription?: string,
-    userProvidedMainEndpoint?: string,
-    userProvidedSandboxEndpoint?: string
-): string {
-    // Parse the API spec if it's a string
-    const spec = typeof apiSpec === 'string' ? loadYaml(apiSpec) : apiSpec;
-    
-    // Use user-provided values if available, otherwise extract from OpenAPI
-    const apiName = userProvidedName || spec.info?.title || 'Untitled API';
-    const apiVersion = userProvidedVersion ? formatVersion(userProvidedVersion) : formatVersion(spec.info?.version);
-    const apiDescription = userProvidedDescription || spec.info?.description || '';
-    
-    // Extract operations from paths
-    const operations: any[] = [];
-    
-    if (spec.paths) {
-        for (const [pathKey, pathValue] of Object.entries(spec.paths)) {
-            const pathObj = pathValue as any;
-            
-            // Iterate through HTTP methods
-            const methods = ['get', 'post', 'put', 'delete', 'patch', 'options', 'head', 'trace'];
-            for (const method of methods) {
-                if (pathObj[method]) {
-                    operations.push({
-                        method: method.toUpperCase(),
-                        path: pathKey
-                    });
-                }
-            }
-        }
-    }
-    
-    // If existing artifact exists, merge only specific fields
-    if (existingArtifact && existingArtifact.spec) {
-        logDebug('Merging with existing artifact - updating name, version, description, context, and operations');
-        
-        const existingOperations = Array.isArray(existingArtifact.spec.operations)
-            ? existingArtifact.spec.operations
-            : [];
-        const existingOpMap = new Map<string, any>();
-        existingOperations.forEach((op: any) => {
-            if (op?.method && op?.path) {
-                const key = `${String(op.method).toUpperCase()}::${op.path}`;
-                existingOpMap.set(key, op);
-            }
-        });
-
-        const mergedOperations = operations.map(op => {
-            const key = `${op.method}::${op.path}`;
-            if (existingOpMap.has(key)) {
-                return existingOpMap.get(key);
-            }
-            return op;
-        });
-        
-        // Use user-provided endpoints or extract from OpenAPI spec or existing artifact
-        let mainEndpointUrl = userProvidedMainEndpoint || '';
-        let sandboxEndpointUrl = userProvidedSandboxEndpoint || '';
-        
-        // Try to extract from existing artifact if not provided
-        if (!mainEndpointUrl && existingArtifact.spec.upstream) {
-            mainEndpointUrl = existingArtifact.spec.upstream.main?.url || '';
-        }
-        if (!sandboxEndpointUrl && existingArtifact.spec.upstream) {
-            sandboxEndpointUrl = existingArtifact.spec.upstream.sandbox?.url || '';
-        }
-        
-        // Fallback to spec servers if no main endpoint provided
-        if (!mainEndpointUrl && spec.servers && spec.servers.length > 0) {
-            mainEndpointUrl = spec.servers[0].url || '';
-        }
-        
-        // Build upstream object
-        const upstream: any = {};
-        if (mainEndpointUrl) {
-            upstream.main = { url: mainEndpointUrl };
-        }
-        if (sandboxEndpointUrl) {
-            upstream.sandbox = { url: sandboxEndpointUrl };
-        }
-        
-        // Generate kebab-case name for metadata
-        const metadataName = (userProvidedName || existingArtifact.metadata?.name || apiName)
-            .toLowerCase()
-            .replace(/[^\w\s-]/g, '')
-            .replace(/\s+/g, '-')
-            .trim();
-
-        const mergedConfig = {
-            ...existingArtifact,
-            apiVersion: 'gateway.api-platform.wso2.com/v1alpha1',
-            kind: 'RestApi',
-            metadata: {
-                ...existingArtifact.metadata,
-                name: metadataName
-            },
-            spec: {
-                ...existingArtifact.spec,
-                displayName: apiName,
-                version: apiVersion,
-                ...(apiDescription && { description: apiDescription }),
-                ...(userProvidedContext && { context: userProvidedContext }),
-                upstream: Object.keys(upstream).length > 0 ? upstream : (existingArtifact.spec.upstream || {}),
-                operations: mergedOperations
-            }
-        };
-        
-        return yaml.dump(mergedConfig, {
-            indent: 2,
-            lineWidth: -1,
-            noRefs: true
-        });
-    }
-    
-    // No existing file - create new artifact with defaults
-    logDebug('Creating new WSO2 artifact from scratch');
-    
-    // Use user-provided context or extract from servers or generate from API name
-    let context = userProvidedContext || '/api';
-    if (!userProvidedContext) {
-        if (spec.info && typeof spec.info.title === 'string') {
-            const cleanTitle = spec.info.title
-                .replace(/[^\w\s]/g, '')
-                .replace(/\s+/g, ' ')
-                .trim();
-
-            if (cleanTitle) {
-                context = '/' + cleanTitle.replace(/\s+/g, '-').toLowerCase();
-            }
-        }
-    }
-    
-    // Use user-provided endpoints or extract from spec
-    let mainEndpointUrl = userProvidedMainEndpoint || '';
-    let sandboxEndpointUrl = userProvidedSandboxEndpoint || '';
-    
-    if (!mainEndpointUrl && spec.servers && spec.servers.length > 0) {
-        const firstServer = spec.servers[0];
-        mainEndpointUrl = firstServer.url || '';
-        
-        if (!userProvidedContext) {
-            try {
-                const url = new URL(firstServer.url);
-                context = url.pathname || '/api';
-            } catch {
-                if (firstServer.url && firstServer.url.startsWith('/')) {
-                    context = firstServer.url;
-                }
-            }
-        }
-    }
-    
-    // Build upstream object
-    const upstream: any = {};
-    if (mainEndpointUrl) {
-        upstream.main = { url: mainEndpointUrl };
-    }
-    if (sandboxEndpointUrl) {
-        upstream.sandbox = { url: sandboxEndpointUrl };
-    }
-    
-    // Generate kebab-case name for metadata
-    const metadataName = apiName
-        .toLowerCase()
-        .replace(/[^\w\s-]/g, '')
-        .replace(/\s+/g, '-')
-        .trim();
-
-    // Build the WSO2 API Platform YAML structure
-    const wso2ApiConfig: any = {
-        apiVersion: 'gateway.api-platform.wso2.com/v1alpha1',
-        kind: 'RestApi',
-        metadata: {
-            name: metadataName
-        },
-        spec: {
-            displayName: apiName,
-            version: apiVersion,
-            context: context,
-            ...(apiDescription && { description: apiDescription }),
-            upstream: upstream,
-            operations: operations
-        }
-    };
-    
-    return yaml.dump(wso2ApiConfig, {
-        indent: 2,
-        lineWidth: -1,
-        noRefs: true
-    });
-}

@@ -175,15 +175,15 @@ function checkDocumentForApiSpec(document?: vscode.TextDocument) {
 		return;
 	}
 
-	// Check if it's an API spec file (OpenAPI or AsyncAPI) by detecting spec type
+	// Check if it's an OpenAPI spec file by detecting spec type
 	const content = document.getText();
 	const detection = detectSpecType(content);
-	const isApiSpec = detection.type === ApiSpecType.OPENAPI || detection.type === ApiSpecType.ASYNCAPI;
+	const isApiSpec = detection.type === ApiSpecType.OPENAPI;
 	vscode.commands.executeCommand('setContext', 'isFileOpenAPI', isApiSpec);
 }
 
 /**
- * Check if the current editor is an API spec file (OpenAPI or AsyncAPI)
+ * Check if the current editor is an OpenAPI spec file
  */
 function isApiSpecificationFile(document?: vscode.TextDocument): boolean {
 	if (!document) {
@@ -198,7 +198,7 @@ function isApiSpecificationFile(document?: vscode.TextDocument): boolean {
 	// Use the core detection utility to check content
 	const content = document.getText();
 	const detection = detectSpecType(content);
-	return detection.type === ApiSpecType.OPENAPI || detection.type === ApiSpecType.ASYNCAPI;
+	return detection.type === ApiSpecType.OPENAPI;
 }
 
 async function showCode() {
@@ -252,7 +252,7 @@ async function openApiDesigner(uri?: vscode.Uri, viewType?: string) {
 	}
 
 	if (!isApiSpecificationFile(document)) {
-		vscode.window.showWarningMessage('The current file is not an API specification (OpenAPI or AsyncAPI)');
+		vscode.window.showWarningMessage('The current file is not an OpenAPI specification');
 		return;
 	}
 

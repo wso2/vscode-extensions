@@ -32,7 +32,7 @@ export interface APIHeaderProps {
     description?: string;
     version?: string;
     openApiVersion?: string;
-    specType?: 'openapi' | 'asyncapi'; // NEW: Spec type for badge display
+    specType?: 'openapi';
     onEditClick?: () => void;
     readOnly?: boolean;
     showDescription?: boolean;

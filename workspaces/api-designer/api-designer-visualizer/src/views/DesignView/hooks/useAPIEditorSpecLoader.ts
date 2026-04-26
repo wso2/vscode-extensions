@@ -25,12 +25,10 @@ import { useDebouncedValidation } from '../../../hooks/useDebouncedValidation';
 
 interface OpenAPISpec {
     openapi?: string;
-    asyncapi?: string;
     info?: any;
     servers?: any;
     tags?: any[];
     paths?: Record<string, any>;
-    channels?: Record<string, any>;
     components?: any;
 }
 
@@ -106,8 +104,6 @@ export function useAPIEditorSpecLoader(options: UseAPIEditorSpecLoaderOptions): 
                             let specType: ApiSpecType | null = null;
                             if (parsed.openapi) {
                                 specType = ApiSpecType.OPENAPI;
-                            } else if (parsed.asyncapi) {
-                                specType = ApiSpecType.ASYNCAPI;
                             }
                             
                             onSpecLoadedRef.current(parsed, specType);

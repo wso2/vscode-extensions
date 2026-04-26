@@ -73,12 +73,11 @@ export type {
 export * from "./utils/spec-type-utils";
 export * from "./utils/spec-helpers";
 
-// ------ API Specification Support (OpenAPI & AsyncAPI) -------->
+// ------ API Specification Support (OpenAPI) -------->
 export * from "./specs/constants";
 export * from "./specs/detector";
 export * from "./specs/specification-service";
 export * from "./specs/openapi-service";
-export * from "./specs/asyncapi-service";
 export * from "./specs/specification-factory";
 export * from "./specs/specification-service";
 // Explicit exports for commonly used functions and types
@@ -126,17 +125,3 @@ export type {
     Tag as OpenAPITag,
     ExternalDocumentation as OpenAPIExternalDocumentation
 } from "./specs/openapi-types";
-export type {
-    AsyncAPISpec,
-    Channels,
-    ChannelItem,
-    Operation as AsyncAPIOperation,
-    Message,
-    MessageTrait,
-    OperationTrait,
-    Parameter as AsyncAPIParameter,
-    CorrelationId,
-    AsyncAPIComponents,
-    Tag as AsyncAPITag,
-    ExternalDocumentation as AsyncAPIExternalDocumentation
-} from "./specs/asyncapi-types";

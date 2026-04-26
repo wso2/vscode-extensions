@@ -21,9 +21,8 @@ import styled from '@emotion/styled';
 import { useVisualizerContext } from '@wso2/api-designer-rpc-client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AnalyzeSingleReportPage, AnalyzeReportKey } from './components/AnalyzeSingleReportPage';
-import { FeatureComingSoon } from '../../components/common/FeatureComingSoon';
 import { APIHeader } from '../DesignView/components/api-header/APIHeader';
-import { loadYaml, isOpenAPI, isAsyncAPI, getSpecType } from '@wso2/api-designer-core';
+import { loadYaml, isOpenAPI } from '@wso2/api-designer-core';
 import { logger } from '../../utils/logger';
 import { postMessage as postVSCodeMessage } from '../../utils/vscode-api';
 import { useFileUri, useLoadingState } from '../../hooks';
@@ -140,7 +139,7 @@ const AnalyzeViewContent: React.FC<{ fileUri: string; refreshToken: number; init
         description?: string;
         version?: string;
         openApiVersion?: string;
-        specType?: 'openapi' | 'asyncapi';
+        specType?: 'openapi';
     } | null>(null);
     const [reportView, setReportView] = React.useState<AnalyzeReportView>(initialReportView);
     
@@ -185,14 +184,6 @@ const AnalyzeViewContent: React.FC<{ fileUri: string; refreshToken: number; init
                                 openApiVersion: openApiSpec.openapi,
                                 specType: 'openapi'
                             });
-                        } else if (spec && isAsyncAPI(spec)) {
-                            const asyncApiSpec = spec as { asyncapi?: string; info?: { title?: string; description?: string; version?: string } };
-                            setSpecInfo({
-                                title: asyncApiSpec.info?.title,
-                                version: asyncApiSpec.info?.version,
-                                openApiVersion: asyncApiSpec.asyncapi,
-                                specType: 'asyncapi'
-                            });
                         }
                     }
                 } catch (error) {
@@ -221,18 +212,11 @@ const AnalyzeViewContent: React.FC<{ fileUri: string; refreshToken: number; init
                 onBackClick={() => postVSCodeMessage({ command: 'switchView', viewType: 'preview', fileUri })}
             />
             <ContentArea>
-                {specInfo?.specType === 'asyncapi' ? (
-                    <FeatureComingSoon 
-                        featureName="Analyze View" 
-                        description="Analysis capabilities for AsyncAPI specifications are coming soon." 
-                    />
-                ) : (
-                    <AnalyzeSingleReportPage
-                        fileUri={fileUri}
-                        refreshToken={refreshToken}
-                        reportKey={reportView === 'all' ? 'ai-readiness' : reportView}
-                    />
-                )}
+                <AnalyzeSingleReportPage
+                    fileUri={fileUri}
+                    refreshToken={refreshToken}
+                    reportKey={reportView === 'all' ? 'ai-readiness' : reportView}
+                />
             </ContentArea>
         </AnalyzeContainer>
     );
