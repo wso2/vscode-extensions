@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { mkdir, readFile, writeFile } from 'fs/promises';
+import { mkdir, readFile, writeFile, readdir, rm } from 'fs/promises';
 import { createHash } from 'crypto';
 import * as path from 'path';
 import { spawn } from 'child_process';
@@ -44,6 +44,7 @@ import {
 } from '../../../utils/validation-utils';
 import { getAllSpectralRulesets as getAllSpectralRulesetsFromConfig } from '../../../spectral/rulesetAutomation';
 import { BaseRpcManager } from './base-rpc-manager';
+import { extension } from '../../../APIDesignerExtensionContext';
 
 /** Payload returned by `validateWithSpectralRuleset` before `report` / `reportId` are applied. */
 type SpectralGovernancePayload = {
@@ -175,8 +176,21 @@ export class GovernanceManager extends BaseRpcManager {
         return createHash('sha256').update(content, 'utf8').digest('hex');
     }
 
+    private getStorageBasePath(): string {
+        const storagePath = extension.context?.globalStorageUri?.fsPath;
+        if (!storagePath) {
+            throw new Error('Extension global storage is not initialized');
+        }
+        return storagePath;
+    }
+
+    private getStorageCacheDir(filePath: string): string {
+        const fileKey = createHash('sha256').update(filePath, 'utf8').digest('hex');
+        return path.join(this.getStorageBasePath(), 'llm-ai-readiness', fileKey);
+    }
+
     private getWorkspaceCachePath(filePath: string): string {
-        return path.join(path.dirname(filePath), '.cache', 'llm-ai-readiness.json');
+        return path.join(this.getStorageCacheDir(filePath), 'llm-ai-readiness.json');
     }
 
     private async persistLlmState(filePath: string, state: LlmValidationState): Promise<void> {
@@ -350,26 +364,47 @@ export class GovernanceManager extends BaseRpcManager {
     }
 
     private async executeLlmValidationWithCopilotCli(filePath: string, apiHash: string): Promise<LlmValidationResult> {
-        const outputPath = path.join(path.dirname(filePath), '.cache', `llm-ai-readiness-agent-${apiHash}.json`);
-        await mkdir(path.dirname(outputPath), { recursive: true });
+        const outputPath = path.join(this.getStorageCacheDir(filePath), `llm-ai-readiness-agent-${apiHash}.json`);
+        const outputDir = path.dirname(outputPath);
+        await mkdir(outputDir, { recursive: true });
+        try {
+            // Prevent temp output accumulation from previous runs.
+            const entries = await readdir(outputDir);
+            await Promise.all(
+                entries
+                    .filter((name) => name.startsWith('llm-ai-readiness-agent-') && name.endsWith('.json'))
+                    .map((name) => rm(path.join(outputDir, name), { force: true }))
+            );
+        } catch {
+            // best-effort temp cleanup
+        }
+
         const query = this.buildAgentPrompt(filePath, outputPath);
         await this.runCopilotCliPrompt(query, filePath, outputPath);
 
         const timeoutMs = 5 * 60 * 1000;
         const pollIntervalMs = 2000;
         const start = Date.now();
-        while (Date.now() - start < timeoutMs) {
-            try {
-                const content = await readFile(outputPath, 'utf8');
-                if (content && content.trim()) {
-                    return this.normalizeLlmResult(content);
+        try {
+            while (Date.now() - start < timeoutMs) {
+                try {
+                    const content = await readFile(outputPath, 'utf8');
+                    if (content && content.trim()) {
+                        return this.normalizeLlmResult(content);
+                    }
+                } catch {
+                    // Agent may not have written output yet
                 }
-            } catch {
-                // Agent may not have written output yet
+                await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
             }
-            await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+            throw new Error('Timed out waiting for agent validation output');
+        } finally {
+            try {
+                await rm(outputPath, { force: true });
+            } catch {
+                // best-effort cleanup
+            }
         }
-        throw new Error('Timed out waiting for agent validation output');
     }
 
     private async startLlmJob(filePath: string, apiHash: string): Promise<void> {

@@ -159,10 +159,11 @@ const MetricDescription = styled.div`
 `;
 
 const scoreToAccentHex = (score: number): string => {
-    if (score >= 90) return '#10b981';
+    if (score >= 90) return 'var(--vscode-testing-iconPassed, #22c55e)';
     if (score >= 75) return '#3b82f6';
-    if (score >= 50) return '#f59e0b';
-    return '#ef4444';
+    if (score >= 60) return 'var(--vscode-editorWarning-foreground)';
+    if (score >= 40) return '#f97316';
+    return 'var(--vscode-errorForeground)';
 };
 
 const hexToRgba = (hex: string, alpha: number): string => {

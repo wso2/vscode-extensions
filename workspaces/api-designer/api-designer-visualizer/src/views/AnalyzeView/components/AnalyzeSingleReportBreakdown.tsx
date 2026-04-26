@@ -529,9 +529,9 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
                             <LlmStatusIcon $color={llmInfo.statusColor}>{llmInfo.icon}</LlmStatusIcon>
                         )}
                         <LlmInfo>
-                            <LlmTitle>Agent-Based Semantic & Contextual AI Readiness Review</LlmTitle>
+                            <LlmTitle>Agent-Based AI Readiness Review</LlmTitle>
                             <LlmDescription>
-                                This is evaluated by an agent for contextual AI-consumption quality signals, including whether API contact information is present and useful.
+                                This section surfaces issues identified by an AI agent that reviewed your OpenAPI spec against best practices and common pitfalls. The agent provides insights that go beyond static rule checks, such as identifying potential ambiguities, inconsistencies, or areas for improvement in your API design.
                             </LlmDescription>
                             <LlmStatusPill $color={llmInfo.statusColor} $bg={llmInfo.statusBg}>{llmInfo.statusLabel}</LlmStatusPill>
                             <LlmMeta>{llmInfo.meta}</LlmMeta>
