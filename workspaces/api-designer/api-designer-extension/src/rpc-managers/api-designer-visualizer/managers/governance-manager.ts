@@ -19,6 +19,7 @@
 import { mkdir, readFile, writeFile } from 'fs/promises';
 import { createHash } from 'crypto';
 import * as path from 'path';
+import { spawn } from 'child_process';
 import * as vscode from 'vscode';
 import {
     FetchRulesetsFromFolderRequest,
@@ -215,20 +216,95 @@ export class GovernanceManager extends BaseRpcManager {
         return undefined;
     }
 
-    private buildLlmPrompt(specContent: string): string {
+    private buildAgentPrompt(filePath: string, outputPath: string): string {
+        const fileUri = vscode.Uri.file(filePath);
+        const workspaceFolder = vscode.workspace.getWorkspaceFolder(fileUri);
+        const fileRef = workspaceFolder
+            ? `#${path.relative(workspaceFolder.uri.fsPath, filePath).split(path.sep).join('/')}`
+            : filePath;
         return [
-            'You are validating API AI readiness.',
-            'Analyze the OpenAPI content and return strict JSON only with this shape:',
+            'Use available skills/tools to perform AI readiness validation for this API spec.',
+            `API spec: ${fileRef}`,
+            'Return strict JSON only with this shape:',
             '{"score":number,"summary":string,"findings":[{"rule":string,"message":string,"severity":"error|warn|info|hint","path":"dot.path.or.empty","suggestion":"optional"}]}',
-            'Rules:',
-            '- Score must be 0-100',
-            '- Keep summary under 220 chars',
-            '- At most 20 findings',
-            '- Use concise actionable messages',
+            'Constraints:',
+            '- score 0-100',
+            '- max 20 findings',
+            '- concise and actionable findings',
             '',
-            'OpenAPI document:',
-            specContent
+            `Write ONLY the JSON result to this absolute file path: ${outputPath}`,
+            'Do not include markdown fences.',
         ].join('\n');
+    }
+
+    private runCommand(command: string, args: string[], timeoutMs: number): Promise<{ code: number; stdout: string; stderr: string }> {
+        return new Promise((resolve, reject) => {
+            const child = spawn(command, args, { shell: false, stdio: ['ignore', 'pipe', 'pipe'] });
+            let stdout = '';
+            let stderr = '';
+            let settled = false;
+            const timer = setTimeout(() => {
+                if (!settled) {
+                    settled = true;
+                    child.kill();
+                    reject(new Error(`Command timed out: ${command} (${Math.round(timeoutMs / 1000)}s)`));
+                }
+            }, timeoutMs);
+
+            child.stdout.on('data', (chunk) => {
+                stdout += String(chunk);
+            });
+            child.stderr.on('data', (chunk) => {
+                stderr += String(chunk);
+            });
+            child.on('error', (error) => {
+                if (!settled) {
+                    settled = true;
+                    clearTimeout(timer);
+                    reject(error);
+                }
+            });
+            child.on('close', (code) => {
+                if (!settled) {
+                    settled = true;
+                    clearTimeout(timer);
+                    resolve({ code: code ?? -1, stdout, stderr });
+                }
+            });
+        });
+    }
+
+    /** Copilot agent runs can exceed a minute; keep generous budget for cold start + tools. */
+    private static readonly COPILOT_CLI_TIMEOUT_MS = 15 * 60 * 1000;
+
+    private buildCopilotCliArgs(prompt: string, filePath: string, outputPath: string): string[] {
+        const specDir = path.dirname(filePath);
+        const cacheDir = path.dirname(outputPath);
+        const dirs = new Set<string>([specDir, cacheDir]);
+        const workspaceFolder = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(filePath));
+        if (workspaceFolder) {
+            dirs.add(workspaceFolder.uri.fsPath);
+        }
+        const addDirArgs: string[] = [];
+        for (const dir of dirs) {
+            addDirArgs.push('--add-dir', dir);
+        }
+        return [
+            ...addDirArgs,
+            '-p',
+            prompt,
+            '-s',
+            '--no-ask-user',
+            '--allow-all-tools',
+        ];
+    }
+
+    private async runCopilotCliPrompt(prompt: string, filePath: string, outputPath: string): Promise<void> {
+        const args = this.buildCopilotCliArgs(prompt, filePath, outputPath);
+        const result = await this.runCommand('copilot', args, GovernanceManager.COPILOT_CLI_TIMEOUT_MS);
+        if (result.code !== 0) {
+            throw new Error(`copilot CLI failed (exit ${result.code}): ${result.stderr || result.stdout}`);
+        }
     }
 
     private normalizeLlmResult(rawText: string): LlmValidationResult {
@@ -265,33 +341,35 @@ export class GovernanceManager extends BaseRpcManager {
         };
     }
 
-    private async executeLlmValidation(specContent: string): Promise<LlmValidationResult> {
-        const vscodeAny = vscode as any;
-        if (!vscodeAny.lm?.selectChatModels) {
-            throw new Error('Language model API is not available');
+    private async executeLlmValidationWithCopilotCli(filePath: string, apiHash: string): Promise<LlmValidationResult> {
+        const outputPath = path.join(path.dirname(filePath), '.api-platform', '.cache', `llm-ai-readiness-agent-${apiHash}.json`);
+        await mkdir(path.dirname(outputPath), { recursive: true });
+        const query = this.buildAgentPrompt(filePath, outputPath);
+        await this.runCopilotCliPrompt(query, filePath, outputPath);
+
+        const timeoutMs = 5 * 60 * 1000;
+        const pollIntervalMs = 2000;
+        const start = Date.now();
+        while (Date.now() - start < timeoutMs) {
+            try {
+                const content = await readFile(outputPath, 'utf8');
+                if (content && content.trim()) {
+                    return this.normalizeLlmResult(content);
+                }
+            } catch {
+                // Agent may not have written output yet
+            }
+            await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
         }
-        const models = await vscodeAny.lm.selectChatModels({ vendor: 'copilot' });
-        if (!Array.isArray(models) || models.length === 0) {
-            throw new Error('No Copilot chat model available');
-        }
-        const model = models[0];
-        const userMessage = vscodeAny.LanguageModelChatMessage?.User
-            ? vscodeAny.LanguageModelChatMessage.User(this.buildLlmPrompt(specContent))
-            : { role: 'user', content: this.buildLlmPrompt(specContent) };
-        const response = await model.sendRequest([userMessage], {}, new vscode.CancellationTokenSource().token);
-        let output = '';
-        for await (const chunk of response.text) {
-            output += String(chunk);
-        }
-        return this.normalizeLlmResult(output);
+        throw new Error('Timed out waiting for agent validation output');
     }
 
-    private async startLlmJob(filePath: string, apiHash: string, specContent: string): Promise<void> {
+    private async startLlmJob(filePath: string, apiHash: string): Promise<void> {
         const existing = GovernanceManager.llmJobsByApiHash.get(apiHash);
         if (existing) return existing;
         const job = (async () => {
             try {
-                const result = await this.executeLlmValidation(specContent);
+                const result = await this.executeLlmValidationWithCopilotCli(filePath, apiHash);
                 await this.persistLlmState(filePath, {
                     status: 'ready',
                     apiHash,
@@ -315,8 +393,8 @@ export class GovernanceManager extends BaseRpcManager {
 
     public async ensureLlmValidationForFile(filePath: string, options?: { force?: boolean }): Promise<void> {
         try {
-            const specContent = await readFile(filePath, 'utf8');
-            const apiHash = this.computeApiHash(specContent);
+            const content = await readFile(filePath, 'utf8');
+            const apiHash = this.computeApiHash(content);
             const force = options?.force === true;
             const workspaceCache = await this.readWorkspaceCache(filePath);
             const hasAnyWorkspaceCache = Object.keys(workspaceCache).length > 0;
@@ -342,7 +420,7 @@ export class GovernanceManager extends BaseRpcManager {
                 apiHash,
                 updatedAt: Date.now(),
             });
-            void this.startLlmJob(filePath, apiHash, specContent);
+            void this.startLlmJob(filePath, apiHash);
         } catch (error) {
             this.logWarning('Failed to schedule LLM validation', error);
         }
