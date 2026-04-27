@@ -123,7 +123,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	);
 
 	// Initialize Arazzo Language Server for procode features
-	initializeLanguageServer(context);
+	initializeLanguageServer(context, runCodeLensProvider);
 }
 
 function getLanguageServerBinaryName(): string {
@@ -155,7 +155,7 @@ function getLanguageServerBinaryName(): string {
 	return `arazzo-language-server-${osPart}-${archPart}`;
 }
 
-function initializeLanguageServer(context: vscode.ExtensionContext) {
+function initializeLanguageServer(context: vscode.ExtensionContext, runCodeLensProvider: RunWorkflowCodeLensProvider) {
 	console.log('Initializing Arazzo Language Server...');
 	console.log('To view LSP logs: View > Output > Select "Arazzo Language Server" from dropdown');
 
@@ -310,19 +310,14 @@ function initializeLanguageServer(context: vscode.ExtensionContext) {
 			}
 		}
 
-		// Start the MCP server if it isn't running, or if it is serving a
-		// different Arazzo file than the one being requested.
+		// Start the MCP server if it isn't running, serving a different file,
+		// or the file has been modified since the last server start (dirty).
 		const activeMCPFilePath = getMCPActiveFilePath();
-		if (!isMCPServerRunning() || activeMCPFilePath !== filePath) {
+		if (!isMCPServerRunning() || activeMCPFilePath !== filePath || runCodeLensProvider.isFileDirty()) {
 			await startMCPServer(context, filePath);
 			// Give the server a moment to become ready
 			await new Promise(resolve => setTimeout(resolve, 2000));
 		}
-
-		// Push the current MCP state to the webview so the title bar button
-		// reflects the running state immediately (the panel may have just
-		// opened and has no state yet).
-		RPCLayer.sendMCPStateChange({ isMCPRunning: true, isFileDirty: false });
 
 		// Build the Copilot prompt
 		const prompt = workflowId

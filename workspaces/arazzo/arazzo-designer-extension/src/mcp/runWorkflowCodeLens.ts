@@ -39,6 +39,11 @@ export class RunWorkflowCodeLensProvider implements vscode.CodeLensProvider {
         this._fileDirty = dirty;
     }
 
+    /** Returns true if the file has been saved since the last server start. */
+    public isFileDirty(): boolean {
+        return this._fileDirty;
+    }
+
     /**
      * Call this to force a refresh of the Code Lenses (e.g. when the
      * MCP server starts or stops).
