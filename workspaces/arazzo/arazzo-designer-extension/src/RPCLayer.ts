@@ -19,7 +19,7 @@
 import { WebviewView, WebviewPanel, window, QuickPickItem } from 'vscode';
 import { Messenger } from 'vscode-messenger';
 import { StateMachine } from './stateMachine';
-import { stateChanged, getVisualizerState, VisualizerLocation, getPopupVisualizerState, PopupVisualizerLocation, popupStateChanged, selectQuickPickItem, WebviewQuickPickItem, selectQuickPickItems, showConfirmMessage, showInputBox, showInfoNotification, showErrorNotification, onTraceEvent } from '@wso2/arazzo-designer-core';
+import { stateChanged, getVisualizerState, VisualizerLocation, getPopupVisualizerState, PopupVisualizerLocation, popupStateChanged, selectQuickPickItem, WebviewQuickPickItem, selectQuickPickItems, showConfirmMessage, showInputBox, showInfoNotification, showErrorNotification, onTraceEvent, onMCPStateChange, MCPStateChangeEvent } from '@wso2/arazzo-designer-core';
 import { TracerServer } from './mcp/tracing';
 import { VisualizerWebview } from './visualizer/webview';
 import { StateMachinePopup } from './stateMachinePopup';
@@ -81,6 +81,11 @@ export class RPCLayer {
         TracerServer.getInstance().onEvent((event) => {
             RPCLayer._messenger.sendNotification(onTraceEvent, { type: 'webview', webviewType: VisualizerWebview.viewType }, event as any);
         });
+    }
+
+    /** Broadcast the current MCP server state to the webview. */
+    static sendMCPStateChange(state: MCPStateChangeEvent): void {
+        RPCLayer._messenger.sendNotification(onMCPStateChange, { type: 'webview', webviewType: VisualizerWebview.viewType }, state);
     }
 
 }

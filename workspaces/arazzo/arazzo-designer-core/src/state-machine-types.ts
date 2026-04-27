@@ -149,3 +149,11 @@ export interface StepTraceStatus {
 }
 
 export const onTraceEvent: NotificationType<WebviewTraceEvent> = { method: 'onTraceEvent' };
+
+/** MCP server state pushed from the extension to the webview whenever
+ *  the server starts/stops or the active file is saved. */
+export interface MCPStateChangeEvent {
+    isMCPRunning: boolean;
+    isFileDirty: boolean;
+}
+export const onMCPStateChange: NotificationType<MCPStateChangeEvent> = { method: 'onMCPStateChange' };

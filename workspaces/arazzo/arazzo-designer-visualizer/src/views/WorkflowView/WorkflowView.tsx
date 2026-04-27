@@ -19,7 +19,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { Global, css } from "@emotion/react";
 import { useVisualizerContext } from "@wso2/arazzo-designer-rpc-client";
-import { ArazzoDefinition, ArazzoWorkflow, EVENT_TYPE, MACHINE_VIEW, MachineStateValue, WebviewTraceEvent, StepTraceStatus } from "@wso2/arazzo-designer-core";
+import { ArazzoDefinition, ArazzoWorkflow, EVENT_TYPE, MACHINE_VIEW, MachineStateValue, WebviewTraceEvent, StepTraceStatus, MCPStateChangeEvent } from "@wso2/arazzo-designer-core";
 import {
     ReactFlow,
     Background,
@@ -49,6 +49,53 @@ interface WorkflowViewProps {
     fileUri: string;
     workflowId?: string;
 }
+
+// ---------------------------------------------------------------------------
+// Title bar styled components
+// ---------------------------------------------------------------------------
+const TitleBar = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px;
+    background-color: ${MODERN ? ThemeColors.SURFACE_DIM : 'var(--vscode-sideBar-background)'};
+    border-bottom: 1px solid var(--vscode-editorWidget-border, rgba(128,128,128,0.2));
+    flex-shrink: 0;
+    z-index: 100;
+    position: relative;
+`;
+
+const TitleName = styled.span`
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--vscode-foreground);
+    font-family: var(--vscode-font-family);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 60%;
+`;
+
+const TryButton = styled.button`
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: var(--vscode-font-family);
+    background-color: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    flex-shrink: 0;
+    &:hover {
+        background-color: var(--vscode-button-hoverBackground);
+    }
+    &:active {
+        opacity: 0.9;
+    }
+`;
 
 const NodeDataContainer = styled.div`
     display: flex;
@@ -270,6 +317,9 @@ export function WorkflowView(props: WorkflowViewProps) {
     // When the workflow ID in the file has been renamed/removed, this holds the
     // list of available workflows so the user can pick the correct one.
     const [workflowNotFoundOptions, setWorkflowNotFoundOptions] = useState<ArazzoWorkflow[] | null>(null);
+    // MCP server state: tracks whether the server is running and if the file has been
+    // saved since the last server start (dirty = Retry, not dirty = Try).
+    const [mcpState, setMcpState] = useState<MCPStateChangeEvent>({ isMCPRunning: false, isFileDirty: false });
 
     // Edge types configuration
     const edgeTypes = {
@@ -280,6 +330,11 @@ export function WorkflowView(props: WorkflowViewProps) {
         if (typeof newState === 'object' && 'ready' in newState && newState.ready === 'viewReady') {
             fetchData();
         }
+    });
+
+    // Track MCP server state so the title bar button can show Try vs Retry
+    rpcClient?.onMCPStateChange((state: MCPStateChangeEvent) => {
+        setMcpState(state);
     });
 
     // Listen for trace events and update step node overlays
@@ -658,6 +713,11 @@ export function WorkflowView(props: WorkflowViewProps) {
 
     const proOptions = { hideAttribution: true };
 
+    const handleTryWorkflow = useCallback(() => {
+        const params = { workflowId: effectiveWorkflowIdRef.current, uri: fileUri };
+        rpcClient?.getVisualizerRpcClient().runWorkflow(params);
+    }, [rpcClient, fileUri]);
+
     const toggleOrientation = useCallback(() => {
         setIsVertical(prev => !prev);
     }, []);
@@ -704,11 +764,21 @@ export function WorkflowView(props: WorkflowViewProps) {
         <Global styles={css`
             .react-flow__edgelabel-renderer { z-index: 1000 !important; }
         `} />
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+            {/* Title bar: workflow name on left, Try/Retry button on right */}
+            <TitleBar>
+                <TitleName title={workflow?.workflowId}>{workflow?.workflowId ?? ''}</TitleName>
+                {mcpState.isMCPRunning && (
+                    <TryButton onClick={handleTryWorkflow}>
+                        {mcpState.isFileDirty ? '↺ Retry' : '▶ Try'}
+                    </TryButton>
+                )}
+            </TitleBar>
         <div
             ref={reactFlowWrapper}
             style={{
                 width: '100%',
-                height: '100vh',
+                flex: 1,
                 outline: 'none',
                 position: 'relative',
                 backgroundColor: MODERN ? ThemeColors.SURFACE_BRIGHT : 'var(--vscode-editor-background)',
@@ -808,6 +878,7 @@ export function WorkflowView(props: WorkflowViewProps) {
                     <NodePropertiesPanel node={selectedNode} workflow={workflow} definition={arazzoDefinition} traceSpans={traceSpans} />
                 </SidePanelBody>
             </SidePanel>
+        </div>
         </div>
         </>
     );
