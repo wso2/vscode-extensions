@@ -158,12 +158,13 @@ const MetricDescription = styled.div`
     line-height: 1.3;
 `;
 
+// Use explicit hex colors because badge tinting depends on hexToRgba conversion.
 const scoreToAccentHex = (score: number): string => {
-    if (score >= 90) return 'var(--vscode-testing-iconPassed, #22c55e)';
+    if (score >= 90) return '#22c55e';
     if (score >= 75) return '#3b82f6';
-    if (score >= 60) return 'var(--vscode-editorWarning-foreground)';
+    if (score >= 60) return '#eab308';
     if (score >= 40) return '#f97316';
-    return 'var(--vscode-errorForeground)';
+    return '#ef4444';
 };
 
 const hexToRgba = (hex: string, alpha: number): string => {

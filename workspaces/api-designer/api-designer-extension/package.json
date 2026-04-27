@@ -115,9 +115,9 @@
     "commands": [
       {
         "command": "APIDesigner.openApiDesigner",
-        "title": "Open API Designer",
+        "title": "Open in API Designer",
         "category": "API Designer",
-        "icon": "$(preview)"
+        "icon": "$(wand)"
       },
       {
         "command": "APIDesigner.showCode",

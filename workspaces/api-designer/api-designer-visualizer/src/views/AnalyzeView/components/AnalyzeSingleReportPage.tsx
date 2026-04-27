@@ -70,8 +70,13 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
     );
     const isAIAvailable = useAIAvailability();
     const effectiveReportId = report?.report.reportId;
+    const aiReadinessDimensions = React.useMemo(
+        () => (effectiveReportId === 'ai-readiness' ? report?.report.aiReadinessSummary.dimensions || [] : []),
+        [effectiveReportId, report]
+    );
 
     const [expandedBucketKeys, setExpandedBucketKeys] = React.useState<Set<string>>(new Set());
+    const [hasAppliedDefaultBucketExpansion, setHasAppliedDefaultBucketExpansion] = React.useState(false);
     const toggleBucketKey = React.useCallback((key: string) => {
         setExpandedBucketKeys((prev) => {
             const next = new Set(prev);
@@ -79,6 +84,27 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
             return next;
         });
     }, []);
+    React.useEffect(() => {
+        setExpandedBucketKeys(new Set());
+        setHasAppliedDefaultBucketExpansion(false);
+    }, [fileUri, reportKey]);
+    React.useEffect(() => {
+        if (hasAppliedDefaultBucketExpansion) {
+            return;
+        }
+        if (!effectiveReportId) {
+            return;
+        }
+        if (effectiveReportId !== 'ai-readiness') {
+            setHasAppliedDefaultBucketExpansion(true);
+            return;
+        }
+        if (!aiReadinessDimensions.length) {
+            return;
+        }
+        setExpandedBucketKeys(new Set(aiReadinessDimensions.map((dimension) => dimension.key)));
+        setHasAppliedDefaultBucketExpansion(true);
+    }, [effectiveReportId, aiReadinessDimensions, hasAppliedDefaultBucketExpansion]);
     const [severityFilter, setSeverityFilter] = React.useState<'all' | SeverityLevel>('all');
     const [groupBy, setGroupBy] = React.useState<GroupBy>('none');
     const [sortBy, setSortBy] = React.useState<SortBy>('severity');
@@ -220,6 +246,20 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
         postVSCodeMessage({ command: 'reevaluateLlmValidation' });
         setManualRefreshTick((value) => value + 1);
     }, []);
+    const handleViewEndpointIssues = React.useCallback(() => {
+        setSelectedAiBucketKey(null);
+        setSelectedAiMainBucketKey(null);
+        setSelectedBreakdownKey(null);
+        setSeverityFilter('all');
+        setGroupBy('endpoint');
+        setSortBy('severity');
+        setSortDir('asc');
+        setSearch('');
+        setSelectedIssueId(null);
+        window.requestAnimationFrame(() => {
+            issueExplorerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    }, []);
     const title = REPORT_TITLES[reportKey];
     const score = Math.max(0, Math.min(100, Number(report?.score || 0)));
     const gradeColor = scoreColor(score);
@@ -244,8 +284,6 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
 
     const resolvedReportId = report.report.reportId;
     const issueExplorerReportKey: AnalyzeReportKey = resolvedReportId === 'rest-api-readiness' ? 'wso2-rest' : resolvedReportId;
-    const aiReadinessDimensions = resolvedReportId === 'ai-readiness' ? report.report.aiReadinessSummary.dimensions : [];
-
     return (
         <Root>
             <AnalyzeSingleReportOverview
@@ -256,6 +294,9 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
                 totalIssues={rows.length}
                 passedChecks={report.passedChecks}
                 totalChecks={report.totalChecks}
+                endpointsAffected={stats.endpointCount}
+                onViewIssues={() => handleViewIssues()}
+                onViewEndpointIssues={handleViewEndpointIssues}
             />
 
             <AnalyzeSingleReportBreakdown

@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from '@emotion/styled';
 import type { AiReadinessDimensionSummary } from '@wso2/api-designer-core';
-import { AnalyzeReportKey } from '../hooks/useReport';
+import { AnalyzeReportKey, scoreColor } from '../hooks/useReport';
 import { BREAKDOWN_TITLES, BREAKDOWN_SUBTITLES } from './AnalyzeSingleReportHelpers';
 import { AIReadinessBucketGrid } from './AIReadinessBucketGrid';
 import { postMessage } from '../../../utils/vscode-api';
@@ -491,10 +491,11 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
         }
         const count = llmValidation.result?.findings?.length || 0;
         const score = llmValidation.result?.score ?? 0;
+        const accentColor = scoreColor(score);
         return {
             statusLabel: 'Ready',
-            statusColor: 'var(--vscode-testing-iconPassed, #10B981)',
-            statusBg: 'color-mix(in srgb, var(--vscode-testing-iconPassed, #10B981) 14%, transparent)',
+            statusColor: accentColor,
+            statusBg: `color-mix(in srgb, ${accentColor} 14%, transparent)`,
             meta: count > 0 ? `${count} finding${count !== 1 ? 's' : ''} identified by the agent` : 'No issues found — your API looks ready!',
             icon: '✓',
             score,

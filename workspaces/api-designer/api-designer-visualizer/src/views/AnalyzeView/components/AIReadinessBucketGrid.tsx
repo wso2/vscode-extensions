@@ -32,21 +32,22 @@ const Accordion = styled.div`
 `;
 
 const DimCard = styled.div<{ $accentColor: string }>`
-    border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 82%, transparent);
-    border-left: 4px solid ${({ $accentColor }: { $accentColor: string }) => $accentColor};
+    border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 96%, var(--vscode-foreground) 4%);
+    border-left: 3px solid ${({ $accentColor }: { $accentColor: string }) => $accentColor};
     border-radius: 8px;
     overflow: hidden;
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--vscode-editorWidget-background) 72%, transparent), 0 3px 10px rgba(0, 0, 0, 0.12);
+    background: color-mix(in srgb, var(--vscode-editorWidget-background) 88%, var(--vscode-editor-background));
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--vscode-panel-border) 70%, transparent), 0 4px 12px rgba(0, 0, 0, 0.16);
 `;
 
 const DimHeader = styled.div`
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 12px;
     padding: 12px 16px;
     cursor: pointer;
     user-select: none;
-    background: var(--vscode-editorGroupHeader-tabsBackground);
+    background: color-mix(in srgb, var(--vscode-editorGroupHeader-tabsBackground) 90%, var(--vscode-editor-background));
 
     &:hover {
         background: var(--vscode-list-hoverBackground);
@@ -54,11 +55,10 @@ const DimHeader = styled.div`
 `;
 
 const DimScore = styled.div<{ $color: string }>`
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 900;
-    min-width: 52px;
+    min-width: 48px;
     line-height: 1;
-    padding-top: 2px;
     font-family: var(--vscode-editor-font-family, ui-monospace, monospace);
     flex-shrink: 0;
     color: ${({ $color }: { $color: string }) => $color};
@@ -124,7 +124,6 @@ const DimRight = styled.div`
     align-items: center;
     gap: 12px;
     flex-shrink: 0;
-    padding-top: 2px;
 `;
 
 const DimIssueCount = styled.div`
@@ -148,7 +147,7 @@ const DimBody = styled.div`
     display: flex;
     flex-direction: column;
     gap: 10px;
-    background: var(--vscode-editor-background);
+    background: color-mix(in srgb, var(--vscode-editor-background) 92%, var(--vscode-editorWidget-background));
 `;
 
 // ── Why it matters ────────────────────────────────────────────────────────

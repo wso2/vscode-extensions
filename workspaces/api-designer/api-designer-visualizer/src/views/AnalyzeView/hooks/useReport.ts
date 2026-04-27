@@ -182,8 +182,11 @@ const sortRows = (rows: IssueRow[], sortBy: SortBy, sortDir: SortDir): IssueRow[
 
 export const groupRows = (rows: IssueRow[], groupBy: GroupBy): Array<{ key: string; rows: IssueRow[] }> => {
     if (groupBy === 'none') return [{ key: 'All issues', rows }];
+    const sourceRows = groupBy === 'endpoint'
+        ? rows.filter((row) => row.endpoint !== 'global' && row.method !== 'GLOBAL')
+        : rows;
     const map = new Map<string, IssueRow[]>();
-    rows.forEach((row) => {
+    sourceRows.forEach((row) => {
         const key = groupBy === 'rule' ? row.rule : `${row.method} ${row.endpoint}`;
         const bucket = map.get(key) || [];
         bucket.push(row);
