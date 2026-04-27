@@ -26,6 +26,7 @@ import { activate as activateHistory } from './history';
 import { activateVisualizer } from './visualizer/activate';
 import { activateMCPServer } from './mcp';
 import { RPCLayer } from './RPCLayer';
+import { VisualizerWebview } from './visualizer/webview';
 import { EVENT_TYPE, MACHINE_VIEW } from '@wso2/arazzo-designer-core';
 import { startMCPServer, disposeMCPServer, isMCPServerRunning, onMCPServerStateChange, getMCPActiveFilePath } from './mcp/mcpServerRunner';
 import { RunWorkflowCodeLensProvider } from './mcp/runWorkflowCodeLens';
@@ -92,6 +93,8 @@ export async function activate(context: vscode.ExtensionContext) {
 	onMCPServerStateChange(() => {
 		runCodeLensProvider.setFileDirty(false);
 		runCodeLensProvider.refresh();
+		// Notify webview that MCP state changed
+		RPCLayer.sendMCPStateChange({ isMCPRunning: isMCPServerRunning(), isFileDirty: false });
 	});
 
 	// When the active file is saved and the MCP server is serving it, switch
@@ -102,6 +105,8 @@ export async function activate(context: vscode.ExtensionContext) {
 			if (activeFile && document.uri.fsPath === activeFile) {
 				runCodeLensProvider.setFileDirty(true);
 				runCodeLensProvider.refresh();
+				// Notify webview that the file is now dirty
+				RPCLayer.sendMCPStateChange({ isMCPRunning: true, isFileDirty: true });
 			}
 		})
 	);
@@ -288,6 +293,23 @@ function initializeLanguageServer(context: vscode.ExtensionContext) {
 			return;
 		}
 
+		// Open the visualizer for this specific workflow only if it is not
+		// already showing that exact workflow.
+		if (workflowId) {
+			const ctx = StateMachine.context();
+			const alreadyOpen =
+				VisualizerWebview.workflowPanel !== undefined &&
+				ctx.view === MACHINE_VIEW.Workflow &&
+				ctx.identifier === workflowId &&
+				ctx.documentUri === (args?.uri ?? vscode.Uri.file(filePath).toString());
+
+			if (!alreadyOpen) {
+				await vscode.commands.executeCommand('arazzo.openDesigner', args);
+				// Small delay to let the panel render before the MCP server starts
+				await new Promise(resolve => setTimeout(resolve, 300));
+			}
+		}
+
 		// Start the MCP server if it isn't running, or if it is serving a
 		// different Arazzo file than the one being requested.
 		const activeMCPFilePath = getMCPActiveFilePath();
@@ -296,6 +318,11 @@ function initializeLanguageServer(context: vscode.ExtensionContext) {
 			// Give the server a moment to become ready
 			await new Promise(resolve => setTimeout(resolve, 2000));
 		}
+
+		// Push the current MCP state to the webview so the title bar button
+		// reflects the running state immediately (the panel may have just
+		// opened and has no state yet).
+		RPCLayer.sendMCPStateChange({ isMCPRunning: true, isFileDirty: false });
 
 		// Build the Copilot prompt
 		const prompt = workflowId
