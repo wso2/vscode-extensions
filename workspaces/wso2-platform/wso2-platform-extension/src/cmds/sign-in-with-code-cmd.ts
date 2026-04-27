@@ -21,6 +21,7 @@ import { type ExtensionContext, commands, window } from "vscode";
 import * as vscode from "vscode";
 import { ResponseError } from "vscode-jsonrpc";
 import { ErrorCode } from "../choreo-rpc/constants";
+import { getFriendlySignInErrorMessage } from "../error-utils";
 import { ext } from "../extensionVariables";
 import { getLogger } from "../logger/logger";
 import { isRpcActive, setExtensionName } from "./cmd-utils";
@@ -52,9 +53,12 @@ export function signInWithAuthCodeCommand(context: ExtensionContext) {
 				}
 			} catch (error: any) {
 				if (!(error instanceof ResponseError) || ![ErrorCode.NoOrgsAvailable, ErrorCode.NoAccountAvailable].includes(error.code)) {
-					window.showErrorMessage("Sign in failed. Please check the logs for more details.");
+					const { userMessage, logMessage } = getFriendlySignInErrorMessage(error);
+					window.showErrorMessage(userMessage);
+					getLogger().error(`WSO2 Platform sign in Failed: ${logMessage}`);
+				} else {
+					getLogger().error(`WSO2 Platform sign in Failed: ${error.message}`);
 				}
-				getLogger().error(`WSO2 Platform sign in Failed: ${error.message}`);
 			}
 		}),
 	);

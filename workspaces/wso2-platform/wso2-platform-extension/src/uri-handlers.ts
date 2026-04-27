@@ -32,6 +32,7 @@ import { ProgressLocation, type ProviderResult, type QuickPickItem, type Uri, co
 import { ResponseError } from "vscode-jsonrpc";
 import { ErrorCode } from "./choreo-rpc/constants";
 import { getUserInfoForCmd, isRpcActive } from "./cmds/cmd-utils";
+import { getFriendlySignInErrorMessage } from "./error-utils";
 import { updateContextFile } from "./cmds/create-directory-context-cmd";
 import { ext } from "./extensionVariables";
 import { getGitRemotes, getGitRoot } from "./git/util";
@@ -86,9 +87,12 @@ export function activateURIHandlers() {
 									}
 								} catch (error: any) {
 									if (!(error instanceof ResponseError) || ![ErrorCode.NoOrgsAvailable, ErrorCode.NoAccountAvailable].includes(error.code)) {
-										window.showErrorMessage("Sign in failed. Please check the logs for more details.");
+										const { userMessage, logMessage } = getFriendlySignInErrorMessage(error);
+										window.showErrorMessage(userMessage);
+										getLogger().error(`WSO2 Platform sign in Failed: ${logMessage}`);
+									} else {
+										getLogger().error(`WSO2 Platform sign in Failed: ${error.message}`);
 									}
-									getLogger().error(`WSO2 Platform sign in Failed: ${error.message}`);
 								}
 							},
 						);

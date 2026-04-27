@@ -23,6 +23,34 @@ import { ext } from "./extensionVariables";
 import { getLogger } from "./logger/logger";
 import { webviewStateStore } from "./stores/webview-state-store";
 
+const OUTAGE_PATTERNS = [
+	/status code: 5\d\d/i,
+	/5\d\d\s+(Bad\s+Gateway|Gateway\s+Time-?out|Service\s+Unavailable|Internal\s+Server\s+Error)/i,
+	/ECONNREFUSED|ECONNRESET|ETIMEDOUT|EAI_AGAIN|getaddrinfo|socket\s+hang\s+up|network\s+error|Remote\s+host\s+closed/i,
+	/<html/i,
+];
+
+function stripHtmlBody(message: string): string {
+	return message.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim().slice(0, 200);
+}
+
+export function getFriendlySignInErrorMessage(error: any): { userMessage: string; logMessage: string } {
+	const raw: string = error?.message ?? String(error);
+	const isOutage = OUTAGE_PATTERNS.some((p) => p.test(raw));
+
+	if (isOutage) {
+		return {
+			userMessage: "WSO2 Cloud is temporarily unavailable. Please try again in a few minutes.",
+			logMessage: raw.includes("<html") ? stripHtmlBody(raw) : raw,
+		};
+	}
+
+	return {
+		userMessage: "Sign in failed. Please check the logs for more details.",
+		logMessage: raw,
+	};
+}
+
 export function handlerError(err: any) {
 	const extensionName = webviewStateStore.getState().state.extensionName;
 	if (err instanceof ResponseError) {

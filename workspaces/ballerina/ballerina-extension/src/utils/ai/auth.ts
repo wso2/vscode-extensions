@@ -199,10 +199,19 @@ export const exchangeStsToCopilotToken = async (stsToken: string): Promise<BIInt
             };
         }
 
-        throw new Error(response.data?.message || response.data?.reason || `Status ${response.status}`);
+        const statusError = Object.assign(
+            new Error(response.data?.message || response.data?.reason || `Status ${response.status}`),
+            { status: response.status }
+        );
+        throw statusError;
     } catch (error) {
-        const reason = error instanceof Error ? error.message : 'Unknown error';
-        vscode.window.showErrorMessage(`WSO2 Integrator Copilot authentication failed: ${reason}`);
+        const isOutage =
+            (typeof (error as any)?.status === 'number' && (error as any).status >= 500) ||
+            (error instanceof Error && /(ECONN|ETIMEDOUT|socket hang up|EAI_AGAIN|Status 5\d\d|<html)/i.test(error.message));
+        const userMessage = isOutage
+            ? 'WSO2 Cloud is temporarily unavailable. Please try again in a few minutes.'
+            : `WSO2 Integrator Copilot authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
+        vscode.window.showErrorMessage(userMessage);
         throw error;
     }
 };
