@@ -583,7 +583,8 @@ export function LogsTab({ spans }: LogsTabProps) {
                 </CardsContainer>
             ) : (
                 <CardsContainer>
-                    {runs.map((run, runIndex) => {
+                    {[...runs].reverse().map((run, reversedIndex) => {
+                        const runIndex = runs.length - 1 - reversedIndex;
                         const allStatuses = run.executions.map(getExecStatus);
                         const runStatus: ExecStatus = allStatuses.includes('error') ? 'error'
                             : allStatuses.includes('running') ? 'running' : 'ok';
