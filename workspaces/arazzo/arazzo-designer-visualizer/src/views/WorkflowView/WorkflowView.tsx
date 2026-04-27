@@ -416,20 +416,36 @@ export function WorkflowView(props: WorkflowViewProps) {
             }
         } else if (event.arazzo_span_kind === 'workflow' && event.lifecycle === 'end') {
             if (activeTraceWorkflowIdRef.current !== effectiveWorkflowIdRef.current) { return; }
-            // Workflow finished — colour every endNode green regardless of how the workflow ended
+            const lastStepId = prevStepRef.current;
+            // Colour only the end node reachable from the last executed step.
+            // The outer setNodes gives us `prev` (current nodes) for findTracePath;
+            // returning `prev` unchanged is a no-op — the actual node update is done
+            // via the inner setNodes call inside the setEdges updater.
             setNodes(prev => {
-                const endNodeIds = new Set(prev.filter(n => n.type === 'endNode').map(n => n.id));
-                setEdges(prevEdges => prevEdges.map(e =>
-                    endNodeIds.has(e.target)
-                        ? { ...e, zIndex: 10, data: { ...e.data, traceHighlight: 'passed' } }
-                        : e
-                ));
-                return prev.map(node => {
-                    if (node.type === 'endNode') {
-                        return { ...node, data: { ...node.data, traceStatus: { state: 'passed' } } };
+                const endNodes = prev.filter(n => n.type === 'endNode');
+                setEdges(prevEdges => {
+                    for (const endNode of endNodes) {
+                        const path = findTracePath(lastStepId, endNode.id, prevEdges, prev);
+                        if (path) {
+                            const highlightEdgeIds = new Set(path.edgeIds);
+                            const targetEndId = endNode.id;
+                            // Highlight only this specific end node
+                            setNodes(prevNodes => prevNodes.map(n =>
+                                n.id === targetEndId
+                                    ? { ...n, data: { ...n.data, traceStatus: { state: 'passed' } } }
+                                    : n
+                            ));
+                            return prevEdges.map(e =>
+                                highlightEdgeIds.has(e.id) || e.target === targetEndId
+                                    ? { ...e, zIndex: 10, data: { ...e.data, traceHighlight: 'passed' } }
+                                    : e
+                            );
+                        }
                     }
-                    return node;
+                    // No matching end node found — leave all end nodes unhighlighted.
+                    return prevEdges;
                 });
+                return prev; // no-op; end node highlight applied via inner setNodes above
             });
 
         } else if (event.arazzo_span_kind === 'retry') {
