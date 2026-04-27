@@ -107,13 +107,6 @@ export async function activate(context: vscode.ExtensionContext) {
 	
 	// Register MCP tools for Language Model API
 	registerMCPTools(context);
-	
-	// Register command to open the Create API panel - now uses unified panel
-	let createOpenAPIPanelDisposable = vscode.commands.registerCommand('api-designer.createAPIFromPanel', () => {
-		// Use the unified panel with 'create' viewType
-		vscode.commands.executeCommand('APIDesigner.openApiDesigner', undefined, 'create');
-	});
-	context.subscriptions.push(createOpenAPIPanelDisposable);
 
 	// Register the showCode command
 	let showCodeDisposable = vscode.commands.registerCommand('APIDesigner.showCode', showCode);

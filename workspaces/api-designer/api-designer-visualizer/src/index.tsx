@@ -23,7 +23,6 @@ import { ErrorBoundary } from "@wso2/ui-toolkit";
 import { VisualizerContextProvider } from "./contexts/VisualizerContext";
 import { Visualizer } from "./Visualizer";
 import { APIEditor } from "./views/DesignView/APIEditor";
-import { CreateOpenAPIPanel } from "./views/CreateView/CreateOpenAPIPanel";
 
 // Import views directly instead of lazy loading to avoid initialization issues
 import { AnalyzeView } from "./views/AnalyzeView/AnalyzeView";
@@ -147,9 +146,7 @@ function UnifiedWebview({
         );
     }
     
-    if (effectiveViewType === 'create') {
-        return <CreateOpenAPIPanel />;
-    } else if (effectiveViewType === 'preview' || effectiveViewType === 'design') {
+    if (effectiveViewType === 'preview' || effectiveViewType === 'design') {
         // Design view (preview)
         return (
             <VisualizerContextProvider>
