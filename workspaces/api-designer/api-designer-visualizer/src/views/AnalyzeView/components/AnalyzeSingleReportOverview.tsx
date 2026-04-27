@@ -201,7 +201,6 @@ export const AnalyzeSingleReportOverview: React.FC<AnalyzeSingleReportOverviewPr
     score,
     gradeColor,
     title,
-    subtitle,
     errorCount,
     warningCount,
     passedChecks,
@@ -234,7 +233,6 @@ export const AnalyzeSingleReportOverview: React.FC<AnalyzeSingleReportOverviewPr
             <MetaBlock>
                 <div>
                     <ReportTitle>{title}</ReportTitle>
-                    {subtitle && <ReportSubtitle>{subtitle}</ReportSubtitle>}
                 </div>
 
                 <MetricsGrid>

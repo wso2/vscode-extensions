@@ -167,12 +167,21 @@ type BuiltUnifiedReport = {
     };
     breakdown: {
         title: string;
+        subtitle?: string;
         categories: UnifiedBreakdownCategory[];
     };
     issueExplorer: {
+        title?: string;
+        subtitle?: string;
         breakdownFilterOptions: Array<{ key: string; label: string }>;
     };
     aiReadinessSummary?: unknown;
+    llmReview?: {
+        title?: string;
+        subtitle?: string;
+        viewFindingsLabel?: string;
+        reevaluateLabel?: string;
+    };
 };
 
 /**
@@ -321,16 +330,6 @@ export class GovernanceManager extends BaseRpcManager {
             ? currentAgentReadiness.aiAnalysis as Record<string, unknown>
             : undefined;
 
-        // Re-read once more to avoid losing aiAnalysis due overlapping writes.
-        const latest = await this.readAssessmentDocument(cachePath);
-        const latestAgentReadiness = latest.agentReadiness && typeof latest.agentReadiness === 'object'
-            ? latest.agentReadiness as Record<string, unknown>
-            : {};
-        const latestAiAnalysis = latestAgentReadiness.aiAnalysis && typeof latestAgentReadiness.aiAnalysis === 'object'
-            ? latestAgentReadiness.aiAnalysis as Record<string, unknown>
-            : undefined;
-        const preservedAiAnalysis = latestAiAnalysis || currentAiAnalysis;
-
         const prefix: 'spec' | 'sec' = reportId === 'ai-readiness' ? 'spec' : 'sec';
         const issues = this.buildSpectralReportIssues(violationsById, prefix);
         const counts = this.computeCountsFromReportIssues(issues);
@@ -350,27 +349,44 @@ export class GovernanceManager extends BaseRpcManager {
             issues,
         };
 
+        // Final read-before-write merge to minimize chances of dropping aiAnalysis
+        // during overlapping writes between spectral and LLM persistence.
+        const latestForMerge = await this.readAssessmentDocument(cachePath);
+        const baseDoc = Object.keys(latestForMerge).length > 0 ? latestForMerge : existing;
+        const baseMeta = baseDoc.meta && typeof baseDoc.meta === 'object'
+            ? baseDoc.meta as Record<string, unknown>
+            : currentMeta;
+        const baseAgentReadiness = baseDoc.agentReadiness && typeof baseDoc.agentReadiness === 'object'
+            ? baseDoc.agentReadiness as Record<string, unknown>
+            : currentAgentReadiness;
+        const baseSecurityReadiness = baseDoc.securityReadiness && typeof baseDoc.securityReadiness === 'object'
+            ? baseDoc.securityReadiness as Record<string, unknown>
+            : currentSecurityReadiness;
+        const preservedAiAnalysis = baseAgentReadiness.aiAnalysis && typeof baseAgentReadiness.aiAnalysis === 'object'
+            ? baseAgentReadiness.aiAnalysis as Record<string, unknown>
+            : currentAiAnalysis;
+
         const merged = {
-            ...existing,
+            ...baseDoc,
             meta: {
-                ...currentMeta,
+                ...baseMeta,
                 specFile: filePath,
-                specHash: typeof currentMeta.specHash === 'string' ? currentMeta.specHash : '',
+                specHash: typeof baseMeta.specHash === 'string' ? baseMeta.specHash : '',
                 assessedAt: new Date().toISOString(),
                 spectralVersion: 'not-run',
                 guidelinesVersion: 'agent-readiness-guidelines.md',
-                model: String(currentMeta.model || ''),
+                model: String(baseMeta.model || ''),
             },
             agentReadiness: reportId === 'ai-readiness'
                 ? {
-                    ...currentAgentReadiness,
+                    ...baseAgentReadiness,
                     ...(preservedAiAnalysis ? { aiAnalysis: preservedAiAnalysis } : {}),
                     spectral: section
                 }
-                : currentAgentReadiness,
+                : baseAgentReadiness,
             securityReadiness: reportId === 'owasp'
-                ? { ...currentSecurityReadiness, spectral: section }
-                : currentSecurityReadiness,
+                ? { ...baseSecurityReadiness, spectral: section }
+                : baseSecurityReadiness,
         };
         await writeFile(cachePath, JSON.stringify(merged, null, 2), 'utf8');
     }
@@ -393,8 +409,14 @@ export class GovernanceManager extends BaseRpcManager {
             const existingAiAnalysis = currentAgentReadiness.aiAnalysis && typeof currentAgentReadiness.aiAnalysis === 'object'
                 ? currentAgentReadiness.aiAnalysis as Record<string, unknown>
                 : {};
-
-            const reportIssues = this.buildLlmReportIssues(state.result?.findings || []);
+            const existingIssues = Array.isArray(existingAiAnalysis.issues)
+                ? existingAiAnalysis.issues as ReportIssue[]
+                : [];
+            // Preserve last known findings when status updates (e.g., pending/failed/stale)
+            // arrive without a fresh result payload.
+            const reportIssues = state.result
+                ? this.buildLlmReportIssues(state.result.findings || [])
+                : existingIssues;
             const counts = this.computeCountsFromReportIssues(reportIssues);
             const rating = this.computeSectionRating(counts);
             const modelId = options?.modelId || String(currentMeta.model || 'copilot');
@@ -940,14 +962,29 @@ export class GovernanceManager extends BaseRpcManager {
             },
             breakdown: {
                 title: reportId === 'owasp' ? 'OWASP Breakdown' : reportId === 'rest-api-readiness' ? 'WSO2 REST Guidelines Breakdown' : 'AI Readiness Breakdown',
+                subtitle: reportId === 'owasp'
+                    ? 'Coverage across the OWASP API Security Top 10 (2023)'
+                    : reportId === 'rest-api-readiness'
+                        ? 'Compliance with WSO2 REST API design guidelines'
+                        : 'Evaluate how well your API is prepared for AI agent consumption',
                 categories,
             },
             issueExplorer: {
+                title: 'Issue Explorer',
+                subtitle: 'Browse, filter and inspect all violations in detail',
                 breakdownFilterOptions: categories.map((category) => ({
                     key: category.viewIssuesFilter.key,
                     label: category.viewIssuesFilter.label,
                 })),
             },
+            llmReview: reportId === 'ai-readiness'
+                ? {
+                    title: 'Agent-Based AI Readiness Review',
+                    subtitle: 'AI agent findings for readiness checks. Use "View findings" for full details.',
+                    viewFindingsLabel: 'View findings',
+                    reevaluateLabel: 'Re-evaluate',
+                }
+                : undefined,
         };
     }
 

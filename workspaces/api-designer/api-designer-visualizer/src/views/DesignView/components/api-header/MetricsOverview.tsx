@@ -66,31 +66,31 @@ type GovernanceSection = 'owasp' | 'wso2-rest';
 
 const Container = styled.div`
     width: 100%;
-    margin: 0 0 12px;
+    margin: 0 0 10px;
 `;
 
 const MetricsStrip = styled.div`
     display: flex;
-    gap: 10px;
+    gap: 8px;
 `;
 
 const MetricBadge = styled.button<{ $borderColor: string; $bgColor: string }>`
     flex: 1;
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     text-align: left;
-    padding: 10px 12px;
+    padding: 9px 10px;
     background: ${({ $bgColor }: { $bgColor: string }) => $bgColor};
     border: 1px solid ${({ $borderColor }: { $borderColor: string }) => $borderColor};
-    border-radius: 8px;
+    border-radius: 7px;
     font-family: var(--vscode-font-family);
     cursor: pointer;
-    transition: border-color 0.2s ease, transform 0.2s ease;
+    transition: border-color 0.16s ease, background-color 0.16s ease;
 
     &:hover {
-        border-color: var(--vscode-focusBorder);
-        transform: translateY(-1px);
+        border-color: color-mix(in srgb, var(--vscode-focusBorder) 55%, var(--vscode-panel-border));
+        background: color-mix(in srgb, ${({ $bgColor }: { $bgColor: string }) => $bgColor} 70%, var(--vscode-editorWidget-background));
     }
 `;
 
@@ -99,15 +99,15 @@ const MetricCircle = styled.div<{ $color: string; $score: number | null }>`
     align-items: center;
     justify-content: center;
     position: relative;
-    width: 46px;
-    height: 46px;
+    width: 40px;
+    height: 40px;
     border-radius: 999px;
     background: ${({ $color, $score }: { $color: string; $score: number | null }) => {
         const normalizedScore = Math.max(0, Math.min(100, $score ?? 0));
         return `conic-gradient(${$color} ${normalizedScore}%, var(--vscode-panel-border) ${normalizedScore}% 100%)`;
     }};
     color: var(--vscode-foreground);
-    font-size: 12px;
+    font-size: 10px;
     font-weight: 700;
     line-height: 1;
     flex-shrink: 0;
@@ -115,9 +115,9 @@ const MetricCircle = styled.div<{ $color: string; $score: number | null }>`
     &::before {
         content: '';
         position: absolute;
-        inset: 4px;
+        inset: 3px;
         border-radius: 999px;
-        background: var(--vscode-editor-background);
+        background: var(--vscode-editorWidget-background);
     }
 `;
 
@@ -129,7 +129,7 @@ const MetricCircleText = styled.span`
 const MetricContent = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 1px;
     flex: 1;
     min-width: 0;
 `;
@@ -138,14 +138,15 @@ const ReportLinkHint = styled.div`
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    font-size: 11px;
-    font-weight: 600;
+    font-size: 10px;
+    font-weight: 500;
     color: var(--vscode-textLink-foreground);
-    margin-top: 4px;
+    margin-top: 3px;
+    opacity: 0.92;
 `;
 
 const MetricTitle = styled.div`
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 600;
     color: var(--vscode-foreground);
     white-space: nowrap;
@@ -154,9 +155,9 @@ const MetricTitle = styled.div`
 `;
 
 const MetricDescription = styled.div`
-    font-size: 10px;
+    font-size: 9px;
     color: var(--vscode-descriptionForeground);
-    line-height: 1.3;
+    line-height: 1.25;
 `;
 
 const hexToRgba = (hex: string, alpha: number): string => {
@@ -321,7 +322,7 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ fileUri, aiRea
                             onClick={() => navigateToAnalyze(badge.analyzeSection)}
                             title="Click to view detailed analysis"
                             $borderColor={hexToRgba(tintHex, 0.42)}
-                            $bgColor={hexToRgba(tintHex, 0.1)}
+                            $bgColor={hexToRgba(tintHex, 0.06)}
                         >
                             <MetricCircle $color={ringColor} $score={badge.score}>
                                 <MetricCircleText>

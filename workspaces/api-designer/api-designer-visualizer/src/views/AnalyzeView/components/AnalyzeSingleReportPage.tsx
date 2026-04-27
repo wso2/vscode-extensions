@@ -22,7 +22,7 @@ import {
 } from '../hooks/useReport';
 import { AnalyzeSingleReportOverview } from './AnalyzeSingleReportOverview';
 import { AnalyzeSingleReportBreakdown } from './AnalyzeSingleReportBreakdown';
-import { REPORT_TITLES, buildRulesetFileUrl } from './AnalyzeSingleReportHelpers';
+import { buildRulesetFileUrl } from './AnalyzeSingleReportHelpers';
 import { AnalyzeSingleReportIssueExplorer } from './AnalyzeSingleReportIssueExplorer';
 
 export type { AnalyzeReportKey };
@@ -269,7 +269,6 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
             issueExplorerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
     }, []);
-    const title = REPORT_TITLES[reportKey];
     const score = Math.max(0, Math.min(100, Number(report?.score || 0)));
     const gradeColor = scoreColor(score);
     const errorCount = rows.filter((row) => row.severity === 'error').length;
@@ -295,13 +294,22 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
 
     const resolvedReportId = report.report.reportId;
     const issueExplorerReportKey: AnalyzeReportKey = resolvedReportId === 'rest-api-readiness' ? 'wso2-rest' : resolvedReportId;
+    const reportUiMeta = report.report as typeof report.report & {
+        breakdown: { subtitle?: string };
+        issueExplorer: { title?: string; subtitle?: string };
+        llmReview?: {
+            title?: string;
+            subtitle?: string;
+            viewFindingsLabel?: string;
+            reevaluateLabel?: string;
+        };
+    };
     return (
         <Root>
             <AnalyzeSingleReportOverview
                 score={score}
                 gradeColor={gradeColor}
-                title={title}
-                subtitle={report.rulesetName}
+                title={report.report.title || report.rulesetName}
                 errorCount={errorCount}
                 warningCount={warningCount}
                 passedChecks={report.passedChecks}
@@ -314,6 +322,9 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
 
             <AnalyzeSingleReportBreakdown
                 reportKey={reportKey}
+                title={report.report.breakdown.title}
+                subtitle={reportUiMeta.breakdown.subtitle}
+                llmReview={resolvedReportId === 'ai-readiness' ? reportUiMeta.llmReview : undefined}
                 aiReadinessDimensions={aiReadinessDimensions}
                 totalRows={rows.length}
                 violations={rows}
@@ -327,6 +338,8 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
 
             <div ref={issueExplorerRef}>
                 <AnalyzeSingleReportIssueExplorer
+                    title={reportUiMeta.issueExplorer.title}
+                    subtitle={reportUiMeta.issueExplorer.subtitle}
                     rows={scopedRows}
                     stats={issueStats}
                     filteredRows={filteredRows}

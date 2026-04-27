@@ -5,6 +5,8 @@ import { AnalyzeReportKey, GroupBy, IssueRow, SeverityLevel, SortBy, SortDir } f
 import { extractSnippetLines, getMethodStyle } from './AnalyzeSingleReportHelpers';
 
 interface AnalyzeSingleReportIssueExplorerProps {
+    title?: string;
+    subtitle?: string;
     rows: IssueRow[];
     stats: { errors: number; warnings: number };
     filteredRows: IssueRow[];
@@ -119,33 +121,43 @@ const FilterChip = styled.button<{ $active: boolean }>`
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    height: 32px;
-    padding: 0 14px;
-    border-radius: 8px;
-    font-size: 12px;
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 7px;
+    font-size: 11px;
     font-weight: 600;
     cursor: pointer;
     font-family: inherit;
     user-select: none;
-    transition: background 0.12s, color 0.12s, border-color 0.12s, box-shadow 0.12s;
-    border: 1px solid ${({ $active }: { $active: boolean }) => ($active ? 'var(--vscode-focusBorder)' : 'var(--vscode-panel-border)')};
-    background: ${({ $active }: { $active: boolean }) => ($active ? 'var(--vscode-input-background)' : 'var(--vscode-editorWidget-background)')};
-    color: ${({ $active }: { $active: boolean }) => ($active ? 'var(--vscode-foreground)' : 'var(--vscode-descriptionForeground)')};
-    box-shadow: ${({ $active }: { $active: boolean }) => ($active ? '0 0 0 1px var(--vscode-focusBorder)' : 'none')};
+    letter-spacing: 0.01em;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+    border: 1px solid ${({ $active }: { $active: boolean }) =>
+        $active
+            ? 'color-mix(in srgb, var(--vscode-focusBorder) 70%, var(--vscode-panel-border))'
+            : 'color-mix(in srgb, var(--vscode-panel-border) 88%, transparent)'};
+    background: ${({ $active }: { $active: boolean }) =>
+        $active
+            ? 'color-mix(in srgb, var(--vscode-focusBorder) 12%, transparent)'
+            : 'color-mix(in srgb, var(--vscode-editorWidget-background) 92%, transparent)'};
+    color: ${({ $active }: { $active: boolean }) =>
+        $active
+            ? 'var(--vscode-foreground)'
+            : 'color-mix(in srgb, var(--vscode-descriptionForeground) 90%, var(--vscode-foreground))'};
 
     &:hover {
-        background: var(--vscode-input-background);
+        background: color-mix(in srgb, var(--vscode-list-hoverBackground) 85%, transparent);
         color: var(--vscode-foreground);
-        border-color: var(--vscode-focusBorder);
+        border-color: color-mix(in srgb, var(--vscode-focusBorder) 45%, var(--vscode-panel-border));
     }
 `;
 
 const ChipDot = styled.span<{ $color: string }>`
-    width: 7px;
-    height: 7px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
     flex-shrink: 0;
     background: ${({ $color }: { $color: string }) => $color};
+    opacity: 0.9;
 `;
 
 const ToolbarSep = styled.div`
@@ -349,6 +361,8 @@ const MethodBadge: React.FC<{ method: string }> = ({ method }) => {
 
 export const AnalyzeSingleReportIssueExplorer: React.FC<AnalyzeSingleReportIssueExplorerProps> = (props) => {
     const {
+        title,
+        subtitle,
         rows, stats, filteredRows, groupedRows, selectedIssue, setSelectedIssueId,
         severityFilter, setSeverityFilter, groupBy, setGroupBy, sortBy, setSortBy, sortDir, setSortDir, search, setSearch,
         aiEnabled, reportKey, reportName, fileUri, rulesetFileUrl, rulesetContentPath, specContent, onOpenCopilotChat, aiBucketFilter, breakdownFilter,
@@ -360,8 +374,8 @@ export const AnalyzeSingleReportIssueExplorer: React.FC<AnalyzeSingleReportIssue
         <SectionShell>
             <SectionHeader>
                 <SectionHeading>
-                    <SectionTitle>Issue Explorer</SectionTitle>
-                    <SectionSubtitle>Browse, filter and inspect all violations in detail</SectionSubtitle>
+                    <SectionTitle>{title || 'Issue Explorer'}</SectionTitle>
+                    <SectionSubtitle>{subtitle || 'Browse, filter and inspect all violations in detail'}</SectionSubtitle>
                 </SectionHeading>
                 <SectionBadge id="issueCountBadge">{rows.length} issue{rows.length !== 1 ? 's' : ''}</SectionBadge>
             </SectionHeader>

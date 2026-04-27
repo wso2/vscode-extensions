@@ -287,12 +287,10 @@ export const useReportData = (
                     const incomingLlmValidation = (governance as GetGovernanceResponse & {
                         llmValidation?: ReportState['llmValidation'];
                     }).llmValidation;
-                    // Some stale payloads may not include cached findings.
-                    // Preserve the previous result so users can still inspect prior issues while stale.
+                    // Some LLM status payloads (pending/stale/failed) may omit cached findings.
+                    // Keep the last known findings so users can still inspect prior issues.
                     const llmValidation =
-                        incomingLlmValidation?.status === 'stale' &&
-                        !incomingLlmValidation.result &&
-                        prev?.llmValidation?.result
+                        incomingLlmValidation && !incomingLlmValidation.result && prev?.llmValidation?.result
                             ? { ...incomingLlmValidation, result: prev.llmValidation.result }
                             : incomingLlmValidation;
 

@@ -226,9 +226,12 @@ export interface UnifiedAnalyzeReportBase {
     };
     breakdown: {
         title: string;
+        subtitle?: string;
         categories: UnifiedBreakdownCategory[];
     };
     issueExplorer: {
+        title?: string;
+        subtitle?: string;
         breakdownFilterOptions: Array<{ key: string; label: string }>;
     };
 }
@@ -236,6 +239,12 @@ export interface UnifiedAnalyzeReportBase {
 export interface AiReadinessAnalyzeReport extends UnifiedAnalyzeReportBase {
     reportId: 'ai-readiness';
     aiReadinessSummary: AiReadinessSummary;
+    llmReview?: {
+        title?: string;
+        subtitle?: string;
+        viewFindingsLabel?: string;
+        reevaluateLabel?: string;
+    };
 }
 
 export interface OwaspAnalyzeReport extends UnifiedAnalyzeReportBase {

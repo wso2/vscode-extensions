@@ -2,7 +2,6 @@ import React from 'react';
 import styled from '@emotion/styled';
 import type { AiReadinessDimensionSummary } from '@wso2/api-designer-core';
 import { AnalyzeReportKey } from '../hooks/useReport';
-import { BREAKDOWN_TITLES, BREAKDOWN_SUBTITLES } from './AnalyzeSingleReportHelpers';
 import { AIReadinessBucketGrid } from './AIReadinessBucketGrid';
 import { postMessage } from '../../../utils/vscode-api';
 import { Button } from '@wso2/ui-toolkit';
@@ -19,6 +18,14 @@ interface ViolationRow {
 
 interface AnalyzeSingleReportBreakdownProps {
     reportKey: AnalyzeReportKey;
+    title?: string;
+    subtitle?: string;
+    llmReview?: {
+        title?: string;
+        subtitle?: string;
+        viewFindingsLabel?: string;
+        reevaluateLabel?: string;
+    };
     aiReadinessDimensions: AiReadinessDimensionSummary[];
     totalRows: number;
     violations: ViolationRow[];
@@ -243,20 +250,6 @@ const LlmTile = styled.div<{ $statusColor: string }>`
     position: relative;
 `;
 
-const LlmAiBadge = styled.div`
-    position: absolute;
-    top: -1px;
-    right: 14px;
-    font-size: 9px;
-    font-weight: 800;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    background: var(--vscode-button-background, #0078d4);
-    color: var(--vscode-button-foreground, #fff);
-    padding: 2px 8px;
-    border-radius: 0 0 5px 5px;
-`;
-
 const LlmStatusIcon = styled.div<{ $color: string }>`
     width: 48px;
     height: 48px;
@@ -338,7 +331,7 @@ const LlmStatusPill = styled.span<{ $color: string; $bg: string }>`
 
 const LlmActions = styled.div`
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     gap: 6px;
     flex-shrink: 0;
     align-items: flex-end;
@@ -389,6 +382,9 @@ const formatEvaluationTimestamp = (timestamp?: number): string | null => {
 
 export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdownProps> = ({
     reportKey,
+    title,
+    subtitle,
+    llmReview,
     aiReadinessDimensions,
     violations,
     expandedBucketKeys,
@@ -413,8 +409,11 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
             a.label.localeCompare(b.label)
         );
     }, [categories]);
-    const title = BREAKDOWN_TITLES[reportKey];
-    const subtitle = BREAKDOWN_SUBTITLES[reportKey];
+    const resolvedTitle = title || (reportKey === 'owasp'
+        ? 'OWASP Breakdown'
+        : reportKey === 'wso2-rest'
+            ? 'WSO2 REST Guidelines Breakdown'
+            : 'AI Readiness Breakdown');
 
     const llmInfo = React.useMemo(() => {
         if (!llmValidation || llmValidation.status === 'pending') {
@@ -476,7 +475,7 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
         <Section>
             <SectionHeader>
                 <SectionHeading>
-                    <SectionTitle>{title}</SectionTitle>
+                    <SectionTitle>{resolvedTitle}</SectionTitle>
                     {subtitle && <SectionSubtitle>{subtitle}</SectionSubtitle>}
                 </SectionHeading>
                 <SectionBadge>{badge}</SectionBadge>
@@ -485,23 +484,26 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
             {reportKey === 'ai-readiness' ? (
                 <AiBreakdownStack>
                     <LlmTile $statusColor={llmInfo.statusColor}>
-                        <LlmAiBadge>AI Powered</LlmAiBadge>
                         <LlmStatusIcon $color={llmInfo.statusColor}>{llmInfo.icon}</LlmStatusIcon>
                         <LlmInfo>
                             <LlmTitleRow>
-                                <LlmTitle>Agent-Based AI Readiness Review</LlmTitle>
+                                <LlmTitle>{llmReview?.title || 'Agent-Based AI Readiness Review'}</LlmTitle>
                                 <LlmStatusPill $color={llmInfo.badgeColor} $bg={llmInfo.badgeBg}>{llmInfo.statusLabel}</LlmStatusPill>
                                 <LlmDetailsTip title={llmInfo.meta}>i</LlmDetailsTip>
                             </LlmTitleRow>
-                            <LlmSummary>AI agent findings for readiness checks. Use "View findings" for full details.</LlmSummary>
+                            <LlmSummary>{llmReview?.subtitle || 'AI agent findings for readiness checks. Use "View findings" for full details.'}</LlmSummary>
                         </LlmInfo>
                         <LlmActions>
                             {(llmValidation?.status === 'ready' || (llmValidation?.status === 'stale' && hasLlmFindings)) && (
-                                <Button onClick={() => onViewIssues('llm-validation')}>View findings</Button>
+                                <Button onClick={() => onViewIssues('llm-validation')}>
+                                    {llmReview?.viewFindingsLabel || 'View findings'}
+                                </Button>
                             )}
                             {(llmValidation?.status === 'stale' || llmValidation?.status === 'failed' || !llmValidation || llmValidation.status === 'pending') && (
                                 <Button onClick={onReevaluateLlm}>
-                                    {llmValidation?.status === 'pending' ? 'Running…' : 'Re-evaluate'}
+                                    {llmValidation?.status === 'pending'
+                                        ? 'Running…'
+                                        : (llmReview?.reevaluateLabel || 'Re-evaluate')}
                                 </Button>
                             )}
                         </LlmActions>
