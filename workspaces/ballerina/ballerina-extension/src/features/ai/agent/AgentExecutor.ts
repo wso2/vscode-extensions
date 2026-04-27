@@ -23,7 +23,9 @@ import { ModelMessage, stepCountIs, streamText, TextStreamPart } from 'ai';
 import { getAnthropicClient, getProviderCacheControl, addCacheControlToMessages, ANTHROPIC_SONNET_4 } from '../utils/ai-client';
 import { populateHistoryForAgent, getErrorMessage } from '../utils/ai-utils';
 import { sendAgentDidOpenForFreshProjects } from '../utils/project/ls-schema-notifications';
-import { getSystemPrompt, getUserPrompt } from './prompts';
+import { getSystemPromptWithMemory, getUserPrompt } from './prompts';
+import { executeExtractMemories } from '../memory/extractMemories';
+import { executeAutoDream } from '../memory/autoDream';
 import { GenerationType } from '../utils/libs/libraries';
 import { createToolRegistry } from './tool-registry';
 import { getProjectSource, cleanupTempProject } from '../utils/project/temp-project';
@@ -99,6 +101,19 @@ function warnCompactionDisabledOnce(projectRootPath: string, eventHandler: (e: a
 
 function usesContentBasedCompactionDetection(loginMethod: LoginMethod): boolean {
     return loginMethod === LoginMethod.AWS_BEDROCK;
+}
+
+/** Extracts plain text from Vercel AI SDK message content (string or content-block array). */
+function extractTextContent(content: unknown): string {
+    if (typeof content === 'string') { return content; }
+    if (Array.isArray(content)) {
+        return (content as Array<{ type?: string; text?: string }>)
+            .filter(b => b.type === 'text' && typeof b.text === 'string')
+            .map(b => b.text as string)
+            .join('\n')
+            .trim();
+    }
+    return '';
 }
 
 /** Estimate character length of a message's content for proportional token breakdown. */
@@ -272,11 +287,11 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
 
             const userMessageContent = getUserPrompt(params, tempProjectPath, projects);
 
-            // Estimate fixed overhead (system prompt + codebase) to decide if compaction is viable
-            const systemPromptText = getSystemPrompt(projects, params.operationType);
-            const floorTokens = estimateFloorTokens(systemPromptText, JSON.stringify(userMessageContent));
-
             const projectRootPath = this.config.executionContext.workspacePath || this.config.executionContext.projectPath || '';
+
+            // Estimate fixed overhead (system prompt + codebase) to decide if compaction is viable
+            const systemPromptText = getSystemPromptWithMemory(projects, params.operationType, projectRootPath);
+            const floorTokens = estimateFloorTokens(systemPromptText, JSON.stringify(userMessageContent));
             const providerOptions = buildCompactionProviderOptions(loginMethod, floorTokens);
             if (supportsCompaction(loginMethod) && providerOptions === undefined) {
                 warnCompactionDisabledOnce(projectRootPath, this.config.eventHandler);
@@ -300,7 +315,7 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
             const allMessages: ModelMessage[] = [
                 {
                     role: "system",
-                    content: getSystemPrompt(projects, params.operationType),
+                    content: systemPromptText,
                     providerOptions: cacheOptions,
                 },
                 ...historyMessages,
@@ -844,6 +859,22 @@ Generation stopped by user. The last in-progress task was not saved. Files have 
 
         // Emit UI events
         await this.emitReviewActions(context);
+
+        // Fire-and-forget memory agents — never block the response
+        const workspacePath = context.ctx.workspacePath || context.ctx.projectPath || '';
+        if (workspacePath) {
+            const userText = extractTextContent(context.userMessageContent);
+            const assistantText = assistantMessages
+                .filter(m => m.role === 'assistant')
+                .map(m => extractTextContent(m.content))
+                .join('\n')
+                .trim();
+
+            if (userText || assistantText) {
+                executeExtractMemories({ userMessage: userText, assistantMessage: assistantText, workspacePath });
+            }
+            executeAutoDream({ workspacePath });
+        }
     }
 
     /**
