@@ -314,7 +314,10 @@ function initializeLanguageServer(context: vscode.ExtensionContext, runCodeLensP
 		// or the file has been modified since the last server start (dirty).
 		const activeMCPFilePath = getMCPActiveFilePath();
 		if (!isMCPServerRunning() || activeMCPFilePath !== filePath || runCodeLensProvider.isFileDirty()) {
-			await startMCPServer(context, filePath);
+			// Pass suppressPrompt=true so startMCPServer does not show its own
+			// "Try Now" notification — this command will open Copilot itself
+			// with the correct workflow ID below.
+			await startMCPServer(context, filePath, true);
 			// Give the server a moment to become ready
 			await new Promise(resolve => setTimeout(resolve, 2000));
 		}
