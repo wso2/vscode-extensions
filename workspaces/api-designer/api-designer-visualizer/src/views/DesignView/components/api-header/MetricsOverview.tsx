@@ -22,6 +22,7 @@ import { useVisualizerContext } from '@wso2/api-designer-rpc-client';
 import { SpectralRuleset } from '@wso2/api-designer-core';
 import { Codicon } from '@wso2/ui-toolkit';
 import { postMessage as postVSCodeMessage } from '../../../../utils/vscode-api';
+import { scoreAccentHex, scoreColor } from '../../../AnalyzeView/hooks/useReport';
 
 export interface ValidationIssuePathItem {
     path: string[];
@@ -158,15 +159,6 @@ const MetricDescription = styled.div`
     line-height: 1.3;
 `;
 
-// Use explicit hex colors because badge tinting depends on hexToRgba conversion.
-const scoreToAccentHex = (score: number): string => {
-    if (score >= 90) return '#22c55e';
-    if (score >= 75) return '#3b82f6';
-    if (score >= 60) return '#eab308';
-    if (score >= 40) return '#f97316';
-    return '#ef4444';
-};
-
 const hexToRgba = (hex: string, alpha: number): string => {
     const h = hex.replace('#', '');
     const r = parseInt(h.slice(0, 2), 16);
@@ -220,7 +212,10 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ fileUri, aiRea
     const { rpcClient } = useVisualizerContext();
     const [governanceMetrics, setGovernanceMetrics] = useState<MetricBadgeData[]>([]);
     const readiness = aiReadinessScore?.score ?? null;
-    const defaultAccent = '#3b82f6';
+    /** When score is not yet available, use the same “A” band as a neutral placeholder (matches previous blue default). */
+    const placeholderScore = 75;
+    const defaultTintHex = scoreAccentHex(placeholderScore);
+    const defaultRingColor = scoreColor(placeholderScore);
 
     useEffect(() => {
         let isActive = true;
@@ -316,18 +311,19 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ fileUri, aiRea
         <Container>
             <MetricsStrip>
                 {metricBadges.map((badge) => {
-                    const badgeAccent = badge.score !== null && badge.score !== undefined
-                        ? scoreToAccentHex(badge.score)
-                        : defaultAccent;
+                    const ringColor =
+                        badge.score !== null && badge.score !== undefined ? scoreColor(badge.score) : defaultRingColor;
+                    const tintHex =
+                        badge.score !== null && badge.score !== undefined ? scoreAccentHex(badge.score) : defaultTintHex;
                     return (
                         <MetricBadge
                             key={badge.key}
                             onClick={() => navigateToAnalyze(badge.analyzeSection)}
                             title="Click to view detailed analysis"
-                            $borderColor={hexToRgba(badgeAccent, 0.42)}
-                            $bgColor={hexToRgba(badgeAccent, 0.1)}
+                            $borderColor={hexToRgba(tintHex, 0.42)}
+                            $bgColor={hexToRgba(tintHex, 0.1)}
                         >
-                            <MetricCircle $color={badgeAccent} $score={badge.score}>
+                            <MetricCircle $color={ringColor} $score={badge.score}>
                                 <MetricCircleText>
                                     {badge.score !== null && badge.score !== undefined ? `${badge.score}%` : '--'}
                                 </MetricCircleText>

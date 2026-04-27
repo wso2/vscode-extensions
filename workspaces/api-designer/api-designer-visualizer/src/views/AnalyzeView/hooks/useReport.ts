@@ -65,14 +65,13 @@ export interface ReportState {
 
 export const severityRank: Record<SeverityLevel, number> = { error: 3, warn: 2, info: 1, hint: 0 };
 
-type ScoreBand = { min: number; grade: string; color: string };
+type ScoreBand = { min: number; color: string; /** Solid hex for rgba tinting (e.g. Design View metric cards) */ tintHex: string };
 
 const SCORE_BANDS: ScoreBand[] = [
-    { min: 90, grade: 'A', color: 'var(--vscode-testing-iconPassed, #22c55e)' },
-    { min: 75, grade: 'B', color: '#3b82f6' },
-    { min: 60, grade: 'C', color: 'var(--vscode-editorWarning-foreground)' },
-    { min: 40, grade: 'D', color: '#f97316' },
-    { min: 0, grade: 'F', color: 'var(--vscode-errorForeground)' },
+    { min: 90, color: ' #22c55e', tintHex: '#22c55e' },
+    { min: 75, color: ' #3b82f6', tintHex: '#3b82f6' },
+    { min: 50, color: ' #eab308', tintHex: '#eab308' },
+    { min: 0, color: ' #ef4444', tintHex: '#ef4444' },
 ];
 
 const getScoreBand = (score: number): ScoreBand => {
@@ -80,9 +79,10 @@ const getScoreBand = (score: number): ScoreBand => {
     return SCORE_BANDS.find((band) => normalizedScore >= band.min) || SCORE_BANDS[SCORE_BANDS.length - 1];
 };
 
-export const scoreGrade = (score: number): string => getScoreBand(score).grade;
-
 export const scoreColor = (score: number): string => getScoreBand(score).color;
+
+/** Same bands as `scoreColor`, but always a hex string for `color-mix` / rgba tint helpers. */
+export const scoreAccentHex = (score: number): string => getScoreBand(score).tintHex;
 
 export const extractEndpoint = (segments: string[]): { endpoint: string; method: string } => {
     const pathsIndex = segments.indexOf('paths');

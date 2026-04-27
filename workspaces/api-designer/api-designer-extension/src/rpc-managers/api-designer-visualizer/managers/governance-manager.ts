@@ -1115,14 +1115,6 @@ export class GovernanceManager extends BaseRpcManager {
             if (aiReadinessSummary) {
                 unifiedReport.aiReadinessSummary = aiReadinessSummary;
             }
-            if (unifiedReport.reportId === 'ai-readiness' && typeof unifiedReport.overview?.score === 'number') {
-                const llmScore = llmValidation?.status === 'ready' && typeof llmValidation.result?.score === 'number'
-                    ? llmValidation.result.score
-                    : null;
-                if (llmScore !== null) {
-                    unifiedReport.overview.score = Math.round((unifiedReport.overview.score * 0.7) + (llmScore * 0.3));
-                }
-            }
             (response as GetGovernanceResponse & { schemaVersion?: '2' }).schemaVersion = '2';
             (response as GetGovernanceResponse).reportId = unifiedReport.reportId;
             (response as GetGovernanceResponse).report = unifiedReport as CoreUnifiedAnalyzeReport;

@@ -66,34 +66,6 @@ const HeaderLeft = styled.div`
     flex-direction: column;
 `;
 
-const BackButton = styled.button`
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    height: 26px;
-    width: fit-content;
-    margin-bottom: 8px;
-    padding: 0 10px;
-    border: 1px solid var(--vscode-panel-border);
-    border-radius: 4px;
-    background: var(--vscode-editorWidget-background);
-    color: var(--vscode-foreground);
-    font-size: 11px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: border-color 120ms ease, background 120ms ease;
-
-    &:hover {
-        border-color: var(--vscode-focusBorder);
-        background: var(--vscode-list-hoverBackground);
-    }
-
-    &:focus-visible {
-        outline: 1px solid var(--vscode-focusBorder);
-        outline-offset: 1px;
-    }
-`;
-
 const TitleRow = styled.div`
     display: flex;
     align-items: baseline;
@@ -213,10 +185,10 @@ export const APIHeader: React.FC<APIHeaderProps> = ({
             <HeaderContent>
                 <HeaderLeft>
                     {onBackClick && (
-                        <BackButton onClick={onBackClick}>
-                            <Codicon name="arrow-left" sx={{ fontSize: '13px' }} />
-                            {backButtonLabel}
-                        </BackButton>
+                        <Button appearance="icon" onClick={onBackClick} sx={{ marginBottom: '4px' }}>
+                            <Codicon name="arrow-left" />
+                            &nbsp;{backButtonLabel}
+                        </Button>
                     )}
                     <TitleRow>
                         <Title>{title || 'Untitled API'}</Title>

@@ -1,10 +1,11 @@
 import React from 'react';
 import styled from '@emotion/styled';
 import type { AiReadinessDimensionSummary } from '@wso2/api-designer-core';
-import { AnalyzeReportKey, scoreColor } from '../hooks/useReport';
+import { AnalyzeReportKey } from '../hooks/useReport';
 import { BREAKDOWN_TITLES, BREAKDOWN_SUBTITLES } from './AnalyzeSingleReportHelpers';
 import { AIReadinessBucketGrid } from './AIReadinessBucketGrid';
 import { postMessage } from '../../../utils/vscode-api';
+import { Button } from '@wso2/ui-toolkit';
 
 interface ViolationRow {
     id: string;
@@ -104,10 +105,9 @@ const BucketGrid = styled.div`
     }
 `;
 
-const Bucket = styled.div<{ $borderColor: string }>`
+const Bucket = styled.div`
     background: var(--vscode-editorWidget-background);
     border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 82%, transparent);
-    border-left: 4px solid ${({ $borderColor }: { $borderColor: string }) => $borderColor};
     border-radius: 8px;
     padding: 14px 16px;
     display: flex;
@@ -232,7 +232,6 @@ const AiBreakdownStack = styled.div`
 // - "AI" badge to signal it's AI-powered, not a rule-based dimension
 const LlmTile = styled.div<{ $statusColor: string }>`
     border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 82%, transparent);
-    border-top: 3px solid ${({ $statusColor }: { $statusColor: string }) => $statusColor};
     border-radius: 8px;
     background: color-mix(in srgb, ${({ $statusColor }: { $statusColor: string }) => $statusColor} 5%, var(--vscode-editorWidget-background));
     padding: 16px 20px;
@@ -258,30 +257,6 @@ const LlmAiBadge = styled.div`
     border-radius: 0 0 5px 5px;
 `;
 
-const LlmScoreBlock = styled.div`
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-    min-width: 58px;
-`;
-
-const LlmScoreValue = styled.div<{ $color: string }>`
-    font-size: 20px;
-    font-weight: 900;
-    font-family: var(--vscode-editor-font-family, ui-monospace, monospace);
-    line-height: 1;
-    color: ${({ $color }: { $color: string }) => $color};
-`;
-
-const LlmScoreLabel = styled.div`
-    font-size: 9px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--vscode-descriptionForeground);
-`;
-
 const LlmStatusIcon = styled.div<{ $color: string }>`
     width: 48px;
     height: 48px;
@@ -299,8 +274,15 @@ const LlmStatusIcon = styled.div<{ $color: string }>`
 const LlmInfo = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 4px;
     min-width: 0;
+`;
+
+const LlmTitleRow = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
 `;
 
 const LlmTitle = styled.div`
@@ -309,17 +291,25 @@ const LlmTitle = styled.div`
     color: var(--vscode-foreground);
 `;
 
-const LlmDescription = styled.div`
-    font-size: 11px;
-    color: var(--vscode-descriptionForeground);
-    line-height: 1.45;
-    opacity: 0.9;
-`;
-
-const LlmMeta = styled.div`
+const LlmSummary = styled.div`
     font-size: 11px;
     color: var(--vscode-descriptionForeground);
     line-height: 1.4;
+`;
+
+const LlmDetailsTip = styled.span`
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 1px solid var(--vscode-panel-border);
+    color: var(--vscode-descriptionForeground);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: help;
+    user-select: none;
 `;
 
 const LlmStatusPill = styled.span<{ $color: string; $bg: string }>`
@@ -352,47 +342,6 @@ const LlmActions = styled.div`
     gap: 6px;
     flex-shrink: 0;
     align-items: flex-end;
-`;
-
-const ReevaluateButton = styled.button`
-    padding: 6px 14px;
-    border-radius: 6px;
-    border: 1px solid var(--vscode-button-border, var(--vscode-panel-border));
-    background: var(--vscode-button-background);
-    color: var(--vscode-button-foreground);
-    cursor: pointer;
-    font-size: 11px;
-    font-weight: 700;
-    font-family: inherit;
-    white-space: nowrap;
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--vscode-focusBorder) 35%, transparent);
-    transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
-
-    &:hover {
-        background: var(--vscode-button-hoverBackground);
-        border-color: var(--vscode-focusBorder);
-    }
-
-    &:focus-visible {
-        outline: none;
-        border-color: var(--vscode-focusBorder);
-        box-shadow: 0 0 0 2px color-mix(in srgb, var(--vscode-focusBorder) 55%, transparent);
-    }
-`;
-
-const ViewIssuesBtn = styled.button`
-    padding: 5px 12px;
-    border-radius: 6px;
-    border: 1px solid var(--vscode-focusBorder);
-    background: color-mix(in srgb, var(--vscode-focusBorder) 10%, transparent);
-    color: var(--vscode-textLink-foreground);
-    cursor: pointer;
-    font-size: 11px;
-    font-family: inherit;
-    white-space: nowrap;
-    &:hover {
-        background: color-mix(in srgb, var(--vscode-focusBorder) 20%, transparent);
-    }
 `;
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -450,6 +399,20 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
     llmValidation,
 }) => {
     const categories = unifiedCategories || [];
+    const orderedCategories = React.useMemo(() => {
+        const priority = (cat: { errors: number; warnings: number }) => {
+            if (cat.errors > 0) return 0;
+            if (cat.warnings > 0) return 1;
+            return 2;
+        };
+        return [...categories].sort((a, b) =>
+            priority(a) - priority(b) ||
+            b.errors - a.errors ||
+            b.warnings - a.warnings ||
+            b.total - a.total ||
+            a.label.localeCompare(b.label)
+        );
+    }, [categories]);
     const title = BREAKDOWN_TITLES[reportKey];
     const subtitle = BREAKDOWN_SUBTITLES[reportKey];
 
@@ -459,9 +422,10 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
                 statusLabel: 'Running',
                 statusColor: 'var(--vscode-editorInfo-foreground, #38BDF8)',
                 statusBg: 'color-mix(in srgb, var(--vscode-editorInfo-foreground, #38BDF8) 14%, transparent)',
+                badgeColor: 'var(--vscode-editorInfo-foreground, #38BDF8)',
+                badgeBg: 'color-mix(in srgb, var(--vscode-editorInfo-foreground, #38BDF8) 14%, transparent)',
                 meta: 'Agent validation is running in the background…',
                 icon: '⏳',
-                score: null,
             };
         }
         if (llmValidation.status === 'stale') {
@@ -472,11 +436,12 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
                 statusLabel: 'Stale',
                 statusColor: 'var(--vscode-editorWarning-foreground)',
                 statusBg: 'color-mix(in srgb, var(--vscode-editorWarning-foreground) 14%, transparent)',
+                badgeColor: 'var(--vscode-editorWarning-foreground)',
+                badgeBg: 'color-mix(in srgb, var(--vscode-editorWarning-foreground) 14%, transparent)',
                 meta: staleCount > 0
                     ? `Showing ${staleCount} cached finding${staleCount !== 1 ? 's' : ''} from the previous evaluation.${lastEvaluatedLabel} Re-evaluate to refresh against current spec.`
                     : `${llmValidation.error || 'OpenAPI spec changed — re-evaluate to refresh agent results.'}${lastEvaluatedLabel}`,
                 icon: '⚠',
-                score: null,
             };
         }
         if (llmValidation.status === 'failed') {
@@ -484,21 +449,21 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
                 statusLabel: 'Failed',
                 statusColor: 'var(--vscode-errorForeground)',
                 statusBg: 'color-mix(in srgb, var(--vscode-errorForeground) 14%, transparent)',
+                badgeColor: 'var(--vscode-errorForeground)',
+                badgeBg: 'color-mix(in srgb, var(--vscode-errorForeground) 14%, transparent)',
                 meta: llmValidation.error || 'Validation failed. Try re-evaluating.',
                 icon: '✕',
-                score: null,
             };
         }
         const count = llmValidation.result?.findings?.length || 0;
-        const score = llmValidation.result?.score ?? 0;
-        const accentColor = scoreColor(score);
         return {
             statusLabel: 'Ready',
-            statusColor: accentColor,
-            statusBg: `color-mix(in srgb, ${accentColor} 14%, transparent)`,
+            statusColor: 'var(--vscode-testing-iconPassed, #10B981)',
+            statusBg: 'color-mix(in srgb, var(--vscode-testing-iconPassed, #10B981) 14%, transparent)',
+            badgeColor: 'var(--vscode-testing-iconPassed, #10B981)',
+            badgeBg: 'color-mix(in srgb, var(--vscode-testing-iconPassed, #10B981) 14%, transparent)',
             meta: count > 0 ? `${count} finding${count !== 1 ? 's' : ''} identified by the agent` : 'No issues found — your API looks ready!',
             icon: '✓',
-            score,
         };
     }, [llmValidation]);
 
@@ -521,30 +486,23 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
                 <AiBreakdownStack>
                     <LlmTile $statusColor={llmInfo.statusColor}>
                         <LlmAiBadge>AI Powered</LlmAiBadge>
-                        {llmInfo.score !== null ? (
-                            <LlmScoreBlock>
-                                <LlmScoreValue $color={llmInfo.statusColor}>{Math.round(llmInfo.score)}%</LlmScoreValue>
-                                <LlmScoreLabel>LLM Score</LlmScoreLabel>
-                            </LlmScoreBlock>
-                        ) : (
-                            <LlmStatusIcon $color={llmInfo.statusColor}>{llmInfo.icon}</LlmStatusIcon>
-                        )}
+                        <LlmStatusIcon $color={llmInfo.statusColor}>{llmInfo.icon}</LlmStatusIcon>
                         <LlmInfo>
-                            <LlmTitle>Agent-Based AI Readiness Review</LlmTitle>
-                            <LlmDescription>
-                                This section surfaces issues identified by an AI agent that reviewed your OpenAPI spec against best practices and common pitfalls. The agent provides insights that go beyond static rule checks, such as identifying potential ambiguities, inconsistencies, or areas for improvement in your API design.
-                            </LlmDescription>
-                            <LlmStatusPill $color={llmInfo.statusColor} $bg={llmInfo.statusBg}>{llmInfo.statusLabel}</LlmStatusPill>
-                            <LlmMeta>{llmInfo.meta}</LlmMeta>
+                            <LlmTitleRow>
+                                <LlmTitle>Agent-Based AI Readiness Review</LlmTitle>
+                                <LlmStatusPill $color={llmInfo.badgeColor} $bg={llmInfo.badgeBg}>{llmInfo.statusLabel}</LlmStatusPill>
+                                <LlmDetailsTip title={llmInfo.meta}>i</LlmDetailsTip>
+                            </LlmTitleRow>
+                            <LlmSummary>AI agent findings for readiness checks. Use "View findings" for full details.</LlmSummary>
                         </LlmInfo>
                         <LlmActions>
                             {(llmValidation?.status === 'ready' || (llmValidation?.status === 'stale' && hasLlmFindings)) && (
-                                <ViewIssuesBtn onClick={() => onViewIssues('llm-validation')}>View findings</ViewIssuesBtn>
+                                <Button onClick={() => onViewIssues('llm-validation')}>View findings</Button>
                             )}
                             {(llmValidation?.status === 'stale' || llmValidation?.status === 'failed' || !llmValidation || llmValidation.status === 'pending') && (
-                                <ReevaluateButton onClick={onReevaluateLlm}>
+                                <Button onClick={onReevaluateLlm}>
                                     {llmValidation?.status === 'pending' ? 'Running…' : 'Re-evaluate'}
-                                </ReevaluateButton>
+                                </Button>
                             )}
                         </LlmActions>
                     </LlmTile>
@@ -558,10 +516,10 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
                 </AiBreakdownStack>
             ) : (
                 <BucketGrid>
-                    {categories.map((cat) => {
-                        const { borderColor, badgeColor, badgeBg, badgeText } = getBucketColors(cat);
+                    {orderedCategories.map((cat) => {
+                        const { badgeColor, badgeBg, badgeText } = getBucketColors(cat);
                         return (
-                            <Bucket key={cat.id} $borderColor={borderColor}>
+                            <Bucket key={cat.id}>
                                 <BucketId>{cat.id}</BucketId>
                                 <BucketTitle>{cat.label}</BucketTitle>
                                 {cat.description && <BucketDesc>{cat.description}</BucketDesc>}

@@ -1,18 +1,20 @@
 import React from 'react';
 import styled from '@emotion/styled';
-import { scoreColor, scoreGrade } from '../hooks/useReport';
+import { scoreColor } from '../hooks/useReport';
 
 interface AnalyzeSingleReportOverviewProps {
     score: number;
     gradeColor: string;
     title: string;
     subtitle?: string;
-    totalIssues: number;
+    errorCount: number;
+    warningCount: number;
     passedChecks: number;
     totalChecks: number;
     endpointsAffected: number;
-    onViewIssues?: () => void;
     onViewEndpointIssues?: () => void;
+    onViewErrorIssues?: () => void;
+    onViewWarningIssues?: () => void;
 }
 
 // ── Overview grid: grade card left | meta + metrics right ─────────────────
@@ -30,10 +32,9 @@ const OverviewRow = styled.div`
 
 // ── Grade card ─────────────────────────────────────────────────────────────
 
-const GradeCard = styled.div<{ $topColor: string }>`
+const GradeCard = styled.div`
     background: var(--vscode-editorWidget-background);
     border: 1px solid var(--vscode-panel-border);
-    border-top: 3px solid ${({ $topColor }: { $topColor: string }) => $topColor};
     border-radius: 10px;
     padding: 16px 20px;
     text-align: center;
@@ -90,19 +91,11 @@ const GradeCenter = styled.div`
 `;
 
 const GradeLetter = styled.div<{ $color: string }>`
-    font-size: 36px;
+    font-size: 24px;
     font-weight: 900;
     color: ${({ $color }: { $color: string }) => $color};
     font-family: var(--vscode-editor-font-family, ui-monospace, monospace);
     line-height: 1;
-`;
-
-const GradeScore = styled.div`
-    margin-top: 4px;
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--vscode-descriptionForeground);
-    letter-spacing: 0.03em;
 `;
 
 // ── Right column ───────────────────────────────────────────────────────────
@@ -139,18 +132,12 @@ const MetricsGrid = styled.div`
     }
 `;
 
-const MetricCard = styled.div<{ $topColor: string }>`
+const MetricCard = styled.div`
     background: var(--vscode-editorWidget-background);
     border: 1px solid var(--vscode-panel-border);
-    border-top: 3px solid ${({ $topColor }: { $topColor: string }) => $topColor};
     border-radius: 10px;
     padding: 16px 18px;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-`;
-
-const MetricCardWithAction = styled(MetricCard)`
-    display: flex;
-    flex-direction: column;
 `;
 
 const MetricValueRow = styled.div`
@@ -215,15 +202,16 @@ export const AnalyzeSingleReportOverview: React.FC<AnalyzeSingleReportOverviewPr
     gradeColor,
     title,
     subtitle,
-    totalIssues,
+    errorCount,
+    warningCount,
     passedChecks,
     totalChecks,
     endpointsAffected,
-    onViewIssues,
     onViewEndpointIssues,
+    onViewErrorIssues,
+    onViewWarningIssues,
 }) => {
     const normalizedScore = Math.max(0, Math.min(100, Math.round(score)));
-    const grade = scoreGrade(normalizedScore);
     const passedRatioScore = totalChecks > 0 ? (passedChecks / totalChecks) * 100 : 0;
     const passedChecksColor = scoreColor(passedRatioScore);
     const endpointsColor =
@@ -233,13 +221,12 @@ export const AnalyzeSingleReportOverview: React.FC<AnalyzeSingleReportOverviewPr
 
     return (
         <OverviewRow>
-            <GradeCard $topColor={gradeColor}>
+            <GradeCard>
                 <GradeLabel>API Score</GradeLabel>
                 <GradeRing $score={normalizedScore} $ringColor={gradeColor}>
                     <GradeRingInner />
                     <GradeCenter>
-                        <GradeLetter $color={gradeColor}>{grade}</GradeLetter>
-                        <GradeScore>{normalizedScore}&thinsp;/&thinsp;100</GradeScore>
+                        <GradeLetter $color={gradeColor}>{normalizedScore}%</GradeLetter>
                     </GradeCenter>
                 </GradeRing>
             </GradeCard>
@@ -251,15 +238,7 @@ export const AnalyzeSingleReportOverview: React.FC<AnalyzeSingleReportOverviewPr
                 </div>
 
                 <MetricsGrid>
-                    <MetricCard $topColor={gradeColor}>
-                        <MetricLabel>Score</MetricLabel>
-                        <MetricValue $color={gradeColor}>
-                            {normalizedScore}
-                            <MetricSuffix>/100</MetricSuffix>
-                        </MetricValue>
-                    </MetricCard>
-
-                    <MetricCard $topColor={passedChecksColor}>
+                    <MetricCard>
                         <MetricLabel>Passed Checks</MetricLabel>
                         <MetricValue $color={passedChecksColor}>
                             {passedChecks}
@@ -267,7 +246,7 @@ export const AnalyzeSingleReportOverview: React.FC<AnalyzeSingleReportOverviewPr
                         </MetricValue>
                     </MetricCard>
 
-                    <MetricCard $topColor={endpointsColor}>
+                    <MetricCard>
                         <MetricLabel>Affected Endpoints</MetricLabel>
                         <MetricValueRow>
                             <MetricValue $color={endpointsColor}>{endpointsAffected}</MetricValue>
@@ -277,17 +256,29 @@ export const AnalyzeSingleReportOverview: React.FC<AnalyzeSingleReportOverviewPr
                         </MetricValueRow>
                     </MetricCard>
 
-                    <MetricCardWithAction $topColor={totalIssues > 0 ? 'var(--vscode-errorForeground)' : 'var(--vscode-testing-iconPassed, #10B981)'}>
-                        <MetricLabel>Issues</MetricLabel>
+                    <MetricCard>
+                        <MetricLabel>Errors</MetricLabel>
                         <MetricValueRow>
-                            <MetricValue $color={totalIssues > 0 ? 'var(--vscode-errorForeground)' : 'var(--vscode-testing-iconPassed, #10B981)'}>
-                                {totalIssues}
+                            <MetricValue $color={errorCount > 0 ? 'var(--vscode-errorForeground)' : 'var(--vscode-testing-iconPassed, #10B981)'}>
+                                {errorCount}
                             </MetricValue>
-                            {onViewIssues && totalIssues > 0 && (
-                                <MetricAction onClick={onViewIssues}>View issues</MetricAction>
+                            {onViewErrorIssues && errorCount > 0 && (
+                                <MetricAction onClick={onViewErrorIssues}>View issues</MetricAction>
                             )}
                         </MetricValueRow>
-                    </MetricCardWithAction>
+                    </MetricCard>
+
+                    <MetricCard>
+                        <MetricLabel>Warnings</MetricLabel>
+                        <MetricValueRow>
+                            <MetricValue $color={warningCount > 0 ? 'var(--vscode-editorWarning-foreground)' : 'var(--vscode-testing-iconPassed, #10B981)'}>
+                                {warningCount}
+                            </MetricValue>
+                            {onViewWarningIssues && warningCount > 0 && (
+                                <MetricAction onClick={onViewWarningIssues}>View issues</MetricAction>
+                            )}
+                        </MetricValueRow>
+                    </MetricCard>
                 </MetricsGrid>
             </MetaBlock>
         </OverviewRow>

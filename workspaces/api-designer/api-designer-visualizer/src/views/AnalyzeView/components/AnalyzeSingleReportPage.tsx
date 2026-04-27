@@ -38,7 +38,7 @@ const openCopilotChat = (context: string, prompt: string) =>
 
 const Root = styled.div`
     width: 100%;
-    padding: 20px 24px 32px;
+    padding: 28px 32px 40px;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
@@ -76,7 +76,6 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
     );
 
     const [expandedBucketKeys, setExpandedBucketKeys] = React.useState<Set<string>>(new Set());
-    const [hasAppliedDefaultBucketExpansion, setHasAppliedDefaultBucketExpansion] = React.useState(false);
     const toggleBucketKey = React.useCallback((key: string) => {
         setExpandedBucketKeys((prev) => {
             const next = new Set(prev);
@@ -86,25 +85,7 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
     }, []);
     React.useEffect(() => {
         setExpandedBucketKeys(new Set());
-        setHasAppliedDefaultBucketExpansion(false);
     }, [fileUri, reportKey]);
-    React.useEffect(() => {
-        if (hasAppliedDefaultBucketExpansion) {
-            return;
-        }
-        if (!effectiveReportId) {
-            return;
-        }
-        if (effectiveReportId !== 'ai-readiness') {
-            setHasAppliedDefaultBucketExpansion(true);
-            return;
-        }
-        if (!aiReadinessDimensions.length) {
-            return;
-        }
-        setExpandedBucketKeys(new Set(aiReadinessDimensions.map((dimension) => dimension.key)));
-        setHasAppliedDefaultBucketExpansion(true);
-    }, [effectiveReportId, aiReadinessDimensions, hasAppliedDefaultBucketExpansion]);
     const [severityFilter, setSeverityFilter] = React.useState<'all' | SeverityLevel>('all');
     const [groupBy, setGroupBy] = React.useState<GroupBy>('none');
     const [sortBy, setSortBy] = React.useState<SortBy>('severity');
@@ -260,9 +241,39 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
             issueExplorerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
     }, []);
+    const handleViewErrorIssues = React.useCallback(() => {
+        setSelectedAiBucketKey(null);
+        setSelectedAiMainBucketKey(null);
+        setSelectedBreakdownKey(null);
+        setSeverityFilter('error');
+        setGroupBy('none');
+        setSortBy('severity');
+        setSortDir('asc');
+        setSearch('');
+        setSelectedIssueId(null);
+        window.requestAnimationFrame(() => {
+            issueExplorerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    }, []);
+    const handleViewWarningIssues = React.useCallback(() => {
+        setSelectedAiBucketKey(null);
+        setSelectedAiMainBucketKey(null);
+        setSelectedBreakdownKey(null);
+        setSeverityFilter('warn');
+        setGroupBy('none');
+        setSortBy('severity');
+        setSortDir('asc');
+        setSearch('');
+        setSelectedIssueId(null);
+        window.requestAnimationFrame(() => {
+            issueExplorerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    }, []);
     const title = REPORT_TITLES[reportKey];
     const score = Math.max(0, Math.min(100, Number(report?.score || 0)));
     const gradeColor = scoreColor(score);
+    const errorCount = rows.filter((row) => row.severity === 'error').length;
+    const warningCount = rows.filter((row) => row.severity === 'warn').length;
     const rulesetFileUrl = buildRulesetFileUrl(report?.ruleset);
     const aiEnabled = isAIAvailable && !!fileUri && !!rulesetFileUrl && !!report?.ruleset?.rulesetContentPath;
 
@@ -291,12 +302,14 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
                 gradeColor={gradeColor}
                 title={title}
                 subtitle={report.rulesetName}
-                totalIssues={rows.length}
+                errorCount={errorCount}
+                warningCount={warningCount}
                 passedChecks={report.passedChecks}
                 totalChecks={report.totalChecks}
                 endpointsAffected={stats.endpointCount}
-                onViewIssues={() => handleViewIssues()}
                 onViewEndpointIssues={handleViewEndpointIssues}
+                onViewErrorIssues={handleViewErrorIssues}
+                onViewWarningIssues={handleViewWarningIssues}
             />
 
             <AnalyzeSingleReportBreakdown

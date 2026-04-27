@@ -31,10 +31,8 @@ const Accordion = styled.div`
     gap: 12px;
 `;
 
-const DimCard = styled.div<{ $accentColor: string }>`
-    border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 96%, var(--vscode-foreground) 4%);
-    border-left: 3px solid ${({ $accentColor }: { $accentColor: string }) => $accentColor};
-    border-radius: 8px;
+const DimCard = styled.div`
+    border-radius: 6px;
     overflow: hidden;
     background: color-mix(in srgb, var(--vscode-editorWidget-background) 88%, var(--vscode-editor-background));
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--vscode-panel-border) 70%, transparent), 0 4px 12px rgba(0, 0, 0, 0.16);
@@ -111,13 +109,6 @@ const Tag = styled.span`
     gap: 5px;
 `;
 
-const TagDot = styled.span<{ $color: string }>`
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    background: ${({ $color }: { $color: string }) => $color};
-`;
 
 const DimRight = styled.div`
     display: flex;
@@ -294,7 +285,7 @@ export const AIReadinessBucketGrid: React.FC<Props> = ({
             });
 
             return (
-                <DimCard key={dimension.key} $accentColor={pctColor}>
+                <DimCard key={dimension.key}>
                     <DimHeader onClick={() => onToggle(dimension.key)} role="button" aria-expanded={isOpen}>
                         <DimScore $color={pctColor}>{roundedScore}%</DimScore>
                         <DimMeta>
@@ -307,13 +298,8 @@ export const AIReadinessBucketGrid: React.FC<Props> = ({
                             <DimDesc>{dimension.description}</DimDesc>
                             <TagRow>
                                 {sortedBuckets.map((sub) => {
-                                    const subPct = sub.percentage ?? (sub.total === 0 ? 100 : 0);
-                                    const dotColor = sub.total === 0
-                                        ? 'var(--vscode-testing-iconPassed, #10B981)'
-                                        : scoreColor(subPct);
                                     return (
                                         <Tag key={sub.key}>
-                                            <TagDot $color={dotColor} />
                                             {sub.label}
                                         </Tag>
                                     );
