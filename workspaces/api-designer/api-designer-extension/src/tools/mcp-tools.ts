@@ -194,6 +194,48 @@ ${JSON.stringify(result, null, 2)}
 }
 
 /**
+ * Tool for opening API Designer from chat
+ */
+export class OpenInApiDesignerTool {
+    async invoke(
+        options: any,
+        _token: vscode.CancellationToken
+    ): Promise<LanguageModelToolResultLike> {
+        try {
+            const fileUri = typeof options?.input?.fileUri === 'string'
+                ? options.input.fileUri
+                : undefined;
+            const viewType = typeof options?.input?.viewType === 'string'
+                ? options.input.viewType
+                : undefined;
+            const uri = fileUri ? vscode.Uri.parse(fileUri) : undefined;
+
+            await vscode.commands.executeCommand('APIDesigner.openApiDesigner', uri, viewType);
+
+            const target = fileUri || 'active editor';
+            const view = viewType || 'default';
+            return makeToolResult(`Opened API Designer (${view}) for ${target}.`);
+        } catch (error) {
+            logError('Error in OpenInApiDesignerTool:', error);
+            return makeToolResult(`Error opening API Designer: ${(error as Error).message}`);
+        }
+    }
+
+    async prepareInvocation(
+        options: any,
+        _token: vscode.CancellationToken
+    ) {
+        const source = options?.input?.fileUri
+            ? `file: ${options.input.fileUri}`
+            : 'active editor';
+        const viewType = options?.input?.viewType ? ` (${options.input.viewType})` : '';
+        return {
+            invocationMessage: `Opening API Designer for ${source}${viewType}`,
+        };
+    }
+}
+
+/**
  * Register all MCP tools with VS Code Language Model API
  */
 export function registerMCPTools(context: vscode.ExtensionContext): void {
@@ -210,6 +252,10 @@ export function registerMCPTools(context: vscode.ExtensionContext): void {
 
     context.subscriptions.push(
         vscodeLM.lm.registerTool('api-designer_validateWithSpectralRuleset', new validateWithSpectralRulesetTool())
+    );
+
+    context.subscriptions.push(
+        vscodeLM.lm.registerTool('api-designer_openInApiDesigner', new OpenInApiDesignerTool())
     );
 
     logDebug('MCP tools registered successfully');

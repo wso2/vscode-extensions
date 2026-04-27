@@ -199,8 +199,30 @@ Read `/tmp/ai-issues-raw.json` (it may not exist yet — that's fine, the Read a
 
 **Step 2 — Determine output path**
 
-- File path provided: `<same directory as spec>/<spec-basename>-assessment.json`
-- Content pasted: `/tmp/api-assessment-report.json`
+Resolve the `api-reports/` directory using this priority order:
+
+```bash
+# 1. Prefer an existing api-reports/ in CWD
+# 2. Fall back to an existing api-reports/ next to the spec file (file path only)
+# 3. Create api-reports/ in CWD as last resort
+if [ -d "$(pwd)/api-reports" ]; then
+  REPORT_DIR="$(pwd)/api-reports"
+elif [ -n "<spec-dir>" ] && [ -d "<spec-dir>/api-reports" ]; then
+  REPORT_DIR="<spec-dir>/api-reports"
+else
+  REPORT_DIR="$(pwd)/api-reports"
+  mkdir -p "$REPORT_DIR"
+fi
+```
+
+Then set the output path using the spec's filename stem (no extension):
+- Spec given as file path: `$REPORT_DIR/<spec-stem>-api-readiness-report.json` (e.g. `openapi.yaml` → `openapi-api-readiness-report.json`)
+- Spec pasted: `$REPORT_DIR/api-readiness-report.json`
+
+If spec was pasted and no `api-reports/` was found in either CWD or any parent, ask the user before creating:
+> "No project workspace detected. Where should I save the report?
+> 1. Specify a custom path
+> 2. Save to default location (`~/.wso2/reports/api-readiness-report.json`)"
 
 **Step 3 — Assemble report and generate HTML** (single bash call)
 
@@ -227,17 +249,18 @@ Show the script's stdout verbatim as the response.
 
 **Step 5 — Offer next steps**
 
-After showing the summary, ask:
+First check whether the `openInApiDesigner` tool is available in your tools list.
 
-> "Would you like to:
-> 1. Open the full HTML report in your browser
-> 2. Apply fixes to your spec
-> 3. Both
->
-> Or just let me know what you'd like to do next."
+**If available** (running inside the VS Code API Designer extension chat):
+- Call `openInApiDesigner` with no arguments — the extension knows where to find the report and opens the webview immediately.
+- Then ask: *"Would you also like to apply fixes to your spec?"*
+- If yes: proceed to **Fix Workflow**.
 
-If browser requested: run `open <html-path>` (macOS) or `xdg-open <html-path>` (Linux)
-If fixes requested: proceed to **Fix Workflow**.
+**If not available** (Claude Code CLI or standalone chat):
+- Ask: *"Would you like to open the full HTML report in your browser?"*
+- If yes: run `open <html-path>` (macOS) or `xdg-open <html-path>` (Linux)
+- Then ask: *"Would you like to apply fixes to your spec?"*
+- If yes: proceed to **Fix Workflow**.
 
 ---
 
