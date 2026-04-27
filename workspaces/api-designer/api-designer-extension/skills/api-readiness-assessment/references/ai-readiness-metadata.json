@@ -1,0 +1,418 @@
+{
+  "rules": {
+    "ai-readiness-api-description": {
+      "effectiveSeverity": "LOW",
+      "autoFixable": false,
+      "description": "AI agents use the API-level description to decide whether the API is relevant to the user's goal. A missing or very short description causes agents to misidentify the API's purpose or skip it entirely.",
+      "fixSuggestion": "Add info.description (minimum 50 characters) covering: what the API does, its intended consumers, and primary use cases."
+    },
+    "ai-readiness-api-contact": {
+      "effectiveSeverity": "LOW",
+      "autoFixable": false,
+      "description": "Contact information helps agents surface support paths when they encounter undocumented errors or unexpected behavior.",
+      "fixSuggestion": "Add an info.contact object with at least name and email or url fields."
+    },
+    "ai-readiness-server-description": {
+      "effectiveSeverity": "LOW",
+      "autoFixable": false,
+      "description": "Without server descriptions agents cannot distinguish production from staging endpoints, risking unintended data writes to the wrong environment.",
+      "fixSuggestion": "Add a description to each servers[] entry specifying the environment (e.g., \"Production API\", \"Staging API\")."
+    },
+    "ai-readiness-operation-summary": {
+      "effectiveSeverity": "HIGH",
+      "autoFixable": false,
+      "description": "Agents use the operation summary as the primary signal for tool selection. A missing summary forces the agent to guess from the HTTP method and path, leading to incorrect tool choices and hallucinated calls.",
+      "fixSuggestion": "Add a concise summary starting with an imperative verb that describes the business action, e.g. \"Create a new order\" or \"List all invoices by status\"."
+    },
+    "ai-readiness-callback-operation-summary": {
+      "effectiveSeverity": "LOW",
+      "autoFixable": false,
+      "description": "Missing callback summaries prevent agents from understanding webhook payloads they receive in async flows, causing incorrect response handling.",
+      "fixSuggestion": "Add a summary to the callback operation describing the event it represents, e.g. \"Payment completed notification\"."
+    },
+    "ai-readiness-webhook-operation-summary": {
+      "effectiveSeverity": "LOW",
+      "autoFixable": false,
+      "description": "Without a webhook summary agents cannot identify what triggered the webhook or how to process the payload.",
+      "fixSuggestion": "Add a summary to the webhook operation, e.g. \"Order status change event\"."
+    },
+    "ai-readiness-path-item-summary": {
+      "effectiveSeverity": "LOW",
+      "autoFixable": false,
+      "description": "Path-level summaries provide route-level context that helps agents understand the resource before reading individual operations.",
+      "fixSuggestion": "Add a summary field to the path item describing the resource, e.g. \"Order management endpoints\"."
+    },
+    "ai-readiness-path-item-description": {
+      "effectiveSeverity": "LOW",
+      "autoFixable": false,
+      "description": "Path-level descriptions let agents understand resource semantics, ownership boundaries, and access rules before selecting an operation.",
+      "fixSuggestion": "Add a description field to the path item covering the resource's purpose, ownership model, and key constraints."
+    },
+    "ai-readiness-operation-description": {
+      "effectiveSeverity": "HIGH",
+      "autoFixable": false,
+      "description": "Operation descriptions carry critical context: preconditions, side effects, draft vs. finalized state, and workflow position. Agents that skip steps or invoke operations in the wrong order do so because descriptions are absent.",
+      "fixSuggestion": "Add a description (minimum 30 characters) covering: preconditions, side effects, whether the result is draft or finalized, required permissions, and where this operation sits in the workflow."
+    },
+    "ai-readiness-operation-id": {
+      "effectiveSeverity": "CRITICAL",
+      "autoFixable": true,
+      "description": "operationId is how agents reference tools. Without it, the agent cannot reliably call the operation and may fabricate or omit it entirely.",
+      "fixSuggestion": "Add an operationId using verb-noun format based on the HTTP method and resource, e.g. POST /orders → \"createOrder\", GET /invoices/{id} → \"getInvoiceById\"."
+    },
+    "ai-readiness-operation-id-casing": {
+      "effectiveSeverity": "HIGH",
+      "autoFixable": false,
+      "description": "Inconsistent operationId casing (mixing camelCase and snake_case) confuses agents that must reference operations by name across multi-step workflows.",
+      "fixSuggestion": "Choose one casing style (camelCase recommended) and rename all operationIds to match consistently."
+    },
+    "ai-readiness-operation-id-unique": {
+      "effectiveSeverity": "CRITICAL",
+      "autoFixable": false,
+      "description": "Duplicate operationIds cause agents to call the wrong operation. When two operations share an ID, tool selection is non-deterministic.",
+      "fixSuggestion": "Rename the duplicate operationId to be unique. Suffix with a disambiguating term, e.g. \"getOrderById\" vs \"getOrderSummaryById\"."
+    },
+    "ai-readiness-operation-tags": {
+      "effectiveSeverity": "LOW",
+      "autoFixable": false,
+      "description": "Tags group operations by domain. Without tags, agents cannot efficiently discover which operations belong to the same resource family.",
+      "fixSuggestion": "Add at least one tag per operation matching the resource name, e.g. \"orders\", \"invoices\", \"users\"."
+    },
+    "ai-readiness-parameter-description": {
+      "effectiveSeverity": "HIGH",
+      "autoFixable": false,
+      "description": "Agents cannot infer what value to pass for a parameter without a description. Missing descriptions lead to hallucinated or empty values.",
+      "fixSuggestion": "Add a description explaining the parameter's purpose, valid values, and business meaning. For IDs, state where the value can be obtained."
+    },
+    "ai-readiness-parameter-description-length": {
+      "effectiveSeverity": "HIGH",
+      "autoFixable": false,
+      "description": "A description shorter than 15 characters (e.g., \"The ID\") gives agents no actionable context — they will guess or omit the value.",
+      "fixSuggestion": "Expand the description to at least 15 characters. Include valid values, format, and sourcing information."
+    },
+    "ai-readiness-parameter-example": {
+      "effectiveSeverity": "MEDIUM",
+      "autoFixable": false,
+      "description": "Examples anchor agents to realistic values. Without them, agents generate synthetic values that may fail validation or produce unexpected results.",
+      "fixSuggestion": "Add an example or examples field to the parameter with a realistic value representative of actual API usage."
+    },
+    "ai-readiness-path-parameter-example": {
+      "effectiveSeverity": "MEDIUM",
+      "autoFixable": false,
+      "description": "Path-level parameter examples help agents construct valid URLs. Without them, agents may fabricate IDs that do not exist in the system.",
+      "fixSuggestion": "Add an example field to path-level parameters with a realistic value, e.g. example: \"ord_12345\"."
+    },
+    "ai-readiness-parameter-content-example": {
+      "effectiveSeverity": "MEDIUM",
+      "autoFixable": false,
+      "description": "Parameters using content-typed media need examples to help agents serialize the value correctly for the given content type.",
+      "fixSuggestion": "Add an example or examples field inside the content media type object."
+    },
+    "ai-readiness-path-parameter-content-example": {
+      "effectiveSeverity": "MEDIUM",
+      "autoFixable": false,
+      "description": "Path-level parameters that use content types need examples to help agents construct valid URLs with correctly formatted values.",
+      "fixSuggestion": "Add an example or examples field inside the path-level parameter's content media type object."
+    },
+    "ai-readiness-request-body-description": {
+      "effectiveSeverity": "HIGH",
+      "autoFixable": false,
+      "description": "Without a request body description, agents do not understand what the payload represents, its constraints, or how it relates to the operation's outcome.",
+      "fixSuggestion": "Add a description to the requestBody explaining what the payload contains, any required business rules, and how it affects the response."
+    },
+    "ai-readiness-request-body-example": {
+      "effectiveSeverity": "MEDIUM",
+      "autoFixable": false,
+      "description": "Request body examples give agents a concrete template for payload construction. Without them, agents produce structurally valid but semantically wrong payloads.",
+      "fixSuggestion": "Add an example or examples field inside the requestBody content media type with a complete, realistic payload."
+    },
+    "ai-readiness-request-body-schema-typed": {
+      "effectiveSeverity": "HIGH",
+      "autoFixable": true,
+      "description": "Without an explicit type on the request body schema, agents cannot determine how to construct the payload and may produce invalid JSON structures.",
+      "fixSuggestion": "Add type: object (or the correct type) to the request body schema."
+    },
+    "ai-readiness-request-body-schema-required": {
+      "effectiveSeverity": "HIGH",
+      "autoFixable": true,
+      "description": "Without a required array, agents treat all properties as optional and may omit mandatory fields, causing validation failures.",
+      "fixSuggestion": "Add a required array listing all mandatory property names to the request body schema, e.g. required: [name, email]."
+    },
+    "ai-readiness-response-description": {
+      "effectiveSeverity": "HIGH",
+      "autoFixable": false,
+      "description": "Response descriptions tell agents what a status code means in business terms. Without them, agents cannot distinguish a 200 (resource created) from a 200 (operation queued for async processing).",
+      "fixSuggestion": "Add a description to each response explaining its business meaning and any follow-up actions the agent should take."
+    },
+    "ai-readiness-response-example": {
+      "effectiveSeverity": "MEDIUM",
+      "autoFixable": false,
+      "description": "Response examples let agents anticipate response structure and extract IDs or tokens needed for subsequent workflow steps.",
+      "fixSuggestion": "Add an example or examples field to each success response content type with a realistic payload including all key fields."
+    },
+    "ai-readiness-response-header-example": {
+      "effectiveSeverity": "LOW",
+      "autoFixable": false,
+      "description": "Response header examples help agents understand the format of values like pagination cursors, rate limit tokens, or correlation IDs.",
+      "fixSuggestion": "Add an example field to each response header with a realistic value."
+    },
+    "ai-readiness-response-content-type": {
+      "effectiveSeverity": "LOW",
+      "autoFixable": true,
+      "description": "Responses without a declared content type leave agents unable to deserialize the body correctly, leading to parsing errors or ignored payloads.",
+      "fixSuggestion": "Add a content field to the response with at least application/json as the key and an empty schema as the value."
+    },
+    "ai-readiness-response-schema-typed": {
+      "effectiveSeverity": "HIGH",
+      "autoFixable": true,
+      "description": "Without an explicit type on the response schema, agents cannot reliably parse the response or extract fields for use in subsequent steps.",
+      "fixSuggestion": "Add type: object (or the correct type) to the response schema."
+    },
+    "ai-readiness-success-response-content": {
+      "effectiveSeverity": "HIGH",
+      "autoFixable": true,
+      "description": "A 2xx response without content leaves agents with no payload to process. They cannot extract data needed for subsequent workflow steps.",
+      "fixSuggestion": "Add a content field with application/json and at least a minimal schema definition to the success response."
+    },
+    "ai-readiness-success-response-json-schema": {
+      "effectiveSeverity": "HIGH",
+      "autoFixable": true,
+      "description": "Without a schema on the JSON success response, agents cannot understand the structure of the payload they receive.",
+      "fixSuggestion": "Add a schema object inside the application/json content of the 2xx response."
+    },
+    "ai-readiness-error-response-content": {
+      "effectiveSeverity": "HIGH",
+      "autoFixable": true,
+      "description": "Error responses without content give agents no information about why the request failed, preventing self-correction.",
+      "fixSuggestion": "Add a content field with application/json to all 4xx/5xx responses, pointing to an error schema."
+    },
+    "ai-readiness-error-response-json-schema": {
+      "effectiveSeverity": "HIGH",
+      "autoFixable": true,
+      "description": "Without a schema on error response JSON content, agents cannot parse the error body to extract error codes, messages, or field-level details.",
+      "fixSuggestion": "Add a schema to the application/json content of each error response. At minimum define message and code properties."
+    },
+    "ai-readiness-success-response": {
+      "effectiveSeverity": "HIGH",
+      "autoFixable": false,
+      "description": "Operations without a defined 2xx response leave agents uncertain whether the call succeeded. They cannot chain the result into subsequent steps.",
+      "fixSuggestion": "Add at least one 2xx response (200, 201, 202, or 204) with a description and content schema."
+    },
+    "ai-readiness-error-responses-4xx": {
+      "effectiveSeverity": "HIGH",
+      "autoFixable": false,
+      "description": "Without defined 4xx responses, agents cannot distinguish authentication failures (401) from authorization failures (403) or validation errors (422), making self-correction impossible.",
+      "fixSuggestion": "Define the relevant 4xx responses for this operation. At minimum include 400 (bad request), 401 (unauthorized), 403 (forbidden), and 429 (rate limited). Add 404 for operations that reference a specific resource."
+    },
+    "ai-readiness-error-responses-5xx": {
+      "effectiveSeverity": "MEDIUM",
+      "autoFixable": false,
+      "description": "Missing 5xx definitions prevent agents from implementing retry logic. They cannot tell a transient server error from a permanent failure.",
+      "fixSuggestion": "Add a 500 (internal server error) response with a description advising the caller to retry with exponential backoff."
+    },
+    "ai-readiness-error-response-schema": {
+      "effectiveSeverity": "HIGH",
+      "autoFixable": true,
+      "description": "Error response content without a schema gives agents no structure to parse. They cannot extract the error code or message to guide self-correction.",
+      "fixSuggestion": "Add a schema to the error response content with at minimum message (string) and code (string) properties."
+    },
+    "ai-readiness-error-response-description-length": {
+      "effectiveSeverity": "HIGH",
+      "autoFixable": false,
+      "description": "Very short error descriptions (e.g., \"Unauthorized\") give agents no actionable context. They cannot determine what credential is missing or how to obtain it.",
+      "fixSuggestion": "Expand the error response description to at least 20 characters, explaining the cause and what the caller should do to resolve it."
+    },
+    "ai-readiness-schema-description": {
+      "effectiveSeverity": "LOW",
+      "autoFixable": false,
+      "description": "Schema descriptions give agents semantic context about what a data type represents in the business domain.",
+      "fixSuggestion": "Add a description to the schema in components explaining its business meaning, constraints, and lifecycle."
+    },
+    "ai-readiness-schema-description-length": {
+      "effectiveSeverity": "LOW",
+      "autoFixable": false,
+      "description": "A description shorter than 20 characters provides too little context for agents to understand the schema's purpose.",
+      "fixSuggestion": "Expand the schema description to at least 20 characters."
+    },
+    "ai-readiness-schema-title": {
+      "effectiveSeverity": "LOW",
+      "autoFixable": true,
+      "description": "Schema titles help agents identify what a reusable component represents without having to infer it from context.",
+      "fixSuggestion": "Add a title field matching the schema's component name, e.g. title: Order."
+    },
+    "ai-readiness-schema-example": {
+      "effectiveSeverity": "MEDIUM",
+      "autoFixable": false,
+      "description": "Schema examples give agents a concrete reference for understanding what valid data looks like, reducing hallucinated field values.",
+      "fixSuggestion": "Add an example or examples field to the schema with a complete, realistic instance of the data."
+    },
+    "ai-readiness-schema-property-description": {
+      "effectiveSeverity": "LOW",
+      "autoFixable": false,
+      "description": "Properties without descriptions force agents to guess their meaning from the field name, often incorrectly for domain-specific terms.",
+      "fixSuggestion": "Add a description to each property explaining its business meaning, valid values, and any relationship to other properties."
+    },
+    "ai-readiness-schema-property-example": {
+      "effectiveSeverity": "LOW",
+      "autoFixable": false,
+      "description": "Property-level examples ground agents in realistic values and reduce hallucinated payloads during construction.",
+      "fixSuggestion": "Add an example field to each property with a realistic value representative of actual data."
+    },
+    "ai-readiness-component-header-example": {
+      "effectiveSeverity": "LOW",
+      "autoFixable": false,
+      "description": "Component header examples help agents understand the expected format of header values when they appear in responses.",
+      "fixSuggestion": "Add an example field to each component header definition."
+    },
+    "ai-readiness-schema-enum-description": {
+      "effectiveSeverity": "MEDIUM",
+      "autoFixable": false,
+      "description": "Enum properties without descriptions leave agents unable to understand the business meaning of each allowed value, leading to incorrect value selection.",
+      "fixSuggestion": "Add a description to the enum property explaining each value's meaning, e.g. \"status: pending=awaiting payment, active=payment confirmed, cancelled=order voided\"."
+    },
+    "ai-readiness-schema-property-type": {
+      "effectiveSeverity": "HIGH",
+      "autoFixable": false,
+      "description": "Properties without explicit types allow agents to assign any type, producing payloads that fail schema validation or cause unexpected server behavior.",
+      "fixSuggestion": "Add an explicit type field to each property (string, integer, boolean, array, object). Use format for further precision, e.g. format: uuid."
+    },
+    "ai-readiness-parameter-schema-type": {
+      "effectiveSeverity": "HIGH",
+      "autoFixable": false,
+      "description": "Parameters without explicit schema types force agents to infer the type from context, leading to incorrectly serialized query strings or path segments.",
+      "fixSuggestion": "Add type: string (or the correct type) to the parameter schema. Add format if applicable."
+    },
+    "ai-readiness-schema-string-format": {
+      "effectiveSeverity": "LOW",
+      "autoFixable": false,
+      "description": "String properties without a format modifier (e.g., date-time, email, uuid) leave agents unable to produce correctly formatted values.",
+      "fixSuggestion": "Add a format field to string properties with semantic meaning, e.g. format: date-time, format: email, format: uuid."
+    },
+    "ai-readiness-schema-no-empty-object": {
+      "effectiveSeverity": "HIGH",
+      "autoFixable": true,
+      "description": "An object schema with no properties, additionalProperties, or composition keywords is opaque to agents. They cannot construct or validate payloads.",
+      "fixSuggestion": "Define the object's structure by adding properties, or set additionalProperties: false if the schema is intentionally closed."
+    },
+    "ai-readiness-schema-property-no-empty-object": {
+      "effectiveSeverity": "HIGH",
+      "autoFixable": true,
+      "description": "Object-typed properties with no defined structure prevent agents from knowing what fields to populate when constructing payloads.",
+      "fixSuggestion": "Define the property's structure by adding nested properties, or set additionalProperties: false if the object is intentionally schema-free."
+    },
+    "ai-readiness-array-items-defined": {
+      "effectiveSeverity": "HIGH",
+      "autoFixable": true,
+      "description": "Arrays without an items schema are ambiguous: agents cannot determine what type each element should be or how to construct valid array payloads.",
+      "fixSuggestion": "Add an items schema to the array definition specifying the element type and structure."
+    },
+    "ai-readiness-array-property-items-defined": {
+      "effectiveSeverity": "HIGH",
+      "autoFixable": true,
+      "description": "Array-typed properties without an items definition make it impossible for agents to produce correctly typed array elements.",
+      "fixSuggestion": "Add an items field to the array property with the element's type and any relevant schema constraints."
+    },
+    "ai-readiness-schema-validation-constraints": {
+      "effectiveSeverity": "MEDIUM",
+      "autoFixable": false,
+      "description": "Scalar properties without validation constraints (pattern, minLength, maxLength, minimum, maximum) allow agents to generate out-of-range values that pass schema validation but fail business rules.",
+      "fixSuggestion": "Add appropriate constraints: pattern for strings with a fixed format, minLength/maxLength for bounded strings, minimum/maximum for numeric ranges."
+    },
+    "ai-readiness-error-schema-fields": {
+      "effectiveSeverity": "HIGH",
+      "autoFixable": false,
+      "description": "Error schemas without message and code fields give agents no structured information to parse. They cannot determine what failed or how to correct it.",
+      "fixSuggestion": "Add message (string) and code (string) properties to all error response schemas. message explains the failure; code is a machine-readable identifier."
+    },
+    "ai-readiness-error-schema-rfc7807": {
+      "effectiveSeverity": "MEDIUM",
+      "autoFixable": false,
+      "description": "Error schemas that do not follow RFC 7807 (missing type, title, detail) prevent agents from using standard problem detail parsing to understand failures.",
+      "fixSuggestion": "Add type (string URI), title (short summary), and detail (human-readable explanation) to the error schema per RFC 7807."
+    },
+    "ai-readiness-error-schema-details": {
+      "effectiveSeverity": "MEDIUM",
+      "autoFixable": false,
+      "description": "A details field gives agents granular context about what exactly failed, enabling targeted self-correction without retrying blindly.",
+      "fixSuggestion": "Add a details field (array of objects) to the error schema containing field-level error information: field name, reason, and expected value."
+    },
+    "ai-readiness-error-schema-actionable": {
+      "effectiveSeverity": "HIGH",
+      "autoFixable": false,
+      "description": "422 errors without expected and received fields leave agents unable to automatically correct malformed requests. They must guess what the correct value should be.",
+      "fixSuggestion": "Add expected (what the server expected) and received (what it got) to the 422 error schema so agents can correct and retry the request immediately."
+    },
+    "ai-readiness-429-rate-limit-headers": {
+      "effectiveSeverity": "MEDIUM",
+      "autoFixable": true,
+      "description": "429 responses without Retry-After or X-RateLimit-* headers leave agents unable to determine when they can safely retry. This causes retry storms or indefinite waits.",
+      "fixSuggestion": "Add a Retry-After header (integer, seconds to wait) or X-RateLimit-Reset header to the 429 response definition."
+    },
+    "ai-readiness-list-pagination-params": {
+      "effectiveSeverity": "MEDIUM",
+      "autoFixable": false,
+      "description": "GET list operations without pagination parameters force agents to retrieve all results in one call, which may be too large to process or may time out.",
+      "fixSuggestion": "Add cursor or page and limit query parameters to GET list operations. Document the maximum value for limit and the format of the cursor."
+    },
+    "ai-readiness-pagination-response-meta": {
+      "effectiveSeverity": "MEDIUM",
+      "autoFixable": false,
+      "description": "List responses without pagination metadata (has_more, next_cursor, total) leave agents unable to determine whether more pages exist, causing them to stop early or loop indefinitely.",
+      "fixSuggestion": "Add pagination metadata to the list response schema: has_more (boolean), next_cursor (string, the cursor for the next page), and optionally total (integer)."
+    },
+    "ai-readiness-no-interactive-auth": {
+      "effectiveSeverity": "CRITICAL",
+      "autoFixable": false,
+      "description": "Interactive OAuth flows (implicit, authorizationCode) require a browser redirect that AI agents cannot complete. The agent will be permanently blocked from authenticating.",
+      "fixSuggestion": "Replace interactive OAuth flows with non-interactive alternatives: clientCredentials for service-to-service auth, or apiKey/bearer token for agent-facing endpoints."
+    },
+    "ai-readiness-security-defined": {
+      "effectiveSeverity": "HIGH",
+      "autoFixable": false,
+      "description": "Without defined security schemes, agents have no guidance on how to authenticate. They will either skip auth entirely or attempt to guess credentials.",
+      "fixSuggestion": "Add a securitySchemes object to components defining the supported auth mechanism (e.g., bearer token, API key). Reference it on operations or at the API level."
+    },
+    "ai-readiness-security-description": {
+      "effectiveSeverity": "LOW",
+      "autoFixable": false,
+      "description": "Security scheme descriptions explain how to obtain credentials and any scope restrictions. Without them, agents cannot self-configure authentication.",
+      "fixSuggestion": "Add a description to each security scheme explaining how to obtain a token or key, what scopes are available, and any restrictions."
+    },
+    "ai-readiness-security-on-mutating-ops": {
+      "effectiveSeverity": "HIGH",
+      "autoFixable": false,
+      "description": "Mutating operations (POST, PUT, PATCH, DELETE) without explicit security declarations may be called unauthenticated by agents, causing authorization failures or unintended state changes.",
+      "fixSuggestion": "Add a security field to each mutating operation referencing the appropriate security scheme, e.g. security: [{bearerAuth: []}]."
+    },
+    "ai-readiness-idempotency-key": {
+      "effectiveSeverity": "MEDIUM",
+      "autoFixable": false,
+      "description": "When agents retry a POST or PATCH after a network timeout, they may create duplicate resources or apply the same mutation twice. An Idempotency-Key header prevents this.",
+      "fixSuggestion": "Add an Idempotency-Key header parameter to POST and PATCH operations. Document that the caller must supply a unique key per logical request, and that the server deduplicates on this key."
+    },
+    "ai-readiness-tags-description": {
+      "effectiveSeverity": "LOW",
+      "autoFixable": false,
+      "description": "Tag descriptions help agents understand what a group of operations collectively manages, aiding domain-level navigation.",
+      "fixSuggestion": "Add a description to each entry in the top-level tags array explaining the domain it represents."
+    },
+    "ai-readiness-tags-external-docs": {
+      "effectiveSeverity": "LOW",
+      "autoFixable": false,
+      "description": "External documentation links on tags allow agents to fetch deeper domain knowledge when the spec alone is insufficient.",
+      "fixSuggestion": "Add an externalDocs field to each tag with a url pointing to relevant documentation."
+    },
+    "ai-readiness-discriminator": {
+      "effectiveSeverity": "LOW",
+      "autoFixable": true,
+      "description": "Polymorphic schemas (oneOf/anyOf) without a discriminator require agents to attempt each variant to find the right type, adding latency and risk of incorrect type selection.",
+      "fixSuggestion": "Add a discriminator with propertyName to the oneOf/anyOf schema so agents can select the correct variant in O(1)."
+    },
+    "ai-readiness-deprecation-notice": {
+      "effectiveSeverity": "LOW",
+      "autoFixable": false,
+      "description": "Deprecated operations without an explanation leave agents calling endpoints that may be removed, and without guidance on the replacement to use instead.",
+      "fixSuggestion": "Add a description to the deprecated operation that includes the word \"deprecated\", the reason, and the replacement operation to use instead, e.g. \"Deprecated: use createOrderV2 instead. This endpoint will be removed after 2025-12-01.\""
+    }
+  }
+}

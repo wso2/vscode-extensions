@@ -1,0 +1,717 @@
+extends: [['spectral:oas', off]]
+functionsDir: ./functions
+functions:
+  - aiReadinessFieldCoverage
+  - aiReadinessErrorResponseCoverage
+  - aiReadinessSchemaTyping
+  - aiReadinessErrorSchemaStructure
+  - aiReadinessRateLimitHeader
+  - aiReadinessPaginationParams
+  - aiReadinessPaginationMeta
+  - aiReadinessSecurityScheme
+  - aiReadinessIdempotency
+  - aiReadinessSchemaNoEmptyObject
+  - aiReadinessArrayItemsDefined
+  - aiReadinessOperationIdConsistency
+  - aiReadinessOperationIdUnique
+  - aiReadinessSchemaHasConstraints
+rules:
+  # ============================================================================
+  # API-Level Documentation
+  # ============================================================================
+  ai-readiness-api-description:
+    description: API must have a comprehensive description for AI understanding
+    message: "API description is required and should be at least 50 characters for AI readiness"
+    severity: warn
+    given: $.info
+    then:
+      function: aiReadinessFieldCoverage
+      functionOptions:
+        field: description
+        category: descriptions
+        minLength: 50
+  ai-readiness-api-contact:
+    description: API should have contact information for AI agent queries
+    message: "API contact information is recommended for AI readiness"
+    severity: warn
+    given: $.info
+    then:
+      field: contact
+      function: truthy
+  ai-readiness-server-description:
+    description: Server entries should have descriptions
+    message: "Server should have a description (e.g., production, staging) for AI context"
+    severity: warn
+    given: $.servers[*]
+    then:
+      field: description
+      function: truthy
+  # ============================================================================
+  # Operation-Level Documentation
+  # ============================================================================
+  ai-readiness-operation-summary:
+    description: All operations must have a summary for AI understanding
+    message: "Operation '{{property}}' must have a summary for AI readiness"
+    severity: warn
+    given: $.paths[*][get,post,put,patch,delete,head,options]
+    then:
+      function: aiReadinessFieldCoverage
+      functionOptions:
+        field: summary
+        category: summaries
+  ai-readiness-callback-operation-summary:
+    description: Callback operations should have summaries for AI understanding
+    message: "Callback operation '{{property}}' should have a summary for AI readiness"
+    severity: warn
+    given: $.paths[*][get,post,put,patch,delete,head,options].callbacks[*][*][get,post,put,patch,delete,head,options]
+    then:
+      function: aiReadinessFieldCoverage
+      functionOptions:
+        field: summary
+        category: summaries
+  ai-readiness-webhook-operation-summary:
+    description: Webhook operations should have summaries for AI understanding
+    message: "Webhook operation '{{property}}' should have a summary for AI readiness"
+    severity: warn
+    given: $.webhooks[*][get,post,put,patch,delete,head,options]
+    then:
+      function: aiReadinessFieldCoverage
+      functionOptions:
+        field: summary
+        category: summaries
+  ai-readiness-path-item-summary:
+    description: Path items should have summaries to provide route-level context
+    message: "Path item should include a summary for better AI route understanding"
+    severity: warn
+    given: $.paths[*]
+    then:
+      field: summary
+      function: truthy
+  ai-readiness-path-item-description:
+    description: Path items should have descriptions to provide route-level context
+    message: "Path item should include a description for better AI route understanding"
+    severity: warn
+    given: $.paths[*]
+    then:
+      field: description
+      function: truthy
+  ai-readiness-operation-description:
+    description: All operations must have a detailed description
+    message: "Operation '{{property}}' must have a description (min 30 characters) for AI readiness"
+    severity: warn
+    given: $.paths[*][get,post,put,patch,delete,head,options]
+    then:
+      function: aiReadinessFieldCoverage
+      functionOptions:
+        field: description
+        category: descriptions
+        minLength: 30
+  ai-readiness-operation-id:
+    description: All operations must have an operationId for AI reference
+    message: "Operation must have an operationId for AI readiness"
+    severity: warn
+    given: $.paths[*][get,post,put,patch,delete,head,options]
+    then:
+      field: operationId
+      function: truthy
+  ai-readiness-operation-id-casing:
+    description: operationIds should use a consistent naming style across the API
+    message: "operationId style should be consistent across operations for reliable AI references"
+    severity: warn
+    given: $
+    then:
+      function: aiReadinessOperationIdConsistency
+      functionOptions:
+        allowedStyles: [camel, snake, kebab, pascal]
+  ai-readiness-operation-id-unique:
+    description: operationIds must be unique across all operations
+    message: "operationId values must be unique across the API for reliable AI references"
+    severity: warn
+    given: $
+    then:
+      function: aiReadinessOperationIdUnique
+      functionOptions:
+        category: operationIds
+  ai-readiness-operation-tags:
+    description: All operations should have tags for AI categorization
+    message: "Operation should have at least one tag for AI categorization"
+    severity: warn
+    given: $.paths[*][get,post,put,patch,delete,head,options]
+    then:
+      field: tags
+      function: truthy
+  # ============================================================================
+  # Parameters Documentation
+  # ============================================================================
+  ai-readiness-parameter-description:
+    description: All parameters must have descriptions
+    message: "Parameter '{{value.name}}' must have a description for AI readiness"
+    severity: warn
+    given: $.paths[*][*].parameters[*]
+    then:
+      function: aiReadinessFieldCoverage
+      functionOptions:
+        field: description
+        category: descriptions
+  ai-readiness-parameter-description-length:
+    description: Parameter descriptions should be meaningful
+    message: "Parameter '{{value.name}}' description should be at least 15 characters"
+    severity: warn
+    given: $.paths[*][*].parameters[*]
+    then:
+      field: description
+      function: length
+      functionOptions:
+        min: 15
+  ai-readiness-parameter-example:
+    description: Query and path parameters should have examples
+    message: "Parameter '{{value.name}}' should have an example for AI understanding"
+    severity: warn
+    given: $.paths[*][*].parameters[?(@.in == 'query' || @.in == 'path')]
+    then:
+      function: aiReadinessFieldCoverage
+      functionOptions:
+        fields: [example, examples, externalValue]
+        category: examples
+  ai-readiness-path-parameter-example:
+    description: Path-level parameters should have examples
+    message: "Path-level parameter '{{value.name}}' should have an example for AI understanding"
+    severity: warn
+    given: $.paths[*].parameters[?(@.in == 'query' || @.in == 'path')]
+    then:
+      function: aiReadinessFieldCoverage
+      functionOptions:
+        fields: [example, examples, externalValue]
+        category: examples
+  ai-readiness-parameter-content-example:
+    description: Parameters using content should include examples
+    message: "Parameter '{{value.name}}' content should include an example for AI understanding"
+    severity: warn
+    given: $.paths[*][*].parameters[?(@.content)].content[*]
+    then:
+      function: aiReadinessFieldCoverage
+      functionOptions:
+        fields: [example, examples]
+        category: examples
+  ai-readiness-path-parameter-content-example:
+    description: Path-level parameters using content should include examples
+    message: "Path-level parameter content should include an example for AI understanding"
+    severity: warn
+    given: $.paths[*].parameters[?(@.content)].content[*]
+    then:
+      function: aiReadinessFieldCoverage
+      functionOptions:
+        fields: [example, examples]
+        category: examples
+  # ============================================================================
+  # Request Body Documentation
+  # ============================================================================
+  ai-readiness-request-body-description:
+    description: Request bodies must have descriptions
+    message: "Request body must have a description for AI readiness"
+    severity: warn
+    given: $.paths[*][post,put,patch].requestBody
+    then:
+      function: aiReadinessFieldCoverage
+      functionOptions:
+        field: description
+        category: descriptions
+  ai-readiness-request-body-example:
+    description: Request bodies should have examples
+    message: "Request body for {{property}} should have an example for AI understanding"
+    severity: warn
+    given: $.paths[*][post,put,patch].requestBody.content[*]
+    then:
+      function: aiReadinessFieldCoverage
+      functionOptions:
+        fields: [example, examples, externalValue]
+        category: examples
+  ai-readiness-request-body-schema-typed:
+    description: Request body schemas must have explicit types
+    message: "Request body schema should have an explicit type so AI agents construct valid payloads"
+    severity: warn
+    given: $.paths[*][post,put,patch].requestBody.content[*].schema
+    then:
+      function: aiReadinessSchemaTyping
+      functionOptions:
+        category: typing
+  ai-readiness-request-body-schema-required:
+    description: Request body schemas should define a required array
+    message: "Request body schema should declare a 'required' array to clarify mandatory fields for AI agents"
+    severity: warn
+    given: $.paths[*][post,put,patch].requestBody.content[*].schema
+    then:
+      field: required
+      function: truthy
+  # ============================================================================
+  # Response Documentation
+  # ============================================================================
+  ai-readiness-response-description:
+    description: All responses must have descriptions
+    message: "Response '{{property}}' must have a description for AI readiness"
+    severity: warn
+    given: $.paths[*][*].responses[*]
+    then:
+      function: aiReadinessFieldCoverage
+      functionOptions:
+        field: description
+        category: descriptions
+  ai-readiness-response-example:
+    description: Success responses should have examples
+    message: "Response should have an example for AI understanding"
+    severity: warn
+    given: $.paths[*][*].responses[?(@property >= 200 && @property < 300)].content[*]
+    then:
+      function: aiReadinessFieldCoverage
+      functionOptions:
+        fields: [example, examples, externalValue]
+        category: examples
+  ai-readiness-response-header-example:
+    description: Response headers should have examples
+    message: "Response header '{{property}}' should include an example for AI understanding"
+    severity: warn
+    given: $.paths[*][*].responses[*].headers[*]
+    then:
+      function: aiReadinessFieldCoverage
+      functionOptions:
+        fields: [example, examples]
+        category: examples
+  ai-readiness-response-content-type:
+    description: Responses should specify content types
+    message: "Response should specify content type (e.g., application/json) for AI understanding"
+    severity: warn
+    given: $.paths[*][*].responses[?(@property >= 200 && @property < 300)]
+    then:
+      field: content
+      function: truthy
+  ai-readiness-response-schema-typed:
+    description: Response schemas must have explicit types
+    message: "Response schema should have an explicit type so AI agents can parse response payloads"
+    severity: warn
+    given: $.paths[*][*].responses[*].content[*].schema
+    then:
+      function: aiReadinessSchemaTyping
+      functionOptions:
+        category: typing
+  ai-readiness-success-response-content:
+    description: All success responses must define structured payload content
+    message: "2xx response '{{property}}' must define response content so AI agents can reliably parse success payloads"
+    severity: warn
+    given: $.paths[*][*].responses[?(@property >= 200 && @property < 300)]
+    then:
+      field: content
+      function: truthy
+  ai-readiness-success-response-json-schema:
+    description: JSON success responses must define a schema
+    message: "2xx response '{{property}}' application/json content must define a schema for consistent AI consumption"
+    severity: warn
+    given: "$.paths[*][*].responses[?(@property >= 200 && @property < 300)].content['application/json']"
+    then:
+      field: schema
+      function: truthy
+  ai-readiness-error-response-content:
+    description: All error responses must define structured payload content
+    message: "Error response '{{property}}' must define response content so AI agents can parse failures consistently"
+    severity: warn
+    given: $.paths[*][*].responses[?(@property >= 400)]
+    then:
+      field: content
+      function: truthy
+  ai-readiness-error-response-json-schema:
+    description: JSON error responses must define a schema
+    message: "Error response '{{property}}' application/json content must define a schema for consistent AI error handling"
+    severity: warn
+    given: "$.paths[*][*].responses[?(@property >= 400)].content['application/json']"
+    then:
+      field: schema
+      function: truthy
+  # ============================================================================
+  # Status Codes
+  # ============================================================================
+  ai-readiness-success-response:
+    description: Operations must have success responses
+    message: "Operation must define at least one success response (2xx) for AI understanding"
+    severity: warn
+    given: $.paths[*][get,post,put,patch,delete]
+    then:
+      field: responses
+      function: schema
+      functionOptions:
+        schema:
+          type: object
+          properties:
+            "200": {}
+            "201": {}
+            "202": {}
+            "204": {}
+          anyOf:
+            - required: ["200"]
+            - required: ["201"]
+            - required: ["202"]
+            - required: ["204"]
+  ai-readiness-error-responses-4xx:
+    description: Operations must define 4xx error responses
+    message: "Operation must define at least one 4xx error response for AI error handling"
+    severity: warn
+    given: $.paths[*][get,post,put,patch,delete]
+    then:
+      function: aiReadinessErrorResponseCoverage
+      functionOptions:
+        category: errorResponses
+        requiredCodes: ["400", "401", "403", "404", "422", "429"]
+  ai-readiness-error-responses-5xx:
+    description: Operations should define 5xx error responses
+    message: "Operation should define at least one 5xx error response for AI error handling"
+    severity: warn
+    given: $.paths[*][get,post,put,patch,delete]
+    then:
+      field: responses
+      function: schema
+      functionOptions:
+        schema:
+          type: object
+          properties:
+            "500": {}
+            "502": {}
+            "503": {}
+            "504": {}
+          anyOf:
+            - required: ["500"]
+            - required: ["502"]
+            - required: ["503"]
+            - required: ["504"]
+  ai-readiness-error-response-schema:
+    description: Error responses should have proper schemas
+    message: "Error response should have a schema definition for AI error handling"
+    severity: warn
+    given: $.paths[*][*].responses[?(@property >= 400)].content[*]
+    then:
+      field: schema
+      function: truthy
+  ai-readiness-error-response-description-length:
+    description: Error responses should include meaningful descriptions
+    message: "Error response '{{property}}' description should be at least 20 characters so AI agents can understand failure semantics"
+    severity: warn
+    given: $.paths[*][*].responses[?(@property >= 400)]
+    then:
+      field: description
+      function: length
+      functionOptions:
+        min: 20
+  # ============================================================================
+  # Schema Documentation
+  # ============================================================================
+  ai-readiness-schema-description:
+    description: All schemas must have descriptions
+    message: "Schema '{{property}}' must have a description for AI readiness"
+    severity: warn
+    given: $.components.schemas[*]
+    then:
+      function: aiReadinessFieldCoverage
+      functionOptions:
+        field: description
+        category: descriptions
+  ai-readiness-schema-description-length:
+    description: Schema descriptions should be meaningful
+    message: "Schema '{{property}}' description should be at least 20 characters"
+    severity: warn
+    given: $.components.schemas[*]
+    then:
+      field: description
+      function: length
+      functionOptions:
+        min: 20
+  ai-readiness-schema-title:
+    description: Component schemas should have titles for AI discoverability
+    message: "Schema '{{property}}' should have a title to help AI agents identify its semantic meaning"
+    severity: warn
+    given: $.components.schemas[*]
+    then:
+      field: title
+      function: truthy
+  ai-readiness-schema-example:
+    description: All schemas must have examples
+    message: "Schema '{{property}}' must have an example for AI understanding"
+    severity: warn
+    given: $.components.schemas[*]
+    then:
+      function: aiReadinessFieldCoverage
+      functionOptions:
+        fields: [example, examples]
+        category: examples
+  ai-readiness-schema-property-description:
+    description: Schema properties must have descriptions
+    message: "Property '{{property}}' in schema must have a description"
+    severity: warn
+    given: $.components.schemas[*].properties[*]
+    then:
+      function: aiReadinessFieldCoverage
+      functionOptions:
+        field: description
+        category: descriptions
+  ai-readiness-schema-property-example:
+    description: Schema properties should have examples
+    message: "Property '{{property}}' should have an example for AI understanding"
+    severity: warn
+    given: $.components.schemas[*].properties[*]
+    then:
+      function: aiReadinessFieldCoverage
+      functionOptions:
+        fields: [example, examples, externalValue]
+        category: examples
+  ai-readiness-component-header-example:
+    description: Component headers should have examples
+    message: "Header '{{property}}' should include an example for AI understanding"
+    severity: warn
+    given: $.components.headers[*]
+    then:
+      function: aiReadinessFieldCoverage
+      functionOptions:
+        fields: [example, examples]
+        category: examples
+  ai-readiness-schema-enum-description:
+    description: Enum values should have descriptions
+    message: "Enum property '{{property}}' should have a description explaining possible values"
+    severity: warn
+    given: $.components.schemas[*].properties[?(@.enum)]
+    then:
+      field: description
+      function: truthy
+  # ============================================================================
+  # Strict Typing & Schema Constraints
+  # ============================================================================
+  ai-readiness-schema-property-type:
+    description: All schema properties must have an explicit type
+    message: "Schema property '{{property}}' must have an explicit type defined to prevent ambiguous AI interpretation"
+    severity: warn
+    given: $.components.schemas[*].properties[*]
+    then:
+      function: aiReadinessSchemaTyping
+      functionOptions:
+        category: typing
+  ai-readiness-parameter-schema-type:
+    description: All parameter schemas must have explicit types
+    message: "Parameter schema at '{{property}}' must have an explicit type"
+    severity: warn
+    given: $.paths[*][*].parameters[*].schema
+    then:
+      function: aiReadinessSchemaTyping
+      functionOptions:
+        category: typing
+  ai-readiness-schema-string-format:
+    description: String properties with semantic meaning should use format modifiers
+    message: "String property '{{property}}' should use a format modifier (e.g., date-time, email, uuid) for unambiguous AI interpretation"
+    severity: warn
+    given: $.components.schemas[*].properties[?(@.type == 'string')]
+    then:
+      field: format
+      function: truthy
+  ai-readiness-schema-no-empty-object:
+    description: Object schemas must define their structure — empty type:object is ambiguous
+    message: "Schema '{{property}}' is typed as 'object' but declares no properties — define properties, additionalProperties, or a composition keyword"
+    severity: warn
+    given: $.components.schemas[*]
+    then:
+      function: aiReadinessSchemaNoEmptyObject
+      functionOptions:
+        category: typing
+  ai-readiness-schema-property-no-empty-object:
+    description: Object-typed properties must define their structure
+    message: "Property '{{property}}' is typed as 'object' but declares no properties — empty object types prevent AI agents from constructing valid payloads"
+    severity: warn
+    given: $.components.schemas[*].properties[*]
+    then:
+      function: aiReadinessSchemaNoEmptyObject
+      functionOptions:
+        category: typing
+  ai-readiness-array-items-defined:
+    description: Array schemas must define their item type
+    message: "Array schema '{{property}}' must define an 'items' schema so AI agents understand the element type"
+    severity: warn
+    given: $.components.schemas[*]
+    then:
+      function: aiReadinessArrayItemsDefined
+      functionOptions:
+        category: typing
+  ai-readiness-array-property-items-defined:
+    description: Array-type properties must define their item schema
+    message: "Array property '{{property}}' must define an 'items' schema — untyped arrays are ambiguous for AI agents"
+    severity: warn
+    given: $.components.schemas[*].properties[*]
+    then:
+      function: aiReadinessArrayItemsDefined
+      functionOptions:
+        category: typing
+  ai-readiness-schema-validation-constraints:
+    description: Scalar schema properties should define validation constraints
+    message: "Schema property '{{property}}' should define constraints (pattern/minLength/maxLength/minimum/maximum) to guide deterministic AI payload generation"
+    severity: warn
+    given: $.components.schemas[*].properties[*]
+    then:
+      function: aiReadinessSchemaHasConstraints
+      functionOptions:
+        category: typing
+  # ============================================================================
+  # Rich Error Semantics (RFC 7807)
+  # ============================================================================
+  ai-readiness-error-schema-fields:
+    description: Error response schemas must contain structured fields for AI self-correction
+    message: "Error schema must define 'message' and 'code' properties so AI agents can interpret and correct failed requests"
+    severity: warn
+    given: $.paths[*][*].responses[?(@property >= 400)].content[*].schema
+    then:
+      function: aiReadinessErrorSchemaStructure
+      functionOptions:
+        category: errorSemantics
+        requiredFields: [message, code]
+  ai-readiness-error-schema-rfc7807:
+    description: Error responses should follow RFC 7807 problem detail structure
+    message: "Error schema should include 'type', 'title', and 'detail' fields per RFC 7807 for rich AI error semantics"
+    severity: warn
+    given: $.paths[*][*].responses[?(@property >= 400)].content[*].schema
+    then:
+      function: aiReadinessErrorSchemaStructure
+      functionOptions:
+        category: errorSemantics
+        requiredFields: [type, title, detail]
+  ai-readiness-error-schema-details:
+    description: Error schemas should include a details field for additional context
+    message: "Error schema should include a 'details' field so AI agents receive contextual information about what failed"
+    severity: warn
+    given: $.paths[*][*].responses[?(@property >= 400)].content[*].schema
+    then:
+      function: aiReadinessErrorSchemaStructure
+      functionOptions:
+        category: errorSemantics
+        requiredFields: [details]
+  ai-readiness-error-schema-actionable:
+    description: Validation error schemas should carry expected and received context for agent self-correction
+    message: "422 error schema should include both 'expected' and 'received' fields so AI agents can automatically correct malformed requests"
+    severity: warn
+    given: "$.paths[*][*].responses['422'].content[*].schema"
+    then:
+      function: aiReadinessErrorSchemaStructure
+      functionOptions:
+        category: errorSemantics
+        requiredFields: [expected, received]
+  # ============================================================================
+  # Operational Header Signals
+  # ============================================================================
+  ai-readiness-429-rate-limit-headers:
+    description: Rate-limited responses must include retry guidance headers
+    message: "429 response must declare Retry-After or X-RateLimit-* headers so AI agents can back off and retry safely"
+    severity: warn
+    given: "$.paths[*][*].responses['429']"
+    then:
+      function: aiReadinessRateLimitHeader
+      functionOptions:
+        category: headers
+  # ============================================================================
+  # Pagination Standards
+  # ============================================================================
+  ai-readiness-list-pagination-params:
+    description: GET operations should support standard pagination parameters
+    message: "GET operation should declare pagination parameters (cursor/page and limit) for AI agent iteration over large result sets"
+    severity: warn
+    given: $.paths[*].get
+    then:
+      function: aiReadinessPaginationParams
+      functionOptions:
+        category: pagination
+  ai-readiness-pagination-response-meta:
+    description: List endpoint responses must include pagination metadata
+    message: "GET list operation response schema should include pagination metadata (has_more, next_cursor, or total) so AI agents know when to stop paginating"
+    severity: warn
+    given: $.paths[*].get.responses[?(@property >= 200 && @property < 300)].content[*].schema
+    then:
+      function: aiReadinessPaginationMeta
+      functionOptions:
+        category: pagination
+  # ============================================================================
+  # Agent-Friendly Security
+  # ============================================================================
+  ai-readiness-no-interactive-auth:
+    description: Security schemes must not use interactive OAuth flows
+    message: "Security scheme '{{property}}' uses an interactive OAuth flow (implicit/authorizationCode) — AI agents cannot complete browser-based authentication"
+    severity: warn
+    given: $.components.securitySchemes[*]
+    then:
+      function: aiReadinessSecurityScheme
+      functionOptions:
+        category: security
+  ai-readiness-security-defined:
+    description: API should define security schemes for AI understanding
+    message: "API should define security schemes in components for AI readiness"
+    severity: warn
+    given: $.components
+    then:
+      field: securitySchemes
+      function: truthy
+  ai-readiness-security-description:
+    description: Security schemes should have descriptions
+    message: "Security scheme '{{property}}' should have a description"
+    severity: warn
+    given: $.components.securitySchemes[*]
+    then:
+      field: description
+      function: truthy
+  ai-readiness-security-on-mutating-ops:
+    description: Mutating operations should declare explicit security requirements
+    message: "Operation does not declare security requirements — AI agents need explicit security constraints to avoid unintended state changes"
+    severity: warn
+    given: $.paths[*][post,put,patch,delete]
+    then:
+      field: security
+      function: defined
+  # ============================================================================
+  # Idempotency for Retries
+  # ============================================================================
+  ai-readiness-idempotency-key:
+    description: Mutating operations should support idempotency for safe AI agent retries
+    message: "POST/PATCH operation should declare an Idempotency-Key header parameter to prevent duplicate side-effects on AI agent retries"
+    severity: warn
+    given: $.paths[*][post,patch]
+    then:
+      function: aiReadinessIdempotency
+      functionOptions:
+        category: idempotency
+  # ============================================================================
+  # Tags Documentation
+  # ============================================================================
+  ai-readiness-tags-description:
+    description: All tags must have descriptions
+    message: "Tag '{{value.name}}' must have a description for AI categorization"
+    severity: warn
+    given: $.tags[*]
+    then:
+      field: description
+      function: truthy
+  ai-readiness-tags-external-docs:
+    description: Tags should have external documentation links
+    message: "Tag '{{value.name}}' should have external documentation for AI learning"
+    severity: warn
+    given: $.tags[*]
+    then:
+      field: externalDocs
+      function: truthy
+  # ============================================================================
+  # Additional AI-Specific Checks
+  # ============================================================================
+  ai-readiness-discriminator:
+    description: Polymorphic schemas should use discriminators
+    message: "Schema with oneOf/anyOf should define a discriminator for AI understanding"
+    severity: warn
+    given: $.components.schemas[?(@.oneOf || @.anyOf)]
+    then:
+      field: discriminator
+      function: truthy
+  ai-readiness-deprecation-notice:
+    description: Deprecated operations should have clear notices
+    message: "Deprecated operation should have a detailed description explaining alternatives"
+    severity: warn
+    given: $.paths[*][?(@.deprecated == true)]
+    then:
+      field: description
+      function: pattern
+      functionOptions:
+        match: .*(deprecated|alternative|instead|use).*

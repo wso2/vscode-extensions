@@ -32,6 +32,14 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "chatSkills": [
+      {
+        "path": "./skills/api-gateway/SKILL.md"
+      },
+      {
+        "path": "./skills/api-readiness-assessment/SKILL.md"
+      }
+    ],
     "languageModelTools": [
       {
         "name": "api-designer_validateApiSpec",
