@@ -56,6 +56,9 @@ import {
     RunningServiceInfo,
     StopRunningServiceRequest,
     RunServiceRequest,
+    ThreadSummary,
+    SwitchThreadRequest,
+    DeleteThreadRequest,
 } from "./interfaces";
 
 export interface AIPanelAPI {
@@ -123,6 +126,10 @@ export interface AIPanelAPI {
     declineWebTool: (params: WebToolApprovalRequest) => Promise<void>;
     compactConversation: (params: CompactConversationRequest) => Promise<CompactConversationResponse>;
     getShowContextUsage: () => Promise<boolean>;
+    // Thread / session management
+    listThreads: () => Promise<ThreadSummary[]>;
+    switchThread: (params: SwitchThreadRequest) => Promise<void>;
+    deleteThread: (params: DeleteThreadRequest) => Promise<void>;
     // ==================================
     // Prompt Enhancement
     // ==================================

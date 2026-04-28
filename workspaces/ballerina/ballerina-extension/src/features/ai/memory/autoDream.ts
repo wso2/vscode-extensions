@@ -52,11 +52,28 @@ const WORKSPACES_BASE_DIR = join(homedir(), '.ballerina', 'copilot', 'workspaces
 export interface DreamContext {
     /** Workspace root path (workspacePath or projectPath). */
     workspacePath: string;
+    onDreamStart?: () => void;
+    onDreamComplete?: () => void;
+    onDreamFail?: () => void;
 }
 
 type DreamRunner = (ctx: DreamContext) => void;
 
 let runner: DreamRunner = () => { /* noop until init */ };
+
+/** Callbacks for VS Code status bar visibility — injected from the extension layer. */
+export interface DreamCallbacks {
+    onDreamStart?: () => void;
+    onDreamComplete?: () => void;
+    onDreamFail?: () => void;
+}
+
+let dreamCallbacks: DreamCallbacks = {};
+
+/** Registers status bar callbacks so activate.ts can show/hide the status bar item. */
+export function setDreamCallbacks(callbacks: DreamCallbacks): void {
+    dreamCallbacks = callbacks;
+}
 
 /** Optional provider for VS Code settings — injected from the extension layer. */
 export type DreamSettingsProvider = () => { autoDreamEnabled: boolean };
@@ -95,6 +112,7 @@ export function initAutoDream(): void {
                 dreamsInProgress.delete(hash);
             }
         })();
+
     };
 }
 
@@ -137,6 +155,7 @@ async function runDream(
         ? (globalPriorMtime ?? 0)
         : readLastConsolidatedAt(globalLockPath);
 
+    ctx.onDreamStart?.();
     try {
         const model   = await getAnthropicClient(ANTHROPIC_SONNET_4);
         const tools   = createMemoryTools(globalDir, workspaceDir);
@@ -157,8 +176,10 @@ async function runDream(
         });
 
         console.log('[autoDream] consolidation complete');
+        ctx.onDreamComplete?.();
     } catch (e: unknown) {
         console.error('[autoDream] consolidation failed:', (e as Error).message);
+        ctx.onDreamFail?.();
         rollbackLock(workspaceLockPath, workspacePriorMtime);
         if (hasGlobalLock && globalPriorMtime !== null) {
             rollbackLock(globalLockPath, globalPriorMtime);
@@ -171,5 +192,6 @@ async function runDream(
  * Gates are checked internally — safe to call on every turn.
  */
 export function executeAutoDream(ctx: DreamContext): void {
-    runner(ctx);
+    // Merge in status bar callbacks registered from activate.ts
+    runner({ ...ctx, ...dreamCallbacks });
 }

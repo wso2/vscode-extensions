@@ -274,7 +274,8 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
             }
 
             const workspaceId = this.config.executionContext.workspacePath || this.config.executionContext.projectPath;
-            const threadId = (this.config.executionContext as any).threadId || 'default';
+            // Use chatStorage.threadId so onStepFinish writes to the same thread that addGeneration created.
+            const threadId = this.config.chatStorage?.threadId ?? 'default';
             const projectState = {
                 modifiedFiles: modifiedFiles,
                 tempProjectPath,
@@ -340,7 +341,7 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
                 generationType: GenerationType.CODE_GENERATION,
                 projectRootPath: this.config.executionContext.workspacePath || this.config.executionContext.projectPath || '',
                 generationId: this.config.generationId,
-                threadId: 'default',
+                threadId,
                 migrationSourcePath: this.config.toolOptions?.migrationSourcePath,
                 runningServices: runningServicesManager,
                 webSearchEnabled: params.webSearchEnabled ?? false,
@@ -551,7 +552,6 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
                     }
 
                     const projectRootPath = this.config.executionContext.workspacePath || this.config.executionContext.projectPath || '';
-                    const threadId = 'default';
                     if (partialLLMMessages.length > 0) {
                         chatStateStorage.updateGeneration(projectRootPath, threadId, this.config.generationId, {
                             modelMessages: [
@@ -698,7 +698,7 @@ Generation stopped by user. The last in-progress task was not saved. Files have 
 
         // Clear review state for this generation
         const projectRootPath = context.ctx.workspacePath || context.ctx.projectPath || '';
-        const threadId = 'default';
+        const threadId = this.config.chatStorage?.threadId ?? 'default';
         const pendingReview = chatStateStorage.getPendingReviewGeneration(projectRootPath, threadId);
 
         if (pendingReview && pendingReview.id === context.messageId) {
@@ -886,7 +886,7 @@ Generation stopped by user. The last in-progress task was not saved. Files have 
         tempProjectPath: string
     ): Promise<void> {
         const projectRootPath = context.ctx.workspacePath || context.ctx.projectPath || '';
-        const threadId = 'default';
+        const threadId = this.config.chatStorage?.threadId ?? 'default';
 
         const generationModifiedFiles = Array.from(new Set([...context.allModifiedFiles, ...context.modifiedFiles]));
 
@@ -932,7 +932,7 @@ Generation stopped by user. The last in-progress task was not saved. Files have 
      */
     private async emitReviewActions(context: StreamContext): Promise<void> {
         const workspaceId = context.ctx.workspacePath || context.ctx.projectPath;
-        const threadId = 'default';
+        const threadId = this.config.chatStorage?.threadId ?? 'default';
 
         // Show review for the current generation only; older under-review ones are treated as accepted.
         // TODO: refactor generation review state so older generations are explicitly marked accepted.

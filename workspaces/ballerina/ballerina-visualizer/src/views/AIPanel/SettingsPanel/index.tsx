@@ -206,6 +206,22 @@ export const SettingsPanel = (props: { onClose: () => void }) => {
                     </SettingRow>
                 </Section>
 
+                {/* Memory */}
+                <Section>
+                    <SectionHeader>Memory</SectionHeader>
+                    <SettingRow>
+                        <SettingInfo>
+                            <SettingLabel>Auto Memory</SettingLabel>
+                            <SettingDescription>
+                                Captures your preferences and integration patterns across sessions.
+                                Stored in <code style={{ fontSize: 10 }}>~/.ballerina/copilot/memory/</code>.
+                                Toggle via <em>ballerina.ai.autoMemory.enabled</em> in VS Code Settings.
+                            </SettingDescription>
+                        </SettingInfo>
+                        <Codicon name="database" sx={{ fontSize: "16px", color: "var(--vscode-descriptionForeground)", flexShrink: 0 }} />
+                    </SettingRow>
+                </Section>
+
                 {/* Account */}
                 <Section>
                     <SectionHeader>Account</SectionHeader>

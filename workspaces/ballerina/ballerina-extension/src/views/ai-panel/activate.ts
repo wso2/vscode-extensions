@@ -22,7 +22,7 @@ import { closeAIWebview, openAIWebview } from './aiMachine';
 import { BallerinaExtension } from '../../core';
 import { notifyAiWebview } from '../../RPCLayer';
 import { initExtractMemories, drainPendingExtraction, setMemorySettingsProvider } from '../../features/ai/memory/extractMemories';
-import { initAutoDream, setDreamSettingsProvider } from '../../features/ai/memory/autoDream';
+import { initAutoDream, setDreamSettingsProvider, setDreamCallbacks } from '../../features/ai/memory/autoDream';
 import { openView, StateMachine } from '../../stateMachine';
 import { MESSAGES } from '../../features/project/cmds/cmd-runner';
 import { VisualizerWebview } from '../visualizer/webview';
@@ -53,6 +53,24 @@ export function activateAiPanel(ballerinaExtInstance: BallerinaExtension) {
     setDreamSettingsProvider(() => ({
         autoDreamEnabled: vscode.workspace.getConfiguration('ballerina.ai.autoDream').get<boolean>('enabled', true),
     }));
+
+    // Status bar for auto-dream visibility
+    const dreamStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 99);
+    dreamStatusBar.tooltip = 'WSO2 Integrator Copilot memory consolidation';
+    ballerinaExtInstance.context.subscriptions.push(dreamStatusBar);
+
+    setDreamCallbacks({
+        onDreamStart: () => {
+            dreamStatusBar.text = '$(sync~spin) Copilot Memory';
+            dreamStatusBar.show();
+        },
+        onDreamComplete: () => {
+            dreamStatusBar.text = '$(check) Memory updated';
+            dreamStatusBar.show();
+            setTimeout(() => dreamStatusBar.hide(), 5_000);
+        },
+        onDreamFail: () => dreamStatusBar.hide(),
+    });
 
     // Initialise background memory agents
     initExtractMemories();
