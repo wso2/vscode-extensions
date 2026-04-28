@@ -427,7 +427,7 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
                         <LlmStatusIcon $color={llmInfo.statusColor}>{llmInfo.icon}</LlmStatusIcon>
                         <LlmInfo>
                             <LlmTitleRow>
-                                <LlmTitle>{llmReview?.title || 'Agent-Based AI Readiness Review'}</LlmTitle>
+                                <LlmTitle>{llmReview?.title || 'Llm-Based AI Readiness Review'}</LlmTitle>
                                 <LlmStatusPill $color={llmInfo.badgeColor} $bg={llmInfo.badgeBg}>{llmInfo.statusLabel}</LlmStatusPill>
                                 <LlmDetailsTip title={llmInfo.meta}>i</LlmDetailsTip>
                             </LlmTitleRow>
@@ -440,7 +440,7 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
                                 </Button>
                             )}
                             {(llmValidation?.status === 'stale' || llmValidation?.status === 'failed' || !llmValidation || llmValidation.status === 'pending') && (
-                                <Button onClick={onReevaluateLlm}>
+                                <Button onClick={onReevaluateLlm} disabled={llmValidation?.status === 'pending'}>
                                     {llmValidation?.status === 'pending'
                                         ? 'Running…'
                                         : (llmReview?.reevaluateLabel || 'Re-evaluate')}

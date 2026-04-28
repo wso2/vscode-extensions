@@ -143,6 +143,7 @@ const ScoreText = styled.span<{ $color: string }>`
     font-weight: 700;
     line-height: 1.1;
     color: ${({ $color }: { $color: string }) => $color};
+    font-family: var(--vscode-editor-font-family, ui-monospace, monospace);
     font-variant-numeric: tabular-nums;
 `;
 

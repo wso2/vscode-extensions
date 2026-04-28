@@ -63,6 +63,10 @@ type SpectralGovernancePayload = {
     score?: number;
     passedChecks?: number;
     totalChecks?: number;
+    passedRules?: Array<{ rule?: string }>;
+    aiReadinessSummary?: {
+        score?: number;
+    };
 };
 
 type GovernanceRulesetMetadata = {
@@ -803,13 +807,66 @@ export class GovernanceManager extends BaseRpcManager {
     ] as const;
 
     private readonly WSO2_THEMES = [
-        { id: 'resource-design', title: 'Resource Design', description: 'How clear and predictable resource paths and REST nouns are.', keywords: ['resource', 'path', 'uri', 'url', 'noun', 'plural', 'hierarchy'] },
-        { id: 'operations-methods', title: 'Operations & Methods', description: 'Whether HTTP methods and operation shapes follow REST semantics.', keywords: ['method', 'http', 'operation', 'get', 'post', 'put', 'patch', 'delete', 'idempotent'] },
-        { id: 'contracts-responses', title: 'Contracts & Responses', description: 'Consistency of status codes, response models, and payload contracts.', keywords: ['response', 'status', 'schema', 'contract', 'payload', 'content-type', 'example'] },
-        { id: 'documentation', title: 'Documentation Quality', description: 'How usable the API is from summaries, descriptions, and examples.', keywords: ['summary', 'description', 'document', 'docs', 'example', 'title', 'operationid'] },
-        { id: 'security-governance', title: 'Security & Governance', description: 'Authentication, authorization, and governance controls for safe APIs.', keywords: ['security', 'auth', 'oauth', 'scope', 'token', 'header', 'https', 'tls'] },
-        { id: 'versioning-lifecycle', title: 'Versioning & Lifecycle', description: 'Version strategy and lifecycle clarity for consumers.', keywords: ['version', 'deprecated', 'sunset', 'lifecycle', 'compatibility'] },
+        { id: 'resource-design', title: 'Resource Design', description: 'Resource paths, naming, and URL structure quality.' },
+        { id: 'operations-methods', title: 'Operations & Methods', description: 'Operation metadata and method semantics consistency.' },
+        { id: 'contracts-responses', title: 'Contracts & Responses', description: 'Request/response schema and contract correctness checks.' },
+        { id: 'documentation', title: 'Documentation Quality', description: 'API documentation completeness and usability checks.' },
+        { id: 'security-governance', title: 'Security & Governance', description: 'Basic security and governance hygiene checks.' },
+        { id: 'other', title: 'Other', description: 'Others checks' },
     ] as const;
+
+    private readonly WSO2_RULE_THEME_MAP: Record<string, (typeof this.WSO2_THEMES)[number]['id']> = {
+        'contact-url': 'documentation',
+        'contact-email': 'documentation',
+        'contact-name': 'documentation',
+        'info-contact': 'documentation',
+        'info-description': 'documentation',
+        'info-license': 'documentation',
+        'license-url': 'documentation',
+        'no-eval-in-markdown': 'security-governance',
+        'no-script-tags-in-markdown': 'security-governance',
+        'openapi-tags-alphabetical': 'documentation',
+        'openapi-tags': 'documentation',
+        'tag-description': 'documentation',
+        'parameter-description': 'documentation',
+        'operation-description': 'documentation',
+        'operation-operationid': 'operations-methods',
+        'operation-operationid-valid-in-url': 'operations-methods',
+        'operation-tags': 'documentation',
+        'path-declarations-must-exist': 'resource-design',
+        'paths-no-trailing-slash': 'resource-design',
+        'path-not-include-query': 'resource-design',
+        'path-parameters-on-path-only': 'contracts-responses',
+        'paths-no-query-params': 'resource-design',
+        'path-casing': 'resource-design',
+        'resource-names-plural': 'resource-design',
+        'paths-no-http-verbs': 'resource-design',
+        'paths-avoid-special-characters': 'resource-design',
+        'oas3-examples-value-or-externalvalue': 'contracts-responses',
+        'array-items': 'contracts-responses',
+    };
+
+    private readonly OWASP_CATEGORY_WEIGHTS: Record<string, number> = {
+        'API1:2023': 1.4,
+        'API2:2023': 1.3,
+        'API3:2023': 1.2,
+        'API4:2023': 1.1,
+        'API5:2023': 1.3,
+        'API6:2023': 1.1,
+        'API7:2023': 1.2,
+        'API8:2023': 1.0,
+        'API9:2023': 0.8,
+        'API10:2023': 0.9,
+    };
+
+    private readonly WSO2_THEME_WEIGHTS: Record<(typeof this.WSO2_THEMES)[number]['id'], number> = {
+        'resource-design': 1.2,
+        'operations-methods': 1.1,
+        'contracts-responses': 1.3,
+        'documentation': 1.0,
+        'security-governance': 1.4,
+        'other': 0.8,
+    };
 
     private inferReportKey(name: string): 'ai-readiness' | 'owasp' | 'rest-api-readiness' {
         const lower = name.toLowerCase();
@@ -903,18 +960,97 @@ export class GovernanceManager extends BaseRpcManager {
         return { endpoint: 'global', method: 'GLOBAL' };
     }
 
-    private pickWso2Theme(rule: string, message: string): (typeof this.WSO2_THEMES)[number] {
-        const haystack = `${rule} ${message}`.toLowerCase();
-        let bestTheme: (typeof this.WSO2_THEMES)[number] = this.WSO2_THEMES[0] as (typeof this.WSO2_THEMES)[number];
-        let bestScore = 0;
-        this.WSO2_THEMES.forEach((theme) => {
-            const score = theme.keywords.reduce((sum, keyword) => sum + (haystack.includes(keyword) ? 1 : 0), 0);
-            if (score > bestScore) {
-                bestScore = score;
-                bestTheme = theme;
+    private pickWso2Theme(rule: string): (typeof this.WSO2_THEMES)[number] {
+        const normalizedRule = (rule || '').toLowerCase();
+        const mappedThemeId = this.WSO2_RULE_THEME_MAP[normalizedRule] || 'other';
+        return this.WSO2_THEMES.find((theme) => theme.id === mappedThemeId) || this.WSO2_THEMES[0];
+    }
+
+    private normalizeRuleId(rule: string): string {
+        return (rule || '').trim().toLowerCase();
+    }
+
+    private deriveOwaspCategoryKeyFromRule(rule: string): string {
+        const raw = (rule || '').toUpperCase().match(/API\d+(?::\d{4})?/)?.[0] || 'GENERAL';
+        return raw.includes(':') ? raw : `${raw}:2023`;
+    }
+
+    private computeWeightedScore(
+        reportId: 'ai-readiness' | 'owasp' | 'rest-api-readiness',
+        response: SpectralGovernancePayload
+    ): number {
+        if (reportId === 'ai-readiness') {
+            const aiWeightedScore = response.aiReadinessSummary?.score;
+            if (typeof aiWeightedScore === 'number' && Number.isFinite(aiWeightedScore)) {
+                return Math.max(0, Math.min(100, Math.round(aiWeightedScore)));
             }
+            return Math.max(0, Math.min(100, Math.round(response.score ?? 0)));
+        }
+
+        if (reportId !== 'owasp' && reportId !== 'rest-api-readiness') {
+            return Math.max(0, Math.min(100, Math.round(response.score ?? 0)));
+        }
+
+        const failedRules = new Set<string>();
+        const allRules = new Set<string>();
+
+        (response.violations || []).forEach((violation) => {
+            const ruleId = this.normalizeRuleId(violation.rule || violation.code || '');
+            if (!ruleId) return;
+            failedRules.add(ruleId);
+            allRules.add(ruleId);
         });
-        return bestScore > 0 ? bestTheme : this.WSO2_THEMES[0];
+
+        (response.passedRules || []).forEach((entry) => {
+            const ruleId = this.normalizeRuleId(entry.rule || '');
+            if (!ruleId) return;
+            allRules.add(ruleId);
+        });
+
+        if (allRules.size === 0) {
+            return Math.max(0, Math.min(100, Math.round(response.score ?? 0)));
+        }
+
+        const bucketStats = new Map<string, { total: number; failed: number }>();
+        const ensureBucket = (key: string): { total: number; failed: number } => {
+            let stats = bucketStats.get(key);
+            if (!stats) {
+                stats = { total: 0, failed: 0 };
+                bucketStats.set(key, stats);
+            }
+            return stats;
+        };
+
+        allRules.forEach((ruleId) => {
+            const bucketKey = reportId === 'owasp'
+                ? this.deriveOwaspCategoryKeyFromRule(ruleId)
+                : this.pickWso2Theme(ruleId).id;
+            ensureBucket(bucketKey).total += 1;
+        });
+
+        failedRules.forEach((ruleId) => {
+            const bucketKey = reportId === 'owasp'
+                ? this.deriveOwaspCategoryKeyFromRule(ruleId)
+                : this.pickWso2Theme(ruleId).id;
+            ensureBucket(bucketKey).failed += 1;
+        });
+
+        let weightedSum = 0;
+        let totalWeight = 0;
+        bucketStats.forEach((stats, bucketKey) => {
+            if (stats.total <= 0) return;
+            const bucketScore = ((stats.total - stats.failed) / stats.total) * 100;
+            const weight = reportId === 'owasp'
+                ? (this.OWASP_CATEGORY_WEIGHTS[bucketKey] || 1)
+                : (this.WSO2_THEME_WEIGHTS[bucketKey as (typeof this.WSO2_THEMES)[number]['id']] || 1);
+            weightedSum += bucketScore * weight;
+            totalWeight += weight;
+        });
+
+        if (totalWeight <= 0) {
+            return Math.max(0, Math.min(100, Math.round(response.score ?? 0)));
+        }
+        return Math.max(0, Math.min(100, Math.round(weightedSum / totalWeight)));
     }
 
     private buildUnifiedReport(
@@ -923,6 +1059,7 @@ export class GovernanceManager extends BaseRpcManager {
         owaspCategoryKeys?: string[]
     ): BuiltUnifiedReport {
         const reportId = this.inferReportKey(name);
+        const computedScore = this.computeWeightedScore(reportId, response);
         const rawViolations = response.violations || [];
         const violationsById: Record<string, UnifiedViolation> = {};
         const categoryBuckets = new Map<string, { label: string; description?: string; docsUrl?: string; violationIds: string[] }>();
@@ -947,7 +1084,7 @@ export class GovernanceManager extends BaseRpcManager {
                 }
                 categoryBuckets.get(key)?.violationIds.push(id);
             } else if (reportId === 'rest-api-readiness') {
-                const theme = this.pickWso2Theme(violation.rule || '', violation.message || '');
+                const theme = this.pickWso2Theme(violation.rule || '');
                 breakdownKeys = [theme.id];
                 if (!categoryBuckets.has(theme.id)) {
                     categoryBuckets.set(theme.id, { label: theme.title, description: theme.description, violationIds: [] });
@@ -1006,7 +1143,12 @@ export class GovernanceManager extends BaseRpcManager {
                     errors: categoryErrors,
                     warnings: categoryWarnings,
                     percentage: rawViolations.length > 0 ? Math.round((total / rawViolations.length) * 100) : 0,
-                    affectedEndpoints: new Set(ids.map((id) => `${violationsById[id]?.method} ${violationsById[id]?.endpoint}`)).size,
+                    affectedEndpoints: new Set(
+                        ids
+                            .map((id) => violationsById[id])
+                            .filter((violation) => violation && violation.endpoint !== 'global' && violation.method !== 'GLOBAL')
+                            .map((violation) => `${violation.method} ${violation.endpoint}`)
+                    ).size,
                     docsUrl: item.docsUrl,
                     viewIssuesFilter: { key: item.key, label: item.label },
                 };
@@ -1032,7 +1174,12 @@ export class GovernanceManager extends BaseRpcManager {
                     errors: categoryErrors,
                     warnings: categoryWarnings,
                     percentage: rawViolations.length > 0 ? Math.round((total / rawViolations.length) * 100) : 0,
-                    affectedEndpoints: new Set(ids.map((id) => `${violationsById[id]?.method} ${violationsById[id]?.endpoint}`)).size,
+                    affectedEndpoints: new Set(
+                        ids
+                            .map((id) => violationsById[id])
+                            .filter((violation) => violation && violation.endpoint !== 'global' && violation.method !== 'GLOBAL')
+                            .map((violation) => `${violation.method} ${violation.endpoint}`)
+                    ).size,
                     viewIssuesFilter: { key: theme.id, label: theme.title },
                     topRules: Array.from(ruleCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([rule]) => rule),
                 };
@@ -1045,7 +1192,7 @@ export class GovernanceManager extends BaseRpcManager {
             title: name,
             violationsById,
             overview: {
-                score: response.score ?? 0,
+                score: computedScore,
                 passedChecks: response.passedChecks ?? 0,
                 totalChecks: response.totalChecks ?? 0,
                 metrics: [
@@ -1073,7 +1220,7 @@ export class GovernanceManager extends BaseRpcManager {
             },
             llmReview: reportId === 'ai-readiness'
                 ? {
-                    title: 'Agent-Based AI Readiness Review',
+                    title: 'Llm-Based AI Readiness Review',
                     subtitle: 'AI agent findings for readiness checks. Use "View findings" for full details.',
                     viewFindingsLabel: 'View findings',
                     reevaluateLabel: 'Re-evaluate',
@@ -1248,6 +1395,7 @@ export class GovernanceManager extends BaseRpcManager {
                     ? rulesetInsights.owaspCategoryKeys
                     : undefined;
             const unifiedReport = this.buildUnifiedReport(reportTitle, response, owaspCategoryKeys);
+            response.score = unifiedReport.overview.score;
             await this.persistSpectralSection(normalizedPath, unifiedReport.reportId, unifiedReport.violationsById);
             const aiReadinessSummary = (response as { aiReadinessSummary?: unknown }).aiReadinessSummary;
             if (aiReadinessSummary) {

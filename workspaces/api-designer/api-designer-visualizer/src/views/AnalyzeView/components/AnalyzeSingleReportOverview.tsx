@@ -168,6 +168,7 @@ const MetricValue = styled.div<{ $color?: string }>`
     font-weight: 800;
     color: ${({ $color }: { $color?: string }) => $color || 'var(--vscode-foreground)'};
     line-height: 1;
+    font-family: var(--vscode-editor-font-family, ui-monospace, monospace);
     display: flex;
     align-items: baseline;
     gap: 4px;

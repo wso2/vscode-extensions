@@ -38,6 +38,9 @@
       },
       {
         "path": "./skills/api-readiness-assessment/SKILL.md"
+      },
+      {
+        "path": "./skills/api-design/SKILL.md"
       }
     ],
     "languageModelTools": [

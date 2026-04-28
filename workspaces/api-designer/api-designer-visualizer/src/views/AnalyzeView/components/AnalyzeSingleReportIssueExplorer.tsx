@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from '@emotion/styled';
 import { AIButton } from '../../../components/ai/AIButton';
+import { postMessage } from '../../../utils/vscode-api';
 import { AnalyzeReportKey, GroupBy, IssueRow, SeverityLevel, SortBy, SortDir } from '../hooks/useReport';
 import { extractSnippetLines, getMethodStyle } from './AnalyzeSingleReportHelpers';
 
@@ -55,8 +56,19 @@ interface AnalyzeSingleReportIssueExplorerProps {
     };
 }
 
+type FixStatus = 'fixing' | 'resolved' | 'stillPresent';
+
+interface FixContext {
+    issue: IssueRow;
+    status: FixStatus;
+    baselineRowsFingerprint: string;
+}
+
 const Row = styled.div`display: flex; align-items: center; gap: 8px;`;
 const SectionShell = styled.div``;
+const ExplorerSurface = styled.div`
+    position: relative;
+`;
 
 const SectionHeader = styled.div`
     display: flex;
@@ -95,21 +107,33 @@ const SectionBadge = styled.div`
     flex-shrink: 0;
 `;
 
-const IssueExplorerBlock = styled.div`
+const IssueExplorerBlock = styled.div<{ $hasOverlay: boolean }>`
     border: 1px solid var(--vscode-panel-border);
-    border-radius: 10px;
+    border-radius: 6px;
     background: var(--vscode-editor-background);
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    height: min(85vh, 1000px);
-    min-height: 560px;
+    height: min(76vh, 920px);
+    min-height: 520px;
+    margin-right: ${({ $hasOverlay }: { $hasOverlay: boolean }) => ($hasOverlay ? 'calc(min(42%, 560px) + 10px)' : '0')};
+    transition: margin-right 180ms ease;
 `;
-const IssueExplorerBody = styled.div`flex: 1; min-height: 0; overflow: hidden;`;
-const IssuesLayout = styled.div`display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); height: 100%; border-top: 1px solid var(--vscode-panel-border);`;
+const IssueExplorerBody = styled.div`
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+`;
+const IssuesLayout = styled.div`
+    height: 100%;
+    border-top: 1px solid var(--vscode-panel-border);
+`;
 const IssueListPanel = styled.div`
-    border-right: 1px solid var(--vscode-panel-border);
-    overflow: hidden; display: flex; flex-direction: column; min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
 `;
 const Toolbar = styled.div`
     border-bottom: 1px solid var(--vscode-panel-border); padding: 10px 16px;
@@ -239,7 +263,7 @@ const IssueCard = styled.button<{ $selected: boolean; $severity: SeverityLevel }
     background: ${({ $selected }: { $selected: boolean }) =>
         $selected ? 'color-mix(in srgb, var(--vscode-list-activeSelectionBackground) 80%, var(--vscode-editorWidget-background))' : 'var(--vscode-editorWidget-background)'};
 `;
-const CardMessage = styled.div`font-size: 11px; font-weight: 600; line-height: 1.35;`;
+const CardMessage = styled.div`font-size: 11px; font-weight: 500; line-height: 1.35;`;
 const CardPathText = styled.div`
     font-size: 11px; color: var(--vscode-descriptionForeground);
     font-family: var(--vscode-editor-font-family, monospace); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -248,20 +272,73 @@ const TableFooter = styled.div`
     padding: 6px 12px; font-size: 11px; color: var(--vscode-descriptionForeground);
     border-top: 1px solid var(--vscode-panel-border); background: var(--vscode-editorGroupHeader-tabsBackground);
 `;
-const DetailColumn = styled.div`height: 100%; min-height: 0; overflow: hidden; display: flex; flex-direction: column;`;
+const DetailColumn = styled.div<{ $open: boolean }>`
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: min(42%, 560px);
+    min-width: 400px;
+    height: min(76vh, 920px);
+    min-height: 520px;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: var(--vscode-editorWidget-background);
+    border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 86%, transparent);
+    border-radius: 6px;
+    box-shadow: -14px 0 28px rgba(0, 0, 0, 0.22);
+    transform: translateX(${({ $open }: { $open: boolean }) => ($open ? '0' : '102%')});
+    opacity: ${({ $open }: { $open: boolean }) => ($open ? 1 : 0)};
+    pointer-events: ${({ $open }: { $open: boolean }) => ($open ? 'auto' : 'none')};
+    transition: transform 180ms ease, opacity 140ms ease;
+    z-index: 5;
+`;
 const DetailCard = styled.div`
-    overflow: hidden; flex: 1;
-    background: var(--vscode-editor-background); display: flex; flex-direction: column;
+    overflow: hidden;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: transparent;
 `;
 const DetailHeader = styled.div`
-    background: var(--vscode-editorGroupHeader-tabsBackground); border-bottom: 1px solid var(--vscode-panel-border);
-    padding: 10px 14px; display: flex; align-items: center; justify-content: space-between;
+    background: color-mix(in srgb, var(--vscode-editorGroupHeader-tabsBackground) 90%, var(--vscode-editorWidget-background));
+    border-bottom: 1px solid color-mix(in srgb, var(--vscode-panel-border) 84%, transparent);
+    padding: 10px 10px 10px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 `;
-const DetailHeaderTitle = styled.span`font-size: 12px; font-weight: 700; color: var(--vscode-foreground);`;
+const DetailHeaderTitle = styled.span`font-size: 12px; font-weight: 700; color: var(--vscode-foreground); letter-spacing: 0.01em;`;
 const DetailHeaderMeta = styled.span`font-size: 11px; color: var(--vscode-descriptionForeground);`;
-const DetailBody = styled.div`padding: 14px; display: flex; flex-direction: column; gap: 10px; flex: 1; overflow-y: auto;`;
+const CloseDetailBtn = styled.button`
+    height: 24px;
+    min-width: 24px;
+    border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 86%, transparent);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--vscode-descriptionForeground);
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+    padding: 0;
+    font-family: inherit;
+
+    &:hover {
+        color: var(--vscode-foreground);
+        background: color-mix(in srgb, var(--vscode-list-hoverBackground) 82%, transparent);
+    }
+`;
+const DetailBody = styled.div`
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    flex: 1;
+    overflow-y: auto;
+`;
 const RuleTitle = styled.div`
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 800;
     color: var(--vscode-foreground);
     letter-spacing: -0.02em;
@@ -276,14 +353,14 @@ const DetailLabel = styled.div`
     color: var(--vscode-descriptionForeground);
 `;
 const DetailValue = styled.div`
-    font-size: 12px;
+    font-size: 11px;
     color: var(--vscode-foreground);
     word-break: break-word;
     line-height: 1.45;
-    border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 60%, transparent);
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--vscode-editorWidget-background) 82%, transparent);
-    padding: 8px 10px;
+    border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 74%, transparent);
+    border-radius: 7px;
+    background: color-mix(in srgb, var(--vscode-editorWidget-background) 90%, transparent);
+    padding: 7px 9px;
 `;
 const SeverityPill = styled.span<{ $severity: SeverityLevel }>`
     display: inline-flex;
@@ -324,23 +401,23 @@ const SeverityPill = styled.span<{ $severity: SeverityLevel }>`
     }
 `;
 const MessageBox = styled.div`
-    border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 60%, transparent);
-    border-radius: 8px;
-    padding: 8px 10px;
-    font-size: 12px;
-    background: color-mix(in srgb, var(--vscode-editorWidget-background) 82%, transparent);
+    border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 74%, transparent);
+    border-radius: 7px;
+    padding: 7px 9px;
+    font-size: 11px;
+    background: color-mix(in srgb, var(--vscode-editorWidget-background) 90%, transparent);
 `;
 const SuggestionBox = styled.div`
-    border: 1px solid color-mix(in srgb, var(--vscode-testing-iconPassed, #22c55e) 36%, var(--vscode-panel-border));
-    border-radius: 8px;
-    padding: 10px 12px;
-    font-size: 12px;
-    background: color-mix(in srgb, var(--vscode-testing-iconPassed, #22c55e) 12%, transparent);
-    color: color-mix(in srgb, var(--vscode-testing-iconPassed, #22c55e) 76%, var(--vscode-foreground));
+    border: 1px solid color-mix(in srgb, var(--vscode-testing-iconPassed, #22c55e) 28%, var(--vscode-panel-border));
+    border-radius: 7px;
+    padding: 8px 10px;
+    font-size: 11px;
+    background: color-mix(in srgb, var(--vscode-testing-iconPassed, #22c55e) 8%, transparent);
+    color: color-mix(in srgb, var(--vscode-testing-iconPassed, #22c55e) 68%, var(--vscode-foreground));
     line-height: 1.45;
 `;
 const YamlBlock = styled.div`
-    background: var(--vscode-editor-background); border: 1px solid var(--vscode-panel-border); border-radius: 8px;
+    background: var(--vscode-editor-background); border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 76%, transparent); border-radius: 7px;
     overflow: auto; font-family: var(--vscode-editor-font-family, monospace); font-size: 11px; max-height: 220px;
 `;
 const YamlLine = styled.div<{ $highlight: boolean }>`
@@ -349,6 +426,53 @@ const YamlLine = styled.div<{ $highlight: boolean }>`
 const YamlLineNum = styled.span`flex: 0 0 36px; text-align: right; padding-right: 10px; border-right: 1px solid var(--vscode-panel-border); margin-right: 10px;`;
 const YamlLineText = styled.span`white-space: pre; color: var(--vscode-editor-foreground);`;
 const EndPointValue = styled(DetailValue)`display: inline-flex; align-items: center; gap: 8px;`;
+const FixStatusBox = styled.div<{ $status: FixStatus }>`
+    border: 1px solid
+        ${({ $status }: { $status: FixStatus }) =>
+            $status === 'resolved'
+                ? 'color-mix(in srgb, var(--vscode-testing-iconPassed, #22c55e) 35%, var(--vscode-panel-border))'
+                : $status === 'stillPresent'
+                    ? 'color-mix(in srgb, var(--vscode-editorWarning-foreground) 35%, var(--vscode-panel-border))'
+                    : 'color-mix(in srgb, var(--vscode-editorInfo-foreground, #38BDF8) 35%, var(--vscode-panel-border))'};
+    background:
+        ${({ $status }: { $status: FixStatus }) =>
+            $status === 'resolved'
+                ? 'color-mix(in srgb, var(--vscode-testing-iconPassed, #22c55e) 9%, transparent)'
+                : $status === 'stillPresent'
+                    ? 'color-mix(in srgb, var(--vscode-editorWarning-foreground) 9%, transparent)'
+                    : 'color-mix(in srgb, var(--vscode-editorInfo-foreground, #38BDF8) 9%, transparent)'};
+    border-radius: 8px;
+    padding: 10px 11px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+`;
+const FixStatusTitle = styled.div`
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--vscode-foreground);
+`;
+const FixStatusText = styled.div`
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+    line-height: 1.45;
+`;
+const FixStatusActions = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+`;
+const FixStatusActionBtn = styled.button`
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 5px;
+    background: transparent;
+    color: var(--vscode-textLink-foreground);
+    cursor: pointer;
+    font-size: 10px;
+    padding: 4px 8px;
+    font-family: inherit;
+    &:hover { background: color-mix(in srgb, var(--vscode-textLink-foreground) 10%, transparent); }
+`;
 
 const MethodBadge: React.FC<{ method: string }> = ({ method }) => {
     const style = getMethodStyle(method);
@@ -369,6 +493,47 @@ export const AnalyzeSingleReportIssueExplorer: React.FC<AnalyzeSingleReportIssue
     } = props;
 
     const LLM_FILTER_VALUE = '__llm_validation__';
+    const [isDetailOpen, setIsDetailOpen] = React.useState(false);
+    const [fixContext, setFixContext] = React.useState<FixContext | null>(null);
+    const getIssueSignature = React.useCallback(
+        (issue: IssueRow) => `${issue.rule}::${issue.message}::${issue.path}::${issue.severity}::${issue.line}`,
+        []
+    );
+    const detailIssue = fixContext?.issue || selectedIssue;
+    const rowsFingerprint = React.useMemo(
+        () => rows.map((row) => getIssueSignature(row)).join('|'),
+        [getIssueSignature, rows]
+    );
+    const disableFixWithAi = fixContext?.status === 'fixing' || fixContext?.status === 'resolved';
+
+    React.useEffect(() => {
+        if (!detailIssue && isDetailOpen) {
+            setIsDetailOpen(false);
+        }
+    }, [detailIssue, isDetailOpen]);
+
+    React.useEffect(() => {
+        if (!fixContext) {
+            return;
+        }
+        // Do not decide result until we observe an actual report/list refresh.
+        if (rowsFingerprint === fixContext.baselineRowsFingerprint) {
+            return;
+        }
+        const targetSignature = getIssueSignature(fixContext.issue);
+        const stillExists = rows.some((row) => getIssueSignature(row) === targetSignature);
+        setFixContext((prev) => {
+            if (!prev) {
+                return prev;
+            }
+            return {
+                ...prev,
+                status: stillExists ? 'stillPresent' : 'resolved',
+                // Keep tracking future refreshes so stillPresent can become resolved later.
+                baselineRowsFingerprint: rowsFingerprint,
+            };
+        });
+    }, [fixContext, getIssueSignature, rows, rowsFingerprint]);
 
     return (
         <SectionShell>
@@ -379,94 +544,104 @@ export const AnalyzeSingleReportIssueExplorer: React.FC<AnalyzeSingleReportIssue
                 </SectionHeading>
                 <SectionBadge id="issueCountBadge">{rows.length} issue{rows.length !== 1 ? 's' : ''}</SectionBadge>
             </SectionHeader>
-        <IssueExplorerBlock>
-            <Toolbar>
-                <ToolbarRow>
-                    <FilterChip $active={severityFilter === 'all'} onClick={() => setSeverityFilter('all')}>All</FilterChip>
-                    <FilterChip $active={severityFilter === 'error'} onClick={() => setSeverityFilter('error')}><ChipDot $color="var(--vscode-errorForeground)" />Errors</FilterChip>
-                    <FilterChip $active={severityFilter === 'warn'} onClick={() => setSeverityFilter('warn')}><ChipDot $color="var(--vscode-editorWarning-foreground)" />Warnings</FilterChip>
-                    <ToolbarSep />
-                    <CtrlSelect value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupBy)}>
-                        <option value="none">No grouping</option><option value="rule">Group by rule</option><option value="endpoint">Group by endpoint</option>
-                    </CtrlSelect>
-                    {reportKey === 'ai-readiness' && aiBucketFilter ? (
-                        <CtrlSelect
-                            value={
-                                aiBucketFilter.isLlmSelected
-                                    ? LLM_FILTER_VALUE
-                                    : (aiBucketFilter.subBucketKey
-                                        ? `${aiBucketFilter.mainBucketKey}:${aiBucketFilter.subBucketKey}`
-                                        : aiBucketFilter.mainBucketKey || '')
-                            }
-                            onChange={(e) => {
-                                const val = e.target.value;
-                                if (!val) {
-                                    aiBucketFilter.onClear();
-                                } else if (val === LLM_FILTER_VALUE) {
-                                    aiBucketFilter.onSelectLlm?.();
-                                } else if (val.includes(':')) {
-                                    const [main, sub] = val.split(':');
-                                    aiBucketFilter.onChangeMainBucket(main);
-                                    aiBucketFilter.onChangeSubBucket(sub);
-                                } else {
-                                    aiBucketFilter.onChangeMainBucket(val);
-                                    aiBucketFilter.onChangeSubBucket(null);
-                                }
-                            }}
-                        >
-                            <option value="">All categories</option>
-                            <option value={LLM_FILTER_VALUE}>{aiBucketFilter.llmOptionLabel || 'LLM Findings'}</option>
-                            {aiBucketFilter.options.map((b) => (
-                                <React.Fragment key={b.key}>
-                                    <option value={b.key}>{b.label}</option>
-                                    {b.subBuckets.map((s) => (
-                                        <option key={s.key} value={`${b.key}:${s.key}`}>{b.label} › {s.label}</option>
+            <ExplorerSurface>
+                <IssueExplorerBlock $hasOverlay={isDetailOpen && !!selectedIssue}>
+                    <Toolbar>
+                        <ToolbarRow>
+                            <FilterChip $active={severityFilter === 'all'} onClick={() => setSeverityFilter('all')}>All</FilterChip>
+                            <FilterChip $active={severityFilter === 'error'} onClick={() => setSeverityFilter('error')}><ChipDot $color="var(--vscode-errorForeground)" />Errors</FilterChip>
+                            <FilterChip $active={severityFilter === 'warn'} onClick={() => setSeverityFilter('warn')}><ChipDot $color="var(--vscode-editorWarning-foreground)" />Warnings</FilterChip>
+                            <ToolbarSep />
+                            <CtrlSelect value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupBy)}>
+                                <option value="none">No grouping</option><option value="rule">Group by rule</option><option value="endpoint">Group by endpoint</option>
+                            </CtrlSelect>
+                            {reportKey === 'ai-readiness' && aiBucketFilter ? (
+                                <CtrlSelect
+                                    value={
+                                        aiBucketFilter.isLlmSelected
+                                            ? LLM_FILTER_VALUE
+                                            : (aiBucketFilter.subBucketKey
+                                                ? `${aiBucketFilter.mainBucketKey}:${aiBucketFilter.subBucketKey}`
+                                                : aiBucketFilter.mainBucketKey || '')
+                                    }
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (!val) {
+                                            aiBucketFilter.onClear();
+                                        } else if (val === LLM_FILTER_VALUE) {
+                                            aiBucketFilter.onSelectLlm?.();
+                                        } else if (val.includes(':')) {
+                                            const [main, sub] = val.split(':');
+                                            aiBucketFilter.onChangeMainBucket(main);
+                                            aiBucketFilter.onChangeSubBucket(sub);
+                                        } else {
+                                            aiBucketFilter.onChangeMainBucket(val);
+                                            aiBucketFilter.onChangeSubBucket(null);
+                                        }
+                                    }}
+                                >
+                                    <option value="">All categories</option>
+                                    <option value={LLM_FILTER_VALUE}>{aiBucketFilter.llmOptionLabel || 'LLM Findings'}</option>
+                                    {aiBucketFilter.options.map((b) => (
+                                        <React.Fragment key={b.key}>
+                                            <option value={b.key}>{b.label}</option>
+                                            {b.subBuckets.map((s) => (
+                                                <option key={s.key} value={`${b.key}:${s.key}`}>{b.label} › {s.label}</option>
+                                            ))}
+                                        </React.Fragment>
                                     ))}
-                                </React.Fragment>
-                            ))}
-                        </CtrlSelect>
-                    ) : breakdownFilter ? (
-                        <CtrlSelect value={breakdownFilter.selectedKey || ''} onChange={(e) => breakdownFilter.onChange(e.target.value || null)}>
-                            <option value="">All categories</option>
-                            {breakdownFilter.options.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
-                        </CtrlSelect>
-                    ) : null}
-                    <ToolbarSep />
-                    <SearchWrap>
-                        <SearchIcon>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                        </SearchIcon>
-                        <SearchInput placeholder="Search rules, messages, paths…" value={search} onChange={(e) => setSearch(e.target.value)} />
-                    </SearchWrap>
-                    <Spacer />
-                    <AIButton
-                        isAvailable={aiEnabled}
-                        title="Fix All with AI"
-                        label="Fix All with AI"
-                        onClick={() => {
-                            const sevLabel = severityFilter === 'error' ? 'error' : severityFilter === 'warn' ? 'warning' : 'all';
-                            const prompt = `Fix ${sevLabel === 'all' ? 'all' : `all ${sevLabel}`} violations in the ${reportName} ruleset.\n\nIMPORTANT: Use the #validateWithSpectralRuleset MCP tool:\n1. Call validateWithSpectralRuleset with fileUri: "${fileUri}", rulesetName: "${reportName}", fileUrl: "${rulesetFileUrl}", rulesetContentPath: "${rulesetContentPath}" to find violations.\n2. Fix each violation, then call validateWithSpectralRuleset again to verify.\n3. Repeat until no ${sevLabel === 'all' ? '' : sevLabel + ' '}violations remain.`;
-                            onOpenCopilotChat(JSON.stringify({ fileUri, rulesetName: reportName, fileUrl: rulesetFileUrl, rulesetContentPath, severityFilter }), prompt);
-                        }}
-                    />
-                </ToolbarRow>
-                {((reportKey === 'ai-readiness' && aiBucketFilter?.summaryLabel) || (reportKey !== 'ai-readiness' && breakdownFilter?.summaryLabel)) && (
-                    <ToolbarRow>
-                        <ActiveFilterPill>
-                            Filtered: {reportKey === 'ai-readiness' ? aiBucketFilter?.summaryLabel : breakdownFilter?.summaryLabel}
-                        </ActiveFilterPill>
-                    </ToolbarRow>
-                )}
-            </Toolbar>
-            <IssueExplorerBody>
-                <IssuesLayout>
-                        <IssueListPanel>
+                                </CtrlSelect>
+                            ) : breakdownFilter ? (
+                                <CtrlSelect value={breakdownFilter.selectedKey || ''} onChange={(e) => breakdownFilter.onChange(e.target.value || null)}>
+                                    <option value="">All categories</option>
+                                    {breakdownFilter.options.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+                                </CtrlSelect>
+                            ) : null}
+                            <ToolbarSep />
+                            <SearchWrap>
+                                <SearchIcon>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                                </SearchIcon>
+                                <SearchInput placeholder="Search rules, messages, paths…" value={search} onChange={(e) => setSearch(e.target.value)} />
+                            </SearchWrap>
+                            <Spacer />
+                            <AIButton
+                                isAvailable={aiEnabled}
+                                title="Fix All with AI"
+                                label="Fix All with AI"
+                                onClick={() => {
+                                    const sevLabel = severityFilter === 'error' ? 'error' : severityFilter === 'warn' ? 'warning' : 'all';
+                                    const prompt = `Fix ${sevLabel === 'all' ? 'all' : `all ${sevLabel}`} violations in the ${reportName} ruleset.\n\nIMPORTANT: Use the #validateWithSpectralRuleset MCP tool:\n1. Call validateWithSpectralRuleset with fileUri: "${fileUri}", rulesetName: "${reportName}", fileUrl: "${rulesetFileUrl}", rulesetContentPath: "${rulesetContentPath}" to find violations.\n2. Fix each violation, then call validateWithSpectralRuleset again to verify.\n3. Repeat until no ${sevLabel === 'all' ? '' : sevLabel + ' '}violations remain.`;
+                                    onOpenCopilotChat(JSON.stringify({ fileUri, rulesetName: reportName, fileUrl: rulesetFileUrl, rulesetContentPath, severityFilter }), prompt);
+                                }}
+                            />
+                        </ToolbarRow>
+                        {((reportKey === 'ai-readiness' && aiBucketFilter?.summaryLabel) || (reportKey !== 'ai-readiness' && breakdownFilter?.summaryLabel)) && (
+                            <ToolbarRow>
+                                <ActiveFilterPill>
+                                    Filtered: {reportKey === 'ai-readiness' ? aiBucketFilter?.summaryLabel : breakdownFilter?.summaryLabel}
+                                </ActiveFilterPill>
+                            </ToolbarRow>
+                        )}
+                    </Toolbar>
+                    <IssueExplorerBody>
+                        <IssuesLayout>
+                            <IssueListPanel>
                             <IssueCardsBody>
                                 {filteredRows.length === 0 ? <EmptyState>No issues match your filters.</EmptyState> : groupedRows.map((group) => (
                                     <IssueGroup key={group.key}>
                                         {groupBy !== 'none' && <GroupHeader>{group.key} ({group.rows.length})</GroupHeader>}
                                         {group.rows.map((row) => (
-                                            <IssueCard key={row.id} $selected={selectedIssue?.id === row.id} $severity={row.severity} onClick={() => setSelectedIssueId(row.id)}>
+                                            <IssueCard
+                                                key={row.id}
+                                                $selected={isDetailOpen && detailIssue?.id === row.id}
+                                                $severity={row.severity}
+                                                onClick={() => {
+                                                    setFixContext(null);
+                                                    setSelectedIssueId(row.id);
+                                                    setIsDetailOpen(true);
+                                                }}
+                                            >
                                                 <CardMessage>{row.message}</CardMessage>
                                                 <CardPathText>{row.path}</CardPathText>
                                             </IssueCard>
@@ -474,68 +649,131 @@ export const AnalyzeSingleReportIssueExplorer: React.FC<AnalyzeSingleReportIssue
                                     </IssueGroup>
                                 ))}
                             </IssueCardsBody>
-                            <TableFooter>Showing {filteredRows.length} of {rows.length} issues</TableFooter>
-                        </IssueListPanel>
-                        <DetailColumn>
-                            {!selectedIssue ? <EmptyState>Select an issue to view details.</EmptyState> : (
-                                <DetailCard>
-                                    <DetailHeader>
-                                        <DetailHeaderTitle>Issue Detail</DetailHeaderTitle>
-                                        <Row style={{ gap: 10 }}>
-                                            <AIButton
-                                                isAvailable={aiEnabled}
-                                                title="Fix with AI"
-                                                label="Fix with AI"
-                                                onClick={() => {
-                                                    const pathStr = selectedIssue.violation.pathSegments?.length ? ` at /${selectedIssue.violation.pathSegments.join('/')}` : '';
-                                                    onOpenCopilotChat(JSON.stringify(selectedIssue.violation), `Fix ${reportName} violation: ${selectedIssue.message}${pathStr}`);
-                                                }}
-                                            />
-                                            <DetailHeaderMeta>{filteredRows.findIndex((r) => r.id === selectedIssue.id) + 1} of {filteredRows.length}</DetailHeaderMeta>
-                                        </Row>
-                                    </DetailHeader>
-                                    <DetailBody>
-                                        <RuleTitle>{selectedIssue.rule}</RuleTitle>
-                                        <Row><SeverityPill $severity={selectedIssue.severity}>{selectedIssue.severity}</SeverityPill></Row>
-                                        <DetailSection><DetailLabel>Message</DetailLabel><MessageBox>{selectedIssue.message}</MessageBox></DetailSection>
-                                        {selectedIssue.violation.description && <DetailSection><DetailLabel>Description</DetailLabel><DetailValue>{selectedIssue.violation.description}</DetailValue></DetailSection>}
-                                        {selectedIssue.violation.fixSuggestion && <DetailSection><DetailLabel>fixSuggestion</DetailLabel><SuggestionBox>{selectedIssue.violation.fixSuggestion}</SuggestionBox></DetailSection>}
+                                <TableFooter>Showing {filteredRows.length} of {rows.length} issues</TableFooter>
+                            </IssueListPanel>
+                        </IssuesLayout>
+                    </IssueExplorerBody>
+                </IssueExplorerBlock>
+                <DetailColumn $open={isDetailOpen && !!detailIssue}>
+                    {!detailIssue ? <EmptyState>Select an issue to view details.</EmptyState> : (
+                        <DetailCard>
+                            <DetailHeader>
+                                <DetailHeaderTitle>Issue Detail</DetailHeaderTitle>
+                                <Row style={{ gap: 10 }}>
+                                    <AIButton
+                                        isAvailable={aiEnabled && !disableFixWithAi}
+                                        title="Fix with AI"
+                                        label={
+                                            fixContext?.status === 'fixing'
+                                                ? 'Fixing…'
+                                                : fixContext?.status === 'resolved'
+                                                    ? 'Resolved'
+                                                    : 'Fix with AI'
+                                        }
+                                        onClick={() => {
+                                            const pathStr = detailIssue.violation.pathSegments?.length ? ` at /${detailIssue.violation.pathSegments.join('/')}` : '';
+                                            setFixContext({
+                                                issue: detailIssue,
+                                                status: 'fixing',
+                                                baselineRowsFingerprint: rowsFingerprint,
+                                            });
+                                            onOpenCopilotChat(JSON.stringify(detailIssue.violation), `Fix ${reportName} violation: ${detailIssue.message}${pathStr}`);
+                                        }}
+                                    />
+                                    <DetailHeaderMeta>
+                                        {fixContext
+                                            ? (fixContext.status === 'resolved'
+                                                ? 'Resolved'
+                                                : fixContext.status === 'stillPresent'
+                                                    ? 'Still present'
+                                                    : 'Fixing...')
+                                            : `${filteredRows.findIndex((r) => r.id === detailIssue.id) + 1} of ${filteredRows.length}`}
+                                    </DetailHeaderMeta>
+                                    <CloseDetailBtn onClick={() => { setIsDetailOpen(false); setFixContext(null); }} aria-label="Close issue details">×</CloseDetailBtn>
+                                </Row>
+                            </DetailHeader>
+                            <DetailBody>
+                                {fixContext && (
+                                    <FixStatusBox $status={fixContext.status}>
+                                        <FixStatusTitle>
+                                            {fixContext.status === 'resolved'
+                                                ? 'Issue resolved'
+                                                : fixContext.status === 'stillPresent'
+                                                    ? 'Issue still present'
+                                                    : 'Applying AI fix'}
+                                        </FixStatusTitle>
+                                        <FixStatusText>
+                                            {fixContext.status === 'resolved'
+                                                ? 'This issue is not present in the latest analysis refresh.'
+                                                : fixContext.status === 'stillPresent'
+                                                    ? 'This issue still appears after refresh. You can try Fix with AI again or review manually.'
+                                                    : 'Waiting for the refreshed analysis to confirm the fix status...'}
+                                        </FixStatusText>
+                                        {fixContext.status !== 'fixing' && (
+                                            <FixStatusActions>
+                                                <FixStatusActionBtn
+                                                    onClick={() => {
+                                                        setFixContext(null);
+                                                        if (filteredRows.length > 0) {
+                                                            setSelectedIssueId(filteredRows[0].id);
+                                                        }
+                                                    }}
+                                                >
+                                                    Go to next issue
+                                                </FixStatusActionBtn>
+                                                <FixStatusActionBtn
+                                                    onClick={() => {
+                                                        postMessage({
+                                                            command: 'navigateTo',
+                                                            data: { focusPath: fixContext.issue.violation.pathSegments || [] },
+                                                        });
+                                                    }}
+                                                >
+                                                    View fix
+                                                </FixStatusActionBtn>
+                                            </FixStatusActions>
+                                        )}
+                                    </FixStatusBox>
+                                )}
+                                <RuleTitle>{detailIssue.rule}</RuleTitle>
+                                <Row><SeverityPill $severity={detailIssue.severity}>{detailIssue.severity}</SeverityPill></Row>
+                                <DetailSection><DetailLabel>Message</DetailLabel><MessageBox>{detailIssue.message}</MessageBox></DetailSection>
+                                {detailIssue.violation.description && <DetailSection><DetailLabel>Description</DetailLabel><DetailValue>{detailIssue.violation.description}</DetailValue></DetailSection>}
+                                {detailIssue.violation.fixSuggestion && <DetailSection><DetailLabel>fixSuggestion</DetailLabel><SuggestionBox>{detailIssue.violation.fixSuggestion}</SuggestionBox></DetailSection>}
+                                <DetailSection>
+                                    <DetailLabel>Endpoint</DetailLabel>
+                                    <EndPointValue style={{ fontFamily: 'var(--vscode-editor-font-family, monospace)', fontSize: 11 }}>
+                                        <MethodBadge method={detailIssue.method} />
+                                        <span>{detailIssue.endpoint}</span>
+                                    </EndPointValue>
+                                </DetailSection>
+                                <DetailSection><DetailLabel>Path</DetailLabel><DetailValue style={{ fontFamily: 'var(--vscode-editor-font-family, monospace)', fontSize: 11 }}>{detailIssue.path}</DetailValue></DetailSection>
+                                <DetailSection>
+                                    <DetailLabel>Location</DetailLabel>
+                                    <DetailValue style={{ fontFamily: 'var(--vscode-editor-font-family, monospace)', fontSize: 11 }}>
+                                        {detailIssue.line > 0
+                                            ? `Line ${detailIssue.line}${detailIssue.violation.range?.end?.line != null && detailIssue.violation.range.end.line + 1 !== detailIssue.line
+                                                ? `-${detailIssue.violation.range.end.line + 1}`
+                                                : ''
+                                            }`
+                                            : 'No line info'}
+                                    </DetailValue>
+                                </DetailSection>
+                                {(() => {
+                                    const snippetLines = extractSnippetLines(specContent, detailIssue.violation.range);
+                                    if (!snippetLines) return null;
+                                    return (
                                         <DetailSection>
-                                            <DetailLabel>Endpoint</DetailLabel>
-                                            <EndPointValue style={{ fontFamily: 'var(--vscode-editor-font-family, monospace)', fontSize: 11 }}>
-                                                <MethodBadge method={selectedIssue.method} />
-                                                <span>{selectedIssue.endpoint}</span>
-                                            </EndPointValue>
+                                            <DetailLabel>Spec snippet</DetailLabel>
+                                            <YamlBlock>{snippetLines.map(({ lineNumber, text, highlight }) => <YamlLine key={lineNumber} $highlight={highlight}><YamlLineNum>{lineNumber}</YamlLineNum><YamlLineText>{text}</YamlLineText></YamlLine>)}</YamlBlock>
                                         </DetailSection>
-                                        <DetailSection><DetailLabel>Path</DetailLabel><DetailValue style={{ fontFamily: 'var(--vscode-editor-font-family, monospace)', fontSize: 11 }}>{selectedIssue.path}</DetailValue></DetailSection>
-                                        <DetailSection>
-                                            <DetailLabel>Location</DetailLabel>
-                                            <DetailValue style={{ fontFamily: 'var(--vscode-editor-font-family, monospace)', fontSize: 11 }}>
-                                                {selectedIssue.line > 0
-                                                    ? `Line ${selectedIssue.line}${selectedIssue.violation.range?.end?.line != null && selectedIssue.violation.range.end.line + 1 !== selectedIssue.line
-                                                        ? `-${selectedIssue.violation.range.end.line + 1}`
-                                                        : ''
-                                                    }`
-                                                    : 'No line info'}
-                                            </DetailValue>
-                                        </DetailSection>
-                                        {(() => {
-                                            const snippetLines = extractSnippetLines(specContent, selectedIssue.violation.range);
-                                            if (!snippetLines) return null;
-                                            return (
-                                                <DetailSection>
-                                                    <DetailLabel>Spec snippet</DetailLabel>
-                                                    <YamlBlock>{snippetLines.map(({ lineNumber, text, highlight }) => <YamlLine key={lineNumber} $highlight={highlight}><YamlLineNum>{lineNumber}</YamlLineNum><YamlLineText>{text}</YamlLineText></YamlLine>)}</YamlBlock>
-                                                </DetailSection>
-                                            );
-                                        })()}
-                                    </DetailBody>
-                                </DetailCard>
-                            )}
-                        </DetailColumn>
-                </IssuesLayout>
-            </IssueExplorerBody>
-        </IssueExplorerBlock>
+                                    );
+                                })()}
+                            </DetailBody>
+                        </DetailCard>
+                    )}
+                </DetailColumn>
+            </ExplorerSurface>
         </SectionShell>
     );
 };
