@@ -1,9 +1,10 @@
 import styled from '@emotion/styled';
 import { LinkButton } from '@wso2/ui-toolkit';
+import { ANALYZE_TYPE_SCALE } from './AnalyzeSingleReportHelpers';
 
 /** Shared "View issues" link-style action for Analyze cards. */
 export const ViewIssuesLink = styled.button`
-    font-size: 12px;
+    font-size: ${ANALYZE_TYPE_SCALE.md};
     color: var(--vscode-textLink-foreground);
     background: none;
     border: none;

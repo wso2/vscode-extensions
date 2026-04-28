@@ -3,7 +3,7 @@ import styled from '@emotion/styled';
 import { AIButton } from '../../../components/ai/AIButton';
 import { postMessage } from '../../../utils/vscode-api';
 import { AnalyzeReportKey, GroupBy, IssueRow, SeverityLevel, SortBy, SortDir } from '../hooks/useReport';
-import { extractSnippetLines, getMethodStyle } from './AnalyzeSingleReportHelpers';
+import { ANALYZE_TYPE_SCALE, extractSnippetLines, getMethodStyle } from './AnalyzeSingleReportHelpers';
 
 interface AnalyzeSingleReportIssueExplorerProps {
     title?: string;
@@ -86,7 +86,7 @@ const SectionHeading = styled.div`
 `;
 
 const SectionTitle = styled.div`
-    font-size: 15px;
+    font-size: ${ANALYZE_TYPE_SCALE.lg};
     font-weight: 700;
     color: var(--vscode-foreground);
     letter-spacing: -0.01em;
@@ -94,13 +94,13 @@ const SectionTitle = styled.div`
 `;
 
 const SectionSubtitle = styled.div`
-    font-size: 11px;
+    font-size: ${ANALYZE_TYPE_SCALE.sm};
     color: var(--vscode-descriptionForeground);
     line-height: 1.5;
 `;
 
 const SectionBadge = styled.div`
-    font-size: 12px;
+    font-size: ${ANALYZE_TYPE_SCALE.md};
     font-weight: 600;
     color: var(--vscode-descriptionForeground);
     white-space: nowrap;
@@ -148,7 +148,7 @@ const FilterChip = styled.button<{ $active: boolean }>`
     height: 30px;
     padding: 0 12px;
     border-radius: 7px;
-    font-size: 11px;
+    font-size: ${ANALYZE_TYPE_SCALE.sm};
     font-weight: 600;
     cursor: pointer;
     font-family: inherit;
@@ -216,7 +216,7 @@ const SearchInput = styled.input`
     border-radius: 8px;
     background: var(--vscode-input-background);
     color: var(--vscode-input-foreground);
-    font-size: 12px;
+    font-size: ${ANALYZE_TYPE_SCALE.md};
     font-family: inherit;
     outline: none;
     box-sizing: border-box;
@@ -227,7 +227,7 @@ const SearchInput = styled.input`
 const Spacer = styled.div`flex: 1;`;
 const CtrlSelect = styled.select`
     height: 26px; border: 1px solid var(--vscode-panel-border); border-radius: 6px;
-    background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); padding: 0 8px; font-size: 11px;
+    background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); padding: 0 8px; font-size: ${ANALYZE_TYPE_SCALE.sm};
 `;
 const ActiveFilterPill = styled.div`
     display: inline-flex;
@@ -239,16 +239,16 @@ const ActiveFilterPill = styled.div`
     border-radius: 999px;
     background: color-mix(in srgb, var(--vscode-focusBorder) 12%, transparent);
     color: var(--vscode-foreground);
-    font-size: 10px;
+    font-size: ${ANALYZE_TYPE_SCALE.xs};
     font-weight: 700;
     letter-spacing: 0.02em;
     text-transform: uppercase;
 `;
-const EmptyState = styled.div`padding: 32px; text-align: center; color: var(--vscode-descriptionForeground); font-size: 13px;`;
+const EmptyState = styled.div`padding: 32px; text-align: center; color: var(--vscode-descriptionForeground); font-size: ${ANALYZE_TYPE_SCALE.base};`;
 const IssueCardsBody = styled.div`flex: 1; overflow-y: auto; padding: 8px;`;
 const IssueGroup = styled.div`margin-bottom: 10px;`;
 const GroupHeader = styled.div`
-    font-size: 11px; font-weight: 700; color: var(--vscode-descriptionForeground);
+    font-size: ${ANALYZE_TYPE_SCALE.sm}; font-weight: 700; color: var(--vscode-descriptionForeground);
     padding: 6px 12px; border-bottom: 1px solid var(--vscode-panel-border);
 `;
 const IssueCard = styled.button<{ $selected: boolean; $severity: SeverityLevel }>`
@@ -263,13 +263,13 @@ const IssueCard = styled.button<{ $selected: boolean; $severity: SeverityLevel }
     background: ${({ $selected }: { $selected: boolean }) =>
         $selected ? 'color-mix(in srgb, var(--vscode-list-activeSelectionBackground) 80%, var(--vscode-editorWidget-background))' : 'var(--vscode-editorWidget-background)'};
 `;
-const CardMessage = styled.div`font-size: 11px; font-weight: 500; line-height: 1.35;`;
+const CardMessage = styled.div`font-size: ${ANALYZE_TYPE_SCALE.sm}; font-weight: 500; line-height: 1.35;`;
 const CardPathText = styled.div`
-    font-size: 11px; color: var(--vscode-descriptionForeground);
+    font-size: ${ANALYZE_TYPE_SCALE.sm}; color: var(--vscode-descriptionForeground);
     font-family: var(--vscode-editor-font-family, monospace); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 `;
 const TableFooter = styled.div`
-    padding: 6px 12px; font-size: 11px; color: var(--vscode-descriptionForeground);
+    padding: 6px 12px; font-size: ${ANALYZE_TYPE_SCALE.sm}; color: var(--vscode-descriptionForeground);
     border-top: 1px solid var(--vscode-panel-border); background: var(--vscode-editorGroupHeader-tabsBackground);
 `;
 const DetailColumn = styled.div<{ $open: boolean }>`
@@ -309,8 +309,8 @@ const DetailHeader = styled.div`
     align-items: center;
     justify-content: space-between;
 `;
-const DetailHeaderTitle = styled.span`font-size: 12px; font-weight: 700; color: var(--vscode-foreground); letter-spacing: 0.01em;`;
-const DetailHeaderMeta = styled.span`font-size: 11px; color: var(--vscode-descriptionForeground);`;
+const DetailHeaderTitle = styled.span`font-size: ${ANALYZE_TYPE_SCALE.md}; font-weight: 700; color: var(--vscode-foreground); letter-spacing: 0.01em;`;
+const DetailHeaderMeta = styled.span`font-size: ${ANALYZE_TYPE_SCALE.sm}; color: var(--vscode-descriptionForeground);`;
 const CloseDetailBtn = styled.button`
     height: 24px;
     min-width: 24px;
@@ -319,7 +319,7 @@ const CloseDetailBtn = styled.button`
     background: transparent;
     color: var(--vscode-descriptionForeground);
     cursor: pointer;
-    font-size: 13px;
+    font-size: ${ANALYZE_TYPE_SCALE.base};
     line-height: 1;
     padding: 0;
     font-family: inherit;
@@ -338,7 +338,7 @@ const DetailBody = styled.div`
     overflow-y: auto;
 `;
 const RuleTitle = styled.div`
-    font-size: 13px;
+    font-size: ${ANALYZE_TYPE_SCALE.base};
     font-weight: 800;
     color: var(--vscode-foreground);
     letter-spacing: -0.02em;
@@ -346,14 +346,14 @@ const RuleTitle = styled.div`
 `;
 const DetailSection = styled.div`display: flex; flex-direction: column; gap: 4px;`;
 const DetailLabel = styled.div`
-    font-size: 10px;
+    font-size: ${ANALYZE_TYPE_SCALE.xs};
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.12em;
     color: var(--vscode-descriptionForeground);
 `;
 const DetailValue = styled.div`
-    font-size: 11px;
+    font-size: ${ANALYZE_TYPE_SCALE.sm};
     color: var(--vscode-foreground);
     word-break: break-word;
     line-height: 1.45;
@@ -368,7 +368,7 @@ const SeverityPill = styled.span<{ $severity: SeverityLevel }>`
     gap: 6px;
     border-radius: 4px;
     padding: 2px 8px;
-    font-size: 10px;
+    font-size: ${ANALYZE_TYPE_SCALE.xs};
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -404,21 +404,21 @@ const MessageBox = styled.div`
     border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 74%, transparent);
     border-radius: 7px;
     padding: 7px 9px;
-    font-size: 11px;
+    font-size: ${ANALYZE_TYPE_SCALE.sm};
     background: color-mix(in srgb, var(--vscode-editorWidget-background) 90%, transparent);
 `;
 const SuggestionBox = styled.div`
     border: 1px solid color-mix(in srgb, var(--vscode-testing-iconPassed, #22c55e) 28%, var(--vscode-panel-border));
     border-radius: 7px;
     padding: 8px 10px;
-    font-size: 11px;
+    font-size: ${ANALYZE_TYPE_SCALE.sm};
     background: color-mix(in srgb, var(--vscode-testing-iconPassed, #22c55e) 8%, transparent);
     color: color-mix(in srgb, var(--vscode-testing-iconPassed, #22c55e) 68%, var(--vscode-foreground));
     line-height: 1.45;
 `;
 const YamlBlock = styled.div`
     background: var(--vscode-editor-background); border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 76%, transparent); border-radius: 7px;
-    overflow: auto; font-family: var(--vscode-editor-font-family, monospace); font-size: 11px; max-height: 220px;
+    overflow: auto; font-family: var(--vscode-editor-font-family, monospace); font-size: ${ANALYZE_TYPE_SCALE.sm}; max-height: 220px;
 `;
 const YamlLine = styled.div<{ $highlight: boolean }>`
     display: flex; background: ${({ $highlight }: { $highlight: boolean }) => ($highlight ? 'rgba(239,68,68,0.12)' : 'transparent')}; padding: 1px 0;
@@ -448,12 +448,12 @@ const FixStatusBox = styled.div<{ $status: FixStatus }>`
     gap: 7px;
 `;
 const FixStatusTitle = styled.div`
-    font-size: 11px;
+    font-size: ${ANALYZE_TYPE_SCALE.sm};
     font-weight: 700;
     color: var(--vscode-foreground);
 `;
 const FixStatusText = styled.div`
-    font-size: 11px;
+    font-size: ${ANALYZE_TYPE_SCALE.sm};
     color: var(--vscode-descriptionForeground);
     line-height: 1.45;
 `;
@@ -468,7 +468,7 @@ const FixStatusActionBtn = styled.button`
     background: transparent;
     color: var(--vscode-textLink-foreground);
     cursor: pointer;
-    font-size: 10px;
+    font-size: ${ANALYZE_TYPE_SCALE.xs};
     padding: 4px 8px;
     font-family: inherit;
     &:hover { background: color-mix(in srgb, var(--vscode-textLink-foreground) 10%, transparent); }
@@ -477,7 +477,7 @@ const FixStatusActionBtn = styled.button`
 const MethodBadge: React.FC<{ method: string }> = ({ method }) => {
     const style = getMethodStyle(method);
     return (
-        <span style={{ display: 'inline-flex', alignItems: 'center', height: 18, borderRadius: 4, padding: '0 7px', fontSize: 10, fontWeight: 700, color: style.color, background: style.bg }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', height: 18, borderRadius: 4, padding: '0 7px', fontSize: ANALYZE_TYPE_SCALE.xs, fontWeight: 700, color: style.color, background: style.bg }}>
             {method}
         </span>
     );

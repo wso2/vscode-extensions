@@ -5,6 +5,7 @@ import type { AiReadinessDimensionSummary } from '@wso2/api-designer-core';
 import { getAiReadinessRuleSubBucket } from '@wso2/api-designer-core';
 import { scoreColor } from '../hooks/useReport';
 import { ViewIssuesLink } from './ViewIssuesLink';
+import { ANALYZE_TYPE_SCALE } from './AnalyzeSingleReportHelpers';
 
 interface ViolationRow {
     id: string;
@@ -62,7 +63,7 @@ export const DimScore = styled.div<{ $color: string; $score: number }>`
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
+    font-size: ${ANALYZE_TYPE_SCALE.md};
     font-weight: 800;
     line-height: 1;
     font-family: var(--vscode-editor-font-family, ui-monospace, monospace);
@@ -94,7 +95,7 @@ export const DimMeta = styled.div`
 `;
 
 export const DimTitle = styled.div`
-    font-size: 13px;
+    font-size: ${ANALYZE_TYPE_SCALE.base};
     font-weight: 700;
     color: var(--vscode-foreground);
     margin-bottom: 3px;
@@ -103,15 +104,8 @@ export const DimTitle = styled.div`
     gap: 7px;
 `;
 
-const DimIcon = styled.span`
-    display: flex;
-    align-items: center;
-    opacity: 0.75;
-    flex-shrink: 0;
-`;
-
 export const DimDesc = styled.div`
-    font-size: 11px;
+    font-size: ${ANALYZE_TYPE_SCALE.sm};
     color: var(--vscode-descriptionForeground);
     margin-bottom: 8px;
     line-height: 1.5;
@@ -124,7 +118,7 @@ const TagRow = styled.div`
 `;
 
 const Tag = styled.span`
-    font-size: 11px;
+    font-size: ${ANALYZE_TYPE_SCALE.sm};
     color: var(--vscode-descriptionForeground);
     border: 1px solid var(--vscode-panel-border);
     border-radius: 4px;
@@ -147,7 +141,7 @@ export const DimIssueCount = styled.div`
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: 10px;
+    font-size: ${ANALYZE_TYPE_SCALE.xs};
     font-weight: 600;
     color: var(--vscode-descriptionForeground);
     white-space: nowrap;
@@ -199,29 +193,6 @@ const DimBody = styled.div`
     background: color-mix(in srgb, var(--vscode-editor-background) 92%, var(--vscode-editorWidget-background));
 `;
 
-// ── Why it matters ────────────────────────────────────────────────────────
-
-const WhyLabel = styled.div`
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--vscode-foreground);
-    opacity: 0.86;
-    margin-bottom: 0;
-`;
-
-const WhyBlock = styled.div`
-    margin-top: 4px;
-    font-size: 11px;
-    color: var(--vscode-descriptionForeground);
-    line-height: 1.6;
-    background: var(--vscode-editorGroupHeader-tabsBackground);
-    border: 1px solid var(--vscode-panel-border);
-    border-radius: 6px;
-    padding: 10px 12px;
-`;
-
 // ── Sub-bucket grid ───────────────────────────────────────────────────────
 
 const SubGrid = styled.div`
@@ -257,7 +228,7 @@ const SubScorePill = styled.span<{ $color: string }>`
     height: 18px;
     border-radius: 999px;
     padding: 0 7px;
-    font-size: 10px;
+    font-size: ${ANALYZE_TYPE_SCALE.xs};
     font-weight: 700;
     color: ${({ $color }: { $color: string }) => `color-mix(in srgb, ${$color} 82%, var(--vscode-foreground))`};
     background: color-mix(in srgb, ${({ $color }: { $color: string }) => $color} 12%, transparent);
@@ -267,7 +238,7 @@ const SubScorePill = styled.span<{ $color: string }>`
 `;
 
 const SubName = styled.div`
-    font-size: 11px;
+    font-size: ${ANALYZE_TYPE_SCALE.sm};
     font-weight: 700;
     color: var(--vscode-foreground);
     overflow: hidden;
@@ -279,7 +250,7 @@ const SubStatus = styled.div<{ $passing: boolean }>`
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: 11px;
+    font-size: ${ANALYZE_TYPE_SCALE.sm};
     font-weight: 600;
     white-space: nowrap;
     color: ${({ $passing }: { $passing: boolean }) =>
@@ -295,7 +266,7 @@ const WarningCount = styled.span`
 `;
 
 const SubDesc = styled.div`
-    font-size: 10px;
+    font-size: ${ANALYZE_TYPE_SCALE.xs};
     color: var(--vscode-descriptionForeground);
     line-height: 1.5;
     flex: 1;
@@ -356,9 +327,6 @@ export const AIReadinessBucketGrid: React.FC<Props> = ({
                         </DimScore>
                         <DimMeta>
                             <DimTitle>
-                                <DimIcon>
-                                    <Codicon name={dimension.icon as any} sx={{ fontSize: '15px' }} />
-                                </DimIcon>
                                 {dimension.label}
                             </DimTitle>
                             <DimDesc>{dimension.description}</DimDesc>
@@ -384,19 +352,13 @@ export const AIReadinessBucketGrid: React.FC<Props> = ({
                                 )}
                             </DimIssueCount>
                             <DimChevron $open={isOpen}>
-                                <Codicon name="chevron-right" sx={{ fontSize: '11px' }} />
+                                <Codicon name="chevron-right" sx={{ fontSize: ANALYZE_TYPE_SCALE.sm }} />
                             </DimChevron>
                         </DimRight>
                     </DimHeader>
 
                     {isOpen && (
                         <DimBody>
-                            {dimension.whyItMatters && (
-                                <>
-                                    <WhyLabel>Why this matters</WhyLabel>
-                                    <WhyBlock>{dimension.whyItMatters}</WhyBlock>
-                                </>
-                            )}
                             <SubGrid>
                                 {sortedBuckets.map((sub) => (
                                     <SubBucketCard

@@ -141,7 +141,6 @@ export interface AiReadinessDimensionSummary {
     key: string;
     label: string;
     description: string;
-    whyItMatters: string;
     icon: string;
     /** 0–100: weighted arithmetic mean of sub-bucket percentages in this dimension */
     score: number;

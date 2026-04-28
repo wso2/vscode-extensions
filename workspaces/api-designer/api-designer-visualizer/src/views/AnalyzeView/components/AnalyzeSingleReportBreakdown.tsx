@@ -17,8 +17,8 @@ import {
     FlatBreakdownHeader,
 } from './AIReadinessBucketGrid';
 import { postMessage } from '../../../utils/vscode-api';
-import { Button } from '@wso2/ui-toolkit';
 import { ViewIssuesLink } from './ViewIssuesLink';
+import { ANALYZE_TYPE_SCALE } from './AnalyzeSingleReportHelpers';
 
 interface ViolationRow {
     id: string;
@@ -34,19 +34,12 @@ interface AnalyzeSingleReportBreakdownProps {
     reportKey: AnalyzeReportKey;
     title?: string;
     subtitle?: string;
-    llmReview?: {
-        title?: string;
-        subtitle?: string;
-        viewFindingsLabel?: string;
-        reevaluateLabel?: string;
-    };
     aiReadinessDimensions: AiReadinessDimensionSummary[];
     totalRows: number;
     violations: ViolationRow[];
     expandedBucketKeys: Set<string>;
     onToggleBucket: (key: string) => void;
     onViewIssues: (subBucketKey?: string) => void;
-    onReevaluateLlm: () => void;
     unifiedCategories?: Array<{
         id: string;
         label: string;
@@ -60,12 +53,6 @@ interface AnalyzeSingleReportBreakdownProps {
         viewIssuesFilter: { key: string; label: string };
         topRules?: string[];
     }>;
-    llmValidation?: {
-        status: 'pending' | 'ready' | 'failed' | 'stale';
-        result?: { score?: number; findings?: unknown[] };
-        error?: string;
-        updatedAt?: number;
-    };
 }
 
 // ── Section shell ─────────────────────────────────────────────────────────
@@ -90,7 +77,7 @@ const SectionHeading = styled.div`
 `;
 
 const SectionTitle = styled.div`
-    font-size: 15px;
+    font-size: ${ANALYZE_TYPE_SCALE.lg};
     font-weight: 700;
     color: var(--vscode-foreground);
     letter-spacing: -0.01em;
@@ -98,13 +85,13 @@ const SectionTitle = styled.div`
 `;
 
 const SectionSubtitle = styled.div`
-    font-size: 11px;
+    font-size: ${ANALYZE_TYPE_SCALE.sm};
     color: var(--vscode-descriptionForeground);
     line-height: 1.5;
 `;
 
 const SectionBadge = styled.div`
-    font-size: 12px;
+    font-size: ${ANALYZE_TYPE_SCALE.md};
     font-weight: 600;
     color: var(--vscode-descriptionForeground);
     white-space: nowrap;
@@ -119,7 +106,7 @@ const TagRow = styled.div`
 `;
 
 const Tag = styled.span`
-    font-size: 11px;
+    font-size: ${ANALYZE_TYPE_SCALE.sm};
     color: var(--vscode-descriptionForeground);
     border: 1px solid var(--vscode-panel-border);
     border-radius: 4px;
@@ -151,14 +138,14 @@ const CategoryTitleRow = styled.div`
 `;
 
 const BreakdownEmpty = styled.div`
-    font-size: 12px;
+    font-size: ${ANALYZE_TYPE_SCALE.md};
     color: var(--vscode-descriptionForeground);
     padding: 12px 0;
     line-height: 1.5;
 `;
 
 const DocsLink = styled.button`
-    font-size: 11px;
+    font-size: ${ANALYZE_TYPE_SCALE.sm};
     font-weight: 500;
     color: var(--vscode-textLink-foreground);
     display: inline-flex;
@@ -186,116 +173,10 @@ const ExtLinkSvg = () => (
     </svg>
 );
 
-// ── AI Readiness LLM tile ─────────────────────────────────────────────────
-
 const AiBreakdownStack = styled.div`
     display: flex;
     flex-direction: column;
     gap: 14px;
-`;
-
-// LLM tile is visually distinct from the dimension accordion cards:
-// - Accent color background tint instead of flat surface
-// - Top border instead of left border
-// - "AI" badge to signal it's AI-powered, not a rule-based dimension
-const LlmTile = styled.div<{ $statusColor: string }>`
-    border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 82%, transparent);
-    border-radius: 8px;
-    background: color-mix(in srgb, ${({ $statusColor }: { $statusColor: string }) => $statusColor} 5%, var(--vscode-editorWidget-background));
-    padding: 16px 20px;
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    gap: 18px;
-    align-items: center;
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--vscode-editorWidget-background) 72%, transparent), 0 4px 12px rgba(0, 0, 0, 0.14);
-    position: relative;
-`;
-
-const LlmStatusIcon = styled.div<{ $color: string }>`
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    background: color-mix(in srgb, ${({ $color }: { $color: string }) => $color} 14%, transparent);
-    border: 1.5px solid color-mix(in srgb, ${({ $color }: { $color: string }) => $color} 35%, transparent);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: ${({ $color }: { $color: string }) => $color};
-    font-size: 20px;
-    flex-shrink: 0;
-`;
-
-const LlmInfo = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0;
-`;
-
-const LlmTitleRow = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-`;
-
-const LlmTitle = styled.div`
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--vscode-foreground);
-`;
-
-const LlmSummary = styled.div`
-    font-size: 11px;
-    color: var(--vscode-descriptionForeground);
-    line-height: 1.4;
-`;
-
-const LlmDetailsTip = styled.span`
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    border: 1px solid var(--vscode-panel-border);
-    color: var(--vscode-descriptionForeground);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 11px;
-    font-weight: 700;
-    cursor: help;
-    user-select: none;
-`;
-
-const LlmStatusPill = styled.span<{ $color: string; $bg: string }>`
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    border-radius: 4px;
-    padding: 2px 8px;
-    width: fit-content;
-    color: ${({ $color }: { $color: string; $bg: string }) => $color};
-    background: ${({ $bg }: { $color: string; $bg: string }) => $bg};
-
-    &::before {
-        content: '';
-        width: 5px;
-        height: 5px;
-        border-radius: 50%;
-        background: currentColor;
-        flex-shrink: 0;
-    }
-`;
-
-const LlmActions = styled.div`
-    display: flex;
-    flex-direction: row;
-    gap: 6px;
-    flex-shrink: 0;
-    align-items: flex-end;
 `;
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -309,27 +190,18 @@ function ringScoreForCategory(cat: { total: number; errors: number; warnings: nu
     );
 }
 
-const formatEvaluationTimestamp = (timestamp?: number): string | null => {
-    if (!timestamp || Number.isNaN(timestamp)) return null;
-    return new Date(timestamp).toLocaleString();
-};
-
-
 // ── Main component ─────────────────────────────────────────────────────────
 
 export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdownProps> = ({
     reportKey,
     title,
     subtitle,
-    llmReview,
     aiReadinessDimensions,
     violations,
     expandedBucketKeys,
     onToggleBucket,
     onViewIssues,
-    onReevaluateLlm,
     unifiedCategories,
-    llmValidation,
 }) => {
     const categories = unifiedCategories || [];
     const orderedCategories = React.useMemo(() => {
@@ -350,58 +222,7 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
         ? 'OWASP Breakdown'
         : reportKey === 'rest-api-readiness'
             ? 'WSO2 REST Guidelines Breakdown'
-            : 'AI Readiness Breakdown');
-
-    const llmInfo = React.useMemo(() => {
-        if (!llmValidation || llmValidation.status === 'pending') {
-            return {
-                statusLabel: 'Running',
-                statusColor: 'var(--vscode-editorInfo-foreground, #38BDF8)',
-                statusBg: 'color-mix(in srgb, var(--vscode-editorInfo-foreground, #38BDF8) 14%, transparent)',
-                badgeColor: 'var(--vscode-editorInfo-foreground, #38BDF8)',
-                badgeBg: 'color-mix(in srgb, var(--vscode-editorInfo-foreground, #38BDF8) 14%, transparent)',
-                meta: 'Agent validation is running in the background…',
-                icon: '⏳',
-            };
-        }
-        if (llmValidation.status === 'stale') {
-            const staleCount = llmValidation.result?.findings?.length || 0;
-            const lastEvaluated = formatEvaluationTimestamp(llmValidation.updatedAt);
-            const lastEvaluatedLabel = lastEvaluated ? ` Last evaluated: ${lastEvaluated}.` : '';
-            return {
-                statusLabel: 'Stale',
-                statusColor: 'var(--vscode-editorWarning-foreground)',
-                statusBg: 'color-mix(in srgb, var(--vscode-editorWarning-foreground) 14%, transparent)',
-                badgeColor: 'var(--vscode-editorWarning-foreground)',
-                badgeBg: 'color-mix(in srgb, var(--vscode-editorWarning-foreground) 14%, transparent)',
-                meta: staleCount > 0
-                    ? `Showing ${staleCount} cached finding${staleCount !== 1 ? 's' : ''} from the previous evaluation.${lastEvaluatedLabel} Re-evaluate to refresh against current spec.`
-                    : `${llmValidation.error || 'OpenAPI spec changed — re-evaluate to refresh agent results.'}${lastEvaluatedLabel}`,
-                icon: '⚠',
-            };
-        }
-        if (llmValidation.status === 'failed') {
-            return {
-                statusLabel: 'Failed',
-                statusColor: 'var(--vscode-errorForeground)',
-                statusBg: 'color-mix(in srgb, var(--vscode-errorForeground) 14%, transparent)',
-                badgeColor: 'var(--vscode-errorForeground)',
-                badgeBg: 'color-mix(in srgb, var(--vscode-errorForeground) 14%, transparent)',
-                meta: llmValidation.error || 'Validation failed. Try re-evaluating.',
-                icon: '✕',
-            };
-        }
-        const count = llmValidation.result?.findings?.length || 0;
-        return {
-            statusLabel: 'Ready',
-            statusColor: 'var(--vscode-testing-iconPassed, #10B981)',
-            statusBg: 'color-mix(in srgb, var(--vscode-testing-iconPassed, #10B981) 14%, transparent)',
-            badgeColor: 'var(--vscode-testing-iconPassed, #10B981)',
-            badgeBg: 'color-mix(in srgb, var(--vscode-testing-iconPassed, #10B981) 14%, transparent)',
-            meta: count > 0 ? `${count} finding${count !== 1 ? 's' : ''} identified by the agent` : 'No issues found — your API looks ready!',
-            icon: '✓',
-        };
-    }, [llmValidation]);
+            : 'Agent Readiness Breakdown');
 
     const badge =
         reportKey === 'ai-readiness'
@@ -409,8 +230,6 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
             : orderedCategories.length === 0
                 ? 'No findings'
                 : `${orderedCategories.length} ${reportKey === 'owasp' ? 'areas' : 'themes'}`;
-    const hasLlmFindings = (llmValidation?.result?.findings?.length || 0) > 0;
-
     return (
         <Section>
             <SectionHeader>
@@ -423,31 +242,6 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
 
             {reportKey === 'ai-readiness' ? (
                 <AiBreakdownStack>
-                    <LlmTile $statusColor={llmInfo.statusColor}>
-                        <LlmStatusIcon $color={llmInfo.statusColor}>{llmInfo.icon}</LlmStatusIcon>
-                        <LlmInfo>
-                            <LlmTitleRow>
-                                <LlmTitle>{llmReview?.title || 'Llm-Based AI Readiness Review'}</LlmTitle>
-                                <LlmStatusPill $color={llmInfo.badgeColor} $bg={llmInfo.badgeBg}>{llmInfo.statusLabel}</LlmStatusPill>
-                                <LlmDetailsTip title={llmInfo.meta}>i</LlmDetailsTip>
-                            </LlmTitleRow>
-                            <LlmSummary>{llmReview?.subtitle || 'AI agent findings for readiness checks. Use "View findings" for full details.'}</LlmSummary>
-                        </LlmInfo>
-                        <LlmActions>
-                            {(llmValidation?.status === 'ready' || (llmValidation?.status === 'stale' && hasLlmFindings)) && (
-                                <Button onClick={() => onViewIssues('llm-validation')}>
-                                    {llmReview?.viewFindingsLabel || 'View findings'}
-                                </Button>
-                            )}
-                            {(llmValidation?.status === 'stale' || llmValidation?.status === 'failed' || !llmValidation || llmValidation.status === 'pending') && (
-                                <Button onClick={onReevaluateLlm} disabled={llmValidation?.status === 'pending'}>
-                                    {llmValidation?.status === 'pending'
-                                        ? 'Running…'
-                                        : (llmReview?.reevaluateLabel || 'Re-evaluate')}
-                                </Button>
-                            )}
-                        </LlmActions>
-                    </LlmTile>
                     <AIReadinessBucketGrid
                         dimensions={aiReadinessDimensions}
                         expandedKeys={expandedBucketKeys}

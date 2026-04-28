@@ -2,6 +2,7 @@ import React from 'react';
 import styled from '@emotion/styled';
 import { scoreColor } from '../hooks/useReport';
 import { ViewIssuesLink } from './ViewIssuesLink';
+import { ANALYZE_TYPE_SCALE } from './AnalyzeSingleReportHelpers';
 
 interface AnalyzeSingleReportOverviewProps {
     score: number;
@@ -18,26 +19,25 @@ interface AnalyzeSingleReportOverviewProps {
     onViewWarningIssues?: () => void;
 }
 
-// ── Overview grid: grade card left | meta + metrics right ─────────────────
-
 const OverviewRow = styled.div`
+    background: linear-gradient(180deg, rgba(122, 162, 255, 0.05) 0%, rgba(122, 162, 255, 0.02) 100%);
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 12px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+    padding: 14px;
     display: grid;
-    grid-template-columns: auto 1fr;
+    grid-template-columns: 180px 1fr;
     gap: 14px;
     align-items: stretch;
 
     @media (max-width: 800px) {
         grid-template-columns: 1fr;
+        justify-items: center;
     }
 `;
 
-// ── Grade card ─────────────────────────────────────────────────────────────
-
 const GradeCard = styled.div`
-    background: var(--vscode-editorWidget-background);
-    border: 1px solid var(--vscode-panel-border);
-    border-radius: 10px;
-    padding: 16px 20px;
+    padding: 6px 2px 6px 4px;
     text-align: center;
     min-width: 178px;
     height: 100%;
@@ -45,24 +45,23 @@ const GradeCard = styled.div`
     display: flex;
     flex-direction: column;
     justify-content: center;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
 `;
 
 const GradeLabel = styled.div`
-    font-size: 9px;
+    font-size: ${ANALYZE_TYPE_SCALE.xs};
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.1em;
     color: var(--vscode-descriptionForeground);
-    margin-bottom: 8px;
+    margin-bottom: 6px;
 `;
 
 const GradeRing = styled.div<{ $score: number; $ringColor: string }>`
     --score: ${({ $score }: { $score: number }) => $score};
     --ring-color: ${({ $ringColor }: { $ringColor: string }) => $ringColor};
-    width: 118px;
-    height: 118px;
-    margin: 0 auto 8px;
+    width: 132px;
+    height: 132px;
+    margin: 0 auto 6px;
     border-radius: 50%;
     background:
         radial-gradient(circle at center, var(--vscode-editorWidget-background) 56%, transparent 57%),
@@ -75,8 +74,8 @@ const GradeRing = styled.div<{ $score: number; $ringColor: string }>`
 
 const GradeRingInner = styled.div`
     position: absolute;
-    width: 84px;
-    height: 84px;
+    width: 96px;
+    height: 96px;
     border-radius: 50%;
     border: 1px solid var(--vscode-panel-border);
     background: var(--vscode-editorWidget-background);
@@ -92,24 +91,22 @@ const GradeCenter = styled.div`
 `;
 
 const GradeLetter = styled.div<{ $color: string }>`
-    font-size: 24px;
+    font-size: ${ANALYZE_TYPE_SCALE.score};
     font-weight: 900;
     color: ${({ $color }: { $color: string }) => $color};
-    font-family: var(--vscode-editor-font-family, ui-monospace, monospace);
+    font-family: var(--vscode-font-family, "Inter", "Segoe UI", Arial, sans-serif);
     line-height: 1;
 `;
-
-// ── Right column ───────────────────────────────────────────────────────────
 
 const MetaBlock = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 12px;
 `;
 
 const ReportTitle = styled.h1`
-    margin: 0 0 8px;
-    font-size: 17px;
+    margin: 0 0 6px;
+    font-size: ${ANALYZE_TYPE_SCALE.xl};
     font-weight: 700;
     color: var(--vscode-foreground);
     line-height: 1.2;
@@ -117,17 +114,15 @@ const ReportTitle = styled.h1`
 `;
 
 const ReportSubtitle = styled.div`
-    font-size: 13px;
+    font-size: ${ANALYZE_TYPE_SCALE.md};
     color: var(--vscode-descriptionForeground);
-    line-height: 1.2;
+    line-height: 1.35;
 `;
-
-// ── Metrics grid ───────────────────────────────────────────────────────────
 
 const MetricsGrid = styled.div`
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
+    gap: 10px;
 
     @media (max-width: 900px) {
         grid-template-columns: repeat(2, 1fr);
@@ -135,14 +130,13 @@ const MetricsGrid = styled.div`
 `;
 
 const MetricCard = styled.div`
-    background: var(--vscode-editorWidget-background);
+    background: color-mix(in srgb, var(--vscode-editorWidget-background) 96%, #0b1220);
     border: 1px solid var(--vscode-panel-border);
-    border-radius: 10px;
-    padding: 16px 18px;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    border-radius: 8px;
+    padding: 12px;
     display: flex;
     flex-direction: column;
-    height: 76px;
+    min-height: 86px;
     box-sizing: border-box;
 `;
 
@@ -155,27 +149,35 @@ const MetricValueRow = styled.div`
 `;
 
 const MetricLabel = styled.div`
-    font-size: 10px;
+    font-size: ${ANALYZE_TYPE_SCALE.xs};
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--vscode-descriptionForeground);
-    margin-bottom: 10px;
+    margin-bottom: 6px;
+`;
+
+const MetricDescription = styled.div`
+    font-size: ${ANALYZE_TYPE_SCALE.xs};
+    line-height: 1.25;
+    color: var(--vscode-descriptionForeground);
+    min-height: 24px;
+    margin-bottom: 8px;
 `;
 
 const MetricValue = styled.div<{ $color?: string }>`
-    font-size: 18px;
+    font-size: ${ANALYZE_TYPE_SCALE.metric};
     font-weight: 800;
     color: ${({ $color }: { $color?: string }) => $color || 'var(--vscode-foreground)'};
     line-height: 1;
-    font-family: var(--vscode-editor-font-family, ui-monospace, monospace);
+    font-family: var(--vscode-font-family, "Inter", "Segoe UI", Arial, sans-serif);
     display: flex;
     align-items: baseline;
     gap: 4px;
 `;
 
 const MetricSuffix = styled.span`
-    font-size: 14px;
+    font-size: ${ANALYZE_TYPE_SCALE.base};
     font-weight: 600;
     color: var(--vscode-descriptionForeground);
 `;
@@ -231,6 +233,7 @@ export const AnalyzeSingleReportOverview: React.FC<AnalyzeSingleReportOverviewPr
                 <MetricsGrid>
                     <MetricCard>
                         <MetricLabel>Passed Checks</MetricLabel>
+                        <MetricDescription>Completed checks out of the total checks run</MetricDescription>
                         <MetricValueRow>
                             <MetricValue $color={passedChecksColor}>
                                 {passedChecks}
@@ -241,6 +244,7 @@ export const AnalyzeSingleReportOverview: React.FC<AnalyzeSingleReportOverviewPr
 
                     <MetricCard>
                         <MetricLabel>Affected Endpoints</MetricLabel>
+                        <MetricDescription>Endpoints impacted by one or more findings</MetricDescription>
                         <MetricValueRow>
                             <MetricValue $color={endpointsColor}>{endpointsAffected}</MetricValue>
                             {onViewEndpointIssues && endpointsAffected > 0 && (
@@ -251,6 +255,7 @@ export const AnalyzeSingleReportOverview: React.FC<AnalyzeSingleReportOverviewPr
 
                     <MetricCard>
                         <MetricLabel>Errors</MetricLabel>
+                        <MetricDescription>Issues that require immediate attention</MetricDescription>
                         <MetricValueRow>
                             <MetricValue $color={errorCount > 0 ? 'var(--vscode-errorForeground)' : 'var(--vscode-testing-iconPassed, #10B981)'}>
                                 {errorCount}
@@ -263,6 +268,7 @@ export const AnalyzeSingleReportOverview: React.FC<AnalyzeSingleReportOverviewPr
 
                     <MetricCard>
                         <MetricLabel>Warnings</MetricLabel>
+                        <MetricDescription>Potential risks and improvement opportunities</MetricDescription>
                         <MetricValueRow>
                             <MetricValue $color={warningCount > 0 ? 'var(--vscode-editorWarning-foreground)' : 'var(--vscode-testing-iconPassed, #10B981)'}>
                                 {warningCount}

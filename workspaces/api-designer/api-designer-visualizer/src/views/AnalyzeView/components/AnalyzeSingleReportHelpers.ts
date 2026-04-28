@@ -9,7 +9,7 @@ export const REPORT_TITLES: Record<AnalyzeReportKey, string> = {
 };
 
 export const BREAKDOWN_TITLES: Record<AnalyzeReportKey, string> = {
-    'ai-readiness': 'AI Readiness Breakdown',
+    'ai-readiness': 'Agent Readiness Breakdown',
     owasp: 'OWASP Breakdown',
     'rest-api-readiness': 'WSO2 REST Guidelines Breakdown',
 };
@@ -19,6 +19,18 @@ export const BREAKDOWN_SUBTITLES: Record<AnalyzeReportKey, string> = {
     owasp: 'Coverage across the OWASP API Security Top 10 (2023)',
     'rest-api-readiness': 'Compliance with WSO2 REST API design guidelines',
 };
+
+/** Shared Analyze report typography scale. */
+export const ANALYZE_TYPE_SCALE = {
+    xs: '10px',
+    sm: '11px',
+    md: '12px',
+    base: '13px',
+    lg: '15px',
+    xl: '20px',
+    metric: '18px',
+    score: '36px'
+} as const;
 
 export const OWASP_CATEGORIES = [
     { id: 'API1:2023', key: 'API1', name: 'Broken Object Level Authorization', docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/' },

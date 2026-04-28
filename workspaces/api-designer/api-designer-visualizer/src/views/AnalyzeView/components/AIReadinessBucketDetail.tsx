@@ -5,6 +5,7 @@ import type { AiReadinessDimensionSummary } from '@wso2/api-designer-core';
 import { getAiReadinessRuleSubBucket } from '@wso2/api-designer-core';
 import { scoreColor } from '../hooks/useReport';
 import { ViewIssuesLink } from './ViewIssuesLink';
+import { ANALYZE_TYPE_SCALE } from './AnalyzeSingleReportHelpers';
 
 interface AiBucketSummaryItem {
     key: string;
@@ -39,16 +40,6 @@ const Container = styled.div`
     display: flex;
     flex-direction: column;
     gap: 12px;
-`;
-
-const WhyBlock = styled.div`
-    font-size: 12px;
-    color: var(--vscode-descriptionForeground);
-    line-height: 1.55;
-    padding: 10px 12px;
-    border-radius: 6px;
-    background: var(--vscode-editor-background);
-    border: 1px solid var(--vscode-panel-border);
 `;
 
 const SubBucketList = styled.div`
@@ -86,14 +77,14 @@ const SubBucketText = styled.div`
 `;
 
 const SubBucketLabel = styled.div`
-    font-size: 12px;
+    font-size: ${ANALYZE_TYPE_SCALE.md};
     font-weight: 600;
     color: var(--vscode-foreground);
 `;
 
 const SubBucketDescription = styled.div`
     margin-top: 3px;
-    font-size: 11px;
+    font-size: ${ANALYZE_TYPE_SCALE.sm};
     color: var(--vscode-descriptionForeground);
     line-height: 1.4;
 `;
@@ -131,7 +122,7 @@ const SubBucketMeta = styled.div`
 `;
 
 const IssueCount = styled.span<{ $hasIssues: boolean }>`
-    font-size: 11px;
+    font-size: ${ANALYZE_TYPE_SCALE.sm};
     color: ${({ $hasIssues }: { $hasIssues: boolean }) =>
         $hasIssues ? 'var(--vscode-editorWarning-foreground)' : 'var(--vscode-testing-iconPassed, #22c55e)'};
     font-weight: 600;
@@ -139,7 +130,7 @@ const IssueCount = styled.span<{ $hasIssues: boolean }>`
 `;
 
 const ScoreText = styled.span<{ $color: string }>`
-    font-size: 15px;
+    font-size: ${ANALYZE_TYPE_SCALE.lg};
     font-weight: 700;
     line-height: 1.1;
     color: ${({ $color }: { $color: string }) => $color};
@@ -151,7 +142,7 @@ const DetailViewIssuesLink = styled(ViewIssuesLink)`
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    font-size: 12px;
+    font-size: ${ANALYZE_TYPE_SCALE.md};
 `;
 
 const SubBucketRowComponent: React.FC<{
@@ -201,7 +192,7 @@ const SubBucketRowComponent: React.FC<{
                     {hasIssues && (
                         <DetailViewIssuesLink onClick={() => onViewIssues(sub.key)}>
                             View issues
-                            <Codicon name="arrow-right" sx={{ fontSize: '11px' }} />
+                            <Codicon name="arrow-right" sx={{ fontSize: ANALYZE_TYPE_SCALE.sm }} />
                         </DetailViewIssuesLink>
                     )}
                 </SubBucketProgressRow>
@@ -215,8 +206,6 @@ const SubBucketRowComponent: React.FC<{
 export const AIReadinessBucketDetail: React.FC<Props> = ({ dimension, violations, onViewIssues }) => {
     return (
         <Container>
-            <WhyBlock>{dimension.whyItMatters}</WhyBlock>
-
             <SubBucketList>
                 {dimension.subBuckets.map((sub) => (
                     <SubBucketRowComponent

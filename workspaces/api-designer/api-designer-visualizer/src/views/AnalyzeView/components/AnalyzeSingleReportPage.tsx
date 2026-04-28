@@ -22,7 +22,7 @@ import {
 } from '../hooks/useReport';
 import { AnalyzeSingleReportOverview } from './AnalyzeSingleReportOverview';
 import { AnalyzeSingleReportBreakdown } from './AnalyzeSingleReportBreakdown';
-import { buildRulesetFileUrl } from './AnalyzeSingleReportHelpers';
+import { ANALYZE_TYPE_SCALE, buildRulesetFileUrl } from './AnalyzeSingleReportHelpers';
 import { AnalyzeSingleReportIssueExplorer } from './AnalyzeSingleReportIssueExplorer';
 
 export type { AnalyzeReportKey };
@@ -52,7 +52,7 @@ const MessageCard = styled.div`
     background: var(--vscode-editor-background);
     padding: 20px 24px;
     color: var(--vscode-descriptionForeground);
-    font-size: 13px;
+    font-size: ${ANALYZE_TYPE_SCALE.base};
 `;
 
 export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = ({
@@ -223,10 +223,6 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
             issueExplorerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
     }, [effectiveReportId, subBucketToMainBucketMap]);
-    const handleReevaluateLlm = React.useCallback(() => {
-        postVSCodeMessage({ command: 'reevaluateLlmValidation' });
-        setManualRefreshTick((value) => value + 1);
-    }, []);
     const handleViewEndpointIssues = React.useCallback(() => {
         setSelectedAiBucketKey(null);
         setSelectedAiMainBucketKey(null);
@@ -297,12 +293,6 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
     const reportUiMeta = report.report as typeof report.report & {
         breakdown: { subtitle?: string };
         issueExplorer: { title?: string; subtitle?: string };
-        llmReview?: {
-            title?: string;
-            subtitle?: string;
-            viewFindingsLabel?: string;
-            reevaluateLabel?: string;
-        };
     };
     return (
         <Root>
@@ -325,16 +315,13 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
                 reportKey={reportKey}
                 title={report.report.breakdown.title}
                 subtitle={reportUiMeta.breakdown.subtitle}
-                llmReview={resolvedReportId === 'ai-readiness' ? reportUiMeta.llmReview : undefined}
                 aiReadinessDimensions={aiReadinessDimensions}
                 totalRows={rows.length}
                 violations={rows}
                 expandedBucketKeys={expandedBucketKeys}
                 onToggleBucket={toggleBucketKey}
                 onViewIssues={handleViewIssues}
-                onReevaluateLlm={handleReevaluateLlm}
                 unifiedCategories={report.report.breakdown.categories}
-                llmValidation={report.llmValidation}
             />
 
             <div ref={issueExplorerRef}>

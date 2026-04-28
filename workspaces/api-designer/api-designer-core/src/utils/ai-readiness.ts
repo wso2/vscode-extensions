@@ -375,7 +375,6 @@ type DimensionDefinition = {
     key: string;
     label: string;
     description: string;
-    whyItMatters: string;
     icon: string;
     subBucketKeys: string[];
     /** Weight in overall weighted harmonic mean (JAIRF-style); four dimensions sum to 1 */
@@ -386,9 +385,7 @@ const AI_READINESS_DIMENSIONS: DimensionDefinition[] = [
     {
         key: 'discovery',
         label: 'Semantic Discovery',
-        description: 'Can AI agents find the right endpoint and understand its intent?',
-        whyItMatters:
-            'AI agents rely on summaries, descriptions, and stable operation identifiers to select the right tool for a task. Without them, agents must infer behavior through trial and error, leading to incorrect calls and hallucinated responses.',
+        description: 'Ensures AI agents can find the right endpoint and understand intent using clear summaries, rich descriptions, and stable operation IDs so they avoid guesswork and incorrect calls.',
         icon: 'search',
         subBucketKeys: ['summaries', 'descriptions', 'operationIds'],
         aggregationWeight: 0.26,
@@ -396,9 +393,7 @@ const AI_READINESS_DIMENSIONS: DimensionDefinition[] = [
     {
         key: 'contract',
         label: 'Contract Integrity',
-        description: 'Can AI agents construct valid requests and interpret responses without guessing?',
-        whyItMatters:
-            'Agents generate payloads based on schemas and examples. Ambiguous types, missing required fields, or absent examples cause agents to produce invalid requests or misinterpret response data.',
+        description: 'Ensures AI agents can construct valid requests and interpret responses confidently by relying on strong schemas, explicit typing, and practical examples instead of assumptions.',
         icon: 'symbol-interface',
         subBucketKeys: ['examples', 'typing', 'errors'],
         aggregationWeight: 0.26,
@@ -406,9 +401,7 @@ const AI_READINESS_DIMENSIONS: DimensionDefinition[] = [
     {
         key: 'resilience',
         label: 'Resilience & Recovery',
-        description: 'Can AI agents handle failures, rate limits, and large datasets gracefully?',
-        whyItMatters:
-            'Autonomous agents operate without human supervision. Structured error schemas let agents self-correct, rate limit headers prevent hammering, and pagination metadata tells agents when to stop iterating.',
+        description: 'Ensures AI agents can recover from failures and operate safely at scale through actionable error semantics, clear rate-limit signals, and pagination guidance.',
         icon: 'refresh',
         subBucketKeys: ['errorSemantics', 'headers', 'pagination'],
         aggregationWeight: 0.24,
@@ -416,9 +409,7 @@ const AI_READINESS_DIMENSIONS: DimensionDefinition[] = [
     {
         key: 'security',
         label: 'Security & Integrity',
-        description: 'Is the API safe for autonomous agent access over the long term?',
-        whyItMatters:
-            'Agents cannot complete interactive browser-based OAuth flows. Undefined security requirements risk agents making unintended state changes. Idempotency support prevents duplicate side-effects when agents retry operations.',
+        description: 'Ensures autonomous agent access remains safe over time by defining non-interactive security requirements and idempotent mutation behavior that reduces unintended side effects.',
         icon: 'shield',
         subBucketKeys: ['security', 'idempotency'],
         aggregationWeight: 0.24,
@@ -556,7 +547,6 @@ export const buildAiReadinessSummary = (input: BuildAiReadinessSummaryInput): Ai
             key: dim.key,
             label: dim.label,
             description: dim.description,
-            whyItMatters: dim.whyItMatters,
             icon: dim.icon,
             score,
             aggregationWeight: dim.aggregationWeight,

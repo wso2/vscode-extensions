@@ -1059,6 +1059,12 @@ export class GovernanceManager extends BaseRpcManager {
         owaspCategoryKeys?: string[]
     ): BuiltUnifiedReport {
         const reportId = this.inferReportKey(name);
+        const reportTitle =
+            reportId === 'ai-readiness'
+                ? 'Agent Readiness'
+                : reportId === 'owasp'
+                    ? 'Security Posture (OWASP)'
+                    : 'REST Guideline Compliance';
         const computedScore = this.computeWeightedScore(reportId, response);
         const rawViolations = response.violations || [];
         const violationsById: Record<string, UnifiedViolation> = {};
@@ -1189,7 +1195,7 @@ export class GovernanceManager extends BaseRpcManager {
         return {
             schemaVersion: '1',
             reportId,
-            title: name,
+            title: reportTitle,
             violationsById,
             overview: {
                 score: computedScore,
@@ -1202,7 +1208,7 @@ export class GovernanceManager extends BaseRpcManager {
                 ],
             },
             breakdown: {
-                title: reportId === 'owasp' ? 'OWASP Breakdown' : reportId === 'rest-api-readiness' ? 'WSO2 REST Guidelines Breakdown' : 'AI Readiness Breakdown',
+                title: reportId === 'owasp' ? 'OWASP Breakdown' : reportId === 'rest-api-readiness' ? 'WSO2 REST Guidelines Breakdown' : 'Agent Readiness Breakdown',
                 subtitle: reportId === 'owasp'
                     ? 'OWASP API Security themes for which this analysis found issues. The bundled ruleset includes a subset of API1–10 rules (for example API2, API3, API4, API8, API9), not every category.'
                     : reportId === 'rest-api-readiness'
