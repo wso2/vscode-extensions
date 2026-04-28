@@ -20,7 +20,7 @@ workflows:
       properties:
         quantity:
           type: integer
-          default: 2
+          
     steps:
       - stepId: listProducts
         operationId: getProducts

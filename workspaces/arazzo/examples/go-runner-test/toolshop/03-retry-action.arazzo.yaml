@@ -21,7 +21,7 @@ workflows:
         parameters:
           - name: productId
             in: path
-            value: "non-existent-product-id-99999"
+            value: "non--existent-product-id-99999"
         successCriteria:
           - condition: "$statusCode == 200"
         onFailure:
@@ -65,7 +65,7 @@ workflows:
         onFailure:
           - name: retry_attempt
             type: retry
-            retryAfter: 1
+            retryAfter: 2
             retryLimit: 2
           - name: give_up
             type: end
