@@ -425,7 +425,7 @@ export function ReferenceObject(props: ReferenceObjectsProps) {
                         onClick={() => {
                             if (!referenceObject) return;
                             postVSCodeMessage({
-                                command: 'openCopilotChat',
+                                command: 'openAIChat',
                                 data: { 
                                     context: JSON.stringify(referenceObject), 
                                     prompt: `Improve reference: ${referenceObject.$ref}` 

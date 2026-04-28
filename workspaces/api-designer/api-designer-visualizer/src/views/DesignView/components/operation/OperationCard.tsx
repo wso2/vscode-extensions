@@ -703,7 +703,7 @@ export const OperationCard: React.FC<OperationCardProps> = ({
                                         warningIssues
                                     );
                                     postVSCodeMessage({
-                                        command: 'openCopilotChat',
+                                        command: 'openAIChat',
                                         data: {
                                             context: JSON.stringify({
                                                 operation: { path, method, ...operation },

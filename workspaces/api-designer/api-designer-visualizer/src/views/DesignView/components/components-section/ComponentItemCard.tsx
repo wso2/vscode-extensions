@@ -788,7 +788,7 @@ export const ComponentItemCard: React.FC<ComponentItemCardProps> = ({
             warningIssues
         );
         postVSCodeMessage({
-            command: 'openCopilotChat',
+            command: 'openAIChat',
             data: {
                 context: JSON.stringify({
                     component: item,

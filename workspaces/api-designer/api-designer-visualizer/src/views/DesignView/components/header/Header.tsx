@@ -140,7 +140,7 @@ export function Header(props: HeaderProps) {
                     onClick={() => {
                         if (!header) return;
                         postVSCodeMessage({
-                            command: 'openCopilotChat',
+                            command: 'openAIChat',
                             data: { 
                                 context: JSON.stringify(header), 
                                 prompt: `Improve header: ${name}` 

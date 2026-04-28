@@ -33,8 +33,8 @@ interface AnalyzeSingleReportPageProps {
     reportKey: AnalyzeReportKey;
 }
 
-const openCopilotChat = (context: string, prompt: string) =>
-    postVSCodeMessage({ command: 'openCopilotChat', data: { context, prompt } });
+const openAIChat = (context: string, prompt: string) =>
+    postVSCodeMessage({ command: 'openAIChat', data: { context, prompt } });
 
 const Root = styled.div`
     width: 100%;
@@ -364,7 +364,7 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
                     rulesetFileUrl={rulesetFileUrl}
                     rulesetContentPath={report.ruleset?.rulesetContentPath}
                     specContent={specContent}
-                    onOpenCopilotChat={openCopilotChat}
+                    onOpenAIChat={openAIChat}
                     aiBucketFilter={resolvedReportId === 'ai-readiness' ? {
                         mainBucketKey: selectedAiMainBucketKey,
                         subBucketKey: selectedAiBucketKey,

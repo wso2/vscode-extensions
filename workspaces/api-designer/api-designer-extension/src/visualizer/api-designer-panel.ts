@@ -26,7 +26,6 @@ import { parseTree, findNodeAtLocation, Node as JsonNode } from 'jsonc-parser';
 import { extension } from '../APIDesignerExtensionContext';
 import { getComposerJSFiles } from '../util';
 import { logDebug, logError, logInfo, logWarning } from '../util/logger';
-import { validateApiSpec } from '../utils/validation-utils';
 import { SpecContentManager } from '../rpc-managers/api-designer-visualizer/managers/spec-content-manager';
 import { GovernanceManager } from '../rpc-managers/api-designer-visualizer/managers/governance-manager';
 import { RPCLayer } from '../RPCLayer';
@@ -35,8 +34,7 @@ import {
     SpecificationFactory, 
     ApiSpecType,
     SpecificationService,
-    loadYaml,
-    buildGenerateAPISpecPrompt
+    loadYaml
 } from '@wso2/api-designer-core';
 import { AIProviderFactory } from '../ai/ai-provider-factory';
 import { syncApiDesignerTreeSelection } from '../activity-bar/api-projects';
@@ -75,9 +73,6 @@ export class ApiDesignerPanel {
     private _lastSavedContent: string | null = null;
     private _isSavingFromWebview: boolean = false;
     private _saveDebounceTimer: NodeJS.Timeout | undefined;
-    /** Watches workspace until user saves an OpenAPI file after Create-with-AI, or timeout / dismiss. */
-    private _copilotCreateWatchDisposable: vscode.Disposable | undefined;
-    private _copilotCreateFallbackTimer: ReturnType<typeof setTimeout> | undefined;
     private _viewType: string;
     private _analyzeSection: 'all' | 'ai-readiness' | 'owasp' | 'wso2-rest' = 'all';
     private _lastSpec: unknown = null;
@@ -85,9 +80,8 @@ export class ApiDesignerPanel {
     private _specService: SpecificationService | null = null;
 
     constructor(filePath: string | undefined, existingPanel?: WebviewPanel, viewType?: string) {
-        // For 'create' view, filePath can be undefined
         this._currentFilePath = filePath;
-        this._viewType = viewType || (filePath ? 'preview' : 'create');
+        this._viewType = viewType || 'preview';
         
         // Detect specification type from file (async, but don't await - happens in background)
         // Only if we have a filePath
@@ -98,10 +92,8 @@ export class ApiDesignerPanel {
         this._panel = existingPanel ?? ApiDesignerPanel.createWebview();
         if (existingPanel) {
             this._panel.title = "API Designer";
-            this._panel.iconPath = {
-                light: Uri.file(path.join(extension.context.extensionPath, 'assets', 'light-icon.svg')),
-                dark: Uri.file(path.join(extension.context.extensionPath, 'assets', 'dark-icon.svg'))
-            };
+            // @ts-expect-error VS Code runtime supports ThemeIcon for panel icon in newer API versions.
+            this._panel.iconPath = new vscode.ThemeIcon('preview');
             this._panel.webview.options = {
                 enableScripts: true,
                 localResourceRoots: [
@@ -136,50 +128,8 @@ export class ApiDesignerPanel {
             }
         }, null, this._disposables);
         
-        // Send initial state to webview IMMEDIATELY (no delay) to ensure views have it when they mount
         const sendInitialState = () => {
-            if (this._panel && !this._isDisposed) {
-                // For 'create' view, no fileUri is needed - just send the viewType and default folder
-                if (this._viewType === 'create') {
-                    this._panel.webview.postMessage({
-                        command: 'switchView',
-                        viewType: 'create'
-                    });
-                    // Also send default folder for create view
-                    this.postDefaultFolder();
-                } else if (this._currentFilePath) {
-                    // For other views, send fileUri first
-                    this._panel.webview.postMessage({
-                        command: 'setFileUri',
-                        data: this._currentFilePath
-                    });
-                    // Then send the appropriate view command
-                    if (!this._viewType || this._viewType === 'preview' || this._viewType === 'design') {
-                        this._panel.webview.postMessage({
-                            command: 'switchToEditor',
-                            filePath: this._currentFilePath
-                        });
-                    } else {
-                        // Send the correct viewType for other views
-                        // Send fileUri separately first to ensure it's set before viewType
-                        this._panel.webview.postMessage({
-                            command: 'setFileUri',
-                            data: this._currentFilePath
-                        });
-                        // Small delay to ensure fileUri message is processed first
-                        setTimeout(() => {
-                            if (this._panel && !this._isDisposed) {
-                                this._panel.webview.postMessage({
-                                    command: 'switchView',
-                                    viewType: this._viewType,
-                                    fileUri: this._currentFilePath,
-                                    analyzeSection: this._viewType === 'analyze' ? this._analyzeSection : undefined
-                                });
-                            }
-                        }, 10);
-                    }
-                }
-            }
+            this.sendViewStateToWebview(this._viewType);
         };
         
         // Send immediately - views need state as soon as possible
@@ -188,44 +138,14 @@ export class ApiDesignerPanel {
             void this.governanceManager.ensureLlmValidationForFile(this._currentFilePath);
         }
         
-        // Also send again after a short delay to catch any race conditions
+        // Retry once after a short delay to handle webview startup races.
         setTimeout(sendInitialState, 100);
         
         // Restore state when panel becomes visible (e.g., when switching back to tab)
         this._panel.onDidChangeViewState((e) => {
             if (e.webviewPanel.visible && !this._isDisposed) {
                 setTimeout(() => this.scheduleSyncActivityBarTree(), 150);
-                // Panel became visible - restore fileUri and viewType
-                setTimeout(() => {
-                    if (this._currentFilePath && this._panel && !this._isDisposed) {
-                        this._panel.webview.postMessage({
-                            command: 'setFileUri',
-                            data: this._currentFilePath
-                        });
-                        // Restore the current viewType (don't force preview mode)
-                        if (this._viewType) {
-                            this._panel.webview.postMessage({
-                                command: 'switchView',
-                                viewType: this._viewType,
-                                fileUri: this._currentFilePath,
-                                analyzeSection: this._viewType === 'analyze' ? this._analyzeSection : undefined
-                            });
-                            // Only send switchToEditor for preview/design views
-                            if (this._viewType === 'preview' || this._viewType === 'design') {
-                                this._panel.webview.postMessage({
-                                    command: 'switchToEditor',
-                                    filePath: this._currentFilePath
-                                });
-                            }
-                        } else {
-                            // If no viewType is set, default to preview
-                            this._panel.webview.postMessage({
-                                command: 'switchToEditor',
-                                filePath: this._currentFilePath
-                            });
-                        }
-                    }
-                }, 100);
+                this.sendViewStateToWebview(this._viewType);
             }
         }, null, this._disposables);
 
@@ -234,7 +154,6 @@ export class ApiDesignerPanel {
             async (message) => {
                 switch (message.command) {
                     case 'openAIChat':
-                    case 'openCopilotChat': // Backward compatibility - will be removed
                         this.openAIChat(message.data?.context, message.data?.prompt);
                         break;
                     case 'updatePreview':
@@ -268,14 +187,7 @@ export class ApiDesignerPanel {
                             }
                             // updateViewType no-ops when unchanged and skips tree sync — still align the tree
                             if (this._viewType === incoming) {
-                                if (this._panel && !this._isDisposed) {
-                                    this._panel.webview.postMessage({
-                                        command: 'switchView',
-                                        viewType: incoming,
-                                        fileUri: this._currentFilePath,
-                                        analyzeSection: incoming === 'analyze' ? this._analyzeSection : undefined
-                                    });
-                                }
+                                this.sendViewStateToWebview(incoming);
                                 this.scheduleSyncActivityBarTree();
                             } else {
                                 this.updateViewType(incoming);
@@ -299,26 +211,10 @@ export class ApiDesignerPanel {
                         break;
                     case 'requestFileUri':
                         // Handle request for fileUri from webview
-                        if (this._currentFilePath && this._panel && !this._isDisposed) {
+                        if (this._currentFilePath) {
                             logDebug(`ApiDesignerPanel: Sending fileUri in response to requestFileUri: ${this._currentFilePath}`);
-                            this._panel.webview.postMessage({
-                                command: 'setFileUri',
-                                data: this._currentFilePath
-                            });
-                            // Also send switchToEditor to ensure we're in preview mode
-                            this._panel.webview.postMessage({
-                                command: 'switchToEditor',
-                                filePath: this._currentFilePath
-                            });
+                            this.sendViewStateToWebview(this._viewType);
                         }
-                        break;
-                    case 'getDefaultFolder':
-                        // Send default folder (workspace root) to webview
-                        this.postDefaultFolder();
-                        break;
-                    case 'selectFolder':
-                        // Handle folder selection request
-                        this.handleSelectFolder();
                         break;
                     case 'openExternal':
                         if (typeof message.url === 'string' && message.url.trim().length > 0) {
@@ -328,14 +224,6 @@ export class ApiDesignerPanel {
                                 logError('ApiDesignerPanel: Failed to open external URL', err);
                             }
                         }
-                        break;
-                    case 'createFromTemplate':
-                        // Handle creating API spec from template
-                        await this.handleCreateFromTemplate(message.data);
-                        break;
-                    case 'createFromCopilot':
-                        // Handle creating API spec with AI/Copilot
-                        await this.handleCreateFromCopilot(message.data);
                         break;
                     case 'reevaluateLlmValidation':
                         if (this._currentFilePath) {
@@ -353,10 +241,45 @@ export class ApiDesignerPanel {
 
     /** Keep APIs tree selection aligned with the active Design / Analyze / … view */
     private scheduleSyncActivityBarTree(): void {
-        if (this._viewType === 'create' || !this._currentFilePath) {
+        if (!this._currentFilePath) {
             return;
         }
         void syncApiDesignerTreeSelection(vscode.Uri.file(this._currentFilePath), this._viewType);
+    }
+
+    private postWebviewMessage(message: Record<string, unknown>): boolean {
+        if (!this._panel || this._isDisposed) {
+            return false;
+        }
+        try {
+            this._panel.webview.postMessage(message);
+            return true;
+        } catch (error) {
+            logDebug('ApiDesignerPanel: Failed to post webview message', error);
+            return false;
+        }
+    }
+
+    private sendViewStateToWebview(viewType: string): void {
+        if (!this._currentFilePath) {
+            return;
+        }
+        this.postWebviewMessage({
+            command: 'setFileUri',
+            data: this._currentFilePath
+        });
+        this.postWebviewMessage({
+            command: 'switchView',
+            viewType,
+            fileUri: this._currentFilePath,
+            analyzeSection: viewType === 'analyze' ? this._analyzeSection : undefined
+        });
+        if (viewType === 'preview' || viewType === 'design') {
+            this.postWebviewMessage({
+                command: 'switchToEditor',
+                filePath: this._currentFilePath
+            });
+        }
     }
 
     /**
@@ -479,10 +402,8 @@ export class ApiDesignerPanel {
                 ]
             }
         );
-        panel.iconPath = {
-            light: Uri.file(path.join(extension.context.extensionPath, 'assets', 'light-icon.svg')),
-            dark: Uri.file(path.join(extension.context.extensionPath, 'assets', 'dark-icon.svg'))
-        };
+        // @ts-expect-error VS Code runtime supports ThemeIcon for panel icon in newer API versions.
+        panel.iconPath = new vscode.ThemeIcon('preview');
         return panel;
     }
 
@@ -504,87 +425,30 @@ export class ApiDesignerPanel {
         }
 
         this._viewType = newViewType;
-            if (newViewType === 'design' && this._currentFilePath) {
-                void this.governanceManager.ensureLlmValidationForFile(this._currentFilePath);
-            }
-        
-        // Store reference to avoid accessing disposed object
-        const panel = this._panel;
-        
-        try {
-            // Handle 'create' view - no fileUri needed
-            if (newViewType === 'create') {
-                panel.webview.postMessage({
-                    command: 'switchView',
-                    viewType: 'create'
-                });
-                this.scheduleSyncActivityBarTree();
-                return;
-            }
-            
-            // For other views, we need fileUri
-            if (!this._currentFilePath) {
-                logDebug(`ApiDesignerPanel: Cannot switch to ${newViewType} - no file path available`);
-                return;
-            }
-            
-            // CRITICAL: Send fileUri MULTIPLE TIMES to ensure views receive it
-            // This handles race conditions where views mount before messages arrive
-            // Send fileUri immediately (no delay) - FIRST
-            panel.webview.postMessage({
-                command: 'setFileUri',
-                data: this._currentFilePath
-            });
-            
-            // Send again after a tiny delay to catch any race conditions
-            setTimeout(() => {
-                if (this._panel && !this._isDisposed) {
-                    this._panel.webview.postMessage({
-                        command: 'setFileUri',
-                        data: this._currentFilePath
-                    });
-                }
-            }, 50);
-            
-            // Send fileUri again to ensure it's set, then send view type change
-            // Use a small delay to ensure fileUri is processed before viewType
-            setTimeout(() => {
-                if (this._panel && !this._isDisposed) {
-                    this._panel.webview.postMessage({
-                        command: 'switchView',
-                        viewType: newViewType,
-                        fileUri: this._currentFilePath,
-                        analyzeSection: newViewType === 'analyze' ? this._analyzeSection : undefined
-                    });
-                }
-            }, 10);
-            
-            // Also send switchToEditor to ensure preview/design views load properly
-            if (newViewType === 'preview' || newViewType === 'design') {
-                panel.webview.postMessage({
-                    command: 'switchToEditor',
-                    filePath: this._currentFilePath
-                });
-                
-                // If we have a cached spec, send it immediately (no delay)
-                // This ensures the view has data right away
-                if (this._lastSpec) {
-                    panel.webview.postMessage({
-                        command: 'updateSpec',
-                        data: this._lastSpec,
-                        specType: this._specType
-                    });
-                } else {
-                    // If no cached spec, load it from file immediately
-                    this.loadAndSendSpec(this._currentFilePath, panel);
-                }
-            }
-            this.scheduleSyncActivityBarTree();
-        } catch (error) {
-            // Webview was disposed between our check and usage - this is OK, just ignore
-            // Mark as disposed to prevent future attempts
-            this._isDisposed = true;
+        if (newViewType === 'design' && this._currentFilePath) {
+            void this.governanceManager.ensureLlmValidationForFile(this._currentFilePath);
         }
+
+        if (!this._currentFilePath) {
+            logDebug(`ApiDesignerPanel: Cannot switch to ${newViewType} - no file path available`);
+            return;
+        }
+
+        this.sendViewStateToWebview(newViewType);
+
+        if (newViewType === 'preview' || newViewType === 'design') {
+            if (this._lastSpec) {
+                this.postWebviewMessage({
+                    command: 'updateSpec',
+                    data: this._lastSpec,
+                    specType: this._specType
+                });
+            } else {
+                // If no cached spec, load it from file immediately.
+                void this.loadAndSendSpec(this._currentFilePath);
+            }
+        }
+        this.scheduleSyncActivityBarTree();
     }
 
     public updatePreview(data: unknown) {
@@ -606,29 +470,20 @@ export class ApiDesignerPanel {
         // Store the last spec for later use when switching views
         this._lastSpec = data;
         
-        // Store reference to avoid accessing disposed object
-        const panel = this._panel;
-        
-        try {
-            panel.webview.postMessage({
-                command: 'updateSpec',
-                data: data,
-                specType: this._specType // Send spec type to frontend
-            });
-            
-            // Also refresh validation data when spec is updated (e.g., when file is saved externally)
-            // Use a small delay to ensure the file is fully saved before validating
-            setTimeout(() => {
-                if (!this._isDisposed && this._panel) {
-                    this.sendValidationData();
-                    this.sendAIReadinessData();
-                }
-            }, 300);
-        } catch (error) {
-            // Webview was disposed between our check and usage - this is OK, just ignore
-            // Mark as disposed to prevent future attempts
-            this._isDisposed = true;
-        }
+        this.postWebviewMessage({
+            command: 'updateSpec',
+            data: data,
+            specType: this._specType // Send spec type to frontend
+        });
+
+        // Also refresh validation data when spec is updated (e.g., when file is saved externally)
+        // Use a small delay to ensure the file is fully saved before validating
+        setTimeout(() => {
+            if (!this._isDisposed && this._panel) {
+                void this.sendValidationData();
+                void this.sendAIReadinessData();
+            }
+        }, 300);
     }
 
     public notifySpecParseError(message: string) {
@@ -636,23 +491,19 @@ export class ApiDesignerPanel {
             return;
         }
 
-        try {
-            this._panel.webview.postMessage({
-                command: 'specParseError',
-                data: {
-                    message
-                }
-            });
-        } catch {
-            this._isDisposed = true;
-        }
+        this.postWebviewMessage({
+            command: 'specParseError',
+            data: {
+                message
+            }
+        });
     }
 
     /**
      * Load spec from file and send it to webview immediately
      * Used when switching to preview/design view to ensure data is available
      */
-    private async loadAndSendSpec(filePath: string, panel: vscode.WebviewPanel): Promise<void> {
+    private async loadAndSendSpec(filePath: string): Promise<void> {
         try {
             const response = await this.specContentManager.getAPISpecContent({ filePath });
             if (response.content) {
@@ -674,7 +525,7 @@ export class ApiDesignerPanel {
                     this._lastSpec = parsed;
                     
                     // Send immediately to webview
-                    panel.webview.postMessage({
+                    this.postWebviewMessage({
                         command: 'updateSpec',
                         data: parsed,
                         specType: this._specType
@@ -976,7 +827,7 @@ export class ApiDesignerPanel {
             const provider = await AIProviderFactory.getAvailableProvider();
             if (!provider) {
                 vscode.window.showErrorMessage(
-                    'No AI provider is available. Please install and enable an AI provider (GitHub Copilot, Claude, etc.).'
+                    'Configured AI provider is not available. Please install and enable an AI provider (GitHub Copilot, etc.).'
                 );
                 return false;
             }
@@ -1028,8 +879,6 @@ export class ApiDesignerPanel {
             clearTimeout(this._saveDebounceTimer);
             this._saveDebounceTimer = undefined;
         }
-        this.clearCopilotCreateAwait();
-
         // Mark as disposed immediately to prevent any pending operations
         this._isDisposed = true;
         
@@ -1085,8 +934,10 @@ export class ApiDesignerPanel {
             const document = await vscode.workspace.openTextDocument(this._currentFilePath);
             const content = document.getText();
             
-            // Uses OpenAPI validation with Spectral
-            const validationResult = await validateApiSpec(content);
+            // Uses governance manager validation pipeline.
+            const validationResult = await this.governanceManager.validateApiSpec({
+                filePath: this._currentFilePath
+            });
             
             // Keep paths as arrays (Spectral returns arrays); include range for snippet preview in the webview
             const errors = (validationResult.errors || []).map((err: any) => ({
@@ -1168,448 +1019,4 @@ export class ApiDesignerPanel {
         }
     }
 
-    /**
-     * Send default folder (workspace root) to webview
-     */
-    private postDefaultFolder(): void {
-        if (!this._panel || this._isDisposed) {
-            return;
-        }
-
-        const folders = vscode.workspace.workspaceFolders;
-        if (folders && folders.length > 0) {
-            this._panel.webview.postMessage({
-                command: 'defaultFolder',
-                path: folders[0].uri.fsPath
-            });
-        }
-    }
-
-    /**
-     * Handle folder selection request from webview
-     */
-    private async handleSelectFolder(): Promise<void> {
-        if (!this._panel || this._isDisposed) {
-            return;
-        }
-
-        const folders = vscode.workspace.workspaceFolders;
-        if (!folders || folders.length === 0) {
-            vscode.window.showErrorMessage('No workspace folder open. Please open a folder first.');
-            return;
-        }
-
-        const selectedFolder = await vscode.window.showOpenDialog({
-            canSelectFiles: false,
-            canSelectFolders: true,
-            canSelectMany: false,
-            openLabel: 'Select Folder',
-            defaultUri: folders[0].uri,
-            title: 'Choose where to save your API specification file'
-        });
-
-        if (selectedFolder && selectedFolder.length > 0) {
-            this._panel.webview.postMessage({
-                command: 'folderSelected',
-                path: selectedFolder[0].fsPath
-            });
-        }
-    }
-
-    /**
-     * Handle creating API spec from template
-     */
-    private async handleCreateFromTemplate(data: {
-        name: string;
-        version: string;
-        context?: string;
-        folderPath: string;
-        apiType?: ApiSpecType;
-    }): Promise<void> {
-        if (!this._panel || this._isDisposed) {
-            return;
-        }
-
-        // Show loading state
-        this._panel.webview.postMessage({
-            command: 'setLoading',
-            loading: true,
-            message: 'Creating API specification...'
-        });
-
-        try {
-            // Validate inputs
-            if (!data.name || !data.version) {
-                vscode.window.showErrorMessage('Please fill in all required fields');
-                this._panel.webview.postMessage({
-                    command: 'setLoading',
-                    loading: false
-                });
-                return;
-            }
-
-            // Determine folder (fallback to first workspace folder if not provided)
-            let folderUri: vscode.Uri | undefined;
-            if (data.folderPath) {
-                folderUri = vscode.Uri.file(data.folderPath);
-            } else {
-                const folders = vscode.workspace.workspaceFolders;
-                if (folders && folders.length > 0) {
-                    folderUri = folders[0].uri;
-                } else {
-                    vscode.window.showErrorMessage('No workspace folder open. Please open a folder first.');
-                    this._panel.webview.postMessage({
-                        command: 'setLoading',
-                        loading: false
-                    });
-                    return;
-                }
-            }
-            
-            // Check if folder exists
-            try {
-                await vscode.workspace.fs.stat(folderUri);
-            } catch {
-                vscode.window.showErrorMessage('Selected folder does not exist');
-                this._panel.webview.postMessage({
-                    command: 'setLoading',
-                    loading: false
-                });
-                return;
-            }
-
-            const apiType = ApiSpecType.OPENAPI;
-            const apiSpec: any = {
-                openapi: '3.0.1',
-                info: {
-                    title: data.name,
-                    version: data.version,
-                    ...(data.context ? { description: data.context } : {})
-                },
-                paths: {}
-            };
-
-            // Generate filename
-            const fileName = `${data.name.toLowerCase().replace(/\s+/g, '-')}.openapi.yaml`;
-            const fileUri = vscode.Uri.joinPath(folderUri, fileName);
-
-            // Check if file exists
-            try {
-                await vscode.workspace.fs.stat(fileUri);
-                const overwrite = await vscode.window.showWarningMessage(
-                    `File "${fileName}" already exists. Overwrite?`,
-                    { modal: true },
-                    'Overwrite',
-                    'Cancel'
-                );
-                if (overwrite !== 'Overwrite') {
-                    this._panel.webview.postMessage({
-                        command: 'setLoading',
-                        loading: false
-                    });
-                    return;
-                }
-            } catch {
-                // File doesn't exist, continue
-            }
-
-            // Write file
-            const yamlContent = this.generateYAML(apiSpec);
-            await vscode.workspace.fs.writeFile(fileUri, Buffer.from(yamlContent, 'utf8'));
-
-            // Show success message
-            vscode.window.showInformationMessage(`API specification created: ${fileName}`);
-            
-            // Switch to preview/editor view
-            const reused = await this.switchToPreview(fileUri.fsPath);
-            if (!reused) {
-                await vscode.commands.executeCommand('api-designer.openApiPreview', fileUri);
-                this.dispose();
-            }
-
-            // Refresh explorers
-            vscode.commands.executeCommand('api-designer.refreshOpenApiExplorer');
-            vscode.commands.executeCommand('api-designer.refreshApiProjects');
-        } catch (error) {
-            vscode.window.showErrorMessage(`Failed to create API spec file: ${error}`);
-            this._panel.webview.postMessage({
-                command: 'setLoading',
-                loading: false
-            });
-        }
-    }
-
-    private clearCopilotCreateAwait(): void {
-        if (this._copilotCreateWatchDisposable) {
-            this._copilotCreateWatchDisposable.dispose();
-            this._copilotCreateWatchDisposable = undefined;
-        }
-        if (this._copilotCreateFallbackTimer !== undefined) {
-            clearTimeout(this._copilotCreateFallbackTimer);
-            this._copilotCreateFallbackTimer = undefined;
-        }
-    }
-
-    private parseExternalReferenceUrls(raw: unknown): string[] {
-        if (raw == null) {
-            return [];
-        }
-        const list = Array.isArray(raw)
-            ? raw
-            : typeof raw === 'string'
-              ? raw.split(/[\r\n]+/)
-              : [];
-        return list
-            .map((u) => String(u).trim())
-            .filter((u) => u.length > 0 && /^https:\/\//i.test(u));
-    }
-
-    private isPathUnderFolder(filePath: string, folderPath: string): boolean {
-        const relative = path.relative(path.normalize(folderPath), path.normalize(filePath));
-        return relative !== '' && !relative.startsWith('..') && !path.isAbsolute(relative);
-    }
-
-    /**
-     * After AI chat opens, wait until the user saves a matching spec file under the target folder.
-     */
-    private startCopilotCreateWatch(
-        targetFolderPath: string,
-        expectedSpecType: ApiSpecType,
-        apiTypeName: string
-    ): void {
-        this.clearCopilotCreateAwait();
-
-        const rootNormalized = path.normalize(targetFolderPath);
-        let handling = false;
-
-        const tryFinish = async (uri: vscode.Uri) => {
-            if (handling) {
-                return;
-            }
-            if (!this._panel || this._isDisposed) {
-                return;
-            }
-
-            const fsPath = uri.fsPath;
-            if (!this.isPathUnderFolder(fsPath, rootNormalized)) {
-                return;
-            }
-            if (!/\.(yaml|yml|json)$/i.test(fsPath)) {
-                return;
-            }
-
-            handling = true;
-            try {
-                const bytes = await vscode.workspace.fs.readFile(uri);
-                const text = Buffer.from(bytes).toString('utf8');
-                const det = detectSpecType(text);
-                if (!det.type || det.type !== expectedSpecType) {
-                    handling = false;
-                    return;
-                }
-
-                this.clearCopilotCreateAwait();
-                const reused = await this.switchToPreview(fsPath);
-                if (!reused) {
-                    await vscode.commands.executeCommand('api-designer.openApiPreview', uri);
-                    this.dispose();
-                }
-                vscode.commands.executeCommand('api-designer.refreshOpenApiExplorer');
-                vscode.commands.executeCommand('api-designer.refreshApiProjects');
-            } catch {
-                handling = false;
-            }
-        };
-
-        const folderUri = vscode.Uri.file(rootNormalized);
-        const pattern = new vscode.RelativePattern(folderUri, '**/*.{yaml,yml,json}');
-        const watcher = vscode.workspace.createFileSystemWatcher(pattern, false, false, false);
-        watcher.onDidCreate((uri) => {
-            void tryFinish(uri);
-        });
-        watcher.onDidChange((uri) => {
-            void tryFinish(uri);
-        });
-
-        const saveSub = vscode.workspace.onDidSaveTextDocument((doc) => {
-            void tryFinish(doc.uri);
-        });
-
-        this._copilotCreateWatchDisposable = vscode.Disposable.from(watcher, saveSub);
-
-        this._copilotCreateFallbackTimer = setTimeout(() => {
-            this._copilotCreateFallbackTimer = undefined;
-            if (this._isDisposed || !this._panel || !this._copilotCreateWatchDisposable) {
-                return;
-            }
-            this.clearCopilotCreateAwait();
-            this._panel.webview.postMessage({
-                command: 'setLoading',
-                loading: false
-            });
-            vscode.window.showInformationMessage(
-                `No new ${apiTypeName} file was detected under ${path.basename(rootNormalized)}. Save your specification as .yaml, .yml, or .json in that folder, then open it from API Projects.`
-            );
-        }, 3 * 60 * 1000);
-    }
-
-    /**
-     * Handle creating API spec with AI/Copilot
-     */
-    private async handleCreateFromCopilot(data: {
-        description: string;
-        folderPath?: string;
-        apiType?: ApiSpecType;
-        /** HTTPS URLs only; public resources the model should consider. */
-        externalReferenceUrls?: string[];
-        /** When false, skip auto-discovery of workspace OpenAPI specs for the prompt. Default true. */
-        includeWorkspaceSpecs?: boolean;
-    }): Promise<void> {
-        if (!this._panel || this._isDisposed) {
-            return;
-        }
-
-        this.clearCopilotCreateAwait();
-
-        try {
-            if (!data.description) {
-                vscode.window.showErrorMessage('Please provide a description for your API');
-                return;
-            }
-
-            // Resolve target folder (fallback to first workspace folder)
-            let folderPath = data.folderPath;
-            if (!folderPath) {
-                const folders = vscode.workspace.workspaceFolders;
-                if (folders && folders.length > 0) {
-                    folderPath = folders[0].uri.fsPath;
-                }
-            }
-            if (!folderPath) {
-                vscode.window.showErrorMessage(
-                    'Open a workspace folder first, or choose a folder for the new API specification.'
-                );
-                return;
-            }
-
-            const apiType = ApiSpecType.OPENAPI;
-            const apiTypeName = 'OpenAPI';
-
-            this._panel.webview.postMessage({
-                command: 'setLoading',
-                loading: true,
-                message: `Generating ${apiTypeName} specification with GitHub Copilot...`
-            });
-
-            const externalUrls = this.parseExternalReferenceUrls(data.externalReferenceUrls);
-            const useWorkspaceSearchGuidance = data.includeWorkspaceSpecs !== false;
-
-            const prompt = buildGenerateAPISpecPrompt(data.description, folderPath, {
-                useWorkspaceSearchGuidance,
-                externalReferenceUrls: externalUrls
-            });
-            const opened = await this.openAIChat('', prompt);
-            if (!opened) {
-                this._panel.webview.postMessage({
-                    command: 'setLoading',
-                    loading: false
-                });
-                return;
-            }
-            if (!this._panel || this._isDisposed) {
-                return;
-            }
-
-            this.startCopilotCreateWatch(folderPath, apiType, apiTypeName);
-        } catch (error) {
-            vscode.window.showErrorMessage(`Failed to open AI chat: ${error}`);
-            this._panel?.webview.postMessage({
-                command: 'setLoading',
-                loading: false
-            });
-        } finally {
-            vscode.commands.executeCommand('api-designer.refreshApiProjects');
-        }
-    }
-
-    /**
-     * Generate YAML content from API spec object
-     */
-    private generateYAML(spec: any): string {
-        const specVersion = spec.openapi;
-        const info = spec.info || {};
-        
-        let yaml = `openapi: ${specVersion}\n`;
-        yaml += `info:\n`;
-        yaml += `  title: ${info.title}\n`;
-        yaml += `  version: ${info.version}\n`;
-        if (info.description) {
-            yaml += `  description: ${info.description}\n`;
-        }
-        yaml += `paths: {}\n`;
-        
-        return yaml;
-    }
-
-    /**
-     * Switch to preview view with the created file
-     * Returns true if panel was reused, false if new panel was created
-     */
-    private async switchToPreview(filePath: string): Promise<boolean> {
-        try {
-            // Load the spec first
-            let spec: any = null;
-            try {
-                const document = await vscode.workspace.openTextDocument(filePath);
-                const content = document.getText();
-                if (filePath.endsWith('.json')) {
-                    spec = JSON.parse(content);
-                } else {
-                    spec = loadYaml(content);
-                }
-            } catch (parseError) {
-                logDebug('Error parsing spec file:', parseError);
-                // Continue without spec - the editor can still open
-            }
-
-            // Update current file path
-            this._currentFilePath = filePath;
-
-            // Single navigation message: avoids clearing loading before leave-create (create form flash)
-            if (this._panel && !this._isDisposed) {
-                const parsedSpec = spec && spec.openapi ? spec : null;
-                this._panel.webview.postMessage({
-                    command: 'openDesigner',
-                    filePath,
-                    spec: parsedSpec
-                });
-
-                // Also send updateSpec as a backup in case the component is already mounted
-                if (spec && spec.openapi) {
-                    setTimeout(() => {
-                        if (this._panel && !this._isDisposed) {
-                            this._panel.webview.postMessage({
-                                command: 'updateSpec',
-                                data: spec
-                            });
-                        }
-                    }, 300);
-                }
-
-                // Update view type
-                this._viewType = 'preview';
-                return true; // Panel was reused
-            }
-
-            return false; // Panel was not reused
-        } catch (error) {
-            logError('Failed to switch to preview:', error);
-            vscode.window.showErrorMessage(`Failed to open API editor: ${error instanceof Error ? error.message : String(error)}`);
-            this._panel?.webview.postMessage({
-                command: 'setLoading',
-                loading: false
-            });
-            return false;
-        }
-    }
 }

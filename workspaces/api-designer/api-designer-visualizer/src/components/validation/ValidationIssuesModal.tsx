@@ -510,7 +510,7 @@ Note: The validation tool validates OpenAPI specifications automatically.`;
         const issueMessage = `${issue.message}${pathStr}`;
 
         postVSCodeMessage({
-            command: 'openCopilotChat',
+            command: 'openAIChat',
             data: {
                 context: JSON.stringify({
                     validationIssues: [issue],

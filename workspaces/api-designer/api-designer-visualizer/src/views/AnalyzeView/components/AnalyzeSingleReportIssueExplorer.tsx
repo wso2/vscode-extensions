@@ -31,7 +31,7 @@ interface AnalyzeSingleReportIssueExplorerProps {
     rulesetFileUrl?: string;
     rulesetContentPath?: string;
     specContent: string;
-    onOpenCopilotChat: (context: string, prompt: string) => void;
+    onOpenAIChat: (context: string, prompt: string) => void;
     aiBucketFilter?: {
         mainBucketKey: string | null;
         subBucketKey: string | null;
@@ -489,7 +489,7 @@ export const AnalyzeSingleReportIssueExplorer: React.FC<AnalyzeSingleReportIssue
         subtitle,
         rows, stats, filteredRows, groupedRows, selectedIssue, setSelectedIssueId,
         severityFilter, setSeverityFilter, groupBy, setGroupBy, sortBy, setSortBy, sortDir, setSortDir, search, setSearch,
-        aiEnabled, reportKey, reportName, fileUri, rulesetFileUrl, rulesetContentPath, specContent, onOpenCopilotChat, aiBucketFilter, breakdownFilter,
+        aiEnabled, reportKey, reportName, fileUri, rulesetFileUrl, rulesetContentPath, specContent, onOpenAIChat, aiBucketFilter, breakdownFilter,
     } = props;
 
     const LLM_FILTER_VALUE = '__llm_validation__';
@@ -612,7 +612,7 @@ export const AnalyzeSingleReportIssueExplorer: React.FC<AnalyzeSingleReportIssue
                                 onClick={() => {
                                     const sevLabel = severityFilter === 'error' ? 'error' : severityFilter === 'warn' ? 'warning' : 'all';
                                     const prompt = `Fix ${sevLabel === 'all' ? 'all' : `all ${sevLabel}`} violations in the ${reportName} ruleset.\n\nIMPORTANT: Use the #validateWithSpectralRuleset MCP tool:\n1. Call validateWithSpectralRuleset with fileUri: "${fileUri}", rulesetName: "${reportName}", fileUrl: "${rulesetFileUrl}", rulesetContentPath: "${rulesetContentPath}" to find violations.\n2. Fix each violation, then call validateWithSpectralRuleset again to verify.\n3. Repeat until no ${sevLabel === 'all' ? '' : sevLabel + ' '}violations remain.`;
-                                    onOpenCopilotChat(JSON.stringify({ fileUri, rulesetName: reportName, fileUrl: rulesetFileUrl, rulesetContentPath, severityFilter }), prompt);
+                                    onOpenAIChat(JSON.stringify({ fileUri, rulesetName: reportName, fileUrl: rulesetFileUrl, rulesetContentPath, severityFilter }), prompt);
                                 }}
                             />
                         </ToolbarRow>
@@ -677,7 +677,7 @@ export const AnalyzeSingleReportIssueExplorer: React.FC<AnalyzeSingleReportIssue
                                                 status: 'fixing',
                                                 baselineRowsFingerprint: rowsFingerprint,
                                             });
-                                            onOpenCopilotChat(JSON.stringify(detailIssue.violation), `Fix ${reportName} violation: ${detailIssue.message}${pathStr}`);
+                                            onOpenAIChat(JSON.stringify(detailIssue.violation), `Fix ${reportName} violation: ${detailIssue.message}${pathStr}`);
                                         }}
                                     />
                                     <DetailHeaderMeta>

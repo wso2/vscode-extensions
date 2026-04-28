@@ -390,7 +390,7 @@ export const BasicInfoSection: React.FC<BasicInfoSectionProps> = ({
     // AI Prompt hook
     const { showPrompt, InlineChat } = useAIPrompt((context, prompt) => {
         postVSCodeMessage({
-            command: 'openCopilotChat',
+            command: 'openAIChat',
             data: { context, prompt }
         });
     });
@@ -638,7 +638,7 @@ export const BasicInfoSection: React.FC<BasicInfoSectionProps> = ({
                                         warningIssues
                                     );
                                     postVSCodeMessage({
-                                        command: 'openCopilotChat',
+                                        command: 'openAIChat',
                                         data: {
                                             context: JSON.stringify({
                                                 info,

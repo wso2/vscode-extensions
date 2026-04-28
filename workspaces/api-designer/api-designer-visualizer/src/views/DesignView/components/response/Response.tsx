@@ -151,7 +151,7 @@ export function Response(props: ResponseProps) {
     // AI Prompt hook
     const { showPrompt, InlineChat } = useAIPrompt((context, prompt) => {
         postVSCodeMessage({
-            command: 'openCopilotChat',
+            command: 'openAIChat',
             data: { context, prompt }
         });
     });

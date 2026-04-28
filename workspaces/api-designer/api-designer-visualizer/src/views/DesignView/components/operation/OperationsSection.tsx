@@ -230,7 +230,7 @@ export const OperationsSection: React.FC<OperationsSectionProps> = ({
     // AI Prompt hook
     const { showPrompt, InlineChat } = useAIPrompt((context, prompt) => {
         postVSCodeMessage({
-            command: 'openCopilotChat',
+            command: 'openAIChat',
             data: { context, prompt }
         });
     });

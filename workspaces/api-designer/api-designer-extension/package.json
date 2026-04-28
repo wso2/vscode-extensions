@@ -133,7 +133,7 @@
         "displayName": "Open in API Designer",
         "modelDescription": "Opens the API Designer panel for an OpenAPI file or the active editor.",
         "canBeReferencedInPrompt": true,
-        "icon": "$(wand)",
+        "icon": "$(open-preview)",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -154,7 +154,7 @@
         "command": "APIDesigner.openApiDesigner",
         "title": "Open in API Designer",
         "category": "API Designer",
-        "icon": "$(wand)"
+        "icon": "$(open-preview)"
       },
       {
         "command": "APIDesigner.showCode",

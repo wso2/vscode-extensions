@@ -61,15 +61,6 @@ export class AIProviderFactory {
         if (configured && await configured.isAvailable()) {
             return configured;
         }
-
-        // Fallback to any available provider
-        const allProviders = Array.from(this.providers.values());
-        for (const provider of allProviders) {
-            if (await provider.isAvailable()) {
-                return provider;
-            }
-        }
-
         return null;
     }
 
