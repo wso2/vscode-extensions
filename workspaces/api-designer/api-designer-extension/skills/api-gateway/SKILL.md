@@ -210,7 +210,20 @@ Here's what I'll do to expose your API:
 
 First ask: Do you have an OpenAPI spec for your service?
 
-- **If yes:** ask them to share it (file path or paste it). Extract the backend URL, context path, and operations from the spec. Skip asking about URL and endpoints separately.
+- **If yes:** ask them to share it (file path or paste it). Once received, offer:
+
+  > "Would you like to assess this spec before publishing?
+  > - **Assess first** — checks for AI agent readiness, security, and design quality so you can fix issues before the API goes live
+  > - **Publish now** — deploy immediately; you can always run the assessment separately later"
+
+  **If assess first:**
+  Follow the api-readiness-assessment skill flow — it will confirm which checks to run based on what the user said, or ask if unclear. After assessment (with or without fixes applied), ask:
+  > "Ready to continue — shall I generate the publishing YAML now?"
+  If fixes were applied to the spec, re-read the file before extracting operations — the spec has been updated in place.
+
+  **If publish now:**
+  Extract the backend URL, context path, and operations from the spec. Skip asking about URL and endpoints separately.
+
 - **If no:** ask for the backend URL and list of endpoints (method + path).
 
 Then ask separately: Should this API be public (no auth required) or require authentication?

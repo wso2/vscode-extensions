@@ -33,21 +33,30 @@ If the user has not already provided a spec, ask:
 
 Accept YAML or JSON. If given a file path, read the file. Parse silently — do not narrate this step.
 
-If the user pasted content, write it to `/tmp/openapi-assessment.yaml` before running any Spectral commands.
+If the user pasted content, write it to `/tmp/api-readiness/openapi-assessment.yaml` before running any Spectral commands.
 
 **Determine intent** — before proceeding, decide whether the user wants to assess or fix:
 
 - **Fix intent**: user says "fix", "correct", "apply fixes", "remediate", "patch", provides issue IDs (e.g. "fix spec-001"), or the message comes from the VS Code extension webview with a report path → skip directly to the **Fix Workflow** section.
 - **Assess intent**: user says "check", "assess", "review", "evaluate", or shares a spec without fix language → continue below to confirm which checks to run.
 
-**Confirm which checks to run** (assess path only) — unless the user has already specified (e.g. "check security", "run all three"), ask:
+**Confirm which checks to run** (assess path only) — infer from the user's message first. Only ask if the intent is genuinely ambiguous.
 
-> "Which checks would you like to run?
-> 1. **AI Agent Readiness** — Spectral rules (69 checks) + AI analysis (11 guideline categories)
-> 2. **Security Readiness** — OWASP API Top 10 checks
-> 3. **API Design Guidelines** — WSO2 REST design rules (28 checks)
+**Infer without asking when the user mentions:**
+- "agent readiness", "AI readiness", "LLM", "tool use", "agent", "agent-friendly" → run **AI Agent Readiness** only
+- "security", "OWASP", "vulnerabilities", "auth" → run **Security Readiness** only
+- "design", "design guidelines", "WSO2 guidelines", "REST best practices", "API design" → run **API Design Guidelines** only
+- "all", "everything", "all three", "full assessment" → run all three
+- Combination phrases → run the mentioned dimensions
+
+**Ask only when the user shares a spec without any dimension hint:**
+
+> "What would you like to check?
+> - **API Design Guidelines** — WSO2 REST design rules (28 checks)
+> - **Security Readiness** — OWASP API Top 10 checks
+> - **AI Agent Readiness** — Spectral rules (69 checks) + AI analysis (11 guideline categories)
 >
-> Reply with the numbers, e.g. `1`, `1 2`, or `1 2 3`."
+> You can pick one, a few, or all three."
 
 Wait for the user's reply before proceeding.
 
@@ -82,35 +91,30 @@ If Spectral is not found:
 > Then confirm here."
 Wait for confirmation, then re-run `spectral --version` before continuing.
 
-**Step 2: Run Spectral, saving output to a file**
+**Step 2: Run all Spectral checks**
+
+Pass `--agent` here, plus `--security` and/or `--design` if those dimensions are also requested — all checks run in a single script call.
 
 ```bash
-spectral lint <spec-file> \
-  --ruleset <absolute-path-to-skill>/references/agent-readiness-spectral/ai-readiness.yaml \
-  --format json > /tmp/spectral-ai.json 2>/dev/null || true
-```
-
-Exit code 1 is normal — it means violations were found.
-
-**Step 3: Process into enriched issues**
-
-```bash
-python3 <absolute-path-to-skill>/scripts/process_spectral.py \
-  /tmp/spectral-ai.json \
-  <absolute-path-to-skill>/references/ai-readiness-metadata.json \
-  --prefix spec \
-  --output /tmp/spec-issues.json
+bash <absolute-path-to-skill>/scripts/run_checks.sh \
+  <spec-file> \
+  <absolute-path-to-skill> \
+  --agent [--security] [--design]
 ```
 
 ---
 
 ### Phase 2 — LLM Analysis
 
+**Skip this phase entirely if AI Agent Readiness was not requested** (e.g. security-only or design-only run) — proceed directly to Output.
+
 Tell the user:
 
 > "Running AI analysis — reviewing spec against 11 agent-readiness guideline categories…"
 
 Read `references/agent-readiness-guidelines.md` in full.
+
+Work directly from the spec content already in context — do not read any files from `/tmp/api-readiness/`. Those files are for `finalize_report.py` only. Your analysis is independent of the Spectral results.
 
 Walk all 11 categories in order. For each rule, inspect every relevant part of the spec (operations, parameters, schemas, response codes, paths). Be thorough — do not skip categories even if they seem unlikely to apply.
 
@@ -123,62 +127,40 @@ For each violation found, record an object with these fields (no `id` — the as
 - **`description`**: the agent impact — what an agent will do wrong because of this violation.
 - **`fixSuggestion`**: a concise, actionable description of what to change.
 
-When all violations are found, hold the array in context — it will be written to file in the Output section.
+When all violations are found, serialize the array to a compact JSON string and hold it in context — it will be passed to `finalize_report.py` via `--ai-issues-json` in the Output section (no file write needed).
 
 ---
 
 ## Security Readiness Assessment
 
-Before starting, tell the user:
+Tell the user:
 
 > "Running Security Readiness assessment — checking against OWASP API Security Top 10 rules…"
 
-**Step 1: Ensure Spectral is installed** (same check as above — skip if already confirmed).
-
-**Step 2: Run Spectral, saving output to a file**
+The Spectral run for security is handled by `run_checks.sh --security` (already called in Phase 1 above if agent readiness was also requested, or call it now if security is the only dimension):
 
 ```bash
-spectral lint <spec-file> \
-  --ruleset <absolute-path-to-skill>/references/owasp-top-10-raw.yaml \
-  --format json > /tmp/spectral-sec.json 2>/dev/null || true
-```
-
-**Step 3: Process into enriched issues**
-
-```bash
-python3 <absolute-path-to-skill>/scripts/process_spectral.py \
-  /tmp/spectral-sec.json \
-  <absolute-path-to-skill>/references/owasp-top-10-metadata.json \
-  --prefix sec \
-  --output /tmp/sec-issues.json
+bash <absolute-path-to-skill>/scripts/run_checks.sh \
+  <spec-file> \
+  <absolute-path-to-skill> \
+  --security
 ```
 
 ---
 
 ## API Design Guidelines Assessment
 
-Before starting, tell the user:
+Tell the user:
 
 > "Running API Design Guidelines assessment — checking against WSO2 REST design rules (28 checks)…"
 
-**Step 1: Ensure Spectral is installed** (same check as above — skip if already confirmed).
-
-**Step 2: Run Spectral, saving output to a file**
+The Spectral run for design is handled by `run_checks.sh --design` (already called in Phase 1 above if agent readiness was also requested, or call it now if design is the only dimension):
 
 ```bash
-spectral lint <spec-file> \
-  --ruleset <absolute-path-to-skill>/references/wso2-design-guidelines-raw.yaml \
-  --format json > /tmp/spectral-des.json 2>/dev/null || true
-```
-
-**Step 3: Process into enriched issues**
-
-```bash
-python3 <absolute-path-to-skill>/scripts/process_spectral.py \
-  /tmp/spectral-des.json \
-  <absolute-path-to-skill>/references/wso2-design-guidelines-metadata.json \
-  --prefix des \
-  --output /tmp/des-issues.json
+bash <absolute-path-to-skill>/scripts/run_checks.sh \
+  <spec-file> \
+  <absolute-path-to-skill> \
+  --design
 ```
 
 ---
@@ -193,70 +175,40 @@ When all phases are done, tell the user:
 
 Then run the steps below without further narration until the summary is ready.
 
-**Step 1 — Write ai-issues to file** (skip if Agent Readiness was not assessed)
+**Step 1 — Finalize report** (single script call)
 
-Read `/tmp/ai-issues-raw.json` (it may not exist yet — that's fine, the Read attempt is required before writing). Then write the Phase 2 issues as a JSON array to `/tmp/ai-issues-raw.json`. Fields: `severity`, `rule`, `path`, `issue`, `description`, `fixSuggestion`. No `id` field.
+The script resolves the output path automatically, assembles the report, generates HTML, prints the summary, and cleans up `/tmp/api-readiness/`.
 
-**Step 2 — Determine output path**
+- Pass `--ai-issues-json` only if Agent Readiness was assessed — serialize the Phase 2 violations array to a compact JSON string and pass it here directly (no file write needed). Omit it entirely for security-only or design-only runs.
+- Pass `"pasted"` for `--spec-file` if the spec was pasted rather than given as a path.
 
-Resolve the `api-reports/` directory using this priority order:
-
+Agent Readiness run (all three or agent included):
 ```bash
-# 1. Prefer an existing api-reports/ in CWD
-# 2. Fall back to an existing api-reports/ next to the spec file (file path only)
-# 3. Create api-reports/ in CWD as last resort
-if [ -d "$(pwd)/api-reports" ]; then
-  REPORT_DIR="$(pwd)/api-reports"
-elif [ -n "<spec-dir>" ] && [ -d "<spec-dir>/api-reports" ]; then
-  REPORT_DIR="<spec-dir>/api-reports"
-else
-  REPORT_DIR="$(pwd)/api-reports"
-  mkdir -p "$REPORT_DIR"
-fi
+python3 <absolute-path-to-skill>/scripts/finalize_report.py \
+  --spec-file <spec-file-path-or-"pasted"> \
+  --meta '{"specFile":"<path-or-pasted>","assessedAt":"<ISO-8601-UTC>","spectralVersion":"<version>","guidelinesVersion":"agent-readiness-guidelines.md","model":"claude-sonnet-4-6"}' \
+  --skill-dir <absolute-path-to-skill> \
+  --ai-issues-json '<compact-json-array>'
 ```
 
-Then set the output path using the spec's filename stem (no extension):
-- Spec given as file path: `$REPORT_DIR/<spec-stem>-api-readiness-report.json` (e.g. `openapi.yaml` → `openapi-api-readiness-report.json`)
-- Spec pasted: `$REPORT_DIR/api-readiness-report.json`
-
-If spec was pasted and no `api-reports/` was found in either CWD or any parent, ask the user before creating:
-> "No project workspace detected. Where should I save the report?
-> 1. Specify a custom path
-> 2. Save to default location (`~/.wso2/reports/api-readiness-report.json`)"
-
-**Step 3 — Assemble report and generate HTML** (single bash call)
-
+Security-only or design-only run (no `--ai-issues-json`):
 ```bash
-python3 <absolute-path-to-skill>/scripts/assemble_report.py \
-  --meta '{"specFile":"<path-or-pasted-content>","assessedAt":"<ISO-8601-UTC>","spectralVersion":"<version>","guidelinesVersion":"agent-readiness-guidelines.md","model":"claude-sonnet-4-6"}' \
-  [--spec-issues /tmp/spec-issues.json] \
-  [--ai-issues /tmp/ai-issues-raw.json] \
-  [--sec-issues /tmp/sec-issues.json] \
-  [--des-issues /tmp/des-issues.json] \
-  --output <output-path> \
-&& python3 <absolute-path-to-skill>/scripts/generate_html_report.py <output-path>
+python3 <absolute-path-to-skill>/scripts/finalize_report.py \
+  --spec-file <spec-file-path-or-"pasted"> \
+  --meta '{"specFile":"<path-or-pasted>","assessedAt":"<ISO-8601-UTC>","spectralVersion":"<version>","guidelinesVersion":"agent-readiness-guidelines.md","model":"claude-sonnet-4-6"}' \
+  --skill-dir <absolute-path-to-skill>
 ```
 
-Omit `--spec-issues` / `--ai-issues` if agent readiness was not assessed. Omit `--sec-issues` if security was not assessed. Omit `--des-issues` if design guidelines were not assessed.
-
-**Step 4 — Show summary**
-
-```bash
-python3 <absolute-path-to-skill>/scripts/generate_summary.py <output-path>
-```
-
-Show the script's stdout verbatim as the response.
+Show the script's stdout verbatim as the response. The script prints the report and HTML paths at the end — use those for the next step.
 
 **Step 5 — Offer next steps**
 
-First check whether the `openInApiDesigner` tool is available in your tools list.
-
-**If available** (running inside the VS Code API Designer extension chat):
-- Call `openInApiDesigner` with no arguments — the extension knows where to find the report and opens the webview immediately.
+**If running inside the VS Code API Designer extension** (`openInApiDesigner` tool is present in your tools list):
+- Call `openInApiDesigner` with no arguments — the extension opens the report webview immediately.
 - Then ask: *"Would you also like to apply fixes to your spec?"*
 - If yes: proceed to **Fix Workflow**.
 
-**If not available** (Claude Code CLI or standalone chat):
+**If running in Claude Code CLI or standalone chat** (`openInApiDesigner` is not available):
 - Ask: *"Would you like to open the full HTML report in your browser?"*
 - If yes: run `open <html-path>` (macOS) or `xdg-open <html-path>` (Linux)
 - Then ask: *"Would you like to apply fixes to your spec?"*

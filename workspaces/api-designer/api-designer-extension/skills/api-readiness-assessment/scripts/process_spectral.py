@@ -20,7 +20,7 @@ def main():
     )
     parser.add_argument("spectral_json", help="Path to Spectral --format json output file")
     parser.add_argument("metadata_json", help="Path to metadata JSON file (rules dict)")
-    parser.add_argument("--prefix", required=True, choices=["spec", "sec"], help="Issue ID prefix")
+    parser.add_argument("--prefix", required=True, choices=["spec", "sec", "des"], help="Issue ID prefix")
     parser.add_argument("--output", "-o", help="Output file path (default: stdout)")
     args = parser.parse_args()
 
