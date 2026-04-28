@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { ThemeColors } from "@wso2/ui-toolkit";
+import { ThemeColors, Button } from "@wso2/ui-toolkit";
 import styled from "@emotion/styled";
 import { MODERN } from '../../constants';
 
@@ -49,26 +49,15 @@ const TitleName = styled.span`
     letter-spacing: 0.01em;
 `;
 
-const TryButton = styled.button`
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 14px;
-    border: none;
+const TryButton = styled(Button)`
     border-radius: 6px;
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 500;
-    font-family: var(--vscode-font-family);
-    background-color: var(--vscode-button-background);
-    color: var(--vscode-button-foreground);
-    flex-shrink: 0;
-    transition: background-color 0.15s ease, transform 0.1s ease;
+    border: 1px solid transparent;
+    transition: border-color 0.15s ease, transform 0.1s ease, background-color 0.15s ease;
     &:hover {
-        background-color: var(--vscode-button-hoverBackground);
+        border-color: var(--vscode-focusBorder);
+        background-color: rgba(255,255,255,0.05);
     }
     &:active {
-        opacity: 0.9;
         transform: scale(0.98);
     }
 `;
@@ -86,7 +75,18 @@ export function WorkflowTitleBar({ workflowId, onTry }: WorkflowTitleBarProps) {
     return (
         <TitleBar>
             <TitleName title={workflowId}>{workflowId}</TitleName>
-            <TryButton onClick={onTry}>▶ Try</TryButton>
+            <TryButton
+                appearance="secondary"
+                buttonSx={{
+                    backgroundColor: "transparent",
+                    color: "var(--vscode-foreground)",
+                    border: "none",
+                    boxShadow: "none",
+                }}
+                onClick={onTry}
+            >
+                ▶ Try
+            </TryButton>
         </TitleBar>
     );
 }
