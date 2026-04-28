@@ -32,6 +32,8 @@ import {
     GetGovernanceResponse,
     UnifiedAnalyzeReport,
     SpectralRuleset,
+    buildAiReadinessSummary,
+    spectralViolationsToUnifiedById,
     ValidateAPISpecRequest,
     ValidateAPISpecResponse,
     getDefaultGovernanceSpectralRulesets,
@@ -44,6 +46,35 @@ import {
 import { getAllSpectralRulesets as getAllSpectralRulesetsFromConfig } from '../../../spectral/rulesetAutomation';
 import { BaseRpcManager } from './base-rpc-manager';
 import { extension } from '../../../APIDesignerExtensionContext';
+
+const GUIDELINE_RULE_TO_INTERNAL_RULE: Record<string, string> = {
+    'rule 1.1': 'ai-readiness-llm-operation-id-verb-noun',
+    'rule 1.2': 'ai-readiness-llm-operation-id-distinctiveness',
+    'rule 2.1': 'ai-readiness-llm-summary-imperative-verb',
+    'rule 2.2': 'ai-readiness-llm-summary-business-semantics',
+    'rule 3.1': 'ai-readiness-llm-description-preconditions',
+    'rule 3.2': 'ai-readiness-llm-description-side-effects',
+    'rule 3.3': 'ai-readiness-llm-description-draft-finalized',
+    'rule 3.4': 'ai-readiness-llm-description-required-scopes',
+    'rule 3.5': 'ai-readiness-llm-description-workflow-position',
+    'rule 4.1': 'ai-readiness-llm-destructive-irreversible-warning',
+    'rule 4.2': 'ai-readiness-llm-destructive-cascade-effects',
+    'rule 4.3': 'ai-readiness-llm-destructive-reasoning-instructions',
+    'rule 5.1': 'ai-readiness-llm-parameter-business-meaning',
+    'rule 5.2': 'ai-readiness-llm-parameter-enum-value-explanations',
+    'rule 5.3': 'ai-readiness-llm-parameter-id-sourcing',
+    'rule 6.1': 'ai-readiness-llm-errors-structured-4xx',
+    'rule 6.2': 'ai-readiness-llm-errors-401-403-distinction',
+    'rule 6.3': 'ai-readiness-llm-errors-429-retry-guidance',
+    'rule 7.1': 'ai-readiness-llm-workflow-response-to-parameter-linkage',
+    'rule 7.2': 'ai-readiness-llm-workflow-hateoas-links',
+    'rule 8.1': 'ai-readiness-llm-bulk-batch-operations',
+    'rule 9.1': 'ai-readiness-llm-sparse-fieldsets',
+    'rule 10.1': 'ai-readiness-llm-agent-discovery-endpoints',
+    'rule 11.1': 'ai-readiness-llm-naming-singular-plural',
+    'rule 11.2': 'ai-readiness-llm-naming-property-casing',
+    'rule 11.3': 'ai-readiness-llm-naming-ambiguous-properties',
+};
 
 /** Payload returned by `validateWithSpectralRuleset` before `report` / `reportId` are applied. */
 type SpectralGovernancePayload = {
@@ -219,6 +250,39 @@ export class GovernanceManager extends BaseRpcManager {
     private static llmStateByApiHash = new Map<string, LlmValidationState>();
     private static llmJobsByApiHash = new Map<string, Promise<void>>();
     private static agentReadinessGuidelinesContent: string | null = null;
+    private static readonly llmInternalRuleAllowlist = new Set([
+        ...Object.values(GUIDELINE_RULE_TO_INTERNAL_RULE).map((rule) => rule.toLowerCase()),
+        'ai-readiness-llm-general'
+    ]);
+
+    private normalizeGuidelineRuleRef(rule: string): string | null {
+        const raw = String(rule || '').trim();
+        if (!raw) return null;
+        const match = raw.match(/rule\s*([0-9]+(?:\.[0-9]+))/i);
+        if (!match) return null;
+        return `Rule ${match[1]}`;
+    }
+
+    private extractGuidelineRuleRefs(guidelines: string): string[] {
+        const refs = new Set<string>();
+        const regex = /^###\s+Rule\s+([0-9]+(?:\.[0-9]+))\s*-/gim;
+        let match = regex.exec(guidelines);
+        while (match) {
+            refs.add(`Rule ${match[1]}`);
+            match = regex.exec(guidelines);
+        }
+        return Array.from(refs);
+    }
+
+    private toInternalLlmRuleId(rule: string): string {
+        const normalizedInternal = String(rule || '').trim().toLowerCase();
+        if (GovernanceManager.llmInternalRuleAllowlist.has(normalizedInternal)) {
+            return normalizedInternal;
+        }
+        const guidelineRef = this.normalizeGuidelineRuleRef(rule);
+        if (!guidelineRef) return 'ai-readiness-llm-general';
+        return GUIDELINE_RULE_TO_INTERNAL_RULE[guidelineRef.toLowerCase()] || 'ai-readiness-llm-general';
+    }
 
     constructor() {
         super('GovernanceManager');
@@ -616,6 +680,9 @@ export class GovernanceManager extends BaseRpcManager {
             guidelines,
             'Analyze the OpenAPI content and return strict JSON only with this shape:',
             '{"score":number,"summary":string,"findings":[{"rule":string,"message":string,"severity":"error|warn|info|hint","path":"dot.path.or.empty","suggestion":"optional"}]}',
+            'For finding.rule, use guideline rule references exactly in this format: "Rule X.Y" (for example "Rule 3.3").',
+            'Use ONLY rule refs present in the guideline document. Available refs:',
+            this.extractGuidelineRuleRefs(guidelines).join(', '),
             'Rules:',
             '- Score must be 0-100',
             '- Keep summary under 220 chars',
@@ -647,9 +714,10 @@ export class GovernanceManager extends BaseRpcManager {
                 (finding.severity === 'error' || finding.severity === 'warn' || finding.severity === 'hint' || finding.severity === 'info')
                     ? finding.severity
                     : 'info';
+            const guidelineRuleRef = this.normalizeGuidelineRuleRef(String(finding.rule || '')) || 'Rule Unknown';
             return {
                 id: `llm:${index}`,
-                rule: String(finding.rule || 'llm.validation'),
+                rule: guidelineRuleRef,
                 message: String(finding.message || 'Potential AI readiness issue detected'),
                 severity,
                 pathSegments,
@@ -662,6 +730,32 @@ export class GovernanceManager extends BaseRpcManager {
             summary: String(parsed.summary || 'LLM AI readiness validation completed.'),
             findings,
         };
+    }
+
+    private mapLlmFindingsToGovernanceViolations(
+        llmValidation?: LlmValidationState
+    ): Array<{
+        rule: string;
+        code?: string;
+        message: string;
+        description?: string;
+        fixSuggestion?: string;
+        severity: string;
+        path?: string[] | string;
+    }> {
+        const findings = llmValidation?.result?.findings || [];
+        return findings.map((finding) => {
+            const mappedRule = this.toInternalLlmRuleId(finding.rule);
+            return {
+                rule: mappedRule,
+                code: finding.rule,
+                message: finding.message,
+                description: finding.suggestion,
+                fixSuggestion: finding.suggestion,
+                severity: finding.severity,
+                path: finding.pathSegments,
+            };
+        });
     }
 
     private async executeLlmValidation(specContent: string): Promise<LlmExecutionResult> {
@@ -1101,10 +1195,10 @@ export class GovernanceManager extends BaseRpcManager {
         });
         const reportTitle =
             reportId === 'ai-readiness'
-                ? 'Agent Readiness'
+                ? 'AI Readiness'
                 : reportId === 'owasp'
-                    ? 'Security Posture (OWASP)'
-                    : 'REST Guideline Compliance';
+                    ? 'Security (OWASP)'
+                    : 'REST Compliance';
         const computedScore = this.computeWeightedScore(reportId, response);
         const rawViolations = response.violations || [];
         const violationsById: Record<string, UnifiedViolation> = {};
@@ -1340,7 +1434,7 @@ export class GovernanceManager extends BaseRpcManager {
                 ],
             },
             breakdown: {
-                title: reportId === 'owasp' ? 'OWASP Breakdown' : reportId === 'rest-api-readiness' ? 'WSO2 REST Guidelines Breakdown' : 'Agent Readiness Breakdown',
+                title: reportId === 'owasp' ? 'Security (OWASP) Breakdown' : reportId === 'rest-api-readiness' ? 'REST Compliance Breakdown' : 'AI Readiness Breakdown',
                 subtitle: reportId === 'owasp'
                     ? 'OWASP API Security themes for which this analysis found issues. The bundled ruleset includes a subset of API1–10 rules (for example API2, API3, API4, API8, API9), not every category.'
                     : reportId === 'rest-api-readiness'
@@ -1464,23 +1558,9 @@ export class GovernanceManager extends BaseRpcManager {
                             ...workspaceCache,
                             status: 'stale',
                             apiHash,
-                            error: 'OpenAPI spec changed since last evaluation. Click Re-evaluate to refresh.',
+                            error: 'OpenAPI spec changed since last evaluation. Click Analyse to refresh.',
                         }
-                        : workspaceCache
-                            ? workspaceCache
-                            : {
-                                status: 'stale',
-                                apiHash,
-                                updatedAt: Date.now(),
-                                error: 'LLM analysis is missing in the report file. Click Re-evaluate to refresh.',
-                            };
-                } else {
-                    void this.ensureLlmValidationForFile(normalizedPath);
-                    llmValidation = {
-                        status: 'pending',
-                        apiHash,
-                        updatedAt: Date.now(),
-                    };
+                        : (workspaceCache || undefined);
                 }
             } else if (llmValidation.status === 'pending') {
                 if (GovernanceManager.llmJobsByApiHash.has(apiHash)) {
@@ -1531,6 +1611,33 @@ export class GovernanceManager extends BaseRpcManager {
                 inferredReportId === 'owasp'
                     ? rulesetInsights.owaspCategoryKeys
                     : undefined;
+            if (inferredReportId === 'ai-readiness') {
+                const llmMappedViolations = this.mapLlmFindingsToGovernanceViolations(llmValidation);
+                if (llmMappedViolations.length > 0) {
+                    response.violations = [...(response.violations || []), ...llmMappedViolations];
+                    const mergedViolationsById = spectralViolationsToUnifiedById(response.violations || []);
+                    const mergedSummary = buildAiReadinessSummary({
+                        report: { violationsById: mergedViolationsById },
+                    });
+                    response.breakdown = {
+                        score: mergedSummary.score,
+                        dimensions: (mergedSummary.dimensions || []).map((dimension) => ({
+                            key: dimension.key,
+                            label: dimension.label,
+                            description: dimension.description,
+                            score: dimension.score,
+                            subBuckets: (dimension.subBuckets || []).map((subBucket) => ({
+                                key: subBucket.key,
+                                label: subBucket.label,
+                                description: subBucket.description,
+                                percentage: subBucket.percentage,
+                                rules: (subBucket.rules || []).map((rule) => ({ key: rule.key })),
+                            })),
+                        })),
+                    };
+                    response.score = mergedSummary.score;
+                }
+            }
             const unifiedReport = this.buildUnifiedReport(reportTitle, response, owaspCategoryKeys);
             response.score = unifiedReport.overview.score;
             await this.persistSpectralSection(normalizedPath, unifiedReport.reportId, unifiedReport.violationsById);

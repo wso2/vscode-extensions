@@ -9,9 +9,9 @@ export const REPORT_TITLES: Record<AnalyzeReportKey, string> = {
 };
 
 export const BREAKDOWN_TITLES: Record<AnalyzeReportKey, string> = {
-    'ai-readiness': 'Agent Readiness Breakdown',
-    owasp: 'OWASP Breakdown',
-    'rest-api-readiness': 'WSO2 REST Guidelines Breakdown',
+    'ai-readiness': 'AI Readiness Breakdown',
+    owasp: 'Security (OWASP) Breakdown',
+    'rest-api-readiness': 'REST Compliance Breakdown',
 };
 
 export const BREAKDOWN_SUBTITLES: Record<AnalyzeReportKey, string> = {

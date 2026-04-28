@@ -216,6 +216,10 @@ const CountAction = styled.button`
     text-underline-offset: 2px;
 `;
 
+const DimInfoCount = styled.span`
+    color: var(--vscode-editorInfo-foreground, #38bdf8);
+`;
+
 const ExtLinkSvg = () => (
     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'inline-block', verticalAlign: 'middle', marginLeft: 3, opacity: 0.7 }}>
         <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
@@ -235,6 +239,10 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
 }) => {
     const categories = unifiedCategories || [];
     const orderedCategories = React.useMemo(() => {
+        if (reportKey === 'ai-readiness') {
+            // Preserve backend-defined AI readiness dimension order.
+            return categories;
+        }
         const priority = (cat: { errors: number; warnings: number }) => {
             if (cat.errors > 0) return 0;
             if (cat.warnings > 0) return 1;
@@ -247,12 +255,12 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
             b.total - a.total ||
             a.label.localeCompare(b.label)
         );
-    }, [categories]);
+    }, [categories, reportKey]);
     const resolvedTitle = title || (reportKey === 'owasp'
-        ? 'OWASP Breakdown'
+        ? 'Security (OWASP) Breakdown'
         : reportKey === 'rest-api-readiness'
-            ? 'WSO2 REST Guidelines Breakdown'
-            : 'Agent Readiness Breakdown');
+            ? 'REST Compliance Breakdown'
+            : 'AI Readiness Breakdown');
 
     const badge =
         orderedCategories.length === 0
@@ -352,11 +360,11 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
                                                                 </DimWarningCount>
                                                             )}
                                                             {(cat.infos || 0) > 0 && (
-                                                                <span>
+                                                                <DimInfoCount>
                                                                     <CountAction onClick={() => onViewIssues(`__severity__:info:${cat.viewIssuesFilter.key}`)}>
                                                                         {cat.infos} info{cat.infos !== 1 ? 's' : ''}
                                                                     </CountAction>
-                                                                </span>
+                                                                </DimInfoCount>
                                                             )}
                                                         </>
                                                     )}

@@ -38,7 +38,7 @@ const openAIChat = (context: string, prompt: string) =>
 
 const Root = styled.div`
     width: 100%;
-    padding: 28px 32px 40px;
+    padding: 28px 32px 16px;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
@@ -418,7 +418,7 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
     const llmFindingsCount = report.llmValidation?.result?.findings?.length || 0;
     const llmStatusValue: 'pending' | 'ready' | 'failed' | 'stale' | 'idle' = llmStatus || 'idle';
     const llmStatusLabel = llmStatusValue === 'idle'
-        ? 'Not started'
+        ? 'No analysis yet'
         : llmStatusValue === 'pending'
             ? 'Running'
             : llmStatusValue === 'ready'
@@ -437,7 +437,13 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
                 : llmStatusValue === 'failed'
                     ? (report.llmValidation?.error || 'Previous evaluation failed')
                     : 'Run LLM analysis to generate deeper findings';
-    const llmActionLabel = llmStatusValue === 'ready' ? 'View findings' : llmStatusValue === 'pending' ? 'Analyzing…' : llmStatusValue === 'stale' ? 'Analyze again' : llmStatusValue === 'failed' ? 'Analyze again' : 'Analyze with LLM';
+    const llmActionLabel = llmStatusValue === 'ready'
+        ? 'View findings'
+        : llmStatusValue === 'pending'
+            ? 'Analysing…'
+            : llmStatusValue === 'stale'
+                ? 'Analyse again'
+                : 'Analyse';
     const handleOpenLlmFindings = () => {
         setSelectedAiMainBucketKey(null);
         setSelectedAiBucketKey(null);

@@ -134,9 +134,6 @@ export class ApiDesignerPanel {
         
         // Send immediately - views need state as soon as possible
         sendInitialState();
-        if (this._viewType === 'design' && this._currentFilePath) {
-            void this.governanceManager.ensureLlmValidationForFile(this._currentFilePath);
-        }
         
         // Retry once after a short delay to handle webview startup races.
         setTimeout(sendInitialState, 100);
@@ -421,9 +418,6 @@ export class ApiDesignerPanel {
         }
 
         this._viewType = newViewType;
-        if (newViewType === 'design' && this._currentFilePath) {
-            void this.governanceManager.ensureLlmValidationForFile(this._currentFilePath);
-        }
 
         if (!this._currentFilePath) {
             logDebug(`ApiDesignerPanel: Cannot switch to ${newViewType} - no file path available`);

@@ -284,6 +284,26 @@ const CardPathText = styled.div`
     font-size: ${ANALYZE_TYPE_SCALE.sm}; color: var(--vscode-descriptionForeground);
     font-family: var(--vscode-editor-font-family, monospace); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 `;
+const CardMetaRow = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+`;
+const AiOriginBadge = styled.span`
+    display: inline-flex;
+    align-items: center;
+    height: 16px;
+    padding: 0 6px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--vscode-editorInfo-foreground, #38bdf8);
+    background: color-mix(in srgb, var(--vscode-editorInfo-foreground, #38bdf8) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--vscode-editorInfo-foreground, #38bdf8) 30%, var(--vscode-panel-border));
+    flex-shrink: 0;
+`;
 const TableFooter = styled.div`
     padding: 6px 12px; font-size: ${ANALYZE_TYPE_SCALE.sm}; color: var(--vscode-descriptionForeground);
     border-top: 1px solid var(--vscode-panel-border); background: var(--vscode-editorGroupHeader-tabsBackground);
@@ -647,7 +667,11 @@ export const AnalyzeSingleReportIssueExplorer: React.FC<AnalyzeSingleReportIssue
                                 {filteredRows.length === 0 ? <EmptyState>No issues match your filters.</EmptyState> : groupedRows.map((group) => (
                                     <IssueGroup key={group.key}>
                                         {groupBy !== 'none' && <GroupHeader>{group.key} ({group.rows.length})</GroupHeader>}
-                                        {group.rows.map((row) => (
+                                        {group.rows.map((row) => {
+                                            const isAiFinding = (row.breakdownKeys || []).includes('llm-validation') ||
+                                                /^rule\s+\d+(?:\.\d+)?$/i.test((row.rule || '').trim()) ||
+                                                (row.rule || '').toLowerCase().startsWith('ai-readiness-llm-');
+                                            return (
                                             <IssueCard
                                                 key={row.id}
                                                 $selected={isDetailOpen && detailIssue?.id === row.id}
@@ -659,9 +683,13 @@ export const AnalyzeSingleReportIssueExplorer: React.FC<AnalyzeSingleReportIssue
                                                 }}
                                             >
                                                 <CardMessage>{row.message}</CardMessage>
-                                                <CardPathText>{row.path}</CardPathText>
+                                                <CardMetaRow>
+                                                    <CardPathText>{row.path}</CardPathText>
+                                                    {isAiFinding && <AiOriginBadge>AI</AiOriginBadge>}
+                                                </CardMetaRow>
                                             </IssueCard>
-                                        ))}
+                                            );
+                                        })}
                                     </IssueGroup>
                                 ))}
                             </IssueCardsBody>

@@ -320,7 +320,7 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ fileUri, valid
         () => [
             {
                 key: 'ai-ready',
-                label: 'Agent Readiness',
+                label: 'AI Readiness',
                 description: 'Measures how ready this API is for AI agent consumption and tool use.',
                 score: metrics['ai-readiness'].score,
                 analyzeSection: 'ai-readiness',
@@ -328,7 +328,7 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ fileUri, valid
             },
             {
                 key: 'owasp',
-                label: 'Security Posture (OWASP)',
+                label: 'Security (OWASP)',
                 description: 'Measures alignment with OWASP API Security best practices.',
                 score: metrics.owasp.score,
                 analyzeSection: 'owasp',
@@ -336,7 +336,7 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ fileUri, valid
             },
             {
                 key: 'rest-api-readiness',
-                label: 'REST Guideline Compliance',
+                label: 'REST Compliance',
                 description: 'Measures alignment with WSO2 REST API design guidelines.',
                 score: metrics['rest-api-readiness'].score,
                 analyzeSection: 'rest-api-readiness',

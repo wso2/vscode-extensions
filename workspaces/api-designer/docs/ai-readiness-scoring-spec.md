@@ -95,7 +95,7 @@ across categories with `total &gt; 0`. This can **diverge** from `buildAiReadine
 
 ---
 
-## 7. UI: “Agent Readiness Breakdown” (four pillars)
+## 7. UI: AI Readiness Breakdown” (four pillars)
 
 The Analyze view **renders** `aiReadinessSummary.dimensions` from the governance RPC: labels, descriptions, per-dimension scores, and nested `subBuckets` are all computed in `buildAiReadinessSummary`. The webview does not recompute aggregation.
 

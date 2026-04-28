@@ -214,7 +214,41 @@ const RULE_CATEGORY_MAP: Record<string, string> = {
 
     // Idempotency
     'ai-readiness-idempotency-key': 'idempotency',
+
+    // LLM-based checks (must use exact rule names)
+    'ai-readiness-llm-operation-id-verb-noun': 'operationIds',
+    'ai-readiness-llm-operation-id-distinctiveness': 'operationIds',
+    'ai-readiness-llm-summary-imperative-verb': 'summaries',
+    'ai-readiness-llm-summary-business-semantics': 'summaries',
+    'ai-readiness-llm-description-preconditions': 'descriptions',
+    'ai-readiness-llm-description-side-effects': 'descriptions',
+    'ai-readiness-llm-description-draft-finalized': 'descriptions',
+    'ai-readiness-llm-description-required-scopes': 'descriptions',
+    'ai-readiness-llm-description-workflow-position': 'descriptions',
+    'ai-readiness-llm-destructive-irreversible-warning': 'security',
+    'ai-readiness-llm-destructive-cascade-effects': 'security',
+    'ai-readiness-llm-destructive-reasoning-instructions': 'security',
+    'ai-readiness-llm-parameter-business-meaning': 'descriptions',
+    'ai-readiness-llm-parameter-enum-value-explanations': 'descriptions',
+    'ai-readiness-llm-parameter-id-sourcing': 'descriptions',
+    'ai-readiness-llm-errors-structured-4xx': 'errorSemantics',
+    'ai-readiness-llm-errors-401-403-distinction': 'errorSemantics',
+    'ai-readiness-llm-errors-429-retry-guidance': 'headers',
+    'ai-readiness-llm-workflow-response-to-parameter-linkage': 'descriptions',
+    'ai-readiness-llm-workflow-hateoas-links': 'examples',
+    'ai-readiness-llm-bulk-batch-operations': 'pagination',
+    'ai-readiness-llm-sparse-fieldsets': 'pagination',
+    'ai-readiness-llm-agent-discovery-endpoints': 'summaries',
+    'ai-readiness-llm-naming-singular-plural': 'operationIds',
+    'ai-readiness-llm-naming-property-casing': 'typing',
+    'ai-readiness-llm-naming-ambiguous-properties': 'descriptions',
+    'ai-readiness-llm-general': 'descriptions',
 };
+
+const LLM_RULE_PREFIX = 'ai-readiness-llm-';
+export const AI_READINESS_LLM_RULES: string[] = Object.keys(RULE_CATEGORY_MAP).filter((rule) =>
+    rule.startsWith(LLM_RULE_PREFIX)
+);
 
 // Rule counts per bucket
 const BUCKET_RULE_COUNTS: Record<string, number> = Object.keys(RULE_CATEGORY_MAP).reduce(
@@ -351,6 +385,48 @@ const SUBBUCKET_RULE_MAP: Record<string, string[]> = {
     ],
     idempotency: ['ai-readiness-idempotency-key'],
 };
+
+// Allow UI/bucket mapping for LLM findings with exact rule names, but do not include
+// these in spectral-weighted bucket totals for readiness scoring.
+SUBBUCKET_RULE_MAP.operationIds.push(
+    'ai-readiness-llm-operation-id-verb-noun',
+    'ai-readiness-llm-operation-id-distinctiveness',
+    'ai-readiness-llm-naming-singular-plural'
+);
+SUBBUCKET_RULE_MAP.summaries.push(
+    'ai-readiness-llm-summary-imperative-verb',
+    'ai-readiness-llm-summary-business-semantics',
+    'ai-readiness-llm-agent-discovery-endpoints'
+);
+SUBBUCKET_RULE_MAP.descriptions.push(
+    'ai-readiness-llm-description-preconditions',
+    'ai-readiness-llm-description-side-effects',
+    'ai-readiness-llm-description-draft-finalized',
+    'ai-readiness-llm-description-required-scopes',
+    'ai-readiness-llm-description-workflow-position',
+    'ai-readiness-llm-parameter-business-meaning',
+    'ai-readiness-llm-parameter-enum-value-explanations',
+    'ai-readiness-llm-parameter-id-sourcing',
+    'ai-readiness-llm-workflow-response-to-parameter-linkage',
+    'ai-readiness-llm-naming-ambiguous-properties',
+    'ai-readiness-llm-general'
+);
+SUBBUCKET_RULE_MAP.examples.push('ai-readiness-llm-workflow-hateoas-links');
+SUBBUCKET_RULE_MAP.typing.push('ai-readiness-llm-naming-property-casing');
+SUBBUCKET_RULE_MAP.errorSemantics.push(
+    'ai-readiness-llm-errors-structured-4xx',
+    'ai-readiness-llm-errors-401-403-distinction'
+);
+SUBBUCKET_RULE_MAP.headers.push('ai-readiness-llm-errors-429-retry-guidance');
+SUBBUCKET_RULE_MAP.pagination.push(
+    'ai-readiness-llm-bulk-batch-operations',
+    'ai-readiness-llm-sparse-fieldsets'
+);
+SUBBUCKET_RULE_MAP.security.push(
+    'ai-readiness-llm-destructive-irreversible-warning',
+    'ai-readiness-llm-destructive-cascade-effects',
+    'ai-readiness-llm-destructive-reasoning-instructions'
+);
 
 const RULE_TO_SUBBUCKET: Record<string, string> = {};
 for (const subKey of Object.keys(SUBBUCKET_RULE_MAP)) {
@@ -495,7 +571,7 @@ export const buildAiReadinessSummary = (input: BuildAiReadinessSummaryInput): Ai
     });
 
     const bucketSummaries: AiReadinessBucketSummary[] = BUCKET_DEFINITIONS.map((def) => {
-        const rulesInBucket = Object.keys(RULE_CATEGORY_MAP).filter(r => RULE_CATEGORY_MAP[r] === def.key);
+        const rulesInBucket = Object.keys(RULE_CATEGORY_MAP).filter((r) => RULE_CATEGORY_MAP[r] === def.key);
 
         const rules: AiReadinessRuleSummary[] = rulesInBucket
             .map((ruleKey) => {
