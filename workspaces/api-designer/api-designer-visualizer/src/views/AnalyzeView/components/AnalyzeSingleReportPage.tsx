@@ -5,7 +5,7 @@
 import React from 'react';
 import styled from '@emotion/styled';
 import { useVisualizerContext } from '@wso2/api-designer-rpc-client';
-import { getAiReadinessRuleSubBucket } from '@wso2/api-designer-core';
+import { UnifiedBreakdownCategory } from '@wso2/api-designer-core';
 import { postMessage as postVSCodeMessage } from '../../../utils/vscode-api';
 import { useAIAvailability } from '../../../hooks/useAIAvailability';
 import {
@@ -55,6 +55,103 @@ const MessageCard = styled.div`
     font-size: ${ANALYZE_TYPE_SCALE.base};
 `;
 
+const LlmAnalysisCard = styled.div`
+    background: linear-gradient(180deg, rgba(122, 162, 255, 0.05) 0%, rgba(122, 162, 255, 0.02) 100%);
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 12px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+    padding: 14px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+`;
+
+const LlmAnalysisContent = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+`;
+
+const LlmAnalysisTitle = styled.div`
+    font-size: ${ANALYZE_TYPE_SCALE.lg};
+    font-weight: 700;
+    color: var(--vscode-foreground);
+    letter-spacing: -0.01em;
+`;
+
+const LlmAnalysisDescription = styled.div`
+    font-size: ${ANALYZE_TYPE_SCALE.md};
+    color: var(--vscode-descriptionForeground);
+    line-height: 1.35;
+`;
+
+const LlmStatusRow = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 2px;
+`;
+
+const LlmStatusBadge = styled.span<{ $status: 'pending' | 'ready' | 'failed' | 'stale' | 'idle' }>`
+    font-size: ${ANALYZE_TYPE_SCALE.xs};
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--vscode-panel-border);
+    color: ${({ $status }: { $status: 'pending' | 'ready' | 'failed' | 'stale' | 'idle' }) =>
+        $status === 'ready'
+            ? 'var(--vscode-testing-iconPassed, #22c55e)'
+            : $status === 'failed'
+                ? 'var(--vscode-errorForeground)'
+                : $status === 'stale'
+                    ? 'var(--vscode-editorWarning-foreground)'
+                    : $status === 'pending'
+                        ? 'var(--vscode-editorInfo-foreground, #38bdf8)'
+                        : 'var(--vscode-descriptionForeground)'};
+    background: ${({ $status }: { $status: 'pending' | 'ready' | 'failed' | 'stale' | 'idle' }) =>
+        $status === 'ready'
+            ? 'color-mix(in srgb, var(--vscode-testing-iconPassed, #22c55e) 12%, transparent)'
+            : $status === 'failed'
+                ? 'color-mix(in srgb, var(--vscode-errorForeground) 12%, transparent)'
+                : $status === 'stale'
+                    ? 'color-mix(in srgb, var(--vscode-editorWarning-foreground) 12%, transparent)'
+                    : $status === 'pending'
+                        ? 'color-mix(in srgb, var(--vscode-editorInfo-foreground, #38bdf8) 12%, transparent)'
+                        : 'color-mix(in srgb, var(--vscode-descriptionForeground) 10%, transparent)'};
+`;
+
+const LlmStatusText = styled.span`
+    font-size: ${ANALYZE_TYPE_SCALE.sm};
+    color: var(--vscode-descriptionForeground);
+`;
+
+const LlmAnalysisButton = styled.button`
+    border: 1px solid var(--vscode-button-border, transparent);
+    border-radius: 6px;
+    background: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    padding: 8px 12px;
+    font-size: ${ANALYZE_TYPE_SCALE.sm};
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: filter 0.12s ease;
+
+    &:hover:enabled {
+        filter: brightness(1.05);
+    }
+
+    &:disabled {
+        opacity: 0.65;
+        cursor: not-allowed;
+    }
+`;
+
 export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = ({
     fileUri,
     refreshToken,
@@ -70,22 +167,7 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
     );
     const isAIAvailable = useAIAvailability();
     const effectiveReportId = report?.report.reportId;
-    const aiReadinessDimensions = React.useMemo(
-        () => (effectiveReportId === 'ai-readiness' ? report?.report.aiReadinessSummary.dimensions || [] : []),
-        [effectiveReportId, report]
-    );
 
-    const [expandedBucketKeys, setExpandedBucketKeys] = React.useState<Set<string>>(new Set());
-    const toggleBucketKey = React.useCallback((key: string) => {
-        setExpandedBucketKeys((prev) => {
-            const next = new Set(prev);
-            next.has(key) ? next.delete(key) : next.add(key);
-            return next;
-        });
-    }, []);
-    React.useEffect(() => {
-        setExpandedBucketKeys(new Set());
-    }, [fileUri, reportKey]);
     const [severityFilter, setSeverityFilter] = React.useState<'all' | SeverityLevel>('all');
     const [groupBy, setGroupBy] = React.useState<GroupBy>('none');
     const [sortBy, setSortBy] = React.useState<SortBy>('severity');
@@ -100,18 +182,13 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
     const rows = React.useMemo(() => buildIssueRows(report?.violations || []), [report]);
     const llmRows = React.useMemo(() => buildLlmIssueRows(report?.llmValidation), [report?.llmValidation]);
     const aiBucketOptions = React.useMemo(() => {
-        const dimensions = (
-            report?.report.reportId === 'ai-readiness' ? report.report.aiReadinessSummary.dimensions : []
-        ) as Array<{
-            key: string;
-            label: string;
-            subBuckets: Array<{ key: string; label: string }>;
-        }>;
-        return dimensions.map((dimension: { key: string; label: string; subBuckets: Array<{ key: string; label: string }> }) => ({
-            key: dimension.key,
-            label: dimension.label,
-            subBuckets: (dimension.subBuckets || []).map((subBucket: { key: string; label: string }) => ({
-                key: subBucket.key,
+        const categories: UnifiedBreakdownCategory[] =
+            report?.report.reportId === 'ai-readiness' ? report.report.breakdown.categories : [];
+        return categories.map((category) => ({
+            key: category.id,
+            label: category.label,
+            subBuckets: (category.subBuckets || []).map((subBucket) => ({
+                key: subBucket.id,
                 label: subBucket.label
             }))
         }));
@@ -131,12 +208,12 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
                 return llmRows;
             }
             return rows.filter((row) => {
-                const subBucket = getAiReadinessRuleSubBucket(row.rule);
-                if (!subBucket) return false;
-                const mainBucket = subBucketToMainBucketMap.get(subBucket) || null;
+                const keys = row.breakdownKeys || [];
+                const subBucket = keys.find((key) => subBucketToMainBucketMap.has(key)) || null;
+                const mainBucket = subBucket ? (subBucketToMainBucketMap.get(subBucket) || null) : null;
                 if (selectedAiMainBucketKey && mainBucket !== selectedAiMainBucketKey) return false;
                 if (selectedAiBucketKey && subBucket !== selectedAiBucketKey) return false;
-                return true;
+                return keys.length > 0;
             });
         }
 
@@ -198,6 +275,47 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
 
     const handleViewIssues = React.useCallback((targetKey?: string) => {
         const nextKey = targetKey || null;
+        if (nextKey && nextKey.startsWith('__severity__:')) {
+            const [, severity, categoryKey] = nextKey.split(':');
+            const severityValue = severity === 'error' || severity === 'warn' || severity === 'info' || severity === 'hint'
+                ? severity
+                : 'all';
+            if (effectiveReportId === 'ai-readiness') {
+                setSelectedAiMainBucketKey(categoryKey || null);
+                setSelectedAiBucketKey(null);
+                setSelectedBreakdownKey(null);
+            } else {
+                setSelectedAiBucketKey(null);
+                setSelectedAiMainBucketKey(null);
+                setSelectedBreakdownKey(categoryKey || null);
+            }
+            setSeverityFilter(severityValue as 'all' | SeverityLevel);
+            setGroupBy('none');
+            setSortBy('severity');
+            setSortDir('asc');
+            setSearch('');
+            setSelectedIssueId(null);
+            window.requestAnimationFrame(() => {
+                issueExplorerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+            return;
+        }
+        if (nextKey && nextKey.startsWith('__endpoints__:')) {
+            const categoryKey = nextKey.replace('__endpoints__:', '') || null;
+            setSelectedAiBucketKey(null);
+            setSelectedAiMainBucketKey(null);
+            setSelectedBreakdownKey(categoryKey);
+            setSeverityFilter('all');
+            setGroupBy('endpoint');
+            setSortBy('severity');
+            setSortDir('asc');
+            setSearch('');
+            setSelectedIssueId(null);
+            window.requestAnimationFrame(() => {
+                issueExplorerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+            return;
+        }
         if (effectiveReportId === 'ai-readiness') {
             if (nextKey === 'llm-validation') {
                 setSelectedAiBucketKey(null);
@@ -265,6 +383,10 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
             issueExplorerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
     }, []);
+    const handleRunLlmAnalysis = React.useCallback(() => {
+        postVSCodeMessage({ command: 'reevaluateLlmValidation' });
+        setManualRefreshTick((value) => value + 1);
+    }, []);
     const score = Math.max(0, Math.min(100, Number(report?.score || 0)));
     const gradeColor = scoreColor(score);
     const errorCount = rows.filter((row) => row.severity === 'error').length;
@@ -290,9 +412,52 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
 
     const resolvedReportId = report.report.reportId;
     const issueExplorerReportKey: AnalyzeReportKey = resolvedReportId === 'rest-api-readiness' ? 'rest-api-readiness' : resolvedReportId;
-    const reportUiMeta = report.report as typeof report.report & {
-        breakdown: { subtitle?: string };
-        issueExplorer: { title?: string; subtitle?: string };
+    const reportUiMeta = report.report;
+    const llmStatus = report.llmValidation?.status;
+    const isLlmRunning = llmStatus === 'pending';
+    const llmFindingsCount = report.llmValidation?.result?.findings?.length || 0;
+    const llmStatusValue: 'pending' | 'ready' | 'failed' | 'stale' | 'idle' = llmStatus || 'idle';
+    const llmStatusLabel = llmStatusValue === 'idle'
+        ? 'Not started'
+        : llmStatusValue === 'pending'
+            ? 'Running'
+            : llmStatusValue === 'ready'
+                ? 'Ready'
+                : llmStatusValue === 'stale'
+                    ? 'Stale'
+                    : 'Failed';
+    const llmStatusMessage = llmStatusValue === 'pending'
+        ? 'Evaluating API with VS Code language model...'
+        : llmStatusValue === 'ready'
+            ? llmFindingsCount > 0
+                ? `${llmFindingsCount} finding${llmFindingsCount !== 1 ? 's' : ''} available`
+                : 'Analysis completed with no findings'
+            : llmStatusValue === 'stale'
+                ? 'Findings are outdated due to spec changes'
+                : llmStatusValue === 'failed'
+                    ? (report.llmValidation?.error || 'Previous evaluation failed')
+                    : 'Run LLM analysis to generate deeper findings';
+    const llmActionLabel = llmStatusValue === 'ready' ? 'View findings' : llmStatusValue === 'pending' ? 'Analyzing…' : llmStatusValue === 'stale' ? 'Analyze again' : llmStatusValue === 'failed' ? 'Analyze again' : 'Analyze with LLM';
+    const handleOpenLlmFindings = () => {
+        setSelectedAiMainBucketKey(null);
+        setSelectedAiBucketKey(null);
+        setSelectedBreakdownKey('llm-validation');
+        setSeverityFilter('all');
+        setGroupBy('none');
+        setSortBy('severity');
+        setSortDir('asc');
+        setSearch('');
+        setSelectedIssueId(null);
+        window.requestAnimationFrame(() => {
+            issueExplorerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    };
+    const handleLlmCardAction = () => {
+        if (llmStatusValue === 'ready') {
+            handleOpenLlmFindings();
+            return;
+        }
+        handleRunLlmAnalysis();
     };
     return (
         <Root>
@@ -311,15 +476,29 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
                 onViewWarningIssues={handleViewWarningIssues}
             />
 
+            {resolvedReportId === 'ai-readiness' && (
+                <LlmAnalysisCard>
+                    <LlmAnalysisContent>
+                        <LlmAnalysisTitle>{reportUiMeta.llmReview?.title || 'LLM-based API Analysis'}</LlmAnalysisTitle>
+                        <LlmAnalysisDescription>
+                            {reportUiMeta.llmReview?.subtitle ||
+                                'Run a deeper language-model evaluation for AI readiness findings and recommendations using the VS Code language model.'}
+                        </LlmAnalysisDescription>
+                        <LlmStatusRow>
+                            <LlmStatusBadge $status={llmStatusValue}>{llmStatusLabel}</LlmStatusBadge>
+                            <LlmStatusText>{llmStatusMessage}</LlmStatusText>
+                        </LlmStatusRow>
+                    </LlmAnalysisContent>
+                    <LlmAnalysisButton onClick={handleLlmCardAction} disabled={isLlmRunning}>
+                        {llmActionLabel}
+                    </LlmAnalysisButton>
+                </LlmAnalysisCard>
+            )}
+
             <AnalyzeSingleReportBreakdown
-                reportKey={reportKey}
+                reportKey={resolvedReportId}
                 title={report.report.breakdown.title}
                 subtitle={reportUiMeta.breakdown.subtitle}
-                aiReadinessDimensions={aiReadinessDimensions}
-                totalRows={rows.length}
-                violations={rows}
-                expandedBucketKeys={expandedBucketKeys}
-                onToggleBucket={toggleBucketKey}
                 onViewIssues={handleViewIssues}
                 unifiedCategories={report.report.breakdown.categories}
             />

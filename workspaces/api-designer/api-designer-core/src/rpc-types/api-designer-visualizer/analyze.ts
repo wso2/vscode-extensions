@@ -204,6 +204,7 @@ export interface UnifiedBreakdownCategory {
     total: number;
     errors: number;
     warnings: number;
+    infos: number;
     percentage: number;
     affectedEndpoints: number;
     docsUrl?: string;
@@ -211,10 +212,21 @@ export interface UnifiedBreakdownCategory {
         key: string;
         label: string;
     };
+    subBuckets: Array<{
+        id: string;
+        label: string;
+        description?: string;
+        percentage: number;
+        viewIssuesFilter: {
+            key: string;
+            label: string;
+        };
+    }>;
     topRules?: string[];
 }
 
 export interface UnifiedAnalyzeReportBase {
+    reportId: GovernanceReportId;
     title: string;
     violationsById: Record<string, UnifiedViolation>;
     overview: {
@@ -233,11 +245,6 @@ export interface UnifiedAnalyzeReportBase {
         subtitle?: string;
         breakdownFilterOptions: Array<{ key: string; label: string }>;
     };
-}
-
-export interface AiReadinessAnalyzeReport extends UnifiedAnalyzeReportBase {
-    reportId: 'ai-readiness';
-    aiReadinessSummary: AiReadinessSummary;
     llmReview?: {
         title?: string;
         subtitle?: string;
@@ -245,19 +252,7 @@ export interface AiReadinessAnalyzeReport extends UnifiedAnalyzeReportBase {
         reevaluateLabel?: string;
     };
 }
-
-export interface OwaspAnalyzeReport extends UnifiedAnalyzeReportBase {
-    reportId: 'owasp';
-}
-
-export interface RestApiReadinessAnalyzeReport extends UnifiedAnalyzeReportBase {
-    reportId: 'rest-api-readiness';
-}
-
-export type UnifiedAnalyzeReport =
-    | AiReadinessAnalyzeReport
-    | OwaspAnalyzeReport
-    | RestApiReadinessAnalyzeReport;
+export type UnifiedAnalyzeReport = UnifiedAnalyzeReportBase;
 
 export interface GovernanceRulesetMetadata {
     name: string;

@@ -690,7 +690,7 @@ export async function validateWithSpectralRuleset(
             aiReadinessMetrics,
         });
         if (summary) {
-            response.aiReadinessSummary = summary;
+            response.breakdown = summary;
         }
 
         return response as GetGovernanceResponse;

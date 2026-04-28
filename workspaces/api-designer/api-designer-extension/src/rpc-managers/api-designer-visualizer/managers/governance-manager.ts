@@ -64,8 +64,21 @@ type SpectralGovernancePayload = {
     passedChecks?: number;
     totalChecks?: number;
     passedRules?: Array<{ rule?: string }>;
-    aiReadinessSummary?: {
+    breakdown?: {
         score?: number;
+        dimensions?: Array<{
+            key: string;
+            label: string;
+            description?: string;
+            score: number;
+            subBuckets: Array<{
+                key: string;
+                label: string;
+                description?: string;
+                percentage: number;
+                rules?: Array<{ key: string }>;
+            }>;
+        }>;
     };
 };
 
@@ -107,6 +120,7 @@ type UnifiedBreakdownCategory = {
     total: number;
     errors: number;
     warnings: number;
+    infos: number;
     percentage: number;
     affectedEndpoints: number;
     docsUrl?: string;
@@ -114,6 +128,16 @@ type UnifiedBreakdownCategory = {
         key: string;
         label: string;
     };
+    subBuckets: Array<{
+        id: string;
+        label: string;
+        description?: string;
+        percentage: number;
+        viewIssuesFilter: {
+            key: string;
+            label: string;
+        };
+    }>;
     topRules?: string[];
 };
 
@@ -179,7 +203,6 @@ type BuiltUnifiedReport = {
         subtitle?: string;
         breakdownFilterOptions: Array<{ key: string; label: string }>;
     };
-    aiReadinessSummary?: unknown;
     llmReview?: {
         title?: string;
         subtitle?: string;
@@ -980,7 +1003,7 @@ export class GovernanceManager extends BaseRpcManager {
         response: SpectralGovernancePayload
     ): number {
         if (reportId === 'ai-readiness') {
-            const aiWeightedScore = response.aiReadinessSummary?.score;
+            const aiWeightedScore = response.breakdown?.score;
             if (typeof aiWeightedScore === 'number' && Number.isFinite(aiWeightedScore)) {
                 return Math.max(0, Math.min(100, Math.round(aiWeightedScore)));
             }
@@ -1058,7 +1081,24 @@ export class GovernanceManager extends BaseRpcManager {
         response: SpectralGovernancePayload,
         owaspCategoryKeys?: string[]
     ): BuiltUnifiedReport {
+        const calculateCategoryScore = (counts: { total: number; errors: number; warnings: number; infos: number }): number => {
+            if (counts.total <= 0) return 100;
+            const weightedFailures = counts.errors * 1 + counts.warnings * 0.5 + counts.infos * 0.25;
+            const score = 100 - (weightedFailures / counts.total) * 100;
+            return Math.max(0, Math.min(100, Math.round(score)));
+        };
         const reportId = this.inferReportKey(name);
+        const aiDimensions = response.breakdown?.dimensions || [];
+        const aiSubBucketToDimension = new Map<string, string>();
+        const aiRuleToSubBucket = new Map<string, string>();
+        aiDimensions.forEach((dimension) => {
+            (dimension.subBuckets || []).forEach((subBucket) => {
+                aiSubBucketToDimension.set(subBucket.key, dimension.key);
+                (subBucket.rules || []).forEach((rule) => {
+                    aiRuleToSubBucket.set((rule.key || '').toLowerCase(), subBucket.key);
+                });
+            });
+        });
         const reportTitle =
             reportId === 'ai-readiness'
                 ? 'Agent Readiness'
@@ -1089,6 +1129,11 @@ export class GovernanceManager extends BaseRpcManager {
                     categoryBuckets.set(key, { label: category?.label || key, docsUrl: category?.docsUrl, violationIds: [] });
                 }
                 categoryBuckets.get(key)?.violationIds.push(id);
+            } else if (reportId === 'ai-readiness') {
+                const normalizedRule = (violation.rule || violation.code || '').toLowerCase();
+                const subBucketKey = aiRuleToSubBucket.get(normalizedRule);
+                const dimensionKey = subBucketKey ? aiSubBucketToDimension.get(subBucketKey) : undefined;
+                breakdownKeys = [dimensionKey, subBucketKey].filter((key): key is string => !!key);
             } else if (reportId === 'rest-api-readiness') {
                 const theme = this.pickWso2Theme(violation.rule || '');
                 breakdownKeys = [theme.id];
@@ -1123,9 +1168,55 @@ export class GovernanceManager extends BaseRpcManager {
         ).size;
         const errors = Object.values(violationsById).filter((v) => v.severity === 'error').length;
         const warnings = Object.values(violationsById).filter((v) => v.severity === 'warn').length;
+        const infos = Object.values(violationsById).filter((v) => v.severity === 'info' || v.severity === 'hint').length;
 
         let categories: UnifiedBreakdownCategory[] = [];
-        if (reportId === 'owasp') {
+        if (reportId === 'ai-readiness') {
+            categories = aiDimensions.map((dimension) => {
+                const subBucketIds = new Set((dimension.subBuckets || []).map((subBucket) => subBucket.key));
+                const ids = Object.values(violationsById)
+                    .filter((violation) => violation.breakdownKeys.some((key) => subBucketIds.has(key)))
+                    .map((violation) => violation.id);
+                const total = ids.length;
+                const categoryErrors = ids.filter((id) => violationsById[id]?.severity === 'error').length;
+                const categoryWarnings = ids.filter((id) => violationsById[id]?.severity === 'warn').length;
+                const categoryInfos = ids.filter((id) => {
+                    const severity = violationsById[id]?.severity;
+                    return severity === 'info' || severity === 'hint';
+                }).length;
+                const categoryPercentage = calculateCategoryScore({
+                    total,
+                    errors: categoryErrors,
+                    warnings: categoryWarnings,
+                    infos: categoryInfos,
+                });
+                return {
+                    id: dimension.key,
+                    label: dimension.label,
+                    description: dimension.description,
+                    status: (total > 0 ? 'failed' : 'passed') as 'passed' | 'failed',
+                    total,
+                    errors: categoryErrors,
+                    warnings: categoryWarnings,
+                    infos: categoryInfos,
+                    percentage: Math.max(0, Math.min(100, Math.round(dimension.score ?? 0))),
+                    affectedEndpoints: new Set(
+                        ids
+                            .map((id) => violationsById[id])
+                            .filter((violation) => violation && violation.endpoint !== 'global' && violation.method !== 'GLOBAL')
+                            .map((violation) => `${violation.method} ${violation.endpoint}`)
+                    ).size,
+                    viewIssuesFilter: { key: dimension.key, label: dimension.label },
+                    subBuckets: (dimension.subBuckets || []).map((subBucket) => ({
+                        id: subBucket.key,
+                        label: subBucket.label,
+                        description: subBucket.description,
+                        percentage: Math.max(0, Math.min(100, Math.round(subBucket.percentage ?? 0))),
+                        viewIssuesFilter: { key: subBucket.key, label: subBucket.label },
+                    })),
+                };
+            });
+        } else if (reportId === 'owasp') {
             const configuredOwaspCategories =
                 owaspCategoryKeys && owaspCategoryKeys.length > 0
                     ? this.OWASP_CATEGORIES.filter((item) => owaspCategoryKeys.includes(item.key))
@@ -1140,6 +1231,16 @@ export class GovernanceManager extends BaseRpcManager {
                 const total = ids.length;
                 const categoryErrors = ids.filter((id) => violationsById[id]?.severity === 'error').length;
                 const categoryWarnings = ids.filter((id) => violationsById[id]?.severity === 'warn').length;
+                const categoryInfos = ids.filter((id) => {
+                    const severity = violationsById[id]?.severity;
+                    return severity === 'info' || severity === 'hint';
+                }).length;
+                const categoryPercentage = calculateCategoryScore({
+                    total,
+                    errors: categoryErrors,
+                    warnings: categoryWarnings,
+                    infos: categoryInfos,
+                });
                 return {
                     id: item.key,
                     label: item.label,
@@ -1148,7 +1249,8 @@ export class GovernanceManager extends BaseRpcManager {
                     total,
                     errors: categoryErrors,
                     warnings: categoryWarnings,
-                    percentage: rawViolations.length > 0 ? Math.round((total / rawViolations.length) * 100) : 0,
+                    infos: categoryInfos,
+                    percentage: categoryPercentage,
                     affectedEndpoints: new Set(
                         ids
                             .map((id) => violationsById[id])
@@ -1157,6 +1259,15 @@ export class GovernanceManager extends BaseRpcManager {
                     ).size,
                     docsUrl: item.docsUrl,
                     viewIssuesFilter: { key: item.key, label: item.label },
+                    subBuckets: [
+                        {
+                            id: item.key,
+                            label: item.label,
+                            description: item.description,
+                            percentage: categoryPercentage,
+                            viewIssuesFilter: { key: item.key, label: item.label },
+                        },
+                    ],
                 };
             });
         } else if (reportId === 'rest-api-readiness') {
@@ -1166,6 +1277,16 @@ export class GovernanceManager extends BaseRpcManager {
                 const total = ids.length;
                 const categoryErrors = ids.filter((id) => violationsById[id]?.severity === 'error').length;
                 const categoryWarnings = ids.filter((id) => violationsById[id]?.severity === 'warn').length;
+                const categoryInfos = ids.filter((id) => {
+                    const severity = violationsById[id]?.severity;
+                    return severity === 'info' || severity === 'hint';
+                }).length;
+                const categoryPercentage = calculateCategoryScore({
+                    total,
+                    errors: categoryErrors,
+                    warnings: categoryWarnings,
+                    infos: categoryInfos,
+                });
                 const ruleCounts = new Map<string, number>();
                 ids.forEach((id) => {
                     const rule = violationsById[id]?.rule || '';
@@ -1179,7 +1300,8 @@ export class GovernanceManager extends BaseRpcManager {
                     total,
                     errors: categoryErrors,
                     warnings: categoryWarnings,
-                    percentage: rawViolations.length > 0 ? Math.round((total / rawViolations.length) * 100) : 0,
+                    infos: categoryInfos,
+                    percentage: categoryPercentage,
                     affectedEndpoints: new Set(
                         ids
                             .map((id) => violationsById[id])
@@ -1187,6 +1309,15 @@ export class GovernanceManager extends BaseRpcManager {
                             .map((violation) => `${violation.method} ${violation.endpoint}`)
                     ).size,
                     viewIssuesFilter: { key: theme.id, label: theme.title },
+                    subBuckets: [
+                        {
+                            id: theme.id,
+                            label: theme.title,
+                            description: theme.description,
+                            percentage: categoryPercentage,
+                            viewIssuesFilter: { key: theme.id, label: theme.title },
+                        },
+                    ],
                     topRules: Array.from(ruleCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([rule]) => rule),
                 };
             });
@@ -1204,6 +1335,7 @@ export class GovernanceManager extends BaseRpcManager {
                 metrics: [
                     { id: 'errors', label: 'Errors', value: errors, accent: 'error' },
                     { id: 'warnings', label: 'Warnings', value: warnings, accent: 'warning' },
+                    { id: 'info', label: 'Info', value: infos, accent: 'info' },
                     { id: 'operations', label: 'Operations affected', value: endpointCount, accent: 'info' },
                 ],
             },
@@ -1224,14 +1356,14 @@ export class GovernanceManager extends BaseRpcManager {
                     label: category.viewIssuesFilter.label,
                 })),
             },
-            llmReview: reportId === 'ai-readiness'
-                ? {
-                    title: 'Llm-Based AI Readiness Review',
-                    subtitle: 'AI agent findings for readiness checks. Use "View findings" for full details.',
-                    viewFindingsLabel: 'View findings',
-                    reevaluateLabel: 'Re-evaluate',
-                }
-                : undefined,
+            ...(reportId === 'ai-readiness' ? {
+                llmReview: {
+                    title: 'AI Analysis',
+                    subtitle: 'LLM-based evaluation of your API for AI agent consumption readiness.',
+                    viewFindingsLabel: 'View LLM findings',
+                    reevaluateLabel: 'Re Analyze',
+                },
+            } : {}),
         };
     }
 
@@ -1390,7 +1522,6 @@ export class GovernanceManager extends BaseRpcManager {
                 schemaVersion?: '2';
                 reportId?: 'ai-readiness' | 'owasp' | 'rest-api-readiness';
                 report?: BuiltUnifiedReport;
-                aiReadinessSummary?: unknown;
             };
             const rulesetInsights = await this.readRulesetInsights(rulesetConfig.filePath, params.name);
             response.metadata = rulesetInsights.metadata;
@@ -1403,10 +1534,6 @@ export class GovernanceManager extends BaseRpcManager {
             const unifiedReport = this.buildUnifiedReport(reportTitle, response, owaspCategoryKeys);
             response.score = unifiedReport.overview.score;
             await this.persistSpectralSection(normalizedPath, unifiedReport.reportId, unifiedReport.violationsById);
-            const aiReadinessSummary = (response as { aiReadinessSummary?: unknown }).aiReadinessSummary;
-            if (aiReadinessSummary) {
-                unifiedReport.aiReadinessSummary = aiReadinessSummary;
-            }
             (response as GetGovernanceResponse & { schemaVersion?: '2' }).schemaVersion = '2';
             (response as GetGovernanceResponse).reportId = unifiedReport.reportId;
             (response as GetGovernanceResponse).report = unifiedReport as UnifiedAnalyzeReport;

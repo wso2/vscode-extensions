@@ -136,7 +136,7 @@ const IssueListPanel = styled.div`
     height: 100%;
 `;
 const Toolbar = styled.div`
-    border-bottom: 1px solid var(--vscode-panel-border); padding: 10px 16px;
+    border-bottom: 1px solid var(--vscode-panel-border); padding: 12px 14px;
     display: flex; flex-direction: column; gap: 8px; background: var(--vscode-editorWidget-background);
     flex-shrink: 0;
 `;
@@ -252,16 +252,32 @@ const GroupHeader = styled.div`
     padding: 6px 12px; border-bottom: 1px solid var(--vscode-panel-border);
 `;
 const IssueCard = styled.button<{ $selected: boolean; $severity: SeverityLevel }>`
-    width: 100%; border: 1px solid var(--vscode-panel-border); border-radius: 8px; text-align: left; display: flex;
-    flex-direction: column; padding: 8px 10px; margin-bottom: 6px; cursor: pointer; color: var(--vscode-foreground); border-radius: 4px;
-    border-left: 1px solid ${({ $severity }: { $severity: SeverityLevel }) =>
+    width: 100%;
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 8px;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    color: var(--vscode-foreground);
+    border-left: 1.5px solid ${({ $severity }: { $severity: SeverityLevel }) =>
         $severity === 'error'
             ? 'var(--vscode-errorForeground)'
             : $severity === 'warn'
                 ? 'var(--vscode-editorWarning-foreground)'
                 : 'var(--vscode-editorInfo-foreground, #3b82f6)'};
     background: ${({ $selected }: { $selected: boolean }) =>
-        $selected ? 'color-mix(in srgb, var(--vscode-list-activeSelectionBackground) 80%, var(--vscode-editorWidget-background))' : 'var(--vscode-editorWidget-background)'};
+        $selected
+            ? 'color-mix(in srgb, var(--vscode-list-activeSelectionBackground) 65%, rgba(122, 162, 255, 0.08))'
+            : 'linear-gradient(180deg, rgba(122, 162, 255, 0.05) 0%, rgba(122, 162, 255, 0.02) 100%)'};
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+    transition: border-color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+
+    &:hover {
+        border-color: color-mix(in srgb, var(--vscode-focusBorder) 45%, var(--vscode-panel-border));
+    }
 `;
 const CardMessage = styled.div`font-size: ${ANALYZE_TYPE_SCALE.sm}; font-weight: 500; line-height: 1.35;`;
 const CardPathText = styled.div`
@@ -284,10 +300,10 @@ const DetailColumn = styled.div<{ $open: boolean }>`
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    background: var(--vscode-editorWidget-background);
-    border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 86%, transparent);
+    background: linear-gradient(180deg, rgba(122, 162, 255, 0.05) 0%, rgba(122, 162, 255, 0.02) 100%);
+    border: 1px solid var(--vscode-panel-border);
     border-radius: 6px;
-    box-shadow: -14px 0 28px rgba(0, 0, 0, 0.22);
+    box-shadow: -14px 0 28px rgba(0, 0, 0, 0.22), 0 6px 18px rgba(0, 0, 0, 0.2);
     transform: translateX(${({ $open }: { $open: boolean }) => ($open ? '0' : '102%')});
     opacity: ${({ $open }: { $open: boolean }) => ($open ? 1 : 0)};
     pointer-events: ${({ $open }: { $open: boolean }) => ($open ? 'auto' : 'none')};
@@ -302,9 +318,9 @@ const DetailCard = styled.div`
     background: transparent;
 `;
 const DetailHeader = styled.div`
-    background: color-mix(in srgb, var(--vscode-editorGroupHeader-tabsBackground) 90%, var(--vscode-editorWidget-background));
-    border-bottom: 1px solid color-mix(in srgb, var(--vscode-panel-border) 84%, transparent);
-    padding: 10px 10px 10px 12px;
+    background: color-mix(in srgb, var(--vscode-editorGroupHeader-tabsBackground) 90%, rgba(122, 162, 255, 0.02));
+    border-bottom: 1px solid var(--vscode-panel-border);
+    padding: 12px 12px 12px 14px;
     display: flex;
     align-items: center;
     justify-content: space-between;

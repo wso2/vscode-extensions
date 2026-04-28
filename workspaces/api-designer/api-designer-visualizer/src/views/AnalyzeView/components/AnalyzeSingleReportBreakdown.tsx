@@ -1,64 +1,71 @@
 import React from 'react';
 import styled from '@emotion/styled';
-import type { AiReadinessDimensionSummary } from '@wso2/api-designer-core';
+import { UnifiedBreakdownCategory } from '@wso2/api-designer-core';
 import { AnalyzeReportKey, scoreColor } from '../hooks/useReport';
 import {
-    AIReadinessBucketGrid,
-    Accordion,
     DimCard,
-    DimScore,
     DimMeta,
     DimTitle,
     DimDesc,
-    DimRight,
     DimIssueCount,
     DimErrorCount,
     DimWarningCount,
     FlatBreakdownHeader,
 } from './AIReadinessBucketGrid';
 import { postMessage } from '../../../utils/vscode-api';
-import { ViewIssuesLink } from './ViewIssuesLink';
 import { ANALYZE_TYPE_SCALE } from './AnalyzeSingleReportHelpers';
-
-interface ViolationRow {
-    id: string;
-    rule: string;
-    message: string;
-    severity: string;
-    path: string;
-    endpoint: string;
-    method: string;
-}
 
 interface AnalyzeSingleReportBreakdownProps {
     reportKey: AnalyzeReportKey;
     title?: string;
     subtitle?: string;
-    aiReadinessDimensions: AiReadinessDimensionSummary[];
-    totalRows: number;
-    violations: ViolationRow[];
-    expandedBucketKeys: Set<string>;
-    onToggleBucket: (key: string) => void;
     onViewIssues: (subBucketKey?: string) => void;
-    unifiedCategories?: Array<{
-        id: string;
-        label: string;
-        description?: string;
-        total: number;
-        errors: number;
-        warnings: number;
-        percentage: number;
-        affectedEndpoints: number;
-        docsUrl?: string;
-        viewIssuesFilter: { key: string; label: string };
-        topRules?: string[];
-    }>;
+    unifiedCategories?: UnifiedBreakdownCategory[];
 }
 
 // ── Section shell ─────────────────────────────────────────────────────────
 
 const Section = styled.div`
     margin-bottom: 4px;
+`;
+
+const CardsGrid = styled.div`
+    display: grid;
+    grid-template-columns: repeat(2, minmax(320px, 1fr));
+    gap: 10px;
+
+    @media (max-width: 980px) {
+        grid-template-columns: 1fr;
+    }
+`;
+
+const BreakdownCard = styled(DimCard)`
+    background: linear-gradient(180deg, rgba(122, 162, 255, 0.05) 0%, rgba(122, 162, 255, 0.02) 100%);
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 12px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+`;
+
+const BreakdownHeader = styled(FlatBreakdownHeader)`
+    padding: 14px;
+    background: transparent;
+`;
+
+const ScorePill = styled.span<{ $color: string }>`
+    display: inline-flex;
+    align-items: center;
+    height: 20px;
+    padding: 0 8px;
+    border-radius: 999px;
+    font-size: ${ANALYZE_TYPE_SCALE.sm};
+    font-weight: 700;
+    line-height: 1;
+    color: ${({ $color }: { $color: string }) => `color-mix(in srgb, ${$color} 88%, var(--vscode-foreground))`};
+    background: ${({ $color }: { $color: string }) => `color-mix(in srgb, ${$color} 14%, transparent)`};
+    border: 1px solid ${({ $color }: { $color: string }) => `color-mix(in srgb, ${$color} 28%, var(--vscode-panel-border))`};
+    font-family: var(--vscode-font-family, "Inter", "Segoe UI", Arial, sans-serif);
+    flex-shrink: 0;
 `;
 
 const SectionHeader = styled.div`
@@ -105,7 +112,7 @@ const TagRow = styled.div`
     margin-top: 6px;
 `;
 
-const Tag = styled.span`
+const Tag = styled.button`
     font-size: ${ANALYZE_TYPE_SCALE.sm};
     color: var(--vscode-descriptionForeground);
     border: 1px solid var(--vscode-panel-border);
@@ -115,6 +122,36 @@ const Tag = styled.span`
     display: inline-flex;
     align-items: center;
     gap: 5px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+
+    &:hover {
+        background: color-mix(in srgb, var(--vscode-textLink-foreground) 10%, transparent);
+        border-color: var(--vscode-textLink-foreground);
+        color: var(--vscode-foreground);
+    }
+`;
+
+const ClickableTag = styled.button`
+    font-size: ${ANALYZE_TYPE_SCALE.sm};
+    color: var(--vscode-descriptionForeground);
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 4px;
+    padding: 2px 9px 2px 6px;
+    background: var(--vscode-editor-background);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+
+    &:hover {
+        background: color-mix(in srgb, var(--vscode-textLink-foreground) 10%, transparent);
+        border-color: var(--vscode-textLink-foreground);
+        color: var(--vscode-foreground);
+    }
 `;
 
 const CardMetaActions = styled.div`
@@ -124,10 +161,12 @@ const CardMetaActions = styled.div`
     gap: 3px;
 `;
 
-const CardLinksRow = styled.div`
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
+const CardFooterRow = styled.div`
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 8px;
 `;
 
 const CategoryTitleRow = styled.div`
@@ -165,6 +204,18 @@ const DocsLink = styled.button`
     }
 `;
 
+const CountAction = styled.button`
+    border: none;
+    background: transparent;
+    color: inherit;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    font: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+`;
+
 const ExtLinkSvg = () => (
     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'inline-block', verticalAlign: 'middle', marginLeft: 3, opacity: 0.7 }}>
         <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
@@ -173,33 +224,12 @@ const ExtLinkSvg = () => (
     </svg>
 );
 
-const AiBreakdownStack = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-`;
-
-// ── Helpers ───────────────────────────────────────────────────────────────
-
-/** Heuristic 0–100 for ring color; matches “health” of the category from error/warning mix. */
-function ringScoreForCategory(cat: { total: number; errors: number; warnings: number }): number {
-    if (cat.total === 0) return 100;
-    return Math.max(
-        0,
-        Math.min(100, Math.round(100 - (100 * (cat.errors * 0.5 + cat.warnings * 0.2)) / cat.total)),
-    );
-}
-
 // ── Main component ─────────────────────────────────────────────────────────
 
 export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdownProps> = ({
     reportKey,
     title,
     subtitle,
-    aiReadinessDimensions,
-    violations,
-    expandedBucketKeys,
-    onToggleBucket,
     onViewIssues,
     unifiedCategories,
 }) => {
@@ -225,11 +255,9 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
             : 'Agent Readiness Breakdown');
 
     const badge =
-        reportKey === 'ai-readiness'
-            ? `${aiReadinessDimensions.length} dimension${aiReadinessDimensions.length !== 1 ? 's' : ''}`
-            : orderedCategories.length === 0
-                ? 'No findings'
-                : `${orderedCategories.length} ${reportKey === 'owasp' ? 'areas' : 'themes'}`;
+        orderedCategories.length === 0
+            ? 'No findings'
+            : `${orderedCategories.length} ${reportKey === 'owasp' ? 'areas' : reportKey === 'ai-readiness' ? 'dimensions' : 'themes'}`;
     return (
         <Section>
             <SectionHeader>
@@ -240,38 +268,37 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
                 <SectionBadge>{badge}</SectionBadge>
             </SectionHeader>
 
-            {reportKey === 'ai-readiness' ? (
-                <AiBreakdownStack>
-                    <AIReadinessBucketGrid
-                        dimensions={aiReadinessDimensions}
-                        expandedKeys={expandedBucketKeys}
-                        onToggle={onToggleBucket}
-                        violations={violations}
-                        onViewIssues={onViewIssues}
-                    />
-                </AiBreakdownStack>
-            ) : orderedCategories.length === 0 ? (
+            {orderedCategories.length === 0 ? (
                 <BreakdownEmpty>No issues in this breakdown for the current analysis.</BreakdownEmpty>
             ) : (
-                <Accordion>
+                <CardsGrid>
                     {orderedCategories.map((cat) => {
-                        const ring = ringScoreForCategory(cat);
-                        const ringRounded = Math.round(ring);
-                        const ringTint = scoreColor(ring);
+                        const ringRounded = Math.max(0, Math.min(100, Math.round(cat.percentage)));
+                        const ringTint = scoreColor(ringRounded);
                         const hasFindings = cat.errors > 0 || cat.warnings > 0;
                         const metaTags = [
-                            cat.id,
-                            ...(cat.affectedEndpoints > 0 ? [`${cat.affectedEndpoints} endpoint${cat.affectedEndpoints !== 1 ? 's' : ''}`] : []),
-                            ...(cat.topRules || []).slice(0, 2),
+                            { id: `${cat.id}:group`, label: cat.id, key: cat.viewIssuesFilter.key, tooltip: cat.description || cat.label },
+                            ...(cat.affectedEndpoints > 0
+                                ? [{
+                                    id: `${cat.id}:endpoints`,
+                                    label: `${cat.affectedEndpoints} endpoint${cat.affectedEndpoints !== 1 ? 's' : ''}`,
+                                    key: `__endpoints__:${cat.viewIssuesFilter.key}`,
+                                    tooltip: cat.description || cat.label,
+                                }]
+                                : []),
+                            ...(cat.topRules || []).slice(0, 2).map((rule) => ({
+                                id: `${cat.id}:rule:${rule}`,
+                                label: rule,
+                                key: cat.viewIssuesFilter.key,
+                                tooltip: cat.description || cat.label,
+                            })),
                         ];
                         return (
-                            <DimCard key={cat.id}>
-                                <FlatBreakdownHeader>
-                                    <DimScore $color={ringTint} $score={ringRounded}>
-                                        <span>{ringRounded}%</span>
-                                    </DimScore>
+                            <BreakdownCard key={cat.id}>
+                                <BreakdownHeader>
                                     <DimMeta>
                                         <CategoryTitleRow>
+                                            <ScorePill $color={ringTint}>{ringRounded}%</ScorePill>
                                             <DimTitle>{cat.label}</DimTitle>
                                             {cat.docsUrl && (
                                                 <DocsLink onClick={() => postMessage({ command: 'openExternal', url: cat.docsUrl })}>
@@ -280,50 +307,68 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
                                             )}
                                         </CategoryTitleRow>
                                         {cat.description && <DimDesc>{cat.description}</DimDesc>}
-                                        {metaTags.length > 0 && (
-                                            <TagRow>
-                                                {metaTags.map((tag) => (
-                                                    <Tag key={`${cat.id}:${tag}`}>{tag}</Tag>
-                                                ))}
-                                            </TagRow>
-                                        )}
-                                    </DimMeta>
-                                    <DimRight>
-                                        <CardMetaActions>
-                                            <DimIssueCount>
-                                                {!hasFindings ? (
-                                                    'All passing'
-                                                ) : (
-                                                    <>
-                                                        {cat.errors > 0 && (
-                                                            <DimErrorCount>
-                                                                {cat.errors} error{cat.errors !== 1 ? 's' : ''}
-                                                            </DimErrorCount>
-                                                        )}
-                                                        {cat.warnings > 0 && (
-                                                            <DimWarningCount>
-                                                                {cat.warnings} warning{cat.warnings !== 1 ? 's' : ''}
-                                                            </DimWarningCount>
-                                                        )}
-                                                    </>
-                                                )}
-                                            </DimIssueCount>
-                                            {(cat.docsUrl || cat.total > 0) && (
-                                                <CardLinksRow>
-                                                    {cat.total > 0 && (
-                                                        <ViewIssuesLink onClick={() => onViewIssues(cat.viewIssuesFilter.key)}>
-                                                            View issues
-                                                        </ViewIssuesLink>
-                                                    )}
-                                                </CardLinksRow>
+                                        <CardFooterRow>
+                                            {reportKey === 'ai-readiness' ? (
+                                                <TagRow>
+                                                    {(cat.subBuckets || []).map((subBucket) => (
+                                                        <ClickableTag
+                                                            key={`${cat.id}:${subBucket.id}`}
+                                                            onClick={() => onViewIssues(subBucket.viewIssuesFilter.key)}
+                                                            title={(subBucket as { description?: string }).description || subBucket.label}
+                                                        >
+                                                            {subBucket.label} ({Math.round(subBucket.percentage)}%)
+                                                        </ClickableTag>
+                                                    ))}
+                                                </TagRow>
+                                            ) : metaTags.length > 0 ? (
+                                                <TagRow>
+                                                    {metaTags.map((tag) => (
+                                                        <Tag key={tag.id} onClick={() => onViewIssues(tag.key)} title={tag.tooltip}>
+                                                            {tag.label}
+                                                        </Tag>
+                                                    ))}
+                                                </TagRow>
+                                            ) : (
+                                                <span />
                                             )}
-                                        </CardMetaActions>
-                                    </DimRight>
-                                </FlatBreakdownHeader>
-                            </DimCard>
+                                            <CardMetaActions>
+                                                <DimIssueCount>
+                                                    {!hasFindings ? (
+                                                        'All passing'
+                                                    ) : (
+                                                        <>
+                                                            {cat.errors > 0 && (
+                                                                <DimErrorCount as="span">
+                                                                    <CountAction onClick={() => onViewIssues(`__severity__:error:${cat.viewIssuesFilter.key}`)}>
+                                                                        {cat.errors} error{cat.errors !== 1 ? 's' : ''}
+                                                                    </CountAction>
+                                                                </DimErrorCount>
+                                                            )}
+                                                            {cat.warnings > 0 && (
+                                                                <DimWarningCount as="span">
+                                                                    <CountAction onClick={() => onViewIssues(`__severity__:warn:${cat.viewIssuesFilter.key}`)}>
+                                                                        {cat.warnings} warning{cat.warnings !== 1 ? 's' : ''}
+                                                                    </CountAction>
+                                                                </DimWarningCount>
+                                                            )}
+                                                            {(cat.infos || 0) > 0 && (
+                                                                <span>
+                                                                    <CountAction onClick={() => onViewIssues(`__severity__:info:${cat.viewIssuesFilter.key}`)}>
+                                                                        {cat.infos} info{cat.infos !== 1 ? 's' : ''}
+                                                                    </CountAction>
+                                                                </span>
+                                                            )}
+                                                        </>
+                                                    )}
+                                                </DimIssueCount>
+                                            </CardMetaActions>
+                                        </CardFooterRow>
+                                    </DimMeta>
+                                </BreakdownHeader>
+                            </BreakdownCard>
                         );
                     })}
-                </Accordion>
+                </CardsGrid>
             )}
         </Section>
     );
