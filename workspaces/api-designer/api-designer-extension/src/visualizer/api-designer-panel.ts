@@ -318,6 +318,17 @@ export class ApiDesignerPanel {
         return this._currentFilePath;
     }
 
+    public async resolveAIFinding(data: { rule: string; pathSegments?: string[]; message?: string }): Promise<void> {
+        if (!this._currentFilePath || !data?.rule) {
+            return;
+        }
+        await this.governanceManager.resolveAIFindingForFile(this._currentFilePath, {
+            rule: String(data.rule),
+            pathSegments: Array.isArray(data.pathSegments) ? data.pathSegments.map((segment) => String(segment)) : [],
+            message: typeof data.message === 'string' ? data.message : undefined,
+        });
+    }
+
     private async saveSpecToFile(data: any): Promise<void> {
         if (!this._currentFilePath) {
             return;

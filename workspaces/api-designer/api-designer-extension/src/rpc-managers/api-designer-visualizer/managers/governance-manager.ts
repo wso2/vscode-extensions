@@ -212,6 +212,12 @@ type LlmValidationState = {
     error?: string;
 };
 
+type ResolveAIFindingRequest = {
+    rule: string;
+    pathSegments?: string[];
+    message?: string;
+};
+
 /** Result shape from {@link GovernanceManager.buildUnifiedReport} before RPC typing. */
 type BuiltUnifiedReport = {
     schemaVersion: '1';
@@ -857,6 +863,62 @@ export class GovernanceManager extends BaseRpcManager {
             void this.startLlmJob(normalizedPath, apiHash, specContent);
         } catch (error) {
             this.logWarning('Failed to schedule LLM validation', error);
+        }
+    }
+
+    public async resolveAIFindingForFile(filePath: string, request: ResolveAIFindingRequest): Promise<void> {
+        try {
+            const normalizedPath = this.normalizeFilePath(filePath);
+            const specContent = await readFile(normalizedPath, 'utf8');
+            const apiHash = this.computeApiHash(specContent);
+            const cached = await this.readWorkspaceCache(normalizedPath);
+            if (!cached?.result?.findings || !Array.isArray(cached.result.findings)) {
+                return;
+            }
+            const targetRuleRaw = String(request.rule || '').trim();
+            const targetRule = targetRuleRaw.toLowerCase();
+            const targetRuleCanonical = targetRuleRaw ? this.toInternalLlmRuleId(targetRuleRaw) : '';
+            const targetPath = (request.pathSegments || []).map((segment) => String(segment).trim()).filter(Boolean);
+            const targetMessage = String(request.message || '').trim();
+            const matchesFinding = (finding: LlmValidationFinding): boolean => {
+                const findingRuleRaw = String(finding.rule || '').trim();
+                const findingRule = findingRuleRaw.toLowerCase();
+                const findingRuleCanonical = findingRuleRaw ? this.toInternalLlmRuleId(findingRuleRaw) : '';
+                if (targetRule) {
+                    const directMatch = findingRule === targetRule;
+                    const canonicalMatch = !!targetRuleCanonical && findingRuleCanonical === targetRuleCanonical;
+                    if (!directMatch && !canonicalMatch) return false;
+                }
+                if (targetPath.length > 0) {
+                    const findingPath = (finding.pathSegments || []).map((segment) => String(segment).trim()).filter(Boolean);
+                    if (findingPath.length !== targetPath.length) return false;
+                    for (let i = 0; i < targetPath.length; i++) {
+                        if (findingPath[i] !== targetPath[i]) return false;
+                    }
+                }
+                if (targetMessage && String(finding.message || '').trim() !== targetMessage) return false;
+                return true;
+            };
+            const remainingFindings = cached.result.findings.filter((finding) => !matchesFinding(finding));
+            if (remainingFindings.length === cached.result.findings.length) {
+                return;
+            }
+            const updatedState: LlmValidationState = {
+                ...cached,
+                status: 'ready',
+                apiHash,
+                updatedAt: Date.now(),
+                result: {
+                    ...cached.result,
+                    findings: remainingFindings,
+                },
+                error: undefined,
+            };
+            await this.persistLlmState(normalizedPath, updatedState);
+            GovernanceManager.llmStateByApiHash.clear();
+            GovernanceManager.llmStateByApiHash.set(apiHash, updatedState);
+        } catch (error) {
+            this.logWarning('Failed to resolve LLM finding from cache', error);
         }
     }
 

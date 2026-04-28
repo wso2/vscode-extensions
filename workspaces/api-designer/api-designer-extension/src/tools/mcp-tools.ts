@@ -20,6 +20,7 @@ import * as vscode from 'vscode';
 import { validateApiSpec, validateWithSpectralRuleset } from '../utils/validation-utils';
 import { logError, logDebug } from '../util/logger';
 import { loadYaml } from '@wso2/api-designer-core';
+import { GovernanceManager } from '../rpc-managers/api-designer-visualizer/managers/governance-manager';
 
 type LanguageModelToolResultLike = { [key: string]: unknown };
 type VSCodeLMCompat = typeof vscode & {
@@ -236,6 +237,60 @@ export class OpenInApiDesignerTool {
 }
 
 /**
+ * Tool for resolving/removing a specific AI finding from cached report
+ */
+export class ResolveAIFindingTool {
+    async invoke(
+        options: any,
+        _token: vscode.CancellationToken
+    ): Promise<LanguageModelToolResultLike> {
+        try {
+            const input = options?.input || {};
+            const rule = typeof input.rule === 'string' ? input.rule : '';
+            if (!rule) {
+                return makeToolResult('Error: resolveAIFinding requires "rule".');
+            }
+            const pathSegments = Array.isArray(input.pathSegments)
+                ? input.pathSegments.map((segment: unknown) => String(segment))
+                : [];
+            const message = typeof input.message === 'string' ? input.message : undefined;
+            const payload = { rule, pathSegments, message };
+            const filePath = typeof input.filePath === 'string' && input.filePath.trim().length > 0
+                ? input.filePath
+                : (typeof input.fileUri === 'string' && input.fileUri.trim().length > 0
+                    ? vscode.Uri.parse(input.fileUri).fsPath
+                    : undefined);
+            if (filePath) {
+                const governanceManager = new GovernanceManager();
+                await governanceManager.resolveAIFindingForFile(filePath, payload);
+            } else {
+                const panelModule = await import('../visualizer/api-designer-panel');
+                const panel = panelModule.ApiDesignerPanel.currentPanel;
+                if (!panel || panel.isDisposed()) {
+                    return makeToolResult('Error: API Designer panel is not open and no filePath/fileUri was provided.');
+                }
+                await panel.resolveAIFinding(payload);
+            }
+
+            return makeToolResult(`Resolved AI finding in cached report for rule "${rule}".`);
+        } catch (error) {
+            logError('Error in ResolveAIFindingTool:', error);
+            return makeToolResult(`Error resolving AI finding: ${(error as Error).message}`);
+        }
+    }
+
+    async prepareInvocation(
+        options: any,
+        _token: vscode.CancellationToken
+    ) {
+        const rule = options?.input?.rule ? String(options.input.rule) : 'unknown rule';
+        return {
+            invocationMessage: `Resolving cached AI finding for ${rule}`,
+        };
+    }
+}
+
+/**
  * Register all MCP tools with VS Code Language Model API
  */
 export function registerMCPTools(context: vscode.ExtensionContext): void {
@@ -256,6 +311,10 @@ export function registerMCPTools(context: vscode.ExtensionContext): void {
 
     context.subscriptions.push(
         vscodeLM.lm.registerTool('api-designer_openInApiDesigner', new OpenInApiDesignerTool())
+    );
+
+    context.subscriptions.push(
+        vscodeLM.lm.registerTool('api-designer_resolveAIFinding', new ResolveAIFindingTool())
     );
 
     logDebug('MCP tools registered successfully');

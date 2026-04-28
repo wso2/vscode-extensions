@@ -147,6 +147,51 @@
             }
           }
         }
+      },
+      {
+        "name": "api-designer_resolveAIFinding",
+        "tags": [
+          "ai-readiness",
+          "api-designer",
+          "report-cache",
+          "llm"
+        ],
+        "toolReferenceName": "resolveAIFinding",
+        "displayName": "Resolve AI Finding",
+        "modelDescription": "Removes a resolved AI-readiness finding from cached AI analysis report data for the active API file and updates the stored hash.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(sparkle)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "rule": {
+              "type": "string",
+              "description": "The finding rule identifier (for example: Rule 5.1)."
+            },
+            "filePath": {
+              "type": "string",
+              "description": "Optional absolute filesystem path of the API file."
+            },
+            "fileUri": {
+              "type": "string",
+              "description": "Optional file URI of the API file. Used when filePath is not provided."
+            },
+            "pathSegments": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Optional path segments identifying where the finding occurred."
+            },
+            "message": {
+              "type": "string",
+              "description": "Optional finding message to disambiguate similar findings."
+            }
+          },
+          "required": [
+            "rule"
+          ]
+        }
       }
     ],
     "commands": [

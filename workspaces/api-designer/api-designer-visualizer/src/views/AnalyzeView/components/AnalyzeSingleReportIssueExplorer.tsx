@@ -335,7 +335,6 @@ const DetailCard = styled.div`
     flex: 1;
     display: flex;
     flex-direction: column;
-    background: transparent;
 `;
 const DetailHeader = styled.div`
     background: color-mix(in srgb, var(--vscode-editorGroupHeader-tabsBackground) 90%, rgba(122, 162, 255, 0.02));
@@ -529,6 +528,11 @@ export const AnalyzeSingleReportIssueExplorer: React.FC<AnalyzeSingleReportIssue
     } = props;
 
     const LLM_FILTER_VALUE = '__llm_validation__';
+    const isLlmFinding = React.useCallback((issue: IssueRow): boolean => {
+        return (issue.breakdownKeys || []).includes('llm-validation') ||
+            /^rule\s+\d+(?:\.\d+)?$/i.test((issue.rule || '').trim()) ||
+            (issue.rule || '').toLowerCase().startsWith('ai-readiness-llm-');
+    }, []);
     const [isDetailOpen, setIsDetailOpen] = React.useState(false);
     const [fixContext, setFixContext] = React.useState<FixContext | null>(null);
     const getIssueSignature = React.useCallback(
@@ -668,9 +672,7 @@ export const AnalyzeSingleReportIssueExplorer: React.FC<AnalyzeSingleReportIssue
                                     <IssueGroup key={group.key}>
                                         {groupBy !== 'none' && <GroupHeader>{group.key} ({group.rows.length})</GroupHeader>}
                                         {group.rows.map((row) => {
-                                            const isAiFinding = (row.breakdownKeys || []).includes('llm-validation') ||
-                                                /^rule\s+\d+(?:\.\d+)?$/i.test((row.rule || '').trim()) ||
-                                                (row.rule || '').toLowerCase().startsWith('ai-readiness-llm-');
+                                            const isAiFinding = isLlmFinding(row);
                                             return (
                                             <IssueCard
                                                 key={row.id}
@@ -716,12 +718,18 @@ export const AnalyzeSingleReportIssueExplorer: React.FC<AnalyzeSingleReportIssue
                                         }
                                         onClick={() => {
                                             const pathStr = detailIssue.violation.pathSegments?.length ? ` at /${detailIssue.violation.pathSegments.join('/')}` : '';
+                                            const llmReportUpdateInstruction = isLlmFinding(detailIssue)
+                                                ? `\n\nThis is an LLM-based analysis finding. After fixing the spec, call the #resolveAIFinding tool to update the cached report immediately with:\n- rule: ${JSON.stringify(detailIssue.rule)}\n- pathSegments: ${JSON.stringify(detailIssue.violation.pathSegments || [])}\n- message: ${JSON.stringify(detailIssue.message)}`
+                                                : '';
                                             setFixContext({
                                                 issue: detailIssue,
                                                 status: 'fixing',
                                                 baselineRowsFingerprint: rowsFingerprint,
                                             });
-                                            onOpenAIChat(JSON.stringify(detailIssue.violation), `Fix ${reportName} violation: ${detailIssue.message}${pathStr}`);
+                                            onOpenAIChat(
+                                                JSON.stringify(detailIssue.violation),
+                                                `Fix ${reportName} violation: ${detailIssue.message}${pathStr}${llmReportUpdateInstruction}`
+                                            );
                                         }}
                                     />
                                     <DetailHeaderMeta>
