@@ -34,6 +34,7 @@ export interface IssueRow {
 
 export interface ReportState {
     rulesetName: string;
+    rulesetDescription?: string;
     score: number;
     passedChecks: number;
     totalChecks: number;
@@ -296,6 +297,7 @@ export const useReportData = (
 
                     return {
                         rulesetName: selectedRuleset.name,
+                        rulesetDescription: governance.metadata?.description,
                         score: unifiedReport.overview.score,
                         passedChecks,
                         totalChecks,

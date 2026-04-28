@@ -112,9 +112,10 @@ const BucketGrid = styled.div`
     }
 `;
 
-const Bucket = styled.div`
+const Bucket = styled.div<{ $leftBorderColor: string }>`
     background: var(--vscode-editorWidget-background);
     border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 82%, transparent);
+    border-left: 3px solid ${({ $leftBorderColor }: { $leftBorderColor: string }) => $leftBorderColor};
     border-radius: 8px;
     padding: 14px 16px;
     display: flex;
@@ -519,9 +520,9 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
             ) : (
                 <BucketGrid>
                     {orderedCategories.map((cat) => {
-                        const { badgeColor, badgeBg, badgeText } = getBucketColors(cat);
+                        const { borderColor, badgeColor, badgeBg, badgeText } = getBucketColors(cat);
                         return (
-                            <Bucket key={cat.id}>
+                            <Bucket key={cat.id} $leftBorderColor={borderColor}>
                                 <BucketId>{cat.id}</BucketId>
                                 <BucketTitle>{cat.label}</BucketTitle>
                                 {cat.description && <BucketDesc>{cat.description}</BucketDesc>}

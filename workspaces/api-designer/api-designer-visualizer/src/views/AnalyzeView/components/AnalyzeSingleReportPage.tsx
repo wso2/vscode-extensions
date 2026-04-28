@@ -310,6 +310,7 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
                 score={score}
                 gradeColor={gradeColor}
                 title={report.report.title || report.rulesetName}
+                subtitle={report.rulesetDescription}
                 errorCount={errorCount}
                 warningCount={warningCount}
                 passedChecks={report.passedChecks}

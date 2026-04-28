@@ -229,8 +229,8 @@ const GroupHeader = styled.div`
 `;
 const IssueCard = styled.button<{ $selected: boolean; $severity: SeverityLevel }>`
     width: 100%; border: 1px solid var(--vscode-panel-border); border-radius: 8px; text-align: left; display: flex;
-    flex-direction: column; gap: 4px; padding: 8px 10px; margin-bottom: 8px; cursor: pointer; color: var(--vscode-foreground);
-    border-left: 3px solid ${({ $severity }: { $severity: SeverityLevel }) =>
+    flex-direction: column; padding: 8px 10px; margin-bottom: 6px; cursor: pointer; color: var(--vscode-foreground); border-radius: 4px;
+    border-left: 1px solid ${({ $severity }: { $severity: SeverityLevel }) =>
         $severity === 'error'
             ? 'var(--vscode-errorForeground)'
             : $severity === 'warn'
@@ -261,7 +261,7 @@ const DetailHeaderTitle = styled.span`font-size: 12px; font-weight: 700; color: 
 const DetailHeaderMeta = styled.span`font-size: 11px; color: var(--vscode-descriptionForeground);`;
 const DetailBody = styled.div`padding: 14px; display: flex; flex-direction: column; gap: 10px; flex: 1; overflow-y: auto;`;
 const RuleTitle = styled.div`
-    font-size: 18px;
+    font-size: 14px;
     font-weight: 800;
     color: var(--vscode-foreground);
     letter-spacing: -0.02em;

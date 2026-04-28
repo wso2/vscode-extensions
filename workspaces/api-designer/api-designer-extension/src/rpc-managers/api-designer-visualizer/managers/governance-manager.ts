@@ -776,19 +776,8 @@ export class GovernanceManager extends BaseRpcManager {
             name: rulesetName,
         };
 
-        // Best-effort inference for remote rulesets where content is not read here.
-        if (rulesetPath.startsWith('http://') || rulesetPath.startsWith('https://')) {
-            if (rulesetName.toLowerCase().includes('wso2')) {
-                base.provider = 'WSO2';
-            }
-            return base;
-        }
-
-        try {
-            const content = await readFile(rulesetPath, 'utf8');
-            const parsed = loadYaml(content) as Record<string, unknown> | undefined;
-            if (!parsed || typeof parsed !== 'object') return base;
-
+        const parseMetadata = (parsed: Record<string, unknown> | undefined): GovernanceRulesetMetadata | null => {
+            if (!parsed || typeof parsed !== 'object') return null;
             return {
                 name: typeof parsed.name === 'string' ? parsed.name : rulesetName,
                 description: typeof parsed.description === 'string' ? parsed.description : undefined,
@@ -798,6 +787,33 @@ export class GovernanceManager extends BaseRpcManager {
                 documentationLink: typeof parsed.documentationLink === 'string' ? parsed.documentationLink : undefined,
                 provider: typeof parsed.provider === 'string' ? parsed.provider : undefined,
             };
+        };
+
+        // Best-effort: for remote rulesets, fetch YAML and read metadata fields.
+        if (rulesetPath.startsWith('http://') || rulesetPath.startsWith('https://')) {
+            try {
+                const response = await fetch(rulesetPath);
+                if (response.ok) {
+                    const content = await response.text();
+                    const parsed = loadYaml(content) as Record<string, unknown> | undefined;
+                    const metadata = parseMetadata(parsed);
+                    if (metadata) {
+                        return metadata;
+                    }
+                }
+            } catch {
+                // Fall back to inferred metadata below.
+            }
+            if (rulesetName.toLowerCase().includes('wso2') && !base.provider) {
+                base.provider = 'WSO2';
+            }
+            return base;
+        }
+
+        try {
+            const content = await readFile(rulesetPath, 'utf8');
+            const parsed = loadYaml(content) as Record<string, unknown> | undefined;
+            return parseMetadata(parsed) || base;
         } catch {
             return base;
         }
@@ -1146,7 +1162,8 @@ export class GovernanceManager extends BaseRpcManager {
                 aiReadinessSummary?: unknown;
             };
             response.metadata = await this.readRulesetMetadata(rulesetConfig.filePath, params.name);
-            const unifiedReport = this.buildUnifiedReport(params.name, response);
+            const reportTitle = response.metadata?.name || params.name;
+            const unifiedReport = this.buildUnifiedReport(reportTitle, response);
             await this.persistSpectralSection(normalizedPath, unifiedReport.reportId, unifiedReport.violationsById);
             const aiReadinessSummary = (response as { aiReadinessSummary?: unknown }).aiReadinessSummary;
             if (aiReadinessSummary) {

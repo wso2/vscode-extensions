@@ -107,7 +107,7 @@ const MetaBlock = styled.div`
 `;
 
 const ReportTitle = styled.h1`
-    margin: 0 0 2px;
+    margin: 0 0 4px;
     font-size: 17px;
     font-weight: 700;
     color: var(--vscode-foreground);
@@ -116,7 +116,7 @@ const ReportTitle = styled.h1`
 `;
 
 const ReportSubtitle = styled.div`
-    font-size: 11px;
+    font-size: 12px;
     color: var(--vscode-descriptionForeground);
 `;
 
@@ -138,13 +138,18 @@ const MetricCard = styled.div`
     border-radius: 10px;
     padding: 16px 18px;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    display: flex;
+    flex-direction: column;
+    height: 86px;
+    box-sizing: border-box;
 `;
 
 const MetricValueRow = styled.div`
     display: flex;
-    align-items: baseline;
+    align-items: flex-end;
     justify-content: space-between;
     gap: 10px;
+    margin-top: auto;
 `;
 
 const MetricLabel = styled.div`
@@ -157,7 +162,7 @@ const MetricLabel = styled.div`
 `;
 
 const MetricValue = styled.div<{ $color?: string }>`
-    font-size: 24px;
+    font-size: 18px;
     font-weight: 800;
     color: ${({ $color }: { $color?: string }) => $color || 'var(--vscode-foreground)'};
     line-height: 1;
@@ -201,6 +206,7 @@ export const AnalyzeSingleReportOverview: React.FC<AnalyzeSingleReportOverviewPr
     score,
     gradeColor,
     title,
+    subtitle,
     errorCount,
     warningCount,
     passedChecks,
@@ -233,15 +239,18 @@ export const AnalyzeSingleReportOverview: React.FC<AnalyzeSingleReportOverviewPr
             <MetaBlock>
                 <div>
                     <ReportTitle>{title}</ReportTitle>
+                    {subtitle && <ReportSubtitle>{subtitle}</ReportSubtitle>}
                 </div>
 
                 <MetricsGrid>
                     <MetricCard>
                         <MetricLabel>Passed Checks</MetricLabel>
-                        <MetricValue $color={passedChecksColor}>
-                            {passedChecks}
-                            <MetricInlineTotal>/{totalChecks}</MetricInlineTotal>
-                        </MetricValue>
+                        <MetricValueRow>
+                            <MetricValue $color={passedChecksColor}>
+                                {passedChecks}
+                                <MetricInlineTotal>/{totalChecks}</MetricInlineTotal>
+                            </MetricValue>
+                        </MetricValueRow>
                     </MetricCard>
 
                     <MetricCard>
