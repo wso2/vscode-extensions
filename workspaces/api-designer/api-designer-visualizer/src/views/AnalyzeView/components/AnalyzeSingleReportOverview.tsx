@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from '@emotion/styled';
 import { scoreColor } from '../hooks/useReport';
+import { ViewIssuesLink } from './ViewIssuesLink';
 
 interface AnalyzeSingleReportOverviewProps {
     score: number;
@@ -107,7 +108,7 @@ const MetaBlock = styled.div`
 `;
 
 const ReportTitle = styled.h1`
-    margin: 0 0 4px;
+    margin: 0 0 8px;
     font-size: 17px;
     font-weight: 700;
     color: var(--vscode-foreground);
@@ -116,8 +117,9 @@ const ReportTitle = styled.h1`
 `;
 
 const ReportSubtitle = styled.div`
-    font-size: 12px;
+    font-size: 13px;
     color: var(--vscode-descriptionForeground);
+    line-height: 1.2;
 `;
 
 // ── Metrics grid ───────────────────────────────────────────────────────────
@@ -140,7 +142,7 @@ const MetricCard = styled.div`
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
     display: flex;
     flex-direction: column;
-    height: 86px;
+    height: 76px;
     box-sizing: border-box;
 `;
 
@@ -181,23 +183,6 @@ const MetricInlineTotal = styled.span`
     font-size: inherit;
     font-weight: inherit;
     color: var(--vscode-descriptionForeground);
-`;
-
-const MetricAction = styled.button`
-    margin-top: 0;
-    align-self: flex-end;
-    padding: 0;
-    border: none;
-    background: none;
-    color: var(--vscode-textLink-foreground);
-    font-size: 11px;
-    font-weight: 600;
-    cursor: pointer;
-    font-family: inherit;
-
-    &:hover {
-        text-decoration: underline;
-    }
 `;
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -258,7 +243,7 @@ export const AnalyzeSingleReportOverview: React.FC<AnalyzeSingleReportOverviewPr
                         <MetricValueRow>
                             <MetricValue $color={endpointsColor}>{endpointsAffected}</MetricValue>
                             {onViewEndpointIssues && endpointsAffected > 0 && (
-                                <MetricAction onClick={onViewEndpointIssues}>View issues</MetricAction>
+                                <ViewIssuesLink onClick={onViewEndpointIssues}>View issues</ViewIssuesLink>
                             )}
                         </MetricValueRow>
                     </MetricCard>
@@ -270,7 +255,7 @@ export const AnalyzeSingleReportOverview: React.FC<AnalyzeSingleReportOverviewPr
                                 {errorCount}
                             </MetricValue>
                             {onViewErrorIssues && errorCount > 0 && (
-                                <MetricAction onClick={onViewErrorIssues}>View issues</MetricAction>
+                                <ViewIssuesLink onClick={onViewErrorIssues}>View issues</ViewIssuesLink>
                             )}
                         </MetricValueRow>
                     </MetricCard>
@@ -282,7 +267,7 @@ export const AnalyzeSingleReportOverview: React.FC<AnalyzeSingleReportOverviewPr
                                 {warningCount}
                             </MetricValue>
                             {onViewWarningIssues && warningCount > 0 && (
-                                <MetricAction onClick={onViewWarningIssues}>View issues</MetricAction>
+                                <ViewIssuesLink onClick={onViewWarningIssues}>View issues</ViewIssuesLink>
                             )}
                         </MetricValueRow>
                     </MetricCard>

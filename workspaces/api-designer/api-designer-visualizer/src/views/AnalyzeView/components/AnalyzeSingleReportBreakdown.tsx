@@ -1,10 +1,24 @@
 import React from 'react';
 import styled from '@emotion/styled';
 import type { AiReadinessDimensionSummary } from '@wso2/api-designer-core';
-import { AnalyzeReportKey } from '../hooks/useReport';
-import { AIReadinessBucketGrid } from './AIReadinessBucketGrid';
+import { AnalyzeReportKey, scoreColor } from '../hooks/useReport';
+import {
+    AIReadinessBucketGrid,
+    Accordion,
+    DimCard,
+    DimScore,
+    DimMeta,
+    DimTitle,
+    DimDesc,
+    DimRight,
+    DimIssueCount,
+    DimErrorCount,
+    DimWarningCount,
+    FlatBreakdownHeader,
+} from './AIReadinessBucketGrid';
 import { postMessage } from '../../../utils/vscode-api';
 import { Button } from '@wso2/ui-toolkit';
+import { ViewIssuesLink } from './ViewIssuesLink';
 
 interface ViolationRow {
     id: string;
@@ -97,87 +111,50 @@ const SectionBadge = styled.div`
     flex-shrink: 0;
 `;
 
-// ── Flat bucket grid (OWASP / REST) ──────────────────────────────────────
-
-const BucketGrid = styled.div`
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-
-    @media (max-width: 900px) {
-        grid-template-columns: repeat(2, 1fr);
-    }
-    @media (max-width: 600px) {
-        grid-template-columns: 1fr;
-    }
-`;
-
-const Bucket = styled.div<{ $leftBorderColor: string }>`
-    background: var(--vscode-editorWidget-background);
-    border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 82%, transparent);
-    border-left: 3px solid ${({ $leftBorderColor }: { $leftBorderColor: string }) => $leftBorderColor};
-    border-radius: 8px;
-    padding: 14px 16px;
+const TagRow = styled.div`
     display: flex;
-    flex-direction: column;
-    gap: 6px;
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--vscode-editorWidget-background) 72%, transparent), 0 3px 10px rgba(0, 0, 0, 0.12);
+    gap: 5px;
+    flex-wrap: wrap;
+    margin-top: 6px;
 `;
 
-const BucketId = styled.div`
-    font-size: 10px;
-    font-family: var(--vscode-editor-font-family, ui-monospace, monospace);
+const Tag = styled.span`
+    font-size: 11px;
     color: var(--vscode-descriptionForeground);
-`;
-
-const BucketTitle = styled.div`
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--vscode-foreground);
-    line-height: 1.4;
-`;
-
-const BucketDesc = styled.div`
-    font-size: 12px;
-    color: var(--vscode-descriptionForeground);
-    line-height: 1.5;
-    flex: 1;
-`;
-
-const BucketStatusRow = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-top: 4px;
-    padding-top: 10px;
-    border-top: 1px solid var(--vscode-panel-border);
-`;
-
-const BucketBadge = styled.span<{ $color: string; $bg: string }>`
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 4px;
+    padding: 2px 9px 2px 6px;
+    background: var(--vscode-editor-background);
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    font-size: 11px;
-    font-weight: 700;
-    border-radius: 4px;
-    padding: 2px 8px;
-    color: ${({ $color }: { $color: string; $bg: string }) => $color};
-    background: ${({ $bg }: { $color: string; $bg: string }) => $bg};
-
-    &::before {
-        content: '';
-        width: 5px;
-        height: 5px;
-        border-radius: 50%;
-        background: currentColor;
-        flex-shrink: 0;
-    }
 `;
 
-const BucketActions = styled.div`
+const CardMetaActions = styled.div`
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+`;
+
+const CardLinksRow = styled.div`
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+`;
+
+const CategoryTitleRow = styled.div`
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-wrap: wrap;
+`;
+
+const BreakdownEmpty = styled.div`
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground);
+    padding: 12px 0;
+    line-height: 1.5;
 `;
 
 const DocsLink = styled.button`
@@ -208,23 +185,6 @@ const ExtLinkSvg = () => (
         <line x1="10" y1="14" x2="21" y2="3" />
     </svg>
 );
-
-const LinkBtn = styled.button`
-    border: 1px solid var(--vscode-panel-border);
-    border-radius: 4px;
-    background: transparent;
-    color: var(--vscode-textLink-foreground);
-    cursor: pointer;
-    font-size: 11px;
-    padding: 3px 9px;
-    font-family: inherit;
-    transition: background 0.12s, border-color 0.12s;
-
-    &:hover {
-        background: color-mix(in srgb, var(--vscode-textLink-foreground) 10%, transparent);
-        border-color: var(--vscode-textLink-foreground);
-    }
-`;
 
 // ── AI Readiness LLM tile ─────────────────────────────────────────────────
 
@@ -340,37 +300,13 @@ const LlmActions = styled.div`
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
-function getBucketColors(cat: { total: number; errors: number; warnings: number }) {
-    if (cat.total === 0) {
-        return {
-            borderColor: 'var(--vscode-testing-iconPassed, #10B981)',
-            badgeColor: 'var(--vscode-testing-iconPassed, #10B981)',
-            badgeBg: 'color-mix(in srgb, var(--vscode-testing-iconPassed, #10B981) 15%, transparent)',
-            badgeText: 'Clear',
-        };
-    }
-    if (cat.errors > 0) {
-        return {
-            borderColor: 'var(--vscode-errorForeground)',
-            badgeColor: 'var(--vscode-errorForeground)',
-            badgeBg: 'color-mix(in srgb, var(--vscode-errorForeground) 15%, transparent)',
-            badgeText: `${cat.errors} error${cat.errors !== 1 ? 's' : ''}`,
-        };
-    }
-    if (cat.warnings > 0) {
-        return {
-            borderColor: 'var(--vscode-editorWarning-foreground)',
-            badgeColor: 'var(--vscode-editorWarning-foreground)',
-            badgeBg: 'color-mix(in srgb, var(--vscode-editorWarning-foreground) 15%, transparent)',
-            badgeText: `${cat.warnings} warning${cat.warnings !== 1 ? 's' : ''}`,
-        };
-    }
-    return {
-        borderColor: 'var(--vscode-editorInfo-foreground, #38BDF8)',
-        badgeColor: 'var(--vscode-editorInfo-foreground, #38BDF8)',
-        badgeBg: 'color-mix(in srgb, var(--vscode-editorInfo-foreground, #38BDF8) 15%, transparent)',
-        badgeText: `${cat.total} issue${cat.total !== 1 ? 's' : ''}`,
-    };
+/** Heuristic 0–100 for ring color; matches “health” of the category from error/warning mix. */
+function ringScoreForCategory(cat: { total: number; errors: number; warnings: number }): number {
+    if (cat.total === 0) return 100;
+    return Math.max(
+        0,
+        Math.min(100, Math.round(100 - (100 * (cat.errors * 0.5 + cat.warnings * 0.2)) / cat.total)),
+    );
 }
 
 const formatEvaluationTimestamp = (timestamp?: number): string | null => {
@@ -467,9 +403,12 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
         };
     }, [llmValidation]);
 
-    const badge = reportKey === 'ai-readiness'
-        ? `${aiReadinessDimensions.length} dimension${aiReadinessDimensions.length !== 1 ? 's' : ''}`
-        : `${categories.length} categor${categories.length !== 1 ? 'ies' : 'y'}`;
+    const badge =
+        reportKey === 'ai-readiness'
+            ? `${aiReadinessDimensions.length} dimension${aiReadinessDimensions.length !== 1 ? 's' : ''}`
+            : orderedCategories.length === 0
+                ? 'No findings'
+                : `${orderedCategories.length} ${reportKey === 'owasp' ? 'areas' : 'themes'}`;
     const hasLlmFindings = (llmValidation?.result?.findings?.length || 0) > 0;
 
     return (
@@ -517,34 +456,80 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
                         onViewIssues={onViewIssues}
                     />
                 </AiBreakdownStack>
+            ) : orderedCategories.length === 0 ? (
+                <BreakdownEmpty>No issues in this breakdown for the current analysis.</BreakdownEmpty>
             ) : (
-                <BucketGrid>
+                <Accordion>
                     {orderedCategories.map((cat) => {
-                        const { borderColor, badgeColor, badgeBg, badgeText } = getBucketColors(cat);
+                        const ring = ringScoreForCategory(cat);
+                        const ringRounded = Math.round(ring);
+                        const ringTint = scoreColor(ring);
+                        const hasFindings = cat.errors > 0 || cat.warnings > 0;
+                        const metaTags = [
+                            cat.id,
+                            ...(cat.affectedEndpoints > 0 ? [`${cat.affectedEndpoints} endpoint${cat.affectedEndpoints !== 1 ? 's' : ''}`] : []),
+                            ...(cat.topRules || []).slice(0, 2),
+                        ];
                         return (
-                            <Bucket key={cat.id} $leftBorderColor={borderColor}>
-                                <BucketId>{cat.id}</BucketId>
-                                <BucketTitle>{cat.label}</BucketTitle>
-                                {cat.description && <BucketDesc>{cat.description}</BucketDesc>}
-                                <BucketStatusRow>
-                                    <BucketBadge $color={badgeColor} $bg={badgeBg}>{badgeText}</BucketBadge>
-                                    <BucketActions>
-                                        {cat.docsUrl && (
-                                            <DocsLink onClick={() => postMessage({ command: 'openExternal', url: cat.docsUrl })}>
-                                                Docs<ExtLinkSvg />
-                                            </DocsLink>
+                            <DimCard key={cat.id}>
+                                <FlatBreakdownHeader>
+                                    <DimScore $color={ringTint} $score={ringRounded}>
+                                        <span>{ringRounded}%</span>
+                                    </DimScore>
+                                    <DimMeta>
+                                        <CategoryTitleRow>
+                                            <DimTitle>{cat.label}</DimTitle>
+                                            {cat.docsUrl && (
+                                                <DocsLink onClick={() => postMessage({ command: 'openExternal', url: cat.docsUrl })}>
+                                                    Docs<ExtLinkSvg />
+                                                </DocsLink>
+                                            )}
+                                        </CategoryTitleRow>
+                                        {cat.description && <DimDesc>{cat.description}</DimDesc>}
+                                        {metaTags.length > 0 && (
+                                            <TagRow>
+                                                {metaTags.map((tag) => (
+                                                    <Tag key={`${cat.id}:${tag}`}>{tag}</Tag>
+                                                ))}
+                                            </TagRow>
                                         )}
-                                        {cat.total > 0 && (
-                                            <LinkBtn onClick={() => onViewIssues(cat.viewIssuesFilter.key)}>
-                                                View issues
-                                            </LinkBtn>
-                                        )}
-                                    </BucketActions>
-                                </BucketStatusRow>
-                            </Bucket>
+                                    </DimMeta>
+                                    <DimRight>
+                                        <CardMetaActions>
+                                            <DimIssueCount>
+                                                {!hasFindings ? (
+                                                    'All passing'
+                                                ) : (
+                                                    <>
+                                                        {cat.errors > 0 && (
+                                                            <DimErrorCount>
+                                                                {cat.errors} error{cat.errors !== 1 ? 's' : ''}
+                                                            </DimErrorCount>
+                                                        )}
+                                                        {cat.warnings > 0 && (
+                                                            <DimWarningCount>
+                                                                {cat.warnings} warning{cat.warnings !== 1 ? 's' : ''}
+                                                            </DimWarningCount>
+                                                        )}
+                                                    </>
+                                                )}
+                                            </DimIssueCount>
+                                            {(cat.docsUrl || cat.total > 0) && (
+                                                <CardLinksRow>
+                                                    {cat.total > 0 && (
+                                                        <ViewIssuesLink onClick={() => onViewIssues(cat.viewIssuesFilter.key)}>
+                                                            View issues
+                                                        </ViewIssuesLink>
+                                                    )}
+                                                </CardLinksRow>
+                                            )}
+                                        </CardMetaActions>
+                                    </DimRight>
+                                </FlatBreakdownHeader>
+                            </DimCard>
                         );
                     })}
-                </BucketGrid>
+                </Accordion>
             )}
         </Section>
     );

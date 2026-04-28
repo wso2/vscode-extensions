@@ -4,6 +4,7 @@ import { Codicon } from '@wso2/ui-toolkit';
 import type { AiReadinessDimensionSummary } from '@wso2/api-designer-core';
 import { getAiReadinessRuleSubBucket } from '@wso2/api-designer-core';
 import { scoreColor } from '../hooks/useReport';
+import { ViewIssuesLink } from './ViewIssuesLink';
 
 interface AiBucketSummaryItem {
     key: string;
@@ -145,21 +146,11 @@ const ScoreText = styled.span<{ $color: string }>`
     font-variant-numeric: tabular-nums;
 `;
 
-const ViewIssuesLink = styled.button`
+const DetailViewIssuesLink = styled(ViewIssuesLink)`
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    background: none;
-    border: none;
-    padding: 0;
     font-size: 12px;
-    color: var(--vscode-textLink-foreground);
-    cursor: pointer;
-    font-family: inherit;
-
-    &:hover {
-        text-decoration: underline;
-    }
 `;
 
 const SubBucketRowComponent: React.FC<{
@@ -207,10 +198,10 @@ const SubBucketRowComponent: React.FC<{
                         />
                     </SubBucketProgressTrack>
                     {hasIssues && (
-                        <ViewIssuesLink onClick={() => onViewIssues(sub.key)}>
+                        <DetailViewIssuesLink onClick={() => onViewIssues(sub.key)}>
                             View issues
                             <Codicon name="arrow-right" sx={{ fontSize: '11px' }} />
-                        </ViewIssuesLink>
+                        </DetailViewIssuesLink>
                     )}
                 </SubBucketProgressRow>
             </SubBucketBody>

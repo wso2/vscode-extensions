@@ -740,16 +740,66 @@ export class GovernanceManager extends BaseRpcManager {
     }
 
     private readonly OWASP_CATEGORIES = [
-        { key: 'API1:2023', label: 'Broken Object Level Authorization', docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/' },
-        { key: 'API2:2023', label: 'Broken Authentication', docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa2-broken-authentication/' },
-        { key: 'API3:2023', label: 'Broken Object Property Level Authorization', docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa3-broken-object-property-level-authorization/' },
-        { key: 'API4:2023', label: 'Unrestricted Resource Consumption', docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa4-unrestricted-resource-consumption/' },
-        { key: 'API5:2023', label: 'Broken Function Level Authorization', docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa5-broken-function-level-authorization/' },
-        { key: 'API6:2023', label: 'Unrestricted Access to Sensitive Business Flows', docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa6-unrestricted-access-to-sensitive-business-flows/' },
-        { key: 'API7:2023', label: 'Server Side Request Forgery', docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa7-server-side-request-forgery/' },
-        { key: 'API8:2023', label: 'Security Misconfiguration', docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa8-security-misconfiguration/' },
-        { key: 'API9:2023', label: 'Improper Inventory Management', docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa9-improper-inventory-management/' },
-        { key: 'API10:2023', label: 'Unsafe Consumption of APIs', docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xaa-unsafe-consumption-of-apis/' },
+        {
+            key: 'API1:2023',
+            label: 'Broken Object Level Authorization',
+            description: 'Ensures object-level access controls are enforced so users cannot read or modify resources they do not own.',
+            docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/'
+        },
+        {
+            key: 'API2:2023',
+            label: 'Broken Authentication',
+            description: 'Validates authentication flows and token handling to prevent account takeover and credential abuse.',
+            docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa2-broken-authentication/'
+        },
+        {
+            key: 'API3:2023',
+            label: 'Broken Object Property Level Authorization',
+            description: 'Checks that sensitive object properties are protected from overexposure, mass assignment, and unauthorized updates.',
+            docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa3-broken-object-property-level-authorization/'
+        },
+        {
+            key: 'API4:2023',
+            label: 'Unrestricted Resource Consumption',
+            description: 'Identifies missing limits and throttling controls that can allow denial of service through excessive consumption.',
+            docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa4-unrestricted-resource-consumption/'
+        },
+        {
+            key: 'API5:2023',
+            label: 'Broken Function Level Authorization',
+            description: 'Verifies that privileged operations are properly restricted and cannot be invoked by lower-privilege users.',
+            docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa5-broken-function-level-authorization/'
+        },
+        {
+            key: 'API6:2023',
+            label: 'Unrestricted Access to Sensitive Business Flows',
+            description: 'Highlights business-critical workflows that need stronger anti-abuse controls and transaction safeguards.',
+            docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa6-unrestricted-access-to-sensitive-business-flows/'
+        },
+        {
+            key: 'API7:2023',
+            label: 'Server Side Request Forgery',
+            description: 'Detects opportunities for untrusted input to trigger server-side outbound requests to internal or protected systems.',
+            docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa7-server-side-request-forgery/'
+        },
+        {
+            key: 'API8:2023',
+            label: 'Security Misconfiguration',
+            description: 'Flags insecure defaults, weak transport/security settings, and missing hardening controls across API surfaces.',
+            docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa8-security-misconfiguration/'
+        },
+        {
+            key: 'API9:2023',
+            label: 'Improper Inventory Management',
+            description: 'Ensures API assets, versions, and environments are properly documented and governed to avoid unmanaged exposure.',
+            docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa9-improper-inventory-management/'
+        },
+        {
+            key: 'API10:2023',
+            label: 'Unsafe Consumption of APIs',
+            description: 'Evaluates trust boundaries and validation when integrating third-party or downstream APIs and services.',
+            docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xaa-unsafe-consumption-of-apis/'
+        },
     ] as const;
 
     private readonly WSO2_THEMES = [
@@ -768,16 +818,13 @@ export class GovernanceManager extends BaseRpcManager {
         return 'rest-api-readiness';
     }
 
-    private async readRulesetMetadata(
+    private async readRulesetInsights(
         rulesetPath: string,
         rulesetName: string
-    ): Promise<GovernanceRulesetMetadata> {
-        const base: GovernanceRulesetMetadata = {
-            name: rulesetName,
-        };
-
-        const parseMetadata = (parsed: Record<string, unknown> | undefined): GovernanceRulesetMetadata | null => {
-            if (!parsed || typeof parsed !== 'object') return null;
+    ): Promise<{ metadata: GovernanceRulesetMetadata; owaspCategoryKeys?: string[] }> {
+        const baseMetadata: GovernanceRulesetMetadata = { name: rulesetName };
+        const parseMetadata = (parsed: Record<string, unknown> | undefined): GovernanceRulesetMetadata => {
+            if (!parsed || typeof parsed !== 'object') return baseMetadata;
             return {
                 name: typeof parsed.name === 'string' ? parsed.name : rulesetName,
                 description: typeof parsed.description === 'string' ? parsed.description : undefined,
@@ -788,34 +835,52 @@ export class GovernanceManager extends BaseRpcManager {
                 provider: typeof parsed.provider === 'string' ? parsed.provider : undefined,
             };
         };
-
-        // Best-effort: for remote rulesets, fetch YAML and read metadata fields.
-        if (rulesetPath.startsWith('http://') || rulesetPath.startsWith('https://')) {
-            try {
-                const response = await fetch(rulesetPath);
-                if (response.ok) {
-                    const content = await response.text();
-                    const parsed = loadYaml(content) as Record<string, unknown> | undefined;
-                    const metadata = parseMetadata(parsed);
-                    if (metadata) {
-                        return metadata;
-                    }
-                }
-            } catch {
-                // Fall back to inferred metadata below.
-            }
-            if (rulesetName.toLowerCase().includes('wso2') && !base.provider) {
-                base.provider = 'WSO2';
-            }
-            return base;
-        }
+        const extractOwaspCategoryKeys = (parsed: {
+            rulesetContent?: { rules?: Record<string, unknown> };
+            rules?: Record<string, unknown>;
+        } | undefined): string[] | undefined => {
+            const ruleEntries = Object.keys(parsed?.rulesetContent?.rules || parsed?.rules || {});
+            const keySet = new Set<string>();
+            ruleEntries.forEach((ruleName) => {
+                const match = ruleName.match(/owasp:api(\d+)(?::(\d{4}))?/i);
+                if (!match) return;
+                const apiNumber = match[1];
+                const year = match[2] || '2023';
+                keySet.add(`API${apiNumber}:${year}`);
+            });
+            const orderedKeys = this.OWASP_CATEGORIES
+                .map((category) => category.key)
+                .filter((categoryKey) => keySet.has(categoryKey));
+            return orderedKeys.length > 0 ? orderedKeys : undefined;
+        };
 
         try {
-            const content = await readFile(rulesetPath, 'utf8');
-            const parsed = loadYaml(content) as Record<string, unknown> | undefined;
-            return parseMetadata(parsed) || base;
+            let content: string;
+            if (rulesetPath.startsWith('http://') || rulesetPath.startsWith('https://')) {
+                const response = await fetch(rulesetPath);
+                if (!response.ok) {
+                    if (rulesetName.toLowerCase().includes('wso2')) {
+                        return { metadata: { ...baseMetadata, provider: 'WSO2' } };
+                    }
+                    return { metadata: baseMetadata };
+                }
+                content = await response.text();
+            } else {
+                content = await readFile(rulesetPath, 'utf8');
+            }
+            const parsed = loadYaml(content) as ({
+                rulesetContent?: { rules?: Record<string, unknown> };
+                rules?: Record<string, unknown>;
+            } & Record<string, unknown>) | undefined;
+            return {
+                metadata: parseMetadata(parsed),
+                owaspCategoryKeys: extractOwaspCategoryKeys(parsed),
+            };
         } catch {
-            return base;
+            if (rulesetName.toLowerCase().includes('wso2')) {
+                return { metadata: { ...baseMetadata, provider: 'WSO2' } };
+            }
+            return { metadata: baseMetadata };
         }
     }
 
@@ -852,7 +917,11 @@ export class GovernanceManager extends BaseRpcManager {
         return bestScore > 0 ? bestTheme : this.WSO2_THEMES[0];
     }
 
-    private buildUnifiedReport(name: string, response: SpectralGovernancePayload): BuiltUnifiedReport {
+    private buildUnifiedReport(
+        name: string,
+        response: SpectralGovernancePayload,
+        owaspCategoryKeys?: string[]
+    ): BuiltUnifiedReport {
         const reportId = this.inferReportKey(name);
         const rawViolations = response.violations || [];
         const violationsById: Record<string, UnifiedViolation> = {};
@@ -914,7 +983,15 @@ export class GovernanceManager extends BaseRpcManager {
 
         let categories: UnifiedBreakdownCategory[] = [];
         if (reportId === 'owasp') {
-            categories = this.OWASP_CATEGORIES.map((item) => {
+            const configuredOwaspCategories =
+                owaspCategoryKeys && owaspCategoryKeys.length > 0
+                    ? this.OWASP_CATEGORIES.filter((item) => owaspCategoryKeys.includes(item.key))
+                    : this.OWASP_CATEGORIES;
+            // Only list OWASP API Security categories that have at least one finding. The bundled
+            // ruleset (e.g. owasp_top_10.yaml) implements a subset of rules (e.g. API2, API3, …), not
+            // necessarily every API1–API10 theme; empty categories are omitted so the UI matches the
+            // rules in use.
+            categories = configuredOwaspCategories.map((item) => {
                 const bucket = categoryBuckets.get(item.key);
                 const ids = bucket?.violationIds || [];
                 const total = ids.length;
@@ -923,7 +1000,8 @@ export class GovernanceManager extends BaseRpcManager {
                 return {
                     id: item.key,
                     label: item.label,
-                    status: total > 0 ? 'failed' : 'passed',
+                    description: item.description,
+                    status: (total > 0 ? 'failed' : 'passed') as 'passed' | 'failed',
                     total,
                     errors: categoryErrors,
                     warnings: categoryWarnings,
@@ -949,7 +1027,7 @@ export class GovernanceManager extends BaseRpcManager {
                     id: theme.id,
                     label: theme.title,
                     description: theme.description,
-                    status: total > 0 ? 'failed' : 'passed',
+                    status: (total > 0 ? 'failed' : 'passed') as 'passed' | 'failed',
                     total,
                     errors: categoryErrors,
                     warnings: categoryWarnings,
@@ -979,7 +1057,7 @@ export class GovernanceManager extends BaseRpcManager {
             breakdown: {
                 title: reportId === 'owasp' ? 'OWASP Breakdown' : reportId === 'rest-api-readiness' ? 'WSO2 REST Guidelines Breakdown' : 'AI Readiness Breakdown',
                 subtitle: reportId === 'owasp'
-                    ? 'Coverage across the OWASP API Security Top 10 (2023)'
+                    ? 'OWASP API Security themes for which this analysis found issues. The bundled ruleset includes a subset of API1–10 rules (for example API2, API3, API4, API8, API9), not every category.'
                     : reportId === 'rest-api-readiness'
                         ? 'Compliance with WSO2 REST API design guidelines'
                         : 'Evaluate how well your API is prepared for AI agent consumption',
@@ -1161,9 +1239,15 @@ export class GovernanceManager extends BaseRpcManager {
                 report?: BuiltUnifiedReport;
                 aiReadinessSummary?: unknown;
             };
-            response.metadata = await this.readRulesetMetadata(rulesetConfig.filePath, params.name);
+            const rulesetInsights = await this.readRulesetInsights(rulesetConfig.filePath, params.name);
+            response.metadata = rulesetInsights.metadata;
             const reportTitle = response.metadata?.name || params.name;
-            const unifiedReport = this.buildUnifiedReport(reportTitle, response);
+            const inferredReportId = this.inferReportKey(reportTitle);
+            const owaspCategoryKeys =
+                inferredReportId === 'owasp'
+                    ? rulesetInsights.owaspCategoryKeys
+                    : undefined;
+            const unifiedReport = this.buildUnifiedReport(reportTitle, response, owaspCategoryKeys);
             await this.persistSpectralSection(normalizedPath, unifiedReport.reportId, unifiedReport.violationsById);
             const aiReadinessSummary = (response as { aiReadinessSummary?: unknown }).aiReadinessSummary;
             if (aiReadinessSummary) {

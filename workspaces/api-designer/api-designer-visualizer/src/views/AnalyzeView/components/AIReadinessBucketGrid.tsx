@@ -1,9 +1,10 @@
 import React from 'react';
 import styled from '@emotion/styled';
-import { Codicon, LinkButton } from '@wso2/ui-toolkit';
+import { Codicon } from '@wso2/ui-toolkit';
 import type { AiReadinessDimensionSummary } from '@wso2/api-designer-core';
 import { getAiReadinessRuleSubBucket } from '@wso2/api-designer-core';
 import { scoreColor } from '../hooks/useReport';
+import { ViewIssuesLink } from './ViewIssuesLink';
 
 interface ViolationRow {
     id: string;
@@ -25,13 +26,13 @@ interface Props {
 
 // ── Accordion ─────────────────────────────────────────────────────────────
 
-const Accordion = styled.div`
+export const Accordion = styled.div`
     display: flex;
     flex-direction: column;
     gap: 8px;
 `;
 
-const DimCard = styled.div`
+export const DimCard = styled.div`
     border-radius: 8px;
     overflow: hidden;
     border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 70%, transparent);
@@ -53,7 +54,7 @@ const DimHeader = styled.div`
     }
 `;
 
-const DimScore = styled.div<{ $color: string; $score: number }>`
+export const DimScore = styled.div<{ $color: string; $score: number }>`
     width: 44px;
     height: 44px;
     border-radius: 50%;
@@ -87,12 +88,12 @@ const DimScore = styled.div<{ $color: string; $score: number }>`
     }
 `;
 
-const DimMeta = styled.div`
+export const DimMeta = styled.div`
     flex: 1;
     min-width: 0;
 `;
 
-const DimTitle = styled.div`
+export const DimTitle = styled.div`
     font-size: 13px;
     font-weight: 700;
     color: var(--vscode-foreground);
@@ -109,7 +110,7 @@ const DimIcon = styled.span`
     flex-shrink: 0;
 `;
 
-const DimDesc = styled.div`
+export const DimDesc = styled.div`
     font-size: 11px;
     color: var(--vscode-descriptionForeground);
     margin-bottom: 8px;
@@ -135,14 +136,14 @@ const Tag = styled.span`
 `;
 
 
-const DimRight = styled.div`
+export const DimRight = styled.div`
     display: flex;
     align-items: center;
     gap: 8px;
     flex-shrink: 0;
 `;
 
-const DimIssueCount = styled.div`
+export const DimIssueCount = styled.div`
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -152,12 +153,33 @@ const DimIssueCount = styled.div`
     white-space: nowrap;
 `;
 
-const DimErrorCount = styled.span`
+export const DimErrorCount = styled.span`
     color: var(--vscode-errorForeground);
 `;
 
-const DimWarningCount = styled.span`
+export const DimWarningCount = styled.span`
     color: var(--vscode-editorWarning-foreground);
+`;
+
+/** Same shell as dimension header, without expand/collapse affordance (OWASP / REST flat breakdown). */
+export const FlatBreakdownHeader = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    user-select: none;
+    background: color-mix(in srgb, var(--vscode-editorGroupHeader-tabsBackground) 90%, var(--vscode-editor-background));
+`;
+
+export const FlatCardFooter = styled.div`
+    border-top: 1px solid var(--vscode-panel-border);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+    background: color-mix(in srgb, var(--vscode-editor-background) 92%, var(--vscode-editorWidget-background));
 `;
 
 const DimChevron = styled.div<{ $open: boolean }>`
@@ -286,18 +308,6 @@ const SubBottomRow = styled.div`
     justify-content: space-between;
     gap: 10px;
     margin-top: 3px;
-`;
-
-const ViewBtn = styled.button`
-    font-size: 11px;
-    color: var(--vscode-textLink-foreground);
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0;
-    font-family: inherit;
-    white-space: nowrap;
-    &:hover { text-decoration: underline; }
 `;
 
 // ── Main export ───────────────────────────────────────────────────────────
@@ -463,7 +473,7 @@ const SubBucketCard: React.FC<{
             </SubTop>
             <SubBottomRow>
                 <SubDesc>{sub.description || ''}</SubDesc>
-                <ViewBtn onClick={() => onViewIssues(sub.key)}>View issues</ViewBtn>
+                <ViewIssuesLink onClick={() => onViewIssues(sub.key)}>View issues</ViewIssuesLink>
             </SubBottomRow>
         </SubCard>
     );
