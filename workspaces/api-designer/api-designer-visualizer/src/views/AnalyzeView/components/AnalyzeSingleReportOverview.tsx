@@ -20,7 +20,7 @@ interface AnalyzeSingleReportOverviewProps {
 }
 
 const OverviewRow = styled.div`
-    background: linear-gradient(180deg, rgba(122, 162, 255, 0.05) 0%, rgba(122, 162, 255, 0.02) 100%);
+    background: var(--vscode-editorWidget-background);
     border: 1px solid var(--vscode-panel-border);
     border-radius: 12px;
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);

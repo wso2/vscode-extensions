@@ -118,6 +118,11 @@ const IssueExplorerBlock = styled.div<{ $hasOverlay: boolean }>`
     min-height: 520px;
     margin-right: ${({ $hasOverlay }: { $hasOverlay: boolean }) => ($hasOverlay ? 'calc(min(42%, 560px) + 10px)' : '0')};
     transition: margin-right 180ms ease;
+
+    @media (max-width: 1200px) {
+        margin-right: ${({ $hasOverlay }: { $hasOverlay: boolean }) => ($hasOverlay ? 'calc(max(40%, 300px) + 10px)' : '0')};
+        min-height: 420px;
+    }
 `;
 const IssueExplorerBody = styled.div`
     flex: 1;
@@ -271,7 +276,7 @@ const IssueCard = styled.button<{ $selected: boolean; $severity: SeverityLevel }
     background: ${({ $selected }: { $selected: boolean }) =>
         $selected
             ? 'color-mix(in srgb, var(--vscode-list-activeSelectionBackground) 65%, rgba(122, 162, 255, 0.08))'
-            : 'linear-gradient(180deg, rgba(122, 162, 255, 0.05) 0%, rgba(122, 162, 255, 0.02) 100%)'};
+            : 'var(--vscode-editorWidget-background)'};
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
     transition: border-color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
 
@@ -320,7 +325,7 @@ const DetailColumn = styled.div<{ $open: boolean }>`
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    background: linear-gradient(180deg, rgba(122, 162, 255, 0.05) 0%, rgba(122, 162, 255, 0.02) 100%);
+    background: var(--vscode-editorWidget-background);
     border: 1px solid var(--vscode-panel-border);
     border-radius: 6px;
     box-shadow: -14px 0 28px rgba(0, 0, 0, 0.22), 0 6px 18px rgba(0, 0, 0, 0.2);
@@ -329,6 +334,19 @@ const DetailColumn = styled.div<{ $open: boolean }>`
     pointer-events: ${({ $open }: { $open: boolean }) => ($open ? 'auto' : 'none')};
     transition: transform 180ms ease, opacity 140ms ease;
     z-index: 5;
+
+    @media (max-width: 1200px) {
+        width: 40%;
+        min-width: 300px;
+        max-width: 460px;
+        height: min(76vh, 920px);
+        min-height: 420px;
+        margin-top: 0;
+        transform: translateX(${({ $open }: { $open: boolean }) => ($open ? '0' : '102%')});
+        opacity: ${({ $open }: { $open: boolean }) => ($open ? 1 : 0)};
+        pointer-events: ${({ $open }: { $open: boolean }) => ($open ? 'auto' : 'none')};
+        transition: transform 180ms ease, opacity 140ms ease;
+    }
 `;
 const DetailCard = styled.div`
     overflow: hidden;

@@ -991,7 +991,7 @@ export class GovernanceManager extends BaseRpcManager {
         { id: 'contracts-responses', title: 'Contracts & Responses', description: 'Request/response schema and contract correctness checks.' },
         { id: 'documentation', title: 'Documentation Quality', description: 'API documentation completeness and usability checks.' },
         { id: 'security-governance', title: 'Security & Governance', description: 'Basic security and governance hygiene checks.' },
-        { id: 'other', title: 'Other', description: 'Others checks' },
+        { id: 'other', title: 'Others', description: 'Other checks' },
     ] as const;
 
     private readonly WSO2_RULE_THEME_MAP: Record<string, (typeof this.WSO2_THEMES)[number]['id']> = {
