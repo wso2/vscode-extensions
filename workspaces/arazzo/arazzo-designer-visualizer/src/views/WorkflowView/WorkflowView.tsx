@@ -290,11 +290,11 @@ export function WorkflowView(props: WorkflowViewProps) {
         setTraceSpans(prev => [...prev, event]);
 
         if (event.arazzo_span_kind === 'workflow' && event.lifecycle === 'start') {
-            // Record which workflow this trace run is for so we can ignore events
-            // from a different workflow when this view is showing a different one.
+            // Ignore starts from dependency or nested workflows — only process the displayed workflow.
+            // Without this guard, a dependsOn workflow's start would overwrite activeTraceWorkflowIdRef
+            // and cause all subsequent steps of the displayed workflow to be filtered out.
+            if (event.attributes?.['workflow.id'] !== effectiveWorkflowIdRef.current) { return; }
             activeTraceWorkflowIdRef.current = event.attributes?.['workflow.id'];
-            // Only reset and highlight if the running workflow matches the one shown.
-            if (activeTraceWorkflowIdRef.current !== effectiveWorkflowIdRef.current) { return; }
             // New workflow run started — reset step tracking and clear all highlights
             prevStepRef.current = 'virtual_start';
             setNodes(prev => prev.map(node => {
@@ -315,8 +315,11 @@ export function WorkflowView(props: WorkflowViewProps) {
             );
 
         } else if (event.arazzo_span_kind === 'step') {
-            // Ignore events from a different workflow than the one being visualized
+            // Ignore events from a different workflow than the one being visualized.
+            // Both guards are needed: activeTrace ensures the run has started; workflow.id
+            // filters out steps from dependency workflows that run within the same execution.
             if (activeTraceWorkflowIdRef.current !== effectiveWorkflowIdRef.current) { return; }
+            if (event.attributes?.['workflow.id'] !== effectiveWorkflowIdRef.current) { return; }
             const stepId = event.attributes?.['step.id'] || event.name;
 
             if (event.lifecycle === 'start') {
@@ -471,7 +474,8 @@ export function WorkflowView(props: WorkflowViewProps) {
                 return;
             }
 
-            if (activeTraceWorkflowIdRef.current !== effectiveWorkflowIdRef.current) { return; }
+            // Ignore end events from dependency or nested workflows.
+            if (event.attributes?.['workflow.id'] !== effectiveWorkflowIdRef.current) { return; }
             const lastStepId = prevStepRef.current;
             // Colour only the end node reachable from the last executed step.
             // The outer setNodes gives us `prev` (current nodes) for findTracePath;
