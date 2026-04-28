@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styled from '@emotion/styled';
 import { useVisualizerContext } from '@wso2/api-designer-rpc-client';
 import { SpectralRuleset } from '@wso2/api-designer-core';
@@ -50,7 +50,6 @@ export interface AIReadinessData {
 
 interface MetricsOverviewProps {
     fileUri?: string;
-    aiReadinessScore?: AIReadinessData | null;
     validationData?: ValidationData | null;
 }
 
@@ -59,10 +58,12 @@ interface MetricBadgeData {
     label: string;
     description: string;
     score: number | null;
-    analyzeSection: 'ai-readiness' | 'owasp' | 'wso2-rest' | 'all';
+    analyzeSection: 'ai-readiness' | 'owasp' | 'rest-api-readiness';
+    isLoading?: boolean;
 }
 
-type GovernanceSection = 'owasp' | 'wso2-rest';
+type MetricSection = 'ai-readiness' | 'owasp' | 'rest-api-readiness';
+type MetricStateMap = Record<MetricSection, { score: number | null; isLoading: boolean }>;
 
 const Container = styled.div`
     width: 100%;
@@ -124,6 +125,10 @@ const MetricCircle = styled.div<{ $color: string; $score: number | null }>`
 const MetricCircleText = styled.span`
     position: relative;
     z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 34px;
 `;
 
 const MetricContent = styled.div`
@@ -143,6 +148,19 @@ const ReportLinkHint = styled.div`
     color: var(--vscode-textLink-foreground);
     margin-top: 3px;
     opacity: 0.92;
+    min-height: 14px;
+`;
+
+const ReportLinkText = styled.span`
+    min-width: 74px;
+`;
+
+const IconSlot = styled.span`
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 12px;
+    height: 12px;
 `;
 
 const MetricTitle = styled.div`
@@ -168,51 +186,46 @@ const hexToRgba = (hex: string, alpha: number): string => {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
-const getRulesetForSection = (rulesets: SpectralRuleset[], section: GovernanceSection): SpectralRuleset | undefined => {
-    if (section === 'owasp') {
+const getRulesetForSection = (rulesets: SpectralRuleset[], section: MetricSection): SpectralRuleset | undefined => {
+    if (section === 'ai-readiness') {
+        return rulesets.find((ruleset) => {
+            const name = (ruleset.name || '').toLowerCase();
+            return name.includes('ai') && name.includes('readiness');
+        });
+    } else if (section === 'owasp') {
         return rulesets.find((ruleset) => {
             const name = (ruleset.name || '').toLowerCase();
             return name.includes('owasp') || name.includes('security');
         });
+    } else if (section === 'rest-api-readiness') {
+        return rulesets.find((ruleset) => {
+            const name = (ruleset.name || '').toLowerCase();
+            return name.includes('design') || name.includes('rest');
+        });
     }
-    return rulesets.find((ruleset) => {
-        const name = (ruleset.name || '').toLowerCase();
-        return name.includes('design') || name.includes('rest');
-    });
 };
 
-const getRulesetCandidatesForSection = (rulesets: SpectralRuleset[], section: GovernanceSection): SpectralRuleset[] => {
+const getRulesetCandidatesForSection = (rulesets: SpectralRuleset[], section: MetricSection): SpectralRuleset[] => {
     const primary = getRulesetForSection(rulesets, section);
-    const match = (ruleset: SpectralRuleset) => {
-        const name = (ruleset.name || '').toLowerCase();
-        return section === 'owasp'
-            ? name.includes('owasp') || name.includes('security')
-            : name.includes('design') || name.includes('rest');
-    };
-    const filtered = rulesets.filter(match);
+    const filtered = rulesets.filter((ruleset) => ruleset.name !== primary?.name);
     if (!primary) {
         return filtered;
     }
-    return [primary, ...filtered.filter((ruleset) => ruleset.name !== primary.name)];
+    return [primary, ...filtered];
 };
 
-const getSectionMeta = (section: GovernanceSection): { label: string; description: string } => {
-    if (section === 'owasp') {
-        return {
-            label: 'Secure',
-            description: 'Explains how much secure your API is based on OWASP guidelines',
-        };
-    }
-    return {
-        label: 'Compliant',
-        description: 'Explains how much compliant your API is with WSO2 REST API guidelines',
-    };
-};
+const getReportIdForSection = (section: MetricSection): 'ai-readiness' | 'owasp' | 'rest-api-readiness' =>
+    section === 'ai-readiness' ? 'ai-readiness' : section === 'owasp' ? 'owasp' : 'rest-api-readiness';
 
-export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ fileUri, aiReadinessScore, validationData }) => {
+export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ fileUri, validationData }) => {
     const { rpcClient } = useVisualizerContext();
-    const [governanceMetrics, setGovernanceMetrics] = useState<MetricBadgeData[]>([]);
-    const readiness = aiReadinessScore?.score ?? null;
+    const requestSequenceRef = useRef(0);
+    const validationSpecFingerprint = validationData?.specContent ?? '';
+    const [metrics, setMetrics] = useState<MetricStateMap>({
+        'ai-readiness': { score: null, isLoading: true },
+        'owasp': { score: null, isLoading: true },
+        'rest-api-readiness': { score: null, isLoading: true }
+    });
     /** When score is not yet available, use the same “A” band as a neutral placeholder (matches previous blue default). */
     const placeholderScore = 75;
     const defaultTintHex = scoreAccentHex(placeholderScore);
@@ -220,11 +233,61 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ fileUri, aiRea
 
     useEffect(() => {
         let isActive = true;
+        requestSequenceRef.current += 1;
+        const requestSequence = requestSequenceRef.current;
+
+        const updateSection = (section: MetricSection, patch: Partial<{ score: number | null; isLoading: boolean }>) => {
+            if (!isActive || requestSequenceRef.current !== requestSequence) {
+                return;
+            }
+            setMetrics((prev) => ({
+                ...prev,
+                [section]: {
+                    ...prev[section],
+                    ...patch
+                }
+            }));
+        };
+
+        const fetchSectionMetric = async (
+            section: MetricSection,
+            candidateRulesets: SpectralRuleset[]
+        ): Promise<void> => {
+            // Keep already loaded score visible during refresh to avoid UI flicker/glitch.
+            setMetrics((prev) => ({
+                ...prev,
+                [section]: {
+                    ...prev[section],
+                    isLoading: prev[section].score == null
+                }
+            }));
+            const expectedReportId = getReportIdForSection(section);
+            try {
+                let resolvedScore: number | null = null;
+                for (const ruleset of candidateRulesets) {
+                    const governance = await rpcClient.getApiDesignerVisualizerRpcClient().getGovernance({
+                        filePath: fileUri!,
+                        name: ruleset.name,
+                        ruleset
+                    });
+                    const reportId = governance?.report?.reportId;
+                    if (reportId !== expectedReportId) {
+                        continue;
+                    }
+                    resolvedScore = governance?.report?.overview?.score ?? null;
+                    break;
+                }
+                updateSection(section, { score: resolvedScore, isLoading: false });
+            } catch {
+                updateSection(section, { isLoading: false });
+            }
+        };
+
         const fetchGovernanceMetrics = async () => {
             if (!rpcClient || !fileUri || fileUri === 'file:///placeholder') {
-                if (isActive) {
-                    setGovernanceMetrics([]);
-                }
+                updateSection('ai-readiness', { isLoading: false });
+                updateSection('owasp', { isLoading: false });
+                updateSection('rest-api-readiness', { isLoading: false });
                 return;
             }
 
@@ -233,45 +296,17 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ fileUri, aiRea
                     filePath: fileUri
                 });
                 const governanceRulesets = rulesetsResponse.governanceRulesets || [];
-                const sectionTargets: GovernanceSection[] = ['owasp', 'wso2-rest'];
+                const aiRulesetCandidates = getRulesetCandidatesForSection(governanceRulesets, 'ai-readiness');
+                const owaspRulesetCandidates = getRulesetCandidatesForSection(governanceRulesets, 'owasp');
+                const restRulesetCandidates = getRulesetCandidatesForSection(governanceRulesets, 'rest-api-readiness');
 
-                const results = await Promise.allSettled(
-                    sectionTargets.map(async (section) => {
-                        const expectedReportId = section === 'owasp' ? 'owasp' : 'rest-api-readiness';
-                        const candidates = getRulesetCandidatesForSection(governanceRulesets, section);
-                        for (const ruleset of candidates) {
-                            const governance = await rpcClient.getApiDesignerVisualizerRpcClient().getGovernance({
-                                filePath: fileUri,
-                                name: ruleset.name,
-                                ruleset
-                            });
-                            const reportId = governance?.report?.reportId;
-                            if (reportId !== expectedReportId) {
-                                continue;
-                            }
-                            const meta = getSectionMeta(section);
-                            return {
-                                key: section,
-                                label: meta.label,
-                                description: meta.description,
-                                score: governance?.report?.overview?.score ?? null,
-                                analyzeSection: section
-                            } as MetricBadgeData;
-                        }
-                        throw new Error(`No matching ${expectedReportId} ruleset found`);
-                    })
-                );
-
-                const metrics = results
-                    .filter((result): result is PromiseFulfilledResult<MetricBadgeData> => result.status === 'fulfilled')
-                    .map((result) => result.value);
-                if (isActive) {
-                    setGovernanceMetrics(metrics);
-                }
+                void fetchSectionMetric('ai-readiness', aiRulesetCandidates);
+                void fetchSectionMetric('owasp', owaspRulesetCandidates);
+                void fetchSectionMetric('rest-api-readiness', restRulesetCandidates);
             } catch {
-                if (isActive) {
-                    setGovernanceMetrics([]);
-                }
+                updateSection('ai-readiness', { isLoading: false });
+                updateSection('owasp', { isLoading: false });
+                updateSection('rest-api-readiness', { isLoading: false });
             }
         };
 
@@ -279,25 +314,37 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ fileUri, aiRea
         return () => {
             isActive = false;
         };
-    }, [rpcClient, fileUri, validationData]);
+    }, [rpcClient, fileUri, validationSpecFingerprint]);
 
     const metricBadges = useMemo<MetricBadgeData[]>(
         () => [
             {
                 key: 'ai-ready',
-                label: 'AI Ready',
-                description: 'Explains how much ready your API is to be consumed by agents',
-                score: readiness,
-                analyzeSection: 'ai-readiness'
+                label: 'Agent Readiness',
+                description: 'Measures how ready this API is for AI agent consumption and tool use.',
+                score: metrics['ai-readiness'].score,
+                analyzeSection: 'ai-readiness',
+                isLoading: metrics['ai-readiness'].isLoading
             },
-            ...governanceMetrics
+            {
+                key: 'owasp',
+                label: 'Security Posture (OWASP)',
+                description: 'Measures alignment with OWASP API Security best practices.',
+                score: metrics.owasp.score,
+                analyzeSection: 'owasp',
+                isLoading: metrics.owasp.isLoading
+            },
+            {
+                key: 'rest-api-readiness',
+                label: 'REST Guideline Compliance',
+                description: 'Measures alignment with WSO2 REST API design guidelines.',
+                score: metrics['rest-api-readiness'].score,
+                analyzeSection: 'rest-api-readiness',
+                isLoading: metrics['rest-api-readiness'].isLoading
+            }
         ],
-        [readiness, governanceMetrics]
+        [metrics]
     );
-
-    if (!aiReadinessScore) {
-        return null;
-    }
 
     const navigateToAnalyze = (analyzeSection: MetricBadgeData['analyzeSection']) => {
         postVSCodeMessage({
@@ -326,15 +373,21 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ fileUri, aiRea
                         >
                             <MetricCircle $color={ringColor} $score={badge.score}>
                                 <MetricCircleText>
-                                    {badge.score !== null && badge.score !== undefined ? `${badge.score}%` : '--'}
+                                    {badge.isLoading
+                                        ? '...'
+                                        : badge.score !== null && badge.score !== undefined
+                                            ? `${badge.score}%`
+                                            : '--'}
                                 </MetricCircleText>
                             </MetricCircle>
                             <MetricContent>
                                 <MetricTitle>{badge.label}</MetricTitle>
                                 <MetricDescription>{badge.description}</MetricDescription>
                                 <ReportLinkHint>
-                                    See full report
-                                    <Codicon name="arrow-right" sx={{ fontSize: '12px' }} />
+                                    <ReportLinkText>{badge.isLoading ? 'Loading score...' : 'See full report'}</ReportLinkText>
+                                    <IconSlot>
+                                        {!badge.isLoading && <Codicon name="arrow-right" sx={{ fontSize: '12px' }} />}
+                                    </IconSlot>
                                 </ReportLinkHint>
                             </MetricContent>
                         </MetricBadge>

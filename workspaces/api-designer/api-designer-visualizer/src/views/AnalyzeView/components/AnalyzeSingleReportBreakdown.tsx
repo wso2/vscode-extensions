@@ -348,7 +348,7 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
     }, [categories]);
     const resolvedTitle = title || (reportKey === 'owasp'
         ? 'OWASP Breakdown'
-        : reportKey === 'wso2-rest'
+        : reportKey === 'rest-api-readiness'
             ? 'WSO2 REST Guidelines Breakdown'
             : 'AI Readiness Breakdown');
 

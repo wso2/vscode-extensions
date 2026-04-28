@@ -144,7 +144,6 @@ export const OpenAPIEditor: React.FC<OpenAPIEditorProps> = ({
             <EditorContentWrapper>
                 <MetricsOverview
                     fileUri={fileUri}
-                    aiReadinessScore={aiReadinessScore}
                     validationData={validationData}
                 />
                 <ValidationStatusBar

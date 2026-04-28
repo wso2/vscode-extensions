@@ -148,7 +148,7 @@ export function useAPIEditorState(initialSpec?: OpenAPISpec | null): UseAPIEdito
                     break;
                 case 'updateAIReadiness':
                     setAiReadinessScore((prev) => ({
-                        score: typeof message.data?.score === 'number' ? message.data.score : (prev?.score ?? 0),
+                        score: typeof message.data?.score === 'number' ? message.data.score : (prev?.score ?? null),
                         issues: prev?.issues ?? []
                     }));
                     break;

@@ -325,7 +325,6 @@ export interface GetApplicableRulesetsRequest {
  */
 export interface GetApplicableRulesetsResponse {
     governanceRulesets: SpectralRuleset[];
-    aiReadinessRuleset: SpectralRuleset | null;
 }
 
 /**

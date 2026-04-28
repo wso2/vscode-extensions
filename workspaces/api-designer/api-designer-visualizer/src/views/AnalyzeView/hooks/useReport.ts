@@ -10,7 +10,7 @@ import {
 } from '@wso2/api-designer-core';
 import { NormalizedGovernanceViolation } from '../../../types/violations';
 
-export type AnalyzeReportKey = 'ai-readiness' | 'owasp' | 'wso2-rest';
+export type AnalyzeReportKey = 'ai-readiness' | 'owasp' | 'rest-api-readiness';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -238,26 +238,28 @@ export const useReportData = (
                 const client = rpcClient.getApiDesignerVisualizerRpcClient();
                 const rulesetsResponse = await client.getApplicableRulesets({ filePath: fileUri });
 
+                const governanceRulesets = rulesetsResponse.governanceRulesets || [];
                 let selectedRuleset: SpectralRuleset | undefined;
-                if (reportKey === 'ai-readiness') {
-                    selectedRuleset = rulesetsResponse.aiReadinessRuleset;
-                } else {
-                    const governanceRulesets = rulesetsResponse.governanceRulesets || [];
-                    selectedRuleset = governanceRulesets.find((ruleset: SpectralRuleset) => {
-                        const name = (ruleset.name || '').toLowerCase();
-                        if (reportKey === 'owasp') return name.includes('owasp') || name.includes('security');
-                        return name.includes('design') || name.includes('rest');
+                let governance: GetGovernanceResponse | undefined;
+
+                for (const ruleset of governanceRulesets) {
+                    const candidate = await client.getGovernance({
+                        filePath: fileUri,
+                        name: ruleset.name,
+                        ruleset
                     });
+                    if (candidate?.report?.reportId === reportKey) {
+                        selectedRuleset = ruleset;
+                        governance = candidate;
+                        break;
+                    }
                 }
 
-                if (!selectedRuleset) {
+                if (!selectedRuleset || !governance) {
                     throw new Error(`No matching ruleset found for report: ${reportKey}`);
                 }
 
-                const [governance, contentResponse] = await Promise.all([
-                    client.getGovernance({ filePath: fileUri, name: selectedRuleset.name, ruleset: selectedRuleset }),
-                    client.getAPISpecContent({ filePath: fileUri }),
-                ]) as [GetGovernanceResponse, { content?: string }];
+                const contentResponse = await client.getAPISpecContent({ filePath: fileUri });
 
                 if (disposed) return;
 

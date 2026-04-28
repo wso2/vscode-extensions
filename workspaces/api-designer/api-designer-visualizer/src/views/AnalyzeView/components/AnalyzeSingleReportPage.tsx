@@ -293,7 +293,7 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
     }
 
     const resolvedReportId = report.report.reportId;
-    const issueExplorerReportKey: AnalyzeReportKey = resolvedReportId === 'rest-api-readiness' ? 'wso2-rest' : resolvedReportId;
+    const issueExplorerReportKey: AnalyzeReportKey = resolvedReportId === 'rest-api-readiness' ? 'rest-api-readiness' : resolvedReportId;
     const reportUiMeta = report.report as typeof report.report & {
         breakdown: { subtitle?: string };
         issueExplorer: { title?: string; subtitle?: string };

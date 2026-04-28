@@ -46,18 +46,8 @@ function ruleset(
  */
 export function getDefaultGovernanceSpectralRulesets(): SpectralRuleset[] {
     return [
+        ruleset('WSO2 REST API AI Readiness Guidelines', 'ai-readiness.yaml', `${DEFAULT_SPECTRAL_RULESET_CATALOG_FOLDER_URL}/ai`),
         ruleset('OWASP Top 10 Security', 'owasp_top_10.yaml'),
         ruleset('WSO2 REST API Design Guidelines', 'wso2_rest_api_design_guidelines.yaml')
     ];
-}
-
-/**
- * Default AI readiness ruleset (Analyze view, separate from governance list).
- */
-export function getDefaultAiReadinessSpectralRuleset(): SpectralRuleset {
-    return ruleset(
-        'WSO2 REST API AI Readiness Guidelines',
-        'ai-readiness.yaml',
-        `${DEFAULT_SPECTRAL_RULESET_CATALOG_FOLDER_URL}/ai`
-    );
 }

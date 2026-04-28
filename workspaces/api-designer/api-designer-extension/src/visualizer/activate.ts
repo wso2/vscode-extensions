@@ -96,7 +96,6 @@ export function activateVisualizer(context: vscode.ExtensionContext) {
                 setTimeout(async () => {
                     if (ApiDesignerPanel.currentPanel && !ApiDesignerPanel.currentPanel.isDisposed()) {
                         await ApiDesignerPanel.currentPanel.sendValidationData();
-                        await ApiDesignerPanel.currentPanel.sendAIReadinessData();
                     }
                 }, 500);
             }
@@ -119,7 +118,6 @@ export function activateVisualizer(context: vscode.ExtensionContext) {
                         setTimeout(async () => {
                             if (ApiDesignerPanel.currentPanel && !ApiDesignerPanel.currentPanel.isDisposed()) {
                                 await ApiDesignerPanel.currentPanel.sendValidationData();
-                                await ApiDesignerPanel.currentPanel.sendAIReadinessData();
                             }
                         }, 600);
                     }, 500);

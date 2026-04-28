@@ -74,7 +74,7 @@ export class ApiDesignerPanel {
     private _isSavingFromWebview: boolean = false;
     private _saveDebounceTimer: NodeJS.Timeout | undefined;
     private _viewType: string;
-    private _analyzeSection: 'all' | 'ai-readiness' | 'owasp' | 'wso2-rest' = 'all';
+    private _analyzeSection: 'all' | 'ai-readiness' | 'owasp' | 'rest-api-readiness' = 'all';
     private _lastSpec: unknown = null;
     private _specType: ApiSpecType | null = null;
     private _specService: SpecificationService | null = null;
@@ -168,16 +168,13 @@ export class ApiDesignerPanel {
                     case 'requestValidation':
                         await this.sendValidationData();
                         break;
-                    case 'requestAIReadiness':
-                        await this.sendAIReadinessData();
-                        break;
                     case 'switchView':
                         // Handle view switching from webview
                         if (message.viewType) {
                             const incoming = String(message.viewType);
                             if (incoming === 'analyze') {
                                 const section = message.analyzeSection;
-                                if (section === 'ai-readiness' || section === 'owasp' || section === 'wso2-rest' || section === 'all') {
+                                if (section === 'ai-readiness' || section === 'owasp' || section === 'rest-api-readiness' || section === 'all') {
                                     this._analyzeSection = section;
                                 } else {
                                     this._analyzeSection = 'all';
@@ -365,7 +362,6 @@ export class ApiDesignerPanel {
                     setTimeout(async () => {
                         if (!this._isDisposed && this._panel) {
                             await this.sendValidationData();
-                            await this.sendAIReadinessData();
                         }
                     }, 500);
                 } catch (err) {
@@ -481,7 +477,6 @@ export class ApiDesignerPanel {
         setTimeout(() => {
             if (!this._isDisposed && this._panel) {
                 void this.sendValidationData();
-                void this.sendAIReadinessData();
             }
         }, 300);
     }
@@ -989,32 +984,6 @@ export class ApiDesignerPanel {
                     errors: [],
                     warnings: []
                 }
-            });
-        }
-    }
-
-    /**
-     * Send AI readiness data to the webview
-     */
-    public async sendAIReadinessData(): Promise<void> {
-        if (!this._currentFilePath || this._isDisposed || !this._panel) {
-            return;
-        }
-
-        try {
-            const score = await this.governanceManager.calculateAIReadinessScore(this._currentFilePath);
-            this._panel.webview.postMessage({
-                command: 'updateAIReadiness',
-                data: {
-                    score: typeof score === 'number' ? score : null
-                }
-            });
-        } catch (error) {
-            logError('Error sending AI readiness data:', error);
-            // Send null score on error
-            this._panel?.webview.postMessage({
-                command: 'updateAIReadiness',
-                data: { score: null }
             });
         }
     }

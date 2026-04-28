@@ -62,7 +62,7 @@ function UnifiedWebview({
     const [viewType, setViewType] = useState<string>(initialViewType);
     const [initialSpec, setInitialSpec] = useState<any>(null);
     const [fileUri, setFileUri] = useState<string>(seedFileUri);
-    const [analyzeSection, setAnalyzeSection] = useState<'all' | 'ai-readiness' | 'owasp' | 'wso2-rest'>('all');
+    const [analyzeSection, setAnalyzeSection] = useState<'all' | 'ai-readiness' | 'owasp' | 'rest-api-readiness'>('all');
 
     // Try to get fileUri from messages immediately on mount
     // This handles the case where messages arrive before the component fully mounts
@@ -93,7 +93,7 @@ function UnifiedWebview({
                 case 'switchView':
                     if (message.viewType === 'analyze') {
                         const section = message.analyzeSection;
-                        if (section === 'ai-readiness' || section === 'owasp' || section === 'wso2-rest' || section === 'all') {
+                        if (section === 'ai-readiness' || section === 'owasp' || section === 'rest-api-readiness' || section === 'all') {
                             setAnalyzeSection(section);
                         } else {
                             setAnalyzeSection('all');

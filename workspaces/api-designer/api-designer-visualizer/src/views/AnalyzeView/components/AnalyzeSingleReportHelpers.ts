@@ -5,19 +5,19 @@ import { AnalyzeReportKey, extractOwaspReference } from '../hooks/useReport';
 export const REPORT_TITLES: Record<AnalyzeReportKey, string> = {
     'ai-readiness': 'AI Readiness Report',
     owasp: 'OWASP Security Report',
-    'wso2-rest': 'WSO2 REST API Guidelines Report',
+    'rest-api-readiness': 'WSO2 REST API Guidelines Report',
 };
 
 export const BREAKDOWN_TITLES: Record<AnalyzeReportKey, string> = {
     'ai-readiness': 'AI Readiness Breakdown',
     owasp: 'OWASP Breakdown',
-    'wso2-rest': 'WSO2 REST Guidelines Breakdown',
+    'rest-api-readiness': 'WSO2 REST Guidelines Breakdown',
 };
 
 export const BREAKDOWN_SUBTITLES: Record<AnalyzeReportKey, string> = {
     'ai-readiness': 'Evaluate how well your API is prepared for AI agent consumption',
     owasp: 'Coverage across the OWASP API Security Top 10 (2023)',
-    'wso2-rest': 'Compliance with WSO2 REST API design guidelines',
+    'rest-api-readiness': 'Compliance with WSO2 REST API design guidelines',
 };
 
 export const OWASP_CATEGORIES = [

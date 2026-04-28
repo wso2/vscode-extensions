@@ -23,17 +23,17 @@ import * as vscode from 'vscode';
 import {
     FetchRulesetsFromFolderRequest,
     FetchRulesetsFromFolderResponse,
+    DEFAULT_SPECTRAL_RULESET_CATALOG_FOLDER_URL,
     GetAllSpectralRulesetsRequest,
     GetAllSpectralRulesetsResponse,
     GetApplicableRulesetsRequest,
     GetApplicableRulesetsResponse,
     GetGovernanceRequest,
     GetGovernanceResponse,
-    type UnifiedAnalyzeReport as CoreUnifiedAnalyzeReport,
+    UnifiedAnalyzeReport,
     SpectralRuleset,
     ValidateAPISpecRequest,
     ValidateAPISpecResponse,
-    getDefaultAiReadinessSpectralRuleset,
     getDefaultGovernanceSpectralRulesets,
     loadYaml
 } from '@wso2/api-designer-core';
@@ -1403,7 +1403,7 @@ export class GovernanceManager extends BaseRpcManager {
             }
             (response as GetGovernanceResponse & { schemaVersion?: '2' }).schemaVersion = '2';
             (response as GetGovernanceResponse).reportId = unifiedReport.reportId;
-            (response as GetGovernanceResponse).report = unifiedReport as CoreUnifiedAnalyzeReport;
+            (response as GetGovernanceResponse).report = unifiedReport as UnifiedAnalyzeReport;
             (response as any).llmValidation = llmValidation;
             return response as GetGovernanceResponse;
         } catch (error: unknown) {
@@ -1588,11 +1588,18 @@ export class GovernanceManager extends BaseRpcManager {
 
     async getApplicableRulesets(params: GetApplicableRulesetsRequest): Promise<GetApplicableRulesetsResponse> {
         const DEFAULT_GOVERNANCE_RULESETS = getDefaultGovernanceSpectralRulesets();
-        const DEFAULT_AI_READINESS_RULESET = getDefaultAiReadinessSpectralRuleset();
+        const configuredFolders = vscode.workspace
+            .getConfiguration('apiDesigner')
+            .get<string[]>('spectral.rulesetFolders', [])
+            .map((folder) => (folder || '').trim())
+            .filter((folder) => folder.length > 0);
+        const primaryFolder = (configuredFolders[0] || DEFAULT_SPECTRAL_RULESET_CATALOG_FOLDER_URL).replace(/[\\/]+$/, '');
 
         const buildResponse = (): GetApplicableRulesetsResponse => ({
-            governanceRulesets: DEFAULT_GOVERNANCE_RULESETS.map(ruleset => ({ ...ruleset })),
-            aiReadinessRuleset: { ...DEFAULT_AI_READINESS_RULESET }
+            governanceRulesets: DEFAULT_GOVERNANCE_RULESETS.map(ruleset => ({
+                ...ruleset,
+                sourceFolder: ruleset.fileName === 'ai-readiness.yaml' ? `${primaryFolder}/ai` : primaryFolder
+            })),
         });
 
         return buildResponse();
@@ -1615,38 +1622,6 @@ export class GovernanceManager extends BaseRpcManager {
         } catch (error: unknown) {
             this.logError('Error getting all Spectral rulesets', error);
             return { rulesets: [] };
-        }
-    }
-
-    async calculateAIReadinessScore(filePath: string): Promise<number | null> {
-        try {
-            const rulesetResponse = await this.getApplicableRulesets({ filePath });
-            const aiReadinessRuleset = rulesetResponse.aiReadinessRuleset;
-
-            if (!aiReadinessRuleset) {
-                this.logInfo('AI readiness ruleset not available');
-                return null;
-            }
-
-            const governanceResult = await this.getGovernance({
-                filePath,
-                name: aiReadinessRuleset.name,
-                ruleset: aiReadinessRuleset
-            });
-
-            const { report } = governanceResult;
-            if (!report) {
-                return null;
-            }
-            if (typeof report.overview?.score === 'number') {
-                // Single source of truth: getGovernance() already applies the blended
-                // AI readiness score when agent results are available.
-                return report.overview.score;
-            }
-            return null;
-        } catch (error: unknown) {
-            this.logError('Failed to calculate AI readiness score', error);
-            return null;
         }
     }
 }
