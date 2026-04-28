@@ -518,6 +518,9 @@ function ExecutionBody({ exec }: { exec: StepExecution }) {
     const traceId = exec.stepStart?.context.trace_id ?? exec.stepEnd?.context.trace_id;
     const failureReason = exec.stepEnd?.status_message;
     const stepOutputs = tryParseJson(exec.stepEnd?.attributes?.['step.outputs']);
+    // Workflow-level inputs/outputs (present when this exec represents a workflow span)
+    const workflowInputs = tryParseJson(exec.stepEnd?.attributes?.['workflow.inputs']);
+    const workflowOutputs = tryParseJson(exec.stepEnd?.attributes?.['workflow.outputs']);
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -547,6 +550,18 @@ function ExecutionBody({ exec }: { exec: StepExecution }) {
             {exec.httpPairs.map((pair, i) => (
                 <HttpPairCard key={i} pair={pair} stepOutputs={stepOutputs} />
             ))}
+
+            {workflowInputs != null && (
+                <Collapsible title="Inputs" defaultOpen={true}>
+                    <JsonPre>{renderValue(workflowInputs)}</JsonPre>
+                </Collapsible>
+            )}
+
+            {workflowOutputs != null && (
+                <Collapsible title="Outputs" defaultOpen={true}>
+                    <JsonPre>{renderValue(workflowOutputs)}</JsonPre>
+                </Collapsible>
+            )}
         </div>
     );
 }

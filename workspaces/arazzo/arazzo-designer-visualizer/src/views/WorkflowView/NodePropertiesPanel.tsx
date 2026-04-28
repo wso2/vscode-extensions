@@ -289,6 +289,17 @@ export function NodePropertiesPanel({ node, workflow, definition, traceSpans }: 
     const openWorkflowId = workflow?.workflowId;
     const filteredSpans = node.type === 'stepNode'
         ? (() => {
+            // Nested-workflow step: show the called workflow's own spans so the logs
+            // reflect the actual execution status/inputs/outputs of the nested workflow,
+            // rather than the early-emitted step:end(ERROR) span from the Go runner.
+            const nestedWorkflowId = (nodeData as any).workflowId as string | undefined;
+            if (nestedWorkflowId) {
+                return allSpans.filter(s =>
+                    s.arazzo_span_kind === 'workflow'
+                    && s.attributes?.['workflow.id'] === nestedWorkflowId
+                );
+            }
+            // Regular step: collect step spans + their HTTP children.
             const stepSpanIds = new Set(
                 allSpans
                     .filter(s => s.arazzo_span_kind === 'step'

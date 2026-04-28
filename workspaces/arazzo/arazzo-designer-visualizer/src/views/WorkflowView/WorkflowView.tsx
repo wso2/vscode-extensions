@@ -252,9 +252,10 @@ export function WorkflowView(props: WorkflowViewProps) {
     // which edge to highlight when a step ends. Initialized to 'virtual_start' so
     // the first step highlights the Start → Step edge.
     const prevStepRef = useRef<string>('virtual_start');
-    // Tracks the workflow ID of the currently running trace so events from a
-    // different workflow are ignored when this view is showing a different one.
+    // Tracks the workflow ID of the currently running trace.
     const activeTraceWorkflowIdRef = useRef<string | undefined>(undefined);
+    // Defer resolution of nested workflow steps (Go emits early ERROR spans for them).
+    const pendingNestedStepRef = useRef<{ stepId: string; nestedWorkflowId: string; prevStepId: string } | undefined>(undefined);
     // Tracks the effective ID of the workflow currently displayed. Kept as a ref so
     // trace handler closures (which accumulate across renders) always read the latest value.
     const effectiveWorkflowIdRef = useRef<string | undefined>(workflowId);
@@ -333,7 +334,18 @@ export function WorkflowView(props: WorkflowViewProps) {
                 const prevId = prevStepRef.current;
 
                 setNodes(prev => {
-                    // Update the completed step node's status
+                    // Defer nested workflow step resolution (Go emits early ERROR spans).
+                    const stepNode = prev.find(n => n.id === stepId && n.type === 'stepNode');
+                    if (state === 'failed' && stepNode && (stepNode.data as any).workflowId) {
+                        pendingNestedStepRef.current = {
+                            stepId,
+                            nestedWorkflowId: (stepNode.data as any).workflowId,
+                            prevStepId: prevId,
+                        };
+                        return prev;
+                    }
+
+                    // Update node status
                     const updated = prev.map(node => {
                         if (node.id === stepId && node.type === 'stepNode') {
                             const traceStatus: StepTraceStatus = { state, durationMs: event.duration_ms };
@@ -416,6 +428,49 @@ export function WorkflowView(props: WorkflowViewProps) {
                 prevStepRef.current = stepId;
             }
         } else if (event.arazzo_span_kind === 'workflow' && event.lifecycle === 'end') {
+            const pending = pendingNestedStepRef.current;
+            if (pending && event.attributes?.['workflow.id'] === pending.nestedWorkflowId) {
+                pendingNestedStepRef.current = undefined;
+                activeTraceWorkflowIdRef.current = effectiveWorkflowIdRef.current; // Resume parent tracking
+
+                const nestedState = event.status_code === 'STATUS_CODE_OK' ? 'passed' : 'failed';
+                const { stepId, prevStepId } = pending;
+
+                setNodes(prev => {
+                    const updated = prev.map(node => {
+                        if (node.id === stepId && node.type === 'stepNode') {
+                            const traceStatus: StepTraceStatus = { state: nestedState, durationMs: event.duration_ms };
+                            return { ...node, data: { ...node.data, traceStatus } };
+                        }
+                        return node;
+                    });
+
+                    setEdges(prevEdges => {
+                        const newEdges = [...prevEdges];
+                        const path = findTracePath(prevStepId, stepId, newEdges, updated);
+                        if (path) {
+                            const highlightSet = new Set(path.edgeIds);
+                            for (let i = 0; i < newEdges.length; i++) {
+                                if (highlightSet.has(newEdges[i].id)) {
+                                    newEdges[i] = { ...newEdges[i], zIndex: 10, data: { ...newEdges[i].data, traceHighlight: nestedState } };
+                                }
+                            }
+                            for (const condId of path.intermediateNodeIds) {
+                                const idx = updated.findIndex(n => n.id === condId);
+                                if (idx >= 0) {
+                                    updated[idx] = { ...updated[idx], data: { ...updated[idx].data, traceStatus: { state: nestedState } } };
+                                }
+                            }
+                        }
+                        return newEdges;
+                    });
+                    return updated;
+                });
+
+                prevStepRef.current = stepId;
+                return;
+            }
+
             if (activeTraceWorkflowIdRef.current !== effectiveWorkflowIdRef.current) { return; }
             const lastStepId = prevStepRef.current;
             // Colour only the end node reachable from the last executed step.

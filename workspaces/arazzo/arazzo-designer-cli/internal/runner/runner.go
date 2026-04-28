@@ -5,6 +5,7 @@
 package runner
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"strconv"
@@ -187,10 +188,22 @@ func (r *ArazzoRunner) ExecuteWorkflow(workflowID string, inputs map[string]inte
 		},
 	})
 
-	// Helper to emit workflow end span
-	endWorkflow := func(status telemetry.SpanStatus, errMsg string) {
+	// Helper to emit workflow end span.
+	// Pass optional outputs as the last argument to include workflow.inputs and workflow.outputs.
+	endWorkflow := func(status telemetry.SpanStatus, errMsg string, workflowOutputs ...map[string]interface{}) {
 		dur := float64(time.Since(workflowStart).Milliseconds())
 		workflowEnd := time.Now()
+		attrs := map[string]string{
+			"workflow.id": workflowID,
+		}
+		if b, err := json.Marshal(inputs); err == nil {
+			attrs["workflow.inputs"] = string(b)
+		}
+		if len(workflowOutputs) > 0 && workflowOutputs[0] != nil {
+			if b, err := json.Marshal(workflowOutputs[0]); err == nil {
+				attrs["workflow.outputs"] = string(b)
+			}
+		}
 		ev := telemetry.TraceEvent{
 			Lifecycle:     telemetry.LifecycleEnd,
 			Context:       telemetry.SpanContext{TraceID: traceID, SpanID: workflowSpanID},
@@ -202,9 +215,7 @@ func (r *ArazzoRunner) ExecuteWorkflow(workflowID string, inputs map[string]inte
 			DurationMs:    &dur,
 			StatusCode:    status,
 			StatusMessage: errMsg,
-			Attributes: map[string]string{
-				"workflow.id": workflowID,
-			},
+			Attributes:    attrs,
 		}
 		r.Sink.Send(ev)
 	}
@@ -299,9 +310,9 @@ func (r *ArazzoRunner) ExecuteWorkflow(workflowID string, inputs map[string]inte
 				}
 				outputs := r.resolveWorkflowOutputs(wf, state)
 				if result.Success {
-					endWorkflow(telemetry.SpanStatusOK, "")
+					endWorkflow(telemetry.SpanStatusOK, "", outputs)
 				} else {
-					endWorkflow(telemetry.SpanStatusError, "step failed")
+					endWorkflow(telemetry.SpanStatusError, "step failed", outputs)
 				}
 				return &models.WorkflowExecutionResult{
 					Status:      status,
@@ -406,7 +417,7 @@ func (r *ArazzoRunner) ExecuteWorkflow(workflowID string, inputs map[string]inte
 	outputs := r.resolveWorkflowOutputs(wf, state)
 
 	log.Printf("=== Workflow %s completed ===", workflowID)
-	endWorkflow(telemetry.SpanStatusOK, "")
+	endWorkflow(telemetry.SpanStatusOK, "", outputs)
 
 	return &models.WorkflowExecutionResult{
 		Status:      models.WorkflowStatusWorkflowComplete,
