@@ -94,6 +94,26 @@ export const computeWeightedScore = (
     response: SpectralGovernancePayload
 ): number => {
     if (reportId === "ai-readiness") {
+        const failedRules = new Set<string>();
+        (response.violations || []).forEach((violation) => {
+            const ruleId = normalizeRuleId(violation.rule || violation.code || "");
+            if (!ruleId) return;
+            failedRules.add(ruleId);
+        });
+        let weightedSum = 0;
+        let totalWeight = 0;
+        Object.entries(AI_READINESS_BUCKET_RULE_MAP).forEach(([bucketKey, rulesInBucket]) => {
+            const totalRules = rulesInBucket.length;
+            if (totalRules <= 0) return;
+            const failedInBucket = rulesInBucket.filter((ruleId) => failedRules.has(normalizeRuleId(ruleId))).length;
+            const bucketScore = ((totalRules - failedInBucket) / totalRules) * 100;
+            const weight = AI_READINESS_BUCKET_WEIGHTS[bucketKey] ?? 1;
+            weightedSum += bucketScore * weight;
+            totalWeight += weight;
+        });
+        if (totalWeight > 0) {
+            return Math.max(0, Math.min(100, Math.round(weightedSum / totalWeight)));
+        }
         const aiWeightedScore = response.breakdown?.score;
         if (typeof aiWeightedScore === "number" && Number.isFinite(aiWeightedScore)) {
             return Math.max(0, Math.min(100, Math.round(aiWeightedScore)));

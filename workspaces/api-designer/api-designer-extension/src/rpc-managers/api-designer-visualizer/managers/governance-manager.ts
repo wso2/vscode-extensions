@@ -731,14 +731,6 @@ export class GovernanceManager extends BaseRpcManager {
             if (inferredReportId === 'ai-readiness' && llmValidation?.status === 'ready' && llmValidation.result) {
                 const llmViolations = this.llmService.mapLlmFindingsToGovernanceViolations(llmValidation);
                 response.violations = [...(response.violations || []), ...llmViolations];
-                const llmScore = llmValidation.result.score;
-                if (typeof llmScore === 'number' && Number.isFinite(llmScore)) {
-                    const rounded = Math.max(0, Math.min(100, Math.round(llmScore)));
-                    response.score = rounded;
-                    if (response.breakdown && typeof response.breakdown === 'object') {
-                        response.breakdown = { ...response.breakdown, score: rounded };
-                    }
-                }
             }
             const unifiedReport = this.buildUnifiedReport(reportTitle, response);
             response.score = unifiedReport.overview.score;

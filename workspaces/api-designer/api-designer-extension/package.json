@@ -37,9 +37,6 @@
         "path": "./skills/api-gateway/SKILL.md"
       },
       {
-        "path": "./skills/api-readiness-assessment/SKILL.md"
-      },
-      {
         "path": "./skills/api-design/SKILL.md"
       }
     ],
@@ -268,7 +265,7 @@
         "apiDesigner.spectral.rulesetFolders": {
           "type": "array",
           "default": [
-            "https://github.com/Thenujan-Nagaratnam/api-platform/tree/main/api-designer/spectral-rulesets"
+            "https://github.com/Thenujan-Nagaratnam/api-platform/tree/rules/api-designer/spectral-rulesets"
           ],
           "items": {
             "type": "string"

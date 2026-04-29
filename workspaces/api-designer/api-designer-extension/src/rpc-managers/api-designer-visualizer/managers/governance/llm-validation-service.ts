@@ -20,7 +20,7 @@ export class LlmValidationService {
         if (!extensionPath) {
             throw new Error("Extension path is not initialized");
         }
-        return path.join(extensionPath, "skills", "api-readiness-assessment", "references", "agent-readiness-guidelines.md");
+        return path.join(extensionPath, "skills", "api-design", "references", "agent-readiness-guidelines.md");
     }
 
     public async getAgentReadinessGuidelines(): Promise<string> {

@@ -52,6 +52,13 @@ interface ValidationIssuesModalProps {
     specType?: 'openapi';
 }
 
+type FixStatus = 'fixing' | 'resolved' | 'stillPresent';
+type FixContext = {
+    issue: ValidationIssuePathItem;
+    status: FixStatus;
+    baselineIssuesFingerprint: string;
+};
+
 const fadeIn = keyframes`
     from { opacity: 0; }
     to { opacity: 1; }
@@ -385,6 +392,58 @@ const DetailEmpty = styled.div`
     padding: 16px;
 `;
 
+const FixStatusBox = styled.div<{ $status: FixStatus }>`
+    border: 1px solid
+        ${({ $status }: { $status: FixStatus }) =>
+            $status === 'resolved'
+                ? 'var(--vscode-testing-iconPassed, #22c55e)'
+                : $status === 'stillPresent'
+                    ? 'var(--vscode-editorWarning-foreground)'
+                    : 'var(--vscode-focusBorder)'};
+    background: ${({ $status }: { $status: FixStatus }) =>
+        $status === 'resolved'
+            ? 'color-mix(in srgb, var(--vscode-testing-iconPassed, #22c55e) 12%, transparent)'
+            : $status === 'stillPresent'
+                ? 'color-mix(in srgb, var(--vscode-editorWarning-foreground) 12%, transparent)'
+                : 'color-mix(in srgb, var(--vscode-focusBorder) 10%, transparent)'};
+    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 12px;
+`;
+
+const FixStatusTitle = styled.div`
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--vscode-foreground);
+    margin-bottom: 4px;
+`;
+
+const FixStatusText = styled.div`
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground);
+    line-height: 1.45;
+`;
+
+const FixStatusActions = styled.div`
+    margin-top: 10px;
+    display: flex;
+    gap: 8px;
+`;
+
+const FixStatusActionBtn = styled.button`
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 6px;
+    background: var(--vscode-editor-background);
+    color: var(--vscode-foreground);
+    padding: 6px 10px;
+    font-size: 12px;
+    cursor: pointer;
+
+    &:hover {
+        background: color-mix(in srgb, var(--vscode-textLink-foreground) 10%, transparent);
+    }
+`;
+
 const EmptyState = styled.div`
     flex: 1;
     min-height: 0;
@@ -415,6 +474,7 @@ export const ValidationIssuesModal: React.FC<ValidationIssuesModalProps> = ({
     const isAIAvailable = useAIAvailability();
     const [activeTab, setActiveTab] = useState<'error' | 'warning'>(propActiveTab || 'error');
     const [selectedIssueIndex, setSelectedIssueIndex] = useState<number | null>(null);
+    const [fixContext, setFixContext] = useState<FixContext | null>(null);
 
     const errors = validationData?.errors || [];
     const warnings = validationData?.warnings || [];
@@ -435,6 +495,7 @@ export const ValidationIssuesModal: React.FC<ValidationIssuesModalProps> = ({
 
     useEffect(() => {
         setSelectedIssueIndex(null);
+        setFixContext(null);
     }, [activeTab]);
 
     const handleTabChange = (tab: 'error' | 'warning') => {
@@ -444,11 +505,38 @@ export const ValidationIssuesModal: React.FC<ValidationIssuesModalProps> = ({
 
     const currentIssues = activeTab === 'error' ? errors : warnings;
     const currentCount = activeTab === 'error' ? errorCount : warningCount;
-    const selectedIssue =
+    const selectedIssueFromList =
         selectedIssueIndex !== null && currentIssues[selectedIssueIndex] !== undefined
             ? currentIssues[selectedIssueIndex]
             : null;
+    const selectedIssue = fixContext?.issue || selectedIssueFromList;
     const accentColor = activeTab === 'error' ? SEVERITY_COLOR.error : SEVERITY_COLOR.warning;
+    const getIssueSignature = (issue: ValidationIssuePathItem): string => {
+        const path = Array.isArray(issue.path) ? issue.path.join('.') : '';
+        const start = issue.range?.start?.line ?? -1;
+        const end = issue.range?.end?.line ?? -1;
+        return `${issue.message}::${path}::${start}-${end}`;
+    };
+    const issuesFingerprint = useMemo(
+        () => currentIssues.map((issue) => getIssueSignature(issue)).join('|'),
+        [currentIssues]
+    );
+
+    useEffect(() => {
+        if (!fixContext) return;
+        if (issuesFingerprint === fixContext.baselineIssuesFingerprint) return;
+        const target = getIssueSignature(fixContext.issue);
+        const stillExists = currentIssues.some((issue) => getIssueSignature(issue) === target);
+        setFixContext((prev) =>
+            prev
+                ? {
+                    ...prev,
+                    status: stillExists ? 'stillPresent' : 'resolved',
+                    baselineIssuesFingerprint: issuesFingerprint,
+                }
+                : prev
+        );
+    }, [fixContext, issuesFingerprint, currentIssues]);
 
     const snippetLines = useMemo(() => {
         const specText = validationData?.specContent;
@@ -614,14 +702,76 @@ Note: The validation tool validates OpenAPI specifications automatically.`;
                                     <DetailPaneHeader>
                                         <DetailPaneTitle>Issue details</DetailPaneTitle>
                                         <NoWrapShrinkAIButton
-                                            isAvailable={isAIAvailable && !!fileUri}
+                                            isAvailable={
+                                                isAIAvailable &&
+                                                !!fileUri &&
+                                                fixContext?.status !== 'fixing' &&
+                                                fixContext?.status !== 'resolved'
+                                            }
                                             onClick={() => {
+                                                setFixContext({
+                                                    issue: selectedIssue,
+                                                    status: 'fixing',
+                                                    baselineIssuesFingerprint: issuesFingerprint,
+                                                });
                                                 handleFixIndividual(selectedIssue);
                                             }}
                                             title="Fix with AI"
-                                            label="Fix with AI"
+                                            label={
+                                                fixContext?.status === 'fixing'
+                                                    ? 'Fixing...'
+                                                    : fixContext?.status === 'resolved'
+                                                        ? 'Resolved'
+                                                        : 'Fix with AI'
+                                            }
                                         />
                                     </DetailPaneHeader>
+                                    {fixContext && (
+                                        <FixStatusBox $status={fixContext.status}>
+                                            <FixStatusTitle>
+                                                {fixContext.status === 'resolved'
+                                                    ? 'Issue resolved'
+                                                    : fixContext.status === 'stillPresent'
+                                                        ? 'Issue still present'
+                                                        : 'Applying AI fix'}
+                                            </FixStatusTitle>
+                                            <FixStatusText>
+                                                {fixContext.status === 'resolved'
+                                                    ? 'This issue is not present in the latest validation refresh.'
+                                                    : fixContext.status === 'stillPresent'
+                                                        ? 'This issue still appears after refresh. You can try Fix with AI again or review manually.'
+                                                        : 'Waiting for the refreshed validation results to confirm the fix status...'}
+                                            </FixStatusText>
+                                            {fixContext.status !== 'fixing' && (
+                                                <FixStatusActions>
+                                                    <FixStatusActionBtn
+                                                        onClick={() => {
+                                                            setFixContext(null);
+                                                            const currentIndex = currentIssues.findIndex(
+                                                                (issue) => getIssueSignature(issue) === getIssueSignature(selectedIssue)
+                                                            );
+                                                            const nextIndex = currentIndex >= 0 && currentIndex < currentIssues.length - 1
+                                                                ? currentIndex + 1
+                                                                : 0;
+                                                            setSelectedIssueIndex(currentIssues.length > 0 ? nextIndex : null);
+                                                        }}
+                                                    >
+                                                        Go to next issue
+                                                    </FixStatusActionBtn>
+                                                    <FixStatusActionBtn
+                                                        onClick={() => {
+                                                            postVSCodeMessage({
+                                                                command: 'navigateTo',
+                                                                data: { focusPath: fixContext.issue.path || [] },
+                                                            });
+                                                        }}
+                                                    >
+                                                        View fix
+                                                    </FixStatusActionBtn>
+                                                </FixStatusActions>
+                                            )}
+                                        </FixStatusBox>
+                                    )}
                                     <DetailSection>
                                         <DetailLabel>Severity</DetailLabel>
                                         <DetailText style={{ textTransform: 'uppercase', fontWeight: 600 }}>

@@ -138,9 +138,8 @@ Save the file as `<api-name>-openapi.yaml` in the current directory. Tell the us
 
 ---
 
-## Step 5 — Offer assessment
+## Step 5 — Next steps
 
-> "Would you like me to assess this spec for AI agent readiness, security, and design quality?"
+After creating/updating the spec, ask the user to open it in API Designer.
 
-If yes: follow the api-readiness-assessment skill flow — it will confirm which checks to
-run based on what the user said, or ask if unclear.
+Use the `openInApiDesigner` MCP tool to open the file in API Designer.
