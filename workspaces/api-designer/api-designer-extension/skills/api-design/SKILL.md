@@ -240,8 +240,14 @@ Save the file as `<api-name>-openapi.yaml` in the current directory. Tell the us
 
 ---
 
-### Step 7 — Offer assessment
+### Step 7 — Offer Next Steps
 
+If api designer extension is present in the vscode ask:
+> "Would you like me to open the API Designer?"
+
+If yes, use the `#openInApiDesigner` MCP tool to open the file in API Designer.
+
+If the extension is not present, then ask:
 > "Would you like me to assess this spec for AI agent readiness, security, and design quality?"
 
 If yes: proceed to the **Assessment Workflow** below.
@@ -459,8 +465,7 @@ Show the script's stdout verbatim as the response. The script prints the report 
 ## Fix Workflow
 
 This workflow applies in two situations:
-- **Post-assessment**: after delivering the summary, the user says "yes, fix" or "apply fixes"
-- **Direct trigger**: invoked for fixing directly (e.g. from the VS Code extension webview)
+- **Direct trigger**: invoked for fixing multiple issues at once directly (e.g. from the VS Code extension webview)
 
 Fixes are always applied in-place to the spec file. If only pasted content was provided (no file path), ask for the file path before proceeding — fixes require an editable file.
 
@@ -468,17 +473,9 @@ Fixes are always applied in-place to the spec file. If only pasted content was p
 
 ### Step 1 — Resolve the issue list
 
-You need a list of issues to fix. Resolve from the first available source:
+You need a list of issues to fix. You have to refer to the <openapi-filen-name>-api-readiness-report.json file from the api-reports/ directory.
 
-1. **Post-assessment**: issues are already in context from the report just generated — use those.
-2. **Report path provided**: read the JSON report file and collect all issues from all sections (`agentReadiness.spectral.issues`, `agentReadiness.aiAnalysis.issues`, `securityReadiness.spectral.issues`, `designReadiness.spectral.issues`).
-3. **Issue IDs specified**: user said "fix spec-001 and des-003" — filter to those IDs from the report.
-4. **Severity filter**: user said "fix all HIGH" — filter accordingly.
-5. **"All autoFixable"**: filter to issues where `autoFixable: true`.
-
-If none of the above apply and no report exists, ask:
-> "Do you have an assessment report JSON? If so, share the path. If not, I can run an assessment first."
-
+Read the JSON report file and collect all issues from all sections (agentReadiness.spectral.issues, agentReadiness.aiAnalysis.issues, securityReadiness.spectral.issues, designReadiness.spectral.issues).
 ---
 
 ### Step 2 — Read the spec

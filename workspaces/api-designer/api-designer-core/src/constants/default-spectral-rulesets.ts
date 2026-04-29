@@ -18,20 +18,13 @@
 
 import type { SpectralRuleset } from '../rpc-types/api-designer-visualizer/analyze';
 
-/**
- * GitHub "tree" URL for the folder that lists default Spectral ruleset YAML files.
- * Keep in sync with `apiDesigner.spectral.rulesetFolders` default in the extension `package.json`.
- */
-export const DEFAULT_SPECTRAL_RULESET_CATALOG_FOLDER_URL =
-    'https://github.com/Thenujan-Nagaratnam/api-platform/tree/rules/api-designer/spectral-rulesets';
-
 /** JSONPath / key inside each ruleset YAML where Spectral `rules` live */
 export const DEFAULT_SPECTRAL_RULESET_CONTENT_PATH = 'rulesetContent';
 
 function ruleset(
     name: string,
     fileName: string,
-    sourceFolder: string = DEFAULT_SPECTRAL_RULESET_CATALOG_FOLDER_URL
+    sourceFolder: string
 ): SpectralRuleset {
     return {
         name,
@@ -43,11 +36,13 @@ function ruleset(
 
 /**
  * Default governance rulesets when no `.api-platform/config.yaml` (or empty list) — Analyze / governance dashboards.
+ * Caller must provide the base source folder that contains bundled rulesets.
  */
-export function getDefaultGovernanceSpectralRulesets(): SpectralRuleset[] {
+export function getDefaultGovernanceSpectralRulesets(baseSourceFolder: string): SpectralRuleset[] {
+    const normalizedBase = (baseSourceFolder || '').replace(/[\\/]+$/, '');
     return [
-        ruleset('WSO2 REST API AI Readiness Guidelines', 'ai-readiness.yaml', `${DEFAULT_SPECTRAL_RULESET_CATALOG_FOLDER_URL}/ai`),
-        ruleset('OWASP Top 10 Security', 'owasp_top_10.yaml'),
-        ruleset('WSO2 REST API Design Guidelines', 'wso2_rest_api_design_guidelines.yaml')
+        ruleset('WSO2 REST API AI Readiness Guidelines', 'ai-readiness.yaml', normalizedBase),
+        ruleset('OWASP Top 10 Security', 'owasp_top_10.yaml', normalizedBase),
+        ruleset('WSO2 REST API Design Guidelines', 'wso2_rest_api_design_guidelines.yaml', normalizedBase)
     ];
 }

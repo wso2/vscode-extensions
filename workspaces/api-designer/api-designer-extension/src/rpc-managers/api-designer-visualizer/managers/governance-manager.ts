@@ -23,7 +23,6 @@ import * as vscode from 'vscode';
 import {
     FetchRulesetsFromFolderRequest,
     FetchRulesetsFromFolderResponse,
-    DEFAULT_SPECTRAL_RULESET_CATALOG_FOLDER_URL,
     GetAllSpectralRulesetsRequest,
     GetAllSpectralRulesetsResponse,
     GetApplicableRulesetsRequest,
@@ -37,6 +36,7 @@ import {
     getDefaultGovernanceSpectralRulesets,
     loadYaml
 } from '@wso2/api-designer-core';
+import { extension } from '../../../APIDesignerExtensionContext';
 import { 
     validateApiSpec,
     validateWithSpectralRuleset
@@ -923,18 +923,20 @@ export class GovernanceManager extends BaseRpcManager {
     }
 
     async getApplicableRulesets(params: GetApplicableRulesetsRequest): Promise<GetApplicableRulesetsResponse> {
-        const DEFAULT_GOVERNANCE_RULESETS = getDefaultGovernanceSpectralRulesets();
         const configuredFolders = vscode.workspace
             .getConfiguration('apiDesigner')
             .get<string[]>('spectral.rulesetFolders', [])
             .map((folder) => (folder || '').trim())
             .filter((folder) => folder.length > 0);
-        const primaryFolder = (configuredFolders[0] || DEFAULT_SPECTRAL_RULESET_CATALOG_FOLDER_URL).replace(/[\\/]+$/, '');
+        const bundledRulesetsFolder = extension.context?.extensionPath
+            ? path.join(extension.context.extensionPath, 'spectral-rulesets')
+            : 'spectral-rulesets';
+        const primaryFolder = (configuredFolders[0] || bundledRulesetsFolder).replace(/[\\/]+$/, '');
+        const DEFAULT_GOVERNANCE_RULESETS = getDefaultGovernanceSpectralRulesets(primaryFolder);
 
         const buildResponse = (): GetApplicableRulesetsResponse => ({
             governanceRulesets: DEFAULT_GOVERNANCE_RULESETS.map(ruleset => ({
-                ...ruleset,
-                sourceFolder: ruleset.fileName === 'ai-readiness.yaml' ? `${primaryFolder}/ai` : primaryFolder
+                ...ruleset
             })),
         });
 

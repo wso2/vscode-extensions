@@ -34,7 +34,7 @@
   "contributes": {
     "chatSkills": [
       {
-        "path": "./skills/api-gateway/SKILL.md"
+        "path": "./skills/api-platform/SKILL.md"
       },
       {
         "path": "./skills/api-design/SKILL.md"
@@ -264,14 +264,12 @@
         },
         "apiDesigner.spectral.rulesetFolders": {
           "type": "array",
-          "default": [
-            "https://github.com/Thenujan-Nagaratnam/api-platform/tree/rules/api-designer/spectral-rulesets"
-          ],
+          "default": [],
           "items": {
             "type": "string"
           },
           "description": "GitHub folder URLs or local paths containing Spectral rulesets. Adding a new folder here triggers the extension to list the contained rulesets for selection.",
-          "markdownDescription": "GitHub folder URLs or local paths containing Spectral rulesets. When you add a new entry, the extension automatically scans the folder and lets you choose which rulesets to enable.\n\nThe default entry must match `DEFAULT_SPECTRAL_RULESET_CATALOG_FOLDER_URL` in `@wso2/api-designer-core` (change both when switching the canonical ruleset catalog).",
+          "markdownDescription": "GitHub folder URLs or local paths containing Spectral rulesets. When you add a new entry, the extension automatically scans the folder and lets you choose which rulesets to enable.\n\nIf this setting is empty, the extension uses bundled rulesets from `<extension>/spectral-rulesets` by default.",
           "order": 4
         },
         "apiDesigner.spectral.selectedRulesets": {
