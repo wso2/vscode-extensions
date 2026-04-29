@@ -30,7 +30,8 @@ import {
     BASE_ICON_STYLES,
     getTokenIconClass,
     getTokenTypeColor,
-    getChipDisplayContent
+    getChipDisplayContent,
+    shouldRenderAsEmptySpace
 } from "./chipStyles";
 import React from "react";
 
@@ -86,34 +87,41 @@ export function createChip(text: string, type: TokenType, start: number, end: nu
                 displayText = this.metadata?.content || this.text;
             }
 
+            if (this.metadata?.fullValue) {
+                span.title = this.metadata.fullValue;
+            }
+
             const colors = getTokenTypeColor(this.type);
+            const isPlaceholder = shouldRenderAsEmptySpace(this.type, this.text);
 
             // Apply base styles to the chip container
             Object.assign(span.style, {
                 ...BASE_CHIP_STYLES,
-                background: colors.background,
+                background: isPlaceholder ? "transparent" : colors.background,
                 border: `1px solid ${colors.border}`,
                 marginRight: "2px",
                 marginLeft: "2px",
             });
 
-            // Create icon element for standard chip
-            const icon = document.createElement("i");
-            let iconClass = getTokenIconClass(this.type, this.metadata?.documentType);
-            if (iconClass) {
-                icon.className = iconClass;
+            if (!isPlaceholder) {
+                // Create icon element for standard chip
+                const icon = document.createElement("i");
+                let iconClass = getTokenIconClass(this.type, this.metadata?.documentType);
+                if (iconClass) {
+                    icon.className = iconClass;
+                }
+                Object.assign(icon.style, {
+                    ...BASE_ICON_STYLES,
+                    color: colors.icon
+                });
+                span.appendChild(icon);
             }
-            Object.assign(icon.style, {
-                ...BASE_ICON_STYLES,
-                color: colors.icon
-            });
 
             // Create text span with ellipsis handling
             const textSpan = document.createElement("span");
             textSpan.textContent = displayText;
             Object.assign(textSpan.style, CHIP_TEXT_STYLES);
 
-            span.appendChild(icon);
             span.appendChild(textSpan);
         }
 
@@ -121,7 +129,11 @@ export function createChip(text: string, type: TokenType, start: number, end: nu
             return false;
         }
         eq(other: ChipWidget) {
-            return other.text === this.text && other.start === this.start && other.end === this.end;
+            return other.text === this.text
+                && other.start === this.start
+                && other.end === this.end
+                && other.type === this.type
+                && other.metadata?.fullValue === this.metadata?.fullValue;
         }
     }
     return Decoration.replace({

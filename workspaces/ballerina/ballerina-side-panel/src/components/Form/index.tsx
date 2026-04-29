@@ -17,6 +17,7 @@
  */
 
 import React, { forwardRef, useCallback, useMemo, useEffect, useState, useRef } from "react";
+import isEqual from "lodash/isEqual";
 import { useForm } from "react-hook-form";
 import ReactMarkdown from "react-markdown";
 import {
@@ -52,6 +53,8 @@ import {
     MACHINE_VIEW,
     EditorDisplayMode,
     Imports,
+    getSecondaryInputType,
+    DIRECTORY_MAP,
 } from "@wso2/ballerina-core";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { FormContext, Provider } from "../../context";
@@ -535,7 +538,7 @@ export const Form = forwardRef((props: FormProps, _ref) => {
                     } else if (isDropdownField(field)) {
                         defaultValues[field.key] = getValueForDropdown(field) ?? "";
                     } else if (field.type === "FLAG") {
-                         defaultValues[field.key] = field.value;
+                        defaultValues[field.key] = field.value;
                     } else if (typeof field.value === "string") {
                         defaultValues[field.key] = formatJSONLikeString(field.value) ?? "";
                     } else {
@@ -546,23 +549,6 @@ export const Form = forwardRef((props: FormProps, _ref) => {
                     }
                     if (field.key === "parameters" && field.value?.length && field.value.length === 0) {
                         defaultValues[field.key] = formValues[field.key] ?? [];
-                    }
-
-                    if (getPrimaryInputType(field.types)?.fieldType === "TYPE") {
-                        // Handle the case where the type is changed via 'Add Type'
-                        const existingType = formValues[field.key];
-                        const newType = field.value;
-
-                        if (existingType === "") {
-                            // User has explicitly cleared the type field; preserve the empty value
-                            defaultValues[field.key] = "";
-                        } else if (existingType !== newType) {
-                            setValue(field.key, newType);
-                            getVisualiableFields();
-                        }
-                        else if (newType === undefined) {
-                             defaultValues[field.key] = "";
-                        }
                     }
 
                     // Handle choice fields and their properties
@@ -591,6 +577,24 @@ export const Form = forwardRef((props: FormProps, _ref) => {
                     diagnosticsMap.push({ key: field.key, diagnostics: diagArray });
                 }
 
+                const primaryInputType = getPrimaryInputType(field.types)?.fieldType;
+                if (primaryInputType === "TYPE" || primaryInputType === "ACTION_TYPE") {
+                    const existingType = formValues[field.key];
+                    const newType = field.value;
+                    const isValueChanged = existingType !== newType;
+                    const isFieldDirty = dirtyFields?.[field.key];
+                    if (isValueChanged) {
+                        const newValue = isFieldDirty ? existingType : newType;
+                        setValue(field.key, newValue, { shouldValidate: true });
+                        defaultValues[field.key] = newValue;
+                        getVisualiableFields();
+                    } else if (newType === undefined) {
+                        defaultValues[field.key] = "";
+                    } else {
+                        defaultValues[field.key] = newType;
+                    }
+                }
+
                 // Handle the case where the name is updated dynamically (e.g., from a sibling field's onValueChange like headerName)
                 // Sync from field.value when it differs from form - but preserve user edits (when field was manually touched)
                 if (field.key === "name" && field.value !== undefined && field.value !== null) {
@@ -604,7 +608,7 @@ export const Form = forwardRef((props: FormProps, _ref) => {
                 }
             });
             setDiagnosticsInfo(diagnosticsMap);
-            reset(defaultValues);
+            reset(defaultValues, { keepDirtyValues: true });
 
             if (changeOptionalFieldTitle) {
                 setOptionalFieldsTitle("Advanced Configurations");
@@ -778,8 +782,8 @@ export const Form = forwardRef((props: FormProps, _ref) => {
     // has advance fields
     const hasAdvanceFields = formFields.some((field) => field.advanced && field.enabled && !field.hidden) || advancedChoiceFields.length > 0;
     const variableField = formFields.find((field) => field.key === "variable");
-    const typeField = formFields.find((field) => getPrimaryInputType(field.types)?.fieldType === "TYPE");
-    const expressionField = formFields.find((field) => getPrimaryInputType(field.types)?.fieldType === "EXPRESSION");
+    const typeField = formFields.find((field) => !field.advanced && !field.hidden && getPrimaryInputType(field.types)?.fieldType === "TYPE");
+    const expressionField = formFields.find((field) => getSecondaryInputType(field.types)?.fieldType === "EXPRESSION" || getPrimaryInputType(field.types)?.fieldType === "ACTION_OR_EXPRESSION");
     const targetTypeField = formFields.find((field) => field.codedata?.kind === "PARAM_FOR_TYPE_INFER");
     const hasParameters = hasRequiredParameters(formFields, selectedNode) || hasOptionalParameters(formFields);
 
@@ -814,9 +818,9 @@ export const Form = forwardRef((props: FormProps, _ref) => {
         }
     };
 
-    // Find the first editable field
+    // Find the first editable identifier field
     const firstEditableFieldIndex = formFields.findIndex(
-        (field) => field.editable !== false
+        (field) => field.editable !== false && getPrimaryInputType(field.types)?.fieldType === "IDENTIFIER"
     );
 
     const isValid = useMemo(() => {
@@ -905,7 +909,7 @@ export const Form = forwardRef((props: FormProps, _ref) => {
         if (props.onChange) {
             const prevValues = prevValuesRef.current;
             Object.entries(watchedValues).forEach(([key, value]) => {
-                if (prevValues[key] !== value) {
+                if (!isEqual(prevValues[key], value)) {
                     props.onChange?.(key, value, watchedValues);
                 }
             });
@@ -985,6 +989,7 @@ export const Form = forwardRef((props: FormProps, _ref) => {
                 editorConfig: {
                     view: MACHINE_VIEW.BIDiagram,
                     displayMode: EditorDisplayMode.VIEW,
+                    artifactType: DIRECTORY_MAP.FUNCTION,
                 },
             });
         })();
@@ -1203,6 +1208,7 @@ export const Form = forwardRef((props: FormProps, _ref) => {
                                     <S.Row key={updatedField.key}>
                                         <FieldFactory
                                             field={updatedField}
+                                            handleFormValidation={handleFormValidation}
                                             openRecordEditor={
                                                 openRecordEditor &&
                                                 ((open: boolean, newType?: string | NodeProperties) => handleOpenRecordEditor(open, updatedField, newType))

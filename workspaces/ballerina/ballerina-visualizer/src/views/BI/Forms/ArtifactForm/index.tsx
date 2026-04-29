@@ -49,7 +49,8 @@ import {
     FormExpressionEditorProps,
     FormImports,
     HelperpaneOnChangeOptions,
-    InputMode
+    InputMode,
+    getTypeCompletionSearchText
 } from "@wso2/ballerina-side-panel";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { CompletionItem, FormExpressionEditorRef, HelperPaneHeight, Overlay, ThemeColors } from "@wso2/ui-toolkit";
@@ -76,6 +77,7 @@ import { BreadcrumbContainer, BreadcrumbItem, BreadcrumbSeparator } from "../Flo
 import { EditorContext, StackItem } from "@wso2/type-editor";
 import DynamicModal from "../../../../components/Modal";
 import { useModalStack } from "../../../../Context";
+import { deserializeForDiagnosticsAPI } from "../form-utils";
 
 interface ArtifactTypeEditorState {
     isOpen: boolean;
@@ -184,6 +186,7 @@ export function ArtifactForm(props: ArtifactFormProps) {
     const fieldsRef = useRef<FormField[]>(fields);
     const fieldsValuesRef = useRef<FormField[]>(fields);
     const [formImports, setFormImports] = useState<FormImports>({});
+    const formImportsRef = useRef<FormImports>({});
     const [refetchStates, setRefetchStates] = useState<boolean[]>([false]);
     const [valueTypeConstraints, setValueTypeConstraints] = useState<string>();
 
@@ -388,7 +391,7 @@ export function ArtifactForm(props: ArtifactFormProps) {
                     isPublic: {
                         metadata: {
                             label: "public",
-                            description: "Make visible across the workspace"
+                            description: "Make visible across the project"
                         },
                         valueType: "FLAG",
                         value: isParamTypePublicByDefault() ? "true" : "false",
@@ -440,7 +443,9 @@ export function ArtifactForm(props: ArtifactFormProps) {
             setFields(fields);
             fieldsRef.current = fields;
             fieldsValuesRef.current = fields;
-            setFormImports(getImportsForFormFields(fields));
+            const initialImports = getImportsForFormFields(fields);
+            formImportsRef.current = initialImports;
+            setFormImports(initialImports);
         }
     }, [fields]);
 
@@ -623,7 +628,7 @@ export function ArtifactForm(props: ArtifactFormProps) {
                 setTypes(visibleTypes);
 
                 if (!fetchReferenceTypes) {
-                    const effectiveText = value.slice(0, cursorPosition);
+                    const effectiveText = getTypeCompletionSearchText(value, cursorPosition);
                     let filteredTypes = visibleTypes.filter((type) => {
                         const lowerCaseText = effectiveText.toLowerCase();
                         const lowerCaseLabel = type.label.toLowerCase();
@@ -693,12 +698,12 @@ export function ArtifactForm(props: ArtifactFormProps) {
                     const field = fieldsRef.current.find(f => f.key === key);
                     if (field) {
                         const propertyPrimaryFieldType = getPrimaryInputType(property.types);
-                        if (property.types.length>1 && propertyPrimaryFieldType.fieldType !== "REPEATABLE_LIST" && propertyPrimaryFieldType.fieldType !== "REPEATABLE_MAP") {
+                        if (property.types.length > 1 && propertyPrimaryFieldType.fieldType !== "REPEATABLE_LIST" && propertyPrimaryFieldType.fieldType !== "REPEATABLE_MAP") {
                             property.types.forEach(t => {
                                 if (t.fieldType === "EXPRESSION") {
                                     t.selected = true;
                                 }
-                                else{
+                                else {
                                     t.selected = false;
                                 }
                             });
@@ -706,7 +711,7 @@ export function ArtifactForm(props: ArtifactFormProps) {
                         const response = await rpcClient.getBIDiagramRpcClient().getExpressionDiagnostics({
                             filePath: fileName,
                             context: {
-                                expression: expression,
+                                expression: deserializeForDiagnosticsAPI(expression),
                                 startLine: getAdjustedStartLine(targetLineRange, expressionOffsetRef.current),
                                 lineOffset: 0,
                                 offset: 0,
@@ -840,9 +845,9 @@ export function ArtifactForm(props: ArtifactFormProps) {
             const updatedFields = fieldsValues.map(field => {
                 if (field.key === typeEditorState.field.key) {
                     // Only handle parameter type if editingField is a parameter
-                    if (typeEditorState.field.type === 'PARAM_MANAGER'
-                        && field.type === 'PARAM_MANAGER'
-                        && field.paramManagerProps.formFields
+                    if ((typeEditorState.field.type === 'REPEATABLE_PROPERTY' || typeEditorState.field.type === 'PARAM_MANAGER')
+                        && (field.type === 'REPEATABLE_PROPERTY' || field.type === 'PARAM_MANAGER')
+                        && field.paramManagerProps?.formFields
                         && stack.length === 1
                     ) {
                         return {
@@ -893,10 +898,12 @@ export function ArtifactForm(props: ArtifactFormProps) {
         if (Object.keys(formImports).includes(key)) {
             if (importKey && !Object.keys(formImports[key]).includes(importKey)) {
                 const updatedImports = { ...formImports, [key]: { ...formImports[key], ...imports } };
+                formImportsRef.current = updatedImports;
                 setFormImports(updatedImports);
             }
         } else {
             const updatedImports = { ...formImports, [key]: imports };
+            formImportsRef.current = updatedImports;
             setFormImports(updatedImports);
         }
     }
@@ -953,6 +960,13 @@ export function ArtifactForm(props: ArtifactFormProps) {
 
     const extractArgsFromFunction = async (value: string, property: ExpressionProperty, cursorPosition: number) => {
         const { lineOffset, charOffset } = calculateExpressionOffsets(value, cursorPosition);
+        // Merge the latest imports from formImportsRef to avoid stale field.imports when a
+        // helper pane item is selected (formImportsRef is updated synchronously before onChange
+        // fires, but the field prop hasn't re-rendered yet with the new imports).
+        const latestImports = Object.values(formImportsRef.current).reduce<Imports>(
+            (acc, fieldImports) => ({ ...acc, ...fieldImports }),
+            {}
+        );
         const signatureHelp = await rpcClient.getBIDiagramRpcClient().getSignatureHelp({
             filePath: fileName,
             context: {
@@ -961,7 +975,7 @@ export function ArtifactForm(props: ArtifactFormProps) {
                 lineOffset: lineOffset,
                 offset: charOffset,
                 codedata: undefined,
-                property: property,
+                property: { ...property, imports: { ...(property.imports || {}), ...latestImports } },
             },
             signatureHelpContext: {
                 isRetrigger: false,

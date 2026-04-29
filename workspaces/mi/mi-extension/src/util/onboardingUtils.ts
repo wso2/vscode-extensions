@@ -1296,7 +1296,7 @@ async function showExtensionPrompt() {
     ).then(async (selection) => {
         if (selection === 'Install Now') {
             await vscode.commands.executeCommand(COMMANDS.INSTALL_EXTENSION_COMMAND, COMMANDS.BI_EXTENSION);
-            await vscode.commands.executeCommand(COMMANDS.BI_OPEN_COMMAND);
+            await vscode.commands.executeCommand(COMMANDS.SETUP_BALLERINA);
         }
     });
 }

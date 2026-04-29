@@ -119,7 +119,7 @@ export const COMMANDS = {
     CONFIGURE_DEFAULT_MODEL: 'MI.configureDefaultModelProvider',
 
     BI_EXTENSION: 'WSO2.ballerina-integrator',
-    BI_OPEN_COMMAND: 'ballerina.open.bi.welcome',
+    SETUP_BALLERINA: 'ballerina.setup',
     INSTALL_EXTENSION_COMMAND: 'workbench.extensions.installExtension'
 };
 
