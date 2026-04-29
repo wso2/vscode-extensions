@@ -276,7 +276,10 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
     const handleViewIssues = React.useCallback((targetKey?: string) => {
         const nextKey = targetKey || null;
         if (nextKey && nextKey.startsWith('__severity__:')) {
-            const [, severity, categoryKey] = nextKey.split(':');
+            const severityPayload = nextKey.replace('__severity__:', '');
+            const separatorIndex = severityPayload.indexOf(':');
+            const severity = separatorIndex >= 0 ? severityPayload.slice(0, separatorIndex) : severityPayload;
+            const categoryKey = separatorIndex >= 0 ? severityPayload.slice(separatorIndex + 1) : '';
             const severityValue = severity === 'error' || severity === 'warn' || severity === 'info' || severity === 'hint'
                 ? severity
                 : 'all';
