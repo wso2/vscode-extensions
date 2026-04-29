@@ -40,6 +40,7 @@ const Root = styled.div`
     width: 100%;
     padding: 28px 32px 16px;
     box-sizing: border-box;
+    overflow-x: hidden;
     display: flex;
     flex-direction: column;
     gap: 28px;

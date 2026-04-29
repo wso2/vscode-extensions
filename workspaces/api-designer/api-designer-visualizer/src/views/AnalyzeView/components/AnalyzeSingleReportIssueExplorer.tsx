@@ -68,6 +68,7 @@ const Row = styled.div`display: flex; align-items: center; gap: 8px;`;
 const SectionShell = styled.div``;
 const ExplorerSurface = styled.div`
     position: relative;
+    overflow-x: hidden;
 `;
 
 const SectionHeader = styled.div`
