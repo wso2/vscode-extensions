@@ -57,8 +57,14 @@ const MessageCard = styled.div`
 `;
 
 const LlmAnalysisCard = styled.div`
-    background: var(--vscode-editorWidget-background);
-    border: 1px solid var(--vscode-panel-border);
+    background:
+        radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--vscode-editorInfo-foreground, #38bdf8) 8%, transparent) 0%, transparent 62%),
+        linear-gradient(
+            135deg,
+            color-mix(in srgb, var(--vscode-editorWidget-background) 97%, var(--vscode-editor-background)) 0%,
+            color-mix(in srgb, var(--vscode-editorWidget-background) 92%, var(--vscode-editorInfo-foreground, #38bdf8) 8%) 100%
+        );
+    border: 1px solid color-mix(in srgb, var(--vscode-editorInfo-foreground, #38bdf8) 12%, var(--vscode-panel-border));
     border-radius: 8px;
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
     padding: 14px;
@@ -210,7 +216,7 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
             }
             return rows.filter((row) => {
                 const keys = row.breakdownKeys || [];
-                const subBucket = keys.find((key) => subBucketToMainBucketMap.has(key)) || null;
+                const subBucket = [...keys].reverse().find((key) => subBucketToMainBucketMap.has(key)) || null;
                 const mainBucket = subBucket ? (subBucketToMainBucketMap.get(subBucket) || null) : null;
                 if (selectedAiMainBucketKey && mainBucket !== selectedAiMainBucketKey) return false;
                 if (selectedAiBucketKey && subBucket !== selectedAiBucketKey) return false;
@@ -492,7 +498,7 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
                         <LlmAnalysisTitle>{reportUiMeta.llmReview?.title || 'LLM-based API Analysis'}</LlmAnalysisTitle>
                         <LlmAnalysisDescription>
                             {reportUiMeta.llmReview?.subtitle ||
-                                'Run a deeper language-model evaluation for AI readiness findings and recommendations using the VS Code language model.'}
+                                'Use AI-powered analysis to surface agent-readiness gaps, prioritized fixes, and actionable improvements.'}
                         </LlmAnalysisDescription>
                         <LlmStatusRow>
                             <LlmStatusBadge $status={llmStatusValue}>{llmStatusLabel}</LlmStatusBadge>

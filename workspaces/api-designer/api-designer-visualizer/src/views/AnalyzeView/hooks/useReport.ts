@@ -350,7 +350,14 @@ export const useIssueFilters = (rows: IssueRow[], filters: UseIssueFiltersInput)
     const filteredRows = React.useMemo(() => {
         const query = search.trim().toLowerCase();
         const result = rows.filter((row) => {
-            if (severityFilter !== 'all' && row.severity !== severityFilter) return false;
+            if (severityFilter !== 'all') {
+                // "Info" cards include both info + hint counts; mirror that in issue filtering.
+                if (severityFilter === 'info') {
+                    if (row.severity !== 'info' && row.severity !== 'hint') return false;
+                } else if (row.severity !== severityFilter) {
+                    return false;
+                }
+            }
             if (!query) return true;
             return (
                 row.rule.toLowerCase().includes(query) ||

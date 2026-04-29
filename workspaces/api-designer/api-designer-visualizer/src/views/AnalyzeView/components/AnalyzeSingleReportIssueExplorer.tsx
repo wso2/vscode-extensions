@@ -669,9 +669,9 @@ export const AnalyzeSingleReportIssueExplorer: React.FC<AnalyzeSingleReportIssue
                                 title="Fix All with AI"
                                 label="Fix All with AI"
                                 onClick={() => {
-                                    const sevLabel = severityFilter === 'error' ? 'error' : severityFilter === 'warn' ? 'warning' : 'all';
-                                    const prompt = `Fix ${sevLabel === 'all' ? 'all' : `all ${sevLabel}`} violations in the ${reportName} ruleset.\n\nIMPORTANT: Use the #validateWithSpectralRuleset MCP tool:\n1. Call validateWithSpectralRuleset with fileUri: "${fileUri}", rulesetName: "${reportName}", fileUrl: "${rulesetFileUrl}", rulesetContentPath: "${rulesetContentPath}" to find violations.\n2. Fix each violation, then call validateWithSpectralRuleset again to verify.\n3. Repeat until no ${sevLabel === 'all' ? '' : sevLabel + ' '}violations remain.`;
-                                    onOpenAIChat(JSON.stringify({ fileUri, rulesetName: reportName, fileUrl: rulesetFileUrl, rulesetContentPath, severityFilter }), prompt);
+                                        const sevLabel = severityFilter === 'error' ? 'error' : severityFilter === 'warn' ? 'warning' : 'all';
+                                    const prompt = `Fix ${sevLabel === 'all' ? 'all' : `all ${sevLabel}`} violations in the ${reportName}.\n\nFor validation and progress checks, you can use the #validateApiSpec MCP tool with:\n- fileUri: "${fileUri}"\n- reportId: "${reportKey}"`;
+                                    onOpenAIChat(JSON.stringify({ fileUri, reportId: reportKey, rulesetName: reportName, fileUrl: rulesetFileUrl, rulesetContentPath, severityFilter }), prompt);
                                 }}
                             />
                         </ToolbarRow>

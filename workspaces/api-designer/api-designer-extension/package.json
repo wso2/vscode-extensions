@@ -50,7 +50,7 @@
         ],
         "toolReferenceName": "validateApiSpec",
         "displayName": "Validate API Specification",
-        "modelDescription": "Validates an OpenAPI specification against standard rules using Spectral.",
+        "modelDescription": "Validates an OpenAPI specification. Supports standard OpenAPI validation and governance validation by reportId (ai-readiness, owasp, rest-api-readiness).",
         "canBeReferencedInPrompt": true,
         "icon": "$(check)",
         "inputSchema": {
@@ -63,60 +63,17 @@
             "fileUri": {
               "type": "string",
               "description": "Optional: URI of the file containing the API specification. If provided, this takes precedence over apiSpec."
+            },
+            "reportId": {
+              "type": "string",
+              "enum": [
+                "ai-readiness",
+                "owasp",
+                "rest-api-readiness"
+              ],
+              "description": "Optional: Governance report flow to run. If provided with fileUri, returns unified violations for that report. For ai-readiness, includes LLM findings when available."
             }
           }
-        }
-      },
-      {
-        "name": "api-designer_validateWithSpectralRuleset",
-        "tags": [
-          "validation",
-          "openapi",
-          "ruleset",
-          "api-designer"
-        ],
-        "toolReferenceName": "validateWithSpectralRuleset",
-        "displayName": "Validate with Dynamic Ruleset",
-        "modelDescription": "Validates an OpenAPI specification against a custom dynamic ruleset (e.g., governance rules, AI readiness rules)",
-        "canBeReferencedInPrompt": true,
-        "icon": "$(checklist)",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "apiSpec": {
-              "type": "string",
-              "description": "The OpenAPI specification to validate (YAML/JSON string)."
-            },
-            "fileUri": {
-              "type": "string",
-              "description": "Optional: URI of the file containing the API specification. If provided, this takes precedence over apiSpec."
-            },
-            "rulesetName": {
-              "type": "string",
-              "description": "Name of the ruleset to use for validation"
-            },
-            "fileUrl": {
-              "type": "string",
-              "description": "URL or path to the ruleset file"
-            },
-            "rulesetContentPath": {
-              "type": "string",
-              "description": "Path to the ruleset content within the file"
-            },
-            "gitRootPath": {
-              "type": "string",
-              "description": "Optional: Root path of the git repository if ruleset is in a git repo"
-            },
-            "authToken": {
-              "type": "string",
-              "description": "Optional: Authentication token for accessing the ruleset"
-            }
-          },
-          "required": [
-            "rulesetName",
-            "fileUrl",
-            "rulesetContentPath"
-          ]
         }
       },
       {

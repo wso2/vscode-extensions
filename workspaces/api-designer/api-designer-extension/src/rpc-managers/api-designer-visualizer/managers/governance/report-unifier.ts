@@ -525,9 +525,9 @@ export const buildUnifiedReport = (
         ...(reportId === "ai-readiness" ? {
             llmReview: {
                 title: "AI Analysis",
-                subtitle: "LLM-based evaluation of your API for AI agent consumption readiness.",
-                viewFindingsLabel: "View LLM findings",
-                reevaluateLabel: "Re Analyze",
+                subtitle: "AI-powered evaluation to uncover agent-readiness gaps and recommend prioritized fixes.",
+                viewFindingsLabel: "View AI findings",
+                reevaluateLabel: "Re-run analysis",
             },
         } : {}),
     };

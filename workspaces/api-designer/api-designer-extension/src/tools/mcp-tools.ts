@@ -17,7 +17,7 @@
  */
 
 import * as vscode from 'vscode';
-import { validateApiSpec, validateWithSpectralRuleset } from '../utils/validation-utils';
+import { validateApiSpec } from '../utils/validation-utils';
 import { logError, logDebug } from '../util/logger';
 import { loadYaml } from '@wso2/api-designer-core';
 import { GovernanceManager } from '../rpc-managers/api-designer-visualizer/managers/governance-manager';
@@ -50,6 +50,12 @@ export class ValidateAPISpecTool {
     ): Promise<LanguageModelToolResultLike> {
         try {
             let spec: string | object | undefined = options.input.apiSpec;
+            const reportIdInput = typeof options?.input?.reportId === 'string'
+                ? String(options.input.reportId).trim()
+                : '';
+            const reportId = reportIdInput === 'ai-readiness' || reportIdInput === 'owasp' || reportIdInput === 'rest-api-readiness'
+                ? reportIdInput
+                : undefined;
 
             // If fileUri provided, read file content
             if (options.input.fileUri) {
@@ -67,6 +73,66 @@ export class ValidateAPISpecTool {
 
             if (!spec) {
                 return makeToolResult('Error: No API specification provided. Please provide either apiSpec or fileUri.');
+            }
+
+            // Governance flow: validate with applicable ruleset resolved by reportId.
+            if (reportId && options.input.fileUri) {
+                const uri = vscode.Uri.parse(options.input.fileUri);
+                const filePath = uri.fsPath;
+                const governanceManager = new GovernanceManager();
+                const applicable = await governanceManager.getApplicableRulesets({ filePath });
+                const governanceRulesets = applicable.governanceRulesets || [];
+
+                let matchedGovernance: any | undefined;
+                for (const ruleset of governanceRulesets) {
+                    const candidate = await governanceManager.getGovernance({
+                        filePath,
+                        name: ruleset.name,
+                        ruleset
+                    });
+                    if (candidate?.report?.reportId === reportId) {
+                        matchedGovernance = candidate;
+                        break;
+                    }
+                }
+
+                if (!matchedGovernance?.report) {
+                    return makeToolResult(`Error: Could not resolve a governance ruleset for reportId "${reportId}".`);
+                }
+
+                const unifiedViolations = Object.values(
+                    (matchedGovernance.report.violationsById || {}) as Record<string, any>
+                );
+                const aiFindings =
+                    reportId === 'ai-readiness'
+                        ? (matchedGovernance.llmValidation?.result?.findings || [])
+                        : [];
+
+                const responsePayload = {
+                    reportId,
+                    rulesetName: matchedGovernance.metadata?.name || matchedGovernance.report.title || 'Unknown ruleset',
+                    score: matchedGovernance.report?.overview?.score,
+                    violations: unifiedViolations,
+                    ...(reportId === 'ai-readiness'
+                        ? {
+                            llmValidation: matchedGovernance.llmValidation || undefined,
+                            llmFindings: aiFindings,
+                        }
+                        : {}),
+                };
+
+                const resultText = `Validation Results (${reportId}):
+- Ruleset: ${responsePayload.rulesetName}
+- Score: ${typeof responsePayload.score === 'number' ? responsePayload.score : 'N/A'}
+- Violations: ${unifiedViolations.length}
+${reportId === 'ai-readiness' ? `- LLM Findings: ${aiFindings.length}` : ''}
+
+Full details:
+\`\`\`json
+${JSON.stringify(responsePayload, null, 2)}
+\`\`\``;
+
+                return makeToolResult(resultText);
             }
 
             // Directly import and use existing function
@@ -97,6 +163,12 @@ ${JSON.stringify(result, null, 2)}
         options: any,
         _token: vscode.CancellationToken
     ) {
+        const reportIdInput = typeof options?.input?.reportId === 'string'
+            ? String(options.input.reportId).trim()
+            : '';
+        const reportId = reportIdInput === 'ai-readiness' || reportIdInput === 'owasp' || reportIdInput === 'rest-api-readiness'
+            ? reportIdInput
+            : '';
         const source = options.input.fileUri 
             ? `file: ${options.input.fileUri}`
             : options.input.apiSpec 
@@ -104,92 +176,9 @@ ${JSON.stringify(result, null, 2)}
                 : 'unknown source';
 
         return {
-            invocationMessage: `Validating API specification from ${source}`,
-        };
-    }
-}
-
-/**
- * Parameters for validateWithSpectralRuleset tool
- */
-interface IvalidateWithSpectralRulesetParameters {
-    apiSpec?: string;
-    fileUri?: string; // Optional: if provided, read from file
-    rulesetName: string;
-    fileUrl: string;
-    rulesetContentPath: string;
-    gitRootPath?: string;
-    authToken?: string;
-}
-
-/**
- * Tool for validating OpenAPI specifications against custom dynamic rulesets
- */
-export class validateWithSpectralRulesetTool {
-    async invoke(
-        options: any,
-        _token: vscode.CancellationToken
-    ): Promise<LanguageModelToolResultLike> {
-        try {
-            let spec: string | undefined = options.input.apiSpec;
-
-            // If fileUri provided, read file content
-            if (options.input.fileUri) {
-                const uri = vscode.Uri.parse(options.input.fileUri);
-                const content = await vscode.workspace.fs.readFile(uri);
-                spec = Buffer.from(content).toString('utf-8');
-            }
-
-            if (!spec) {
-                return makeToolResult('Error: No API specification provided. Please provide either apiSpec or fileUri.');
-            }
-
-            // Directly import and use existing function
-            const result = await validateWithSpectralRuleset(
-                spec,
-                options.input.rulesetName,
-                options.input.fileUrl,
-                options.input.rulesetContentPath,
-                options.input.gitRootPath,
-                options.input.authToken
-            );
-
-            // Format result as readable text
-            const resultText = `Validation Results (Ruleset: ${options.input.rulesetName}):
-- Valid: ${result.isValid}
-- Total Violations: ${result.violationCount || 0}
-- Errors: ${result.errorCount || 0}
-- Warnings: ${result.warningCount || 0}
-- Info: ${result.infoCount || 0}
-- Passed Rules: ${result.passed?.length || 0}
-
-${result.violationCount > 0 ? `\nViolations:\n${JSON.stringify(result.violations || [], null, 2)}` : ''}
-${result.passed && result.passed.length > 0 ? `\nPassed Rules:\n${result.passed.map((r: any) => `  - ${r.name || r.code || 'Unknown'}`).join('\n')}` : ''}
-
-Full details:
-\`\`\`json
-${JSON.stringify(result, null, 2)}
-\`\`\``;
-
-            return makeToolResult(resultText);
-        } catch (error) {
-            logError('Error in validateWithSpectralRulesetTool:', error);
-            return makeToolResult(`Error validating with dynamic ruleset: ${(error as Error).message}`);
-        }
-    }
-
-    async prepareInvocation(
-        options: any,
-        _token: vscode.CancellationToken
-    ) {
-        const source = options.input.fileUri 
-            ? `file: ${options.input.fileUri}`
-            : options.input.apiSpec 
-                ? 'provided specification'
-                : 'unknown source';
-
-        return {
-            invocationMessage: `Validating API specification from ${source} against ruleset: ${options.input.rulesetName}`,
+            invocationMessage: reportId
+                ? `Validating ${reportId} governance from ${source}`
+                : `Validating API specification from ${source}`,
         };
     }
 }
@@ -302,11 +291,7 @@ export function registerMCPTools(context: vscode.ExtensionContext): void {
     }
 
     context.subscriptions.push(
-        vscodeLM.lm.registerTool('api-designer_validateAPISpec', new ValidateAPISpecTool())
-    );
-
-    context.subscriptions.push(
-        vscodeLM.lm.registerTool('api-designer_validateWithSpectralRuleset', new validateWithSpectralRulesetTool())
+        vscodeLM.lm.registerTool('api-designer_validateApiSpec', new ValidateAPISpecTool())
     );
 
     context.subscriptions.push(
