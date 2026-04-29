@@ -137,16 +137,14 @@ interface DeploymentOptionsProps {
     handleDockerBuild: () => void;
     handleConfigureKubernetes: () => void;
     handleCAPPBuild: () => void;
-    handleConsolidatedBuild: () => void;
     handleRemoteDeploy: () => void;
     handleDeploy: (params: DeployProjectRequest) => void;
     goToDevant: () => void;
     devantMetadata?: DevantMetadata;
-    isConsolidatedProject?: boolean;
 }
 
-export function DeploymentOptions({ handleDockerBuild, handleConfigureKubernetes, handleCAPPBuild, handleConsolidatedBuild, handleRemoteDeploy, handleDeploy, goToDevant, devantMetadata, isConsolidatedProject }: DeploymentOptionsProps) {
-    const [expandedOptions, setExpandedOptions] = useState<Set<string>>(new Set(['cloud', isConsolidatedProject ? 'vm' : 'devant']));
+export function DeploymentOptions({ handleDockerBuild, handleConfigureKubernetes, handleCAPPBuild, handleRemoteDeploy, handleDeploy, goToDevant, devantMetadata }: DeploymentOptionsProps) {
+    const [expandedOptions, setExpandedOptions] = useState<Set<string>>(new Set(['cloud', 'devant']));
     const { rpcClient } = useVisualizerContext();
 
     const toggleOption = (option: string) => {
@@ -165,45 +163,40 @@ export function DeploymentOptions({ handleDockerBuild, handleConfigureKubernetes
         <div>
             <Title variant="h3">Deployment Options</Title>
 
-            {!isConsolidatedProject && (
-                <>
-                    <DeploymentOption
-                        title={devantMetadata?.hasComponent ? "Deployed in Devant" : "Deploy to Devant"}
-                        description={
-                            devantMetadata?.hasComponent
-                                ? "This integration is already deployed in Devant."
-                                : "Deploy your integration to the cloud using Devant by WSO2."
-                        }
-                        buttonText={devantMetadata?.hasComponent ? "View in Devant" : "Deploy"}
-                        isExpanded={expandedOptions.has("devant")}
-                        onToggle={() => toggleOption("devant")}
-                        onDeploy={devantMetadata?.hasComponent ? () => goToDevant() : () => handleDeploy({})}
-                        learnMoreLink={"https://wso2.com/devant/docs"}
-                        secondaryAction={
-                            devantMetadata?.hasComponent && devantMetadata?.hasLocalChanges
-                                ? {
-                                    description: "To redeploy in Devant, please commit and push your changes.",
-                                    buttonText: "Open Source Control",
-                                    onClick: () =>
-                                        rpcClient
-                                            .getMiDiagramRpcClient()
-                                            .executeCommand({ commands: ["workbench.scm.focus"] }),
-                                }
-                                : undefined
-                        }
-                    />
+            <DeploymentOption
+                title={devantMetadata?.hasComponent ? "Deployed in WSO2 Cloud" : "Deploy to WSO2 Cloud"}
+                description={
+                    devantMetadata?.hasComponent
+                        ? "This integration is already deployed in WSO2 Cloud."
+                        : "Deploy your integration to the WSO2 Cloud"
+                }
+                buttonText={devantMetadata?.hasComponent ? "View in WSO2 Cloud" : "Deploy"}
+                isExpanded={expandedOptions.has("devant")}
+                onToggle={() => toggleOption("devant")}
+                onDeploy={devantMetadata?.hasComponent ? () => goToDevant() : () => handleDeploy({})}
+                learnMoreLink={"https://wso2.com/devant/docs/"}
+                secondaryAction={
+                    devantMetadata?.hasComponent && devantMetadata?.hasLocalChanges
+                        ? {
+                                description: "To redeploy in WSO2 Cloud, please commit and push your changes.",
+                                buttonText: "Open Source Control",
+                                onClick: () =>
+                                    rpcClient
+                                        .getMiDiagramRpcClient()
+                                        .executeCommand({ commands: ["workbench.scm.focus"] }),
+                            }
+                        : undefined
+                }
+            />
 
-                    <DeploymentOption
-                        title="Deploy on a Remote Server"
-                        description="Build and deploy an Integration Application (CApp) to a remote WSO2 Integrator: MI Server."
-                        buttonText="Deploy"
-                        isExpanded={expandedOptions.has('remote')}
-                        onToggle={() => toggleOption('remote')}
-                        onDeploy={handleRemoteDeploy}
-                    />
-                </>
-            )
-            }
+            <DeploymentOption
+                title="Deploy on a Remote Server"
+                description="Build and deploy an Integration Application (CApp) to a remote WSO2 Integrator: MI Server."
+                buttonText="Deploy"
+                isExpanded={expandedOptions.has('remote')}
+                onToggle={() => toggleOption('remote')}
+                onDeploy={handleRemoteDeploy}
+            />
 
             <DeploymentOption
                 title="Build Docker Image"
@@ -223,24 +216,14 @@ export function DeploymentOptions({ handleDockerBuild, handleConfigureKubernetes
                 onDeploy={handleConfigureKubernetes}
             />
 
-            {isConsolidatedProject ?
-                <DeploymentOption
-                    title="Build Consolidated Project"
-                    description="Build the entire consolidated project to get the CApps that runs on WSO2 Integrator: MI Server."
-                    buttonText="Build"
-                    isExpanded={expandedOptions.has('vm')}
-                    onToggle={() => toggleOption('vm')}
-                    onDeploy={handleConsolidatedBuild}
-                /> :
-                <DeploymentOption
-                    title="Build CApp"
-                    description="Build Composite Application (CApp) that runs on WSO2 Integrator: MI Server."
-                    buttonText="Build CApp"
-                    isExpanded={expandedOptions.has('vm')}
-                    onToggle={() => toggleOption('vm')}
-                    onDeploy={handleCAPPBuild}
-                />
-            }
+            <DeploymentOption
+                title="Build CAPP"
+                description="Create an Integration Application (CApp) that runs on WSO2 Integrator: MI Server."
+                buttonText="Create CAPP"
+                isExpanded={expandedOptions.has('vm')}
+                onToggle={() => toggleOption('vm')}
+                onDeploy={handleCAPPBuild}
+            />
         </div>
     );
 }

@@ -33,20 +33,17 @@ import { runCommand, runBasicCommand } from '../test-explorer/runner';
 import { XMLParser, XMLBuilder } from "fast-xml-parser";
 
 const AdmZip = require('adm-zip');
-// Put MI versions in descending order.
-// Put Java versions in ascending order for each MI version
-export const javaVersionCompatibilityMap: { [key: string]: { supportedRange: { min: string; max: string }, recommended: string[] } } = {
-    '4.6.0': { supportedRange: { min: '21', max: '25' }, recommended: ['21', '25'] },
-    '4.5.0': { supportedRange: { min: '11', max: '21' }, recommended: ['21'] },
-    '4.4.0': { supportedRange: { min: '11', max: '21' }, recommended: ['21'] },
-    '4.3.0': { supportedRange: { min: '11', max: '17' }, recommended: ['17'] },
-    '4.2.0': { supportedRange: { min: '11', max: '17' }, recommended: ['17'] },
-    '4.1.0': { supportedRange: { min: '11', max: '11' }, recommended: ['11'] },
+// Add Latest MI version as the first element in the array
+export const supportedJavaVersionsForMI: { [key: string]: string } = {
+    '4.5.0': '21',
+    '4.4.0': '21',
+    '4.3.0': '17',
+    '4.2.0': '17',
+    '4.1.0': '11',
 };
-export const LATEST_MI_VERSION = "4.6.0";
+export const LATEST_MI_VERSION = "4.4.0";
 const COMPATIBLE_JDK_VERSION = "11";
 const miDownloadUrls: { [key: string]: string } = {
-    '4.6.0': 'https://mi-distribution.wso2.com/4.6.0/wso2mi-4.6.0.zip',
     '4.5.0': 'https://mi-distribution.wso2.com/4.5.0/wso2mi-4.5.0.zip',
     '4.4.0-UPDATED': 'https://mi-distribution.wso2.com/4.4.0/wso2mi-4.4.0-UPDATED.zip',
     '4.4.0': 'https://mi-distribution.wso2.com/4.4.0/wso2mi-4.4.0.zip',
@@ -130,8 +127,7 @@ export async function getProjectSetupDetails(projectUri: string): Promise<SetupD
         return { miVersionStatus: 'missing', javaDetails: { status: 'not-valid' }, miDetails: { status: 'not-valid' } };
     }
     if (isSupportedMIVersion(miVersion)) {
-        const highestSupportedJavaVersion = javaVersionCompatibilityMap[miVersion].supportedRange.max;
-        const recommendedVersions = { miVersion, javaVersion: highestSupportedJavaVersion };
+        const recommendedVersions = { miVersion, javaVersion: supportedJavaVersionsForMI[miVersion] };
         const setupDetails = await getJavaAndMIPathsFromWorkspace(projectUri, miVersion);
         return { ...setupDetails, miVersionStatus: 'valid', showDownloadButtons: isDownloadableMIVersion(miVersion), recommendedVersions, miVersionFromPom: miVersion };
     }
@@ -417,9 +413,9 @@ export function verifyMIPath(folderPath: string): string | null {
 
 export function getSupportedMIVersionsHigherThan(version: string): string[] {
     if (version) {
-        return Object.keys(javaVersionCompatibilityMap).filter((v) => compareVersions(v, version) >= 0);
+        return Object.keys(supportedJavaVersionsForMI).filter((v) => compareVersions(v, version) >= 0);
     }
-    return Object.keys(javaVersionCompatibilityMap);
+    return Object.keys(supportedJavaVersionsForMI);
 }
 
 export async function downloadJavaFromMI(projectUri: string, miVersion: string): Promise<string> {
@@ -435,7 +431,7 @@ export async function downloadJavaFromMI(projectUri: string, miVersion: string):
         };
     }
 
-    const javaVersions = javaVersionCompatibilityMap[miVersion];
+    const javaVersion = supportedJavaVersionsForMI[miVersion];
     const javaPath = path.join(CACHED_FOLDER, 'java');
     const osType = os.type();
 
@@ -462,10 +458,9 @@ export async function downloadJavaFromMI(projectUri: string, miVersion: string):
             throw new Error(`Unsupported architecture: ${os.arch()}`);
         }
 
-        if (!javaVersions) {
-            throw new Error('Unsupported MI version.');
+        if (!javaVersion) {
+            throw new Error('Unsupported Java version.');
         }
-        const javaVersion = javaVersions.supportedRange.max; // Get the highest supported Java version for the MI version
 
         if (!fs.existsSync(javaPath)) {
             fs.mkdirSync(javaPath, { recursive: true });
@@ -506,7 +501,7 @@ export async function downloadJavaFromMI(projectUri: string, miVersion: string):
         throw new Error(
             `Failed to download Java. ${error instanceof Error ? error.message : error
             }.
-            If issue persists, please download and install Java ${javaVersions ? javaVersions.supportedRange.max : 'the required version'} manually.`
+            If issue persists, please download and install Java ${javaVersion} manually.`
         );
     }
 }
@@ -559,7 +554,7 @@ function isSupportedJavaVersionForLS(version: string): boolean {
     return compareVersions(version, COMPATIBLE_JDK_VERSION) >= 0;
 }
 function isSupportedMIVersion(version: string): boolean {
-    return Object.keys(javaVersionCompatibilityMap).includes(version);
+    return Object.keys(supportedJavaVersionsForMI).includes(version);
 }
 function isDownloadableMIVersion(version: string): boolean {
     return miDownloadUrls[version] !== undefined;
@@ -589,22 +584,15 @@ function isRecommendedJavaVersionForMI(javaVersion: string, miVersion: string): 
     if (!javaVersion || !miVersion) {
         return false;
     }
-    const compatibleJavaVersion = javaVersionCompatibilityMap[miVersion];
-    return compatibleJavaVersion ? compatibleJavaVersion.recommended.includes(javaVersion) : false;
+    const supportedVersion = supportedJavaVersionsForMI[miVersion];
+    return supportedVersion ? javaVersion === supportedVersion : false;
 }
 function isCompatibleJavaVersionForMI(javaVersion: string, miVersion: string): boolean {
     if (!javaVersion || !miVersion) {
         return false;
     }
-    const compatibleJavaVersion = javaVersionCompatibilityMap[miVersion];
-    if (!compatibleJavaVersion) {
-        return false;
-    }
-    const lowestSupportedVersion = compatibleJavaVersion.supportedRange.min;
-    const highestSupportedVersion = compatibleJavaVersion.supportedRange.max;
-    return isSupportedJavaVersionForLS(javaVersion)
-        && compareVersions(javaVersion, lowestSupportedVersion) >= 0
-        && compareVersions(javaVersion, highestSupportedVersion) <= 0;
+    return isSupportedJavaVersionForLS(javaVersion) &&
+        compareVersions(javaVersion, supportedJavaVersionsForMI[miVersion]) <= 0; // higher java version not compatible
 }
 
 function isCompatibleMIVersion(runtimeVersion: string, projectVersion: string): boolean {
@@ -628,8 +616,7 @@ export async function setPathsInWorkSpace(request: SetPathRequest): Promise<Path
             const validJavaHome = verifyJavaHomePath(request.path);
             if (validJavaHome) {
                 const javaVersion = getJavaVersion(path.join(validJavaHome, 'bin'));
-                const compatibleJavaVersion = javaVersionCompatibilityMap[projectMIVersion];
-                if (compatibleJavaVersion && javaVersion && compatibleJavaVersion.recommended.includes(javaVersion)) { 
+                if (supportedJavaVersionsForMI[projectMIVersion] === javaVersion) {
                     response = { status: "valid", path: validJavaHome, version: javaVersion };
                 } else if (javaVersion && isCompatibleJavaVersionForMI(javaVersion, projectMIVersion)) {
                     response = { status: "mismatch", path: validJavaHome, version: javaVersion! };
@@ -667,10 +654,8 @@ export async function setPathsInWorkSpace(request: SetPathRequest): Promise<Path
 }
 
 async function getJavaAndMIPathsFromWorkspace(projectUri: string, projectMiVersion: string): Promise<SetupDetails> {
-    const compatibleJavaVersion = javaVersionCompatibilityMap[projectMiVersion];
-    const highestSupportedJavaVersion = compatibleJavaVersion && compatibleJavaVersion.supportedRange.max;
     const response: SetupDetails = {
-        javaDetails: { status: 'not-valid', version: highestSupportedJavaVersion },
+        javaDetails: { status: 'not-valid', version: supportedJavaVersionsForMI[projectMiVersion] },
         miDetails: { status: 'not-valid', version: projectMiVersion }
     };
     if (projectMiVersion) {
@@ -682,7 +667,7 @@ async function getJavaAndMIPathsFromWorkspace(projectUri: string, projectMiVersi
             getJavaHomeForMIVersionFromCache(projectMiVersion);
         if (validJavaHome) {
             const javaVersion = getJavaVersion(path.join(validJavaHome, 'bin'));
-            if (compatibleJavaVersion && javaVersion && compatibleJavaVersion.recommended.includes(javaVersion)) {
+            if (supportedJavaVersionsForMI[projectMiVersion] === javaVersion) {
                 response.javaDetails = { status: "valid", path: validJavaHome, version: javaVersion };
             } else if (javaVersion && isCompatibleJavaVersionForMI(javaVersion, projectMiVersion)) {
                 response.javaDetails = { status: "mismatch", path: validJavaHome, version: javaVersion! };
@@ -1505,31 +1490,5 @@ export async function updateCarPluginVersion(projectUri: string): Promise<void> 
     }
     if(compareVersions(carPluginVersion, LATEST_CAR_PLUGIN_VERSION) < 0) {
         await updateRuntimeVersionsInPom(result.project.properties['project.runtime.version']);
-    }
-}
-
-export function isConsolidatedProject(filePath: string): boolean {
-    try {
-        if (!filePath) {
-            return false;
-        }
-
-        const pomPath = path.join(filePath, 'pom.xml');
-        if (!fs.existsSync(pomPath)) {
-            return false;
-        }
-
-        const pomContent = fs.readFileSync(pomPath, 'utf-8');
-        const match = pomContent.match(
-            /<is\.consolidated\.project>\s*(true|false)\s*<\/is\.consolidated\.project>/i
-        );
-
-        if (!match) {
-            return false;
-        }
-        return match[1].toLowerCase() === 'true';
-
-    } catch (error) {
-        return false;
     }
 }

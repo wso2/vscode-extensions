@@ -165,7 +165,7 @@ export function RuntimeServicePanel() {
     const [serverRunStatus, setServerRunStatus] = useState<MiServerRunStatus>('Running' as MiServerRunStatus);
 
     useEffect(() => {
-        if (rpcClient && serverRunStatus === "Running") {
+        if (rpcClient) {
 
             rpcClient.getMiVisualizerRpcClient().getAvailableRuntimeServices().then((services) => {
                 setAvailableServices(services);
@@ -187,8 +187,7 @@ export function RuntimeServicePanel() {
     const onTryit = async (name: any) => {
         const api_resource = await rpcClient.getMiDiagramRpcClient().getAvailableResources({
             documentIdentifier: undefined,
-            resourceType: "api",
-            isDebugFlow: true
+            resourceType: "api"
         });
 
         const resource = api_resource.resources.find((resource: any) => resource.name === name.split("__").pop());

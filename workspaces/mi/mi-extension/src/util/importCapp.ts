@@ -81,7 +81,7 @@ interface RegistryCollection {
 }
 
 export async function importCapp(params: ImportProjectRequest): Promise<ImportProjectResponse> {
-    const { directory, open, createNewFolder = false } = params;
+    const { directory, open } = params;
     const source = params.source.replace(/\.car(?=\.zip$)/, '');
 
     const projectUuid = uuidv4();
@@ -111,20 +111,8 @@ export async function importCapp(params: ImportProjectRequest): Promise<ImportPr
     }
 
     if (projectName && groupId && artifactId && version) {
-        let projectDir;
-        if (createNewFolder) {
-            projectDir = path.join(directory, projectName);
-            if (fs.existsSync(projectDir)) {
-                window.showErrorMessage(`Directory "${projectDir}" already exists. Please choose a different location.`);
-                return { filePath: "" };
-            } else {
-                fs.mkdirSync(projectDir);
-            }
-        } else {
-            projectDir = directory;
-        }
         const folderStructure: FileStructure = {
-            'pom.xml': await rootPomXmlContent(projectName, groupId, artifactId, projectUuid, version, LATEST_MI_VERSION, ""),
+            'pom.xml': rootPomXmlContent(projectName, groupId, artifactId, projectUuid, version, LATEST_MI_VERSION, ""),
             '.env': '',
             'src': {
                 'main': {
@@ -174,11 +162,11 @@ export async function importCapp(params: ImportProjectRequest): Promise<ImportPr
             },
         };
 
-        await createFolderStructure(projectDir, folderStructure);
-        copyDockerResources(extension.context.asAbsolutePath(path.join('resources', 'docker-resources')), projectDir);
+        await createFolderStructure(directory, folderStructure);
+        copyDockerResources(extension.context.asAbsolutePath(path.join('resources', 'docker-resources')), directory);
 
         console.log("Created project structure for project: " + projectName);
-        importConfigs(extractFolderPath, projectDir);
+        importConfigs(extractFolderPath, directory);
 
         window.showInformationMessage(`Successfully imported "${projectName}" project`);
 
@@ -187,10 +175,10 @@ export async function importCapp(params: ImportProjectRequest): Promise<ImportPr
         }
 
         if (open) {
-            commands.executeCommand('vscode.openFolder', Uri.file(projectDir));
-            return { filePath: projectDir };
+            commands.executeCommand('vscode.openFolder', Uri.file(directory));
+            return { filePath: directory };
         } else {
-            return { filePath: projectDir };
+            return { filePath: directory };
         }
     } else {
         window.showErrorMessage('Could not find the project details from the provided project: ', source);

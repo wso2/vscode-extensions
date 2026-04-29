@@ -50,8 +50,6 @@ interface AddConnectorProps {
     control: any;
     errors: any;
     setValue: any;
-    setError: any;
-    clearErrors: any;
     handleSubmit: any;
     reset: any;
     watch: any;
@@ -61,7 +59,7 @@ interface AddConnectorProps {
 }
 
 const AddConnector = (props: AddConnectorProps) => {
-    const { formData, connectionName, nodePosition, control, errors, setValue, setError, clearErrors, reset, watch, getValues, dirtyFields, isUpdate, handleSubmit, documentUri } = props;
+    const { formData, connectionName, nodePosition, control, errors, setValue, reset, watch, getValues, dirtyFields, isUpdate, handleSubmit, documentUri } = props;
     const { rpcClient, setIsLoading: setDiagramLoading } = useVisualizerContext();
 
     const sidePanelContext = React.useContext(SidePanelContext);
@@ -69,17 +67,6 @@ const AddConnector = (props: AddConnectorProps) => {
     const [connections, setConnections] = useState([] as any);
     const handleOnCancelExprEditorRef = useRef(() => { });
     const [parameters, setParameters] = useState<string[]>(props.parameters);
-    const [comboValuesMap, setComboValuesMap] = useState<Record<string, string[]>>({});
-    const setComboValues = (elementName: string, newValues: string[]) => {
-        setComboValuesMap(prev => ({
-            ...prev,
-            [elementName]: newValues
-        }));
-    };
-    const [params, setParams] = useState<ParamConfig>({
-        paramValues: [],
-        paramFields: []
-    });
 
     const fetchConnectionsForTemplateConnection = async () => {
         if (!props.formData) {
@@ -87,6 +74,7 @@ const AddConnector = (props: AddConnectorProps) => {
                 documentUri: props.documentUri,
                 connectorName: props.formData?.connectorName ?? props.connectorName.replace(/\s/g, '')
             });
+
             // Fetch connections for old connectors (No ConnectionType)
             const connectionsNames = connectionsData.connections.map(connection => connection.name);
             setConnections(connectionsNames);
@@ -121,40 +109,30 @@ const AddConnector = (props: AddConnectorProps) => {
     }, [props.formData]);
 
     useEffect(() => {
-        try {
-            if (sidePanelContext.formValues && Object.keys(sidePanelContext.formValues).length > 0 && sidePanelContext.formValues?.parameters) {
-                if (sidePanelContext.formValues.form) {
-                    sidePanelContext.formValues?.parameters.forEach((param: any) => {
-                        param.name = getNameForController(param.name);
-                        if (param.isExpression) {
-                            let namespacesArray: any[] = [];
-                            if (param.namespaces) {
-                                namespacesArray = Object.entries(param.namespaces).map(([prefix, uri]) => ({ prefix: prefix.split(':')[1], uri: uri }));
-                            }
-                            setValue(param.name, { isExpression: true, value: param.value.replace(/[{}]/g, ''), namespaces: namespacesArray });
-                        } else {
-                            param.namespaces = [];
-                            setValue(param.name, param);
-                        }
-                    });
-                } else {
-                    //Handle connectors without uischema
-                    fetchParameters(sidePanelContext.formValues.operationName);
-                }
-                const modifiedParams = {
-                    ...params, paramValues: generateParams(sidePanelContext.formValues.parameters)
-                };
-                setParams(modifiedParams);
+        if (!sidePanelContext.formValues && Object.keys(sidePanelContext.formValues).length > 0 && sidePanelContext.formValues?.parameters) {
+            if (!sidePanelContext.formValues.form) {
+                //Handle connectors without uischema
+                fetchParameters(sidePanelContext.formValues.operationName);
 
-                if (sidePanelContext.formValues?.connectionName) {
-                    setValue('configKey', sidePanelContext.formValues?.connectionName);
-                }
+                sidePanelContext.formValues?.parameters.forEach((param: any) => {
+                    param.name = getNameForController(param.name);
+                    if (param.isExpression) {
+                        let namespacesArray: any[] = [];
+                        if (param.namespaces) {
+                            namespacesArray = Object.entries(param.namespaces).map(([prefix, uri]) => ({ prefix: prefix.split(':')[1], uri: uri }));
+                        }
+                        setValue(param.name, { isExpression: true, value: param.value.replace(/[{}]/g, ''), namespaces: namespacesArray });
+                    } else {
+                        param.namespaces = [];
+                        setValue(param.name, param);
+                    }
+                });
             }
 
-        } catch {
-            console.error("Error setting form values from sidePanelContext");
+            if (sidePanelContext.formValues?.connectionName) {
+                setValue('configKey', sidePanelContext.formValues?.connectionName);
+            }
         }
-
     }, [sidePanelContext.formValues]);
 
     const findAllowedConnectionTypes = (elements: any): string[] | undefined => {
@@ -224,13 +202,10 @@ const AddConnector = (props: AddConnectorProps) => {
         if (props.connectionName) {
             values.configKey = props.connectionName;
         }
-        let valuesRequired = values;
-        if (connectorName === "db") {
-            valuesRequired = valuesForSynapseConfig(values);
-        }
+
         rpcClient.getMiDiagramRpcClient().updateMediator({
             mediatorType: `${connectorName}.${operationName}`,
-            values: valuesRequired as Record<string, any>,
+            values: values as Record<string, any>,
             oldValues: sidePanelContext.formValues as Record<string, any>,
             dirtyFields: Object.keys(dirtyFields),
             documentUri,
@@ -251,35 +226,6 @@ const AddConnector = (props: AddConnectorProps) => {
         clearSidePanelState(sidePanelContext);
 
     };
-
-    function valuesForSynapseConfig(values: any) {
-        const filteredValues: any = {};
-        Object.keys(values).forEach(key => {
-            if (!key.startsWith('dyn_param') && key !== 'preparedStmt') { // Exclude fields starting with 'dyn_param'
-                filteredValues[key] = values[key];
-            }
-        });
-        return filteredValues;
-    }
-
-    function generateParams(parameters: any[]) {
-        return parameters.map((param: any, id) => {
-            return {
-                id: id,
-                key: param.name,
-                value: param.value ?? param.expression,
-                icon: "query",
-                paramValues: [
-                    {
-                        value: param.name,
-                    },
-                    {
-                        value: param.value ?? param.expression,
-                    },
-                ]
-            }
-        });
-    }
 
     if (isLoading) {
         return <ProgressIndicator />;
@@ -378,18 +324,10 @@ const AddConnector = (props: AddConnectorProps) => {
                         <FormGenerator
                             documentUri={props.documentUri}
                             formData={getFormData()}
-                            parameters={params}
-                            setComboValues={setComboValues}
-                            comboValuesMap={comboValuesMap}
-                            connections={connections}
-                            connectionName={props.connectionName}
-                            ignoreFields={props.connectionName ? ["configRef"] : []}
                             connectorName={props.connectorName}
                             control={control}
                             errors={errors}
                             setValue={setValue}
-                            setError={setError}
-                            clearErrors={clearErrors}
                             reset={reset}
                             watch={watch}
                             getValues={getValues}
@@ -408,7 +346,6 @@ const AddConnector = (props: AddConnectorProps) => {
                 <Button
                     appearance="primary"
                     onClick={handleSubmit(onClick)}
-                    disabled={Boolean(errors?.mcpTools)}
                 >
                     {isUpdate ? "Update" : "Add"}
                 </Button>

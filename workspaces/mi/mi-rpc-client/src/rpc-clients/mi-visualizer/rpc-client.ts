@@ -95,7 +95,6 @@ import {
     UpdatePomValuesRequest,
     UpdateConfigValuesRequest,
     updateConnectorDependencies,
-    refetchIntegrationProjectDependencies,
     ImportOpenAPISpecRequest,
     updateRuntimeVersionsInPom,
     PathDetailsResponse,
@@ -279,9 +278,6 @@ export class MiVisualizerRpcClient implements MIVisualizerAPI {
     }
     updateConnectorDependencies(): Promise<string> {
         return this._messenger.sendRequest(updateConnectorDependencies, HOST_EXTENSION);
-    }
-    refetchIntegrationProjectDependencies(): Promise<string> {
-        return this._messenger.sendRequest(refetchIntegrationProjectDependencies, HOST_EXTENSION);
     }
     getDependencyStatusList(): Promise<DependencyStatusResponse> {
         return this._messenger.sendRequest(getDependencyStatusList, HOST_EXTENSION);

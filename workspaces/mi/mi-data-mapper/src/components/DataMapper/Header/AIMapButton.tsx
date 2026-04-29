@@ -50,70 +50,46 @@ const StyledButton = styled(Button) <{ isLoading: boolean }>`
 
 const AIMapButton: React.FC<AIMapButtonProps> = ({ onClick, isLoading, disabled = false }) => {
   var [remainingTokenLessThanOne, setRemainingTokenLessThanOne] = useState(false);
-  var [remainingTokenPercentage, setRemainingTokenPercentage] = useState<number | "Unlimited" | null>(null);
-  var [usageResetText, setUsageResetText] = useState<string>("");
+  var [remainingTokenPercentage, setRemainingTokenPercentage] = useState<string | number>("");
 
   const { rpcClient } = useVisualizerContext();
 
   useEffect(() => {
     rpcClient.getAIVisualizerState()
       .then((machineView: any) => {
-        const userTokens = machineView?.userTokens ?? machineView?.usage;
-        if (userTokens) {
-          const remainingUsagePercentage = userTokens.remainingUsagePercentage;
-          if (remainingUsagePercentage === -1) {
+        if (machineView && machineView.userTokens) {
+          const maxTokens = machineView.userTokens.max_usage;
+          if (maxTokens === -1) {
             setRemainingTokenPercentage("Unlimited");
-            setRemainingTokenLessThanOne(false);
-            setUsageResetText("");
           } else {
-            const percentage = typeof remainingUsagePercentage === "number"
-              ? Math.max(0, Math.min(100, remainingUsagePercentage))
-              : NaN;
+            const remainingTokens = machineView.userTokens.remaining_tokens;
+            const percentage = (remainingTokens / maxTokens) * 100;
             if (percentage < 1 && percentage > 0) {
               setRemainingTokenLessThanOne(true);
             } else {
               setRemainingTokenLessThanOne(false);
             }
-            setRemainingTokenPercentage(Number.isNaN(percentage) ? null : Math.round(percentage));
-
-            const resetsIn = userTokens.resetsIn;
-            if (typeof resetsIn === "number" && resetsIn > 0) {
-              const days = Math.ceil(resetsIn / (60 * 60 * 24));
-              setUsageResetText(`${days} day${days === 1 ? "" : "s"}`);
-            } else {
-              setUsageResetText("");
-            }
+            setRemainingTokenPercentage(Math.round(percentage));
           }
         } else {
           // Handle the case when machineView or userTokens is undefined
-          setRemainingTokenPercentage(null);
-          setRemainingTokenLessThanOne(false);
-          setUsageResetText("");
+          setRemainingTokenPercentage("Not Available");
         }
       })
       .catch((error) => {
         // Handle errors from the API call
         console.error("Error fetching AI Visualizer State:", error);
-        setRemainingTokenPercentage(null);
-        setRemainingTokenLessThanOne(false);
-        setUsageResetText("");
+        setRemainingTokenPercentage("Not Available");
       });
   }, []);
 
-  var tokenUsageText =
-    remainingTokenPercentage === "Unlimited"
-      ? "Unlimited"
-      : (remainingTokenLessThanOne && typeof remainingTokenPercentage === "number" && remainingTokenPercentage > 0)
-        ? "<1%"
-        : (typeof remainingTokenPercentage === "number" && Number.isFinite(remainingTokenPercentage))
-          ? `${remainingTokenPercentage}%`
-          : "Not Available";
+  var tokenUsageText = remainingTokenPercentage === 'Unlimited' ? remainingTokenPercentage : (remainingTokenLessThanOne ? '<1%' : `${remainingTokenPercentage}%`);
 
   return (
     <ButtonContainer>
       <StyledButton
         appearance="secondary"
-        tooltip={`Generate Mapping using AI.\nRemaining Free Usage: ${tokenUsageText}${usageResetText ? `\nResets in: ${usageResetText}` : ''}`}
+        tooltip={`Generate Mapping using AI.\nRemaining Free Usage: ${tokenUsageText}`}
         onClick={async () => {
           if (!isLoading && !disabled) {
             await onClick();

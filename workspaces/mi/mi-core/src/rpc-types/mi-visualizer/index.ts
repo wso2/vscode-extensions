@@ -97,7 +97,6 @@ export interface MIVisualizerAPI {
     updatePomValues: (params: UpdatePomValuesRequest) => Promise<boolean>;
     updateConfigFileValues: (params: UpdateConfigValuesRequest) => Promise<boolean>;
     updateConnectorDependencies: () => Promise<string>;
-    refetchIntegrationProjectDependencies: () => Promise<string>;
     getDependencyStatusList: () => Promise<DependencyStatusResponse>;
     updateDependenciesFromOverview: (params: UpdateDependenciesRequest) => Promise<boolean>;
     importOpenAPISpec: (params: ImportOpenAPISpecRequest) => Promise<void>;

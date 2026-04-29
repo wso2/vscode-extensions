@@ -73,11 +73,7 @@ export function AICodeGenerator({ isUsageExceeded = false }: AICodeGeneratorProp
                   {Array.isArray(messages) && messages.length === 0 && <WelcomeMessage />}
 
                   {Array.isArray(messages) && messages.map((message, index) => (
-                      <AIChatMessage
-                          key={`${typeof message.id === "number" ? message.id : "msg"}-${message.role}-${index}`}
-                          message={message}
-                          index={index}
-                      />
+                      <AIChatMessage key={index} message={message} index={index} />
                   ))}
 
                   <div ref={messagesEndRef} />
