@@ -156,7 +156,7 @@ function getFirstWorkflowId(arazzoFilePath: string): string | undefined {
 }
 
 /**
- * Start the Arazzo MCP server for the given Arazzo file.
+ * Start the arazzo server for the given Arazzo file.
  * Spawns the Go binary, writes .vscode/mcp.json, and shows output.
  *
  * @param suppressPrompt - When true, the "Try Now" follow-up notification is
@@ -170,7 +170,7 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
 
     // Stop any existing server
     if (mcpServerProcess) {
-        output.appendLine('Stopping previous MCP server...');
+        output.appendLine('Stopping previous arazzo server...');
         mcpServerProcess.kill();
         mcpServerProcess = undefined;
     }
@@ -281,8 +281,8 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
     });
 
     mcpServerProcess.on('error', (err: Error) => {
-        output.appendLine(`\nMCP server error: ${err.message}`);
-        vscode.window.showErrorMessage(`Failed to start MCP server: ${err.message}`);
+        output.appendLine(`\narazzo server error: ${err.message}`);
+        vscode.window.showErrorMessage(`Failed to start arazzo server: ${err.message}`);
         // Only clear if this is still the active process
         if (mcpServerProcess === thisProcess) {
             mcpServerProcess = undefined;
@@ -292,7 +292,7 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
     });
 
     mcpServerProcess.on('exit', (code: number | null) => {
-        output.appendLine(`\nMCP server exited with code: ${code}`);
+        output.appendLine(`\narazzo server exited with code: ${code}`);
         // Only clear if this is still the active process — a newer spawn
         // may have already replaced mcpServerProcess.
         if (mcpServerProcess === thisProcess) {
@@ -354,7 +354,7 @@ export function stopMCPServer(): void {
         mcpServerProcess = undefined;
         mcpActiveFilePath = undefined;
         const output = getOutputChannel();
-        output.appendLine('MCP server stopped.');
+        output.appendLine('arazzo server stopped.');
         notifyStateChange();
     }
     TracerServer.getInstance().stop();
