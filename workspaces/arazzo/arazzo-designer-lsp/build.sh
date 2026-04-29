@@ -14,6 +14,7 @@ EXTENSION_LS_DIR="../arazzo-designer-extension/ls"
 mkdir -p "$EXTENSION_LS_DIR"
 
 # Clean old binaries
+rm -f "$EXTENSION_LS_DIR"/arazzo-language-server
 rm -f "$EXTENSION_LS_DIR"/arazzo-language-server-*
 rm -f "$EXTENSION_LS_DIR"/arazzo-language-server.exe
 
