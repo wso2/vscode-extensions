@@ -165,8 +165,6 @@ function getFirstWorkflowId(arazzoFilePath: string): string | undefined {
  */
 export async function startMCPServer(context: vscode.ExtensionContext, arazzoFilePath?: string, suppressPrompt = false): Promise<void> {
     const output = getOutputChannel();
-    output.show(false); // Move focus to output panel so clicking back on the editor
-                        // fires onDidChangeActiveTextEditor and restores toolbar buttons.
 
     // Stop any existing server
     if (mcpServerProcess) {
