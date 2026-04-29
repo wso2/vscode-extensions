@@ -11,7 +11,24 @@ type Helpers = {
 };
 
 export class AssessmentCacheStore {
+    /** One write queue per cache file so parallel governance persists (Design metrics) do not clobber each other. */
+    private readonly cacheWriteChainByPath = new Map<string, Promise<void>>();
+
     constructor(private readonly helpers: Helpers) {}
+
+    private runExclusiveCacheWrite(cachePath: string, work: () => Promise<void>): Promise<void> {
+        const prev = this.cacheWriteChainByPath.get(cachePath) ?? Promise.resolve();
+        const next = prev
+            .catch(() => {
+                //
+            })
+            .then(work)
+            .catch(() => {
+                //
+            });
+        this.cacheWriteChainByPath.set(cachePath, next);
+        return next;
+    }
 
     public getWorkspaceCachePath(filePath: string): string {
         const parsed = path.parse(filePath);
@@ -83,12 +100,14 @@ export class AssessmentCacheStore {
             description?: string;
             fixSuggestion?: string;
             severity: "error" | "warn" | "info" | "hint";
-        }>
+        }>,
+        cacheMeta?: { specContentHash?: string }
     ): Promise<void> {
-        try {
-            const cachePath = this.getWorkspaceCachePath(filePath);
-            await mkdir(path.dirname(cachePath), { recursive: true });
-            const existing = await this.readAssessmentDocument(cachePath);
+        const cachePath = this.getWorkspaceCachePath(filePath);
+        return this.runExclusiveCacheWrite(cachePath, async () => {
+            try {
+                await mkdir(path.dirname(cachePath), { recursive: true });
+                const existing = await this.readAssessmentDocument(cachePath);
             const currentMeta = existing.meta && typeof existing.meta === "object"
                 ? existing.meta as Record<string, unknown>
                 : {};
@@ -96,12 +115,27 @@ export class AssessmentCacheStore {
             const counts = this.helpers.computeCountsFromReportIssues(spectralIssues);
             const rating = this.helpers.computeSectionRating(counts);
             if (reportId === "ai-readiness") {
-                const currentAgentReadiness = existing.agentReadiness && typeof existing.agentReadiness === "object"
-                    ? existing.agentReadiness as Record<string, unknown>
-                    : {};
-                const existingAiAnalysis = currentAgentReadiness.aiAnalysis && typeof currentAgentReadiness.aiAnalysis === "object"
-                    ? currentAgentReadiness.aiAnalysis as Record<string, unknown>
-                    : {};
+                const rawAgentReadiness = existing.agentReadiness;
+                const agentReadinessBase =
+                    rawAgentReadiness !== null &&
+                    typeof rawAgentReadiness === "object" &&
+                    !Array.isArray(rawAgentReadiness)
+                        ? (rawAgentReadiness as Record<string, unknown>)
+                        : {};
+                const existingSpecHash =
+                    typeof currentMeta.specHash === "string" && currentMeta.specHash.length > 0
+                        ? String(currentMeta.specHash)
+                        : "";
+                const specHashForMeta =
+                    existingSpecHash.length > 0
+                        ? existingSpecHash
+                        : (typeof cacheMeta?.specContentHash === "string" && cacheMeta.specContentHash.length > 0
+                            ? cacheMeta.specContentHash
+                            : "");
+                const modelForMeta =
+                    typeof currentMeta.model === "string" && currentMeta.model.length > 0
+                        ? String(currentMeta.model)
+                        : "copilot";
                 const merged = {
                     ...existing,
                     meta: {
@@ -109,16 +143,17 @@ export class AssessmentCacheStore {
                         specFile: filePath,
                         assessedAt: new Date().toISOString(),
                         guidelinesVersion: "agent-readiness-guidelines.md",
+                        model: modelForMeta,
+                        specHash: specHashForMeta,
                     },
                     agentReadiness: {
-                        ...currentAgentReadiness,
+                        ...agentReadinessBase,
                         spectral: {
                             status: "completed",
                             ruleset: "references/agent-readiness-spectral/ai-readiness.yaml",
                             score: { ...counts, rating },
                             issues: spectralIssues,
                         },
-                        ...(Object.keys(existingAiAnalysis).length > 0 ? { aiAnalysis: existingAiAnalysis } : {}),
                     },
                 };
                 await writeFile(cachePath, JSON.stringify(merged, null, 2), "utf8");
@@ -147,23 +182,74 @@ export class AssessmentCacheStore {
                     },
                 };
                 await writeFile(cachePath, JSON.stringify(merged, null, 2), "utf8");
+                return;
             }
-        } catch {
-            // best-effort persistence
-        }
+
+            if (reportId === "rest-api-readiness") {
+                const rawRestReadiness = existing.restApiReadiness;
+                const restReadinessBase =
+                    rawRestReadiness !== null &&
+                    typeof rawRestReadiness === "object" &&
+                    !Array.isArray(rawRestReadiness)
+                        ? (rawRestReadiness as Record<string, unknown>)
+                        : {};
+                const existingSpecHashRest =
+                    typeof currentMeta.specHash === "string" && currentMeta.specHash.length > 0
+                        ? String(currentMeta.specHash)
+                        : "";
+                const specHashRest =
+                    existingSpecHashRest.length > 0
+                        ? existingSpecHashRest
+                        : (typeof cacheMeta?.specContentHash === "string" && cacheMeta.specContentHash.length > 0
+                            ? cacheMeta.specContentHash
+                            : "");
+                const modelRest =
+                    typeof currentMeta.model === "string" && currentMeta.model.length > 0
+                        ? String(currentMeta.model)
+                        : "copilot";
+                const merged = {
+                    ...existing,
+                    meta: {
+                        ...currentMeta,
+                        specFile: filePath,
+                        assessedAt: new Date().toISOString(),
+                        model: modelRest,
+                        specHash: specHashRest,
+                    },
+                    restApiReadiness: {
+                        ...restReadinessBase,
+                        spectral: {
+                            status: "completed",
+                            ruleset: "references/wso2_rest_api_design_guidelines.yaml",
+                            score: { ...counts, rating },
+                            issues: spectralIssues,
+                        },
+                    },
+                };
+                await writeFile(cachePath, JSON.stringify(merged, null, 2), "utf8");
+            }
+            } catch {
+                // best-effort persistence
+            }
+        });
     }
 
     public async persistLlmState(filePath: string, state: LlmValidationState, options?: { modelId?: string }): Promise<void> {
-        try {
-            const cachePath = this.getWorkspaceCachePath(filePath);
-            await mkdir(path.dirname(cachePath), { recursive: true });
-            const existing = await this.readAssessmentDocument(cachePath);
+        const cachePath = this.getWorkspaceCachePath(filePath);
+        return this.runExclusiveCacheWrite(cachePath, async () => {
+            try {
+                await mkdir(path.dirname(cachePath), { recursive: true });
+                const existing = await this.readAssessmentDocument(cachePath);
             const currentMeta = existing.meta && typeof existing.meta === "object"
                 ? existing.meta as Record<string, unknown>
                 : {};
-            const currentAgentReadiness = existing.agentReadiness && typeof existing.agentReadiness === "object"
-                ? existing.agentReadiness as Record<string, unknown>
-                : {};
+            const rawAgentReadiness = existing.agentReadiness;
+            const currentAgentReadiness =
+                rawAgentReadiness !== null &&
+                typeof rawAgentReadiness === "object" &&
+                !Array.isArray(rawAgentReadiness)
+                    ? (rawAgentReadiness as Record<string, unknown>)
+                    : {};
             const existingAiAnalysis = currentAgentReadiness.aiAnalysis && typeof currentAgentReadiness.aiAnalysis === "object"
                 ? currentAgentReadiness.aiAnalysis as Record<string, unknown>
                 : {};
@@ -182,7 +268,6 @@ export class AssessmentCacheStore {
                     specFile: filePath,
                     specHash: state.apiHash,
                     assessedAt: new Date(state.updatedAt || Date.now()).toISOString(),
-                    spectralVersion: String(currentMeta.spectralVersion || "not-run"),
                     guidelinesVersion: "agent-readiness-guidelines.md",
                     model: modelId,
                 },
@@ -196,10 +281,11 @@ export class AssessmentCacheStore {
                     },
                 },
             };
-            await writeFile(cachePath, JSON.stringify(merged, null, 2), "utf8");
-        } catch {
-            // best-effort persistence
-        }
+                await writeFile(cachePath, JSON.stringify(merged, null, 2), "utf8");
+            } catch {
+                // best-effort persistence
+            }
+        });
     }
 
     public async readWorkspaceCache(filePath: string): Promise<LlmValidationState | null> {

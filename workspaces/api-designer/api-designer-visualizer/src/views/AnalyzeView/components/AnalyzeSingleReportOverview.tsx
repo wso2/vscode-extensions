@@ -22,7 +22,7 @@ interface AnalyzeSingleReportOverviewProps {
 const OverviewRow = styled.div`
     background: var(--vscode-editorWidget-background);
     border: 1px solid var(--vscode-panel-border);
-    border-radius: 12px;
+    border-radius: 8px;
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
     padding: 14px;
     display: grid;

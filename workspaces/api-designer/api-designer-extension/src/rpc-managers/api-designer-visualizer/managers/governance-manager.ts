@@ -342,9 +342,12 @@ export class GovernanceManager extends BaseRpcManager {
     private async persistSpectralSection(
         filePath: string,
         reportId: 'ai-readiness' | 'owasp' | 'rest-api-readiness',
-        violationsById: Record<string, UnifiedViolation>
+        violationsById: Record<string, UnifiedViolation>,
+        specContentHash?: string
     ): Promise<void> {
-        await this.cacheStore.persistSpectralSection(this.normalizeFilePath(filePath), reportId, violationsById);
+        await this.cacheStore.persistSpectralSection(this.normalizeFilePath(filePath), reportId, violationsById, {
+            specContentHash,
+        });
     }
 
     private async persistLlmState(filePath: string, state: LlmValidationState, options?: { modelId?: string }): Promise<void> {
@@ -739,7 +742,7 @@ export class GovernanceManager extends BaseRpcManager {
             }
             const unifiedReport = this.buildUnifiedReport(reportTitle, response);
             response.score = unifiedReport.overview.score;
-            await this.persistSpectralSection(normalizedPath, unifiedReport.reportId, unifiedReport.violationsById);
+            await this.persistSpectralSection(normalizedPath, unifiedReport.reportId, unifiedReport.violationsById, apiHash);
             (response as GetGovernanceResponse & { schemaVersion?: '2' }).schemaVersion = '2';
             (response as GetGovernanceResponse).reportId = unifiedReport.reportId;
             (response as GetGovernanceResponse).report = unifiedReport as UnifiedAnalyzeReport;

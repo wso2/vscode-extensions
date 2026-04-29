@@ -325,11 +325,14 @@ export const buildUnifiedReport = (
 
     const categories = configuredDimensions
         .filter((dimension) => {
-            if (reportId !== "owasp") {
-                return true;
+            if (reportId === "owasp") {
+                const dimensionBucketKey = dimension.key.toUpperCase();
+                return allRulesByBucket.has(dimensionBucketKey) || failedRulesByBucket.has(dimensionBucketKey);
             }
-            const dimensionBucketKey = dimension.key.toUpperCase();
-            return allRulesByBucket.has(dimensionBucketKey) || failedRulesByBucket.has(dimensionBucketKey);
+            if (reportId === "rest-api-readiness" && dimension.key === "other") {
+                return allRulesByBucket.has("other") || failedRulesByBucket.has("other");
+            }
+            return true;
         })
         .map((dimension) => {
             const ids = categoryBuckets.get(dimension.key)?.violationIds || [];
