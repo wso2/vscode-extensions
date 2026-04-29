@@ -266,6 +266,7 @@ export function WorkflowView(props: WorkflowViewProps) {
     const [workflow, setWorkflow] = useState<ArazzoWorkflow | undefined>(undefined);
     const [selectedNode, setSelectedNode] = useState<Node | null>(null);
     const [isPanelOpen, setIsPanelOpen] = useState(false);
+    const [forcedPanelTab, setForcedPanelTab] = useState<'properties' | 'logs'>('properties');
     const [isLoading, setIsLoading] = useState(true);
     const [loadingError, setLoadingError] = useState<string | null>(null);
     const [traceSpans, setTraceSpans] = useState<WebviewTraceEvent[]>([]);
@@ -616,7 +617,25 @@ export function WorkflowView(props: WorkflowViewProps) {
         setEdges([]);
         buildGraphFromWorkflow(wf, isVertical, definition).then(({ nodes: builtNodes, edges: builtEdges }) => {
             console.log('Graph built successfully:', { nodes: builtNodes, edges: builtEdges });
-            setNodes(builtNodes);
+            // Inject onViewLogs into each step node so the "view logs" link can
+            // open the properties panel with the Logs tab active.
+            const nodesWithHandlers = builtNodes.map(node => {
+                if (node.type === 'stepNode') {
+                    return {
+                        ...node,
+                        data: {
+                            ...node.data,
+                            onViewLogs: () => {
+                                setForcedPanelTab('logs');
+                                setSelectedNode(node);
+                                setIsPanelOpen(true);
+                            }
+                        }
+                    };
+                }
+                return node;
+            });
+            setNodes(nodesWithHandlers);
             setEdges(builtEdges);
             setGraphKey(prev => prev + 1);
             setTimeout(() => reactFlowWrapper.current?.focus(), 50);
@@ -693,6 +712,8 @@ export function WorkflowView(props: WorkflowViewProps) {
             return;
         }
 
+        // Normal click → always show properties tab
+        setForcedPanelTab('properties');
         // Set the node first
         setSelectedNode(node);
         // Use requestAnimationFrame to ensure panel renders in closed state first,
@@ -721,6 +742,10 @@ export function WorkflowView(props: WorkflowViewProps) {
     const handleTryWorkflow = useCallback(() => {
         const params = { workflowId: effectiveWorkflowIdRef.current, uri: fileUri };
         rpcClient?.getVisualizerRpcClient().runWorkflow(params);
+    }, [rpcClient, fileUri]);
+
+    const handleGoHome = useCallback(() => {
+        rpcClient?.focusOverviewPanel(fileUri);
     }, [rpcClient, fileUri]);
 
     const toggleOrientation = useCallback(() => {
@@ -774,6 +799,7 @@ export function WorkflowView(props: WorkflowViewProps) {
             <WorkflowTitleBar
                 workflowId={workflow?.workflowId ?? ''}
                 onTry={handleTryWorkflow}
+                onHome={handleGoHome}
             />
         <div
             ref={reactFlowWrapper}
@@ -876,7 +902,7 @@ export function WorkflowView(props: WorkflowViewProps) {
                     </StyledButton>
                 </SidePanelTitleContainer>
                 <SidePanelBody onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-                    <NodePropertiesPanel node={selectedNode} workflow={workflow} definition={arazzoDefinition} traceSpans={traceSpans} />
+                    <NodePropertiesPanel node={selectedNode} workflow={workflow} definition={arazzoDefinition} traceSpans={traceSpans} forceTab={forcedPanelTab} />
                 </SidePanelBody>
             </SidePanel>
         </div>

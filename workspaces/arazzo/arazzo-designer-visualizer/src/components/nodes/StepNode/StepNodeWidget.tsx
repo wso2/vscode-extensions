@@ -65,6 +65,22 @@ const DurationLabel = styled.div`
     pointer-events: none;
 `;
 
+const ViewLogsLink = styled.span`
+    position: absolute;
+    top: 2px;
+    right: 20px;
+    font-size: 9px;
+    font-family: var(--vscode-font-family);
+    color: var(--vscode-descriptionForeground);
+    cursor: pointer;
+    z-index: 10;
+    user-select: none;
+    &:hover {
+        color: var(--vscode-textLink-foreground);
+        text-decoration: underline;
+    }
+`;
+
 /**
  * StepNodeWidget - React component for step nodes
  * Extends BaseNodeWidget with step-specific rendering
@@ -83,6 +99,17 @@ export const StepNodeWidget: React.FC<NodeProps<StepNodeData>> = (props) => {
                             ? <img src={successIcon} width={14} height={14} />
                             : <img src={failIcon} width={14} height={14} />}
                 </TraceIndicator>
+            )}
+            {/* View Logs link — appears once execution completes (passed or failed) */}
+            {traceStatus && traceStatus.state !== 'running' && data.onViewLogs && (
+                <ViewLogsLink
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        data.onViewLogs!();
+                    }}
+                >
+                    view logs
+                </ViewLogsLink>
             )}
             {/* Duration label */}
             {traceStatus && traceStatus.durationMs !== undefined && (
