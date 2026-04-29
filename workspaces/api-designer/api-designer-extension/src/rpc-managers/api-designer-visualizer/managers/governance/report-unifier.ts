@@ -88,25 +88,49 @@ const calculateCategoryScore = (counts: { total: number; errors: number; warning
     return Math.max(0, Math.min(100, Math.round(score)));
 };
 
+const AI_SEVERITY_PENALTY: Record<"error" | "warn" | "info" | "hint", number> = {
+    error: 1,
+    warn: 0.6,
+    info: 0.3,
+    hint: 0.15,
+};
+
+const computeAiBucketScore = (
+    rulesInBucket: string[],
+    rulePenaltyByRule: Map<string, number>
+): number => {
+    const totalRules = rulesInBucket.length;
+    if (totalRules <= 0) return 100;
+    const bucketPenalty = rulesInBucket.reduce((sum, ruleId) => {
+        const normalized = normalizeRuleId(ruleId);
+        return sum + (rulePenaltyByRule.get(normalized) || 0);
+    }, 0);
+    return Math.max(0, Math.min(100, ((totalRules - bucketPenalty) / totalRules) * 100));
+};
+
 
 export const computeWeightedScore = (
     reportId: GovernanceReportId,
     response: SpectralGovernancePayload
 ): number => {
     if (reportId === "ai-readiness") {
-        const failedRules = new Set<string>();
+        const rulePenaltyByRule = new Map<string, number>();
         (response.violations || []).forEach((violation) => {
             const ruleId = normalizeRuleId(violation.rule || violation.code || "");
             if (!ruleId) return;
-            failedRules.add(ruleId);
+            const severity = (violation.severity === "error" || violation.severity === "warn" || violation.severity === "info" || violation.severity === "hint")
+                ? violation.severity
+                : "info";
+            const penalty = AI_SEVERITY_PENALTY[severity];
+            const currentPenalty = rulePenaltyByRule.get(ruleId) || 0;
+            if (penalty > currentPenalty) {
+                rulePenaltyByRule.set(ruleId, penalty);
+            }
         });
         let weightedSum = 0;
         let totalWeight = 0;
         Object.entries(AI_READINESS_BUCKET_RULE_MAP).forEach(([bucketKey, rulesInBucket]) => {
-            const totalRules = rulesInBucket.length;
-            if (totalRules <= 0) return;
-            const failedInBucket = rulesInBucket.filter((ruleId) => failedRules.has(normalizeRuleId(ruleId))).length;
-            const bucketScore = ((totalRules - failedInBucket) / totalRules) * 100;
+            const bucketScore = computeAiBucketScore(rulesInBucket, rulePenaltyByRule);
             const weight = AI_READINESS_BUCKET_WEIGHTS[bucketKey] ?? 1;
             weightedSum += bucketScore * weight;
             totalWeight += weight;
@@ -121,13 +145,20 @@ export const computeWeightedScore = (
         return Math.max(0, Math.min(100, Math.round(response.score ?? 0)));
     }
 
-    const failedRules = new Set<string>();
     const allRules = new Set<string>();
+    const rulePenaltyByRule = new Map<string, number>();
     (response.violations || []).forEach((violation) => {
         const ruleId = normalizeRuleId(violation.rule || violation.code || "");
         if (!ruleId) return;
-        failedRules.add(ruleId);
         allRules.add(ruleId);
+        const severity = (violation.severity === "error" || violation.severity === "warn" || violation.severity === "info" || violation.severity === "hint")
+            ? violation.severity
+            : "info";
+        const penalty = AI_SEVERITY_PENALTY[severity];
+        const currentPenalty = rulePenaltyByRule.get(ruleId) || 0;
+        if (penalty > currentPenalty) {
+            rulePenaltyByRule.set(ruleId, penalty);
+        }
     });
     (response.passedRules || []).forEach((entry) => {
         const ruleId = normalizeRuleId(entry.rule || "");
@@ -138,29 +169,27 @@ export const computeWeightedScore = (
         return Math.max(0, Math.min(100, Math.round(response.score ?? 0)));
     }
 
-    const bucketStats = new Map<string, { total: number; failed: number }>();
-    const ensureBucket = (key: string): { total: number; failed: number } => {
+    const bucketStats = new Map<string, { total: number; penalty: number }>();
+    const ensureBucket = (key: string): { total: number; penalty: number } => {
         let stats = bucketStats.get(key);
         if (!stats) {
-            stats = { total: 0, failed: 0 };
+            stats = { total: 0, penalty: 0 };
             bucketStats.set(key, stats);
         }
         return stats;
     };
     allRules.forEach((ruleId) => {
         const bucketKey = reportId === "owasp" ? deriveOwaspCategoryKeyFromRule(ruleId) : pickRestThemeKey(ruleId);
-        ensureBucket(bucketKey).total += 1;
-    });
-    failedRules.forEach((ruleId) => {
-        const bucketKey = reportId === "owasp" ? deriveOwaspCategoryKeyFromRule(ruleId) : pickRestThemeKey(ruleId);
-        ensureBucket(bucketKey).failed += 1;
+        const bucket = ensureBucket(bucketKey);
+        bucket.total += 1;
+        bucket.penalty += rulePenaltyByRule.get(ruleId) || 0;
     });
 
     let weightedSum = 0;
     let totalWeight = 0;
     bucketStats.forEach((stats, bucketKey) => {
         if (stats.total <= 0) return;
-        const bucketScore = ((stats.total - stats.failed) / stats.total) * 100;
+        const bucketScore = ((stats.total - stats.penalty) / stats.total) * 100;
         const weight = reportId === "owasp"
             ? (OWASP_DIMENSION_WEIGHTS[bucketKey.toLowerCase()] || 1)
             : (REST_API_READINESS_BUCKET_WEIGHTS[bucketKey] || 1);
@@ -237,7 +266,8 @@ export const buildUnifiedReport = (
     const computedScore = computeWeightedScore(reportId, response);
     const rawViolations = response.violations || [];
     const violationsById: Record<string, UnifiedViolation> = {};
-    const aiFailedRules = new Set<string>();
+    const aiRulePenaltyByRule = new Map<string, number>();
+    const rulePenaltyByRule = new Map<string, number>();
     const failedRulesByBucket = new Map<string, Set<string>>();
     const allRulesByBucket = new Map<string, Set<string>>();
     const categoryBuckets = new Map<string, { label: string; description?: string; docsUrl?: string; violationIds: string[] }>();
@@ -273,7 +303,18 @@ export const buildUnifiedReport = (
             bucket.all.add(normalizedRule);
         }
         if (reportId === "ai-readiness" && normalizedRule) {
-            aiFailedRules.add(normalizedRule);
+            const penalty = AI_SEVERITY_PENALTY[normalizedSeverity];
+            const currentPenalty = aiRulePenaltyByRule.get(normalizedRule) || 0;
+            if (penalty > currentPenalty) {
+                aiRulePenaltyByRule.set(normalizedRule, penalty);
+            }
+        }
+        if (normalizedRule) {
+            const penalty = AI_SEVERITY_PENALTY[normalizedSeverity];
+            const currentPenalty = rulePenaltyByRule.get(normalizedRule) || 0;
+            if (penalty > currentPenalty) {
+                rulePenaltyByRule.set(normalizedRule, penalty);
+            }
         }
         const normalizedOwaspKey = (() => {
             const raw = (violation.rule || violation.code || "").toLowerCase().match(/api\d+(?::\d{4})?/)?.[0];
@@ -364,9 +405,7 @@ export const buildUnifiedReport = (
                         : (() => {
                             const aiSubBuckets = (dimension.subBuckets || []).map((subBucket) => {
                                 const rulesInBucket = AI_READINESS_BUCKET_RULE_MAP[subBucket.key] || [];
-                                const totalRules = rulesInBucket.length;
-                                const failedRules = rulesInBucket.filter((rule) => aiFailedRules.has(normalizeRuleId(rule))).length;
-                                const percentage = totalRules > 0 ? ((totalRules - failedRules) / totalRules) * 100 : 100;
+                                const percentage = computeAiBucketScore(rulesInBucket, aiRulePenaltyByRule);
                                 return {
                                     key: subBucket.key,
                                     percentage,
@@ -382,11 +421,13 @@ export const buildUnifiedReport = (
                 : (() => {
                     const normalizedBucketKey = reportId === "owasp" ? dimension.key.toUpperCase() : dimension.key;
                     const ruleSet = allRulesByBucket.get(normalizedBucketKey);
-                    const failedSet = failedRulesByBucket.get(normalizedBucketKey);
                     const totalRules = ruleSet?.size || 0;
-                    const failedRules = failedSet?.size || 0;
                     if (totalRules > 0) {
-                        return Math.max(0, Math.min(100, Math.round(((totalRules - failedRules) / totalRules) * 100)));
+                        const bucketPenalty = Array.from(ruleSet || []).reduce(
+                            (sum, ruleId) => sum + (rulePenaltyByRule.get(ruleId) || 0),
+                            0
+                        );
+                        return Math.max(0, Math.min(100, Math.round(((totalRules - bucketPenalty) / totalRules) * 100)));
                     }
                     return calculateCategoryScore(counts);
                 })();
@@ -395,11 +436,7 @@ export const buildUnifiedReport = (
                     ? (dimension.subBuckets || []).map((subBucket) => ({
                         ...(function () {
                             const rulesInBucket = AI_READINESS_BUCKET_RULE_MAP[subBucket.key] || [];
-                            const totalRules = rulesInBucket.length;
-                            const failedRules = rulesInBucket.filter((rule) => aiFailedRules.has(normalizeRuleId(rule))).length;
-                            const fallbackPercentage = totalRules > 0
-                                ? Math.round(((totalRules - failedRules) / totalRules) * 100)
-                                : 100;
+                            const fallbackPercentage = Math.round(computeAiBucketScore(rulesInBucket, aiRulePenaltyByRule));
                             return { fallbackPercentage };
                         })(),
                         id: subBucket.key,
@@ -410,9 +447,7 @@ export const buildUnifiedReport = (
                                 ? subBucket.percentage
                                 : (function () {
                                     const rulesInBucket = AI_READINESS_BUCKET_RULE_MAP[subBucket.key] || [];
-                                    const totalRules = rulesInBucket.length;
-                                    const failedRules = rulesInBucket.filter((rule) => aiFailedRules.has(normalizeRuleId(rule))).length;
-                                    return totalRules > 0 ? ((totalRules - failedRules) / totalRules) * 100 : 100;
+                                    return computeAiBucketScore(rulesInBucket, aiRulePenaltyByRule);
                                 })()
                         ))),
                         viewIssuesFilter: { key: subBucket.key, label: subBucket.label },

@@ -11,15 +11,16 @@ This document describes the AI readiness report behavior in detail, including:
 
 - Spectral run + base score: `api-designer-extension/src/utils/validation-utils.ts`
 - Unified report shaping: `api-designer-extension/src/rpc-managers/api-designer-visualizer/managers/governance-manager.ts`
-- AI readiness summary (weighted aggregation): `api-designer-core/src/governance/ai-readiness.ts`
+- Unified scoring + category shaping: `api-designer-extension/src/rpc-managers/api-designer-visualizer/managers/governance/report-unifier.ts`
 - AI readiness ruleset: `api-designer-extension/skills/api-readiness-assessment/references/agent-readiness-spectral/ai-readiness.yaml`
+- LLM finding normalization/mapping: `api-designer-extension/src/rpc-managers/api-designer-visualizer/managers/governance/llm-validation-service.ts`
 
 ## 2) Score concepts (all of them)
 
 AI readiness currently exposes three score constructs:
 
-1. **Base Spectral governance score** (`response.score`, shown in `report.overview.score`)
-2. **AI readiness weighted summary score** (`aiReadinessSummary.score`)
+1. **Base Spectral governance score** (`validateWithSpectralRuleset`)
+2. **Unified AI readiness report score** (`report.overview.score`)
 3. **LLM analysis score** in workspace cache (`agentReadiness.aiAnalysis.score`)
 
 These are separate and are not interchangeable.
@@ -31,37 +32,40 @@ For AI readiness, the score returned in both:
 - top-level `score`
 - `report.overview.score`
 
-is the weighted AI summary score (`aiReadinessSummary.score`) when available.
+is the unified weighted AI readiness score computed from rule coverage.
 
 Fallback behavior:
 
-- if `aiReadinessSummary.score` is unavailable, it falls back to the Spectral base score.
+- if weighted computation cannot be built, it falls back to `response.breakdown.score` then Spectral base score.
 
-## 4) AI readiness weighted summary score (`aiReadinessSummary`)
+## 4) How unified AI readiness score is computed
 
-This is calculated in `buildAiReadinessSummary(...)`.
+This is calculated in `computeWeightedScore(...)` in the report unifier.
 
-### 4.1 Rule pass/fail decision at summary time
+### 4.1 Rule pass/fail decision
 
-For each mapped AI rule:
+For each mapped AI rule in `AI_READINESS_BUCKET_RULE_MAP`:
 
-- rule is **failed** if either:
-  - metrics says `ruleMetric.failed > 0`, or
-  - there is at least one violation with that rule code
+- rule is **failed** if there is at least one violation with that normalized rule ID
 - otherwise rule is **passed**
 
-Each mapped rule contributes as a binary check:
+- failed rule contributes a severity penalty (max penalty for that rule across violations)
+- passed rule contributes `0`
 
-- failed rule => `filled = 0`
-- passed rule => `filled = 1`
+Severity penalties:
+
+- `error = 1.0`
+- `warn = 0.6`
+- `info = 0.3`
+- `hint = 0.15`
 
 ### 4.2 Sub-bucket percentage
 
 For each bucket:
 
 - `total = number of mapped rules in that bucket`
-- `filled = count(passed rules in that bucket)`
-- `percentage = round((filled / total) * 100)`
+- `bucketPenalty = sum(rulePenalty in bucket)`
+- `percentage = round(((total - bucketPenalty) / total) * 100)`
 
 ### 4.3 Dimension score (weighted arithmetic mean)
 
@@ -73,19 +77,11 @@ Within one dimension:
 
 Only sub-buckets with `total > 0` are considered active for dimension computation.
 
-### 4.4 Final AI readiness score (weighted harmonic mean)
+### 4.4 Final AI readiness score
 
-The final `aiReadinessSummary.score` is the weighted harmonic mean across the four dimensions:
-
-- weights are dimension `aggregationWeight` values
-- constants:
-  - `HARMONIC_EPS = 1e-6`
-- implementation equivalent:
-  - `sumW = Σ w_d`
-  - `denom = Σ [w_d / max(HARMONIC_EPS, s_d + HARMONIC_EPS)]`
-  - `score = round(clamp(sumW / denom, 0, 100))`
-
-This intentionally penalizes weak dimensions more than an arithmetic mean.
+- `weightedSum = Σ(bucketScore * bucketWeight)`
+- `totalWeight = Σ(bucketWeight for buckets with rules)`
+- `score = round(clamp(weightedSum / totalWeight, 0, 100))`
 
 ## 5) Dimension definitions and weights (exact)
 
@@ -241,7 +237,20 @@ Total mapped AI readiness rules used in weighted summary = `69`.
 
 - `ai-readiness-idempotency-key`: POST/PATCH operations support `Idempotency-Key`.
 
-## 9) LLM analysis scoring in workspace cache
+## 9) LLM findings + cache behavior
+
+When LLM state is `ready`:
+
+- LLM findings are mapped to internal AI readiness rule IDs and appended to `response.violations`
+- those findings are assigned `breakdownKeys` and bucketed like Spectral violations
+- unified overall score includes these failures because it uses merged violations
+
+When spec hash changes:
+
+- LLM state is surfaced as `stale` until re-analysis
+- stale state is derived from cached `meta.specHash` compared with current spec hash
+
+## 10) LLM analysis scoring in workspace cache
 
 This is separate from the weighted summary score.
 
@@ -267,7 +276,7 @@ Counts are aggregated as `critical/high/medium/low`, then:
 - `Good`: `critical == 0` AND `high in [1..4]`
 - `Excellent`: otherwise
 
-## 10) Breakdown and issue-explorer metrics in unified report
+## 11) Breakdown and issue-explorer metrics in unified report
 
 In addition to score:
 

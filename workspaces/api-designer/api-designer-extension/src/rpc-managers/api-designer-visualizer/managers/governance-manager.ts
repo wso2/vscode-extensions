@@ -303,15 +303,17 @@ export class GovernanceManager extends BaseRpcManager {
     }
 
     private mapValidationSeverityToReportSeverity(severity: 'error' | 'warn' | 'info' | 'hint'): 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' {
-        if (severity === 'error') return 'HIGH';
-        if (severity === 'warn') return 'MEDIUM';
+        if (severity === 'error') return 'CRITICAL';
+        if (severity === 'warn') return 'HIGH';
+        if (severity === 'info') return 'MEDIUM';
         return 'LOW';
     }
 
     private mapReportSeverityToValidationSeverity(severity: string): LlmValidationFinding['severity'] {
-        if (severity === 'CRITICAL' || severity === 'HIGH') return 'error';
-        if (severity === 'MEDIUM') return 'warn';
-        return 'info';
+        if (severity === 'CRITICAL') return 'error';
+        if (severity === 'HIGH') return 'warn';
+        if (severity === 'MEDIUM') return 'info';
+        return 'hint';
     }
 
     private computeSectionRating(counts: { critical: number; high: number; medium: number; low: number }): 'Poor' | 'Fair' | 'Good' | 'Excellent' {

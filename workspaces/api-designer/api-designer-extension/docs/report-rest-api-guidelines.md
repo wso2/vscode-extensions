@@ -10,7 +10,7 @@ This document explains how the WSO2 REST API guidelines report works, including:
 ## 1) Runtime sources
 
 - Spectral execution + base scoring: `api-designer-extension/src/utils/validation-utils.ts`
-- REST theme definitions + bucketing logic: `api-designer-extension/src/rpc-managers/api-designer-visualizer/managers/governance-manager.ts`
+- REST theme definitions + bucketing/scoring logic: `api-designer-extension/src/rpc-managers/api-designer-visualizer/managers/governance/report-unifier.ts`
 - Default ruleset catalog entry: `api-designer-core/src/constants/default-spectral-rulesets.ts`
 
 Default REST ruleset entry:
@@ -102,6 +102,10 @@ Rationale for this grouping:
 
 - none by default mapping (reserved for future/unmapped rules)
 
+UI note:
+
+- `other` category is hidden from breakdown if there are no rules in that bucket.
+
 Note:
 
 - Mapping stability now depends on `WSO2_RULE_THEME_MAP`. A rule changes theme only when this mapping is updated.
@@ -112,8 +116,8 @@ REST report now uses a weighted theme mean (returned in `score`).
 
 ### 5.1 Rule-level sets
 
-- `failedRules`: unique failed rule IDs from violations
-- `allRules`: union of `failedRules` and `passedRules`
+- `allRules`: union of failed and passed rule IDs
+- `rulePenaltyByRule`: max severity penalty per failed rule
 
 If `allRules` is empty, fallback is incoming Spectral base score.
 
@@ -125,8 +129,15 @@ Unmapped/future rules go to `other`.
 For each theme bucket:
 
 - `bucket.total = number of rules in that theme`
-- `bucket.failed = number of failed rules in that theme`
-- `bucketScore = ((bucket.total - bucket.failed) / bucket.total) * 100`
+- `bucket.penalty = sum(max penalty per rule in that theme)`
+- `bucketScore = ((bucket.total - bucket.penalty) / bucket.total) * 100`
+
+Severity penalties:
+
+- `error = 1.0`
+- `warn = 0.6`
+- `info = 0.3`
+- `hint = 0.15`
 
 ### 5.3 Theme weights (exact)
 
@@ -157,7 +168,7 @@ For each theme bucket:
 - `total`: violation count assigned to theme
 - `errors`: count with severity `error`
 - `warnings`: count with severity `warn`
-- `percentage = round((total / allViolations) * 100)` (0 if no violations)
+- `percentage` is rule-coverage percentage for that theme using the same severity-weighted penalty model
 - `affectedEndpoints`: unique `(METHOD, PATH)` pairs touched by theme violations
 - `topRules`: top 2 most frequent rule IDs in that theme
 - `status = failed` if `total > 0`, else `passed`

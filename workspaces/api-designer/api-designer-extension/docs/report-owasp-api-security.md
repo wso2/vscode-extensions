@@ -9,7 +9,7 @@ This document explains the OWASP report in full detail:
 ## 1) Runtime sources
 
 - Spectral execution + base scoring: `api-designer-extension/src/utils/validation-utils.ts`
-- OWASP categories + breakdown shaping: `api-designer-extension/src/rpc-managers/api-designer-visualizer/managers/governance-manager.ts`
+- OWASP categories + breakdown/scoring shaping: `api-designer-extension/src/rpc-managers/api-designer-visualizer/managers/governance/report-unifier.ts`
 - Default ruleset catalog entries: `api-designer-core/src/constants/default-spectral-rulesets.ts`
 
 Default OWASP ruleset entry:
@@ -49,14 +49,7 @@ Examples:
 
 ## 4) Which categories are shown
 
-Displayed categories can be constrained to those present in the loaded ruleset:
-
-- the code scans all rules in ruleset content
-- extracts OWASP API category keys from rule names
-- orders them by canonical OWASP category order
-- uses that filtered set in breakdown
-
-If no category keys are discovered, fallback is all predefined categories.
+Displayed categories are constrained to categories that have at least one rule in the active ruleset (`allRulesByBucket` / `failedRulesByBucket`).
 
 ## 5) Default WSO2 OWASP rules and category grouping (exact)
 
@@ -103,8 +96,8 @@ OWASP now uses a weighted category mean (returned in `score`).
 
 ### 6.1 Rule-level sets
 
-- `failedRules`: unique failed rule IDs from violations
-- `allRules`: union of `failedRules` and `passedRules`
+- `allRules`: union of failed and passed rule IDs
+- `rulePenaltyByRule`: max severity penalty per failed rule
 
 If `allRules` is empty, fallback is the incoming Spectral base score.
 
@@ -119,8 +112,15 @@ Each rule is mapped to an OWASP category key from its rule id:
 For each category bucket:
 
 - `bucket.total = number of rules in that category`
-- `bucket.failed = number of failed rules in that category`
-- `bucketScore = ((bucket.total - bucket.failed) / bucket.total) * 100`
+- `bucket.penalty = sum(max penalty per rule in that category)`
+- `bucketScore = ((bucket.total - bucket.penalty) / bucket.total) * 100`
+
+Severity penalties:
+
+- `error = 1.0`
+- `warn = 0.6`
+- `info = 0.3`
+- `hint = 0.15`
 
 ### 6.3 Category weights (exact)
 
@@ -146,7 +146,7 @@ If `totalWeight <= 0`, fallback is incoming Spectral base score.
 
 Compatibility note:
 
-- This weighted value is sent in both `score` and `report.overview.score`.
+- This weighted value is sent in both top-level `score` and `report.overview.score`.
 
 ## 7) Breakdown metrics per category
 
@@ -155,7 +155,7 @@ For each category bucket:
 - `total`: violations in that category
 - `errors`: count with severity `error`
 - `warnings`: count with severity `warn`
-- `percentage = round((total / allViolations) * 100)` (0 if no violations)
+- `percentage` is rule-coverage percentage for that OWASP category using the same severity-weighted penalty model
 - `affectedEndpoints`: unique `(METHOD, PATH)` pairs touched by the category
 - `status = failed` if `total > 0`, else `passed`
 
