@@ -101,7 +101,7 @@
       },
       {
         "command": "arazzo.startMCPServer",
-        "title": "Start MCP Server",
+        "title": "Start Arazzo Server",
         "category": "Arazzo",
         "icon": "$(play)"
       },
