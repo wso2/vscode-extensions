@@ -1,5 +1,5 @@
 ---
-name: api-gateway
+name: api-platform
 description: >
   Use this skill to set up the WSO2 API Platform Gateway, expose backend services
   as managed APIs, and manage APIs with the ap CLI. Trigger whenever the user
@@ -271,36 +271,48 @@ curl http://localhost:8080/<context>/v1.0/<first-endpoint-path>
 
 ---
 
-## Phase 3 — Ongoing configuration
+## Phase 3 — What's next?
 
-After Phase 2 succeeds, build a dynamic menu based on what the user has done so far in this session. Only show options that are still relevant — don't offer things already configured.
+After Phase 2 succeeds, ask the user what they'd like to do:
 
-```
-What would you like to do next?
-→ [Secure API]   Add authentication          ← omit if auth policy already applied
-→ [Protect API]  Add rate limiting           ← omit if rate limiting already applied
-→ [Enhance API]  Add another API / custom headers
-→ [Manage APIs]   Manage APIs (list, update, delete)
-```
+> "Your API is live. What would you like to do next?
+>
+> → [Test]    Verify the API is working
+> → [Manage]  Add authentication, rate limiting, or other configuration"
 
-Omit any category entirely if it has no remaining options.
+---
 
-Handle each choice:
+### If the user chooses Test
 
-**Add another API** — return to Phase 2
+Help the user verify their API using the live endpoints confirmed in Phase 2.
 
-**List / inspect APIs**
+Provide ready-to-run curl commands for the key endpoints, e.g.:
+
 ```bash
-ap gateway rest-api list
-ap gateway rest-api get --display-name <name> --version <v> --format yaml
+# List resource
+curl -s http://localhost:8080/<context>/v1.0/<collection> | jq
+
+# Get single resource
+curl -s http://localhost:8080/<context>/v1.0/<collection>/<id> | jq
 ```
 
-**Update an existing API** — retrieve the existing YAML with `rest-api get`, make the requested changes, and re-apply with `ap gateway apply --file <updated.yaml>`
+Walk through what a successful response looks like (status code, shape of the response body). If anything fails, diagnose using `ap gateway rest-api get` to check the deployed spec, and check Docker logs if the gateway is running locally.
 
-**Delete an API**
-```bash
-ap gateway rest-api list          # find the ID
-ap gateway rest-api delete --id <id>
+After testing, ask:
+
+> "Everything looking good? Would you like to manage the API next (add auth, rate limiting, etc.)?"
+
+---
+
+### If the user chooses Manage
+
+Show a dynamic menu scoped to this API. Only show options not yet applied in this session:
+
+```
+What would you like to configure?
+→ [Secure]    Add authentication          ← omit if auth policy already applied
+→ [Protect]   Add rate limiting           ← omit if rate limiting already applied
+→ [Enhance]   Add custom headers or other enhancements
 ```
 
 **Add headers (set-headers policy)** — read `references/api-yaml-examples.md` for the set-headers example. The confirmed policy name is `set-headers` version `v1`.

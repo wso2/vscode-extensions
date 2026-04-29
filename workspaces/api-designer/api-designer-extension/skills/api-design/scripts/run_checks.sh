@@ -6,6 +6,8 @@
 #
 # Outputs all intermediate files to /tmp/api-readiness/.
 # Exit code 0 means checks ran (violations are normal and do not cause failure).
+#
+# DEPRECATED: Use run_checks.py instead — works on macOS, Linux, and Windows.
 
 set -euo pipefail
 

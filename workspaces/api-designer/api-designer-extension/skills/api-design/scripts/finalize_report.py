@@ -21,9 +21,10 @@ import json
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
-SCRATCH = Path("/tmp/api-readiness")
+SCRATCH = Path(tempfile.gettempdir()) / "api-readiness"
 
 
 def resolve_output_path(spec_file: str) -> Path:

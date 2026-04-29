@@ -12,7 +12,6 @@ Usage:
 """
 
 import argparse
-import hashlib
 import json
 import re
 import sys
@@ -71,15 +70,6 @@ def process_ai_issues(raw_issues):
     return issues
 
 
-def compute_spec_hash(spec_file_path):
-    if not spec_file_path:
-        return None
-    spec_path = Path(spec_file_path)
-    if not spec_path.exists() or not spec_path.is_file():
-        return None
-    return hashlib.sha256(spec_path.read_bytes()).hexdigest()
-
-
 def main():
     parser = argparse.ArgumentParser(
         description="Assemble the final API readiness report JSON from processed issue files."
@@ -108,9 +98,6 @@ def main():
     args = parser.parse_args()
 
     meta = json.loads(args.meta)
-    spec_hash = compute_spec_hash(meta.get("specFile"))
-    if spec_hash:
-        meta["specHash"] = spec_hash
     report = {"meta": meta}
 
     has_agent = bool(args.spec_issues or args.ai_issues)
