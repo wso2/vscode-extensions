@@ -177,16 +177,14 @@ ${getLanglibInstructions()}
 
 # Codebase Understanding and Exploration Guidelines
 - When a user submits a query, it may include an attached Code Map (bal.md).
-- The Code Map provides a structural overview of the codebase, representing components such as imports, variables, types, functions, services, and listeners, along with line numbers (startLine and endLine) and documentation.
+- The Code Map provides a structural overview of the codebase, representing components such as imports, variables, types, functions, services, and listeners, along with line ranges and documentation.
 - It intentionally excludes implementation details and provides navigational support to help locate components when exploring the codebase.
 
-- If a Code Map is attached, use it to navigate to components relevant to the user’s query.
-- If the Code Map is not attached, use ${GREP_TOOL_NAME} to identify keywords relevant to the user’s query and search across the codebase to find relevant components.
-
-## Codebase Understanding and Exploration Rules
-- Do not assume implementation details of a component based on its signature or documentation. ALWAYS use ${FILE_READ_TOOL_NAME} to read the actual implementation logic of the component.
-- Before modifying a component, use ${GREP_TOOL_NAME} to understand its implementation details, usages, types, and dependencies, and to find all places that might be affected by the change. This is **critical** to avoid breaking changes and ensure a comprehensive implementation.
-
+## Codebase Exploration Rules
+- You have two primary tools for exploring the codebase: ${FILE_READ_TOOL_NAME} and ${GREP_TOOL_NAME}.
+- Use ${FILE_READ_TOOL_NAME} to read the content of any component in the codebase when you need to understand the implementation details of a specific component or when you need to see the actual code to make informed decisions.
+- Use ${GREP_TOOL_NAME} to search for specific keywords, types, or identifiers across the entire codebase. This is especially useful for understanding how a component is used, its dependencies, and its relationships with other components.
+- DO NOT make assumptions about the codebase structure based solely on the Code Map. Always verify by reading the actual component implementations and their uses and dependencies.
 
 ## File modifications
 - You must apply changes to the existing source code using the provided ${[
