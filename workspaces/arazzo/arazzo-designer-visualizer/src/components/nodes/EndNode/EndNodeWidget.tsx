@@ -33,13 +33,15 @@ const EndNodeRoot = styled.div`
     justify-content: center;
 `;
 
-const EndNodeInner = styled.div`
-    background: ${MODERN ? ThemeColors.PRIMARY : 'var(--vscode-editor-foreground)'};
+const EndNodeInner = styled.div<{ tracePassed?: boolean }>`
+    background: ${(props: { tracePassed?: boolean }) =>
+        props.tracePassed ? (ThemeColors as any).TESTING_PASSED : (MODERN ? ThemeColors.PRIMARY : 'var(--vscode-editor-foreground)')};
     width: ${END_NODE_INNER_DIAMETER}px;
     height: ${END_NODE_INNER_DIAMETER}px;
     border-radius: 50%;
     box-shadow: none;
     box-sizing: border-box;
+    transition: background-color 0.2s ease;
 `;
 
 const StyledHandle = styled(Handle)`
@@ -51,9 +53,10 @@ const StyledHandle = styled(Handle)`
  * EndNodeWidget - React component for end nodes
  */
 export const EndNodeWidget: React.FC<NodeProps<EndNodeData>> = ({ data, isConnectable }) => {
+    const tracePassed = data.traceStatus?.state === 'passed';
     return (
         <EndNodeRoot>
-            <EndNodeInner />
+            <EndNodeInner tracePassed={tracePassed} />
 
             <StyledHandle
                 type="target"

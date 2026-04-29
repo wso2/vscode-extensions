@@ -20,7 +20,7 @@ import * as vscode from 'vscode';
 import { isMCPServerRunning, getMCPActiveFilePath } from './mcpServerRunner';
 
 /**
- * CodeLens provider that shows a "▶ Run" lens above each workflow
+ * CodeLens provider that shows a "▶ Try" lens above each workflow
  * definition in an Arazzo YAML file, but ONLY when the MCP server
  * is currently running.
  */
@@ -28,6 +28,21 @@ export class RunWorkflowCodeLensProvider implements vscode.CodeLensProvider {
 
     private _onDidChangeCodeLenses = new vscode.EventEmitter<void>();
     public readonly onDidChangeCodeLenses = this._onDidChangeCodeLenses.event;
+
+    private _fileDirty = false;
+
+    /**
+     * Mark the active file as dirty (saved since last server start).
+     * The CodeLens title switches from "▶ Try" to "↺ Retry".
+     */
+    public setFileDirty(dirty: boolean): void {
+        this._fileDirty = dirty;
+    }
+
+    /** Returns true if the file has been saved since the last server start. */
+    public isFileDirty(): boolean {
+        return this._fileDirty;
+    }
 
     /**
      * Call this to force a refresh of the Code Lenses (e.g. when the
@@ -86,8 +101,8 @@ export class RunWorkflowCodeLensProvider implements vscode.CodeLensProvider {
                 const range = new vscode.Range(i, 0, i, line.length);
 
                 lenses.push(new vscode.CodeLens(range, {
-                    title: '▶ Run',
-                    command: 'arazzo.runWorkflow',
+                    title: this._fileDirty ? '↺ Retry' : '▶ Try',
+                    command: this._fileDirty ? 'arazzo.rerunWorkflow' : 'arazzo.runWorkflow',
                     arguments: [{
                         workflowId,
                         uri: document.uri.toString()

@@ -23,6 +23,7 @@ import {
     GoToSourceRequest,
     GetArazzoModelRequest,
     GetArazzoModelResponse,
+    RunWorkflowRequest,
 } from "./types";
 
 export interface VisualizerAPI {
@@ -33,4 +34,5 @@ export interface VisualizerAPI {
     goHome: () => void;
     goToSource: (params: GoToSourceRequest) => void;
     getArazzoModel: (params: GetArazzoModelRequest) => Promise<GetArazzoModelResponse>;
+    runWorkflow: (params: RunWorkflowRequest) => void;
 }

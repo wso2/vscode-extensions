@@ -5,12 +5,15 @@
 package executor
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/wso2/arazzo-designer-cli/internal/httpexec"
 	"github.com/wso2/arazzo-designer-cli/internal/models"
+	"github.com/wso2/arazzo-designer-cli/internal/telemetry"
 )
 
 // StepExecutor orchestrates the execution of a single Arazzo step.
@@ -25,6 +28,7 @@ type StepExecutor struct {
 	ServerProcessor    *ServerProcessor
 	OperationFinder    *OperationFinder
 	HTTPExecutor       *httpexec.HTTPExecutor
+	Sink               telemetry.SpanEventSink
 }
 
 // NewStepExecutor creates a fully initialized StepExecutor.
@@ -32,6 +36,7 @@ func NewStepExecutor(
 	arazzoDoc map[string]interface{},
 	sourceDescs map[string]interface{},
 	runtimeParams *models.RuntimeParams,
+	sink telemetry.SpanEventSink,
 ) *StepExecutor {
 	return &StepExecutor{
 		ArazzoDoc:          arazzoDoc,
@@ -43,7 +48,8 @@ func NewStepExecutor(
 		ActionHandler:      NewActionHandler(sourceDescs),
 		ServerProcessor:    NewServerProcessor(sourceDescs),
 		OperationFinder:    NewOperationFinder(sourceDescs),
-		HTTPExecutor:       httpexec.NewHTTPExecutor(),
+		HTTPExecutor:       httpexec.NewHTTPExecutor(sink),
+		Sink:               sink,
 	}
 }
 
@@ -52,10 +58,70 @@ func (se *StepExecutor) ExecuteStep(step map[string]interface{}, workflow map[st
 	stepID, _ := step["stepId"].(string)
 	log.Printf("=== Executing step: %s ===", stepID)
 
+	// --- Telemetry: step start ---
+	stepSpanID := telemetry.GenerateSpanID()
+	stepStart := time.Now()
+	se.Sink.Send(telemetry.TraceEvent{
+		Lifecycle:  telemetry.LifecycleStart,
+		Context:    telemetry.SpanContext{TraceID: state.TraceID, SpanID: stepSpanID},
+		ParentID:   state.WorkflowSpanID,
+		Name:       stepID,
+		Kind:       telemetry.OTelSpanKindInternal,
+		ArazzoKind: telemetry.SpanKindStep,
+		StartTime:  stepStart,
+		StatusCode: telemetry.SpanStatusUnset,
+		Attributes: map[string]string{
+			"step.id":     stepID,
+			"workflow.id": state.WorkflowID,
+		},
+	})
+
+	// Helper to emit step end span and return the result
+	endStep := func(result *models.StepResult) *models.StepResult {
+		dur := float64(time.Since(stepStart).Milliseconds())
+		status := telemetry.SpanStatusOK
+		errMsg := ""
+		if !result.Success {
+			status = telemetry.SpanStatusError
+			errMsg = result.Error
+		}
+		attrs := map[string]string{
+			"step.id":     stepID,
+			"workflow.id": state.WorkflowID,
+		}
+		if result.StatusCode > 0 {
+			attrs["http.status_code"] = fmt.Sprintf("%d", result.StatusCode)
+		}
+		// Include extracted step outputs in the end span
+		if stData, ok := state.StepsData[stepID].(map[string]interface{}); ok {
+			if outs := stData["outputs"]; outs != nil {
+				if b, err := json.Marshal(outs); err == nil {
+					attrs["step.outputs"] = string(b)
+				}
+			}
+		}
+		stepEnd := time.Now()
+		se.Sink.Send(telemetry.TraceEvent{
+			Lifecycle:     telemetry.LifecycleEnd,
+			Context:       telemetry.SpanContext{TraceID: state.TraceID, SpanID: stepSpanID},
+			ParentID:      state.WorkflowSpanID,
+			Name:          stepID,
+			Kind:          telemetry.OTelSpanKindInternal,
+			ArazzoKind:    telemetry.SpanKindStep,
+			StartTime:     stepStart,
+			EndTime:       &stepEnd,
+			DurationMs:    &dur,
+			StatusCode:    status,
+			StatusMessage: errMsg,
+			Attributes:    attrs,
+		})
+		return result
+	}
+
 	// Check for nested workflow execution
 	if workflowID, ok := step["workflowId"].(string); ok && workflowID != "" {
 		log.Printf("Step %s is a nested workflow call to %s", stepID, workflowID)
-		return &models.StepResult{
+		return endStep(&models.StepResult{
 			StepID:     stepID,
 			Success:    false,
 			StatusCode: 0,
@@ -64,14 +130,14 @@ func (se *StepExecutor) ExecuteStep(step map[string]interface{}, workflow map[st
 				WorkflowID: workflowID,
 			},
 			IsNestedWorkflow: true,
-		}
+		})
 	}
 
 	// Find the operation
 	opInfo := se.findOperation(step)
 	if opInfo == nil {
 		log.Printf("Could not find operation for step %s", stepID)
-		return se.createFailureResult(stepID, step, state, "Operation not found")
+		return endStep(se.createFailureResult(stepID, step, state, "Operation not found"))
 	}
 
 	// Prepare parameters
@@ -109,10 +175,10 @@ func (se *StepExecutor) ExecuteStep(step map[string]interface{}, workflow map[st
 	}
 
 	// Execute HTTP request
-	httpResp, err := se.HTTPExecutor.ExecuteRequest(method, fullURL, params, body)
+	httpResp, err := se.HTTPExecutor.ExecuteRequest(method, fullURL, params, body, state.TraceID, stepSpanID)
 	if err != nil {
 		log.Printf("HTTP request failed for step %s: %v", stepID, err)
-		return se.createFailureResult(stepID, step, state, fmt.Sprintf("HTTP error: %v", err))
+		return endStep(se.createFailureResult(stepID, step, state, fmt.Sprintf("HTTP error: %v", err)))
 	}
 
 	// Extract fields from response map
@@ -170,15 +236,46 @@ func (se *StepExecutor) ExecuteStep(step map[string]interface{}, workflow map[st
 	// Determine next action
 	nextAction := se.ActionHandler.DetermineNextAction(step, success, state)
 
-	return &models.StepResult{
+	// Build a failure reason string for the span StatusMessage when the step failed
+	// due to an HTTP error response (transport errors are handled separately above).
+	failureReason := ""
+	if !success {
+		bodySnippet := ""
+		switch b := respBody.(type) {
+		case string:
+			if len(b) > 200 {
+				bodySnippet = b[:200] + "..."
+			} else {
+				bodySnippet = b
+			}
+		default:
+			if b != nil {
+				if bs, err := json.Marshal(b); err == nil {
+					s := string(bs)
+					if len(s) > 200 {
+						s = s[:200] + "..."
+					}
+					bodySnippet = s
+				}
+			}
+		}
+		if bodySnippet != "" {
+			failureReason = fmt.Sprintf("HTTP %d: %s", statusCode, bodySnippet)
+		} else {
+			failureReason = fmt.Sprintf("HTTP %d", statusCode)
+		}
+	}
+
+	return endStep(&models.StepResult{
 		StepID:       stepID,
 		Success:      success,
 		StatusCode:   statusCode,
 		ResponseBody: respBody,
 		Headers:      respHeaders,
 		Outputs:      outputs,
+		Error:        failureReason,
 		NextAction:   nextAction,
-	}
+	})
 }
 
 // findOperation locates the API operation for a step.

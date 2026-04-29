@@ -34,6 +34,7 @@ interface PlannedPathData {
     label?: string;
     labelPos?: number; // 0..1 position along the path
     labelOffset?: { x: number; y: number };
+    traceHighlight?: 'passed' | 'failed';
 }
 
 /**
@@ -221,9 +222,20 @@ export default function PlannedPathEdge({
         console.log(`[PlannedPathEdge] ${id} using fallback smooth step path`);
     }
 
+    // Determine trace highlight color (overrides default stroke)
+    const traceColor = data?.traceHighlight === 'passed' ? (ThemeColors as any).TESTING_PASSED
+                      : data?.traceHighlight === 'failed' ? ThemeColors.ERROR
+                      : undefined;
+
     const finalStyle = {
         ...(style || {}),
-        stroke: hovered ? (MODERN ? ThemeColors.SECONDARY : 'var(--vscode-editor-foreground)') : (style as any)?.stroke,
+        stroke: traceColor
+            ? traceColor
+            : hovered
+                ? (MODERN ? ThemeColors.SECONDARY : 'var(--vscode-editor-foreground)')
+                : (style as any)?.stroke,
+        strokeWidth: traceColor ? 2.5 : (style as any)?.strokeWidth,
+        transition: 'stroke 0.3s ease, stroke-width 0.3s ease',
     };
 
     // Create a custom, per-edge marker so the arrowhead color matches the edge stroke

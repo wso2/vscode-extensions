@@ -11,6 +11,7 @@ import (
 
 	"github.com/wso2/arazzo-designer-cli/internal/models"
 	"github.com/wso2/arazzo-designer-cli/internal/runner"
+	"github.com/wso2/arazzo-designer-cli/internal/telemetry"
 )
 
 func main() {
@@ -36,7 +37,7 @@ func main() {
 	}
 
 	// Create runner
-	r, err := runner.NewArazzoRunner(absPath, runtimeParams)
+	r, err := runner.NewArazzoRunner(absPath, runtimeParams, &telemetry.NoopSink{})
 	if err != nil {
 		log.Fatalf("Failed to create runner: %v", err)
 	}

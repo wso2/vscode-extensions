@@ -21,6 +21,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { ChildProcess, spawn } from 'child_process';
 import * as yaml from 'js-yaml';
+import { TracerServer } from './tracing';
+import { executeTraceServerTask } from './tracing/traceServerTask';
 
 let mcpServerProcess: ChildProcess | undefined;
 let mcpOutputChannel: vscode.OutputChannel | undefined;
@@ -94,7 +96,7 @@ function getCliBinaryName(): string {
  */
 function getOutputChannel(): vscode.OutputChannel {
     if (!mcpOutputChannel) {
-        mcpOutputChannel = vscode.window.createOutputChannel('Arazzo MCP Server');
+        mcpOutputChannel = vscode.window.createOutputChannel('Arazzo Server');
     }
     return mcpOutputChannel;
 }
@@ -156,8 +158,12 @@ function getFirstWorkflowId(arazzoFilePath: string): string | undefined {
 /**
  * Start the Arazzo MCP server for the given Arazzo file.
  * Spawns the Go binary, writes .vscode/mcp.json, and shows output.
+ *
+ * @param suppressPrompt - When true, the "Try Now" follow-up notification is
+ *   suppressed. Pass true when the caller (e.g. arazzo.runWorkflow) will open
+ *   Copilot itself, to avoid showing a duplicate/wrong-workflow prompt.
  */
-export async function startMCPServer(context: vscode.ExtensionContext, arazzoFilePath?: string): Promise<void> {
+export async function startMCPServer(context: vscode.ExtensionContext, arazzoFilePath?: string, suppressPrompt = false): Promise<void> {
     const output = getOutputChannel();
     output.show(false); // Move focus to output panel so clicking back on the editor
                         // fires onDidChangeActiveTextEditor and restores toolbar buttons.
@@ -237,13 +243,23 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
     }
 
     // Start the server
-    output.appendLine(`Starting Arazzo MCP server...`);
+    output.appendLine(`Starting Arazzo server...`);
     output.appendLine(`  Binary: ${binaryPath}`);
     output.appendLine(`  File: ${arazzoFilePath}`);
     output.appendLine(`  Port: ${port}`);
     output.appendLine('');
 
     const args = ['serve', '-f', arazzoFilePath, '-p', port.toString()];
+
+    // Start tracer server via VS Code Task so the Go runner can post span events
+    let tracerPort: number | undefined;
+    try {
+        tracerPort = await executeTraceServerTask();
+        args.push('-trace-endpoint', `http://127.0.0.1:${tracerPort}/span-events`);
+        output.appendLine(`  Tracer: http://127.0.0.1:${tracerPort}/span-events`);
+    } catch (e: any) {
+        output.appendLine(`Warning: Could not start tracer server: ${e.message}`);
+    }
 
     mcpServerProcess = spawn(binaryPath, args, {
         cwd: path.dirname(arazzoFilePath)
@@ -300,7 +316,7 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
 
         // Primary status message
         vscode.window.showInformationMessage(
-            `Arazzo MCP server started. Running on ${serverUrl}.${configNote}`
+            `Arazzo server started. Running on ${serverUrl}.${configNote}`
         );
 
         // Get first workflow name for the "Try Now" prompt
@@ -309,19 +325,23 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
             ? `execute the workflow ${firstWorkflow}`
             : `list all workflows`;
 
-        // "Try with Copilot" follow-up message
-        const action = await vscode.window.showInformationMessage(
-            `Try your Arazzo workflows with GitHub Copilot.`,
-            'Try Now'
-        );
-        if (action === 'Try Now') {
-            try {
-                await vscode.commands.executeCommand('workbench.action.chat.open', {
-                    query: copilotPrompt,
-                    isPartialQuery: true
-                });
-            } catch {
-                // Copilot not available — non-fatal
+        // "Try with Copilot" follow-up message — skip when the caller will
+        // open Copilot itself (e.g. arazzo.runWorkflow) to avoid a duplicate
+        // prompt that targets the wrong workflow.
+        if (!suppressPrompt) {
+            const action = await vscode.window.showInformationMessage(
+                `Try your Arazzo workflows with GitHub Copilot.`,
+                'Try Now'
+            );
+            if (action === 'Try Now') {
+                try {
+                    await vscode.commands.executeCommand('workbench.action.chat.open', {
+                        query: copilotPrompt,
+                        isPartialQuery: true
+                    });
+                } catch {
+                    // Copilot not available — non-fatal
+                }
             }
         }
     }, 1500);
@@ -339,6 +359,7 @@ export function stopMCPServer(): void {
         output.appendLine('MCP server stopped.');
         notifyStateChange();
     }
+    TracerServer.getInstance().stop();
 }
 
 /**
@@ -346,5 +367,6 @@ export function stopMCPServer(): void {
  */
 export function disposeMCPServer(): void {
     stopMCPServer();
+    TracerServer.getInstance().dispose();
     mcpOutputChannel?.dispose();
 }

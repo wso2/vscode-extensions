@@ -15,6 +15,7 @@ import (
 
 	"github.com/wso2/arazzo-designer-cli/internal/models"
 	"github.com/wso2/arazzo-designer-cli/internal/runner"
+	"github.com/wso2/arazzo-designer-cli/internal/telemetry"
 )
 
 // MCPServer wraps an Arazzo runner as an MCP server.
@@ -22,12 +23,13 @@ type MCPServer struct {
 	Runner    *runner.ArazzoRunner
 	MCPServer *server.MCPServer
 	Port      int
+	Sink      telemetry.SpanEventSink
 }
 
 // NewMCPServer creates a new MCP server that exposes Arazzo workflows as tools.
-func NewMCPServer(arazzoFilePath string, port int, runtimeParams *models.RuntimeParams) (*MCPServer, error) {
+func NewMCPServer(arazzoFilePath string, port int, runtimeParams *models.RuntimeParams, sink telemetry.SpanEventSink) (*MCPServer, error) {
 	// Create the Arazzo runner
-	r, err := runner.NewArazzoRunner(arazzoFilePath, runtimeParams)
+	r, err := runner.NewArazzoRunner(arazzoFilePath, runtimeParams, sink)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Arazzo runner: %w", err)
 	}
@@ -43,6 +45,7 @@ func NewMCPServer(arazzoFilePath string, port int, runtimeParams *models.Runtime
 		Runner:    r,
 		MCPServer: mcpSrv,
 		Port:      port,
+		Sink:      sink,
 	}
 
 	// Register each workflow as an MCP tool

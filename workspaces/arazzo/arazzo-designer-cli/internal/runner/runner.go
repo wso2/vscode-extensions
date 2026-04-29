@@ -5,8 +5,10 @@
 package runner
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,6 +16,7 @@ import (
 	"github.com/wso2/arazzo-designer-cli/internal/loader"
 	"github.com/wso2/arazzo-designer-cli/internal/models"
 	"github.com/wso2/arazzo-designer-cli/internal/runner/executor"
+	"github.com/wso2/arazzo-designer-cli/internal/telemetry"
 )
 
 // ArazzoRunner executes Arazzo workflows.
@@ -23,10 +26,11 @@ type ArazzoRunner struct {
 	Workflows          []interface{}
 	RuntimeParams      *models.RuntimeParams
 	StepExecutor       *executor.StepExecutor
+	Sink               telemetry.SpanEventSink
 }
 
 // NewArazzoRunner creates a new ArazzoRunner from an Arazzo document path.
-func NewArazzoRunner(arazzoFilePath string, runtimeParams *models.RuntimeParams) (*ArazzoRunner, error) {
+func NewArazzoRunner(arazzoFilePath string, runtimeParams *models.RuntimeParams, sink telemetry.SpanEventSink) (*ArazzoRunner, error) {
 	// Load the typed Arazzo document (for source description loading)
 	typedDoc, err := loader.LoadArazzoDoc(arazzoFilePath)
 	if err != nil {
@@ -54,7 +58,7 @@ func NewArazzoRunner(arazzoFilePath string, runtimeParams *models.RuntimeParams)
 	log.Printf("Loaded Arazzo document with %d workflows", len(workflows))
 
 	// Create step executor
-	stepExec := executor.NewStepExecutor(arazzoDoc, sourceDescs, runtimeParams)
+	stepExec := executor.NewStepExecutor(arazzoDoc, sourceDescs, runtimeParams, sink)
 
 	return &ArazzoRunner{
 		ArazzoDoc:          arazzoDoc,
@@ -62,6 +66,7 @@ func NewArazzoRunner(arazzoFilePath string, runtimeParams *models.RuntimeParams)
 		Workflows:          workflows,
 		RuntimeParams:      runtimeParams,
 		StepExecutor:       stepExec,
+		Sink:               sink,
 	}, nil
 }
 
@@ -166,8 +171,58 @@ func (r *ArazzoRunner) GetWorkflowDetails(workflowID string) map[string]interfac
 func (r *ArazzoRunner) ExecuteWorkflow(workflowID string, inputs map[string]interface{}) *models.WorkflowExecutionResult {
 	log.Printf("=== Starting workflow execution: %s ===", workflowID)
 
+	// --- Telemetry: workflow start ---
+	traceID := telemetry.GenerateTraceID()
+	workflowSpanID := telemetry.GenerateSpanID()
+	workflowStart := time.Now()
+	r.Sink.Send(telemetry.TraceEvent{
+		Lifecycle:  telemetry.LifecycleStart,
+		Context:    telemetry.SpanContext{TraceID: traceID, SpanID: workflowSpanID},
+		Name:       workflowID,
+		Kind:       telemetry.OTelSpanKindInternal,
+		ArazzoKind: telemetry.SpanKindWorkflow,
+		StartTime:  workflowStart,
+		StatusCode: telemetry.SpanStatusUnset,
+		Attributes: map[string]string{
+			"workflow.id": workflowID,
+		},
+	})
+
+	// Helper to emit workflow end span.
+	// Pass optional outputs as the last argument to include workflow.inputs and workflow.outputs.
+	endWorkflow := func(status telemetry.SpanStatus, errMsg string, workflowOutputs ...map[string]interface{}) {
+		dur := float64(time.Since(workflowStart).Milliseconds())
+		workflowEnd := time.Now()
+		attrs := map[string]string{
+			"workflow.id": workflowID,
+		}
+		if b, err := json.Marshal(inputs); err == nil {
+			attrs["workflow.inputs"] = string(b)
+		}
+		if len(workflowOutputs) > 0 && workflowOutputs[0] != nil {
+			if b, err := json.Marshal(workflowOutputs[0]); err == nil {
+				attrs["workflow.outputs"] = string(b)
+			}
+		}
+		ev := telemetry.TraceEvent{
+			Lifecycle:     telemetry.LifecycleEnd,
+			Context:       telemetry.SpanContext{TraceID: traceID, SpanID: workflowSpanID},
+			Name:          workflowID,
+			Kind:          telemetry.OTelSpanKindInternal,
+			ArazzoKind:    telemetry.SpanKindWorkflow,
+			StartTime:     workflowStart,
+			EndTime:       &workflowEnd,
+			DurationMs:    &dur,
+			StatusCode:    status,
+			StatusMessage: errMsg,
+			Attributes:    attrs,
+		}
+		r.Sink.Send(ev)
+	}
+
 	wf := r.GetWorkflow(workflowID)
 	if wf == nil {
+		endWorkflow(telemetry.SpanStatusError, fmt.Sprintf("Workflow '%s' not found", workflowID))
 		return &models.WorkflowExecutionResult{
 			Status:     models.WorkflowStatusError,
 			WorkflowID: workflowID,
@@ -178,6 +233,7 @@ func (r *ArazzoRunner) ExecuteWorkflow(workflowID string, inputs map[string]inte
 	// Execute dependencies first
 	depOutputs, err := r.executeDependencies(wf)
 	if err != nil {
+		endWorkflow(telemetry.SpanStatusError, fmt.Sprintf("Dependency execution failed: %v", err))
 		return &models.WorkflowExecutionResult{
 			Status:     models.WorkflowStatusError,
 			WorkflowID: workflowID,
@@ -190,10 +246,13 @@ func (r *ArazzoRunner) ExecuteWorkflow(workflowID string, inputs map[string]inte
 
 	// Create execution state
 	state := models.NewExecutionState(workflowID, inputs, depOutputs, r.RuntimeParams)
+	state.TraceID = traceID
+	state.WorkflowSpanID = workflowSpanID
 
 	// Get steps
 	steps := toSlice(wf["steps"])
 	if len(steps) == 0 {
+		endWorkflow(telemetry.SpanStatusError, "Workflow has no steps")
 		return &models.WorkflowExecutionResult{
 			Status:     models.WorkflowStatusError,
 			WorkflowID: workflowID,
@@ -250,6 +309,11 @@ func (r *ArazzoRunner) ExecuteWorkflow(workflowID string, inputs map[string]inte
 					status = models.WorkflowStatusError
 				}
 				outputs := r.resolveWorkflowOutputs(wf, state)
+				if result.Success {
+					endWorkflow(telemetry.SpanStatusOK, "", outputs)
+				} else {
+					endWorkflow(telemetry.SpanStatusError, "step failed", outputs)
+				}
 				return &models.WorkflowExecutionResult{
 					Status:      status,
 					WorkflowID:  workflowID,
@@ -262,6 +326,7 @@ func (r *ArazzoRunner) ExecuteWorkflow(workflowID string, inputs map[string]inte
 				if result.NextAction.WorkflowID != "" {
 					// Goto another workflow
 					log.Printf("Goto workflow: %s", result.NextAction.WorkflowID)
+					endWorkflow(telemetry.SpanStatusOK, "")
 					gotoResult := r.ExecuteWorkflow(result.NextAction.WorkflowID, result.NextAction.Inputs)
 					return gotoResult
 				}
@@ -281,6 +346,21 @@ func (r *ArazzoRunner) ExecuteWorkflow(workflowID string, inputs map[string]inte
 				if retryCount[key] < result.NextAction.RetryLimit {
 					retryCount[key]++
 					log.Printf("Retrying step %s (attempt %d/%d)", stepID, retryCount[key], result.NextAction.RetryLimit)
+					r.Sink.Send(telemetry.TraceEvent{
+						Lifecycle:  telemetry.LifecycleStart,
+						Context:    telemetry.SpanContext{TraceID: traceID, SpanID: telemetry.GenerateSpanID()},
+						ParentID:   workflowSpanID,
+						Name:       stepID,
+						Kind:       telemetry.OTelSpanKindInternal,
+						ArazzoKind: telemetry.SpanKindRetry,
+						StartTime:  time.Now(),
+						StatusCode: telemetry.SpanStatusUnset,
+						Attributes: map[string]string{
+							"step.id":       stepID,
+							"retry.attempt": strconv.Itoa(retryCount[key]),
+							"retry.limit":   strconv.Itoa(result.NextAction.RetryLimit),
+						},
+					})
 					if result.NextAction.RetryAfter > 0 {
 						time.Sleep(time.Duration(result.NextAction.RetryAfter*1000) * time.Millisecond)
 					}
@@ -295,6 +375,7 @@ func (r *ArazzoRunner) ExecuteWorkflow(workflowID string, inputs map[string]inte
 					case models.ActionTypeEnd:
 						log.Printf("Workflow ended by fallback action after retry exhaustion at step %s", stepID)
 						outputs := r.resolveWorkflowOutputs(wf, state)
+						endWorkflow(telemetry.SpanStatusError, "retry exhausted")
 						return &models.WorkflowExecutionResult{
 							Status:      models.WorkflowStatusError,
 							WorkflowID:  workflowID,
@@ -305,6 +386,7 @@ func (r *ArazzoRunner) ExecuteWorkflow(workflowID string, inputs map[string]inte
 					case models.ActionTypeGoto:
 						if fallbackAction.WorkflowID != "" {
 							log.Printf("Fallback goto workflow: %s", fallbackAction.WorkflowID)
+							endWorkflow(telemetry.SpanStatusError, "retry exhausted, goto workflow")
 							gotoResult := r.ExecuteWorkflow(fallbackAction.WorkflowID, fallbackAction.Inputs)
 							return gotoResult
 						}
@@ -335,6 +417,7 @@ func (r *ArazzoRunner) ExecuteWorkflow(workflowID string, inputs map[string]inte
 	outputs := r.resolveWorkflowOutputs(wf, state)
 
 	log.Printf("=== Workflow %s completed ===", workflowID)
+	endWorkflow(telemetry.SpanStatusOK, "", outputs)
 
 	return &models.WorkflowExecutionResult{
 		Status:      models.WorkflowStatusWorkflowComplete,

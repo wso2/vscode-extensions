@@ -26,6 +26,7 @@ import { activate as activateHistory } from './history';
 import { activateVisualizer } from './visualizer/activate';
 import { activateMCPServer } from './mcp';
 import { RPCLayer } from './RPCLayer';
+import { VisualizerWebview } from './visualizer/webview';
 import { EVENT_TYPE, MACHINE_VIEW } from '@wso2/arazzo-designer-core';
 import { startMCPServer, disposeMCPServer, isMCPServerRunning, onMCPServerStateChange, getMCPActiveFilePath } from './mcp/mcpServerRunner';
 import { RunWorkflowCodeLensProvider } from './mcp/runWorkflowCodeLens';
@@ -87,11 +88,42 @@ export async function activate(context: vscode.ExtensionContext) {
 		)
 	);
 
-	// Refresh CodeLenses whenever the MCP server starts or stops
-	onMCPServerStateChange(() => runCodeLensProvider.refresh());
+	// Refresh CodeLenses whenever the MCP server starts or stops.
+	// Also reset the dirty flag so the lens reverts from "Rerun" to "Run".
+	onMCPServerStateChange(() => {
+		runCodeLensProvider.setFileDirty(false);
+		runCodeLensProvider.refresh();
+		// Notify webview that MCP state changed
+		RPCLayer.sendMCPStateChange({ isMCPRunning: isMCPServerRunning(), isFileDirty: false });
+	});
+
+	// When the active file is saved and the MCP server is serving it, switch
+	// the CodeLens from "Run" to "Rerun" to signal the server needs restarting.
+	context.subscriptions.push(
+		vscode.workspace.onDidSaveTextDocument(document => {
+			const activeFile = getMCPActiveFilePath();
+			if (activeFile && document.uri.fsPath === activeFile) {
+				runCodeLensProvider.setFileDirty(true);
+				runCodeLensProvider.refresh();
+				// Notify webview that the file is now dirty
+				RPCLayer.sendMCPStateChange({ isMCPRunning: true, isFileDirty: true });
+			}
+		})
+	);
+
+	// Register the Rerun-workflow command — triggered when the CodeLens shows
+	// "↺ Rerun" (i.e. the file was saved since the last server start).
+	// Restart the server (like the play button) then run the workflow (like the Run lens).
+	context.subscriptions.push(
+		vscode.commands.registerCommand('arazzo.rerunWorkflow', async (args?: any) => {
+			await vscode.commands.executeCommand('arazzo.startMCPServer', args);
+			await new Promise(resolve => setTimeout(resolve, 2000));
+			await vscode.commands.executeCommand('arazzo.runWorkflow', args);
+		})
+	);
 
 	// Initialize Arazzo Language Server for procode features
-	initializeLanguageServer(context);
+	initializeLanguageServer(context, runCodeLensProvider);
 }
 
 function getLanguageServerBinaryName(): string {
@@ -123,7 +155,7 @@ function getLanguageServerBinaryName(): string {
 	return `arazzo-language-server-${osPart}-${archPart}`;
 }
 
-function initializeLanguageServer(context: vscode.ExtensionContext) {
+function initializeLanguageServer(context: vscode.ExtensionContext, runCodeLensProvider: RunWorkflowCodeLensProvider) {
 	console.log('Initializing Arazzo Language Server...');
 	console.log('To view LSP logs: View > Output > Select "Arazzo Language Server" from dropdown');
 
@@ -261,11 +293,31 @@ function initializeLanguageServer(context: vscode.ExtensionContext) {
 			return;
 		}
 
-		// Start the MCP server if it isn't running, or if it is serving a
-		// different Arazzo file than the one being requested.
+		// Open the visualizer for this specific workflow only if it is not
+		// already showing that exact workflow.
+		if (workflowId) {
+			const ctx = StateMachine.context();
+			const alreadyOpen =
+				VisualizerWebview.workflowPanel !== undefined &&
+				ctx.view === MACHINE_VIEW.Workflow &&
+				ctx.identifier === workflowId &&
+				ctx.documentUri === (args?.uri ?? vscode.Uri.file(filePath).toString());
+
+			if (!alreadyOpen) {
+				await vscode.commands.executeCommand('arazzo.openDesigner', args);
+				// Small delay to let the panel render before the MCP server starts
+				await new Promise(resolve => setTimeout(resolve, 300));
+			}
+		}
+
+		// Start the MCP server if it isn't running, serving a different file,
+		// or the file has been modified since the last server start (dirty).
 		const activeMCPFilePath = getMCPActiveFilePath();
-		if (!isMCPServerRunning() || activeMCPFilePath !== filePath) {
-			await startMCPServer(context, filePath);
+		if (!isMCPServerRunning() || activeMCPFilePath !== filePath || runCodeLensProvider.isFileDirty()) {
+			// Pass suppressPrompt=true so startMCPServer does not show its own
+			// "Try Now" notification — this command will open Copilot itself
+			// with the correct workflow ID below.
+			await startMCPServer(context, filePath, true);
 			// Give the server a moment to become ready
 			await new Promise(resolve => setTimeout(resolve, 2000));
 		}

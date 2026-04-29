@@ -58,6 +58,26 @@ const RetryIcon = styled.div`
     line-height: 1;
 `;
 
+const AttemptBadge = styled.div`
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 3px;
+    border-radius: 8px;
+    background-color: ${MODERN ? ThemeColors.SECONDARY : 'var(--vscode-badge-background)'};
+    color: ${MODERN ? ThemeColors.ON_SECONDARY : 'var(--vscode-badge-foreground)'};
+    font-size: 10px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    box-sizing: border-box;
+    pointer-events: none;
+`;
+
 const StyledHandle = styled(Handle)`
     opacity: 0;
     pointer-events: all;
@@ -159,6 +179,9 @@ export const RetryNodeWidget: React.FC<NodeProps<RetryNodeData>> = ({ id, data, 
             title={tooltip}
         >
             <RetryIcon>↻</RetryIcon>
+            {data.retryAttempt !== undefined && (
+                <AttemptBadge>{data.retryAttempt}</AttemptBadge>
+            )}
 
             <StyledHandle
                 type="target"

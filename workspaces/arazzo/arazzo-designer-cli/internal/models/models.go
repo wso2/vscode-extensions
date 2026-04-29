@@ -49,6 +49,11 @@ type ExecutionState struct {
 	WorkflowOutputs   map[string]interface{}
 	DependencyOutputs map[string]map[string]interface{} // workflowId -> outputs
 	RuntimeParams     *RuntimeParams
+
+	// Trace context — populated by the runner so step/HTTP executors can
+	// emit child spans under the workflow span.
+	TraceID        string
+	WorkflowSpanID string
 }
 
 // NewExecutionState creates a new ExecutionState with initialized maps.

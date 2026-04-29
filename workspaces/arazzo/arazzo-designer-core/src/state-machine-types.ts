@@ -121,3 +121,39 @@ export const showInputBox: RequestType<ShowWebviewInputBoxReq, string | undefine
 export const getPopupVisualizerState: RequestType<void, PopupVisualizerLocation> = { method: 'getPopupVisualizerState' };
 export const popupStateChanged: NotificationType<PopupMachineStateValue> = { method: 'popupStateChanged' };
 export const onParentPopupSubmitted: NotificationType<ParentPopupData> = { method: `onParentPopupSubmitted` };
+
+// ------------> Trace Event Types <-----------
+/** Trace event forwarded from the tracer server to the webview. */
+export interface WebviewTraceEvent {
+    // OTel standard fields
+    name: string;
+    context: { trace_id: string; span_id: string };
+    parent_id?: string;
+    kind: 'SPAN_KIND_INTERNAL' | 'SPAN_KIND_CLIENT';
+    start_time: string;
+    end_time?: string;
+    status_code: 'STATUS_CODE_UNSET' | 'STATUS_CODE_OK' | 'STATUS_CODE_ERROR';
+    status_message?: string;
+    attributes: Record<string, string>;
+    // Custom streaming extension
+    lifecycle: 'start' | 'end';
+    // Custom Arazzo span classification
+    arazzo_span_kind: 'workflow' | 'step' | 'http' | 'retry';
+    duration_ms?: number;
+}
+
+/** Per-step trace status used by the workflow view UI. */
+export interface StepTraceStatus {
+    state: 'running' | 'passed' | 'failed';
+    durationMs?: number;
+}
+
+export const onTraceEvent: NotificationType<WebviewTraceEvent> = { method: 'onTraceEvent' };
+
+/** MCP server state pushed from the extension to the webview whenever
+ *  the server starts/stops or the active file is saved. */
+export interface MCPStateChangeEvent {
+    isMCPRunning: boolean;
+    isFileDirty: boolean;
+}
+export const onMCPStateChange: NotificationType<MCPStateChangeEvent> = { method: 'onMCPStateChange' };

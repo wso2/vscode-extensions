@@ -18,13 +18,14 @@
 
 import { Node } from '@xyflow/react';
 import { BaseNodeModel, BaseNodeData } from '../BaseNode/BaseNodeModel';
+import { StepTraceStatus } from '@wso2/arazzo-designer-core';
 
 /**
  * StepNodeData - Extends BaseNodeData with step-specific properties
  */
 export interface StepNodeData extends BaseNodeData {
     stepType?: string;
-    // Add any step-specific data here
+    traceStatus?: StepTraceStatus;
 }
 
 /**

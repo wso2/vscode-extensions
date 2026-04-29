@@ -1,0 +1,136 @@
+arazzo: 1.0.0
+info:
+  title: "Test 15 - Deep Branching Workflow"
+  version: "1.0.0"
+  description: >
+    Tests complex branching logic where a single step (Step A) fans out into
+    multiple parallel tracks (Branches B, C, D) using multiple onSuccess goto actions.
+    Some of those tracks then branch again (e.g., Branch C fans out to C1 and C2).
+
+sourceDescriptions:
+  - name: toolshop
+    url: ./toolshop-openapi.yaml
+    type: openapi
+
+workflows:
+  - workflowId: deep_branching_product_flow
+    summary: >
+      Arazzo Workflow with multiple levels of fan-out branching.
+      Step A -> {Track B, Track C, Track D}
+      Track C -> {Sub-track C1, Sub-track C2}
+    inputs:
+      type: object
+      properties:
+        searchQuery:
+          type: string
+          default: "screwdriver"
+
+    steps:
+
+      # ═══════════════════════════════════════════════════════════
+      # STEP A — Initial Fan-out (3 Branches)
+      # ═══════════════════════════════════════════════════════════
+      - stepId: productSearch
+        description: "Step A: Search products. Success triggers 3 parallel tracks."
+        operationId: searchProduct
+        parameters:
+          - name: q
+            in: query
+            value: "$inputs.searchQuery"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          firstProductId: "$response.body#/data/0/id"
+        onSuccess:
+          # BRANCH B: Product Specs Track
+          - name: branch_specs
+            type: goto
+            stepId: fetchProductSpecs
+            criteria:
+              - condition: "$.datas" # Satisfied if the data array exists and is not empty
+                context: "$response.body"
+                type: jsonpath
+          # BRANCH C: Brand Discovery Track
+          - name: branch_brands
+            type: goto
+            stepId: getAvailableBrands
+            criteria:
+              - condition: "$statusCode == 200"
+          # BRANCH D: General Categories Track
+          - name: branch_categories
+            type: goto
+            stepId: listProductCategories
+            criteria:
+              - condition: "$statusCode == 200"
+
+      # ═══════════════════════════════════════════════════════════
+      # TRACK B — Specs Track
+      # ═══════════════════════════════════════════════════════════
+      - stepId: fetchProductSpecs
+        description: "Branch B: Fetch technical specifications for the search result."
+        operationId: getProductSpecs
+        parameters:
+          - name: productId
+            in: path
+            value: "$steps.productSearch.outputs.firstProductId"
+        onSuccess:
+          - name: end_track_b
+            type: end
+
+      # ═══════════════════════════════════════════════════════════
+      # TRACK C — Brand Track (Sub-branching into C1 and C2)
+      # ═══════════════════════════════════════════════════════════
+      - stepId: getAvailableBrands
+        description: "Branch C: Retrieve brands. Success triggers sub-branches."
+        operationId: getBrands
+        onSuccess:
+          # SUB-BRANCH C1: Specific Brand Search
+          - name: branch_c1_search
+            type: goto
+            stepId: searchSpecificBrand
+            criteria:
+              - condition: "$statusCode == 205"
+          # SUB-BRANCH C2: Contact Brand Support
+          - name: branch_c2_support
+            type: goto
+            stepId: contactBrandSupport
+            criteria:
+              - condition: "$statusCode == 200"
+
+      - stepId: searchSpecificBrand
+        description: "Sub-branch C1: Search for a hardcoded brand."
+        operationId: searchBrand
+        parameters:
+          - name: q
+            in: query
+            value: "ForgeFlex Tools"
+        onSuccess:
+          - name: end_c1
+            type: end
+
+      - stepId: contactBrandSupport
+        description: "Sub-branch C2: Send a message to support."
+        operationId: sendMessage
+        requestBody:
+          contentType: application/json
+          payload:
+            name: "Arazzo Tester"
+            email: "tester@example.com"
+            subject: "Branching Test"
+            message: "Testing sub-branch C2"
+        onSuccess:
+          - name: end_c2
+            type: end
+
+      # ═══════════════════════════════════════════════════════════
+      # TRACK D — Categories Track
+      # ═══════════════════════════════════════════════════════════
+      - stepId: listProductCategories
+        description: "Branch D: List all categories."
+        operationId: getCategories
+        onSuccess:
+          - name: end_track_d
+            type: end
+
+    outputs:
+      searchProcessed: "Done"
