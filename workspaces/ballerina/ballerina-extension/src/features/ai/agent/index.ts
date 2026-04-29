@@ -19,6 +19,7 @@ import { StateMachine } from "../../../stateMachine";
 import { chatStateStorage } from '../../../views/ai-panel/chatStateStorage';
 import * as path from 'path';
 import * as fs from 'fs';
+import { Uri, languages } from 'vscode';
 import { AICommandConfig } from "../executors/base/AICommandExecutor";
 import { createWebviewEventHandler } from "../utils/events";
 import { AgentExecutor } from './AgentExecutor';
@@ -131,19 +132,34 @@ export async function generateAgent(params: GenerateAgentCodeRequest): Promise<b
         const workspacePath = StateMachine.context().workspacePath || projectRootPath;
         if (langClient) {
             try {
+                // Pull only modules that are not yet resolved.
+                const allDiagnostics = languages.getDiagnostics();
+                const unpulledModules = allDiagnostics
+                    .flatMap(([, diags]) => diags)
+                    .filter(d => d.code === 'BCE2003')
+                    .map(d => d.message);
+
+                if (unpulledModules.length > 0) {
+                    console.debug('[generateAgent] Unpulled modules detected:', unpulledModules);
+                    try {
+                        const pullResponse = await langClient.resolveModuleDependencies({
+                            documentIdentifier: { uri: Uri.file(workspacePath).toString() }
+                        });
+                        console.debug('[generateAgent] resolveModuleDependencies response:', JSON.stringify(pullResponse, null, 2));
+                    } catch (pullErr) {
+                        console.warn('[generateAgent] Failed to pull modules, continuing:', pullErr);
+                    }
+                }
+
                 const codeMapResponse = await langClient.getCodeMap({
-                    projectPath: workspacePath, changesOnly: false,
+                    projectPath: workspacePath,
                 });
 
                 const codeMapMarkdown = typeof codeMapResponse?.content === 'string'
                     ? codeMapResponse.content
                     : (codeMapResponse as any)?.markdown as string | undefined;
                 if (codeMapMarkdown) {
-                    const targetDir = path.join(projectRootPath, 'target');
-                    if (!fs.existsSync(targetDir)) {
-                        fs.mkdirSync(targetDir, { recursive: true });
-                    }
-                    fs.writeFileSync(path.join(targetDir, 'bal.md'), codeMapMarkdown, 'utf-8');
+                    fs.writeFileSync(path.join(projectRootPath, 'bal.md'), codeMapMarkdown, 'utf-8');
                     config.codeMapMarkdown = codeMapMarkdown;
                 }
             } catch (err) {

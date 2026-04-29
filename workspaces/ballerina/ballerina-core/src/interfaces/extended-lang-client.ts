@@ -2031,7 +2031,6 @@ export interface ProjectArtifacts {
 }
 export interface CodeMapRequest {
     projectPath: string;
-    changesOnly: boolean;
 }
 
 export interface CodeMapIncrementalChanges {
