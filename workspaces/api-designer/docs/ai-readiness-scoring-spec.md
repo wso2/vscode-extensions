@@ -40,9 +40,9 @@ Reference: [Jentic — Specification (JAIRF)](https://docs.jentic.com/reference/
 | Piece | Location |
 |-------|----------|
 | Rule definitions (what is checked) | `api-designer-core/src/utils/spectral-rules/ai-readiness.yaml` |
-| Rule → sub-bucket mapping, four dimensions, harmonic overall | `api-designer-core/src/utils/ai-readiness.ts` (`buildAiReadinessSummary`, `RULE_CATEGORY_MAP`, `BUCKET_DEFINITIONS`, `AI_READINESS_DIMENSIONS`, `SUB_BUCKET_WEIGHTS`) |
-| Alternate score from raw metrics only | `api-designer-core/src/utils/ai-readiness.ts` (`computeReadinessScoreFromMetrics`) |
-| Rule → sub-bucket for issue grouping in UI | `api-designer-core/src/utils/ai-readiness.ts` (`getAiReadinessRuleSubBucket`) |
+| Rule → sub-bucket mapping, four dimensions, harmonic overall | `api-designer-core/src/governance/ai-readiness.ts` (`buildAiReadinessSummary`, `RULE_CATEGORY_MAP`, `BUCKET_DEFINITIONS`, `AI_READINESS_DIMENSIONS`, `SUB_BUCKET_WEIGHTS`) |
+| Alternate score from raw metrics only | `api-designer-core/src/governance/ai-readiness.ts` (`computeReadinessScoreFromMetrics`) |
+| Rule → sub-bucket for issue grouping in UI | `api-designer-core/src/governance/ai-readiness.ts` (`getAiReadinessRuleSubBucket`) |
 
 ---
 
@@ -154,7 +154,7 @@ This is **not** a formal alignment; it helps compare narratives.
 
 - Jentic — **API AI-Readiness Framework (JAIRF) Specification (v1.0.0):**  
   https://docs.jentic.com/reference/api-readiness-framework/specification/
-- Internal: `workspaces/api-designer/api-designer-core/src/utils/ai-readiness.ts`  
+- Internal: `workspaces/api-designer/api-designer-core/src/governance/ai-readiness.ts`
 - Internal: `workspaces/api-designer/api-designer-core/src/utils/spectral-rules/ai-readiness.yaml`
 
 ---

@@ -11,7 +11,7 @@ This document describes the AI readiness report behavior in detail, including:
 
 - Spectral run + base score: `api-designer-extension/src/utils/validation-utils.ts`
 - Unified report shaping: `api-designer-extension/src/rpc-managers/api-designer-visualizer/managers/governance-manager.ts`
-- AI readiness summary (weighted aggregation): `api-designer-core/src/utils/ai-readiness.ts`
+- AI readiness summary (weighted aggregation): `api-designer-core/src/governance/ai-readiness.ts`
 - AI readiness ruleset: `api-designer-extension/skills/api-readiness-assessment/references/agent-readiness-spectral/ai-readiness.yaml`
 
 ## 2) Score concepts (all of them)

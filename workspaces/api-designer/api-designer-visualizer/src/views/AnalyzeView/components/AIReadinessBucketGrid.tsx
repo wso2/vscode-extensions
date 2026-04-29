@@ -2,7 +2,6 @@ import React from 'react';
 import styled from '@emotion/styled';
 import { Codicon } from '@wso2/ui-toolkit';
 import type { AiReadinessDimensionSummary } from '@wso2/api-designer-core';
-import { getAiReadinessRuleSubBucket } from '@wso2/api-designer-core';
 import { scoreColor } from '../hooks/useReport';
 import { ViewIssuesLink } from './ViewIssuesLink';
 import { ANALYZE_TYPE_SCALE } from './AnalyzeSingleReportHelpers';
@@ -15,6 +14,7 @@ interface ViolationRow {
     path: string;
     endpoint: string;
     method: string;
+    breakdownKeys?: string[];
 }
 
 interface Props {
@@ -297,7 +297,7 @@ export const AIReadinessBucketGrid: React.FC<Props> = ({
             const pctColor = scoreColor(dimension.score);
             const subBucketKeySet = new Set(dimension.subBuckets.map((subBucket) => subBucket.key));
             const { errorCount, warningCount } = violations.reduce((acc, violation) => {
-                const subBucketKey = getAiReadinessRuleSubBucket(violation.rule);
+                const subBucketKey = (violation.breakdownKeys || []).find((key) => subBucketKeySet.has(key));
                 if (!subBucketKey || !subBucketKeySet.has(subBucketKey)) {
                     return acc;
                 }
@@ -397,7 +397,7 @@ const SubBucketCard: React.FC<{
     const subColor = scoreColor(subPct);
     const { errorCount, warningCount } = React.useMemo(
         () => violations.reduce((acc, violation) => {
-            if (getAiReadinessRuleSubBucket(violation.rule) !== sub.key) {
+            if (!(violation.breakdownKeys || []).includes(sub.key)) {
                 return acc;
             }
             const severity = (violation.severity || '').toLowerCase();

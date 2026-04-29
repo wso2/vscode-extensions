@@ -26,14 +26,10 @@ import * as spectralFunctions from '@stoplight/spectral-functions';
 import * as spectralFormats from '@stoplight/spectral-formats';
 import { logDebug, logWarning, logError } from '../util/logger';
 import {
-    AiReadinessMetrics as CoreAiReadinessMetrics,
-    buildAiReadinessSummary,
     GetGovernanceResponse,
     loadYaml,
-    spectralViolationsToUnifiedById,
 } from '@wso2/api-designer-core';
 import { AiReadinessMetricsCollector, createAiReadinessFunctions, applyAiReadinessFunctionsToRuleset } from './ai-readiness-functions';
-import type { AiReadinessMetrics as CollectorAiReadinessMetrics } from './ai-readiness-functions';
 
 const RULESET_CACHE_TTL_MS = 5 * 60 * 1000;
 const rulesetCache = new Map<string, { cachedAt: number; rulesetContent: string }>();
@@ -47,27 +43,6 @@ function getRulesetCacheKey(
     const authMarker = authToken ? 'auth' : 'noauth';
     return [filePathOrUrl, rulesetContentPath || '', gitRootPath || '', authMarker].join('::');
 }
-
-const convertCollectorMetricsToCore = (
-    metrics?: CollectorAiReadinessMetrics | null
-): CoreAiReadinessMetrics | undefined => {
-    if (!metrics || !metrics.categories) {
-        return undefined;
-    }
-
-    const categories: CoreAiReadinessMetrics['categories'] = {};
-    for (const [key, value] of Object.entries(metrics.categories)) {
-        categories[key] = {
-            total: value.total,
-            passed: value.passed,
-            failed: value.failed,
-            passedPaths: value.passedPaths.map(path => path.map(segment => String(segment))),
-            failedPaths: value.failedPaths.map(path => path.map(segment => String(segment)))
-        };
-    }
-
-    return { categories };
-};
 
 /**
  * Map function names to actual Spectral function implementations
@@ -618,9 +593,6 @@ export async function validateWithSpectralRuleset(
             infoViolations: severityViolationCounts.info,
             hintViolations: severityViolationCounts.hint
         };
-        
-        const aiReadinessMetrics = convertCollectorMetricsToCore(metadata?.aiReadiness ?? null);
-
         const passedRules = Object.entries(ruleset.rules || {}).reduce<
             Array<{ rule: string; message: string; description?: string; fixSuggestion?: string; severity: string }>
         >(
@@ -683,15 +655,6 @@ export async function validateWithSpectralRuleset(
             passedRules: passedRules,
             passed: passedRules
         });
-
-        const violationsById = spectralViolationsToUnifiedById(violations);
-        const summary = buildAiReadinessSummary({
-            report: { violationsById },
-            aiReadinessMetrics,
-        });
-        if (summary) {
-            response.breakdown = summary;
-        }
 
         return response as GetGovernanceResponse;
     } catch (error: any) {

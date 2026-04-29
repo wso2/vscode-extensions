@@ -32,8 +32,6 @@ import {
     GetGovernanceResponse,
     UnifiedAnalyzeReport,
     SpectralRuleset,
-    buildAiReadinessSummary,
-    spectralViolationsToUnifiedById,
     ValidateAPISpecRequest,
     ValidateAPISpecResponse,
     getDefaultGovernanceSpectralRulesets,
@@ -45,36 +43,13 @@ import {
 } from '../../../utils/validation-utils';
 import { getAllSpectralRulesets as getAllSpectralRulesetsFromConfig } from '../../../spectral/rulesetAutomation';
 import { BaseRpcManager } from './base-rpc-manager';
-import { extension } from '../../../APIDesignerExtensionContext';
-
-const GUIDELINE_RULE_TO_INTERNAL_RULE: Record<string, string> = {
-    'rule 1.1': 'ai-readiness-llm-operation-id-verb-noun',
-    'rule 1.2': 'ai-readiness-llm-operation-id-distinctiveness',
-    'rule 2.1': 'ai-readiness-llm-summary-imperative-verb',
-    'rule 2.2': 'ai-readiness-llm-summary-business-semantics',
-    'rule 3.1': 'ai-readiness-llm-description-preconditions',
-    'rule 3.2': 'ai-readiness-llm-description-side-effects',
-    'rule 3.3': 'ai-readiness-llm-description-draft-finalized',
-    'rule 3.4': 'ai-readiness-llm-description-required-scopes',
-    'rule 3.5': 'ai-readiness-llm-description-workflow-position',
-    'rule 4.1': 'ai-readiness-llm-destructive-irreversible-warning',
-    'rule 4.2': 'ai-readiness-llm-destructive-cascade-effects',
-    'rule 4.3': 'ai-readiness-llm-destructive-reasoning-instructions',
-    'rule 5.1': 'ai-readiness-llm-parameter-business-meaning',
-    'rule 5.2': 'ai-readiness-llm-parameter-enum-value-explanations',
-    'rule 5.3': 'ai-readiness-llm-parameter-id-sourcing',
-    'rule 6.1': 'ai-readiness-llm-errors-structured-4xx',
-    'rule 6.2': 'ai-readiness-llm-errors-401-403-distinction',
-    'rule 6.3': 'ai-readiness-llm-errors-429-retry-guidance',
-    'rule 7.1': 'ai-readiness-llm-workflow-response-to-parameter-linkage',
-    'rule 7.2': 'ai-readiness-llm-workflow-hateoas-links',
-    'rule 8.1': 'ai-readiness-llm-bulk-batch-operations',
-    'rule 9.1': 'ai-readiness-llm-sparse-fieldsets',
-    'rule 10.1': 'ai-readiness-llm-agent-discovery-endpoints',
-    'rule 11.1': 'ai-readiness-llm-naming-singular-plural',
-    'rule 11.2': 'ai-readiness-llm-naming-property-casing',
-    'rule 11.3': 'ai-readiness-llm-naming-ambiguous-properties',
-};
+import { buildUnifiedReport as buildUnifiedReportFromAdapters } from './governance/report-unifier';
+import { AssessmentCacheStore } from './governance/assessment-cache-store';
+import { LlmValidationService } from './governance/llm-validation-service';
+import {
+    AI_READINESS_GUIDELINE_RULE_TO_INTERNAL_RULE,
+    OWASP_DIMENSIONS,
+} from './governance/rule-constants';
 
 /** Payload returned by `validateWithSpectralRuleset` before `report` / `reportId` are applied. */
 type SpectralGovernancePayload = {
@@ -255,11 +230,12 @@ type BuiltUnifiedReport = {
 export class GovernanceManager extends BaseRpcManager {
     private static llmStateByApiHash = new Map<string, LlmValidationState>();
     private static llmJobsByApiHash = new Map<string, Promise<void>>();
-    private static agentReadinessGuidelinesContent: string | null = null;
     private static readonly llmInternalRuleAllowlist = new Set([
-        ...Object.values(GUIDELINE_RULE_TO_INTERNAL_RULE).map((rule) => rule.toLowerCase()),
+        ...Object.values(AI_READINESS_GUIDELINE_RULE_TO_INTERNAL_RULE).map((rule) => rule.toLowerCase()),
         'ai-readiness-llm-general'
     ]);
+    private readonly cacheStore: AssessmentCacheStore;
+    private readonly llmService: LlmValidationService;
 
     private normalizeGuidelineRuleRef(rule: string): string | null {
         const raw = String(rule || '').trim();
@@ -287,11 +263,23 @@ export class GovernanceManager extends BaseRpcManager {
         }
         const guidelineRef = this.normalizeGuidelineRuleRef(rule);
         if (!guidelineRef) return 'ai-readiness-llm-general';
-        return GUIDELINE_RULE_TO_INTERNAL_RULE[guidelineRef.toLowerCase()] || 'ai-readiness-llm-general';
+        return AI_READINESS_GUIDELINE_RULE_TO_INTERNAL_RULE[guidelineRef.toLowerCase()] || 'ai-readiness-llm-general';
     }
 
     constructor() {
         super('GovernanceManager');
+        this.cacheStore = new AssessmentCacheStore({
+            mapValidationSeverityToReportSeverity: this.mapValidationSeverityToReportSeverity.bind(this),
+            mapReportSeverityToValidationSeverity: this.mapReportSeverityToValidationSeverity.bind(this),
+            computeSectionRating: this.computeSectionRating.bind(this),
+            computeCountsFromReportIssues: this.computeCountsFromReportIssues.bind(this),
+            deriveScoreFromCounts: this.deriveScoreFromCounts.bind(this),
+        });
+        this.llmService = new LlmValidationService({
+            normalizeGuidelineRuleRef: this.normalizeGuidelineRuleRef.bind(this),
+            extractGuidelineRuleRefs: this.extractGuidelineRuleRefs.bind(this),
+            toInternalLlmRuleId: this.toInternalLlmRuleId.bind(this),
+        });
     }
 
     private computeApiHash(content: string): string {
@@ -310,21 +298,8 @@ export class GovernanceManager extends BaseRpcManager {
         return filePath;
     }
 
-    private getWorkspaceCachePath(filePath: string): string {
-        const normalizedPath = this.normalizeFilePath(filePath);
-        const parsed = path.parse(normalizedPath);
-        const reportFileName = `${parsed.name}-api-readiness-report.json`;
-        return path.join(parsed.dir, 'api-reports', reportFileName);
-    }
-
     private async workspaceCacheFileExists(filePath: string): Promise<boolean> {
-        try {
-            const cachePath = this.getWorkspaceCachePath(filePath);
-            await stat(cachePath);
-            return true;
-        } catch {
-            return false;
-        }
+        return this.cacheStore.workspaceCacheFileExists(this.normalizeFilePath(filePath));
     }
 
     private mapValidationSeverityToReportSeverity(severity: 'error' | 'warn' | 'info' | 'hint'): 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' {
@@ -364,431 +339,30 @@ export class GovernanceManager extends BaseRpcManager {
         return Math.max(0, Math.min(100, 100 - penalty));
     }
 
-    private async readAssessmentDocument(cachePath: string): Promise<Record<string, unknown>> {
-        try {
-            const content = await readFile(cachePath, 'utf8');
-            const parsed = JSON.parse(content) as unknown;
-            if (parsed && typeof parsed === 'object') return parsed as Record<string, unknown>;
-        } catch {
-            // no existing document
-        }
-        return {};
-    }
-
-    private buildLlmReportIssues(findings: LlmValidationFinding[]): ReportIssue[] {
-        return findings.map((finding, index) => ({
-            id: `ai-${String(index + 1).padStart(3, '0')}`,
-            severity: this.mapValidationSeverityToReportSeverity(finding.severity),
-            rule: finding.rule || 'llm.validation',
-            path: finding.pathSegments.length > 0 ? finding.pathSegments.join('.') : 'general',
-            issue: finding.message,
-            description: finding.message,
-            fixSuggestion: finding.suggestion || 'Update the OpenAPI definition to address this issue.',
-            autoFixable: false,
-        }));
-    }
-
-    private buildSpectralReportIssues(
-        violationsById: Record<string, UnifiedViolation>,
-        prefix: 'spec' | 'sec'
-    ): ReportIssue[] {
-        const violations = Object.values(violationsById);
-        return violations.map((violation, index) => ({
-            id: `${prefix}-${String(index + 1).padStart(3, '0')}`,
-            severity: this.mapValidationSeverityToReportSeverity(violation.severity),
-            rule: violation.rule || violation.code || 'unknown-rule',
-            path: violation.pathSegments.length > 0 ? violation.pathSegments.join('.') : 'general',
-            issue: violation.message || 'Validation issue',
-            description: violation.description || violation.message || 'Validation issue detected.',
-            fixSuggestion: violation.fixSuggestion || 'Update the OpenAPI definition to address this issue.',
-            autoFixable: false,
-        }));
-    }
-
     private async persistSpectralSection(
         filePath: string,
         reportId: 'ai-readiness' | 'owasp' | 'rest-api-readiness',
         violationsById: Record<string, UnifiedViolation>
     ): Promise<void> {
-        if (reportId !== 'ai-readiness' && reportId !== 'owasp') return;
-        const cachePath = this.getWorkspaceCachePath(filePath);
-        await mkdir(path.dirname(cachePath), { recursive: true });
-        const existing = await this.readAssessmentDocument(cachePath);
-        const currentMeta = existing.meta && typeof existing.meta === 'object'
-            ? existing.meta as Record<string, unknown>
-            : {};
-        const currentAgentReadiness = existing.agentReadiness && typeof existing.agentReadiness === 'object'
-            ? existing.agentReadiness as Record<string, unknown>
-            : {};
-        const currentSecurityReadiness = existing.securityReadiness && typeof existing.securityReadiness === 'object'
-            ? existing.securityReadiness as Record<string, unknown>
-            : {};
-        const currentAiAnalysis = currentAgentReadiness.aiAnalysis && typeof currentAgentReadiness.aiAnalysis === 'object'
-            ? currentAgentReadiness.aiAnalysis as Record<string, unknown>
-            : undefined;
-
-        const prefix: 'spec' | 'sec' = reportId === 'ai-readiness' ? 'spec' : 'sec';
-        const issues = this.buildSpectralReportIssues(violationsById, prefix);
-        const counts = this.computeCountsFromReportIssues(issues);
-        const rating = this.computeSectionRating(counts);
-        const section = {
-            status: 'completed',
-            ruleset: reportId === 'ai-readiness'
-                ? 'references/agent-readiness-spectral/ai-readiness.yaml'
-                : 'references/owasp-top-10-raw.yaml',
-            score: {
-                critical: counts.critical,
-                high: counts.high,
-                medium: counts.medium,
-                low: counts.low,
-                rating,
-            },
-            issues,
-        };
-
-        // Final read-before-write merge to minimize chances of dropping aiAnalysis
-        // during overlapping writes between spectral and LLM persistence.
-        const latestForMerge = await this.readAssessmentDocument(cachePath);
-        const baseDoc = Object.keys(latestForMerge).length > 0 ? latestForMerge : existing;
-        const baseMeta = baseDoc.meta && typeof baseDoc.meta === 'object'
-            ? baseDoc.meta as Record<string, unknown>
-            : currentMeta;
-        const baseAgentReadiness = baseDoc.agentReadiness && typeof baseDoc.agentReadiness === 'object'
-            ? baseDoc.agentReadiness as Record<string, unknown>
-            : currentAgentReadiness;
-        const baseSecurityReadiness = baseDoc.securityReadiness && typeof baseDoc.securityReadiness === 'object'
-            ? baseDoc.securityReadiness as Record<string, unknown>
-            : currentSecurityReadiness;
-        const preservedAiAnalysis = baseAgentReadiness.aiAnalysis && typeof baseAgentReadiness.aiAnalysis === 'object'
-            ? baseAgentReadiness.aiAnalysis as Record<string, unknown>
-            : currentAiAnalysis;
-
-        const merged = {
-            ...baseDoc,
-            meta: {
-                ...baseMeta,
-                specFile: filePath,
-                specHash: typeof baseMeta.specHash === 'string' ? baseMeta.specHash : '',
-                assessedAt: new Date().toISOString(),
-                spectralVersion: 'not-run',
-                guidelinesVersion: 'agent-readiness-guidelines.md',
-                model: String(baseMeta.model || ''),
-            },
-            agentReadiness: reportId === 'ai-readiness'
-                ? {
-                    ...baseAgentReadiness,
-                    ...(preservedAiAnalysis ? { aiAnalysis: preservedAiAnalysis } : {}),
-                    spectral: section
-                }
-                : baseAgentReadiness,
-            securityReadiness: reportId === 'owasp'
-                ? { ...baseSecurityReadiness, spectral: section }
-                : baseSecurityReadiness,
-        };
-        await writeFile(cachePath, JSON.stringify(merged, null, 2), 'utf8');
+        await this.cacheStore.persistSpectralSection(this.normalizeFilePath(filePath), reportId, violationsById);
     }
 
     private async persistLlmState(filePath: string, state: LlmValidationState, options?: { modelId?: string }): Promise<void> {
-        // Keep only the latest cache entry in memory.
         GovernanceManager.llmStateByApiHash.clear();
         GovernanceManager.llmStateByApiHash.set(state.apiHash, state);
-        try {
-            const cachePath = this.getWorkspaceCachePath(filePath);
-            await mkdir(path.dirname(cachePath), { recursive: true });
-            const existing = await this.readAssessmentDocument(cachePath);
-
-            const currentMeta = existing.meta && typeof existing.meta === 'object'
-                ? existing.meta as Record<string, unknown>
-                : {};
-            const currentAgentReadiness = existing.agentReadiness && typeof existing.agentReadiness === 'object'
-                ? existing.agentReadiness as Record<string, unknown>
-                : {};
-            const existingAiAnalysis = currentAgentReadiness.aiAnalysis && typeof currentAgentReadiness.aiAnalysis === 'object'
-                ? currentAgentReadiness.aiAnalysis as Record<string, unknown>
-                : {};
-            const existingIssues = Array.isArray(existingAiAnalysis.issues)
-                ? existingAiAnalysis.issues as ReportIssue[]
-                : [];
-            // Preserve last known findings when status updates (e.g., pending/failed/stale)
-            // arrive without a fresh result payload.
-            const reportIssues = state.result
-                ? this.buildLlmReportIssues(state.result.findings || [])
-                : existingIssues;
-            const counts = this.computeCountsFromReportIssues(reportIssues);
-            const rating = this.computeSectionRating(counts);
-            const modelId = options?.modelId || String(currentMeta.model || 'copilot');
-            const aiStatus = state.status === 'ready'
-                ? 'completed'
-                : state.status === 'failed'
-                    ? 'failed'
-                    : state.status;
-
-            const merged = {
-                ...existing,
-                meta: {
-                    ...currentMeta,
-                    specFile: filePath,
-                    specHash: state.apiHash,
-                    assessedAt: new Date(state.updatedAt || Date.now()).toISOString(),
-                    spectralVersion: String(currentMeta.spectralVersion || 'not-run'),
-                    guidelinesVersion: 'agent-readiness-guidelines.md',
-                    model: modelId,
-                },
-                agentReadiness: {
-                    ...currentAgentReadiness,
-                    aiAnalysis: {
-                        ...existingAiAnalysis,
-                        status: aiStatus,
-                        score: {
-                            critical: counts.critical,
-                            high: counts.high,
-                            medium: counts.medium,
-                            low: counts.low,
-                            rating,
-                        },
-                        issues: reportIssues,
-                    },
-                },
-            };
-
-            await writeFile(cachePath, JSON.stringify(merged, null, 2), 'utf8');
-        } catch {
-            // best-effort workspace cache persistence
-        }
+        await this.cacheStore.persistLlmState(this.normalizeFilePath(filePath), state, options);
     }
 
     private async readWorkspaceCache(filePath: string): Promise<LlmValidationState | null> {
-        try {
-            const cachePath = this.getWorkspaceCachePath(filePath);
-            const content = await readFile(cachePath, 'utf8');
-            const parsed = JSON.parse(content) as unknown;
-            if (!parsed || typeof parsed !== 'object') {
-                return null;
-            }
-            const object = parsed as Record<string, unknown>;
-
-            // Legacy direct state format.
-            if ('status' in object && 'apiHash' in object) {
-                return object as LlmValidationState;
-            }
-
-            // New schema format: meta + agentReadiness.aiAnalysis
-            const aiAnalysis = object.agentReadiness
-                && typeof object.agentReadiness === 'object'
-                && (object.agentReadiness as Record<string, unknown>).aiAnalysis
-                && typeof (object.agentReadiness as Record<string, unknown>).aiAnalysis === 'object'
-                ? (object.agentReadiness as Record<string, unknown>).aiAnalysis as Record<string, unknown>
-                : null;
-            if (!aiAnalysis) {
-                return null;
-            }
-
-            const statusRaw = String(aiAnalysis.status || 'failed');
-            const status: LlmValidationState['status'] =
-                statusRaw === 'completed'
-                    ? 'ready'
-                    : (statusRaw === 'pending' || statusRaw === 'failed' || statusRaw === 'stale' || statusRaw === 'ready')
-                        ? statusRaw
-                        : 'failed';
-            const scoreObj = aiAnalysis.score && typeof aiAnalysis.score === 'object'
-                ? aiAnalysis.score as Record<string, unknown>
-                : {};
-            const counts = {
-                critical: Number(scoreObj.critical || 0),
-                high: Number(scoreObj.high || 0),
-                medium: Number(scoreObj.medium || 0),
-                low: Number(scoreObj.low || 0),
-            };
-            const issues = Array.isArray(aiAnalysis.issues) ? aiAnalysis.issues as Array<Record<string, unknown>> : [];
-            const findings: LlmValidationFinding[] = issues.map((issue, index) => ({
-                id: String(issue.id || `llm:${index}`),
-                rule: String(issue.rule || 'llm.validation'),
-                message: String(issue.issue || issue.description || 'Potential AI readiness issue detected'),
-                severity: this.mapReportSeverityToValidationSeverity(String(issue.severity || '').toUpperCase()),
-                pathSegments: String(issue.path || '').split('.').map((segment) => segment.trim()).filter(Boolean),
-                displayPath: String(issue.path || 'General').split('.').join(' > '),
-                suggestion: typeof issue.fixSuggestion === 'string' ? issue.fixSuggestion : undefined,
-            }));
-
-            const meta = object.meta && typeof object.meta === 'object'
-                ? object.meta as Record<string, unknown>
-                : {};
-            const updatedAt = Date.parse(String(meta.assessedAt || '')) || Date.now();
-            const specHash = typeof meta.specHash === 'string' ? meta.specHash : '';
-            const result = {
-                score: this.deriveScoreFromCounts(counts),
-                summary: 'LLM AI readiness validation completed.',
-                findings,
-            };
-
-            return {
-                status,
-                apiHash: specHash,
-                updatedAt,
-                result,
-                error: typeof aiAnalysis.error === 'string' ? aiAnalysis.error : undefined,
-            };
-        } catch {
-            return null;
-        }
+        return this.cacheStore.readWorkspaceCache(this.normalizeFilePath(filePath));
     }
 
     private async resolveCachedLlmState(filePath: string, apiHash: string): Promise<LlmValidationState | undefined> {
-        const cacheFileExists = await this.workspaceCacheFileExists(filePath);
-        if (!cacheFileExists) {
-            return undefined;
-        }
-        const workspaceCache = await this.readWorkspaceCache(filePath);
-        if (workspaceCache && workspaceCache.apiHash === apiHash) {
-            GovernanceManager.llmStateByApiHash.clear();
-            GovernanceManager.llmStateByApiHash.set(apiHash, workspaceCache);
-            return workspaceCache;
-        }
-        const inMemory = GovernanceManager.llmStateByApiHash.get(apiHash);
-        if (inMemory) return inMemory;
-        return undefined;
-    }
-
-    private getAgentReadinessGuidelinesPath(): string {
-        const extensionPath = extension.context?.extensionPath;
-        if (!extensionPath) {
-            throw new Error('Extension path is not initialized');
-        }
-        return path.join(
-            extensionPath,
-            'skills',
-            'api-readiness-assessment',
-            'references',
-            'agent-readiness-guidelines.md'
-        );
-    }
-
-    private async getAgentReadinessGuidelines(): Promise<string> {
-        if (GovernanceManager.agentReadinessGuidelinesContent) {
-            return GovernanceManager.agentReadinessGuidelinesContent;
-        }
-        const guidelinesPath = this.getAgentReadinessGuidelinesPath();
-        const content = await readFile(guidelinesPath, 'utf8');
-        GovernanceManager.agentReadinessGuidelinesContent = content;
-        return content;
-    }
-
-    private async buildLlmPrompt(specContent: string): Promise<string> {
-        let guidelines = '';
-        try {
-            guidelines = await this.getAgentReadinessGuidelines();
-        } catch (error) {
-            this.logWarning('Failed to load agent-readiness-guidelines.md; using fallback prompt instructions.', error);
-        }
-        return [
-            'You are validating API AI readiness.',
-            'Use the following guidelines as the primary rubric for scoring and findings.',
-            guidelines,
-            'Analyze the OpenAPI content and return strict JSON only with this shape:',
-            '{"score":number,"summary":string,"findings":[{"rule":string,"message":string,"severity":"error|warn|info|hint","path":"dot.path.or.empty","suggestion":"optional"}]}',
-            'For finding.rule, use guideline rule references exactly in this format: "Rule X.Y" (for example "Rule 3.3").',
-            'Use ONLY rule refs present in the guideline document. Available refs:',
-            this.extractGuidelineRuleRefs(guidelines).join(', '),
-            'Rules:',
-            '- Score must be 0-100',
-            '- Keep summary under 220 chars',
-            '- Use concise actionable messages',
-            '- Findings should be specific and non-duplicative',
-            '- Prefer real API design risks over stylistic nits',
-            '- suggestion should be an implementable next step',
-            '- Return ONLY raw JSON (no markdown, no prose outside JSON)',
-            '',
-            'OpenAPI document:',
-            specContent
-        ].join('\n');
-    }
-
-    private normalizeLlmResult(rawText: string): LlmValidationResult {
-        const text = rawText.trim();
-        const firstBrace = text.indexOf('{');
-        const lastBrace = text.lastIndexOf('}');
-        const jsonText = firstBrace >= 0 && lastBrace > firstBrace ? text.slice(firstBrace, lastBrace + 1) : text;
-        const parsed = JSON.parse(jsonText) as {
-            score?: number;
-            summary?: string;
-            findings?: Array<{ rule?: string; message?: string; severity?: string; path?: string; suggestion?: string }>;
-        };
-        const score = Math.max(0, Math.min(100, Math.round(Number(parsed.score ?? 0))));
-        const findings = (parsed.findings || []).slice(0, 20).map((finding, index) => {
-            const pathSegments = String(finding.path || '').split('.').map((segment) => segment.trim()).filter(Boolean);
-            const severity: LlmValidationFinding['severity'] =
-                (finding.severity === 'error' || finding.severity === 'warn' || finding.severity === 'hint' || finding.severity === 'info')
-                    ? finding.severity
-                    : 'info';
-            const guidelineRuleRef = this.normalizeGuidelineRuleRef(String(finding.rule || '')) || 'Rule Unknown';
-            return {
-                id: `llm:${index}`,
-                rule: guidelineRuleRef,
-                message: String(finding.message || 'Potential AI readiness issue detected'),
-                severity,
-                pathSegments,
-                displayPath: pathSegments.length > 0 ? pathSegments.join(' > ') : 'General',
-                suggestion: finding.suggestion ? String(finding.suggestion) : undefined,
-            };
-        });
-        return {
-            score,
-            summary: String(parsed.summary || 'LLM AI readiness validation completed.'),
-            findings,
-        };
-    }
-
-    private mapLlmFindingsToGovernanceViolations(
-        llmValidation?: LlmValidationState
-    ): Array<{
-        rule: string;
-        code?: string;
-        message: string;
-        description?: string;
-        fixSuggestion?: string;
-        severity: string;
-        path?: string[] | string;
-    }> {
-        const findings = llmValidation?.result?.findings || [];
-        return findings.map((finding) => {
-            const mappedRule = this.toInternalLlmRuleId(finding.rule);
-            return {
-                rule: mappedRule,
-                code: finding.rule,
-                message: finding.message,
-                description: finding.suggestion,
-                fixSuggestion: finding.suggestion,
-                severity: finding.severity,
-                path: finding.pathSegments,
-            };
-        });
+        return this.cacheStore.resolveCachedLlmState(this.normalizeFilePath(filePath), apiHash, GovernanceManager.llmStateByApiHash);
     }
 
     private async executeLlmValidation(specContent: string): Promise<LlmExecutionResult> {
-        const vscodeAny = vscode as any;
-        if (!vscodeAny.lm?.selectChatModels) {
-            throw new Error('Language model API is not available');
-        }
-        const models = await vscodeAny.lm.selectChatModels({ vendor: 'copilot' });
-        if (!Array.isArray(models) || models.length === 0) {
-            throw new Error('No Copilot chat model available');
-        }
-        const model = models[0];
-        const prompt = await this.buildLlmPrompt(specContent);
-        this.logDebug('LLM prompt:', prompt);
-        const userMessage = vscodeAny.LanguageModelChatMessage?.User
-            ? vscodeAny.LanguageModelChatMessage.User(prompt)
-            : { role: 'user', content: prompt };
-        const response = await model.sendRequest([userMessage], {}, new vscode.CancellationTokenSource().token);
-        let output = '';
-        for await (const chunk of response.text) {
-            output += String(chunk);
-        }
-        const modelId = String((model as { id?: string; name?: string })?.id || (model as { id?: string; name?: string })?.name || 'copilot');
-        return {
-            result: this.normalizeLlmResult(output),
-            modelId,
-        };
+        return this.llmService.executeLlmValidation(specContent);
     }
 
     private async startLlmJob(filePath: string, apiHash: string, specContent: string): Promise<void> {
@@ -922,131 +496,6 @@ export class GovernanceManager extends BaseRpcManager {
         }
     }
 
-    private readonly OWASP_CATEGORIES = [
-        {
-            key: 'API1:2023',
-            label: 'Broken Object Level Authorization',
-            description: 'Ensures object-level access controls are enforced so users cannot read or modify resources they do not own.',
-            docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/'
-        },
-        {
-            key: 'API2:2023',
-            label: 'Broken Authentication',
-            description: 'Validates authentication flows and token handling to prevent account takeover and credential abuse.',
-            docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa2-broken-authentication/'
-        },
-        {
-            key: 'API3:2023',
-            label: 'Broken Object Property Level Authorization',
-            description: 'Checks that sensitive object properties are protected from overexposure, mass assignment, and unauthorized updates.',
-            docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa3-broken-object-property-level-authorization/'
-        },
-        {
-            key: 'API4:2023',
-            label: 'Unrestricted Resource Consumption',
-            description: 'Identifies missing limits and throttling controls that can allow denial of service through excessive consumption.',
-            docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa4-unrestricted-resource-consumption/'
-        },
-        {
-            key: 'API5:2023',
-            label: 'Broken Function Level Authorization',
-            description: 'Verifies that privileged operations are properly restricted and cannot be invoked by lower-privilege users.',
-            docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa5-broken-function-level-authorization/'
-        },
-        {
-            key: 'API6:2023',
-            label: 'Unrestricted Access to Sensitive Business Flows',
-            description: 'Highlights business-critical workflows that need stronger anti-abuse controls and transaction safeguards.',
-            docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa6-unrestricted-access-to-sensitive-business-flows/'
-        },
-        {
-            key: 'API7:2023',
-            label: 'Server Side Request Forgery',
-            description: 'Detects opportunities for untrusted input to trigger server-side outbound requests to internal or protected systems.',
-            docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa7-server-side-request-forgery/'
-        },
-        {
-            key: 'API8:2023',
-            label: 'Security Misconfiguration',
-            description: 'Flags insecure defaults, weak transport/security settings, and missing hardening controls across API surfaces.',
-            docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa8-security-misconfiguration/'
-        },
-        {
-            key: 'API9:2023',
-            label: 'Improper Inventory Management',
-            description: 'Ensures API assets, versions, and environments are properly documented and governed to avoid unmanaged exposure.',
-            docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xa9-improper-inventory-management/'
-        },
-        {
-            key: 'API10:2023',
-            label: 'Unsafe Consumption of APIs',
-            description: 'Evaluates trust boundaries and validation when integrating third-party or downstream APIs and services.',
-            docsUrl: 'https://owasp.org/API-Security/editions/2023/en/0xaa-unsafe-consumption-of-apis/'
-        },
-    ] as const;
-
-    private readonly WSO2_THEMES = [
-        { id: 'resource-design', title: 'Resource Design', description: 'Resource paths, naming, and URL structure quality.' },
-        { id: 'operations-methods', title: 'Operations & Methods', description: 'Operation metadata and method semantics consistency.' },
-        { id: 'contracts-responses', title: 'Contracts & Responses', description: 'Request/response schema and contract correctness checks.' },
-        { id: 'documentation', title: 'Documentation Quality', description: 'API documentation completeness and usability checks.' },
-        { id: 'security-governance', title: 'Security & Governance', description: 'Basic security and governance hygiene checks.' },
-        { id: 'other', title: 'Others', description: 'Other checks' },
-    ] as const;
-
-    private readonly WSO2_RULE_THEME_MAP: Record<string, (typeof this.WSO2_THEMES)[number]['id']> = {
-        'contact-url': 'documentation',
-        'contact-email': 'documentation',
-        'contact-name': 'documentation',
-        'info-contact': 'documentation',
-        'info-description': 'documentation',
-        'info-license': 'documentation',
-        'license-url': 'documentation',
-        'no-eval-in-markdown': 'security-governance',
-        'no-script-tags-in-markdown': 'security-governance',
-        'openapi-tags-alphabetical': 'documentation',
-        'openapi-tags': 'documentation',
-        'tag-description': 'documentation',
-        'parameter-description': 'documentation',
-        'operation-description': 'documentation',
-        'operation-operationid': 'operations-methods',
-        'operation-operationid-valid-in-url': 'operations-methods',
-        'operation-tags': 'documentation',
-        'path-declarations-must-exist': 'resource-design',
-        'paths-no-trailing-slash': 'resource-design',
-        'path-not-include-query': 'resource-design',
-        'path-parameters-on-path-only': 'contracts-responses',
-        'paths-no-query-params': 'resource-design',
-        'path-casing': 'resource-design',
-        'resource-names-plural': 'resource-design',
-        'paths-no-http-verbs': 'resource-design',
-        'paths-avoid-special-characters': 'resource-design',
-        'oas3-examples-value-or-externalvalue': 'contracts-responses',
-        'array-items': 'contracts-responses',
-    };
-
-    private readonly OWASP_CATEGORY_WEIGHTS: Record<string, number> = {
-        'API1:2023': 1.4,
-        'API2:2023': 1.3,
-        'API3:2023': 1.2,
-        'API4:2023': 1.1,
-        'API5:2023': 1.3,
-        'API6:2023': 1.1,
-        'API7:2023': 1.2,
-        'API8:2023': 1.0,
-        'API9:2023': 0.8,
-        'API10:2023': 0.9,
-    };
-
-    private readonly WSO2_THEME_WEIGHTS: Record<(typeof this.WSO2_THEMES)[number]['id'], number> = {
-        'resource-design': 1.2,
-        'operations-methods': 1.1,
-        'contracts-responses': 1.3,
-        'documentation': 1.0,
-        'security-governance': 1.4,
-        'other': 0.8,
-    };
-
     private inferReportKey(name: string): 'ai-readiness' | 'owasp' | 'rest-api-readiness' {
         const lower = name.toLowerCase();
         if (lower.includes('ai') && lower.includes('readiness')) return 'ai-readiness';
@@ -1084,8 +533,8 @@ export class GovernanceManager extends BaseRpcManager {
                 const year = match[2] || '2023';
                 keySet.add(`API${apiNumber}:${year}`);
             });
-            const orderedKeys = this.OWASP_CATEGORIES
-                .map((category) => category.key)
+            const orderedKeys = OWASP_DIMENSIONS
+                .map((dimension) => dimension.key.toUpperCase())
                 .filter((categoryKey) => keySet.has(categoryKey));
             return orderedKeys.length > 0 ? orderedKeys : undefined;
         };
@@ -1120,407 +569,14 @@ export class GovernanceManager extends BaseRpcManager {
         }
     }
 
-    private normalizePath(path?: string[] | string): string[] {
-        if (Array.isArray(path)) return path.map((segment) => String(segment));
-        if (typeof path === 'string') return path.split('>').map((segment) => segment.trim()).filter(Boolean);
-        return [];
-    }
-
-    private extractEndpoint(pathSegments: string[]): { endpoint: string; method: string } {
-        const pathsIndex = pathSegments.indexOf('paths');
-        if (pathsIndex >= 0) {
-            const endpoint = pathSegments[pathsIndex + 1] || 'global';
-            const methodRaw = pathSegments[pathsIndex + 2] || '';
-            const method = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options', 'trace'].includes(methodRaw)
-                ? methodRaw.toUpperCase()
-                : 'GLOBAL';
-            return { endpoint, method };
-        }
-        return { endpoint: 'global', method: 'GLOBAL' };
-    }
-
-    private pickWso2Theme(rule: string): (typeof this.WSO2_THEMES)[number] {
-        const normalizedRule = (rule || '').toLowerCase();
-        const mappedThemeId = this.WSO2_RULE_THEME_MAP[normalizedRule] || 'other';
-        return this.WSO2_THEMES.find((theme) => theme.id === mappedThemeId) || this.WSO2_THEMES[0];
-    }
-
-    private normalizeRuleId(rule: string): string {
-        return (rule || '').trim().toLowerCase();
-    }
-
-    private deriveOwaspCategoryKeyFromRule(rule: string): string {
-        const raw = (rule || '').toUpperCase().match(/API\d+(?::\d{4})?/)?.[0] || 'GENERAL';
-        return raw.includes(':') ? raw : `${raw}:2023`;
-    }
-
-    private computeWeightedScore(
-        reportId: 'ai-readiness' | 'owasp' | 'rest-api-readiness',
-        response: SpectralGovernancePayload
-    ): number {
-        if (reportId === 'ai-readiness') {
-            const aiWeightedScore = response.breakdown?.score;
-            if (typeof aiWeightedScore === 'number' && Number.isFinite(aiWeightedScore)) {
-                return Math.max(0, Math.min(100, Math.round(aiWeightedScore)));
-            }
-            return Math.max(0, Math.min(100, Math.round(response.score ?? 0)));
-        }
-
-        if (reportId !== 'owasp' && reportId !== 'rest-api-readiness') {
-            return Math.max(0, Math.min(100, Math.round(response.score ?? 0)));
-        }
-
-        const failedRules = new Set<string>();
-        const allRules = new Set<string>();
-
-        (response.violations || []).forEach((violation) => {
-            const ruleId = this.normalizeRuleId(violation.rule || violation.code || '');
-            if (!ruleId) return;
-            failedRules.add(ruleId);
-            allRules.add(ruleId);
-        });
-
-        (response.passedRules || []).forEach((entry) => {
-            const ruleId = this.normalizeRuleId(entry.rule || '');
-            if (!ruleId) return;
-            allRules.add(ruleId);
-        });
-
-        if (allRules.size === 0) {
-            return Math.max(0, Math.min(100, Math.round(response.score ?? 0)));
-        }
-
-        const bucketStats = new Map<string, { total: number; failed: number }>();
-        const ensureBucket = (key: string): { total: number; failed: number } => {
-            let stats = bucketStats.get(key);
-            if (!stats) {
-                stats = { total: 0, failed: 0 };
-                bucketStats.set(key, stats);
-            }
-            return stats;
-        };
-
-        allRules.forEach((ruleId) => {
-            const bucketKey = reportId === 'owasp'
-                ? this.deriveOwaspCategoryKeyFromRule(ruleId)
-                : this.pickWso2Theme(ruleId).id;
-            ensureBucket(bucketKey).total += 1;
-        });
-
-        failedRules.forEach((ruleId) => {
-            const bucketKey = reportId === 'owasp'
-                ? this.deriveOwaspCategoryKeyFromRule(ruleId)
-                : this.pickWso2Theme(ruleId).id;
-            ensureBucket(bucketKey).failed += 1;
-        });
-
-        let weightedSum = 0;
-        let totalWeight = 0;
-        bucketStats.forEach((stats, bucketKey) => {
-            if (stats.total <= 0) return;
-            const bucketScore = ((stats.total - stats.failed) / stats.total) * 100;
-            const weight = reportId === 'owasp'
-                ? (this.OWASP_CATEGORY_WEIGHTS[bucketKey] || 1)
-                : (this.WSO2_THEME_WEIGHTS[bucketKey as (typeof this.WSO2_THEMES)[number]['id']] || 1);
-            weightedSum += bucketScore * weight;
-            totalWeight += weight;
-        });
-
-        if (totalWeight <= 0) {
-            return Math.max(0, Math.min(100, Math.round(response.score ?? 0)));
-        }
-        return Math.max(0, Math.min(100, Math.round(weightedSum / totalWeight)));
-    }
-
     private buildUnifiedReport(
         name: string,
-        response: SpectralGovernancePayload,
-        owaspCategoryKeys?: string[]
+        response: SpectralGovernancePayload
     ): BuiltUnifiedReport {
-        const calculateCategoryScore = (counts: { total: number; errors: number; warnings: number; infos: number }): number => {
-            if (counts.total <= 0) return 100;
-            const weightedFailures = counts.errors * 1 + counts.warnings * 0.5 + counts.infos * 0.25;
-            const score = 100 - (weightedFailures / counts.total) * 100;
-            return Math.max(0, Math.min(100, Math.round(score)));
-        };
-        const reportId = this.inferReportKey(name);
-        const aiDimensions = response.breakdown?.dimensions || [];
-        const aiSubBucketToDimension = new Map<string, string>();
-        const aiRuleToSubBucket = new Map<string, string>();
-        aiDimensions.forEach((dimension) => {
-            (dimension.subBuckets || []).forEach((subBucket) => {
-                aiSubBucketToDimension.set(subBucket.key, dimension.key);
-                (subBucket.rules || []).forEach((rule) => {
-                    aiRuleToSubBucket.set((rule.key || '').toLowerCase(), subBucket.key);
-                });
-            });
-        });
-        const reportTitle =
-            reportId === 'ai-readiness'
-                ? 'AI Readiness'
-                : reportId === 'owasp'
-                    ? 'Security (OWASP)'
-                    : 'REST Compliance';
-        const computedScore = this.computeWeightedScore(reportId, response);
-        const rawViolations = response.violations || [];
-        const violationsById: Record<string, UnifiedViolation> = {};
-        const categoryBuckets = new Map<string, { label: string; description?: string; docsUrl?: string; violationIds: string[] }>();
-
-        rawViolations.forEach((violation, index) => {
-            const pathSegments = this.normalizePath(violation.path);
-            const displayPath = pathSegments.length > 0 ? pathSegments.join(' > ') : 'Unknown path';
-            const { endpoint, method } = this.extractEndpoint(pathSegments);
-            const id = `${violation.rule || violation.code || 'unknown'}:${index}`;
-            const normalizedSeverity = (violation.severity === 'error' || violation.severity === 'warn' || violation.severity === 'hint' || violation.severity === 'info')
-                ? violation.severity
-                : 'info';
-
-            let breakdownKeys: string[] = [];
-            if (reportId === 'owasp') {
-                const raw = (violation.rule || '').toUpperCase().match(/API\d+(?::\d{4})?/)?.[0] || 'GENERAL';
-                const key = raw.includes(':') ? raw : `${raw}:2023`;
-                breakdownKeys = [key];
-                if (!categoryBuckets.has(key)) {
-                    const category = this.OWASP_CATEGORIES.find((item) => item.key === key);
-                    categoryBuckets.set(key, { label: category?.label || key, docsUrl: category?.docsUrl, violationIds: [] });
-                }
-                categoryBuckets.get(key)?.violationIds.push(id);
-            } else if (reportId === 'ai-readiness') {
-                const normalizedRule = (violation.rule || violation.code || '').toLowerCase();
-                const subBucketKey = aiRuleToSubBucket.get(normalizedRule);
-                const dimensionKey = subBucketKey ? aiSubBucketToDimension.get(subBucketKey) : undefined;
-                breakdownKeys = [dimensionKey, subBucketKey].filter((key): key is string => !!key);
-            } else if (reportId === 'rest-api-readiness') {
-                const theme = this.pickWso2Theme(violation.rule || '');
-                breakdownKeys = [theme.id];
-                if (!categoryBuckets.has(theme.id)) {
-                    categoryBuckets.set(theme.id, { label: theme.title, description: theme.description, violationIds: [] });
-                }
-                categoryBuckets.get(theme.id)?.violationIds.push(id);
-            }
-
-            violationsById[id] = {
-                id,
-                rule: violation.rule || violation.code || 'unknown-rule',
-                message: violation.message || 'No message provided',
-                description: violation.description,
-                fixSuggestion: violation.fixSuggestion,
-                severity: normalizedSeverity,
-                code: violation.code,
-                pathSegments,
-                displayPath,
-                endpoint,
-                method,
-                line: ((violation.range?.start.line ?? -1) + 1),
-                range: violation.range,
-                breakdownKeys,
-            };
-        });
-
-        const endpointCount = new Set(
-            Object.values(violationsById)
-                .filter((v) => v.endpoint !== 'global' && v.method !== 'GLOBAL')
-                .map((v) => `${v.method}:${v.endpoint}`)
-        ).size;
-        const errors = Object.values(violationsById).filter((v) => v.severity === 'error').length;
-        const warnings = Object.values(violationsById).filter((v) => v.severity === 'warn').length;
-        const infos = Object.values(violationsById).filter((v) => v.severity === 'info' || v.severity === 'hint').length;
-
-        let categories: UnifiedBreakdownCategory[] = [];
-        if (reportId === 'ai-readiness') {
-            categories = aiDimensions.map((dimension) => {
-                const subBucketIds = new Set((dimension.subBuckets || []).map((subBucket) => subBucket.key));
-                const ids = Object.values(violationsById)
-                    .filter((violation) => violation.breakdownKeys.some((key) => subBucketIds.has(key)))
-                    .map((violation) => violation.id);
-                const total = ids.length;
-                const categoryErrors = ids.filter((id) => violationsById[id]?.severity === 'error').length;
-                const categoryWarnings = ids.filter((id) => violationsById[id]?.severity === 'warn').length;
-                const categoryInfos = ids.filter((id) => {
-                    const severity = violationsById[id]?.severity;
-                    return severity === 'info' || severity === 'hint';
-                }).length;
-                const categoryPercentage = calculateCategoryScore({
-                    total,
-                    errors: categoryErrors,
-                    warnings: categoryWarnings,
-                    infos: categoryInfos,
-                });
-                return {
-                    id: dimension.key,
-                    label: dimension.label,
-                    description: dimension.description,
-                    status: (total > 0 ? 'failed' : 'passed') as 'passed' | 'failed',
-                    total,
-                    errors: categoryErrors,
-                    warnings: categoryWarnings,
-                    infos: categoryInfos,
-                    percentage: Math.max(0, Math.min(100, Math.round(dimension.score ?? 0))),
-                    affectedEndpoints: new Set(
-                        ids
-                            .map((id) => violationsById[id])
-                            .filter((violation) => violation && violation.endpoint !== 'global' && violation.method !== 'GLOBAL')
-                            .map((violation) => `${violation.method} ${violation.endpoint}`)
-                    ).size,
-                    viewIssuesFilter: { key: dimension.key, label: dimension.label },
-                    subBuckets: (dimension.subBuckets || []).map((subBucket) => ({
-                        id: subBucket.key,
-                        label: subBucket.label,
-                        description: subBucket.description,
-                        percentage: Math.max(0, Math.min(100, Math.round(subBucket.percentage ?? 0))),
-                        viewIssuesFilter: { key: subBucket.key, label: subBucket.label },
-                    })),
-                };
-            });
-        } else if (reportId === 'owasp') {
-            const configuredOwaspCategories =
-                owaspCategoryKeys && owaspCategoryKeys.length > 0
-                    ? this.OWASP_CATEGORIES.filter((item) => owaspCategoryKeys.includes(item.key))
-                    : this.OWASP_CATEGORIES;
-            // Only list OWASP API Security categories that have at least one finding. The bundled
-            // ruleset (e.g. owasp_top_10.yaml) implements a subset of rules (e.g. API2, API3, …), not
-            // necessarily every API1–API10 theme; empty categories are omitted so the UI matches the
-            // rules in use.
-            categories = configuredOwaspCategories.map((item) => {
-                const bucket = categoryBuckets.get(item.key);
-                const ids = bucket?.violationIds || [];
-                const total = ids.length;
-                const categoryErrors = ids.filter((id) => violationsById[id]?.severity === 'error').length;
-                const categoryWarnings = ids.filter((id) => violationsById[id]?.severity === 'warn').length;
-                const categoryInfos = ids.filter((id) => {
-                    const severity = violationsById[id]?.severity;
-                    return severity === 'info' || severity === 'hint';
-                }).length;
-                const categoryPercentage = calculateCategoryScore({
-                    total,
-                    errors: categoryErrors,
-                    warnings: categoryWarnings,
-                    infos: categoryInfos,
-                });
-                return {
-                    id: item.key,
-                    label: item.label,
-                    description: item.description,
-                    status: (total > 0 ? 'failed' : 'passed') as 'passed' | 'failed',
-                    total,
-                    errors: categoryErrors,
-                    warnings: categoryWarnings,
-                    infos: categoryInfos,
-                    percentage: categoryPercentage,
-                    affectedEndpoints: new Set(
-                        ids
-                            .map((id) => violationsById[id])
-                            .filter((violation) => violation && violation.endpoint !== 'global' && violation.method !== 'GLOBAL')
-                            .map((violation) => `${violation.method} ${violation.endpoint}`)
-                    ).size,
-                    docsUrl: item.docsUrl,
-                    viewIssuesFilter: { key: item.key, label: item.label },
-                    subBuckets: [
-                        {
-                            id: item.key,
-                            label: item.label,
-                            description: item.description,
-                            percentage: categoryPercentage,
-                            viewIssuesFilter: { key: item.key, label: item.label },
-                        },
-                    ],
-                };
-            });
-        } else if (reportId === 'rest-api-readiness') {
-            categories = this.WSO2_THEMES.map((theme) => {
-                const bucket = categoryBuckets.get(theme.id);
-                const ids = bucket?.violationIds || [];
-                const total = ids.length;
-                const categoryErrors = ids.filter((id) => violationsById[id]?.severity === 'error').length;
-                const categoryWarnings = ids.filter((id) => violationsById[id]?.severity === 'warn').length;
-                const categoryInfos = ids.filter((id) => {
-                    const severity = violationsById[id]?.severity;
-                    return severity === 'info' || severity === 'hint';
-                }).length;
-                const categoryPercentage = calculateCategoryScore({
-                    total,
-                    errors: categoryErrors,
-                    warnings: categoryWarnings,
-                    infos: categoryInfos,
-                });
-                const ruleCounts = new Map<string, number>();
-                ids.forEach((id) => {
-                    const rule = violationsById[id]?.rule || '';
-                    ruleCounts.set(rule, (ruleCounts.get(rule) || 0) + 1);
-                });
-                return {
-                    id: theme.id,
-                    label: theme.title,
-                    description: theme.description,
-                    status: (total > 0 ? 'failed' : 'passed') as 'passed' | 'failed',
-                    total,
-                    errors: categoryErrors,
-                    warnings: categoryWarnings,
-                    infos: categoryInfos,
-                    percentage: categoryPercentage,
-                    affectedEndpoints: new Set(
-                        ids
-                            .map((id) => violationsById[id])
-                            .filter((violation) => violation && violation.endpoint !== 'global' && violation.method !== 'GLOBAL')
-                            .map((violation) => `${violation.method} ${violation.endpoint}`)
-                    ).size,
-                    viewIssuesFilter: { key: theme.id, label: theme.title },
-                    subBuckets: [
-                        {
-                            id: theme.id,
-                            label: theme.title,
-                            description: theme.description,
-                            percentage: categoryPercentage,
-                            viewIssuesFilter: { key: theme.id, label: theme.title },
-                        },
-                    ],
-                    topRules: Array.from(ruleCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([rule]) => rule),
-                };
-            });
-        }
-
-        return {
-            schemaVersion: '1',
-            reportId,
-            title: reportTitle,
-            violationsById,
-            overview: {
-                score: computedScore,
-                passedChecks: response.passedChecks ?? 0,
-                totalChecks: response.totalChecks ?? 0,
-                metrics: [
-                    { id: 'errors', label: 'Errors', value: errors, accent: 'error' },
-                    { id: 'warnings', label: 'Warnings', value: warnings, accent: 'warning' },
-                    { id: 'info', label: 'Info', value: infos, accent: 'info' },
-                    { id: 'operations', label: 'Operations affected', value: endpointCount, accent: 'info' },
-                ],
-            },
-            breakdown: {
-                title: reportId === 'owasp' ? 'Security (OWASP) Breakdown' : reportId === 'rest-api-readiness' ? 'REST Compliance Breakdown' : 'AI Readiness Breakdown',
-                subtitle: reportId === 'owasp'
-                    ? 'OWASP API Security themes for which this analysis found issues. The bundled ruleset includes a subset of API1–10 rules (for example API2, API3, API4, API8, API9), not every category.'
-                    : reportId === 'rest-api-readiness'
-                        ? 'Compliance with WSO2 REST API design guidelines'
-                        : 'Evaluate how well your API is prepared for AI agent consumption',
-                categories,
-            },
-            issueExplorer: {
-                title: 'Issue Explorer',
-                subtitle: 'Browse, filter and inspect all violations in detail',
-                breakdownFilterOptions: categories.map((category) => ({
-                    key: category.viewIssuesFilter.key,
-                    label: category.viewIssuesFilter.label,
-                })),
-            },
-            ...(reportId === 'ai-readiness' ? {
-                llmReview: {
-                    title: 'AI Analysis',
-                    subtitle: 'LLM-based evaluation of your API for AI agent consumption readiness.',
-                    viewFindingsLabel: 'View LLM findings',
-                    reevaluateLabel: 'Re Analyze',
-                },
-            } : {}),
-        };
+        return buildUnifiedReportFromAdapters(
+            name,
+            response
+        );
     }
 
     /**
@@ -1669,38 +725,19 @@ export class GovernanceManager extends BaseRpcManager {
             response.metadata = rulesetInsights.metadata;
             const reportTitle = response.metadata?.name || params.name;
             const inferredReportId = this.inferReportKey(reportTitle);
-            const owaspCategoryKeys =
-                inferredReportId === 'owasp'
-                    ? rulesetInsights.owaspCategoryKeys
-                    : undefined;
-            if (inferredReportId === 'ai-readiness') {
-                const llmMappedViolations = this.mapLlmFindingsToGovernanceViolations(llmValidation);
-                if (llmMappedViolations.length > 0) {
-                    response.violations = [...(response.violations || []), ...llmMappedViolations];
-                    const mergedViolationsById = spectralViolationsToUnifiedById(response.violations || []);
-                    const mergedSummary = buildAiReadinessSummary({
-                        report: { violationsById: mergedViolationsById },
-                    });
-                    response.breakdown = {
-                        score: mergedSummary.score,
-                        dimensions: (mergedSummary.dimensions || []).map((dimension) => ({
-                            key: dimension.key,
-                            label: dimension.label,
-                            description: dimension.description,
-                            score: dimension.score,
-                            subBuckets: (dimension.subBuckets || []).map((subBucket) => ({
-                                key: subBucket.key,
-                                label: subBucket.label,
-                                description: subBucket.description,
-                                percentage: subBucket.percentage,
-                                rules: (subBucket.rules || []).map((rule) => ({ key: rule.key })),
-                            })),
-                        })),
-                    };
-                    response.score = mergedSummary.score;
+            if (inferredReportId === 'ai-readiness' && llmValidation?.status === 'ready' && llmValidation.result) {
+                const llmViolations = this.llmService.mapLlmFindingsToGovernanceViolations(llmValidation);
+                response.violations = [...(response.violations || []), ...llmViolations];
+                const llmScore = llmValidation.result.score;
+                if (typeof llmScore === 'number' && Number.isFinite(llmScore)) {
+                    const rounded = Math.max(0, Math.min(100, Math.round(llmScore)));
+                    response.score = rounded;
+                    if (response.breakdown && typeof response.breakdown === 'object') {
+                        response.breakdown = { ...response.breakdown, score: rounded };
+                    }
                 }
             }
-            const unifiedReport = this.buildUnifiedReport(reportTitle, response, owaspCategoryKeys);
+            const unifiedReport = this.buildUnifiedReport(reportTitle, response);
             response.score = unifiedReport.overview.score;
             await this.persistSpectralSection(normalizedPath, unifiedReport.reportId, unifiedReport.violationsById);
             (response as GetGovernanceResponse & { schemaVersion?: '2' }).schemaVersion = '2';

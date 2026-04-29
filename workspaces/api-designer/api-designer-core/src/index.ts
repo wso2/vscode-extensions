@@ -43,7 +43,6 @@ export {
 } from "./rpc-types/api-designer-visualizer/rpc-type";
 
 // ------ Copilot RPC types -------->
-export * from "./utils/ai-readiness";
 export * from "./utils/yaml-utils";
 // Export error handling utilities with explicit exports to avoid conflicts
 export {

@@ -91,20 +91,6 @@ export const WSO2_THEMES: Wso2ThemeDef[] = [
     }
 ];
 
-export const pickWso2Theme = (rule: string, message: string): Wso2ThemeDef => {
-    const haystack = `${rule} ${message}`.toLowerCase();
-    let bestTheme = WSO2_THEMES[0];
-    let bestScore = 0;
-    WSO2_THEMES.forEach((theme) => {
-        const score = theme.keywords.reduce((sum, keyword) => sum + (haystack.includes(keyword) ? 1 : 0), 0);
-        if (score > bestScore) {
-            bestScore = score;
-            bestTheme = theme;
-        }
-    });
-    return bestScore > 0 ? bestTheme : WSO2_THEMES[0];
-};
-
 const METHOD_COLORS: Record<string, { color: string; bg: string }> = {
     GET: { color: 'var(--vscode-editorInfo-foreground, #3b82f6)', bg: 'color-mix(in srgb, var(--vscode-editorInfo-foreground, #3b82f6) 14%, transparent)' },
     POST: { color: 'var(--vscode-testing-iconPassed, #22c55e)', bg: 'color-mix(in srgb, var(--vscode-testing-iconPassed, #22c55e) 14%, transparent)' },
