@@ -314,23 +314,16 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
         const serverUrl = `http://localhost:${port}/mcp`;
         const configNote = mcpConfigPath ? ` Config added to mcp.json.` : '';
 
-        // Primary status message
-        vscode.window.showInformationMessage(
-            `Arazzo server started. Running on ${serverUrl}.${configNote}`
-        );
-
         // Get first workflow name for the "Try Now" prompt
         const firstWorkflow = getFirstWorkflowId(arazzoFilePath!);
         const copilotPrompt = firstWorkflow
             ? `execute the workflow ${firstWorkflow}`
             : `list all workflows`;
 
-        // "Try with Copilot" follow-up message — skip when the caller will
-        // open Copilot itself (e.g. arazzo.runWorkflow) to avoid a duplicate
-        // prompt that targets the wrong workflow.
+        // Combined status message: Server started + Try with AI invitation
         if (!suppressPrompt) {
             const action = await vscode.window.showInformationMessage(
-                `Try your Arazzo workflows with GitHub Copilot.`,
+                `Arazzo server started. Running on ${serverUrl}.${configNote} Try your workflows with GitHub Copilot.`,
                 'Try Now'
             );
             if (action === 'Try Now') {
@@ -343,6 +336,11 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
                     // Copilot not available — non-fatal
                 }
             }
+        } else {
+            // If suppressPrompt is true, still show the base status message
+            vscode.window.showInformationMessage(
+                `Arazzo server started. Running on ${serverUrl}.${configNote}`
+            );
         }
     }, 1500);
 }
