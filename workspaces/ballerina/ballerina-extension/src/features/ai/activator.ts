@@ -86,6 +86,23 @@ export function activateAIFeatures(ballerinaExternalInstance: BallerinaExtension
                     workspacePath: params.projectPath
                 };
 
+                // Fetch code map for the test project
+                let codeMapMarkdown: string | undefined;
+                try {
+                    const codeMapResponse = await langClient.getCodeMap({ projectPath: params.projectPath });
+                    const markdown = typeof codeMapResponse?.content === 'string'
+                        ? codeMapResponse.content
+                        : (codeMapResponse as any)?.markdown as string | undefined;
+                    if (markdown) {
+                        codeMapMarkdown = markdown;
+                        console.log(`[Test Mode] Code map fetched for project ${params.projectPath} (${markdown.length} chars)`);
+                    } else {
+                        console.log(`[Test Mode] Code map response was empty for project ${params.projectPath}`);
+                    }
+                } catch (err) {
+                    console.warn(`[Test Mode] Failed to fetch code map, continuing without it:`, err);
+                }
+
                 // Create config using new AICommandConfig pattern
                 const config: AICommandConfig<GenerateAgentCodeRequest> = {
                     executionContext: ctx,
@@ -93,6 +110,7 @@ export function activateAIFeatures(ballerinaExternalInstance: BallerinaExtension
                     generationId: `test-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
                     abortController: new AbortController(),
                     params,
+                    codeMapMarkdown,
                     // No chat storage in test mode
                     chatStorage: undefined,
                     // Immediate cleanup (AI_TEST_ENV prevents actual deletion)

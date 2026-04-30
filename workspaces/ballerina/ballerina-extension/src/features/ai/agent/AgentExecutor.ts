@@ -274,6 +274,11 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
 
             // Code map is fetched at query submission time in index.ts generateAgent
             const codeMapMarkdown = this.config.codeMapMarkdown;
+            if (codeMapMarkdown) {
+                console.log(`[AgentExecutor] Code map included in LLM prompt (${codeMapMarkdown.length} chars)`);
+            } else {
+                console.log(`[AgentExecutor] No code map available — sending prompt without code map`);
+            }
 
             const userMessageContent = getUserPrompt(params, tempProjectPath, projects, codeMapMarkdown);
 
