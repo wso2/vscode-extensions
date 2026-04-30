@@ -22,9 +22,9 @@
     "vscode": "^1.100.0"
   },
   "categories": [
-    "API Design",
-    "API Governance",
-    "AI"
+    "Visualization",
+    "Linters",
+    "Other"
   ],
   "activationEvents": [
     "onStartupFinished",
