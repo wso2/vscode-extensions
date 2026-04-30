@@ -164,16 +164,36 @@ Use the submit_evaluation tool to provide your assessment.`;
 
 /**
  * Extracts file read sections from tool events for context retrieval evaluation.
- * Builds a formatted string of all files the agent read via the file_read tool.
+ * Builds a formatted string of all files the agent read via the file_read tool,
+ * including the full file content so the evaluator knows exactly what was available.
  */
-function extractFileReadSection(toolEvents: readonly ToolEvent[]): string {
+function extractFileReadSection(toolEvents: readonly ToolEvent[], initialSource: SourceFile[]): string {
+    const contentByPath = new Map<string, string>();
+    for (const file of initialSource) {
+        const normalized = file.filePath.replace(/\\/g, '/');
+        contentByPath.set(normalized, file.content);
+        // Also index by just the filename and relative segments for loose matching
+        const parts = normalized.split('/');
+        for (let i = 1; i < parts.length; i++) {
+            contentByPath.set(parts.slice(i).join('/'), file.content);
+        }
+    }
+
+    const seen = new Set<string>();
     const fileReads: string[] = [];
 
-    for (let i = 0; i < toolEvents.length; i++) {
-        const event = toolEvents[i];
+    for (const event of toolEvents) {
         if (event.type === 'tool_result' && event.toolName === 'file_read') {
             const fileName = event.toolOutput?.fileName || 'unknown';
-            fileReads.push(`- ${fileName}`);
+            if (seen.has(fileName)) continue;
+            seen.add(fileName);
+
+            const content = contentByPath.get(fileName) ?? contentByPath.get(fileName.replace(/\\/g, '/'));
+            if (content) {
+                fileReads.push(`--- File: ${fileName} ---\n${content}`);
+            } else {
+                fileReads.push(`--- File: ${fileName} --- (content not available)`);
+            }
         }
     }
 
@@ -181,27 +201,32 @@ function extractFileReadSection(toolEvents: readonly ToolEvent[]): string {
         return "No files were read by the agent.";
     }
 
-    return fileReads.join('\n');
+    return fileReads.join('\n\n');
 }
 
 const contextRetrievalSchema = z.object({
     is_relevant: z.boolean().describe(
-        'True only if the agent retrieved every relevant component needed to fulfill the query. ' +
-        'False if even one required component from the existing codebase was definitively missed.'
+        'True if the agent retrieved all existing files needed to understand the context for the query. ' +
+        'False only if an entire required existing file was not retrieved at all. ' +
+        'New functions or types the agent must create are NOT retrieval requirements and must NOT influence this value.'
     ),
     covered: z.string().describe(
-        'List of retrieved components and why each is relevant to the query. ' +
+        'List of retrieved files and the key existing components inside them that are relevant to the query. ' +
         'Format: "- <file name>\\n  - <component name and line number>\\n  - <one sentence: why relevant>". ' +
         'Write "None" if nothing relevant was retrieved.'
     ),
     missing: z.string().describe(
-        'List of required components that were not retrieved. ' +
-        'Format: "- <file name>\\n  - <component name and line number>\\n  - <one sentence: why required>". ' +
-        'Write "None" if nothing is missing.'
+        'List of entire existing files that were NOT retrieved but were needed. ' +
+        'Do NOT list individual functions or types — only whole files. ' +
+        'Do NOT list functions or types that need to be newly created as part of the implementation. ' +
+        'Format: "- <file name>\\n  - <one sentence: why this file was needed>". ' +
+        'Write "None" if all required existing files were retrieved.'
     ),
     critical_gaps: z.string().describe(
-        'List of components whose absence blocks a correct implementation. ' +
-        'Format: "- <file name>\\n  - <component name and line number>\\n  - <one sentence: why essential>". ' +
+        'List of entire existing files that were NOT retrieved and whose absence blocks correct implementation. ' +
+        'Do NOT list individual functions or types — only whole files. ' +
+        'Do NOT list functions or types that need to be newly created as part of the implementation. ' +
+        'Format: "- <file name>\\n  - <one sentence: why this file was essential>". ' +
         'Write "None" if there are no critical gaps. If any entry is listed here, is_relevant must be false.'
     ),
     recommendations: z.string().describe(
@@ -232,25 +257,31 @@ export async function evaluateContextRetrievalWithLLM(
     };
 
     const initialCodeString = stringifySources(initialSource);
-    const fileReadSection = extractFileReadSection(toolEvents);
+    const fileReadSection = extractFileReadSection(toolEvents, initialSource);
 
-    const systemPrompt = `You are an expert code evaluator. Your task is to evaluate and compare a set of code components provided in the user input to determine whether these components are sufficient for a complete and accurate implementation of the user's query against the codebase.
+    const systemPrompt = `You are an expert code evaluator. Your task is to determine whether the agent retrieved all the relevant existing files needed to implement the user's query.
 You will be given:
 - A user query (the code modification request)
 - The complete codebase (ground truth)
-- The RETRIEVED CODE COMPONENTS (retrieved by the agent via file reads)
+- The RETRIEVED CODE COMPONENTS: the full content of every file the agent read
+
+CRITICAL RULE — READ THIS FIRST:
+The agent reads entire files at once. The RETRIEVED CODE COMPONENTS section contains the complete content of every file the agent opened. Every function, type, constant, import, and declaration inside a retrieved file was 100% available to the agent. You must NEVER flag any component from a retrieved file as missing or a gap — regardless of whether the agent "used" it or not.
+
 Steps to follow:
-1. **Identify Required Code Components:**
-   Search the complete codebase and identify every code component (imports, configurables, variables, functions, types, classes, services, and enums) that is needed to implement the user query. These are the REQUIRED CODE COMPONENTS.
-2. **Compare Against Retrieved Components:**
-   Critically compare the RETRIEVED CODE COMPONENTS with the REQUIRED CODE COMPONENTS identified above.
+1. **Identify Required Existing Files:**
+   Look at the complete codebase and identify which existing files the agent needed to read to understand the context for implementing the user query. Consider only files that already exist — do NOT consider files or functions that need to be newly created as part of the implementation.
+2. **Compare Against Retrieved Files:**
+   Check whether each required existing file appears in RETRIEVED CODE COMPONENTS.
 3. **Analysis and Evaluation:**
-   - **Covered:** Components that were correctly retrieved.
-   - **Missing:** Components that are partially or completely absent from the retrieval.
-   - **Critical Gaps:** Components that are essential for a correct implementation but were not retrieved. If any critical gap exists, set is_relevant to false.
-   - **Recommendations:** Optional notes on what would complete the retrieval.
+   - **Covered:** List the existing files that were retrieved and why each was relevant.
+   - **Missing:** List only existing files that were NOT retrieved at all and were needed. If a file appears in RETRIEVED CODE COMPONENTS, every component inside it is covered — do not list individual functions or types from retrieved files.
+   - **Critical Gaps:** List only entire existing files that were NOT retrieved and whose absence blocks correct implementation. Do NOT list functions or components that need to be newly created. Do NOT list components from files that were already retrieved.
+   - **Recommendations:** Suggest any missing files that should have been retrieved.
 Note:
-- Be strict. A critical gap means the agent cannot correctly implement the query without that component.
+- Missing and critical gaps refer to entire files, not individual functions within files.
+- New functions, types, queries, or constants that the agent must write from scratch are NEVER retrieval requirements — do not mention them under missing or critical gaps.
+- Set is_relevant to false ONLY if an entire required existing file was not retrieved.
 Populate the four output fields using exactly this format:
 covered:
 - <file name>
