@@ -4,6 +4,7 @@
   "description": "OpenAPI-first API Designer for visual editing, governance validation, and AI readiness analysis in VS Code.",
   "version": "0.9.0",
   "publisher": "wso2",
+  "icon": "assets/icon.png",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -18,13 +19,12 @@
     "theme": "light"
   },
   "engines": {
-    "vscode": "^1.104.0"
+    "vscode": "^1.100.0"
   },
   "categories": [
-    "Programming Languages",
-    "Linters",
-    "Formatters",
-    "Other"
+    "API Design",
+    "API Governance",
+    "AI"
   ],
   "activationEvents": [
     "onStartupFinished",

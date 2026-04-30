@@ -2,30 +2,22 @@
 
 All notable changes to the "API Designer" extension will be documented in this file.
 
-> Note: No public release has been published yet. Entries are tracked under `Unreleased`.
-
-## **Unreleased**
-
-### Changed
-
-- Simplified extension scope to OpenAPI-focused design and analysis flows.
-- Removed legacy/custom-agent bootstrap behavior from extension activation.
-- Removed project-specific `.api-platform/config.yaml` governance ruleset resolution (default ruleset flow now used).
-- Reduced noisy diagnostics and added targeted debug telemetry for agent-based AI readiness lifecycle.
-- Added remote ruleset content caching for dynamic Spectral validation to reduce repeated downloads.
+## 0.9.0
 
 ### Added
-
-- Schema editor support for importing JSON samples and generating schema definitions directly.
-- Enhanced stale AI readiness behavior:
-  - stale findings remain visible from latest cached ready result,
-  - stale state now shows last evaluation timestamp.
-
-### Fixed
-
-- Fixed operation edits not persisting for newly added empty operations (e.g., `post: {}`).
-- Fixed stale AI readiness issue loading when spec hash changes by reusing latest cached ready findings.
-- Improved Analyze Issue Explorer visuals:
-  - `hint` severity now uses blue left border,
-  - re-evaluate button visibility improved.
-
+- **OpenAPI Visual Designer**: Design and edit OpenAPI 3.x APIs directly in VS Code.
+  - Edit paths, operations, parameters, request bodies, responses, headers, and reusable components.
+  - Import JSON samples to generate schema definitions.
+- **Governance Analysis Workspace**: Analyze APIs with built-in governance reports.
+  - Score cards for **AI Readiness**, **Security (OWASP)**, and **REST Compliance**.
+  - Detailed report pages with breakdowns, filtering, grouping, search, and issue-level diagnostics.
+- **AI Readiness with LLM Findings**: Run AI-readiness checks with optional LLM-assisted findings.
+  - LLM findings are merged into report issues and reflected in report counters.
+  - Supports re-evaluation, plus clear stale and failed analysis states.
+- **GitHub Copilot Integration**: Integrated Copilot-backed language model workflows in API Designer.
+  - Use AI-assisted design/edit flows from the designer experience.
+  - Use **Fix with AI** style actions from validation and parsing error states to generate remediation suggestions.
+  - Open AI chat with context-aware prompts from API sections and report findings.
+- **Commands and LM Tools**: Added API Designer commands and language model tool integrations.
+  - Open API Designer from editor context, title actions, and command palette.
+  - Validate specs, open in designer, and resolve AI findings through integrated tools.
