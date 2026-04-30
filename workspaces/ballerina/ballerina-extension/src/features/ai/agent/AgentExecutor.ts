@@ -844,9 +844,18 @@ Generation stopped by user. The last in-progress task was not saved. Files have 
                         const packageName = firstBalFile.split('/')[0];
                         if (packageName) {
                             integrationCtx.projectPath = path.join(integrationCtx.workspacePath, packageName);
-                            StateMachine.context().projectPath = integrationCtx.projectPath;
                         }
                     }
+                }
+                // Sync StateMachine with integration paths so updateProjectArtifacts can
+                // match file-change notifications and publish to ArtifactNotificationHandler.
+                // Without this, the ArtifactsUpdated subscriber in addToIntegration never
+                // fires and the 10-second timeout triggers (especially in test mode).
+                if (integrationCtx.projectPath) {
+                    StateMachine.context().projectPath = integrationCtx.projectPath;
+                }
+                if (integrationCtx.workspacePath) {
+                    StateMachine.context().workspacePath = integrationCtx.workspacePath;
                 }
                 await integrateCodeToWorkspace(tempProjectPath, generationFiles, integrationCtx);
             }
