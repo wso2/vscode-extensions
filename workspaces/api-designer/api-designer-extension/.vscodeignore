@@ -1,5 +1,6 @@
 .vscode/**
 .vscode-test/**
+.rush/**
 out/**
 node_modules/**
 src/**
@@ -15,6 +16,7 @@ test-resources
 ui-test
 language-server
 playwright-report
+playwright.config.js
 *.log
 mappings
 config

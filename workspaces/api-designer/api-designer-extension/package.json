@@ -161,12 +161,6 @@
         "category": "API Designer",
         "when": "isViewOpenAPI",
         "icon": "$(code)"
-      },
-      {
-        "command": "api-designer.createAPIFromPanel",
-        "title": "Create API Specification",
-        "category": "API Designer",
-        "icon": "$(add)"
       }
     ],
     "menus": {
