@@ -294,7 +294,7 @@ export const OpenAPIEditor: React.FC<OpenAPIEditorProps> = ({
                                 existingPaths: Object.keys(spec.paths || {})
                             }),
                             '/paths',
-                            specType,
+                            specType ?? undefined,
                             'Add a new endpoint path with recommended HTTP methods, summary, description, and responses.',
                             'Add Endpoint',
                             'Describe the endpoint path you want to add/edit (e.g., /users, /products)...'
@@ -307,7 +307,7 @@ export const OpenAPIEditor: React.FC<OpenAPIEditorProps> = ({
                                 pathItem: pathData
                             }),
                             `/paths${editorModals.pathFormKey}`,
-                            specType,
+                            specType ?? undefined,
                             `Improve endpoint: ${editorModals.pathFormKey}`,
                             'Improve Endpoint',
                             'Describe how you want to improve this endpoint...'
@@ -346,7 +346,7 @@ export const OpenAPIEditor: React.FC<OpenAPIEditorProps> = ({
                             aiPromptDialog.showPrompt(
                                 JSON.stringify(contextPayload),
                                 `/paths${editorModals.operationFormPath}/${editorModals.operationFormMethod.toLowerCase()}`,
-                                specType,
+                                specType ?? undefined,
                                 defaultPrompt,
                                 hasExistingContent ? 'Improve Operation' : 'Add Operation',
                                 hasExistingContent 

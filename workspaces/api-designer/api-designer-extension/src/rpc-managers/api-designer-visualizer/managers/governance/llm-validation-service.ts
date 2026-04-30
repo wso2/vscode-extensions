@@ -10,6 +10,28 @@ type Deps = {
     toInternalLlmRuleId: (rule: string) => string;
 };
 
+/** User-facing text for any thrown value from the LLM pipeline (API, model, parse). */
+export function formatLlmFailureError(error: unknown): string {
+    if (error instanceof Error) {
+        const base = (error.message || "").trim();
+        const cause = (error as Error & { cause?: unknown }).cause;
+        if (cause instanceof Error) {
+            const c = (cause.message || "").trim();
+            if (c) {
+                return c.length > 500 ? `${base} (${c.slice(0, 500)}…)` : `${base} (${c})`;
+            }
+        }
+        return base || "LLM validation failed";
+    }
+    if (typeof error === "string" && error.trim()) {
+        return error.trim();
+    }
+    if (error && typeof error === "object" && "message" in error && typeof (error as { message: unknown }).message === "string") {
+        return String((error as { message: string }).message).trim() || "LLM validation failed";
+    }
+    return "LLM validation failed";
+}
+
 export class LlmValidationService {
     private guidelinesContent: string | null = null;
 
@@ -64,14 +86,30 @@ export class LlmValidationService {
 
     public normalizeLlmResult(rawText: string): LlmValidationResult {
         const text = rawText.trim();
+        if (!text) {
+            throw new Error("The model returned an empty response. Try again or use a smaller OpenAPI document.");
+        }
         const firstBrace = text.indexOf("{");
         const lastBrace = text.lastIndexOf("}");
         const jsonText = firstBrace >= 0 && lastBrace > firstBrace ? text.slice(firstBrace, lastBrace + 1) : text;
-        const parsed = JSON.parse(jsonText) as {
+        let parsed: {
             score?: number;
             summary?: string;
             findings?: Array<{ rule?: string; message?: string; severity?: string; path?: string; suggestion?: string }>;
         };
+        try {
+            parsed = JSON.parse(jsonText) as typeof parsed;
+        } catch (e) {
+            const hint =
+                e instanceof Error && e.message
+                    ? ` Parse error: ${e.message.length > 120 ? `${e.message.slice(0, 120)}…` : e.message}`
+                    : "";
+            throw new Error(
+                "The model response was not valid JSON, so the analysis could not be applied." +
+                    hint +
+                    " Try re-running the analysis, or check that GitHub Copilot’s language model is available."
+            );
+        }
         const score = Math.max(0, Math.min(100, Math.round(Number(parsed.score ?? 0))));
         const findings = (parsed.findings || []).slice(0, 20).map((finding, index) => {
             const pathSegments = String(finding.path || "").split(".").map((segment) => segment.trim()).filter(Boolean);
@@ -124,23 +162,43 @@ export class LlmValidationService {
     public async executeLlmValidation(specContent: string): Promise<LlmExecutionResult> {
         const vscodeAny = vscode as any;
         if (!vscodeAny.lm?.selectChatModels) {
-            throw new Error("Language model API is not available");
+            throw new Error(
+                "The VS Code Language Model API is not available in this host. " +
+                    "Open API Designer in VS Code with a recent version and the GitHub Copilot extension."
+            );
         }
         const models = await vscodeAny.lm.selectChatModels({ vendor: "copilot" });
         if (!Array.isArray(models) || models.length === 0) {
-            throw new Error("No Copilot chat model available");
+            throw new Error(
+                "No GitHub Copilot chat model is registered. Sign in to Copilot and ensure the default chat model is available, then try again."
+            );
         }
         const model = models[0];
         const prompt = await this.buildLlmPrompt(specContent);
         const userMessage = vscodeAny.LanguageModelChatMessage?.User
             ? vscodeAny.LanguageModelChatMessage.User(prompt)
             : { role: "user", content: prompt };
-        const response = await model.sendRequest([userMessage], {}, new vscode.CancellationTokenSource().token);
         let output = "";
-        for await (const chunk of response.text) {
-            output += String(chunk);
+        try {
+            const response = await model.sendRequest([userMessage], {}, new vscode.CancellationTokenSource().token);
+            for await (const chunk of response.text) {
+                output += String(chunk);
+            }
+        } catch (e) {
+            const detail = formatLlmFailureError(e);
+            throw new Error(
+                `The language model request did not complete: ${detail}. ` +
+                    "If this persists, check your Copilot subscription and try a smaller spec."
+            );
         }
         const modelId = String((model as { id?: string; name?: string })?.id || (model as { id?: string; name?: string })?.name || "copilot");
-        return { result: this.normalizeLlmResult(output), modelId };
+        try {
+            return { result: this.normalizeLlmResult(output), modelId };
+        } catch (e) {
+            if (e instanceof Error) {
+                throw e;
+            }
+            throw new Error(formatLlmFailureError(e));
+        }
     }
 }

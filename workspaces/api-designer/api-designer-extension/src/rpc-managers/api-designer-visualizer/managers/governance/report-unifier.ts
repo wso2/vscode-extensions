@@ -28,7 +28,7 @@ type ReportDimension = {
     icon?: string;
     docsUrl?: string;
     aggregationWeight: number;
-    subBucketKeys: string[];
+    subBucketKeys: readonly string[];
     score?: number;
     subBuckets?: ReportSubBucket[];
 };

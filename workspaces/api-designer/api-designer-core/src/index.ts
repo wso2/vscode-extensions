@@ -40,6 +40,7 @@ export {
     checkAIAvailability,
     getAllSpectralRulesets,
     getGovernance,
+    generateWithAI,
 } from "./rpc-types/api-designer-visualizer/rpc-type";
 
 // ------ Copilot RPC types -------->

@@ -22,6 +22,7 @@ import { useAIAvailability } from '../../hooks/useAIAvailability';
 import { AIButton } from '../ai/AIButton';
 import { ApiSpecType, buildFixValidationIssuesPrompt } from '@wso2/api-designer-core';
 import type { ValidationData, ValidationIssuePathItem } from '../../views/DesignView/components/api-header/MetricsOverview';
+import { useVisualizerContext } from '@wso2/api-designer-rpc-client';
 
 /** @deprecated Use ValidationIssuePathItem from MetricsOverview — kept for external imports */
 export type ValidationIssue = ValidationIssuePathItem;
@@ -471,6 +472,7 @@ export const ValidationIssuesModal: React.FC<ValidationIssuesModalProps> = ({
     fileUri,
     specType = 'openapi',
 }) => {
+    const { rpcClient } = useVisualizerContext();
     const isAIAvailable = useAIAvailability();
     const [activeTab, setActiveTab] = useState<'error' | 'warning'>(propActiveTab || 'error');
     const [selectedIssueIndex, setSelectedIssueIndex] = useState<number | null>(null);
@@ -760,10 +762,14 @@ Note: The validation tool validates OpenAPI specifications automatically.`;
                                                     </FixStatusActionBtn>
                                                     <FixStatusActionBtn
                                                         onClick={() => {
-                                                            postVSCodeMessage({
-                                                                command: 'navigateTo',
-                                                                data: { focusPath: fixContext.issue.path || [] },
-                                                            });
+                                                            if (rpcClient) {
+                                                                rpcClient.navigateTo(fixContext.issue.path || []);
+                                                            } else {
+                                                                postVSCodeMessage({
+                                                                    command: 'navigateTo',
+                                                                    data: { focusPath: fixContext.issue.path || [] },
+                                                                });
+                                                            }
                                                         }}
                                                     >
                                                         View fix

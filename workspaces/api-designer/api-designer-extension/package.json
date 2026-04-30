@@ -219,14 +219,11 @@
           "description": "AI provider to use for code generation and assistance",
           "order": 1
         },
-        "apiDesigner.spectral.rulesetFolders": {
-          "type": "array",
-          "default": [],
-          "items": {
-            "type": "string"
-          },
-          "description": "GitHub folder URLs or local paths containing Spectral rulesets. Adding a new folder here triggers the extension to list the contained rulesets for selection.",
-          "markdownDescription": "GitHub folder URLs or local paths containing Spectral rulesets. When you add a new entry, the extension automatically scans the folder and lets you choose which rulesets to enable.\n\nIf this setting is empty, the extension uses bundled rulesets from `<extension>/spectral-rulesets` by default.",
+        "apiDesigner.spectral.rulesetFolder": {
+          "type": "string",
+          "default": "",
+          "description": "Spectral ruleset location: a GitHub folder URL or a local path. For more than one location, put each on its own line or separate with a comma or semicolon. Changing this value triggers a scan so you can choose which rulesets to enable.",
+          "markdownDescription": "Where to find Spectral ruleset files: one GitHub folder URL or one local directory path, or several paths in this single field (one per line, or separated by commas or semicolons). On save, the extension scans each location and lets you choose which rulesets to use.\n\nIf this is empty, the extension uses the bundled rulesets under `<extension>/spectral-rulesets` by default.",
           "order": 4
         },
         "apiDesigner.spectral.selectedRulesets": {

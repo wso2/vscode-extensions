@@ -4,6 +4,7 @@ import { AIButton } from '../../../components/ai/AIButton';
 import { postMessage } from '../../../utils/vscode-api';
 import { AnalyzeReportKey, GroupBy, IssueRow, SeverityLevel, SortBy, SortDir } from '../hooks/useReport';
 import { ANALYZE_TYPE_SCALE, extractSnippetLines, getMethodStyle } from './AnalyzeSingleReportHelpers';
+import { useVisualizerContext } from '@wso2/api-designer-rpc-client';
 
 interface AnalyzeSingleReportIssueExplorerProps {
     title?: string;
@@ -538,6 +539,7 @@ const MethodBadge: React.FC<{ method: string }> = ({ method }) => {
 };
 
 export const AnalyzeSingleReportIssueExplorer: React.FC<AnalyzeSingleReportIssueExplorerProps> = (props) => {
+    const { rpcClient } = useVisualizerContext();
     const {
         title,
         subtitle,
@@ -794,10 +796,14 @@ export const AnalyzeSingleReportIssueExplorer: React.FC<AnalyzeSingleReportIssue
                                                 </FixStatusActionBtn>
                                                 <FixStatusActionBtn
                                                     onClick={() => {
-                                                        postMessage({
-                                                            command: 'navigateTo',
-                                                            data: { focusPath: fixContext.issue.violation.pathSegments || [] },
-                                                        });
+                                                        if (rpcClient) {
+                                                            rpcClient.navigateTo(fixContext.issue.violation.pathSegments || []);
+                                                        } else {
+                                                            postMessage({
+                                                                command: 'navigateTo',
+                                                                data: { focusPath: fixContext.issue.violation.pathSegments || [] },
+                                                            });
+                                                        }
                                                     }}
                                                 >
                                                     View fix

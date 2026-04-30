@@ -45,6 +45,12 @@ import {
     CheckAIAvailabilityResponse,
     GetAllSpectralRulesetsRequest,
     GetAllSpectralRulesetsResponse,
+    GenerateWithAIRequest,
+    GenerateWithAIResponse,
+    SaveSpecNotification,
+    RequestValidationNotification,
+    NavigateToNotification,
+    OpenExternalNotification,
 } from "./types";
 
 
@@ -65,6 +71,12 @@ export const fetchRulesetsFromFolder: RequestType<FetchRulesetsFromFolderRequest
 export const getApplicableRulesets: RequestType<GetApplicableRulesetsRequest, GetApplicableRulesetsResponse> = { method: `${_preFix}/getApplicableRulesets` };
 export const checkAIAvailability: RequestType<CheckAIAvailabilityRequest, CheckAIAvailabilityResponse> = { method: `${_preFix}/checkAIAvailability` };
 export const getAllSpectralRulesets: RequestType<GetAllSpectralRulesetsRequest, GetAllSpectralRulesetsResponse> = { method: `${_preFix}/getAllSpectralRulesets` };
+
+export const generateWithAI: RequestType<GenerateWithAIRequest, GenerateWithAIResponse> = { method: 'ai/generateWithAI' };
+export const saveSpec: NotificationType<SaveSpecNotification> = { method: `${_preFix}/saveSpec` };
+export const requestValidation: NotificationType<RequestValidationNotification> = { method: `${_preFix}/requestValidation` };
+export const navigateTo: NotificationType<NavigateToNotification> = { method: `${_preFix}/navigateTo` };
+export const openExternal: NotificationType<OpenExternalNotification> = { method: `${_preFix}/openExternal` };
 
 export const onDocumentFileChanged: NotificationType<DocumentFileChangedNotification> = { method: `${_preFix}/onDocumentFileChanged` };
 

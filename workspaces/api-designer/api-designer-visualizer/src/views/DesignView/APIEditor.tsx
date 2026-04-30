@@ -32,6 +32,7 @@ import { useDebouncedSave } from '../../hooks/useDebouncedSave';
 import { useDebouncedValidation } from '../../hooks/useDebouncedValidation';
 import { useAIAvailability } from '../../hooks/useAIAvailability';
 import { postMessage as postVSCodeMessage } from '../../utils/vscode-api';
+import { useVisualizerContext } from '@wso2/api-designer-rpc-client';
 
 interface OpenAPISpec {
     openapi?: string;
@@ -94,6 +95,7 @@ interface APIEditorProps {
 }
 
 export const APIEditor: React.FC<APIEditorProps> = ({ initialSpec: propInitialSpec, fileUri: propFileUri }) => {
+    const { rpcClient } = useVisualizerContext();
     // Use hooks for state management
     const fileUri = useFileUri(propFileUri);
     const state = useAPIEditorState(propInitialSpec);
@@ -110,13 +112,17 @@ export const APIEditor: React.FC<APIEditorProps> = ({ initialSpec: propInitialSp
     // Debounced save hook
     const { save: debouncedSave } = useDebouncedSave<OpenAPISpec>({
         onSave: useCallback((next: OpenAPISpec) => {
-            postVSCodeMessage({ command: 'saveSpec', data: next });
+            if (rpcClient) {
+                rpcClient.saveSpec(next);
+            } else {
+                postVSCodeMessage({ command: 'saveSpec', data: next });
+            }
             // Use debounced validation requests instead of setTimeout
             setTimeout(() => {
                 debouncedRequestValidation();
                 debouncedRequestAIReadiness();
             }, 600);
-        }, [debouncedRequestValidation, debouncedRequestAIReadiness]),
+        }, [debouncedRequestValidation, debouncedRequestAIReadiness, rpcClient]),
         delay: 500
     });
 

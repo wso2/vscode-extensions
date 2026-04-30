@@ -241,7 +241,7 @@ export function RequestBody(props: RequestBodyProps) {
         handleRequestBodyChange(newRequestBody);
     };
     const onConfigureRequestClick = () => {
-        rpcClient.selectQuickPickItems({
+        rpcClient?.selectQuickPickItems({
             title: "Select Content Types",
             items: MediaTypes.map(item => ({ label: item, picked: mediaTypes?.includes(item) }))
         }).then(resp => {
@@ -269,7 +269,7 @@ export function RequestBody(props: RequestBodyProps) {
     };
 
     const handleImportJSON = () => {
-        rpcClient.getApiDesignerVisualizerRpcClient().importJSON().then(resp => {
+        rpcClient?.getApiDesignerVisualizerRpcClient().importJSON().then(resp => {
             if (resp) {
                 onSchemaChange(resp);
             }
@@ -708,7 +708,7 @@ export function RequestBody(props: RequestBodyProps) {
                             </HeaderWrapper>
                         </CardContent>
                 <MediaType
-                            mediaType={requestBody.content?.[selectedMediaType] || { schema: { type: "object" } }}
+                            mediaType={requestBody.content?.[selectedMediaType ?? ''] || { schema: { type: "object" } }}
                             contentType={selectedMediaType}
                             hideHeader={true}
                     onMediaTypeChange={handleMediaTypeChange}
@@ -726,7 +726,7 @@ export function RequestBody(props: RequestBodyProps) {
                                         Examples
                                     </Typography>
                                     <ActionButtonRow>
-                                        {!!requestBody?.content?.[selectedMediaType]?.schema && exampleMode === 'single' && (
+                                        {!!requestBody?.content?.[selectedMediaType ?? '']?.schema && exampleMode === 'single' && (
                                             <Button 
                                                 appearance="secondary" 
                                                 onClick={handleGenerateExample}
@@ -757,11 +757,11 @@ export function RequestBody(props: RequestBodyProps) {
                                 exampleText={exampleText}
                                 onExampleChange={handleExampleChange}
                                 placeholder={getExamplePlaceholder()}
-                                hasSchema={!!requestBody?.content?.[selectedMediaType]?.schema}
-                                isSchemaReference={!!requestBody?.content?.[selectedMediaType]?.schema?.$ref}
+                                hasSchema={!!requestBody?.content?.[selectedMediaType ?? '']?.schema}
+                                isSchemaReference={!!requestBody?.content?.[selectedMediaType ?? '']?.schema?.$ref}
                                 onGenerateFromSchema={handleGenerateExample}
                                 exampleMode={exampleMode}
-                                examples={requestBody?.content?.[selectedMediaType]?.examples || {}}
+                                examples={requestBody?.content?.[selectedMediaType ?? '']?.examples || {}}
                                 onToggleExampleMode={handleToggleExampleMode}
                                 onAddExample={handleAddExample}
                                 onUpdateExample={handleUpdateExample}

@@ -295,7 +295,7 @@ export const ParameterEditor: React.FC<ParameterEditorProps> = ({
                     <CheckBox
                         checked={isPath ? true : draft.required}
                         label={isPath ? 'Required (path parameters are always required)' : 'Required'}
-                        onChange={isPath ? undefined : (v) => set('required', v)}
+                        onChange={isPath ? () => undefined : (v) => set('required', v)}
                         disabled={isPath}
                     />
                     <CheckBox checked={draft.deprecated} label="Deprecated" onChange={(v) => set('deprecated', v)} />

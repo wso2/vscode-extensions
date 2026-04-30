@@ -25,7 +25,6 @@
 export * from './useFormState';
 export * from './useFieldArray';
 export * from './useFormValidation';
-export * from './useAPISpec';
 export * from './useComponentFilter';
 export * from './useAIAvailability';
 // useCopilotAvailability is deprecated - use useAIAvailability instead

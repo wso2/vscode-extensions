@@ -16,15 +16,12 @@
  * under the License.
  */
 
+import * as vscode from 'vscode';
 import { WebviewView, WebviewPanel, window, QuickPickItem } from 'vscode';
 import { Messenger } from 'vscode-messenger';
-import { StateMachine } from './stateMachine';
-import { stateChanged, getVisualizerState, VisualizerLocation, getPopupVisualizerState, PopupVisualizerLocation, popupStateChanged, selectQuickPickItem, WebviewQuickPickItem, selectQuickPickItems, showConfirmMessage, showInputBox, showInfoNotification, showErrorNotification } from '@wso2/api-designer-core';
-import { VisualizerWebview } from './visualizer/webview';
-import { StateMachinePopup } from './stateMachinePopup';
+import { getVisualizerState, VisualizerLocation, selectQuickPickItem, WebviewQuickPickItem, selectQuickPickItems, showConfirmMessage, showInputBox, showInfoNotification, showErrorNotification, generateWithAI, saveSpec, requestValidation, navigateTo, openExternal } from '@wso2/api-designer-core';
 import { AIManager } from './ai/ai-manager';
 import { extension } from './APIDesignerExtensionContext';
-import path = require('path');
 import { registerApiDesignerVisualizerRpcHandlers } from './rpc-managers/api-designer-visualizer/rpc-handler';
 
 export class RPCLayer {
@@ -32,18 +29,7 @@ export class RPCLayer {
     static _aiManager: AIManager;
 
     constructor(webViewPanel: WebviewPanel | WebviewView) {
-        if (isWebviewPanel(webViewPanel)) {
-            RPCLayer._messenger.registerWebviewPanel(webViewPanel as WebviewPanel);
-            StateMachine.service().onTransition((state) => {
-                RPCLayer._messenger.sendNotification(stateChanged, { type: 'webview', webviewType: VisualizerWebview.viewType }, state.value);
-            });
-            // Form machine transition
-            StateMachinePopup.service().onTransition((state) => {
-                RPCLayer._messenger.sendNotification(popupStateChanged, { type: 'webview', webviewType: VisualizerWebview.viewType }, state.value);
-            });
-        } else {
-            RPCLayer._messenger.registerWebviewPanel(webViewPanel as WebviewPanel);
-        }
+        RPCLayer._messenger.registerWebviewPanel(webViewPanel as WebviewPanel);
     }
 
     static create(webViewPanel: WebviewPanel | WebviewView) {
@@ -60,9 +46,6 @@ export class RPCLayer {
         // ----- Main Webview RPC Methods
         RPCLayer._messenger.onRequest(getVisualizerState, () => getContext());
         registerApiDesignerVisualizerRpcHandlers(RPCLayer._messenger);
-
-        // ----- Popup Views RPC Methods
-        RPCLayer._messenger.onRequest(getPopupVisualizerState, () => getPopupContext());
 
         // ----- VScode interactions RPC Methods
         RPCLayer._messenger.onRequest(selectQuickPickItem, async (params) => {
@@ -86,12 +69,46 @@ export class RPCLayer {
         });
 
         // ----- AI Generation RPC Method (supports multiple AI providers)
-        const generateWithAIMethod = { method: 'ai/generateWithAI' };
-        RPCLayer._messenger.onRequest(generateWithAIMethod, async (params: any) => {
+        RPCLayer._messenger.onRequest(generateWithAI, async (params) => {
             return await RPCLayer._aiManager.generateWithAI(
                 params.context,
                 params.prompt
             );
+        });
+
+        RPCLayer._messenger.onNotification(saveSpec, async (payload) => {
+            const { ApiDesignerPanel } = await import('./visualizer/api-designer-panel');
+            const currentPanel = ApiDesignerPanel.getCurrentPanel();
+            if (currentPanel) {
+                await currentPanel.handleSaveSpecNotification(payload?.data);
+            }
+        });
+
+        RPCLayer._messenger.onNotification(requestValidation, async () => {
+            const { ApiDesignerPanel } = await import('./visualizer/api-designer-panel');
+            const currentPanel = ApiDesignerPanel.getCurrentPanel();
+            if (currentPanel) {
+                await currentPanel.sendValidationData();
+            }
+        });
+
+        RPCLayer._messenger.onNotification(navigateTo, async (payload) => {
+            const { ApiDesignerPanel } = await import('./visualizer/api-designer-panel');
+            const currentPanel = ApiDesignerPanel.getCurrentPanel();
+            if (currentPanel) {
+                await currentPanel.handleNavigateToNotification(payload?.data?.focusPath);
+            }
+        });
+
+        RPCLayer._messenger.onNotification(openExternal, async (payload) => {
+            const url = payload?.url;
+            if (typeof url === 'string' && url.trim().length > 0) {
+                try {
+                    await vscode.env.openExternal(vscode.Uri.parse(url));
+                } catch {
+                    // Ignore invalid URLs
+                }
+            }
         });
     }
 
@@ -99,44 +116,15 @@ export class RPCLayer {
 
 
 async function getContext(): Promise<VisualizerLocation> {
-    const context = StateMachine.context();
-    // If state machine doesn't have documentUri, try to get it from ApiDesignerPanel
-    let documentUri = context.documentUri;
-    if (!documentUri) {
-        try {
-            const { ApiDesignerPanel } = await import('./visualizer/api-designer-panel');
-            const currentPanel = ApiDesignerPanel.getCurrentPanel();
-            if (currentPanel) {
-                const currentFilePath = currentPanel.getCurrentFilePath();
-                if (currentFilePath) {
-                    documentUri = currentFilePath;
-                }
-            }
-        } catch (error) {
-            // Ignore import errors
+    let documentUri: string | undefined;
+    try {
+        const { ApiDesignerPanel } = await import('./visualizer/api-designer-panel');
+        const currentPanel = ApiDesignerPanel.getCurrentPanel();
+        if (currentPanel) {
+            documentUri = currentPanel.getCurrentFilePath();
         }
+    } catch {
+        // Ignore import errors
     }
-    return new Promise((resolve) => {
-        resolve({
-            documentUri: documentUri,
-            view: context.view,
-            identifier: context.identifier,
-            projectUri: context.projectUri
-        });
-    });
-}
-
-async function getPopupContext(): Promise<PopupVisualizerLocation> {
-    const context = StateMachinePopup.context();
-    return new Promise((resolve) => {
-        resolve({
-            documentUri: context.documentUri,
-            view: context.view,
-            recentIdentifier: context.recentIdentifier
-        });
-    });
-}
-
-function isWebviewPanel(webview: WebviewPanel | WebviewView): boolean {
-    return webview.viewType === VisualizerWebview.viewType;
+    return { documentUri, view: null };
 }

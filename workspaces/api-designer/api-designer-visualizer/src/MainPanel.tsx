@@ -62,7 +62,7 @@ const MainPanel = ({ handleResetError }: { handleResetError: () => void }) => {
     // Poll for documentUri changes every 200ms to catch updates quickly
     useEffect(() => {
         const checkDocumentUri = () => {
-            rpcClient.getVisualizerState().then((machineView) => {
+            rpcClient?.getVisualizerState().then((machineView) => {
                 if (machineView.documentUri && machineView.documentUri !== currentDocumentUri) {
                     // Document URI changed, trigger immediate refresh
                     // Document URI changed - handled by file change notifications
@@ -82,8 +82,8 @@ const MainPanel = ({ handleResetError }: { handleResetError: () => void }) => {
     }, [currentDocumentUri, rpcClient]);
 
     useEffect(() => {
-        rpcClient.getVisualizerState().then((machineView) => {
-            setMachineView(machineView.view);
+        rpcClient?.getVisualizerState().then((machineView) => {
+            setMachineView(machineView.view ?? undefined);
             if (viewComponent && machineView.view == MACHINE_VIEW.Overview) {
                 setShowAIWindow(true);
             }
@@ -105,7 +105,7 @@ const MainPanel = ({ handleResetError }: { handleResetError: () => void }) => {
     }, []);
 
     const fetchContext = () => {
-        rpcClient.getVisualizerState().then(async (machineView) => {
+        rpcClient?.getVisualizerState().then(async (machineView) => {
             let shouldShowNavigator = true;
             switch (machineView?.view) {
                 case MACHINE_VIEW.Overview:

@@ -12,7 +12,7 @@ import {
     DimWarningCount,
     FlatBreakdownHeader,
 } from './AIReadinessBucketGrid';
-import { postMessage } from '../../../utils/vscode-api';
+import { useVisualizerContext } from '@wso2/api-designer-rpc-client';
 import { ANALYZE_TYPE_SCALE } from './AnalyzeSingleReportHelpers';
 
 interface AnalyzeSingleReportBreakdownProps {
@@ -237,6 +237,7 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
     onViewIssues,
     unifiedCategories,
 }) => {
+    const { rpcClient } = useVisualizerContext();
     const categories = unifiedCategories || [];
     const orderedCategories = React.useMemo(() => {
         if (reportKey === 'ai-readiness') {
@@ -309,7 +310,7 @@ export const AnalyzeSingleReportBreakdown: React.FC<AnalyzeSingleReportBreakdown
                                             <ScorePill $color={ringTint}>{ringRounded}%</ScorePill>
                                             <DimTitle>{cat.label}</DimTitle>
                                             {cat.docsUrl && (
-                                                <DocsLink onClick={() => postMessage({ command: 'openExternal', url: cat.docsUrl })}>
+                                                <DocsLink onClick={() => rpcClient?.openExternal(cat.docsUrl ?? '')  }>
                                                     Docs<ExtLinkSvg />
                                                 </DocsLink>
                                             )}

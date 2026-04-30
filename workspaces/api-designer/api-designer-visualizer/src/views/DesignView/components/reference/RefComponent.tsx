@@ -90,13 +90,13 @@ export const RefComponent: React.FC<RefComponentProps> = (props: RefComponentPro
     const valueContainerRef = useRef<HTMLDivElement>(null); // Reference to the value container
 
     const handleComponentClick = () => {
-        setValueContainerPosition(valueContainerRef.current?.getBoundingClientRect());
+        setValueContainerPosition(valueContainerRef.current?.getBoundingClientRect() ?? null);
         setIsComponentOpen(!isComponentOpen);
     };
 
     const handleChange = () => {
         setIsComponentOpen(false);
-        onChange();
+        onChange?.();
     };
 
     const handleCloseComponent = () => {

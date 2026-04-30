@@ -18,6 +18,7 @@
 
 import { useRef, useCallback, useEffect } from 'react';
 import { postMessage as postVSCodeMessage } from '../utils/vscode-api';
+import { useVisualizerContext } from '@wso2/api-designer-rpc-client';
 
 export interface UseDebouncedValidationOptions {
     delay?: number;
@@ -38,13 +39,18 @@ export interface UseDebouncedValidationReturn {
 export function useDebouncedValidation(
     options: UseDebouncedValidationOptions = {}
 ): UseDebouncedValidationReturn {
+    const { rpcClient } = useVisualizerContext();
     const { delay = 500, requestValidation: customRequestValidation, requestAIReadiness: customRequestAIReadiness } = options;
     const validationTimerRef = useRef<NodeJS.Timeout | null>(null);
     const aiReadinessTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     const defaultRequestValidation = useCallback(() => {
+        if (rpcClient) {
+            rpcClient.requestValidation('design-view');
+            return;
+        }
         postVSCodeMessage({ command: 'requestValidation' });
-    }, []);
+    }, [rpcClient]);
 
     const defaultRequestAIReadiness = useCallback(() => {
         postVSCodeMessage({ command: 'requestAIReadiness' });

@@ -66,7 +66,7 @@ export interface Schema {
 }
 
 export interface SchemaEditorProps {
-    schema: Schema;
+    schema?: Schema;
     schemaName: string;
     variant?: 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
     sx?: any;
@@ -545,6 +545,7 @@ export const SchemaEditor: React.FC<SchemaEditorProps> = (props: SchemaEditorPro
     };
 
     const handleAddProperty = () => {
+        if (!schema) return;
         const newKey = `property${Object.keys(schema.properties || {}).length + 1}`;
         const newProperties = {
             ...(schema.properties || {}),
@@ -559,6 +560,7 @@ export const SchemaEditor: React.FC<SchemaEditorProps> = (props: SchemaEditorPro
     };
 
     const handleTypeChange = (newType: Schema['type']) => {
+        if (!schema) return;
         let updatedSchema: Schema;
         if (typeof newType === 'string' && newType.startsWith('#/components/schemas/')) {
             updatedSchema = { $ref: newType };

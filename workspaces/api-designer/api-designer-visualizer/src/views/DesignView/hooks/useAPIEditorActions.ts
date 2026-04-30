@@ -214,7 +214,7 @@ export function useAPIEditorActions(options: UseAPIEditorActionsOptions) {
                     apiTitle: spec.info?.title
                 }),
                 `/components/${editorModals.componentEditorType}`,
-                specType,
+                specType ?? undefined,
                 `Add a new ${label} component to the API specification`,
                 `Add ${label.charAt(0).toUpperCase() + label.slice(1)}`,
                 `Describe the ${label} component you want to add/edit...`
@@ -227,7 +227,7 @@ export function useAPIEditorActions(options: UseAPIEditorActionsOptions) {
                     data: editorModals.componentEditorData
                 }),
                 `/components/${editorModals.componentEditorType}/${editorModals.componentEditorName}`,
-                specType,
+                specType ?? undefined,
                 `Improve ${label} component: ${editorModals.componentEditorName || 'selected component'}`,
                 `Improve ${label.charAt(0).toUpperCase() + label.slice(1)}`,
                 `Describe how you want to improve this ${label} component...`

@@ -80,8 +80,8 @@ export function Header(props: HeaderProps) {
     const handleHeaderChange = (header: HeaderDefinition, name: string) => {
         const newHeader: HeaderDefinition = {
             schema: {
-                type: header.schema.type,
-                example: header.schema.example,
+                type: header.schema?.type,
+                example: header.schema?.example,
             },
             description: header.description,
             required: header.required,
@@ -99,8 +99,8 @@ export function Header(props: HeaderProps) {
                 onBlur={(evt) => handleHeaderChange({ ...header }, evt.target.value)}
             />
             <Dropdown
-                id={`header-${header.schema.type}`}
-                value={header.schema.type}
+                id={`header-${header.schema?.type}`}
+                value={header.schema?.type}
                 containerSx={{ width: "15%" }}
                 items={paramTypeOptions}
                 onValueChange={(value) => handleHeaderChange({ ...header, schema: { ...header.schema, type: value as ParameterSchemaTypes } }, name)}

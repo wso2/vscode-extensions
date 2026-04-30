@@ -43,6 +43,33 @@ export interface RulesetMetadata {
     provider?: string;
 }
 
+export function resolveGitHubRawUrl(inputUrl: string, fileName?: string): string | null {
+    const trimmed = String(inputUrl || "").trim();
+    if (!trimmed) {
+        return null;
+    }
+
+    const ensureFileName = (baseUrl: string): string => {
+        if (!fileName) return baseUrl;
+        const cleanName = fileName.startsWith("/") ? fileName.slice(1) : fileName;
+        const separator = baseUrl.endsWith("/") ? "" : "/";
+        return `${baseUrl}${separator}${cleanName}`;
+    };
+
+    if (trimmed.includes("raw.githubusercontent.com")) {
+        return ensureFileName(trimmed);
+    }
+
+    const parsed = trimmed.match(/github\.com\/([^\/]+)\/([^\/]+)\/(blob|tree)\/([^\/]+)(?:\/(.+))?/);
+    if (parsed) {
+        const [, owner, repo, , branch, targetPath] = parsed;
+        const rawBase = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}${targetPath ? `/${targetPath}` : ""}`;
+        return ensureFileName(rawBase);
+    }
+
+    return null;
+}
+
 /**
  * Get GitHub authentication session
  * @param promptIfNeeded - If true, will prompt user to sign in if no session exists. If false, only returns existing session.

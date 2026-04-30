@@ -18,7 +18,7 @@
 
 import * as vscode from 'vscode';
 import { validateApiSpec } from '../utils/validation-utils';
-import { logError, logDebug } from '../util/logger';
+import { logError, logDebug } from '../utils/logger';
 import { loadYaml } from '@wso2/api-designer-core';
 import { GovernanceManager } from '../rpc-managers/api-designer-visualizer/managers/governance-manager';
 

@@ -1,16 +1,13 @@
 const path = require("path");
 const webpack = require("webpack");
-
 module.exports = {
-    entry: {
-        Visualizer: "./src/index.tsx"
-    },
+    entry: "./src/index.tsx",
     target: "web",
     devtool: "source-map",
     mode: "development",
     output: {
         path: path.resolve(__dirname, "build"),
-        filename: "[name].js",
+        filename: "Visualizer.js",
         library: "visualizerWebview",
     },
     resolve: {
@@ -63,7 +60,8 @@ module.exports = {
                     filename: './images/[name][ext]',
                 },
             }
-        ]
+        ],
+        noParse: [require.resolve("@ts-morph/common/dist/typescript.js")],
     },
     devServer: {
         allowedHosts: 'all',

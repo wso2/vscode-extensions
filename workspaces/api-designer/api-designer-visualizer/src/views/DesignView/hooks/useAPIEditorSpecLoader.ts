@@ -76,7 +76,7 @@ export function useAPIEditorSpecLoader(options: UseAPIEditorSpecLoaderOptions): 
         
         // Reset state when fileUri changes
         onSpecLoadedRef.current(null, null);
-        onErrorRef.current(null);
+        onErrorRef.current('');
         onLoadingChangeRef.current(true);
         
         if (!rpcClient) {
@@ -107,7 +107,7 @@ export function useAPIEditorSpecLoader(options: UseAPIEditorSpecLoaderOptions): 
                             }
                             
                             onSpecLoadedRef.current(parsed, specType);
-                            onErrorRef.current(null);
+                            onErrorRef.current('');
                         }
                     } catch (error) {
                         logger.error('Failed to parse spec:', error);

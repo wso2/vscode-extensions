@@ -17,17 +17,14 @@
  */
 
 import * as vscode from 'vscode';
-import { openView } from '../stateMachine';
 import {
-    EVENT_TYPE,
-    MACHINE_VIEW,
     detectSpecType,
     isApiSpecFile,
     loadYaml,
     onDocumentFileChanged
 } from '@wso2/api-designer-core';
 import { ApiDesignerPanel } from './api-designer-panel';
-import { logDebug } from '../util/logger';
+import { logDebug } from '../utils/logger';
 import { RPCLayer } from '../RPCLayer';
 
 let debounceTimer: NodeJS.Timeout | undefined;
@@ -66,19 +63,12 @@ export function activateVisualizer(context: vscode.ExtensionContext) {
                 logDebug(`activateVisualizer: Document file saved externally: ${filePath}`);
                 const panel = ApiDesignerPanel.currentPanel?.getWebview();
                 if (panel) {
-                    // Send via RPC messenger
                     RPCLayer._messenger.sendNotification(
                         onDocumentFileChanged,
                         { type: 'webview', webviewType: ApiDesignerPanel.viewType },
                         { filePath, changeType: 'modified', timestamp: Date.now() }
                     );
-                    
-                    // Also send direct postMessage as fallback
-                    panel.webview.postMessage({
-                        command: 'documentFileChanged',
-                        data: { filePath, changeType: 'modified', timestamp: Date.now() }
-                    });
-                    logDebug('activateVisualizer: Notifications sent for document file');
+                    logDebug('activateVisualizer: Notification sent for document file');
                 }
                 return;
             }
@@ -167,9 +157,15 @@ export function activateVisualizer(context: vscode.ExtensionContext) {
                 ApiDesignerPanel.currentPanel.dispose();
             }
             ApiDesignerPanel.resetClosedStatus(file);
-            
+
             // Open the full API Designer view
-            openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.Welcome, documentUri: file, identifier: launchIntent });
+            ApiDesignerPanel.currentPanel = new ApiDesignerPanel(file, undefined, launchIntent);
+            try {
+                const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(file));
+                updatePanelContent(doc);
+            } catch {
+                // file may not be accessible yet
+            }
         })
     );
 }

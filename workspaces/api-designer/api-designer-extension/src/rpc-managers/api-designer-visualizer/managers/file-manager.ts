@@ -28,9 +28,8 @@ import {
     GetWorkspaceFileTreeResponse,
     WorkspaceFileNode
 } from '@wso2/api-designer-core';
-import { VisualizerWebview } from '../../../visualizer/webview';
 import { BaseRpcManager } from './base-rpc-manager';
-import { handleError, createError, ErrorCode } from '../../../util/error-utils';
+import { handleError, createError, ErrorCode } from '../../../utils/error-utils';
 
 /**
  * Manager for file operations
@@ -75,14 +74,6 @@ export class FileManager extends BaseRpcManager {
             this.logDebug(`Writing file: ${params.filePath}`);
 
             const fileUri = vscode.Uri.file(params.filePath);
-            const isDocumentFile = /\.(md|txt)$/i.test(params.filePath);
-            
-            // Mark that we're saving from webview to prevent circular updates
-            // Do this BEFORE any file operations, following ApiDesignerPanel pattern
-            if (isDocumentFile && VisualizerWebview.currentPanel) {
-                VisualizerWebview.currentPanel.markSavingFromWebview(params.filePath);
-            }
-            
             // Ensure parent directory exists
             const parentDir = vscode.Uri.joinPath(fileUri, '..');
             try {
@@ -95,25 +86,12 @@ export class FileManager extends BaseRpcManager {
             // Write to file system (don't use WorkspaceEdit - let file system watcher handle it)
             await vscode.workspace.fs.writeFile(fileUri, Buffer.from(params.content, 'utf8'));
 
-            // Clear the flag after a delay to allow file watcher to see it
-            // Following ApiSpecPreviewPanel pattern: reset after 500ms
-            if (isDocumentFile && VisualizerWebview.currentPanel) {
-                setTimeout(() => {
-                    VisualizerWebview.currentPanel?.clearSavingFromWebview(params.filePath);
-                }, 500);
-            }
-
             return {
                 success: true
             };
         } catch (error: unknown) {
             this.logError('Error writing file', error);
             handleError(error, `${this.CONTEXT}.writeFile`);
-            // Clear flag on error
-            const isDocumentFile = /\.(md|txt)$/i.test(params.filePath);
-            if (isDocumentFile && VisualizerWebview.currentPanel) {
-                VisualizerWebview.currentPanel.clearSavingFromWebview(params.filePath);
-            }
             return {
                 success: false,
                 message: (error as { message?: string }).message || 'Failed to write file'

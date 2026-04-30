@@ -17,12 +17,11 @@
  */
 
 import * as vscode from 'vscode';
-import { StateMachine } from './stateMachine';
 import { extension } from './APIDesignerExtensionContext';
 import { activate as activateHistory } from './history';
 import { activateVisualizer, updatePanelContent } from './visualizer/activate';
 import { RPCLayer } from './RPCLayer';
-import { initLogger, logInfo, disposeLogger } from './util/logger';
+import { initLogger, logInfo, disposeLogger } from './utils/logger';
 import { ApiDesignerPanel } from './visualizer/api-designer-panel';
 import { initializeSpectralRulesetAutomation } from './spectral/rulesetAutomation';
 import { registerMCPTools } from './tools/mcp-tools';
@@ -102,7 +101,6 @@ export async function activate(context: vscode.ExtensionContext) {
 	RPCLayer.init();
 	activateHistory();
 	activateVisualizer(context);
-	StateMachine.initialize();
 	initializeSpectralRulesetAutomation(context);
 	
 	// Register MCP tools for Language Model API
@@ -186,7 +184,7 @@ function isApiSpecificationFile(document?: vscode.TextDocument): boolean {
 }
 
 async function showCode() {
-	const documentUri = StateMachine.context().documentUri;
+	const documentUri = ApiDesignerPanel.currentPanel?.getCurrentFilePath();
 	if (documentUri) {
 		await vscode.workspace.openTextDocument(documentUri).then(doc => vscode.window.showTextDocument(doc));
 	}

@@ -41,11 +41,17 @@ import {
     validateApiSpec,
     validateWithSpectralRuleset
 } from '../../../utils/validation-utils';
-import { getAllSpectralRulesets as getAllSpectralRulesetsFromConfig } from '../../../spectral/rulesetAutomation';
+import {
+    getAllSpectralRulesets as getAllSpectralRulesetsFromConfig,
+    getRulesetFolderSettingRaw,
+    getRulesetFoldersFromConfigValue
+} from '../../../spectral/rulesetAutomation';
+import { resolveGitHubRawUrl } from '../../../utils/github-utils';
 import { BaseRpcManager } from './base-rpc-manager';
 import { buildUnifiedReport as buildUnifiedReportFromAdapters } from './governance/report-unifier';
 import { AssessmentCacheStore } from './governance/assessment-cache-store';
 import { LlmValidationService } from './governance/llm-validation-service';
+import { LlmJobOrchestrator } from './governance/llm-job-orchestrator';
 import {
     AI_READINESS_GUIDELINE_RULE_TO_INTERNAL_RULE,
     OWASP_DIMENSIONS,
@@ -228,14 +234,13 @@ type BuiltUnifiedReport = {
  * Handles API spec validation, governance checks, and Spectral ruleset management
  */
 export class GovernanceManager extends BaseRpcManager {
-    private static llmStateByApiHash = new Map<string, LlmValidationState>();
-    private static llmJobsByApiHash = new Map<string, Promise<void>>();
     private static readonly llmInternalRuleAllowlist = new Set([
         ...Object.values(AI_READINESS_GUIDELINE_RULE_TO_INTERNAL_RULE).map((rule) => rule.toLowerCase()),
         'ai-readiness-llm-general'
     ]);
     private readonly cacheStore: AssessmentCacheStore;
     private readonly llmService: LlmValidationService;
+    private readonly llmJobOrchestrator: LlmJobOrchestrator;
 
     private normalizeGuidelineRuleRef(rule: string): string | null {
         const raw = String(rule || '').trim();
@@ -280,10 +285,17 @@ export class GovernanceManager extends BaseRpcManager {
             extractGuidelineRuleRefs: this.extractGuidelineRuleRefs.bind(this),
             toInternalLlmRuleId: this.toInternalLlmRuleId.bind(this),
         });
+        this.llmJobOrchestrator = new LlmJobOrchestrator({
+            cacheStore: this.cacheStore,
+            llmService: this.llmService,
+            normalizeFilePath: this.normalizeFilePath.bind(this),
+            toInternalLlmRuleId: this.toInternalLlmRuleId.bind(this),
+            logWarning: this.logWarning.bind(this),
+        });
     }
 
     private computeApiHash(content: string): string {
-        return createHash('sha256').update(content, 'utf8').digest('hex');
+        return this.llmJobOrchestrator.computeApiHash(content);
     }
 
     private normalizeFilePath(filePath: string): string {
@@ -353,152 +365,23 @@ export class GovernanceManager extends BaseRpcManager {
     }
 
     private async persistLlmState(filePath: string, state: LlmValidationState, options?: { modelId?: string }): Promise<void> {
-        GovernanceManager.llmStateByApiHash.clear();
-        GovernanceManager.llmStateByApiHash.set(state.apiHash, state);
         await this.cacheStore.persistLlmState(this.normalizeFilePath(filePath), state, options);
     }
 
     private async readWorkspaceCache(filePath: string): Promise<LlmValidationState | null> {
-        return this.cacheStore.readWorkspaceCache(this.normalizeFilePath(filePath));
+        return this.llmJobOrchestrator.readWorkspaceCache(filePath);
     }
 
     private async resolveCachedLlmState(filePath: string, apiHash: string): Promise<LlmValidationState | undefined> {
-        return this.cacheStore.resolveCachedLlmState(this.normalizeFilePath(filePath), apiHash, GovernanceManager.llmStateByApiHash);
-    }
-
-    private async executeLlmValidation(specContent: string): Promise<LlmExecutionResult> {
-        return this.llmService.executeLlmValidation(specContent);
-    }
-
-    private async startLlmJob(filePath: string, apiHash: string, specContent: string): Promise<void> {
-        const existing = GovernanceManager.llmJobsByApiHash.get(apiHash);
-        if (existing) return existing;
-        const job = (async () => {
-            try {
-                const execution = await this.executeLlmValidation(specContent);
-                await this.persistLlmState(filePath, {
-                    status: 'ready',
-                    apiHash,
-                    updatedAt: Date.now(),
-                    result: execution.result,
-                }, { modelId: execution.modelId });
-            } catch (error) {
-                await this.persistLlmState(filePath, {
-                    status: 'failed',
-                    apiHash,
-                    updatedAt: Date.now(),
-                    error: (error as { message?: string })?.message || 'LLM validation failed',
-                });
-            } finally {
-                GovernanceManager.llmJobsByApiHash.delete(apiHash);
-            }
-        })();
-        GovernanceManager.llmJobsByApiHash.set(apiHash, job);
-        return job;
+        return this.llmJobOrchestrator.resolveCachedLlmState(filePath, apiHash);
     }
 
     public async ensureLlmValidationForFile(filePath: string, options?: { force?: boolean }): Promise<void> {
-        try {
-            const normalizedPath = this.normalizeFilePath(filePath);
-            const specContent = await readFile(normalizedPath, 'utf8');
-            const apiHash = this.computeApiHash(specContent);
-            const force = options?.force === true;
-            const cacheFileExists = await this.workspaceCacheFileExists(normalizedPath);
-            const workspaceCache = await this.readWorkspaceCache(normalizedPath);
-            const cached = await this.resolveCachedLlmState(normalizedPath, apiHash);
-            if (cacheFileExists && !force) {
-                if (cached?.status === 'ready') {
-                    GovernanceManager.llmStateByApiHash.clear();
-                    GovernanceManager.llmStateByApiHash.set(apiHash, cached);
-                }
-                return;
-            }
-            if (cached?.status === 'ready' && !force) {
-                GovernanceManager.llmStateByApiHash.clear();
-                GovernanceManager.llmStateByApiHash.set(apiHash, cached);
-                return;
-            }
-            if (!force) {
-                if (cached?.status === 'failed') {
-                    return;
-                }
-                if (cached?.status === 'pending' && !GovernanceManager.llmJobsByApiHash.has(apiHash)) {
-                    // Avoid re-triggering on extension/VS Code reload when no in-process job exists.
-                    return;
-                }
-                if (!cached && workspaceCache) {
-                    // Auto run only on first-ever spec hash for this API. Later hash changes require manual re-evaluation.
-                    return;
-                }
-            }
-            if (cached?.status === 'pending' && GovernanceManager.llmJobsByApiHash.has(apiHash)) {
-                return;
-            }
-            await this.persistLlmState(normalizedPath, {
-                status: 'pending',
-                apiHash,
-                updatedAt: Date.now(),
-            });
-            void this.startLlmJob(normalizedPath, apiHash, specContent);
-        } catch (error) {
-            this.logWarning('Failed to schedule LLM validation', error);
-        }
+        await this.llmJobOrchestrator.ensureLlmValidationForFile(filePath, options);
     }
 
     public async resolveAIFindingForFile(filePath: string, request: ResolveAIFindingRequest): Promise<void> {
-        try {
-            const normalizedPath = this.normalizeFilePath(filePath);
-            const specContent = await readFile(normalizedPath, 'utf8');
-            const apiHash = this.computeApiHash(specContent);
-            const cached = await this.readWorkspaceCache(normalizedPath);
-            if (!cached?.result?.findings || !Array.isArray(cached.result.findings)) {
-                return;
-            }
-            const targetRuleRaw = String(request.rule || '').trim();
-            const targetRule = targetRuleRaw.toLowerCase();
-            const targetRuleCanonical = targetRuleRaw ? this.toInternalLlmRuleId(targetRuleRaw) : '';
-            const targetPath = (request.pathSegments || []).map((segment) => String(segment).trim()).filter(Boolean);
-            const targetMessage = String(request.message || '').trim();
-            const matchesFinding = (finding: LlmValidationFinding): boolean => {
-                const findingRuleRaw = String(finding.rule || '').trim();
-                const findingRule = findingRuleRaw.toLowerCase();
-                const findingRuleCanonical = findingRuleRaw ? this.toInternalLlmRuleId(findingRuleRaw) : '';
-                if (targetRule) {
-                    const directMatch = findingRule === targetRule;
-                    const canonicalMatch = !!targetRuleCanonical && findingRuleCanonical === targetRuleCanonical;
-                    if (!directMatch && !canonicalMatch) return false;
-                }
-                if (targetPath.length > 0) {
-                    const findingPath = (finding.pathSegments || []).map((segment) => String(segment).trim()).filter(Boolean);
-                    if (findingPath.length !== targetPath.length) return false;
-                    for (let i = 0; i < targetPath.length; i++) {
-                        if (findingPath[i] !== targetPath[i]) return false;
-                    }
-                }
-                if (targetMessage && String(finding.message || '').trim() !== targetMessage) return false;
-                return true;
-            };
-            const remainingFindings = cached.result.findings.filter((finding) => !matchesFinding(finding));
-            if (remainingFindings.length === cached.result.findings.length) {
-                return;
-            }
-            const updatedState: LlmValidationState = {
-                ...cached,
-                status: 'ready',
-                apiHash,
-                updatedAt: Date.now(),
-                result: {
-                    ...cached.result,
-                    findings: remainingFindings,
-                },
-                error: undefined,
-            };
-            await this.persistLlmState(normalizedPath, updatedState);
-            GovernanceManager.llmStateByApiHash.clear();
-            GovernanceManager.llmStateByApiHash.set(apiHash, updatedState);
-        } catch (error) {
-            this.logWarning('Failed to resolve LLM finding from cache', error);
-        }
+        await this.llmJobOrchestrator.resolveAIFindingForFile(filePath, request);
     }
 
     private inferReportKey(name: string): 'ai-readiness' | 'owasp' | 'rest-api-readiness' {
@@ -593,35 +476,15 @@ export class GovernanceManager extends BaseRpcManager {
         }
         
         // If it's a GitHub folder URL, convert to raw URL
-        if (sourceFolder.includes('github.com')) {
-            // Convert blob/tree URL to raw URL format
-            let rawFolder = sourceFolder;
-            
-            if (rawFolder.includes('/blob/') || rawFolder.includes('/tree/')) {
-                // Extract parts: https://github.com/owner/repo/blob/branch/path/to/folder
-                const parsed = sourceFolder.match(/github\.com\/([^\/]+)\/([^\/]+)\/(blob|tree)\/([^\/]+)(?:\/(.+))?/);
-                if (parsed) {
-                    const [, owner, repo, , branch, path] = parsed;
-                    const folderPath = path || '';
-                    // Ensure we have proper URL structure
-                    rawFolder = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}${folderPath ? '/' + folderPath : ''}`;
-                } else {
-                    // If parsing failed, check if it's already a raw URL
-                    if (!rawFolder.includes('raw.githubusercontent.com')) {
-                        this.logWarning(`Could not parse GitHub URL: ${sourceFolder}, using as-is`);
-                    }
-                }
-            } else if (rawFolder.includes('raw.githubusercontent.com')) {
-                // Already a raw URL, use as-is
-                rawFolder = sourceFolder;
+        if (sourceFolder.includes('github.com') || sourceFolder.includes('raw.githubusercontent.com')) {
+            const resolved = resolveGitHubRawUrl(sourceFolder, fileName);
+            if (resolved) {
+                return resolved;
             }
-            
-            // Ensure we don't have double slashes (except after https://)
+            this.logWarning(`Could not parse GitHub URL: ${sourceFolder}, using fallback join strategy`);
             const cleanFileName = fileName.startsWith('/') ? fileName.substring(1) : fileName;
-            const separator = rawFolder.endsWith('/') ? '' : '/';
-            const fullUrl = `${rawFolder}${separator}${cleanFileName}`;
-            
-            return fullUrl;
+            const separator = sourceFolder.endsWith('/') ? '' : '/';
+            return `${sourceFolder}${separator}${cleanFileName}`;
         }
         
         // For local paths, use path.join
@@ -686,7 +549,7 @@ export class GovernanceManager extends BaseRpcManager {
                         : (workspaceCache || undefined);
                 }
             } else if (llmValidation.status === 'pending') {
-                if (GovernanceManager.llmJobsByApiHash.has(apiHash)) {
+                if (this.llmJobOrchestrator.hasInFlightJob(apiHash)) {
                     void this.ensureLlmValidationForFile(normalizedPath);
                 }
             }
@@ -764,7 +627,7 @@ export class GovernanceManager extends BaseRpcManager {
 
     async fetchRulesetsFromFolder(params: FetchRulesetsFromFolderRequest): Promise<FetchRulesetsFromFolderResponse> {
         try {
-            const { fetchRulesetsFromFolders } = await import('../../../util/github-utils.js');
+            const { fetchRulesetsFromFolders } = await import('../../../utils/github-utils');
             const pathModule = await import('path');
             
             const trimmedFolderUrl = params.folderUrl.trim();
@@ -832,7 +695,7 @@ export class GovernanceManager extends BaseRpcManager {
                 // Check if it might be a private repo that needs auth
                 if (params.folderUrl.includes('github.com')) {
                     // Check if user has GitHub session
-                    const { getGitHubAuth } = await import('../../../util/github-utils.js');
+                    const { getGitHubAuth } = await import('../../../utils/github-utils');
                     const hasAuth = await getGitHubAuth(false);
                     
                     if (authError || !hasAuth) {
@@ -923,11 +786,9 @@ export class GovernanceManager extends BaseRpcManager {
     }
 
     async getApplicableRulesets(params: GetApplicableRulesetsRequest): Promise<GetApplicableRulesetsResponse> {
-        const configuredFolders = vscode.workspace
-            .getConfiguration('apiDesigner')
-            .get<string[]>('spectral.rulesetFolders', [])
-            .map((folder) => (folder || '').trim())
-            .filter((folder) => folder.length > 0);
+        const configuredFolders = getRulesetFoldersFromConfigValue(
+            getRulesetFolderSettingRaw(vscode.workspace.getConfiguration('apiDesigner'))
+        );
         const bundledRulesetsFolder = extension.context?.extensionPath
             ? path.join(extension.context.extensionPath, 'spectral-rulesets')
             : 'spectral-rulesets';

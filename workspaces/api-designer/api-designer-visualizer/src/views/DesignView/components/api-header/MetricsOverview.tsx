@@ -265,7 +265,7 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ fileUri, valid
             try {
                 let resolvedScore: number | null = null;
                 for (const ruleset of candidateRulesets) {
-                    const governance = await rpcClient.getApiDesignerVisualizerRpcClient().getGovernance({
+                    const governance = await rpcClient?.getApiDesignerVisualizerRpcClient().getGovernance({
                         filePath: fileUri!,
                         name: ruleset.name,
                         ruleset

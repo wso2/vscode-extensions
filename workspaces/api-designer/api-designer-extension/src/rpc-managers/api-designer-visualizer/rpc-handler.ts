@@ -19,7 +19,6 @@
  */
 import {
     GetAPISpecContentRequest,
-    OpenViewRequest,
     WriteAPISpecContentRequest,
     GetGovernanceRequest,
     ValidateAPISpecRequest,
@@ -33,7 +32,6 @@ import {
     GetAllSpectralRulesetsRequest,
     getAPISpecContent,
     importJSON,
-    openView,
     writeAPISpecContent,
     getGovernance,
     validateApiSpec,
@@ -44,14 +42,9 @@ import {
     writeFile,
     deleteFile,
     checkAIAvailability,
-    getAllSpectralRulesets,
-    VisualizerLocation
+    getAllSpectralRulesets
 } from "@wso2/api-designer-core";
 import { Messenger } from "vscode-messenger";
-import { openView as sendOpenView, StateMachine } from '../../stateMachine';
-import { logError } from '../../util/logger';
-
-const CONTEXT = 'RpcHandler';
 
 // Import managers
 import { SpecContentManager } from './managers/spec-content-manager';
@@ -65,17 +58,6 @@ export function registerApiDesignerVisualizerRpcHandlers(messenger: Messenger) {
     const governanceManager = new GovernanceManager();
     const fileManager = new FileManager();
     const aiManager = new AIRpcManager();
-    
-    // View navigation
-    messenger.onNotification(openView, (args: OpenViewRequest) => {
-        try {
-            const location = (args.location || {}) as VisualizerLocation | undefined;
-            sendOpenView(args.type, location);
-        } catch (error) {
-            logError(`${CONTEXT}: Error handling openView request`, error);
-            throw error;
-        }
-    });
     
     // API Spec content operations
     messenger.onRequest(getAPISpecContent, (args: GetAPISpecContentRequest) => 

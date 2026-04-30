@@ -24,7 +24,8 @@ import * as fsPromises from 'fs/promises';
 import * as path from 'path';
 import * as spectralFunctions from '@stoplight/spectral-functions';
 import * as spectralFormats from '@stoplight/spectral-formats';
-import { logDebug, logWarning, logError } from '../util/logger';
+import { logDebug, logWarning, logError } from './logger';
+import { resolveGitHubRawUrl } from './github-utils';
 import {
     GetGovernanceResponse,
     loadYaml,
@@ -300,8 +301,7 @@ function isUrl(pathOrUrl: string): boolean {
  */
 async function downloadRulesetContent(url: string, rulesetContentPath: string, authToken?: string): Promise<string> {
     try {
-        // Convert GitHub blob URLs to raw URLs
-        const rawUrl = url.replace('github.com', 'raw.githubusercontent.com').replace('/blob/', '/');
+        const rawUrl = resolveGitHubRawUrl(url) || url;
         
         // Try without auth first (works for public repos)
         let headers: Record<string, string> = {};
@@ -377,8 +377,10 @@ async function fetchSpectralRuleset(filePathOrUrl: string, rulesetContentPath: s
                 rulesetContent = await fsPromises.readFile(rulesetPath, 'utf8');
             }
 
-            // Extract rulesetContent if present and cache the extracted YAML.
-            rulesetContent = extractRulesetContent(rulesetContent, rulesetContentPath);
+            // Extract nested ruleset content only when an explicit content path is configured.
+            if (rulesetContentPath && rulesetContentPath.trim().length > 0) {
+                rulesetContent = extractRulesetContent(rulesetContent, rulesetContentPath);
+            }
             rulesetCache.set(cacheKey, {
                 cachedAt: Date.now(),
                 rulesetContent

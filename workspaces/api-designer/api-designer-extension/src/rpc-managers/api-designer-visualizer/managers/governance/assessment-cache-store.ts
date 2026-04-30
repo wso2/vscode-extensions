@@ -1,5 +1,6 @@
 import { mkdir, readFile, stat, writeFile } from "fs/promises";
 import * as path from "path";
+import { logError } from "../../../../utils/logger";
 import type { LlmValidationFinding, LlmValidationState, ReportIssue } from "./types";
 
 type Helpers = {
@@ -19,12 +20,12 @@ export class AssessmentCacheStore {
     private runExclusiveCacheWrite(cachePath: string, work: () => Promise<void>): Promise<void> {
         const prev = this.cacheWriteChainByPath.get(cachePath) ?? Promise.resolve();
         const next = prev
-            .catch(() => {
-                //
+            .catch((err: unknown) => {
+                logError(`AssessmentCacheStore: previous write chain failed for ${cachePath}`, err);
             })
             .then(work)
-            .catch(() => {
-                //
+            .catch((err: unknown) => {
+                logError(`AssessmentCacheStore: cache write failed for ${cachePath}`, err);
             });
         this.cacheWriteChainByPath.set(cachePath, next);
         return next;
@@ -228,8 +229,8 @@ export class AssessmentCacheStore {
                 };
                 await writeFile(cachePath, JSON.stringify(merged, null, 2), "utf8");
             }
-            } catch {
-                // best-effort persistence
+            } catch (err: unknown) {
+                logError(`AssessmentCacheStore: failed to persist spectral section for ${filePath}`, err);
             }
         });
     }
@@ -261,6 +262,17 @@ export class AssessmentCacheStore {
             const rating = this.helpers.computeSectionRating(counts);
             const modelId = options?.modelId || String(currentMeta.model || "copilot");
             const aiStatus = state.status === "ready" ? "completed" : state.status === "failed" ? "failed" : state.status;
+            const nextAiAnalysis: Record<string, unknown> = {
+                ...existingAiAnalysis,
+                status: aiStatus,
+                score: { ...counts, rating },
+                issues: reportIssues,
+            };
+            if (state.status === "failed" && typeof state.error === "string" && state.error.trim().length > 0) {
+                nextAiAnalysis.error = state.error.trim();
+            } else {
+                delete nextAiAnalysis.error;
+            }
             const merged = {
                 ...existing,
                 meta: {
@@ -273,17 +285,12 @@ export class AssessmentCacheStore {
                 },
                 agentReadiness: {
                     ...currentAgentReadiness,
-                    aiAnalysis: {
-                        ...existingAiAnalysis,
-                        status: aiStatus,
-                        score: { ...counts, rating },
-                        issues: reportIssues,
-                    },
+                    aiAnalysis: nextAiAnalysis,
                 },
             };
                 await writeFile(cachePath, JSON.stringify(merged, null, 2), "utf8");
-            } catch {
-                // best-effort persistence
+            } catch (err: unknown) {
+                logError(`AssessmentCacheStore: failed to persist LLM state for ${filePath}`, err);
             }
         });
     }

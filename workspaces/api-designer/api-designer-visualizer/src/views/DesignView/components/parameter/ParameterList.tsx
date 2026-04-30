@@ -352,7 +352,7 @@ export function ParameterList(props: ParametersProps) {
     return (
         <ParametersRoot>
             <HeaderWrapper>
-                <SectionHeader title={title} actionButtons={actionButtons} />
+                <SectionHeader title={title ?? ''} actionButtons={actionButtons} />
             </HeaderWrapper>
             {paramsToGivenType?.length > 0 ? (
                 <ParametersContainer>

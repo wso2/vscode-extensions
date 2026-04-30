@@ -17,7 +17,7 @@
  */
 
 import { Messenger } from "vscode-messenger-webview";
-import { MachineStateValue, stateChanged, vscode, getVisualizerState, VisualizerLocation, webviewReady, onFileContentUpdate, PopupMachineStateValue, popupStateChanged, PopupVisualizerLocation, getPopupVisualizerState, onParentPopupSubmitted, ParentPopupData, APIDesignerVisualizerAPI, SelectQuickPickItemReq, WebviewQuickPickItem, selectQuickPickItem, selectQuickPickItems, showConfirmMessage, ShowConfirmBoxReq, showInputBox, ShowWebviewInputBoxReq, showInfoNotification, showErrorNotification, onDocumentFileChanged, DocumentFileChangedNotification } from "@wso2/api-designer-core";
+import { MachineStateValue, stateChanged, vscode, getVisualizerState, VisualizerLocation, webviewReady, onFileContentUpdate, PopupMachineStateValue, popupStateChanged, PopupVisualizerLocation, getPopupVisualizerState, onParentPopupSubmitted, ParentPopupData, APIDesignerVisualizerAPI, SelectQuickPickItemReq, WebviewQuickPickItem, selectQuickPickItem, selectQuickPickItems, showConfirmMessage, ShowConfirmBoxReq, showInputBox, ShowWebviewInputBoxReq, showInfoNotification, showErrorNotification, onDocumentFileChanged, DocumentFileChangedNotification, generateWithAI, saveSpec, requestValidation, navigateTo, openExternal, GenerateWithAIResponse } from "@wso2/api-designer-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { ApiDesignerVisualizerRpcClient } from "./rpc-clients/api-designer-visualizer/rpc-client";
 
@@ -103,14 +103,30 @@ export class RpcClient {
      * @param prompt - The prompt/instructions for the AI
      * @returns AI-generated content
      */
-    generateWithAI(context: string, prompt: string): Promise<Record<string, unknown>> {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const requestType: any = { method: 'ai/generateWithAI' };
+    generateWithAI(context: string, prompt: string): Promise<GenerateWithAIResponse> {
         return this.messenger.sendRequest(
-            requestType,
+            generateWithAI,
             HOST_EXTENSION,
             { context, prompt }
         );
+    }
+
+    saveSpec(data: unknown): void {
+        this.messenger.sendNotification(saveSpec, HOST_EXTENSION, { data });
+    }
+
+    requestValidation(source: "design-view" | "analyze-view" | "unknown" = "unknown"): void {
+        this.messenger.sendNotification(requestValidation, HOST_EXTENSION, { source });
+    }
+
+    navigateTo(focusPath: Array<string | number>): void {
+        this.messenger.sendNotification(navigateTo, HOST_EXTENSION, {
+            data: { focusPath }
+        });
+    }
+
+    openExternal(url: string): void {
+        this.messenger.sendNotification(openExternal, HOST_EXTENSION, { url });
     }
 
 }

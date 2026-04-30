@@ -134,6 +134,9 @@ const LlmStatusBadge = styled.span<{ $status: 'pending' | 'ready' | 'failed' | '
 const LlmStatusText = styled.span`
     font-size: ${ANALYZE_TYPE_SCALE.sm};
     color: var(--vscode-descriptionForeground);
+    line-height: 1.4;
+    word-break: break-word;
+    white-space: pre-wrap;
 `;
 
 const LlmAnalysisButton = styled.button`
@@ -445,7 +448,8 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
             : llmStatusValue === 'stale'
                 ? 'Findings are outdated due to spec changes'
                 : llmStatusValue === 'failed'
-                    ? (report.llmValidation?.error || 'Previous evaluation failed')
+                    ? (report.llmValidation?.error?.trim() ||
+                        'AI analysis did not finish. Use Analyse to retry, and ensure GitHub Copilot is installed and signed in.')
                     : 'Run LLM analysis to generate deeper findings';
     const llmActionLabel = llmStatusValue === 'ready'
         ? 'View findings'

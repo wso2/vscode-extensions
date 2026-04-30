@@ -62,7 +62,7 @@ export function Visualizer({ mode }: { mode: string }) {
     });
 
     useEffect(() => {
-        rpcClient.webviewReady();
+        rpcClient?.webviewReady();
     }, []);
 
     return (

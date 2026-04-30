@@ -34,6 +34,24 @@ export interface WriteAPISpecContentResponse {
     success: boolean;
 }
 
+export interface SaveSpecNotification {
+    data: unknown;
+}
+
+export interface RequestValidationNotification {
+    source?: "design-view" | "analyze-view" | "unknown";
+}
+
+export interface NavigateToNotification {
+    data?: {
+        focusPath?: Array<string | number>;
+    };
+}
+
+export interface OpenExternalNotification {
+    url: string;
+}
+
 export interface Schema {
     $schema?: string;
     $id?: string;

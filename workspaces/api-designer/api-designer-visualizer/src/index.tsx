@@ -38,8 +38,8 @@ const queryClient = new QueryClient({
       queries: {
         retry: false,
         refetchOnWindowFocus: false,
-        staleTime: 1000,
-        gcTime: 1000,
+        staleTime: 30000,
+        gcTime: 60000,
       },
     },
   });
@@ -51,6 +51,12 @@ export interface WebviewProps {
     [key: string]: any;
 }
 
+type ViewState = {
+    viewType: string;
+    fileUri: string;
+    analyzeSection: 'all' | 'ai-readiness' | 'owasp' | 'rest-api-readiness';
+};
+
 // Root component that manages view switching
 function UnifiedWebview({
     initialViewType,
@@ -59,67 +65,54 @@ function UnifiedWebview({
     initialViewType: string;
     initialFileUri?: string;
 }) {
-    const [viewType, setViewType] = useState<string>(initialViewType);
+    const [viewState, setViewState] = useState<ViewState>({
+        viewType: initialViewType,
+        fileUri: seedFileUri,
+        analyzeSection: 'all',
+    });
     const [initialSpec, setInitialSpec] = useState<any>(null);
-    const [fileUri, setFileUri] = useState<string>(seedFileUri);
-    const [analyzeSection, setAnalyzeSection] = useState<'all' | 'ai-readiness' | 'owasp' | 'rest-api-readiness'>('all');
 
-    // Try to get fileUri from messages immediately on mount
-    // This handles the case where messages arrive before the component fully mounts
     useEffect(() => {
         const messageHandler = (event: MessageEvent) => {
             const message = event.data;
             switch (message.command) {
                 case 'openDesigner':
-                    if (message.filePath) {
-                        setFileUri(message.filePath);
-                    }
                     if (Object.prototype.hasOwnProperty.call(message, 'spec')) {
                         setInitialSpec(message.spec ?? null);
                     }
-                    setViewType((prev) => (prev === 'create' ? 'preview' : prev));
+                    setViewState((prev) => ({
+                        ...prev,
+                        fileUri: message.filePath || prev.fileUri,
+                        viewType: prev.viewType === 'create' ? 'preview' : prev.viewType,
+                    }));
                     break;
                 case 'switchToEditor':
-                    if (message.filePath) {
-                        setFileUri(message.filePath);
-                    }
                     if (message.spec) {
                         setInitialSpec(message.spec);
                     }
-                    // Only set to preview if we don't already have a different viewType
-                    // This prevents switchToEditor from overriding other views
-                    setViewType((prev) => prev === 'create' ? 'preview' : prev);
+                    setViewState((prev) => ({
+                        ...prev,
+                        fileUri: message.filePath || prev.fileUri,
+                        viewType: prev.viewType === 'create' ? 'preview' : prev.viewType,
+                    }));
                     break;
-                case 'switchView':
-                    if (message.viewType === 'analyze') {
-                        const section = message.analyzeSection;
-                        if (section === 'ai-readiness' || section === 'owasp' || section === 'rest-api-readiness' || section === 'all') {
-                            setAnalyzeSection(section);
-                        } else {
-                            setAnalyzeSection('all');
-                        }
-                    } else {
-                        setAnalyzeSection('all');
-                    }
-                    // CRITICAL: Process switchView - set fileUri first, then viewType
-                    // This ensures fileUri is available when the view component mounts
-                    if (message.fileUri) {
-                        setFileUri(message.fileUri);
-                        // Use requestAnimationFrame to ensure state update happens before next render
-                        // This prevents views from rendering with empty fileUri
-                        if (message.viewType) {
-                            requestAnimationFrame(() => {
-                                setViewType(message.viewType);
-                            });
-                        }
-                    } else if (message.viewType) {
-                        // For views that don't need fileUri (like 'create'), set immediately
-                        setViewType(message.viewType);
-                    }
+                case 'switchView': {
+                    const incomingSection = message.analyzeSection;
+                    const analyzeSection: ViewState['analyzeSection'] =
+                        (incomingSection === 'ai-readiness' || incomingSection === 'owasp' ||
+                         incomingSection === 'rest-api-readiness' || incomingSection === 'all')
+                            ? incomingSection
+                            : 'all';
+                    setViewState((prev) => ({
+                        fileUri: message.fileUri || prev.fileUri,
+                        viewType: message.viewType || prev.viewType,
+                        analyzeSection: message.viewType === 'analyze' ? analyzeSection : 'all',
+                    }));
                     break;
+                }
                 case 'setFileUri':
                     if (message.data && message.data !== 'file:///placeholder') {
-                        setFileUri(message.data);
+                        setViewState((prev) => ({ ...prev, fileUri: message.data }));
                     }
                     break;
             }
@@ -129,12 +122,12 @@ function UnifiedWebview({
         return () => window.removeEventListener('message', messageHandler);
     }, []);
 
-    const effectiveViewType = viewType;
+    const { viewType: effectiveViewType, fileUri, analyzeSection } = viewState;
     
     // Views that require fileUri
     const viewsRequiringFileUri = ['analyze', 'preview', 'design'];
     const requiresFileUri = viewsRequiringFileUri.includes(effectiveViewType);
-    
+
     // For views that require fileUri, show loading state if fileUri is not available
     if (requiresFileUri && !fileUri && effectiveViewType !== 'create') {
         return (
@@ -145,12 +138,13 @@ function UnifiedWebview({
             </VisualizerContextProvider>
         );
     }
-    
+
     if (effectiveViewType === 'preview' || effectiveViewType === 'design') {
-        // Design view (preview)
         return (
             <VisualizerContextProvider>
-                <APIEditor initialSpec={initialSpec} fileUri={fileUri} />
+                <ErrorBoundary errorMsg="An error occurred in the Design view">
+                    <APIEditor initialSpec={initialSpec} fileUri={fileUri} />
+                </ErrorBoundary>
             </VisualizerContextProvider>
         );
     } else if (effectiveViewType === 'analyze') {

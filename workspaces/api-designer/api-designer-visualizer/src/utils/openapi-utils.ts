@@ -28,26 +28,30 @@ import { loadYaml } from '@wso2/api-designer-core';
  * Resolve response type from response object
  */
 export function resolveResponseType(response: Response): string {
-    const contentType = Object.keys(response.content)[0];
     if (!response.content || Object.keys(response.content).length === 0) {
         return response.description;
-    } else if (response.content["application/json"].schema.type === "array") {
-        const items = response.content["application/json"].schema.items;
-        if (Array.isArray(items)) {
-            // Handle case where items is an array of Schema
-            return "array[]"; // Adjust as needed for your logic
+    }
+    const schema = response.content["application/json"]?.schema;
+    if (!schema) {
+        return "string";
+    }
+    if (schema.type === "array") {
+        const items = schema.items;
+        if (!items) {
+            return "array[]";
+        } else if (Array.isArray(items)) {
+            return "array[]";
         } else if (items.$ref) {
             return items.$ref.replace("#/components/schemas/", "") + "[]";
         } else if (items.type) {
             return items.type + "[]";
         }
-    } else if (response.content["application/json"].schema.type) {
-        return response.content["application/json"].schema.type as string;
-    } else if (response.content["application/json"].schema.$ref) {
-        return response.content["application/json"].schema.$ref.replace("#/components/schemas/", "");
-    } else {
-        return "string";
+    } else if (schema.type) {
+        return schema.type as string;
+    } else if (schema.$ref) {
+        return schema.$ref.replace("#/components/schemas/", "");
     }
+    return "string";
 }
 
 /**
@@ -63,11 +67,12 @@ export function resolveTypeFormSchema(schema: Schema): string {
 export function resolveTypeFromSchema(schema: Schema): string {
     // Add [] if the schema is an array
     if (schema.type === "array") {
-        return resolveTypeFromSchema(schema.items);
+        const items = Array.isArray(schema.items) ? schema.items[0] : schema.items;
+        return items ? resolveTypeFromSchema(items) : "array";
     } else if (schema.$ref) {
         return schema.$ref.replace("#/components/schemas/", "");
-    } else if ((schema.items && schema.items as Schema)?.$ref) {
-        return (schema.items && schema.items as Schema).$ref.replace("#/components/schemas/", "");
+    } else if (!Array.isArray(schema.items) && schema.items?.$ref) {
+        return schema.items.$ref.replace("#/components/schemas/", "");
     } else {
         return schema.type as string;
     }
@@ -271,7 +276,7 @@ export function convertParamsToParameters(params: Param[], type: "path" | "query
         if (newParam?.isArray) {
             parameters.push({
                 ...newParam,
-                name: param.name,
+                name: param.name ?? '',
                 in: type,
                 required: param.isRequired,
                 schema: {
@@ -285,7 +290,7 @@ export function convertParamsToParameters(params: Param[], type: "path" | "query
         } else {
             parameters.push({
                 ...newParam,
-                name: param.name,
+                name: param.name ?? '',
                 in: type,
                 required: param.isRequired,
                 schema: {
@@ -355,7 +360,7 @@ export function getDeletedParamPath(newParams: Param[], path: string): string {
     let newPath = path;
     const prevParams = getPathParametersFromPath(path);
     prevParams.forEach((param) => {
-        if (isNameNotInParams(param.name, newParams)) {
+        if (param.name && isNameNotInParams(param.name, newParams)) {
             newPath = newPath.replace(`/{${param.name}}`, "");
         }
     });
@@ -399,25 +404,20 @@ export function getIdenticalParamName(params: Param[], prefix: string): string {
 /**
  * Get operation from path item by method
  */
-export function getOperationFromPathItem(pathItem: PathItem, method: string): Operation {
+export function getOperationFromPathItem(pathItem: PathItem, method: string): Operation | undefined {
     const operation = pathItem[method];
-    return typeof operation === 'object' ? operation : undefined; // Ensure it's an Operation
+    return typeof operation === 'object' ? operation : undefined;
 }
 
 /**
  * Get operation from OpenAPI by path and method
  */
-export function getOperationFromOpenAPI(path: string, method: string, openAPI: OpenAPI): Operation {
+export function getOperationFromOpenAPI(path: string, method: string, openAPI: OpenAPI): Operation | undefined {
     const pathItem = openAPI.paths[path] as PathItem;
-    if (pathItem) {
-        if (pathItem && typeof pathItem === 'object') { // Ensure pathItem is an object
-            return getOperationFromPathItem(pathItem, method);
-        } else {
-            return undefined;
-        }
-    } else {
-        return undefined;
+    if (pathItem && typeof pathItem === 'object') {
+        return getOperationFromPathItem(pathItem, method);
     }
+    return undefined;
 }
 
 // ============================================================================

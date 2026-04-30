@@ -109,7 +109,7 @@ export function Parameter(props: ParameterProps) {
                 />
                 <Dropdown
                     id={`paramType-${parameter.name}`}
-                    value={parameter.schema.$ref || parameter.schema.type}
+                    value={parameter.schema?.$ref || parameter.schema?.type}
                     containerSx={{ width: "15%" }}
                     items={paramTypeOptions}
                     onValueChange={(value) => {
@@ -119,7 +119,7 @@ export function Parameter(props: ParameterProps) {
                         } else {
                             // Base type - remove $ref if it exists
                             const newSchema: any = { type: value as ParameterSchemaTypes };
-                            if (parameter.schema.example) newSchema.example = parameter.schema.example;
+                            if (parameter.schema?.example) newSchema.example = parameter.schema.example;
                             handleParameterChange({ ...parameter, schema: newSchema });
                         }
                     }}

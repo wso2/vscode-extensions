@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { logDebug, logInfo, logWarning, logError } from '../../../util/logger';
+import { logDebug, logInfo, logWarning, logError } from '../../../utils/logger';
 
 /**
  * Base class for RPC managers

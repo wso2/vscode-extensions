@@ -45,7 +45,7 @@ export function ReadOnlyReferenceObject(props: ReadOnlyReferenceObjectsProps) {
         props: { openAPI },
     } = useContext(APIDesignerContext);
 
-    const refObject = (type === "query" || type === "path" || type === "header" ) ? openAPI?.components?.parameters[referenceObject?.$ref?.replace("#/components/parameters/", "")] : type === "response" ? openAPI?.components?.responses[referenceObject.$ref.replace("#/components/response/", "")] : openAPI?.components?.requestBodies[referenceObject.$ref];
+    const refObject = (type === "query" || type === "path" || type === "header" ) ? openAPI?.components?.parameters?.[referenceObject?.$ref?.replace("#/components/parameters/", "") ?? ''] : type === "response" ? openAPI?.components?.responses?.[referenceObject.$ref.replace("#/components/response/", "")] : openAPI?.components?.requestBodies?.[referenceObject.$ref];
     const refObjectName = refObject?.name;
     const refObjectType = resolveTypeFormSchema(refObject?.schema);
     const refObjectDescription = refObject?.description;

@@ -135,3 +135,15 @@ export interface WorkspaceFileNode {
     type: 'file' | 'directory';
     children?: WorkspaceFileNode[];
 }
+
+export interface GenerateWithAIRequest {
+    context: string;
+    prompt: string;
+}
+
+export interface GenerateWithAIResponse {
+    success: boolean;
+    result?: string;
+    error?: string;
+    provider?: string;
+}

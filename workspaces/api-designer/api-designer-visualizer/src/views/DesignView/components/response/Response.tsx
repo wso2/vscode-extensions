@@ -161,7 +161,9 @@ export function Response(props: ResponseProps) {
     const [exampleMode, setExampleMode] = useState<'single' | 'multiple'>('single');
 
     const contentTypes = response?.content ? Object.keys(response.content) : [];
-    const selectedContent = selectedMediaType && response?.content?.[selectedMediaType];
+    const selectedContent = selectedMediaType
+        ? (response?.content?.[selectedMediaType] as MediaTypeType | undefined)
+        : undefined;
     
     const componentResponseNames = openAPI?.components?.responses ? Object.keys(openAPI.components.responses) : [];
     
@@ -612,7 +614,7 @@ export function Response(props: ResponseProps) {
                         isSchemaReference={!!selectedContent?.schema?.$ref}
                         onGenerateFromSchema={handleGenerateExample}
                         exampleMode={exampleMode}
-                        examples={response?.content?.[selectedMediaType]?.examples || {}}
+                        examples={response?.content?.[selectedMediaType ?? '']?.examples || {}}
                         onToggleExampleMode={handleToggleResponseExampleMode}
                         onAddExample={handleAddResponseExample}
                         onUpdateExample={handleUpdateResponseExample}

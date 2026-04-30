@@ -221,6 +221,7 @@ export function ReferenceObject(props: ReferenceObjectsProps) {
 
         const refPath = referenceObject.$ref;
         const refName = refPath.split('/').pop();
+        if (!refName) return null;
 
         if (refPath.startsWith('#/components/parameters/')) {
             return openAPI.components?.parameters?.[refName];

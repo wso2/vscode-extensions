@@ -29,7 +29,7 @@ import {
 } from '@wso2/api-designer-core';
 import * as vscode from 'vscode';
 import { BaseRpcManager } from './base-rpc-manager';
-import { handleError, createError, ErrorCode } from '../../../util/error-utils';
+import { handleError, createError, ErrorCode } from '../../../utils/error-utils';
 
 /**
  * Manager for API specification content operations
@@ -64,7 +64,7 @@ export class SpecContentManager extends BaseRpcManager {
                 handleError(err, `${this.CONTEXT}.getAPISpecContent`);
             }
         }
-        return { content: fileContent, type: fileType };
+        return { content: fileContent ?? '', type: fileType };
     }
 
     async writeAPISpecContent(params: WriteAPISpecContentRequest): Promise<WriteAPISpecContentResponse> {

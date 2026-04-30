@@ -17,10 +17,63 @@
  */
 
 import * as vscode from 'vscode';
-import { fetchRulesetsFromFolders, RulesetMetadata } from '../util/github-utils';
-import { logDebug, logError, logWarning } from '../util/logger';
+import { fetchRulesetsFromFolders, RulesetMetadata } from '../utils/github-utils';
+import { logDebug, logError, logWarning } from '../utils/logger';
 
 const FOLDER_STATE_KEY = 'apiDesigner.spectral.cachedRulesetFolders';
+
+/**
+ * One setting value: split into folder paths (newlines, commas, or semicolons).
+ */
+export function parseRulesetFoldersString(raw: string | undefined | null): string[] {
+    if (raw == null || typeof raw !== 'string') {
+        return [];
+    }
+    return raw
+        .split(/[\n,;]+/u)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+}
+
+/** Read folder list from config; supports legacy `string[]` in user settings until re-saved. */
+export function getRulesetFoldersFromConfigValue(value: unknown): string[] {
+    if (Array.isArray(value)) {
+        return value.map((v) => String(v).trim()).filter((s) => s.length > 0);
+    }
+    if (typeof value === 'string') {
+        return parseRulesetFoldersString(value);
+    }
+    return [];
+}
+
+export function serializeRulesetFoldersToString(folders: string[]): string {
+    return folders.join('\n');
+}
+
+/** Current setting key (singular). */
+const RULESET_FOLDER_KEY = 'spectral.rulesetFolder' as const;
+/** Legacy key before rename; still read for migration. */
+const LEGACY_RULESET_FOLDERS_KEY = 'spectral.rulesetFolders' as const;
+
+/**
+ * Raw value from `spectral.rulesetFolder`, or the legacy `spectral.rulesetFolders` value
+ * if the new key was never set in any scope (migrates existing user settings).
+ */
+export function getRulesetFolderSettingRaw(config: vscode.WorkspaceConfiguration): unknown {
+    const inspected = config.inspect<unknown>(RULESET_FOLDER_KEY);
+    const newKeyTouched =
+        inspected?.globalValue !== undefined ||
+        inspected?.workspaceValue !== undefined ||
+        inspected?.workspaceFolderValue !== undefined;
+    if (newKeyTouched) {
+        return config.get<unknown>(RULESET_FOLDER_KEY);
+    }
+    const legacy = config.get<unknown>(LEGACY_RULESET_FOLDERS_KEY);
+    if (legacy !== undefined) {
+        return legacy;
+    }
+    return config.get<unknown>(RULESET_FOLDER_KEY);
+}
 
 type SyncReason = 'initial' | 'configuration-change';
 
@@ -34,15 +87,18 @@ let syncQueue: Promise<void> = Promise.resolve();
  * Initialize automatic Spectral ruleset discovery.
  *
  * - On startup we make sure every configured folder has a corresponding ruleset entry.
- * - When users change the `apiDesigner.spectral.rulesetFolders` setting we fetch the
- *   folder, list the rulesets and prompt for selection immediately.
+ * - When users change `apiDesigner.spectral.rulesetFolder` (or the legacy key) we fetch each
+ *   listed path, list the rulesets and prompt for selection immediately.
  */
 export function initializeSpectralRulesetAutomation(context: vscode.ExtensionContext): void {
     scheduleSync(context, 'initial');
 
     context.subscriptions.push(
         vscode.workspace.onDidChangeConfiguration(event => {
-            if (event.affectsConfiguration('apiDesigner.spectral.rulesetFolders')) {
+            if (
+                event.affectsConfiguration('apiDesigner.spectral.rulesetFolder') ||
+                event.affectsConfiguration('apiDesigner.spectral.rulesetFolders')
+            ) {
                 scheduleSync(context, 'configuration-change');
             }
         })
@@ -60,11 +116,6 @@ export interface StoredRuleset {
     enabled: boolean;
 }
 
-export function getEnabledSpectralRulesets(): StoredRuleset[] {
-    const config = vscode.workspace.getConfiguration('apiDesigner');
-    const stored = config.get<StoredRuleset[]>('spectral.selectedRulesets', []);
-    return (stored || []).filter(ruleset => ruleset.enabled !== false);
-}
 
 export function getAllSpectralRulesets(): StoredRuleset[] {
     const config = vscode.workspace.getConfiguration('apiDesigner');
@@ -82,8 +133,7 @@ async function syncRulesetsWithSettings(context: vscode.ExtensionContext, reason
     logDebug(`[Spectral] Sync triggered (${reason})`);
 
     const config = vscode.workspace.getConfiguration('apiDesigner');
-    // Get folders from config, which includes the default from package.json
-    const folderSetting = config.get<string[]>('spectral.rulesetFolders', []);
+    const folderSetting = getRulesetFoldersFromConfigValue(getRulesetFolderSettingRaw(config));
     const { values: configuredFolders, changed: foldersSanitized } = sanitizeFolders(folderSetting);
     const folders = configuredFolders;
     const foldersChanged = foldersSanitized;
@@ -91,8 +141,10 @@ async function syncRulesetsWithSettings(context: vscode.ExtensionContext, reason
     const { values: storedRulesets, changed: sanitizeChanged } = sanitizeRulesets(rawRulesets);
     const cachedFolders = context.globalState.get<string[]>(FOLDER_STATE_KEY);
 
-    // Get default folders from package.json
-    const defaultFolders = config.inspect<string[]>('spectral.rulesetFolders')?.defaultValue || [];
+    // Default from package.json (empty string -> no extra default folders)
+    const defaultFolders = getRulesetFoldersFromConfigValue(
+        config.inspect<unknown>(RULESET_FOLDER_KEY)?.defaultValue
+    );
     const normalizedDefaultFolders = defaultFolders.map(normalizeFolder);
 
     const folderSet = new Set(folders.map(normalizeFolder));
@@ -163,7 +215,11 @@ async function syncRulesetsWithSettings(context: vscode.ExtensionContext, reason
     }
 
     if (foldersChanged) {
-        await config.update('spectral.rulesetFolders', folders, vscode.ConfigurationTarget.Global);
+        await config.update(
+            RULESET_FOLDER_KEY,
+            serializeRulesetFoldersToString(folders),
+            vscode.ConfigurationTarget.Global
+        );
     }
 
     await context.globalState.update(FOLDER_STATE_KEY, folders);
