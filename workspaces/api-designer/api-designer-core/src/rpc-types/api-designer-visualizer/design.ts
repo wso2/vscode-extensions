@@ -16,6 +16,8 @@
  * under the License.
  */
 
+import type { Schema } from '../../specs/common-types';
+
 export interface GetAPISpecContentResponse {
     content: string;
     type: "yaml" | "json" | undefined;
@@ -52,40 +54,4 @@ export interface OpenExternalNotification {
     url: string;
 }
 
-export interface Schema {
-    $schema?: string;
-    $id?: string;
-    title?: string;
-    description?: string;
-    type?: 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object' | 'null' | ('string' | 'number' | 'integer' | 'boolean' | 'array' | 'object' | 'null')[];
-    properties?: { [propertyName: string]: Schema };
-    items?: Schema | Schema[];
-    required?: string[];
-    multipleOf?: number;
-    maximum?: number;
-    exclusiveMaximum?: number;
-    minimum?: number;
-    exclusiveMinimum?: number;
-    maxLength?: number;
-    minLength?: number;
-    pattern?: string;
-    maxItems?: number;
-    minItems?: number;
-    uniqueItems?: boolean;
-    maxContains?: number;
-    minContains?: number;
-    maxProperties?: number;
-    minProperties?: number;
-    allOf?: Schema[];
-    anyOf?: Schema[];
-    oneOf?: Schema[];
-    not?: Schema;
-    if?: Schema;
-    then?: Schema;
-    else?: Schema;
-    format?: string;
-    contentMediaType?: string;
-    contentEncoding?: string;
-    definitions?: { [key: string]: Schema };
-    $ref?: string;
-}
+export type { Schema };

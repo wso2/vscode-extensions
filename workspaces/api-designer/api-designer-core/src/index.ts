@@ -79,7 +79,6 @@ export * from "./specs/detector";
 export * from "./specs/specification-service";
 export * from "./specs/openapi-service";
 export * from "./specs/specification-factory";
-export * from "./specs/specification-service";
 // Explicit exports for commonly used functions and types
 export { detectSpecType, detectSpecTypeFromPath } from "./specs/detector";
 export { ApiSpecType } from "./specs/constants";

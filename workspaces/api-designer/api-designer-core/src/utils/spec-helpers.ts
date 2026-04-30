@@ -20,6 +20,10 @@ import { SpecificationService } from '../specs/specification-service';
 import { SpecificationFactory } from '../specs/specification-factory';
 import { ApiSpecification } from '../specs/types';
 
+function isApiSpecification(spec: unknown, service: SpecificationService): spec is ApiSpecification {
+    return typeof spec === 'object' && spec !== null && service.isValid(spec);
+}
+
 /**
  * Get spec service for a spec object
  * Automatically detects the spec type and returns the appropriate service
@@ -43,7 +47,8 @@ export function withSpecService<T>(
 ): T | null {
     const service = getSpecService(spec);
     if (!service) return null;
-    return operation(service, spec as ApiSpecification);
+    if (!isApiSpecification(spec, service)) return null;
+    return operation(service, spec);
 }
 
 /**

@@ -12,13 +12,13 @@
   },
   "author": "WSO2",
   "devDependencies": {
+    "@types/js-yaml": "4.0.9",
     "@typescript-eslint/eslint-plugin": "8.32.1",
     "@typescript-eslint/parser": "8.32.1",
     "eslint": "9.27.0",
     "typescript": "5.8.3"
   },
   "dependencies": {
-    "@types/js-yaml": "^4.0.9",
     "@types/vscode-webview": "1.57.3",
     "js-yaml": "4.1.1",
     "vscode-messenger-common": "0.4.5"
