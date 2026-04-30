@@ -18,6 +18,7 @@
 
 import { DEFERRED_TOOL_DESCRIPTIONS } from '../../tools/tool_load';
 import {
+    FILE_GREP_TOOL_NAME,
     FILE_EDIT_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
     CONTEXT_TOOL_NAME,
@@ -40,6 +41,7 @@ import {
     DEEPWIKI_ASK_QUESTION_TOOL_NAME,
     READ_SERVER_LOGS_TOOL_NAME,
     TOOL_LOAD_TOOL_NAME,
+    SEMANTIC_SEARCH_TOOL_NAME,
 } from '../../tools/types';
 import { SYNAPSE_GUIDE } from '../../context/synapse_guide';
 import { SYNAPSE_GUIDE as SYNAPSE_GUIDE_OLD } from '../../context/synapse_guide_old';
@@ -52,7 +54,8 @@ import { logInfo, logWarn } from '../../../copilot/logger';
 // System Prompt
 // ============================================================================
 
-const SYSTEM_PROMPT = 
+
+const SYSTEM_PROMPT = (semanticEnabled: boolean = false) =>
 `
 You are WSO2 Integrator Copilot, an expert AI agent embedded in the VSCode-based WSO2 Micro Integrator Low-Code IDE.
 You help developers design, build, edit, and debug WSO2 Synapse integrations using the tools provided.
@@ -127,6 +130,15 @@ ${Object.entries(DEFERRED_TOOL_DESCRIPTIONS).map(([name, desc]) => `- ${name}: $
 ## File & search tools
 - Prefer dedicated file tools over ${BASH_TOOL_NAME} for file operations and content search.
 - Always read a file before editing or overwriting it.
+
+${semanticEnabled ? `## Search tools: ${SEMANTIC_SEARCH_TOOL_NAME} and ${FILE_GREP_TOOL_NAME}
+- **Rule: Semantic = what's inside an artifact. Grep = who points at it.**
+- ${SEMANTIC_SEARCH_TOOL_NAME}: inward/content questions — "what does X do", "how is Y implemented", "find pattern Z across the codebase". Returns ranked candidate chunks — treat them as a starting point. Verify the top chunk's operation type matches the query intent before concluding; if results come from a single file or seem approximate, read relevant sibling artifacts.
+- ${FILE_GREP_TOOL_NAME}: outward/reference questions — "who calls X", "what triggers Y", "where is artifact Z used", "what sets property FOO". Cross-references in Synapse XML are string keys (\`<sequence key="...">\`, \`name="..."\`) — they will not match semantically.
+- Cross-cutting pipeline questions: use ${SEMANTIC_SEARCH_TOOL_NAME} to locate the entry artifact, then one targeted ${FILE_GREP_TOOL_NAME} on the exact artifact name/key to find callers.
+- Call ${SEMANTIC_SEARCH_TOOL_NAME} at most once per user intent. Do not re-run with reworded queries — same intent returns the same chunks.
+- Confidence labels are loose hints — decide from chunk content.
+- Keep \`top_k\` at default (8, max 15).` : ''}
 
 ## Shell (${BASH_TOOL_NAME})
 - Use only for system operations (build, test, runtime/log checks, curl). Not for file/content search when dedicated tools exist.
@@ -312,9 +324,10 @@ ${SYNAPSE_GUIDE}
 ${CONNECTOR_DOCUMENTATION}
 </CONNECTOR_DEVELOPMENT_GUIDELINES>
 `;
-const SYSTEM_PROMPT_OLD = SYSTEM_PROMPT
-    .replace(SYNAPSE_GUIDE, SYNAPSE_GUIDE_OLD)
-    .replace(CONNECTOR_DOCUMENTATION, CONNECTOR_DOCUMENTATION_OLD);
+const SYSTEM_PROMPT_OLD = (semanticEnabled: boolean = false) =>
+    SYSTEM_PROMPT(semanticEnabled)
+        .replace(SYNAPSE_GUIDE, SYNAPSE_GUIDE_OLD)
+        .replace(CONNECTOR_DOCUMENTATION, CONNECTOR_DOCUMENTATION_OLD);
 
 /**
  * Generates the system prompt for the MI design agent
@@ -324,11 +337,11 @@ export interface SystemPromptSelection {
     runtimeVersionDetected: boolean;
 }
 
-export function getSystemPrompt(runtimeVersion?: string | null): SystemPromptSelection {
+export function getSystemPrompt(runtimeVersion?: string | null, semanticEnabled: boolean = false): SystemPromptSelection {
     if (!runtimeVersion) {
         logWarn('[SystemPrompt] MI runtime version could not be detected. Defaulting to modern syntax guidance (>=4.4.0).');
         return {
-            prompt: SYSTEM_PROMPT,
+            prompt: SYSTEM_PROMPT(semanticEnabled),
             runtimeVersionDetected: false,
         };
     }
@@ -339,7 +352,7 @@ export function getSystemPrompt(runtimeVersion?: string | null): SystemPromptSel
     }
 
     return {
-        prompt: useOldGuide ? SYSTEM_PROMPT_OLD : SYSTEM_PROMPT,
+        prompt: useOldGuide ? SYSTEM_PROMPT_OLD(semanticEnabled) : SYSTEM_PROMPT(semanticEnabled),
         runtimeVersionDetected: true,
     };
 }

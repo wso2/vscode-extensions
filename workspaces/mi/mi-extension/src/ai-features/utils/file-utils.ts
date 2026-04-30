@@ -27,6 +27,7 @@ const EXCLUDED_DIRS = [
     'node_modules',
     '.git',
     '.mi-copilot',
+    '.data',
     'dist',
     'build',
     'out',

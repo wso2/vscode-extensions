@@ -29,6 +29,7 @@ import Attachments from "./Attachments";
 
 // Tool name constant
 const SHELL_TOOL_NAMES = new Set(['shell', 'bash']);
+const SEMANTIC_SEARCH_TOOL_NAME = 'semantic_code_search';
 const EXIT_PLAN_MODE_TOOL_NAME = 'exit_plan_mode';
 
 function appendThinkingPlaceholder(content: string, thinkingId: string): string {
@@ -119,6 +120,23 @@ function upsertLoadingBashOutputTag(
     const beforeMatch = content.substring(0, lastIndex);
     const afterMatch = content.substring(lastIndex + fullMatch.length);
     return beforeMatch + loadingTag + afterMatch;
+}
+
+function upsertLoadingSemanticSearchTag(
+    content: string,
+    query: string,
+    toolCallId: string
+): string {
+    const semanticData = JSON.stringify({ query, results: [], confidence: 'low', confidence_threshold: 0, query_latency_ms: 0, loading: true });
+    const loadingTag = `<semanticsearch data-loading="true" data-tool-call-id="${toolCallId}">${semanticData}</semanticsearch>`;
+    const pattern = /<semanticsearch data-loading="true"[^>]*>[\s\S]*?<\/semanticsearch>/g;
+    const matches = [...content.matchAll(pattern)];
+    if (matches.length === 0) {
+        return content + `\n\n${loadingTag}`;
+    }
+    const fullMatch = matches[matches.length - 1][0];
+    const lastIndex = content.lastIndexOf(fullMatch);
+    return content.substring(0, lastIndex) + loadingTag + content.substring(lastIndex + fullMatch.length);
 }
 
 const WORKING_ON_IT_TOOL_MESSAGE = 'copilot is working on it...';
@@ -620,6 +638,17 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                         break;
                     }
 
+                    // Handle semantic search tool specially - show loading semanticsearch component
+                    if (event.toolName === SEMANTIC_SEARCH_TOOL_NAME) {
+                        const query = (event.toolInput as { query?: string })?.query || '';
+                        const toolCallId = (event as any).toolCallId || '';
+                        setToolStatus('Searching codebase...');
+                        setMessages((prev) => updateLastMessage(prev, (c) =>
+                            upsertLoadingSemanticSearchTag(c, query, toolCallId)
+                        ));
+                        break;
+                    }
+
                     // Use loading action provided by backend (already in user-friendly format)
                     const loadingAction = event.loadingAction || "executing";
                     const capitalizedAction = loadingAction.charAt(0).toUpperCase() + loadingAction.slice(1);
@@ -662,6 +691,29 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                     const newMessages = [...prevMessages];
                     const lastIdx = newMessages.length - 1;
                     const lastMessageContent = newMessages[lastIdx].content;
+
+                    // Check if this is a semantic search result - replace loading semanticsearch tag
+                    if (event.toolName === SEMANTIC_SEARCH_TOOL_NAME) {
+                        const semanticSearchData = (event as any).semanticSearchData;
+                        const completedData = semanticSearchData
+                            ? { ...semanticSearchData, loading: false }
+                            : { query: '', results: [], confidence: 'low' as const, confidence_threshold: 0, query_latency_ms: 0, loading: false };
+                        const completedTag = `<semanticsearch>${JSON.stringify(completedData)}</semanticsearch>`;
+                        const resultToolCallId = (event as any).toolCallId || '';
+                        const patternWithId = resultToolCallId
+                            ? new RegExp(`<semanticsearch data-loading="true" data-tool-call-id="${resultToolCallId}">[\\s\\S]*?<\\/semanticsearch>`)
+                            : null;
+                        const matchWithId = patternWithId ? lastMessageContent.match(patternWithId) : null;
+                        const fallbackMatch = lastMessageContent.match(/<semanticsearch data-loading="true"[^>]*>[\s\S]*?<\/semanticsearch>/);
+                        const targetMatch = matchWithId?.[0] ?? fallbackMatch?.[0];
+                        if (targetMatch) {
+                            newMessages[lastIdx] = {
+                                ...newMessages[lastIdx],
+                                content: lastMessageContent.replace(targetMatch, completedTag),
+                            };
+                        }
+                        return newMessages;
+                    }
 
                     // Check if this is a bash tool result - look for loading bashoutput tag
                     const bashPattern = /<bashoutput data-loading="true">[\s\S]*?<\/bashoutput>/g;

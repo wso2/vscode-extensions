@@ -34,6 +34,7 @@ import { logInfo, logError, logDebug } from '../../copilot/logger';
 import { AnthropicModel, getAnthropicClientForCustomModel, resolveSubModelId, ANTHROPIC_HAIKU_4_5, ANTHROPIC_SONNET_4_6 } from '../../connection';
 import { ModelSettings } from '@wso2/mi-core';
 import { getCopilotSessionDir } from '../storage-paths';
+import { isSemanticToolEnabled } from '../settings';
 
 // Import subagent executors
 import { executeExploreSubagent, executeSynapseContextSubagent } from '../agents/subagents';
@@ -283,11 +284,12 @@ async function runSubagent(
     model: 'haiku' | 'sonnet',
     getAnthropicClient: (model: AnthropicModel) => Promise<any>,
     previousMessages?: any[],
-    abortSignal?: AbortSignal
+    abortSignal?: AbortSignal,
+    semanticEnabled: boolean = true
 ): Promise<SubagentResult> {
     switch (subagentType) {
         case 'Explore':
-            return await executeExploreSubagent(prompt, projectPath, model, getAnthropicClient, previousMessages, abortSignal);
+            return await executeExploreSubagent(prompt, projectPath, model, getAnthropicClient, previousMessages, abortSignal, semanticEnabled);
         case 'SynapseContext':
             return await executeSynapseContextSubagent(prompt, projectPath, model, getAnthropicClient, previousMessages, abortSignal);
         default:
@@ -318,6 +320,7 @@ export function createSubagentExecute(
 
     return async (args): Promise<SubagentToolResult> => {
         const { description, prompt, subagent_type, model: requestedModel = 'haiku', run_in_background = false, resume } = args;
+        const semanticEnabled = isSemanticToolEnabled(projectPath);
 
         // Resolve the effective sub-model: custom ID takes full precedence,
         // otherwise the preset overrides the LLM's model choice.
@@ -445,7 +448,8 @@ export function createSubagentExecute(
                 effectiveModel,
                 effectiveGetClient,
                 previousMessages,
-                abortController.signal
+                abortController.signal,
+                semanticEnabled
             )
                 .then(async (result: SubagentResult) => {
                     removeAbortListener?.();
@@ -506,7 +510,7 @@ export function createSubagentExecute(
             // Foreground Execution (existing synchronous behavior)
             // ================================================================
             try {
-                const result = await runSubagent(subagent_type, prompt, projectPath, effectiveModel, effectiveGetClient, previousMessages, mainAbortSignal);
+                const result = await runSubagent(subagent_type, prompt, projectPath, effectiveModel, effectiveGetClient, previousMessages, mainAbortSignal, semanticEnabled);
 
                 logInfo(`[SubagentTool] ${subagent_type} subagent completed successfully${isResume ? ' (resumed)' : ''}`);
                 logDebug(`[SubagentTool] Response length: ${result.text.length} chars`);

@@ -37,6 +37,14 @@ You can provide integration requirements as:
 - Text prompts: Describe your integration scenario in natural language.
 - Files: Upload relevant files, such as OpenAPI specifications, that provide additional context for the integration.
 
+### Semantic Search Tool
+
+MI Copilot semantic indexing and search can be enabled with `MI.IS_SEMANTIC_TOOL_ENABLED` : `true` and run in a worker process to keep heavy embedding tasks isolated from the main extension runtime.
+
+The extension downloads the model files on first use and caches them in extension storage. The worker runtime is bundled with the VSIX.
+
+If semantic search is unavailable, MI Copilot continues with the normal agent flow.
+
 <img src="https://github.com/wso2/docs-mi/blob/main/en/docs/assets/img/develop/mi-for-vscode/mi-copilot.png?raw=true" width="100%" />
 
 ## Samples

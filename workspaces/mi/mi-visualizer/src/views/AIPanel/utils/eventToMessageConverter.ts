@@ -16,13 +16,13 @@
  * under the License.
  */
 
-import { ChatMessage, Role, MessageType, AgentEvent, ChatHistoryEvent, TodoItem } from "@wso2/mi-core";
+import { ChatMessage, Role, MessageType, AgentEvent, ChatHistoryEvent, TodoItem, SemanticSearchData } from "@wso2/mi-core";
 import { generateId } from "../utils";
 
 // Tool name constants
 const TODO_WRITE_TOOL_NAME = 'todo_write';
 const SHELL_TOOL_NAMES = new Set(['shell', 'bash']);
-
+const SEMANTIC_SEARCH_TOOL_NAME = 'semantic_code_search';
 /**
  * Calculate overall status from todo items
  */
@@ -205,6 +205,20 @@ export function convertEventsToMessages(
                     continue;
                 }
 
+                // Handle semantic search tool specially - show loading semantic search component
+                if (event.toolName === SEMANTIC_SEARCH_TOOL_NAME) {
+                    const semanticData: SemanticSearchData = {
+                        query: toolInput?.query || '',
+                        results: [],
+                        confidence: 'low',
+                        confidence_threshold: 0,
+                        query_latency_ms: 0,
+                        loading: true
+                    };
+                    currentAssistantMessage.content += `\n\n<semanticsearch data-loading="true" data-tool-call-id="${toolCallId}">${JSON.stringify(semanticData)}</semanticsearch>`;
+                    continue;
+                }
+
                 // Get loading action from event (for live streaming) or create generic message
                 const loadingAction = 'loadingAction' in event ? event.loadingAction : undefined;
                 const loadingMessage = loadingAction
@@ -279,6 +293,48 @@ export function convertEventsToMessages(
                             } else {
                                 // No loading tag found, append directly
                                 currentAssistantMessage.content += `\n\n${completedBashTag}`;
+                            }
+                        }
+
+                        pendingToolCalls.delete(resultToolCallId);
+                        continue;
+                    }
+
+                    // Handle semantic search tool specially - replace loading tag with completed data
+                    if (pendingToolCall.toolName === SEMANTIC_SEARCH_TOOL_NAME) {
+                        const semanticData: SemanticSearchData = ('semanticSearchData' in event && event.semanticSearchData)
+                            ? { ...event.semanticSearchData, loading: false }
+                            : {
+                                query: (pendingToolCall.toolInput as any)?.query || '',
+                                results: [],
+                                confidence: 'low',
+                                confidence_threshold: 0,
+                                query_latency_ms: 0,
+                                loading: false
+                            };
+
+                        const completedTag = `<semanticsearch>${JSON.stringify(semanticData)}</semanticsearch>`;
+
+                        // Find and replace the loading semanticsearch tag by toolCallId
+                        const semanticPatternWithId = new RegExp(
+                            `<semanticsearch data-loading="true" data-tool-call-id="${resultToolCallId}">[\\s\\S]*?<\\/semanticsearch>`, 'g'
+                        );
+                        const semanticMatchesWithId = [...currentAssistantMessage.content.matchAll(semanticPatternWithId)];
+
+                        if (semanticMatchesWithId.length > 0) {
+                            currentAssistantMessage.content = currentAssistantMessage.content.replace(
+                                semanticMatchesWithId[0][0], completedTag
+                            );
+                        } else {
+                            // Fallback: find any loading semanticsearch tag
+                            const fallbackPattern = /<semanticsearch data-loading="true"[^>]*>[\s\S]*?<\/semanticsearch>/g;
+                            const fallbackMatches = [...currentAssistantMessage.content.matchAll(fallbackPattern)];
+                            if (fallbackMatches.length > 0) {
+                                currentAssistantMessage.content = currentAssistantMessage.content.replace(
+                                    fallbackMatches[0][0], completedTag
+                                );
+                            } else {
+                                currentAssistantMessage.content += `\n\n${completedTag}`;
                             }
                         }
 

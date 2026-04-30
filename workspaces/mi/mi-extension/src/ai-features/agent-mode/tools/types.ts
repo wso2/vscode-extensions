@@ -168,6 +168,10 @@ export const DEFERRED_TOOLS = new Set<string>([
 export const DEEPWIKI_MCP_TOOL_NAME = 'ask_question';           // MCP server's actual tool name
 export const DEEPWIKI_ASK_QUESTION_TOOL_NAME = 'deepwiki_ask_question'; // name exposed to Claude
 
+// Semantic Search Tool
+export const SEMANTIC_SEARCH_TOOL_NAME = 'semantic_code_search';
+
+
 // ============================================================================
 // Subagent Types
 // ============================================================================
@@ -439,3 +443,13 @@ export type TaskOutputExecuteFn = (args: {
     block?: boolean;
     timeout?: number;
 }) => Promise<TaskOutputResult>;
+
+// ============================================================================
+// Semantic Search Tool Execute Function Types
+// ============================================================================
+
+export type SemanticSearchExecuteFn = (args: {
+    query: string;
+    top_k?: number;
+    score_threshold?: number;
+}) => Promise<ToolResult>;
