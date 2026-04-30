@@ -4381,6 +4381,241 @@ importers:
         specifier: 0.6.2
         version: 0.6.2
 
+  ../../workspaces/mi/mi-extension:
+    dependencies:
+      '@ai-sdk/anthropic':
+        specifier: 2.0.35
+        version: 2.0.35(zod@4.1.11)
+      '@apidevtools/json-schema-ref-parser':
+        specifier: 12.0.2
+        version: 12.0.2
+      '@babel/core':
+        specifier: 7.27.1
+        version: 7.27.1
+      '@babel/plugin-transform-typescript':
+        specifier: 7.27.1
+        version: 7.27.1(@babel/core@7.27.1)
+      '@iarna/toml':
+        specifier: 2.2.5
+        version: 2.2.5
+      '@types/fs-extra':
+        specifier: 11.0.4
+        version: 11.0.4
+      '@types/handlebars':
+        specifier: 4.1.0
+        version: 4.1.0
+      '@types/json-schema':
+        specifier: 7.0.15
+        version: 7.0.15
+      '@types/lodash':
+        specifier: 4.17.17
+        version: 4.17.17
+      '@types/mustache':
+        specifier: 4.2.6
+        version: 4.2.6
+      '@types/tmp':
+        specifier: 0.2.6
+        version: 0.2.6
+      '@types/xml2js':
+        specifier: 0.4.12
+        version: 0.4.12
+      '@vscode/vsce':
+        specifier: 3.7.1
+        version: 3.7.1
+      '@wso2/font-wso2-vscode':
+        specifier: workspace:*
+        version: link:../../common-libs/font-wso2-vscode
+      '@wso2/mi-core':
+        specifier: workspace:*
+        version: link:../mi-core
+      '@wso2/mi-diagram':
+        specifier: workspace:*
+        version: link:../mi-diagram
+      '@wso2/mi-rpc-client':
+        specifier: workspace:*
+        version: link:../mi-rpc-client
+      '@wso2/mi-syntax-tree':
+        specifier: workspace:*
+        version: link:../syntax-tree
+      '@wso2/playwright-vscode-tester':
+        specifier: workspace:*
+        version: link:../../common-libs/playwright-vscode-tester
+      adm-zip:
+        specifier: 0.5.16
+        version: 0.5.16
+      ai:
+        specifier: 5.0.76
+        version: 5.0.76(zod@4.1.11)
+      axios:
+        specifier: 1.15.0
+        version: 1.15.0
+      copyfiles:
+        specifier: 2.4.1
+        version: 2.4.1
+      cors-anywhere:
+        specifier: 0.4.4
+        version: 0.4.4
+      dotenv:
+        specifier: 16.5.0
+        version: 16.5.0
+      fast-xml-parser:
+        specifier: 5.7.0
+        version: 5.7.0
+      find-process:
+        specifier: 1.4.10
+        version: 1.4.10
+      fs-extra:
+        specifier: 11.3.0
+        version: 11.3.0
+      handlebars:
+        specifier: 4.7.9
+        version: 4.7.9
+      json-schema:
+        specifier: 0.4.0
+        version: 0.4.0
+      json-schema-to-ts:
+        specifier: 3.1.1
+        version: 3.1.1
+      jsonix:
+        specifier: 3.0.0
+        version: 3.0.0
+      jwt-decode:
+        specifier: 4.0.0
+        version: 4.0.0
+      lodash:
+        specifier: '>=4.18.0'
+        version: 4.18.1
+      mustache:
+        specifier: 4.2.0
+        version: 4.2.0
+      node-fetch:
+        specifier: 3.3.2
+        version: 3.3.2
+      node-loader:
+        specifier: 2.1.0
+        version: 2.1.0(webpack@5.104.1)
+      portfinder:
+        specifier: 1.0.37
+        version: 1.0.37
+      recast:
+        specifier: 0.23.11
+        version: 0.23.11
+      tmp:
+        specifier: 0.2.4
+        version: 0.2.4
+      to-json-schema:
+        specifier: 0.2.5
+        version: 0.2.5
+      tree-kill:
+        specifier: 1.2.2
+        version: 1.2.2
+      unzipper:
+        specifier: 0.12.3
+        version: 0.12.3
+      upath:
+        specifier: 2.0.1
+        version: 2.0.1
+      uuid:
+        specifier: 14.0.0
+        version: 14.0.0
+      vscode-debugadapter:
+        specifier: 1.51.0
+        version: 1.51.0
+      vscode-debugprotocol:
+        specifier: 1.51.0
+        version: 1.51.0
+      vscode-extension-tester:
+        specifier: 8.14.1
+        version: 8.14.1(mocha@11.4.0)(typescript@5.8.3)
+      vscode-languageclient:
+        specifier: 9.0.1
+        version: 9.0.1
+      vscode-languageserver-protocol:
+        specifier: 3.17.5
+        version: 3.17.5
+      vscode-messenger:
+        specifier: 0.5.1
+        version: 0.5.1
+      vscode-messenger-common:
+        specifier: 0.5.1
+        version: 0.5.1
+      xml2js:
+        specifier: 0.6.2
+        version: 0.6.2
+      xstate:
+        specifier: 4.38.3
+        version: 4.38.3
+      zod:
+        specifier: 4.1.11
+        version: 4.1.11
+    devDependencies:
+      '@playwright/test':
+        specifier: 1.55.1
+        version: 1.55.1
+      '@types/mocha':
+        specifier: 10.0.1
+        version: 10.0.1
+      '@types/node':
+        specifier: 22.15.21
+        version: 22.15.21
+      '@types/vscode':
+        specifier: 1.100.0
+        version: 1.100.0
+      '@typescript-eslint/eslint-plugin':
+        specifier: 8.32.1
+        version: 8.32.1(@typescript-eslint/parser@8.32.1(eslint@9.39.4(jiti@2.6.1))(typescript@5.8.3))(eslint@9.39.4(jiti@2.6.1))(typescript@5.8.3)
+      '@typescript-eslint/parser':
+        specifier: 8.32.1
+        version: 8.32.1(eslint@9.39.4(jiti@2.6.1))(typescript@5.8.3)
+      '@vscode/test-electron':
+        specifier: 2.5.2
+        version: 2.5.2
+      '@wso2/mi-data-mapper-utils':
+        specifier: workspace:*
+        version: link:../mi-data-mapper-utils
+      '@wso2/mi-visualizer':
+        specifier: workspace:*
+        version: link:../mi-visualizer
+      '@wso2/wso2-platform-core':
+        specifier: workspace:*
+        version: link:../../wso2-platform/wso2-platform-core
+      await-notify:
+        specifier: 1.0.1
+        version: 1.0.1
+      eslint:
+        specifier: ^9.27.0
+        version: 9.39.4(jiti@2.6.1)
+      glob:
+        specifier: 11.0.2
+        version: 11.0.2
+      mocha:
+        specifier: 11.4.0
+        version: 11.4.0
+      playwright-core:
+        specifier: 1.55.1
+        version: 1.55.1
+      rimraf:
+        specifier: 6.0.1
+        version: 6.0.1
+      ts-loader:
+        specifier: 9.5.2
+        version: 9.5.2(typescript@5.8.3)(webpack@5.104.1)
+      ts-morph:
+        specifier: 26.0.0
+        version: 26.0.0
+      typescript:
+        specifier: 5.8.3
+        version: 5.8.3
+      webpack:
+        specifier: 5.104.1
+        version: 5.104.1(webpack-cli@4.10.0)
+      webpack-cli:
+        specifier: 4.10.0
+        version: 4.10.0(webpack@5.104.1)
+      yaml:
+        specifier: 2.8.3
+        version: 2.8.3
+
   ../../workspaces/mi/mi-rpc-client:
     dependencies:
       '@types/vscode-webview':
@@ -5010,6 +5245,12 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
+  '@ai-sdk/anthropic@2.0.35':
+    resolution: {integrity: sha512-R0HtYqnKhxH67qpfKJwPCzRJLeW6M/adFM0E4YyF2+m80UvaigmiVwEODcODHEhsA3hQdf1hLNXzq4AEbkz8xw==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
   '@ai-sdk/anthropic@3.0.63':
     resolution: {integrity: sha512-SiLosFr0FfKfrNpAAj8mD/i3S5YBB/z5orb1DH3pN1yATuBNjjPMLnRE4P3Dn7Y5cQsro0uzw5g5117hkShWoQ==}
     engines: {node: '>=18'}
@@ -5018,6 +5259,12 @@ packages:
 
   '@ai-sdk/anthropic@3.0.64':
     resolution: {integrity: sha512-rwLi/Rsuj2pYniQXIrvClHvXDzgM4UQHHnvHTWEF14efnlKclG/1ghpNC+adsRujAbCTr6gRsSbDE2vEqriV7g==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/gateway@2.0.0':
+    resolution: {integrity: sha512-Gj0PuawK7NkZuyYgO/h5kDK/l6hFOjhLdTq3/Lli1FTl47iGmwhH1IZQpAL3Z09BeFYWakcwUmn02ovIm2wy9g==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -5040,6 +5287,12 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
+  '@ai-sdk/provider-utils@3.0.12':
+    resolution: {integrity: sha512-ZtbdvYxdMoria+2SlNarEk6Hlgyf+zzcznlD55EAl+7VZvJaSg2sqPvwArY7L6TfDEDJsnCq0fdhBSkYo0Xqdg==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
   '@ai-sdk/provider-utils@4.0.15':
     resolution: {integrity: sha512-8XiKWbemmCbvNN0CLR9u3PQiet4gtEVIrX4zzLxnCj06AwsEDJwJVBbKrEI4t6qE8XRSIvU2irka0dcpziKW6w==}
     engines: {node: '>=18'}
@@ -5051,6 +5304,10 @@ packages:
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/provider@2.0.0':
+    resolution: {integrity: sha512-6o7Y2SeO9vFKB8lArHXehNuusnpddKPk7xqL7T2/b+OvXMRIXUO1rR4wcv1hAFUAT9avGZshty3Wlua/XA7TvA==}
+    engines: {node: '>=18'}
 
   '@ai-sdk/provider@3.0.8':
     resolution: {integrity: sha512-oGMAgGoQdBXbZqNG0Ze56CHjDZ1IDYOwGYxYjO5KLSlz5HiNQ9udIXsPZ61VWaHGZ5XW/jyjmr6t2xz2jGVwbQ==}
@@ -5066,6 +5323,10 @@ packages:
 
   '@apidevtools/json-schema-ref-parser@11.6.1':
     resolution: {integrity: sha512-DxjgKBCoyReu4p5HMvpmgSOfRhhBcuf5V5soDDRgOTZMwsA4KSFzol1abFZgiCTE11L2kKGca5Md9GwDdXVBwQ==}
+    engines: {node: '>= 16'}
+
+  '@apidevtools/json-schema-ref-parser@12.0.2':
+    resolution: {integrity: sha512-SoZWqQz4YMKdw4kEMfG5w6QAy+rntjsoAT1FtvZAnVEnCR4uy9YSuDBNoVAFHgzSz0dJbISLLCSrGR2Zd7bcvA==}
     engines: {node: '>= 16'}
 
   '@aw-web-design/x-default-browser@1.4.126':
@@ -11166,6 +11427,9 @@ packages:
   '@ts-morph/common@0.23.0':
     resolution: {integrity: sha512-m7Lllj9n/S6sOkCkRftpM7L24uvmfXQFedlW/4hENcuJH1HHm9u5EgxZb9uVjQSCGrbBWBkOGgcTxNg36r6ywA==}
 
+  '@ts-morph/common@0.27.0':
+    resolution: {integrity: sha512-Wf29UqxWDpc+i61k3oIOzcUfQt79PIT9y/MWfAGlrkjg6lBC1hwDECLXPVJAhWjiGbfBCxZd65F/LIZF3+jeJQ==}
+
   '@tsconfig/node10@1.0.12':
     resolution: {integrity: sha512-UCYBaeFvM11aU2y3YPZ//O5Rhj+xKyzy7mvcIoAjASbigy8mHMryP5cK7dgjlz2hWxh1g5pLw084E0a/wlUSFQ==}
 
@@ -11323,6 +11587,9 @@ packages:
 
   '@types/fs-extra@11.0.1':
     resolution: {integrity: sha512-MxObHvNl4A69ofaTRU8DFqvgzzv8s9yRtaPPm5gud9HDNvpB3GPQFvNuTWAI59B9huVGV5jXYJwbCsmBsOGYWA==}
+
+  '@types/fs-extra@11.0.4':
+    resolution: {integrity: sha512-yTbItCNreRooED33qjunPthRcSjERP1r4MqCZc7wv0u2sUkzTFp45tgUfS5+r7FrZPdmCCNflLhVSP/o+SemsQ==}
 
   '@types/glob-base@0.3.2':
     resolution: {integrity: sha512-0/pNDkxZEZtlAEyMmZvVubAHbynbnlNjPl50gyzDO1iq9nT07Af7Jfg9qJUvXaOzkfVKBvWb4nfPrW1R0ihoyg==}
@@ -11678,6 +11945,9 @@ packages:
 
   '@types/tern@0.23.9':
     resolution: {integrity: sha512-ypzHFE/wBzh+BlH6rrBgS5I/Z7RD21pGhZ2rltb/+ZrVM1awdZwjx7hE5XfuYgHWk9uvV5HLZN3SloevCAp3Bw==}
+
+  '@types/tmp@0.2.6':
+    resolution: {integrity: sha512-chhaNf2oKHlRkDGt+tiKE2Z5aJ6qalm7Z9rlLdBwmOiAAf09YQvvoLXjWK4HWPF1xU/fqvMgfNfpVoBscA/tKA==}
 
   '@types/tough-cookie@4.0.5':
     resolution: {integrity: sha512-/Ad8+nIOV7Rl++6f1BdKxFSMgmoqEoYbHRpPcx3JEfv8VRsQe9Z4mCXeJBzxs7mbHY/XOZZuXlRNfhpVPbs6ZA==}
@@ -12173,6 +12443,10 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@vercel/oidc@3.0.3':
+    resolution: {integrity: sha512-yNEQvPcVrK9sIe637+I0jD6leluPxzwJKx/Haw6F4H77CdDsszUn5V3o96LPziXkSNE2B83+Z3mjqGKBK/R6Gg==}
+    engines: {node: '>= 20'}
+
   '@vercel/oidc@3.1.0':
     resolution: {integrity: sha512-Fw28YZpRnA3cAHHDlkt7xQHiJ0fcL+NRcIqsocZQUSmbzeIKRpwttJjik5ZGanXP+vlA4SbTg+AbA3bP363l+w==}
     engines: {node: '>= 20'}
@@ -12636,6 +12910,12 @@ packages:
     resolution: {integrity: sha512-0poP0T7el6Vq3rstR8Mn4V/IQrpBLO6POkUSrN7RhyY+GF/InCFShQzsQ39T25gkHhLgSLByyAz+Kjb+c2L98w==}
     engines: {node: '>=12'}
 
+  ai@5.0.76:
+    resolution: {integrity: sha512-ZCxi1vrpyCUnDbtYrO/W8GLvyacV9689f00yshTIQ3mFFphbD7eIv40a2AOZBv3GGRA7SSRYIDnr56wcS/gyQg==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
   ai@6.0.103:
     resolution: {integrity: sha512-4eY6Ut4u41zKH+P2S/oLlZrwxeWQh4kIV1FjE34Jhoiwg+v1AyfSYM8FslXk9rTAtIIaOBimrCUqXacC5RBqJw==}
     engines: {node: '>=18'}
@@ -13086,6 +13366,9 @@ packages:
   available-typed-arrays@1.0.7:
     resolution: {integrity: sha512-wvUjBtSGN7+7SjNpq/9M2Tg350UZD3q62IFZLbRAR1bSMlCo1ZaeW+BJ+D090e4hIIZLBcTDWe4Mh4jvUDajzQ==}
     engines: {node: '>= 0.4'}
+
+  await-notify@1.0.1:
+    resolution: {integrity: sha512-eT6XN2ycPKvuiffzUNmU0dnGmmLw+TexMW7UKOyf5utdVrWx14PR2acRIfy6ZfFWRAv8twt1X74VUgd9RnDmfQ==}
 
   aws-sign2@0.7.0:
     resolution: {integrity: sha512-08kcGqnYf/YmjoRhfxyu+CLxBjUtHLXLXX/vUfx9l2LYzG3c1m61nrpyFUZI6zeS+Li/wWMMidD9KgrqtGq3mA==}
@@ -16293,6 +16576,10 @@ packages:
   find-index@0.1.1:
     resolution: {integrity: sha512-uJ5vWrfBKMcE6y2Z8834dwEZj9mNGxYa3t3I53OwFeuZ8D9oc2E5zcsrkuhX6h4iYrjhiv0T3szQmxlAV9uxDg==}
 
+  find-process@1.4.10:
+    resolution: {integrity: sha512-ncYFnWEIwL7PzmrK1yZtaccN8GhethD37RzBHG6iOZoFYB4vSmLLXfeWJjeN5nMvCJMjOtBvBBF8OgxEcikiZg==}
+    hasBin: true
+
   find-root@1.1.0:
     resolution: {integrity: sha512-NKfW6bec6GfKc0SGx1e07QZY9PE99u0Bft/0rzSD5k3sO/vwkVUpDUKVm5Gpp5Ue3YfShPFTX2070tDs5kB9Ng==}
 
@@ -16751,6 +17038,12 @@ packages:
 
   glob@10.5.0:
     resolution: {integrity: sha512-DfXN8DfhJ7NH3Oe7cFmu3NCu1wKbkReJ8TorzSAFbSKrlNaQSKfIzqYqVY8zlbs2NLBbWpRiU52GX2PbaBVNkg==}
+    deprecated: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+    hasBin: true
+
+  glob@11.0.2:
+    resolution: {integrity: sha512-YT7U7Vye+t5fZ/QMkBFrTJ7ZQxInIUjwyAjVj84CYXqgBdv30MFUPGnBR6sQaVq6Is15wYJUsnzTuWaGRBhBAQ==}
+    engines: {node: 20 || >=22}
     deprecated: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
     hasBin: true
 
@@ -18879,6 +19172,10 @@ packages:
   json-parse-even-better-errors@2.3.1:
     resolution: {integrity: sha512-xyFwyhro/JEof6Ghe2iz2NcXoj2sloNsWr/XsERDK/oiPCfaNhl5ONfp+jQdAZRQQ0IJWNzH9zIZF7li91kh2w==}
 
+  json-schema-to-ts@3.1.1:
+    resolution: {integrity: sha512-+DWg8jCJG2TEnpy7kOm/7/AxaYoaRbjVB4LFZLySZlWn8exGs3A4OLJR966cVvU26N7X9TWxl+Jsw7dzAqKT6g==}
+    engines: {node: '>=16'}
+
   json-schema-traverse@0.3.1:
     resolution: {integrity: sha512-4JD/Ivzg7PoW8NzdrBSr3UFwC9mHgvI7Z6z3QGBsSHgKaRTUDmyZAAKJo2UbG1kUVfS9WS8bi36N49U1xw43DA==}
 
@@ -19942,6 +20239,11 @@ packages:
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
     hasBin: true
 
+  mocha@11.4.0:
+    resolution: {integrity: sha512-O6oi5Y9G6uu8f9iqXR6iKNLWHLRex3PKbmHynfpmUnMJJGrdgXh8ZmS85Ei5KR2Gnl+/gQ9s+Ktv5CqKybNw4A==}
+    engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+    hasBin: true
+
   mocha@11.5.0:
     resolution: {integrity: sha512-VKDjhy6LMTKm0WgNEdlY77YVsD49LZnPSXJAaPNL9NRYQADxvORsyG1DIQY6v53BKTnlNbEE2MbVCDbnxr4K3w==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
@@ -20178,6 +20480,12 @@ packages:
 
   node-loader@2.0.0:
     resolution: {integrity: sha512-I5VN34NO4/5UYJaUBtkrODPWxbobrE4hgDqPrjB25yPkonFhCmZ146vTH+Zg417E9Iwoh1l/MbRs1apc5J295Q==}
+    engines: {node: '>= 10.13.0'}
+    peerDependencies:
+      webpack: ^5.0.0
+
+  node-loader@2.1.0:
+    resolution: {integrity: sha512-OwjPkyh8+7jW8DMd/iq71uU1Sspufr/C2+c3t0p08J3CrM9ApZ4U53xuisNrDXOHyGi5OYHgtfmmh+aK9zJA6g==}
     engines: {node: '>= 10.13.0'}
     peerDependencies:
       webpack: ^5.0.0
@@ -20953,6 +21261,10 @@ packages:
   portfinder@1.0.32:
     resolution: {integrity: sha512-on2ZJVVDXRADWE6jnQaX0ioEylzgBpQk8r55NE4wjXW1ZxO+BgDlY6DXwj20i0V8eB4SenDQ00WEaxfiIQPcxg==}
     engines: {node: '>= 0.12.0'}
+
+  portfinder@1.0.37:
+    resolution: {integrity: sha512-yuGIEjDAYnnOex9ddMnKZEMFE0CcGo6zbfzDklkmT1m5z734ss6JMzN9rNB3+RR7iS+F10D4/BVIaXOyh8PQKw==}
+    engines: {node: '>= 10.12'}
 
   possible-typed-array-names@1.1.0:
     resolution: {integrity: sha512-/+5VFTchJDoVj3bhoqi6UeymcD00DAwb1nJwamzPvHEszJ4FpF6SNNbUbOS8yI56qHzdV8eK0qEfOSiodkTdxg==}
@@ -24183,6 +24495,9 @@ packages:
   truncate-utf8-bytes@1.0.2:
     resolution: {integrity: sha512-95Pu1QXQvruGEhv62XCMO3Mm90GscOCClvrIUwCM0PYOXK3kaF3l3sIHxx71ThJfcbM2O5Au6SO3AWCSEfW4mQ==}
 
+  ts-algebra@2.0.0:
+    resolution: {integrity: sha512-FPAhNPFMrkwz76P7cdjdmiShwMynZYN6SgOujD1urY4oNm80Ou9oMdmbR45LotcKOXoy7wSmHkRFE6Mxbrhefw==}
+
   ts-api-utils@1.4.3:
     resolution: {integrity: sha512-i3eMG77UTMD0hZhgRS562pv83RC6ukSAC2GMNWc+9dieh/+jDM5u5YG+NHX6VNDRHQcHwmsTHctP9LhbC3WxVw==}
     engines: {node: '>=16'}
@@ -24318,6 +24633,9 @@ packages:
 
   ts-morph@22.0.0:
     resolution: {integrity: sha512-M9MqFGZREyeb5fTl6gNHKZLqBQA0TjA1lea+CR48R8EBTDuWrNqW6ccC5QvjNR4s6wDumD3LTCjOFSp9iwlzaw==}
+
+  ts-morph@26.0.0:
+    resolution: {integrity: sha512-ztMO++owQnz8c/gIENcM9XfCEzgoGphTv+nKpYNM1bgsdOVC/jRZuEBf6N+mLLDNg68Kl+GgUZfOySaRiG1/Ug==}
 
   ts-node@10.9.2:
     resolution: {integrity: sha512-f0FFpIdcHgn8zcPSbf1dRevwt047YMnaiJM3u2w2RewrB+fob/zePZcrOyQoLMMO7aBIddLcQIEK5dYjkLnGrQ==}
@@ -24998,7 +25316,7 @@ packages:
 
   uuid@3.4.0:
     resolution: {integrity: sha512-HjSDRw6gZE5JMggctHBcjVak08+KEVhSIiDzFnT9S9aegmp85S/bReBVTb4QTFaRNptJ9kuYaNhnbNEOkbKb/A==}
-    deprecated: Please upgrade  to version 7 or higher.  Older versions may use Math.random() in certain circumstances, which is known to be problematic.  See https://v8.dev/blog/math-random for details.
+    deprecated: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
     hasBin: true
 
   uuid@9.0.1:
@@ -25990,6 +26308,12 @@ snapshots:
       aws4fetch: 1.0.20
       zod: 4.1.8
 
+  '@ai-sdk/anthropic@2.0.35(zod@4.1.11)':
+    dependencies:
+      '@ai-sdk/provider': 2.0.0
+      '@ai-sdk/provider-utils': 3.0.12(zod@4.1.11)
+      zod: 4.1.11
+
   '@ai-sdk/anthropic@3.0.63(zod@4.1.8)':
     dependencies:
       '@ai-sdk/provider': 3.0.8
@@ -26001,6 +26325,13 @@ snapshots:
       '@ai-sdk/provider': 3.0.8
       '@ai-sdk/provider-utils': 4.0.21(zod@4.1.8)
       zod: 4.1.8
+
+  '@ai-sdk/gateway@2.0.0(zod@4.1.11)':
+    dependencies:
+      '@ai-sdk/provider': 2.0.0
+      '@ai-sdk/provider-utils': 3.0.12(zod@4.1.11)
+      '@vercel/oidc': 3.0.3
+      zod: 4.1.11
 
   '@ai-sdk/gateway@3.0.57(zod@4.1.8)':
     dependencies:
@@ -26026,6 +26357,13 @@ snapshots:
       '@ai-sdk/provider-utils': 4.0.21(zod@4.1.8)
       zod: 4.1.8
 
+  '@ai-sdk/provider-utils@3.0.12(zod@4.1.11)':
+    dependencies:
+      '@ai-sdk/provider': 2.0.0
+      '@standard-schema/spec': 1.1.0
+      eventsource-parser: 3.0.8
+      zod: 4.1.11
+
   '@ai-sdk/provider-utils@4.0.15(zod@4.1.8)':
     dependencies:
       '@ai-sdk/provider': 3.0.8
@@ -26040,6 +26378,10 @@ snapshots:
       eventsource-parser: 3.0.8
       zod: 4.1.8
 
+  '@ai-sdk/provider@2.0.0':
+    dependencies:
+      json-schema: 0.4.0
+
   '@ai-sdk/provider@3.0.8':
     dependencies:
       json-schema: 0.4.0
@@ -26052,6 +26394,12 @@ snapshots:
       '@jridgewell/trace-mapping': 0.3.31
 
   '@apidevtools/json-schema-ref-parser@11.6.1':
+    dependencies:
+      '@jsdevtools/ono': 7.1.3
+      '@types/json-schema': 7.0.15
+      js-yaml: 4.1.1
+
+  '@apidevtools/json-schema-ref-parser@12.0.2':
     dependencies:
       '@jsdevtools/ono': 7.1.3
       '@types/json-schema': 7.0.15
@@ -27051,7 +27399,7 @@ snapshots:
   '@babel/plugin-proposal-object-rest-spread@7.12.1(@babel/core@7.12.9)':
     dependencies:
       '@babel/core': 7.12.9
-      '@babel/helper-plugin-utils': 7.10.4
+      '@babel/helper-plugin-utils': 7.28.6
       '@babel/plugin-syntax-object-rest-spread': 7.8.3(@babel/core@7.12.9)
       '@babel/plugin-transform-parameters': 7.27.7(@babel/core@7.12.9)
 
@@ -39503,6 +39851,12 @@ snapshots:
       mkdirp: 3.0.1
       path-browserify: 1.0.1
 
+  '@ts-morph/common@0.27.0':
+    dependencies:
+      fast-glob: 3.3.3
+      minimatch: 10.2.3
+      path-browserify: 1.0.1
+
   '@tsconfig/node10@1.0.12': {}
 
   '@tsconfig/node12@1.0.11': {}
@@ -39686,6 +40040,11 @@ snapshots:
   '@types/find-cache-dir@3.2.1': {}
 
   '@types/fs-extra@11.0.1':
+    dependencies:
+      '@types/jsonfile': 6.1.4
+      '@types/node': 20.19.17
+
+  '@types/fs-extra@11.0.4':
     dependencies:
       '@types/jsonfile': 6.1.4
       '@types/node': 20.19.17
@@ -40059,6 +40418,8 @@ snapshots:
   '@types/tern@0.23.9':
     dependencies:
       '@types/estree': 1.0.8
+
+  '@types/tmp@0.2.6': {}
 
   '@types/tough-cookie@4.0.5': {}
 
@@ -40748,6 +41109,8 @@ snapshots:
   '@unrs/resolver-binding-win32-x64-msvc@1.11.1':
     optional: true
 
+  '@vercel/oidc@3.0.3': {}
+
   '@vercel/oidc@3.1.0': {}
 
   '@vitest/expect@2.0.5':
@@ -41214,6 +41577,10 @@ snapshots:
       webpack: 5.104.1(webpack-cli@6.0.1)
       webpack-cli: 6.0.1(webpack@5.104.1)
 
+  '@webpack-cli/serve@1.7.0(webpack-cli@4.10.0)':
+    dependencies:
+      webpack-cli: 4.10.0(webpack@5.104.1)
+
   '@webpack-cli/serve@1.7.0(webpack-cli@4.10.0)(webpack-dev-server@5.2.3)':
     dependencies:
       webpack-cli: 4.10.0(webpack-dev-server@5.2.3)(webpack@5.104.1)
@@ -41396,6 +41763,14 @@ snapshots:
     dependencies:
       clean-stack: 4.2.0
       indent-string: 5.0.0
+
+  ai@5.0.76(zod@4.1.11):
+    dependencies:
+      '@ai-sdk/gateway': 2.0.0(zod@4.1.11)
+      '@ai-sdk/provider': 2.0.0
+      '@ai-sdk/provider-utils': 3.0.12(zod@4.1.11)
+      '@opentelemetry/api': 1.9.0
+      zod: 4.1.11
 
   ai@6.0.103(zod@4.1.8):
     dependencies:
@@ -41872,6 +42247,8 @@ snapshots:
   available-typed-arrays@1.0.7:
     dependencies:
       possible-typed-array-names: 1.1.0
+
+  await-notify@1.0.1: {}
 
   aws-sign2@0.7.0: {}
 
@@ -44650,6 +45027,12 @@ snapshots:
     optionalDependencies:
       supports-color: 8.1.1
 
+  debug@4.4.3(supports-color@5.5.0):
+    dependencies:
+      ms: 2.1.3
+    optionalDependencies:
+      supports-color: 5.5.0
+
   debug@4.4.3(supports-color@8.1.1):
     dependencies:
       ms: 2.1.3
@@ -46350,6 +46733,12 @@ snapshots:
 
   find-index@0.1.1: {}
 
+  find-process@1.4.10:
+    dependencies:
+      chalk: 4.1.2
+      commander: 12.1.0
+      loglevel: 1.9.2
+
   find-root@1.1.0: {}
 
   find-up@1.1.2:
@@ -46461,7 +46850,7 @@ snapshots:
 
   fork-ts-checker-webpack-plugin@4.1.6:
     dependencies:
-      '@babel/code-frame': 7.10.4
+      '@babel/code-frame': 7.29.0
       chalk: 2.4.2
       micromatch: 4.0.8
       minimatch: 3.1.5
@@ -47000,6 +47389,15 @@ snapshots:
       minipass: 7.1.3
       package-json-from-dist: 1.0.1
       path-scurry: 1.11.1
+
+  glob@11.0.2:
+    dependencies:
+      foreground-child: 3.3.1
+      jackspeak: 4.2.3
+      minimatch: 10.2.3
+      minipass: 7.1.3
+      package-json-from-dist: 1.0.1
+      path-scurry: 2.0.2
 
   glob@11.1.0:
     dependencies:
@@ -50667,6 +51065,11 @@ snapshots:
 
   json-parse-even-better-errors@2.3.1: {}
 
+  json-schema-to-ts@3.1.1:
+    dependencies:
+      '@babel/runtime': 7.29.2
+      ts-algebra: 2.0.0
+
   json-schema-traverse@0.3.1: {}
 
   json-schema-traverse@0.4.1: {}
@@ -52121,6 +52524,29 @@ snapshots:
       yargs-parser: 21.1.1
       yargs-unparser: 2.0.0
 
+  mocha@11.4.0:
+    dependencies:
+      browser-stdout: 1.3.1
+      chokidar: 4.0.3
+      debug: 4.4.3(supports-color@8.1.1)
+      diff: 8.0.3
+      escape-string-regexp: 4.0.0
+      find-up: 5.0.0
+      glob: 10.5.0
+      he: 1.2.0
+      js-yaml: 4.1.1
+      log-symbols: 4.1.0
+      minimatch: 5.1.8
+      ms: 2.1.3
+      picocolors: 1.1.1
+      serialize-javascript: 7.0.5
+      strip-json-comments: 3.1.1
+      supports-color: 8.1.1
+      workerpool: 6.5.1
+      yargs: 17.7.2
+      yargs-parser: 21.1.1
+      yargs-unparser: 2.0.0
+
   mocha@11.5.0:
     dependencies:
       browser-stdout: 1.3.1
@@ -52387,6 +52813,11 @@ snapshots:
     dependencies:
       loader-utils: 2.0.4
       webpack: 5.104.1(webpack-cli@5.1.4)
+
+  node-loader@2.1.0(webpack@5.104.1):
+    dependencies:
+      loader-utils: 2.0.4
+      webpack: 5.104.1(webpack-cli@4.10.0)
 
   node-notifier@5.4.5:
     dependencies:
@@ -53214,6 +53645,20 @@ snapshots:
       async: 2.6.4
       debug: 3.2.7
       mkdirp: 0.5.6
+
+  portfinder@1.0.37:
+    dependencies:
+      async: 3.2.6
+      debug: 4.4.3(supports-color@8.1.1)
+    transitivePeerDependencies:
+      - supports-color
+
+  portfinder@1.0.37(supports-color@5.5.0):
+    dependencies:
+      async: 3.2.6
+      debug: 4.4.3(supports-color@5.5.0)
+    transitivePeerDependencies:
+      - supports-color
 
   possible-typed-array-names@1.1.0: {}
 
@@ -57598,6 +58043,8 @@ snapshots:
     dependencies:
       utf8-byte-length: 1.0.5
 
+  ts-algebra@2.0.0: {}
+
   ts-api-utils@1.4.3(typescript@5.8.3):
     dependencies:
       typescript: 5.8.3
@@ -57812,6 +58259,11 @@ snapshots:
   ts-morph@22.0.0:
     dependencies:
       '@ts-morph/common': 0.23.0
+      code-block-writer: 13.0.3
+
+  ts-morph@26.0.0:
+    dependencies:
+      '@ts-morph/common': 0.27.0
       code-block-writer: 13.0.3
 
   ts-node@10.9.2(@swc/core@1.15.24(@swc/helpers@0.5.21))(@types/node@20.19.17)(typescript@5.8.3):
@@ -58961,6 +59413,33 @@ snapshots:
       - supports-color
       - utf-8-validate
 
+  vscode-extension-tester@8.14.1(mocha@11.4.0)(typescript@5.8.3):
+    dependencies:
+      '@redhat-developer/locators': 1.20.0(@redhat-developer/page-objects@1.20.0(selenium-webdriver@4.43.0)(typescript@5.8.3))(selenium-webdriver@4.43.0)
+      '@redhat-developer/page-objects': 1.20.0(selenium-webdriver@4.43.0)(typescript@5.8.3)
+      '@types/selenium-webdriver': 4.35.5
+      '@vscode/vsce': 3.7.1
+      c8: 10.1.3
+      commander: 13.1.0
+      compare-versions: 6.1.1
+      find-up: 7.0.0
+      fs-extra: 11.3.0
+      glob: 11.1.0
+      got: 14.4.7
+      hpagent: 1.2.0
+      js-yaml: 4.1.1
+      mocha: 11.4.0
+      sanitize-filename: 1.6.4
+      selenium-webdriver: 4.43.0
+      targz: 1.0.1
+      typescript: 5.8.3
+      unzipper: 0.12.3
+    transitivePeerDependencies:
+      - bufferutil
+      - monocart-coverage-reports
+      - supports-color
+      - utf-8-validate
+
   vscode-extension-tester@8.14.1(mocha@11.5.0)(typescript@5.8.3):
     dependencies:
       '@redhat-developer/locators': 1.20.0(@redhat-developer/page-objects@1.20.0(selenium-webdriver@4.43.0)(typescript@5.8.3))(selenium-webdriver@4.43.0)
@@ -59174,6 +59653,22 @@ snapshots:
     optionalDependencies:
       webpack-dev-server: 5.2.3(webpack-cli@4.10.0)(webpack@5.104.1)
 
+  webpack-cli@4.10.0(webpack@5.104.1):
+    dependencies:
+      '@discoveryjs/json-ext': 0.5.7
+      '@webpack-cli/configtest': 1.2.0(webpack-cli@4.10.0)(webpack@5.104.1)
+      '@webpack-cli/info': 1.5.0(webpack-cli@4.10.0)
+      '@webpack-cli/serve': 1.7.0(webpack-cli@4.10.0)
+      colorette: 2.0.20
+      commander: 7.2.0
+      cross-spawn: 7.0.6
+      fastest-levenshtein: 1.0.16
+      import-local: 3.2.0
+      interpret: 2.2.0
+      rechoir: 0.7.1
+      webpack: 5.104.1(webpack-cli@4.10.0)
+      webpack-merge: 5.10.0
+
   webpack-cli@5.1.4(webpack-dev-server@4.15.2)(webpack@5.104.1):
     dependencies:
       '@discoveryjs/json-ext': 0.5.7
@@ -59382,7 +59877,7 @@ snapshots:
       killable: 1.0.1
       loglevel: 1.9.2
       opn: 5.5.0
-      portfinder: 1.0.32
+      portfinder: 1.0.37(supports-color@5.5.0)
       selfsigned: 1.10.14
       serve-index: 1.9.2
       sockjs: 0.3.19
