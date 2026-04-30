@@ -280,11 +280,14 @@ export function NodePropertiesPanel({ node, workflow, definition, traceSpans, fo
     }, [node?.id, node?.type, workflow]);
 
     // If a forceTab is provided (e.g. from "View Logs" click), switch to it.
+    // node?.id is included so that if forceTab is already set (e.g. 'logs') and
+    // the user clicks "View Logs" on a different step, the node-change effect
+    // above resets to 'properties' first and then this effect re-applies forceTab.
     useEffect(() => {
         if (forceTab) {
             setActiveTab(forceTab);
         }
-    }, [forceTab]);
+    }, [forceTab, node?.id]);
 
     // Early return AFTER all hooks have been declared
     if (!node) return null;
