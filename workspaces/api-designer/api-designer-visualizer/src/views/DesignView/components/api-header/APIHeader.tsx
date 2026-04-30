@@ -197,7 +197,7 @@ export const APIHeader: React.FC<APIHeaderProps> = ({
                                 {specType && openApiVersion && (
                                     <SpecTypeBadge specType={specType} version={openApiVersion} />
                                 )}
-                                <VersionBadge>v{version || '1.0.0'}</VersionBadge>
+                                <VersionBadge>{version || '1.0.0'}</VersionBadge>
                                 {!readOnly && onEditClick && (
                                     <EditButtonWrapper>
                                         <Button

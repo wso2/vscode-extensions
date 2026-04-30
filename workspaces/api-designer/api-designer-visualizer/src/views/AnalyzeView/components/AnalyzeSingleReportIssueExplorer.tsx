@@ -834,14 +834,18 @@ export const AnalyzeSingleReportIssueExplorer: React.FC<AnalyzeSingleReportIssue
                                 <Row><SeverityPill $severity={detailIssue.severity}>{detailIssue.severity}</SeverityPill></Row>
                                 <DetailSection><DetailLabel>Message</DetailLabel><MessageBox>{detailIssue.message}</MessageBox></DetailSection>
                                 {detailIssue.violation.description && <DetailSection><DetailLabel>Description</DetailLabel><DetailValue>{detailIssue.violation.description}</DetailValue></DetailSection>}
-                                {detailIssue.violation.fixSuggestion && <DetailSection><DetailLabel>fixSuggestion</DetailLabel><SuggestionBox>{detailIssue.violation.fixSuggestion}</SuggestionBox></DetailSection>}
-                                <DetailSection>
-                                    <DetailLabel>Endpoint</DetailLabel>
-                                    <EndPointValue style={{ fontFamily: 'var(--vscode-editor-font-family, monospace)', fontSize: 11 }}>
-                                        <MethodBadge method={detailIssue.method} />
-                                        <span>{detailIssue.endpoint}</span>
-                                    </EndPointValue>
-                                </DetailSection>
+                                {detailIssue.violation.fixSuggestion && <DetailSection><DetailLabel>Suggestion</DetailLabel><SuggestionBox>{detailIssue.violation.fixSuggestion}</SuggestionBox></DetailSection>}
+                                {detailIssue.endpoint !== 'global' && (
+                                    <DetailSection>
+                                        <DetailLabel>Endpoint</DetailLabel>
+                                        <EndPointValue style={{ fontFamily: 'var(--vscode-editor-font-family, monospace)', fontSize: 11 }}>
+                                            {detailIssue.method !== 'GLOBAL' && (
+                                                <MethodBadge method={detailIssue.method} />
+                                            )}
+                                            <span>{detailIssue.endpoint}</span>
+                                        </EndPointValue>
+                                    </DetailSection>
+                                )}
                                 <DetailSection><DetailLabel>Path</DetailLabel><DetailValue style={{ fontFamily: 'var(--vscode-editor-font-family, monospace)', fontSize: 11 }}>{detailIssue.path}</DetailValue></DetailSection>
                                 <DetailSection>
                                     <DetailLabel>Location</DetailLabel>

@@ -450,7 +450,7 @@ export const AnalyzeSingleReportPage: React.FC<AnalyzeSingleReportPageProps> = (
                 : llmStatusValue === 'failed'
                     ? (report.llmValidation?.error?.trim() ||
                         'AI analysis did not finish. Use Analyse to retry, and ensure GitHub Copilot is installed and signed in.')
-                    : 'Run LLM analysis to generate deeper findings';
+                    : 'Run AI analysis to generate deeper findings';
     const llmActionLabel = llmStatusValue === 'ready'
         ? 'View findings'
         : llmStatusValue === 'pending'
