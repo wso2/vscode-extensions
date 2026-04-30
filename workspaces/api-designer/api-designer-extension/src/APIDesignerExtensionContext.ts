@@ -19,9 +19,9 @@
 
 import { ExtensionContext } from "vscode";
 
-export class MIExtensionContext {
+export class APIDesignerExtensionContext {
     public context!: ExtensionContext;
     public webviewReveal!: boolean;
 }
 
-export const extension = new MIExtensionContext();
+export const extension = new APIDesignerExtensionContext();

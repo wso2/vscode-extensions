@@ -1,12 +1,23 @@
 # Change Log
 
-All notable changes to the "micro-integrator" extension will be documented in this file.
+All notable changes to the "API Designer" extension will be documented in this file.
 
-## [1.0.1] (2024-07-26)
+## 0.9.0
 
-- Fixed inbound endpoint editing 
-- Other minor bug fixes
-
-## [1.0.0]
-
-- Initial release
+### Added
+- **OpenAPI Visual Designer**: Design and edit OpenAPI 3.x APIs directly in VS Code.
+  - Edit paths, operations, parameters, request bodies, responses, headers, and reusable components.
+  - Import JSON samples to generate schema definitions.
+- **Governance Analysis Workspace**: Analyze APIs with built-in governance reports.
+  - Score cards for **AI Readiness**, **Security (OWASP)**, and **REST Compliance**.
+  - Detailed report pages with breakdowns, filtering, grouping, search, and issue-level diagnostics.
+- **AI Readiness with LLM Findings**: Run AI-readiness checks with optional LLM-assisted findings.
+  - LLM findings are merged into report issues and reflected in report counters.
+  - Supports re-evaluation, plus clear stale and failed analysis states.
+- **GitHub Copilot Integration**: Integrated Copilot-backed language model workflows in API Designer.
+  - Use AI-assisted design/edit flows from the designer experience.
+  - Use **Fix with AI** style actions from validation and parsing error states to generate remediation suggestions.
+  - Open AI chat with context-aware prompts from API sections and report findings.
+- **Commands and LM Tools**: Added API Designer commands and language model tool integrations.
+  - Open API Designer from editor context, title actions, and command palette.
+  - Validate specs, open in designer, and resolve AI findings through integrated tools.

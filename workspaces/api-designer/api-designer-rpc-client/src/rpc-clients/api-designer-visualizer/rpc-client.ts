@@ -19,24 +19,46 @@
  */
 import {
     APIDesignerVisualizerAPI,
-    GetOpenAPIContentRequest,
-    GetOpenAPIContentResponse,
-    GoToSourceRequest,
-    HistoryEntry,
-    HistoryEntryResponse,
+    GetAPISpecContentRequest,
+    GetAPISpecContentResponse,
     OpenViewRequest,
-    WriteOpenAPIContentRequest,
-    WriteOpenAPIContentResponse,
-    addToHistory,
-    getHistory,
-    getOpenApiContent,
-    goBack,
-    goHome,
-    goToSource,
+    WriteAPISpecContentRequest,
+    WriteAPISpecContentResponse,
+    getAPISpecContent,
     importJSON,
     openView,
-    writeOpenApiContent,
-    Schema
+    writeAPISpecContent,
+    Schema,
+    GetGovernanceRequest,
+    GetGovernanceResponse,
+    ValidateAPISpecRequest,
+    ValidateAPISpecResponse,
+    FetchRulesetsFromFolderRequest,
+    FetchRulesetsFromFolderResponse,
+    GetApplicableRulesetsRequest,
+    GetApplicableRulesetsResponse,
+    ReadFileRequest,
+    ReadFileResponse,
+    WriteFileRequest,
+    WriteFileResponse,
+    DeleteFileRequest,
+    DeleteFileResponse,
+    GetWorkspaceFileTreeRequest,
+    GetWorkspaceFileTreeResponse,
+    CheckAIAvailabilityRequest,
+    CheckAIAvailabilityResponse,
+    getGovernance,
+    validateApiSpec,
+    fetchRulesetsFromFolder,
+    getApplicableRulesets,
+    readFile,
+    writeFile,
+    deleteFile,
+    getWorkspaceFileTree,
+    checkAIAvailability,
+    getAllSpectralRulesets,
+    GetAllSpectralRulesetsRequest,
+    GetAllSpectralRulesetsResponse,
 } from "@wso2/api-designer-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -52,35 +74,56 @@ export class ApiDesignerVisualizerRpcClient implements APIDesignerVisualizerAPI 
         return this._messenger.sendNotification(openView, HOST_EXTENSION, params);
     }
 
-    goBack(): void {
-        return this._messenger.sendNotification(goBack, HOST_EXTENSION);
+    getAPISpecContent(params: GetAPISpecContentRequest): Promise<GetAPISpecContentResponse> {
+        return this._messenger.sendRequest(getAPISpecContent, HOST_EXTENSION, params);
     }
 
-    getHistory(): Promise<HistoryEntryResponse> {
-        return this._messenger.sendRequest(getHistory, HOST_EXTENSION);
-    }
-
-    addToHistory(params: HistoryEntry): void {
-        return this._messenger.sendNotification(addToHistory, HOST_EXTENSION, params);
-    }
-
-    goHome(): void {
-        return this._messenger.sendNotification(goHome, HOST_EXTENSION);
-    }
-
-    goToSource(params: GoToSourceRequest): void {
-        return this._messenger.sendNotification(goToSource, HOST_EXTENSION, params);
-    }
-
-    getOpenApiContent(params: GetOpenAPIContentRequest): Promise<GetOpenAPIContentResponse> {
-        return this._messenger.sendRequest(getOpenApiContent, HOST_EXTENSION, params);
-    }
-
-    writeOpenApiContent(params: WriteOpenAPIContentRequest): Promise<WriteOpenAPIContentResponse> {
-        return this._messenger.sendRequest(writeOpenApiContent, HOST_EXTENSION, params);
+    writeAPISpecContent(params: WriteAPISpecContentRequest): Promise<WriteAPISpecContentResponse> {
+        return this._messenger.sendRequest(writeAPISpecContent, HOST_EXTENSION, params);
     }
 
     importJSON(): Promise<Schema | undefined> {
         return this._messenger.sendRequest(importJSON, HOST_EXTENSION);
     }
+
+    getGovernance(params: GetGovernanceRequest): Promise<GetGovernanceResponse> {
+        return this._messenger.sendRequest(getGovernance, HOST_EXTENSION, params);
+    }
+
+    validateApiSpec(params: ValidateAPISpecRequest): Promise<ValidateAPISpecResponse> {
+        return this._messenger.sendRequest(validateApiSpec, HOST_EXTENSION, params);
+    }
+
+    fetchRulesetsFromFolder(params: FetchRulesetsFromFolderRequest): Promise<FetchRulesetsFromFolderResponse> {
+        return this._messenger.sendRequest(fetchRulesetsFromFolder, HOST_EXTENSION, params);
+    }
+
+    getApplicableRulesets(params: GetApplicableRulesetsRequest): Promise<GetApplicableRulesetsResponse> {
+        return this._messenger.sendRequest(getApplicableRulesets, HOST_EXTENSION, params);
+    }
+
+    readFile(params: ReadFileRequest): Promise<ReadFileResponse> {
+        return this._messenger.sendRequest(readFile, HOST_EXTENSION, params);
+    }
+
+    writeFile(params: WriteFileRequest): Promise<WriteFileResponse> {
+        return this._messenger.sendRequest(writeFile, HOST_EXTENSION, params);
+    }
+
+    deleteFile(params: DeleteFileRequest): Promise<DeleteFileResponse> {
+        return this._messenger.sendRequest(deleteFile, HOST_EXTENSION, params);
+    }
+
+    getWorkspaceFileTree(params: GetWorkspaceFileTreeRequest): Promise<GetWorkspaceFileTreeResponse> {
+        return this._messenger.sendRequest(getWorkspaceFileTree, HOST_EXTENSION, params);
+    }
+
+    checkAIAvailability(params: CheckAIAvailabilityRequest): Promise<CheckAIAvailabilityResponse> {
+        return this._messenger.sendRequest(checkAIAvailability, HOST_EXTENSION, params);
+    }
+
+    getAllSpectralRulesets(params: GetAllSpectralRulesetsRequest): Promise<GetAllSpectralRulesetsResponse> {
+        return this._messenger.sendRequest(getAllSpectralRulesets, HOST_EXTENSION, params);
+    }
+
 }

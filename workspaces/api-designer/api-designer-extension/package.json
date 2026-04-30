@@ -1,49 +1,161 @@
 {
   "name": "api-designer",
   "displayName": "API Designer",
-  "description": "An extension which gives a development environment for designing, developing, debugging, and testing API solutions.",
-  "version": "0.9.2",
+  "description": "OpenAPI-first API Designer for visual editing, governance validation, and AI readiness analysis in VS Code.",
+  "version": "0.9.0",
   "publisher": "wso2",
+  "icon": "assets/icon.png",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wso2/vscode-extensions"
+  },
+  "bugs": {
+    "url": "https://github.com/wso2/vscode-extensions/issues"
+  },
+  "homepage": "https://github.com/wso2/vscode-extensions/tree/rules/workspaces/api-designer",
+  "galleryBanner": {
+    "color": "#e7eaeb",
+    "theme": "light"
+  },
   "engines": {
-    "vscode": "^1.81.0"
+    "vscode": "^1.100.0"
   },
   "categories": [
+    "Visualization",
+    "Linters",
     "Other"
   ],
   "activationEvents": [
+    "onStartupFinished",
     "onLanguage:yaml"
   ],
   "main": "./dist/extension.js",
   "contributes": {
-    "viewsWelcome": [
+    "chatSkills": [
       {
-        "view": "APIDesigner.project-explorer",
-        "contents": "Loading...",
-        "when": "APIDesigner.status != 'unknownProject' && APIDesigner.status != 'projectLoaded' && APIDesigner.status != 'disabled'"
+        "path": "./skills/api-design/SKILL.md"
+      }
+    ],
+    "languageModelTools": [
+      {
+        "name": "api-designer_validateApiSpec",
+        "tags": [
+          "validation",
+          "openapi",
+          "api-designer"
+        ],
+        "toolReferenceName": "validateApiSpec",
+        "displayName": "Validate API Specification",
+        "modelDescription": "Validates an OpenAPI specification. Supports standard OpenAPI validation and governance validation by reportId (ai-readiness, owasp, rest-api-readiness).",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(check)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "apiSpec": {
+              "type": ["string", "object"],
+              "description": "The OpenAPI specification to validate (can be YAML/JSON string or object)."
+            },
+            "fileUri": {
+              "type": "string",
+              "description": "Optional: URI of the file containing the API specification. If provided, this takes precedence over apiSpec."
+            },
+            "reportId": {
+              "type": "string",
+              "enum": [
+                "ai-readiness",
+                "owasp",
+                "rest-api-readiness"
+              ],
+              "description": "Optional: Governance report flow to run. If provided with fileUri, returns unified violations for that report. For ai-readiness, includes LLM findings when available."
+            }
+          }
+        }
       },
       {
-        "view": "APIDesigner.project-explorer",
-        "contents": "API Designer",
-        "when": "true"
+        "name": "api-designer_openInApiDesigner",
+        "tags": [
+          "openapi",
+          "api-designer",
+          "navigation"
+        ],
+        "toolReferenceName": "openInApiDesigner",
+        "displayName": "Open in API Designer",
+        "modelDescription": "Opens the API Designer panel for an OpenAPI file or the active editor.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(open-preview)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "fileUri": {
+              "type": "string",
+              "description": "Optional: URI of the OpenAPI file to open in API Designer."
+            },
+            "viewType": {
+              "type": "string",
+              "description": "Optional: View type to open (for example: create)."
+            }
+          }
+        }
+      },
+      {
+        "name": "api-designer_resolveAIFinding",
+        "tags": [
+          "ai-readiness",
+          "api-designer",
+          "report-cache",
+          "llm"
+        ],
+        "toolReferenceName": "resolveAIFinding",
+        "displayName": "Resolve AI Finding",
+        "modelDescription": "Removes a resolved AI-readiness finding from cached AI analysis report data for the active API file and updates the stored hash.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(sparkle)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "rule": {
+              "type": "string",
+              "description": "The finding rule identifier (for example: Rule 5.1)."
+            },
+            "filePath": {
+              "type": "string",
+              "description": "Optional absolute filesystem path of the API file."
+            },
+            "fileUri": {
+              "type": "string",
+              "description": "Optional file URI of the API file. Used when filePath is not provided."
+            },
+            "pathSegments": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Optional path segments identifying where the finding occurred."
+            },
+            "message": {
+              "type": "string",
+              "description": "Optional finding message to disambiguate similar findings."
+            }
+          },
+          "required": [
+            "rule"
+          ]
+        }
       }
     ],
     "commands": [
       {
-        "command": "APIDesigner.openAPIDesigner",
-        "title": "Open API Designer",
-        "category": "APIDesigner",
-        "when": "isFileOpenAPI",
-        "icon": "$(preview)"
-      },
-      {
-        "command": "APIDesigner.createOpenAPIFile",
-        "title": "Create OpenAPI File",
-        "category": "APIDesigner"
+        "command": "APIDesigner.openApiDesigner",
+        "title": "Open in API Designer",
+        "category": "API Designer",
+        "icon": "$(open-preview)"
       },
       {
         "command": "APIDesigner.showCode",
         "title": "Show Code",
-        "category": "APIDesigner",
+        "category": "API Designer",
         "when": "isViewOpenAPI",
         "icon": "$(code)"
       }
@@ -52,20 +164,13 @@
       "editor/title": [
         {
           "when": "isFileOpenAPI",
-          "command": "APIDesigner.openAPIDesigner",
-          "alt": "APIDesigner.openAPIDesigner",
-          "group": "navigation"
+          "command": "APIDesigner.openApiDesigner",
+          "group": "navigation@1"
         },
         {
           "command": "APIDesigner.showCode",
-          "group": "navigation",
+          "group": "navigation@3",
           "when": "isViewOpenAPI"
-        }
-      ],
-      "explorer/context": [
-        {
-          "command": "APIDesigner.createOpenAPIFile",
-          "group": "APIDesigner@1"
         }
       ]
     },
@@ -75,6 +180,42 @@
         "default": {
           "fontPath": "./resources/font-wso2-vscode/dist/wso2-vscode.woff",
           "fontCharacter": "\\f133"
+        }
+      }
+    },
+    "configuration": {
+      "title": "API Designer",
+      "properties": {
+        "apiDesigner.debugLog": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable printing debug messages to the API Designer output channel",
+          "order": 0
+        },
+        "apiDesigner.notifyOnOpen": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a notification when opening an OpenAPI file, offering to open it in API Designer.",
+          "order": 1
+        },
+        "apiDesigner.ai.provider": {
+          "type": "string",
+          "default": "copilot",
+          "enum": [
+            "copilot"
+          ],
+          "enumDescriptions": [
+            "GitHub Copilot (requires GitHub Copilot extension)"
+          ],
+          "description": "AI provider to use for code generation and assistance",
+          "order": 2
+        },
+        "apiDesigner.spectral.rulesetFolder": {
+          "type": "string",
+          "default": "",
+          "description": "Single folder for Spectral rulesets: a GitHub folder URL or a local directory path. Changing this value triggers a scan so you can choose which rulesets to enable.",
+          "markdownDescription": "A GitHub folder URL or a local path where ruleset files (for example `.yaml`) can be found. On save, the extension scans it and lets you choose which rulesets to use.\n\nIf this is empty, the extension uses the bundled rulesets under `<extension>/spectral-rulesets` by default.",
+          "order": 4
         }
       }
     }
@@ -136,6 +277,13 @@
     "cors-anywhere": "0.4.4",
     "@apidevtools/json-schema-ref-parser": "11.6.1",
     "adm-zip": "0.5.14",
-    "js-yaml": "4.1.1"
+    "js-yaml": "4.1.1",
+    "jsonc-parser": "3.3.1",
+    "yaml": "2.8.3",
+    "@stoplight/spectral-core": "1.22.0",
+    "@stoplight/spectral-formats": "1.8.2",
+    "@stoplight/spectral-functions": "1.10.2",
+    "@stoplight/spectral-parsers": "1.0.5",
+    "@stoplight/spectral-rulesets": "1.22.1"
   }
 }

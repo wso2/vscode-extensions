@@ -1,6 +1,3 @@
-import { Views } from "../constants";
-import { OpenAPI } from "./ServiceDefinitions";
-
 /**
  * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
  *
@@ -18,6 +15,9 @@ import { OpenAPI } from "./ServiceDefinitions";
  * specific language governing permissions and limitations
  * under the License.
  */
+
+import { Views } from "../constants";
+import { OpenAPI } from "./ServiceDefinitions";
 
 export interface APIDesignerContext {
     props: {

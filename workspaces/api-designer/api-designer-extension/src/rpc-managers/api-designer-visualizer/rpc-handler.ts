@@ -18,33 +18,93 @@
  * THIS FILE INCLUDES AUTO GENERATED CODE
  */
 import {
-    GetOpenAPIContentRequest,
-    GoToSourceRequest,
-    HistoryEntry,
-    OpenViewRequest,
-    WriteOpenAPIContentRequest,
-    addToHistory,
-    getHistory,
-    getOpenApiContent,
-    goBack,
-    goHome,
-    goToSource,
+    GetAPISpecContentRequest,
+    WriteAPISpecContentRequest,
+    GetGovernanceRequest,
+    ValidateAPISpecRequest,
+    FetchRulesetsFromFolderRequest,
+    GetApplicableRulesetsRequest,
+    GetWorkspaceFileTreeRequest,
+    ReadFileRequest,
+    WriteFileRequest,
+    DeleteFileRequest,
+    CheckAIAvailabilityRequest,
+    GetAllSpectralRulesetsRequest,
+    getAPISpecContent,
     importJSON,
-    openView,
-    writeOpenApiContent,
+    writeAPISpecContent,
+    getGovernance,
+    validateApiSpec,
+    fetchRulesetsFromFolder,
+    getApplicableRulesets,
+    getWorkspaceFileTree,
+    readFile,
+    writeFile,
+    deleteFile,
+    checkAIAvailability,
+    getAllSpectralRulesets
 } from "@wso2/api-designer-core";
 import { Messenger } from "vscode-messenger";
-import { ApiDesignerVisualizerRpcManager } from "./rpc-manager";
+
+// Import managers
+import { SpecContentManager } from './managers/spec-content-manager';
+import { GovernanceManager } from './managers/governance-manager';
+import { FileManager } from './managers/file-manager';
+import { AIRpcManager } from './managers/ai-manager';
 
 export function registerApiDesignerVisualizerRpcHandlers(messenger: Messenger) {
-    const rpcManger = new ApiDesignerVisualizerRpcManager();
-    messenger.onNotification(openView, (args: OpenViewRequest) => rpcManger.openView(args));
-    messenger.onNotification(goBack, () => rpcManger.goBack());
-    messenger.onRequest(getHistory, () => rpcManger.getHistory());
-    messenger.onNotification(addToHistory, (args: HistoryEntry) => rpcManger.addToHistory(args));
-    messenger.onNotification(goHome, () => rpcManger.goHome());
-    messenger.onNotification(goToSource, (args: GoToSourceRequest) => rpcManger.goToSource(args));
-    messenger.onRequest(getOpenApiContent, (args: GetOpenAPIContentRequest) => rpcManger.getOpenApiContent(args));
-    messenger.onRequest(writeOpenApiContent, (args: WriteOpenAPIContentRequest) => rpcManger.writeOpenApiContent(args));
-    messenger.onRequest(importJSON, () => rpcManger.importJSON());
+    // Create managers (with dependencies)
+    const specContentManager = new SpecContentManager();
+    const governanceManager = new GovernanceManager();
+    const fileManager = new FileManager();
+    const aiManager = new AIRpcManager();
+    
+    // API Spec content operations
+    messenger.onRequest(getAPISpecContent, (args: GetAPISpecContentRequest) => 
+        specContentManager.getAPISpecContent(args)
+    );
+    messenger.onRequest(writeAPISpecContent, (args: WriteAPISpecContentRequest) => 
+        specContentManager.writeAPISpecContent(args)
+    );
+    messenger.onRequest(importJSON, () => 
+        specContentManager.importJSON()
+    );
+    
+    // Governance and validation
+    messenger.onRequest(getGovernance, (args: GetGovernanceRequest) => 
+        governanceManager.getGovernance(args)
+    );
+    messenger.onRequest(validateApiSpec, (args: ValidateAPISpecRequest) => 
+        governanceManager.validateApiSpec(args)
+    );
+    
+    // Spectral rulesets (now part of GovernanceManager)
+    messenger.onRequest(fetchRulesetsFromFolder, (args: FetchRulesetsFromFolderRequest) => 
+        governanceManager.fetchRulesetsFromFolder(args)
+    );
+    messenger.onRequest(getApplicableRulesets, (args: GetApplicableRulesetsRequest) => 
+        governanceManager.getApplicableRulesets(args)
+    );
+    messenger.onRequest(getAllSpectralRulesets, (args: GetAllSpectralRulesetsRequest) => 
+        governanceManager.getAllSpectralRulesets(args)
+    );
+    
+    // File operations (getWorkspaceFileTree now supports filtering)
+    messenger.onRequest(getWorkspaceFileTree, (args: GetWorkspaceFileTreeRequest) => 
+        fileManager.getWorkspaceFileTree(args)
+    );
+    messenger.onRequest(readFile, (args: ReadFileRequest) => 
+        fileManager.readFile(args)
+    );
+    messenger.onRequest(writeFile, (args: WriteFileRequest) => 
+        fileManager.writeFile(args)
+    );
+    messenger.onRequest(deleteFile, (args: DeleteFileRequest) => 
+        fileManager.deleteFile(args)
+    );
+    
+    // AI availability
+    messenger.onRequest(checkAIAvailability, (args: CheckAIAvailabilityRequest) => 
+        aiManager.checkAIAvailability(args)
+    );
 }

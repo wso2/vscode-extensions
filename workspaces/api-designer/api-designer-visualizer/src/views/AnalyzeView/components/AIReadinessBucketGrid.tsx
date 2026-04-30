@@ -1,0 +1,460 @@
+/**
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ *
+ * WSO2 LLC. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import React from 'react';
+import styled from '@emotion/styled';
+import { Codicon } from '@wso2/ui-toolkit';
+import type { AiReadinessDimensionSummary } from '@wso2/api-designer-core';
+import { scoreColor } from '../hooks/useReport';
+import { ViewIssuesLink } from './ViewIssuesLink';
+import { ANALYZE_TYPE_SCALE } from './AnalyzeSingleReportHelpers';
+
+interface ViolationRow {
+    id: string;
+    rule: string;
+    message: string;
+    severity: string;
+    path: string;
+    endpoint: string;
+    method: string;
+    breakdownKeys?: string[];
+}
+
+interface Props {
+    dimensions: AiReadinessDimensionSummary[];
+    expandedKeys: Set<string>;
+    onToggle: (key: string) => void;
+    violations: ViolationRow[];
+    onViewIssues: (subBucketKey?: string) => void;
+}
+
+// ── Accordion ─────────────────────────────────────────────────────────────
+
+export const Accordion = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+`;
+
+export const DimCard = styled.div`
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 70%, transparent);
+    background: color-mix(in srgb, var(--vscode-editorWidget-background) 88%, var(--vscode-editor-background));
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.16);
+`;
+
+const DimHeader = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    cursor: pointer;
+    user-select: none;
+    background: color-mix(in srgb, var(--vscode-editorGroupHeader-tabsBackground) 90%, var(--vscode-editor-background));
+
+    &:hover {
+        background: var(--vscode-list-hoverBackground);
+    }
+`;
+
+export const DimScore = styled.div<{ $color: string; $score: number }>`
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: ${ANALYZE_TYPE_SCALE.md};
+    font-weight: 800;
+    line-height: 1;
+    font-family: var(--vscode-editor-font-family, ui-monospace, monospace);
+    flex-shrink: 0;
+    color: ${({ $color }: { $color: string }) => `color-mix(in srgb, ${$color} 86%, var(--vscode-foreground))`};
+    background: conic-gradient(
+        ${({ $color }: { $color: string; $score: number }) => `color-mix(in srgb, ${$color} 88%, transparent)`}
+            ${({ $score }: { $color: string; $score: number }) => Math.max(0, Math.min(100, $score))}%,
+        color-mix(in srgb, var(--vscode-panel-border) 65%, transparent) 0
+    );
+
+    &::after {
+        content: '';
+        position: absolute;
+        inset: 3px;
+        border-radius: 50%;
+        background: color-mix(in srgb, var(--vscode-editorWidget-background) 98%, transparent);
+    }
+
+    > span {
+        position: relative;
+        z-index: 1;
+    }
+`;
+
+export const DimMeta = styled.div`
+    flex: 1;
+    min-width: 0;
+`;
+
+export const DimTitle = styled.div`
+    font-size: ${ANALYZE_TYPE_SCALE.base};
+    font-weight: 700;
+    color: var(--vscode-foreground);
+    margin-bottom: 3px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+`;
+
+export const DimDesc = styled.div`
+    font-size: ${ANALYZE_TYPE_SCALE.sm};
+    color: var(--vscode-descriptionForeground);
+    margin-bottom: 8px;
+    line-height: 1.5;
+`;
+
+const TagRow = styled.div`
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+`;
+
+const Tag = styled.span`
+    font-size: ${ANALYZE_TYPE_SCALE.sm};
+    color: var(--vscode-descriptionForeground);
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 4px;
+    padding: 2px 9px 2px 6px;
+    background: var(--vscode-editor-background);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+`;
+
+
+export const DimRight = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+`;
+
+export const DimIssueCount = styled.div`
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: ${ANALYZE_TYPE_SCALE.xs};
+    font-weight: 600;
+    color: var(--vscode-descriptionForeground);
+    white-space: nowrap;
+`;
+
+export const DimErrorCount = styled.span`
+    color: var(--vscode-errorForeground);
+`;
+
+export const DimWarningCount = styled.span`
+    color: var(--vscode-editorWarning-foreground);
+`;
+
+/** Same shell as dimension header, without expand/collapse affordance (OWASP / REST flat breakdown). */
+export const FlatBreakdownHeader = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    user-select: none;
+    background: color-mix(in srgb, var(--vscode-editorGroupHeader-tabsBackground) 90%, var(--vscode-editor-background));
+`;
+
+export const FlatCardFooter = styled.div`
+    border-top: 1px solid var(--vscode-panel-border);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+    background: color-mix(in srgb, var(--vscode-editor-background) 92%, var(--vscode-editorWidget-background));
+`;
+
+const DimChevron = styled.div<{ $open: boolean }>`
+    display: flex;
+    align-items: center;
+    color: var(--vscode-descriptionForeground);
+    transform: rotate(${({ $open }: { $open: boolean }) => ($open ? '90deg' : '0deg')});
+    transition: transform 0.18s ease;
+`;
+
+const DimBody = styled.div`
+    border-top: 1px solid var(--vscode-panel-border);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: color-mix(in srgb, var(--vscode-editor-background) 92%, var(--vscode-editorWidget-background));
+`;
+
+// ── Sub-bucket grid ───────────────────────────────────────────────────────
+
+const SubGrid = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+`;
+
+const SubCard = styled.div`
+    background: var(--vscode-editorGroupHeader-tabsBackground);
+    border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 82%, transparent);
+    border-radius: 6px;
+    padding: 9px 11px;
+`;
+
+const SubTop = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+`;
+
+const SubMain = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+`;
+
+const SubScorePill = styled.span<{ $color: string }>`
+    display: inline-flex;
+    align-items: center;
+    height: 18px;
+    border-radius: 999px;
+    padding: 0 7px;
+    font-size: ${ANALYZE_TYPE_SCALE.xs};
+    font-weight: 700;
+    color: ${({ $color }: { $color: string }) => `color-mix(in srgb, ${$color} 82%, var(--vscode-foreground))`};
+    background: color-mix(in srgb, ${({ $color }: { $color: string }) => $color} 12%, transparent);
+    border: 1px solid color-mix(in srgb, ${({ $color }: { $color: string }) => $color} 24%, var(--vscode-panel-border));
+    font-family: var(--vscode-editor-font-family, ui-monospace, monospace);
+    flex-shrink: 0;
+`;
+
+const SubName = styled.div`
+    font-size: ${ANALYZE_TYPE_SCALE.sm};
+    font-weight: 700;
+    color: var(--vscode-foreground);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+`;
+
+const SubStatus = styled.div<{ $passing: boolean }>`
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: ${ANALYZE_TYPE_SCALE.sm};
+    font-weight: 600;
+    white-space: nowrap;
+    color: ${({ $passing }: { $passing: boolean }) =>
+        $passing ? 'var(--vscode-testing-iconPassed, #10B981)' : 'var(--vscode-editorWarning-foreground)'};
+`;
+
+const ErrorCount = styled.span`
+    color: var(--vscode-errorForeground);
+`;
+
+const WarningCount = styled.span`
+    color: var(--vscode-editorWarning-foreground);
+`;
+
+const SubDesc = styled.div`
+    font-size: ${ANALYZE_TYPE_SCALE.xs};
+    color: var(--vscode-descriptionForeground);
+    line-height: 1.5;
+    flex: 1;
+    min-width: 0;
+`;
+
+const SubBottomRow = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 3px;
+`;
+
+// ── Main export ───────────────────────────────────────────────────────────
+
+export const AIReadinessBucketGrid: React.FC<Props> = ({
+    dimensions,
+    expandedKeys,
+    onToggle,
+    violations,
+    onViewIssues,
+}) => (
+    <Accordion>
+        {dimensions.map((dimension) => {
+            const isOpen = expandedKeys.has(dimension.key);
+            const roundedScore = Math.round(dimension.score);
+            const pctColor = scoreColor(dimension.score);
+            const subBucketKeySet = new Set(dimension.subBuckets.map((subBucket) => subBucket.key));
+            const { errorCount, warningCount } = violations.reduce((acc, violation) => {
+                const subBucketKey = (violation.breakdownKeys || []).find((key) => subBucketKeySet.has(key));
+                if (!subBucketKey || !subBucketKeySet.has(subBucketKey)) {
+                    return acc;
+                }
+                const severity = (violation.severity || '').toLowerCase();
+                if (severity === 'error') {
+                    acc.errorCount += 1;
+                } else if (severity === 'warn' || severity === 'warning') {
+                    acc.warningCount += 1;
+                }
+                return acc;
+            }, { errorCount: 0, warningCount: 0 });
+            const hasFindings = errorCount > 0 || warningCount > 0;
+
+            // Sort sub-buckets: failing first, then ascending score
+            const sortedBuckets = dimension.subBuckets.slice().sort((a, b) => {
+                const aFail = a.total > 0 ? 0 : 1;
+                const bFail = b.total > 0 ? 0 : 1;
+                if (aFail !== bFail) return aFail - bFail;
+                return a.percentage - b.percentage;
+            });
+
+            return (
+                <DimCard key={dimension.key}>
+                    <DimHeader onClick={() => onToggle(dimension.key)} role="button" aria-expanded={isOpen}>
+                        <DimScore $color={pctColor} $score={roundedScore}>
+                            <span>{roundedScore}%</span>
+                        </DimScore>
+                        <DimMeta>
+                            <DimTitle>
+                                {dimension.label}
+                            </DimTitle>
+                            <DimDesc>{dimension.description}</DimDesc>
+                            <TagRow>
+                                {sortedBuckets.map((sub) => {
+                                    return (
+                                        <Tag key={sub.key}>
+                                            {sub.label}
+                                        </Tag>
+                                    );
+                                })}
+                            </TagRow>
+                        </DimMeta>
+                        <DimRight>
+                            <DimIssueCount>
+                                {!hasFindings ? (
+                                    'All passing'
+                                ) : (
+                                    <>
+                                        {errorCount > 0 && <DimErrorCount>{errorCount} error{errorCount !== 1 ? 's' : ''}</DimErrorCount>}
+                                        {warningCount > 0 && <DimWarningCount>{warningCount} warning{warningCount !== 1 ? 's' : ''}</DimWarningCount>}
+                                    </>
+                                )}
+                            </DimIssueCount>
+                            <DimChevron $open={isOpen}>
+                                <Codicon name="chevron-right" sx={{ fontSize: ANALYZE_TYPE_SCALE.sm }} />
+                            </DimChevron>
+                        </DimRight>
+                    </DimHeader>
+
+                    {isOpen && (
+                        <DimBody>
+                            <SubGrid>
+                                {sortedBuckets.map((sub) => (
+                                    <SubBucketCard
+                                        key={sub.key}
+                                        sub={sub}
+                                        violations={violations}
+                                        onViewIssues={onViewIssues}
+                                    />
+                                ))}
+                            </SubGrid>
+                        </DimBody>
+                    )}
+                </DimCard>
+            );
+        })}
+    </Accordion>
+);
+
+// ── Sub-bucket card ───────────────────────────────────────────────────────
+
+interface SubBucketItem {
+    key: string;
+    label: string;
+    description?: string;
+    percentage: number;
+    total: number;
+    filled: number;
+}
+
+const SubBucketCard: React.FC<{
+    sub: SubBucketItem;
+    violations: ViolationRow[];
+    onViewIssues: (key?: string) => void;
+}> = ({ sub, violations, onViewIssues }) => {
+    const subPct = Math.round(sub.percentage ?? (sub.total === 0 ? 100 : 0));
+    const subColor = scoreColor(subPct);
+    const { errorCount, warningCount } = React.useMemo(
+        () => violations.reduce((acc, violation) => {
+            if (!(violation.breakdownKeys || []).includes(sub.key)) {
+                return acc;
+            }
+            const severity = (violation.severity || '').toLowerCase();
+            if (severity === 'error') {
+                acc.errorCount += 1;
+            } else if (severity === 'warn' || severity === 'warning') {
+                acc.warningCount += 1;
+            }
+            return acc;
+        }, { errorCount: 0, warningCount: 0 }),
+        [violations, sub.key]
+    );
+    const passing = errorCount === 0 && warningCount === 0;
+    return (
+        <SubCard>
+            <SubTop>
+                <SubMain>
+                    <SubScorePill $color={subColor}>{subPct}%</SubScorePill>
+                    <SubName>{sub.label}</SubName>
+                </SubMain>
+                <SubStatus $passing={passing}>
+                    {passing ? (
+                        '✓ passing'
+                    ) : (
+                        <>
+                            {errorCount > 0 && (
+                                <ErrorCount>{errorCount} error{errorCount !== 1 ? 's' : ''}</ErrorCount>
+                            )}
+                            {warningCount > 0 && (
+                                <WarningCount>{warningCount} warning{warningCount !== 1 ? 's' : ''}</WarningCount>
+                            )}
+                        </>
+                    )}
+                </SubStatus>
+            </SubTop>
+            <SubBottomRow>
+                <SubDesc>{sub.description || ''}</SubDesc>
+                <ViewIssuesLink onClick={() => onViewIssues(sub.key)}>View issues</ViewIssuesLink>
+            </SubBottomRow>
+        </SubCard>
+    );
+};
