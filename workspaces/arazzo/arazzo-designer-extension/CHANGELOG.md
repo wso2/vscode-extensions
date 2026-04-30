@@ -2,6 +2,22 @@
 
 All notable changes to the "arazzo-visualizer" extension will be documented in this file.
 
+## 0.2.0
+
+### Added
+- **Built-in Workflow Runner**: Added support for running Arazzo workflows directly from VS Code without installing a separate runner
+  - Execute workflows from the visualizer or workflow CodeLens actions
+  - Packaged runner binaries with extension build support
+  - Automatic Arazzo server startup for the active workflow file
+- **GitHub Copilot Workflow Execution**: Added a **Try with AI** experience for running workflows through Copilot
+  - Workflow-level CodeLens actions for Try and Retry
+  - Visualizer Try action that opens the selected workflow and starts the execution flow
+  - MCP configuration support for connecting the active Arazzo workflow to Copilot
+- **Execution Logs and Tracing**: Added workflow execution observability in the visualizer
+  - Live execution status for workflow, step, retry, HTTP, and nested workflow spans
+  - Logs tab with grouped execution runs, request/response details, failures, and raw trace data
+  - Node and path highlighting for successful, failed, retry, goto, condition, and nested workflow execution paths
+
 ## 0.1.0
 
 ### Added
