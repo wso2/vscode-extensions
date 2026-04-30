@@ -132,18 +132,12 @@ export function AddConnection(props: AddConnectionProps) {
                 setConnectionType(connectionFound.connectionType);
                 setConnectionName(props.connectionName);
                 setFormData(connectionSchema);
-                const parameters = connectionFound.parameters
-                const driverParams = parameters.filter((param: { name: string; }) => param.name === 'groupId' || param.name === 'artifactId' || param.name === 'version' || param.name === 'driverPath');
-                // populate parameters that does not exist in uischema
-                const generatedParams = {
-                    ...params, paramValues: generateParams(driverParams)
-                };
-                setParams(generatedParams);
                 reset({
                     name: props.connectionName,
                     connectionType: connectionType
                 });
 
+                const parameters = connectionFound.parameters
 
                 // Populate form with existing values
                 if (connectionSchema === undefined) {
@@ -211,7 +205,7 @@ export function AddConnection(props: AddConnectionProps) {
 
         // Fill the values
         Object.keys(values).forEach((key: string) => {
-            if ((key !== 'configRef' && key !== 'connectionType' && key !== 'connectionName') && values[key] != null) {
+            if ((key !== 'configRef' && key !== 'connectionType' && key !== 'connectionName') && values[key]) {
                 if (typeof values[key] === 'object' && values[key] !== null) {
                     if (Array.isArray(values[key])) {
                         // Handle param manager input type
@@ -273,8 +267,7 @@ export function AddConnection(props: AddConnectionProps) {
             connectionName: connectionName,
             keyValuesXML: modifiedXml,
             directory: localEntryPath,
-            filePath: props.connectionName ? props.path : "",
-            connectionType: connectionType
+            filePath: props.connectionName ? props.path : ""
         });
 
         if (props.isPopup) {
@@ -313,8 +306,7 @@ export function AddConnection(props: AddConnectionProps) {
             connectionName: name,
             keyValuesXML: modifiedXml,
             directory: localEntryPath,
-            filePath: props.connectionName ? props.path : "",
-            connectionType: connectionType
+            filePath: props.connectionName ? props.path : ""
         });
 
         if (props.isPopup) {
@@ -446,7 +438,6 @@ export function AddConnection(props: AddConnectionProps) {
                         <>
                             <FormGenerator
                                 formData={formData}
-                                parameters={params}
                                 control={control}
                                 errors={errors}
                                 setValue={setValue}

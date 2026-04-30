@@ -21,8 +21,12 @@ import { NodePosition, STNode } from "@wso2/syntax-tree";
 import { Command } from "./interfaces/ai-panel";
 import { LinePosition } from "./interfaces/common";
 import { ProjectInfo, ProjectMigrationResult, Type } from "./interfaces/extended-lang-client";
-import { CodeData, DIRECTORY_MAP, FlowNode, ProjectStructureArtifactResponse, ProjectStructureResponse } from "./interfaces/bi";
+import { DIRECTORY_MAP, ProjectStructureArtifactResponse, ProjectStructureResponse } from "./interfaces/bi";
+import { SCOPE, ArtifactData, DataMapperMetadata } from "./interfaces/shared-types";
 import { DiagnosticEntry, DocumentationGeneratorIntermediaryState, SourceFile, CodeContext, FileAttatchment } from "./rpc-types/ai-panel/interfaces";
+
+export { SCOPE };
+export type { ArtifactData, DataMapperMetadata };
 
 export type MachineStateValue =
     | 'initialize'
@@ -49,16 +53,6 @@ export enum EVENT_TYPE {
     CLOSE_VIEW = "CLOSE_VIEW",
     VIEW_UPDATE = "VIEW_UPDATE",
     UPDATE_PROJECT_LOCATION = "UPDATE_PROJECT_LOCATION"
-}
-
-export enum SCOPE {
-    AUTOMATION = "automation",
-    INTEGRATION_AS_API = "integration-as-api",
-    EVENT_INTEGRATION = "event-integration",
-    FILE_INTEGRATION = "file-integration",
-    AI_AGENT = "ai-agent",
-    LIBRARY = "library",
-    ANY = "any"
 }
 
 export type VoidCommands = "OPEN_LOW_CODE" | "OPEN_PROJECT" | "CREATE_PROJECT";
@@ -167,17 +161,12 @@ export interface ArtifactInfo {
     version?: string;
 }
 
-export interface ArtifactData {
-    artifactType: DIRECTORY_MAP;
-    identifier?: string;
-}
-
 export interface ConfigurationCollectorMetadata {
     requestId: string;
     variables: Array<{
         name: string;
         description: string;
-        type?: "string" | "int";
+        type?: string;
         secret?: boolean;
     }>;
     existingValues?: Record<string, string>;
@@ -192,6 +181,7 @@ export interface AgentMetadata {
 export interface ApprovalOverlayState {
     show: boolean;
     message?: string;
+    requestId?: string;
 }
 
 export interface VisualizerMetadata {
@@ -217,11 +207,6 @@ export interface VisualizerMetadata {
     selectedConnectorDescription?: string;
     selectedConnectorIcon?: string;
     categoryName?: string;
-}
-
-export interface DataMapperMetadata {
-    name: string;
-    codeData: CodeData;
 }
 
 export interface ReviewViewItem {
@@ -517,7 +502,7 @@ export interface ConfigurationCollectionEvent {
     variables?: Array<{
         name: string;
         description: string;
-        type?: "string" | "int";
+        type?: string;
         secret?: boolean;
     }>;
     existingValues?: Record<string, string>;
@@ -650,8 +635,7 @@ export type AIMachineEventMap = {
     [AIMachineEventType.SUBMIT_VERTEX_AI_CREDENTIALS]: {
         projectId: string;
         location: string;
-        clientEmail: string;
-        privateKey: string;
+        keyFile: string;
     };
     [AIMachineEventType.LOGOUT]: undefined;
     [AIMachineEventType.SILENT_LOGOUT]: undefined;
@@ -883,8 +867,7 @@ interface AwsBedrockSecrets {
 export interface VertexAiSecrets {
     projectId: string;
     location: string;
-    clientEmail: string;
-    privateKey: string;
+    keyFile: string;
 }
 
 export type AuthCredentials =

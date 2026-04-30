@@ -26,7 +26,7 @@ export const LoaderWrapper = styled.div`
     justify-content: center;
     align-items: center;
     height: 50vh;
-    width: 100%;
+    width: 100vw;
 `;
 
 export const ProgressRing = styled(VSCodeProgressRing)`
@@ -45,23 +45,10 @@ export const FadeInContainer = styled.div`
     }
 `;
 
-
 // Styles for the AI Chat
 export const Footer = styled.footer({
-    padding: "0",
+    padding: "5px",
     backgroundColor: "var(--vscode-editor-background)",
-    position: "sticky",
-    bottom: "0",
-    zIndex: 10,
-});
-
-export const FloatingInputContainer = styled.div({
-    margin: "0 16px 20px 16px",
-    padding: "8px 12px",
-    backgroundColor: "var(--vscode-input-background)",
-    border: "1px solid var(--vscode-widget-border)",
-    borderRadius: "14px",
-    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
 });
 
 export const FlexRow = styled.div({
@@ -72,6 +59,10 @@ export const FlexRow = styled.div({
 export const FlexColumn = styled.div({
     display: "flex",
     flexDirection: "column",
+    padding: "10px",
+    margin: "10px",
+    boxShadow: "0 -2px 5px rgba(218, 216, 216, 0.1)",
+    borderRadius: "8px",
 });
 
 export const Question = styled.div({
@@ -88,7 +79,6 @@ export const AIChatView = styled.div({
     display: "flex",
     flexDirection: "column",
     height: "100%",
-    position: "relative",
 });
 
 export const Header = styled.header({
@@ -101,9 +91,7 @@ export const Header = styled.header({
 
 export const HeaderButtons = styled.div({
     display: "flex",
-    alignItems: "center",
     justifyContent: "flex-end",
-    gap: "4px",
     marginRight: "10px",
 });
 
@@ -111,7 +99,6 @@ export const Main = styled.main({
     flex: 1,
     flexDirection: "column",
     overflowY: "auto",
-    paddingBottom: "10px",
 });
 
 export const RoleContainer = styled.div({
@@ -121,25 +108,11 @@ export const RoleContainer = styled.div({
 });
 
 export const ChatMessage = styled.div({
-    padding: "4px 16px",
+    padding: "20px",
+    borderTop: "1px solid var(--vscode-editorWidget-border)",
     position: "relative",
     "&:hover .edit-delete-buttons": {
         display: "flex",
-    },
-});
-
-export const UserMessageBox = styled.div({
-    backgroundColor: "rgba(128, 128, 128, 0.1)",
-    color: "var(--vscode-editor-foreground)",
-    borderRadius: "8px",
-    padding: "8px 12px",
-    fontSize: "var(--vscode-font-size)",
-    fontFamily: "var(--vscode-font-family)",
-    lineHeight: "1.4",
-    maxWidth: "90%",
-    marginLeft: "auto",
-    "& p": {
-        margin: "0",
     },
 });
 
@@ -157,6 +130,7 @@ export const Welcome = styled.div({
 
 export const Badge = styled.div`
     padding: 5px;
+    margin-left: 10px;
     display: inline-block;
     text-align: left;
 `;
@@ -273,15 +247,14 @@ export const WelcomeStyles = {
 };
 
 export const StyledTextArea = styled.textarea`
-    overflow-y: hidden;
-    padding: 10px;
-    border-radius: 4px;
-    border: none;
-    resize: none;
-    outline: none;
-    color: var(--vscode-input-foreground);
-    position: relative;
-    font-family: var(--vscode-font-family);
+    overflowY: "hidden",
+    padding: "10px",
+    borderRadius: "4px",
+    border: "none",
+    resize: "none",
+    outline: "none",
+    color: "var(--vscode-input-foreground)",
+    position: "relative",                                  
 `;
 
 export const RippleLoader = styled.div`

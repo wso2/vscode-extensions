@@ -170,7 +170,7 @@ export interface DependencyDetails {
     groupId: string;
     artifact: string;
     version: string;
-    type?: "zip" | "jar" | "car";
+    type?: "zip" | "jar";
     range?: STRange;
 }
 
@@ -493,6 +493,5 @@ export interface UpdateAiDependenciesResponse {
 }
 
 export interface ReloadDependenciesRequest {
-    newDependencies?: DependencyDetails[];
-    isProjectDependenciesUpdated?: boolean;
+    newDependencies: DependencyDetails[];
 }

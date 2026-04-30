@@ -220,6 +220,15 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
         return;
     }
 
+    // VSIX / git may ship Mach-O/ELF as non-executable; fix before spawn (no-op on Windows).
+    if (process.platform !== 'win32') {
+        try {
+            fs.chmodSync(binaryPath, 0o755);
+        } catch {
+            /* non-fatal — spawn will surface permission errors */
+        }
+    }
+
     // Choose a port
     const port = 18080 + Math.floor(Math.random() * 1000);
 

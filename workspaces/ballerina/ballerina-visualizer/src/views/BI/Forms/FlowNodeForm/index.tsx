@@ -58,6 +58,7 @@ import {
     HelperpaneOnChangeOptions,
     InputMode,
     ExpressionEditorDevantProps,
+    getTypeCompletionSearchText,
 } from "@wso2/ballerina-side-panel";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import {
@@ -92,6 +93,7 @@ import IfForm from "../IfForm";
 import { cloneDeep, debounce } from "lodash";
 import {
     createNodeWithUpdatedLineRange,
+    deserializeForDiagnosticsAPI,
     processFormData,
     removeEmptyNodes,
     updateNodeWithProperties,
@@ -179,35 +181,13 @@ interface FlowNodeFormProps {
     defaultExpandAdvanced?: boolean;
 }
 
-type RepeatableMapEntry = {
-    key: string;
-    value: string;
-};
-
-const getRepeatableMapEntriesFromValue = (value: unknown): RepeatableMapEntry[] => {
-    if (typeof value === "string") {
-        return stringToRawObjectEntries(value);
-    }
-
-    if (value && typeof value === "object" && !Array.isArray(value)) {
-        return Object.entries(value as Record<string, any>).map(([entryKey, entryValue]) => ({
-            key: entryKey,
-            value: typeof entryValue === "object" && entryValue !== null
-                ? String((entryValue as any).value ?? "")
-                : String(entryValue ?? "")
-        }));
-    }
-
-    return [];
-};
-
-const getRepeatableMapDiagnosticsByKey = (value: unknown): Record<string, any> | undefined => {
-    if (value && typeof value === "object" && !Array.isArray(value)) {
-        return value as Record<string, any>;
-    }
-
-    return undefined;
-};
+const EXPRESSION_FIELD_TYPES = new Set([
+    "EXPRESSION",
+    "ACTION_OR_EXPRESSION",
+    "LV_EXPRESSION",
+    "ACTION_EXPRESSION",
+    "EXPRESSION_SET",
+]);
 
 // Styled component for the action button description
 const ActionButtonDescription = styled.div`
@@ -454,6 +434,9 @@ export const FlowNodeForm = forwardRef<FormExpressionEditorRef, FlowNodeFormProp
     }, [rpcClient]);
 
     useEffect(() => {
+        if (showProgressIndicator) {
+            return;
+        }
         if (!node) {
             return;
         }
@@ -471,7 +454,7 @@ export const FlowNodeForm = forwardRef<FormExpressionEditorRef, FlowNodeFormProp
         return () => {
             handleFormClose();
         };
-    }, [node]);
+    }, [node, showProgressIndicator]);
 
 
     const handleFormOpen = () => {
@@ -570,6 +553,7 @@ export const FlowNodeForm = forwardRef<FormExpressionEditorRef, FlowNodeFormProp
             const updatedField = { ...field };
 
             const isRepeatableList = field.types?.length === 1 && getPrimaryInputType(field.types)?.fieldType === "REPEATABLE_LIST";
+            const isRepeatableMap = field.types?.length === 1 && getPrimaryInputType(field.types)?.fieldType === "REPEATABLE_MAP";
             const selectedInputType = isRepeatableList ? getPrimaryInputType(field.types) : field.types?.find(t => t.selected);
             const isContainingRepeatableList = field.types?.some(t => t.fieldType === "REPEATABLE_LIST");
             const isContainingRepeatableMap = field.types?.some(t => t.fieldType === "REPEATABLE_MAP");
@@ -607,28 +591,38 @@ export const FlowNodeForm = forwardRef<FormExpressionEditorRef, FlowNodeFormProp
                     }
                 }
 
-                else if (isContainingRepeatableMap) {
-                    // Diagnostics responses do not preserve a single map shape consistently.
-                    // Optional maps may omit `value`, while populated maps can come back either
-                    // as editor-friendly objects or as serialized source strings.
-                    const repeatableMapDiagnostics = getRepeatableMapDiagnosticsByKey(nodeProperties?.[field.key]?.value);
+                else if (isContainingRepeatableMap && nodeProperties?.[field.key]?.value !== undefined) {
+                    if (!(typeof nodeProperties?.[field.key]?.value === "object")) {
+                        throw new Error(`Expected value for repeatable map field "${field.key}" to be an object, but got ${typeof nodeProperties?.[field.key]?.value}.`);
+                    }
                     if (selectedInputType?.fieldType === "REPEATABLE_MAP") {
-                        const initialValues = getRepeatableMapEntriesFromValue(data[field.key]);
+                        let initialValues: { key: string; value: string }[];
+                        if (typeof data[field.key] === 'string') {
+                            initialValues = stringToRawObjectEntries(data[field.key]);
+                        } else {
+                            // When the value is an object (from FormMapEditorNew), extract entries directly
+                            initialValues = Object.entries(data[field.key] as Record<string, any>).map(([entryKey, entryVal]) => ({
+                                key: entryKey,
+                                value: typeof entryVal === 'object' && entryVal !== null ? String((entryVal as any).value ?? '') : String(entryVal)
+                            }));
+                        }
                         // Keep value as a Record to match processToOutputFormat shape expected by FormMapEditorNew
                         const outputRecord: Record<string, unknown> = {};
                         initialValues.forEach((val) => {
                             const key = crypto.randomUUID();
+                            propertyDiagnostics = nodeProperties?.[field.key]?.value?.[val.key]?.diagnostics?.diagnostics ?? [];
                             outputRecord[val.key] = {
                                 ...getArraySubFormFieldFromTypes(key, (field.types[0] as any).template.types as InputType[]),
                                 key: `mp-val-${key}`,
                                 value: val.value,
-                                diagnostics: repeatableMapDiagnostics?.[val.key]?.diagnostics?.diagnostics ?? []
+                                diagnostics: nodeProperties?.[field.key]?.value?.[val.key]?.diagnostics?.diagnostics ?? []
                             };
                         });
                         updatedField.value = outputRecord;
                     }
                     else {
                         updatedField.value = data[field.key];
+                        propertyDiagnostics = nodeProperties?.[field.key]?.value?.map((val: any) => val?.diagnostics?.diagnostics ?? []).flat() ?? [];
                     }
                 }
                 else {
@@ -644,19 +638,6 @@ export const FlowNodeForm = forwardRef<FormExpressionEditorRef, FlowNodeFormProp
                 const collectedDiagnostics = (
                     nodeProperties?.[field.key]?.value?.map((val: any) => val?.diagnostics?.diagnostics) ?? []
                 ).flat().filter(Boolean) as Array<{ message?: string; severity?: string }>;
-
-                propertyDiagnostics = collectedDiagnostics.filter((d, i, arr) =>
-                    arr.findIndex(x => x.message === d.message) === i
-                );
-            }
-
-            if (isContainingRepeatableMap && !(Array.isArray(propertyDiagnostics) && propertyDiagnostics.length > 0)) {
-                const collectedDiagnostics = Object.values(
-                    getRepeatableMapDiagnosticsByKey(nodeProperties?.[field.key]?.value) ?? {}
-                )
-                    .map((value: any) => value?.diagnostics?.diagnostics)
-                    .flat()
-                    .filter(Boolean) as Array<{ message?: string; severity?: string }>;
 
                 propertyDiagnostics = collectedDiagnostics.filter((d, i, arr) =>
                     arr.findIndex(x => x.message === d.message) === i
@@ -738,13 +719,36 @@ export const FlowNodeForm = forwardRef<FormExpressionEditorRef, FlowNodeFormProp
         });
     }, [canFixFormDiagnostics, diagnosticsTargetRange, fileName, formDiagnostics, rpcClient]);
 
+    const buildValidationData = (data: FormValues): FormValues => {
+        const expressionFieldKeys = fields
+            .filter(field => field.types?.some(t => EXPRESSION_FIELD_TYPES.has(t.fieldType))).map(field => field.key);
+        return {
+            ...data,
+            ...Object.fromEntries(
+                expressionFieldKeys
+                    .filter(key => typeof data[key] === "string")
+                    .map(key => [key, deserializeForDiagnosticsAPI(data[key] as string)])
+            ),
+        };
+    };
+
     const handleOnBlur = async (data: FormValues, dirtyFields: any) => {
         if (node && targetLineRange && !skipFormValidation) {
-            const updatedNode = mergeFormDataWithFlowNode(data, targetLineRange, dirtyFields);
+            const validationData = buildValidationData(data);
+
+            const updatedNode = mergeFormDataWithFlowNode(validationData, targetLineRange, dirtyFields);
             const nodeWithDiagnostics = await getFormWithDiagnostics(updatedNode);
             setDiagnosticsToFields(data, nodeWithDiagnostics!);
         }
     };
+
+    const handleFormChange = useCallback(
+        (fieldKey: string, value: any, allValues: FormValues) => {
+            setFormDiagnostics(prev => prev.length > 0 ? [] : prev);
+            onChange?.(fieldKey, value, allValues);
+        },
+        [onChange]
+    );
 
     const mergeFormDataWithFlowNode = (data: FormValues, targetLineRange: LineRange, dirtyFields?: any): FlowNode => {
         const clonedNode = cloneDeep(node);
@@ -953,7 +957,7 @@ export const FlowNodeForm = forwardRef<FormExpressionEditorRef, FlowNodeFormProp
                 }
 
                 if (!fetchReferenceTypes) {
-                    const effectiveText = value.slice(0, cursorPosition);
+                    const effectiveText = getTypeCompletionSearchText(value, cursorPosition);
                     let filteredTypes = visibleTypes.filter((type) => {
                         const lowerCaseText = effectiveText.toLowerCase();
                         const lowerCaseLabel = type.label.toLowerCase();
@@ -977,6 +981,13 @@ export const FlowNodeForm = forwardRef<FormExpressionEditorRef, FlowNodeFormProp
 
     const extractArgsFromFunction = async (value: string, property: ExpressionProperty, cursorPosition: number) => {
         const { lineOffset, charOffset } = calculateExpressionOffsets(value, cursorPosition);
+        // Merge the latest imports from formImportsRef to avoid stale field.imports when a
+        // helper pane item is selected (formImportsRef is updated synchronously before onChange
+        // fires, but the field prop hasn't re-rendered yet with the new imports).
+        const latestImports = Object.values(formImportsRef.current).reduce<Imports>(
+            (acc, fieldImports) => ({ ...acc, ...fieldImports }),
+            {}
+        );
         const signatureHelp = await rpcClient.getBIDiagramRpcClient().getSignatureHelp({
             filePath: fileName,
             context: {
@@ -985,7 +996,7 @@ export const FlowNodeForm = forwardRef<FormExpressionEditorRef, FlowNodeFormProp
                 lineOffset: lineOffset,
                 offset: charOffset,
                 codedata: node.codedata,
-                property: property,
+                property: { ...property, imports: { ...(property.imports || {}), ...latestImports } },
             },
             signatureHelpContext: {
                 isRetrigger: false,
@@ -1042,7 +1053,8 @@ export const FlowNodeForm = forwardRef<FormExpressionEditorRef, FlowNodeFormProp
 
     const handleFormValidation = async (data: FormValues, dirtyFields?: any): Promise<boolean> => {
         if (node && targetLineRange && !skipFormValidation) {
-            const updatedNode = mergeFormDataWithFlowNode(data, targetLineRange, dirtyFields);
+            const validationData = buildValidationData(data);
+            const updatedNode = mergeFormDataWithFlowNode(validationData, targetLineRange, dirtyFields);
             const nodeWithDiagnostics = await getFormWithDiagnostics(updatedNode);
             setDiagnosticsToFields(data, nodeWithDiagnostics!);
 
@@ -1101,7 +1113,7 @@ export const FlowNodeForm = forwardRef<FormExpressionEditorRef, FlowNodeFormProp
                     const response = await rpcClient.getBIDiagramRpcClient().getExpressionDiagnostics({
                         filePath: fileName,
                         context: {
-                            expression: expression,
+                            expression: deserializeForDiagnosticsAPI(expression),
                             startLine: updateLineRange(targetLineRange, expressionOffsetRef.current).startLine,
                             lineOffset: 0,
                             offset: 0,
@@ -1950,7 +1962,7 @@ export const FlowNodeForm = forwardRef<FormExpressionEditorRef, FlowNodeFormProp
                         node.codedata.node === ("DATA_MAPPER_CREATION" as NodeKind)
                     }
                     scopeFieldAddon={scopeFieldAddon}
-                    onChange={onChange}
+                    onChange={handleFormChange}
                     injectedComponents={injectedComponents}
                     derivedFields={props.derivedFields}
                     updateImports={handleUpdateImports}

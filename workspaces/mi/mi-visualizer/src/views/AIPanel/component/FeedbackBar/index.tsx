@@ -30,7 +30,12 @@ interface FeedbackBarProps {
 const FeedbackContainer = styled.div`
     display: flex;
     align-items: center;
-    gap: 0px;
+    justify-content: center;
+    padding: 8px 16px;
+    border: 1px solid var(--vscode-input-border, #cccccc);
+    border-radius: 6px;
+    background: var(--vscode-editor-background, #fff);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 `;
 
 const FeedbackText = styled.span`
@@ -42,31 +47,30 @@ const FeedbackButton = styled.button<{ $active?: boolean }>`
     background: transparent;
     border: none;
     cursor: pointer;
-    padding: 2px 6px;
+    padding: 4px 4px;
+    margin: 0 4px;
     border-radius: 4px;
-    color: var(--vscode-descriptionForeground);
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    font-size: 12px;
-    font-family: var(--vscode-font-family);
+    color: var(--vscode-foreground);
+    background-color: transparent;
 
     ${(props: { $active: any }) =>
         props.$active &&
         `
-        color: var(--vscode-button-background);
+        border: 1px solid var(--vscode-button-background);
+        padding: 3px 3px; /* Adjust padding to compensate for border */
     `}
-
     &:hover {
-        color: var(--vscode-foreground);
+        background-color: transparent;
     }
 
+    &:hover .codicon {
+        color: var(--vscode-button-hoverBackground);
+    }
     &:focus {
         outline: 1px solid var(--vscode-focusBorder);
     }
 
     .codicon {
-        font-size: 14px;
         ${(props: { $active: any }) =>
             props.$active &&
             `
@@ -75,10 +79,11 @@ const FeedbackButton = styled.button<{ $active?: boolean }>`
     }
 `;
 
-const FeedbackBlock = styled.div`
+const CenteredBlock = styled.div`
     display: flex;
     flex-direction: column;
-    align-items: flex-end;
+    align-items: center;
+    justify-content: center;
     margin: 8px 0 0 0;
 `;
 
@@ -104,30 +109,31 @@ const FeedbackBar: React.FC<FeedbackBarProps> = ({ messageIndex, onFeedback, cur
 
     if (showThanks) {
         return (
-            <FeedbackBlock>
+            <CenteredBlock>
                 <FeedbackContainer>
-                    <FeedbackText>Thanks for the feedback!</FeedbackText>
+                    <FeedbackText>Thank you for your feedback!</FeedbackText>
                 </FeedbackContainer>
-            </FeedbackBlock>
+            </CenteredBlock>
         );
     }
 
     return (
-        <FeedbackBlock>
+        <CenteredBlock>
             <FeedbackContainer>
+                <FeedbackText>Was this response helpful?</FeedbackText>
                 <FeedbackButton
                     onClick={() => handleFeedbackButtonClick(true)}
                     $active={currentFeedback === "positive"}
-                    title="Good"
+                    title="Thumbs up"
                 >
-                    Good <Codicon name="thumbsup" />
+                    <Codicon name="thumbsup" />
                 </FeedbackButton>
                 <FeedbackButton
                     onClick={() => handleFeedbackButtonClick(false)}
                     $active={currentFeedback === "negative"}
-                    title="Bad"
+                    title="Thumbs down"
                 >
-                    Bad <Codicon name="thumbsdown" />
+                    <Codicon name="thumbsdown" />
                 </FeedbackButton>
             </FeedbackContainer>
             {showDialog && (
@@ -138,7 +144,7 @@ const FeedbackBar: React.FC<FeedbackBarProps> = ({ messageIndex, onFeedback, cur
                     onSubmit={handleDialogSubmit}
                 />
             )}
-        </FeedbackBlock>
+        </CenteredBlock>
     );
 };
 

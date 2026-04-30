@@ -42,8 +42,7 @@ export class DebuggerConfig {
     //Capps and Libs copied to the MI server
     private static copiedCappUri: string[] = [];
     private static copiedLibs: string[] = [];
-    private static projectList: string[] = [];
-    
+
     // Management API username and password
     private static managementUserName: string = ADMIN;
     private static managementPassword: string = ADMIN;
@@ -102,14 +101,6 @@ export class DebuggerConfig {
 
     public static setServerPort(port: number): void {
         this.baseServerPort = port;
-    }
-
-    public static setProjectList(projects: string[]) {
-        this.projectList = projects;
-    }
-
-    public static getProjectList() {
-        return this.projectList;
     }
 
     public static getServerPort(): number {

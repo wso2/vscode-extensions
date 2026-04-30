@@ -1,2 +1,4 @@
 resources
 synapse-schemas/mediators/connectors.xsd
+cli/
+ls/

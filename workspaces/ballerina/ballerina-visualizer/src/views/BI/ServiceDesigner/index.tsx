@@ -72,9 +72,8 @@ const ServiceContainer = styled.div`
 
 const FunctionsContainer = styled.div`
     max-height: 550px;
-    overflow: scroll;
+    overflow: auto;
     padding: 15px;
-    padding-right: 0px;
 `;
 
 const ButtonText = styled.span`
@@ -1085,6 +1084,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                                     onEditResource={null}
                                                     onDeleteResource={handleFunctionDelete}
                                                     onResourceImplement={() => { openInit(resource) }}
+                                                    deletionTypeLabel="initialization function"
                                                 />
                                             ))}
                                     </FunctionsContainer>
@@ -1132,6 +1132,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                                             onEditResource={handleFunctionEdit}
                                                             onDeleteResource={handleFunctionDelete}
                                                             onResourceImplement={handleOpenDiagram}
+                                                            deletionTypeLabel="resource"
                                                         />
                                                     ))}
                                             </FunctionsContainer>
@@ -1181,6 +1182,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                                     onEditResource={handleFunctionEdit}
                                                     onDeleteResource={handleFunctionDelete}
                                                     onResourceImplement={handleOpenDiagram}
+                                                    deletionTypeLabel="file handler"
                                                 />
                                             ))}
                                         </FunctionsContainer>
@@ -1236,6 +1238,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                                     onDeleteResource={handleFunctionDelete}
                                                     onResourceImplement={handleOpenDiagram}
                                                     isMcpTool={true}
+                                                    deletionTypeLabel="tool"
                                                 />
                                             ))}
                                     </FunctionsContainer>
@@ -1280,6 +1283,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                                 onEditResource={handleFunctionEdit}
                                                 onDeleteResource={handleFunctionDelete}
                                                 onResourceImplement={handleOpenDiagram}
+                                                deletionTypeLabel="event handler"
                                             />
                                         ))}
                                     </FunctionsContainer>
@@ -1375,6 +1379,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                                     onEditResource={handleFunctionEdit}
                                                     onDeleteResource={handleFunctionDelete}
                                                     onResourceImplement={handleOpenDiagram}
+                                                    deletionTypeLabel="function"
                                                 />
                                             ))}
                                     </FunctionsContainer>
@@ -1395,6 +1400,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                         onSave={handleResourceSubmit}
                                         onClose={handleNewFunctionClose}
                                         isNew={isNew}
+                                        existingResources={resources}
                                         payloadContext={{
                                             protocol: Protocol.HTTP,
                                             serviceName: serviceModel.name || '',
@@ -1418,6 +1424,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                         filePath={filePath}
                                         onSave={handleResourceSubmit}
                                         onClose={handleNewFunctionClose}
+                                        existingResources={resources}
                                         payloadContext={{
                                             protocol: Protocol.HTTP,
                                             serviceName: serviceModel.name || '',

@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EditableTitle } from "../../../components/EditableTitle";
 import {
     ProjectStructureResponse,
@@ -378,6 +378,7 @@ interface DeploymentOptionsProps {
     hasDeployableIntegration: boolean;
     hasUndeployedIntegrations: boolean;
     deployableProjectPaths: Set<string>;
+    libraryProjectPaths: Set<string>;
 }
 
 function DeploymentOptions({
@@ -388,7 +389,8 @@ function DeploymentOptions({
     devantMetadata,
     hasDeployableIntegration,
     hasUndeployedIntegrations,
-    deployableProjectPaths
+    deployableProjectPaths,
+    libraryProjectPaths
 }: DeploymentOptionsProps) {
     const [expandedOptions, setExpandedOptions] = useState<Set<string>>(new Set(['cloud']));
     const { rpcClient } = useRpcContext();
@@ -406,9 +408,13 @@ function DeploymentOptions({
         });
     };
 
-    // Calculate deployment states
-    const deployedProjects = devantMetadata?.projectsMetadata?.filter(p => p.hasComponent) || [];
-    const undeployedProjects = devantMetadata?.projectsMetadata?.filter(p => !p.hasComponent) || [];
+    // Calculate deployment states, excluding library projects which are never deployable to cloud
+    const deployedProjects = devantMetadata?.projectsMetadata?.filter(
+        p => p.hasComponent && !libraryProjectPaths.has(p.projectPath)
+    ) || [];
+    const undeployedProjects = devantMetadata?.projectsMetadata?.filter(
+        p => !p.hasComponent && !libraryProjectPaths.has(p.projectPath)
+    ) || [];
     const deployedWithChanges = deployedProjects.filter(p => p.hasLocalChanges);
     
     const hasDeployedProjects = deployedProjects.length > 0;
@@ -417,7 +423,7 @@ function DeploymentOptions({
 
     // Determine title, description, button text, and whether deployment is allowed
     let title = "Deploy to WSO2 Cloud";
-    let description = "Deploy your project integrations to WSO2 Cloud.";
+    let description = "Deploy your integrations to WSO2 Cloud.";
     let buttonText = "Deploy";
     let primaryAction: () => void | Promise<void> = handleDeploy;
     let secondaryAction = undefined;
@@ -427,7 +433,7 @@ function DeploymentOptions({
     if (hasDeployedProjects && !hasUndeployedProjects) {
         // All projects are deployed - disable deployment button
         title = "Deployed in WSO2 Cloud";
-        description = "All project integrations are deployed in WSO2 Cloud.";
+        description = "All integrations are deployed in WSO2 Cloud.";
         buttonText = "View in Console";
         primaryAction = goToDevant;
         isDeploymentDisabled = false; // View action is always enabled
@@ -494,7 +500,7 @@ function DeploymentOptions({
                         isExpanded={expandedOptions.has("cloud")}
                         onToggle={() => toggleOption("cloud")}
                         onDeploy={primaryAction}
-                        learnMoreLink={"https://wso2.com/devant/docs"}
+                        learnMoreLink={"https://wso2.com/devant/docs/"}
                         hasDeployableIntegration={!isDeploymentDisabled}
                         disabledTooltip={disabledTooltip}
                         secondaryAction={secondaryAction}
@@ -693,11 +699,20 @@ export function WorkspaceOverview() {
             });
     };
 
-    rpcClient?.onProjectContentUpdated((state: boolean) => {
-        if (state) {
-            fetchContext();
-        }
-    });
+    // Stable ref so the subscription callback always calls the latest
+    // fetchContext without re-registering on every render.
+    const fetchContextRef = useRef(fetchContext);
+    fetchContextRef.current = fetchContext;
+
+    useEffect(() => {
+        if (!rpcClient) return;
+        const unsubscribe = rpcClient.onProjectContentUpdated((state: boolean) => {
+            if (state) {
+                fetchContextRef.current();
+            }
+        });
+        return unsubscribe;
+    }, [rpcClient]);
 
     useEffect(() => {
         fetchContext();
@@ -755,6 +770,16 @@ export function WorkspaceOverview() {
         return getWorkspaceProjectScopes(projectCollection);
     }, [projectCollection]);
 
+    // Libraries can never be deployed to cloud; exclude them from deployment state calculations.
+    const libraryProjectPaths = useMemo(() => {
+        return (projectCollection?.projects ?? []).reduce<Set<string>>((paths, project) => {
+            if (project.isLibrary && project.projectPath) {
+                paths.add(project.projectPath);
+            }
+            return paths;
+        }, new Set<string>());
+    }, [projectCollection?.projects]);
+
     // Calculate which projects need deployment
     const undeployedProjectScopes = useMemo(() => {
         if (!devantMetadata?.projectsMetadata || !projectCollection) {
@@ -767,12 +792,22 @@ export function WorkspaceOverview() {
                 .map(p => p.projectPath)
         );
 
-        return projectScopes.filter(scope => !deployedPaths.has(scope.projectPath));
-    }, [projectScopes, devantMetadata, projectCollection]);
+        return projectScopes.filter(scope =>
+            !deployedPaths.has(scope.projectPath) &&
+            !libraryProjectPaths.has(scope.projectPath)
+        );
+    }, [projectScopes, devantMetadata, projectCollection, libraryProjectPaths]);
 
     const deployableProjectPaths = useMemo(() => {
         return new Set(projectScopes.map(scope => scope.projectPath));
     }, [projectScopes]);
+
+    const hasDeployableIntegration = useMemo(() => {
+        return projectScopes.some(scope =>
+            scope.integrationTypes.length > 0 &&
+            !libraryProjectPaths.has(scope.projectPath)
+        );
+    }, [projectScopes, libraryProjectPaths]);
 
     const validateTitle = useCallback((value: string): string => {
         const trimmed = value.trim();
@@ -1040,9 +1075,10 @@ export function WorkspaceOverview() {
                             handleDeploy={handleDeploy}
                             goToDevant={goToDevant}
                             devantMetadata={devantMetadata}
-                            hasDeployableIntegration={projectScopes.length > 0}
+                            hasDeployableIntegration={hasDeployableIntegration}
                             hasUndeployedIntegrations={undeployedProjectScopes.length > 0}
                             deployableProjectPaths={deployableProjectPaths}
+                            libraryProjectPaths={libraryProjectPaths}
                         />
                         <Divider sx={{ margin: "16px 0" }} />
                         <IntegrationControlPlane

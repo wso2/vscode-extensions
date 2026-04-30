@@ -178,6 +178,15 @@ function initializeLanguageServer(context: vscode.ExtensionContext, runCodeLensP
 		return;
 	}
 
+	// Git/VSIX packaging can lose executable bits on Unix binaries; repair before launching.
+	if (process.platform !== 'win32') {
+		try {
+			fs.chmodSync(serverPath, 0o755);
+		} catch {
+			// Non-fatal; LanguageClient will surface the launch error.
+		}
+	}
+
 	// Server options - use the Go language server
 	const serverOptions: ServerOptions = {
 		command: serverPath,

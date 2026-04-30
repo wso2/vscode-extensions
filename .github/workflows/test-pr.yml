@@ -17,5 +17,5 @@ jobs:
     with:
       runOnAWS: ${{ contains(github.event.pull_request.labels.*.name, 'Runner/AWS') }}
       enableE2ETests: ${{ contains(github.event.pull_request.labels.*.name, 'Checks/Enable UI Tests') }}
-      runBIE2ETests: ${{ contains(github.event.pull_request.labels.*.name, 'Checks/Run BI UI Tests') || github.base_ref == 'stable/bi' || github.base_ref == 'stable/ballerina' }}
       runMIE2ETests: ${{ contains(github.event.pull_request.labels.*.name, 'Checks/Run MI UI Tests') || github.base_ref == 'stable/mi' }}
+      runBalE2ETests: ${{ contains(github.event.pull_request.labels.*.name, 'Checks/Run Ballerina UI Tests') || github.base_ref == 'stable/ballerina' }}

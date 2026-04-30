@@ -115,7 +115,7 @@ export function DependencyManager(props: ManageDependenciesProps) {
             pomValues: [{ range: dependency.range, value: '' }]
         });
 
-        await rpcClient.getMiVisualizerRpcClient().reloadDependencies({isProjectDependenciesUpdated: dependency.type === 'car'});
+        await rpcClient.getMiVisualizerRpcClient().reloadDependencies();
         await rpcClient.getMiDiagramRpcClient().formatPomFile();
 
         await fetchDependencies();
@@ -144,7 +144,7 @@ export function DependencyManager(props: ManageDependenciesProps) {
         await rpcClient.getMiVisualizerRpcClient().updateDependenciesFromOverview({
             dependencies: [dependencyToUpdate]
         });
-        await rpcClient.getMiVisualizerRpcClient().reloadDependencies({ isProjectDependenciesUpdated: dependencyToUpdate.type === 'car'});
+        await rpcClient.getMiVisualizerRpcClient().reloadDependencies();
         await rpcClient.getMiDiagramRpcClient().formatPomFile();
 
         await fetchDependencies();
@@ -199,14 +199,14 @@ export function DependencyManager(props: ManageDependenciesProps) {
             groupId: newDependency.groupId,
             artifact: newDependency.artifact,
             version: newDependency.version,
-            type: type as "zip" | "jar" | "car"
+            type: type as "zip" | "jar"
         }
 
         await rpcClient.getMiVisualizerRpcClient().updateDependenciesFromOverview({
             dependencies: [addedDependency]
         });
 
-        const reloadDependenciesResult = await rpcClient.getMiVisualizerRpcClient().reloadDependencies({ newDependencies: [addedDependency], isProjectDependenciesUpdated: addedDependency.type === 'car' });
+        const reloadDependenciesResult = await rpcClient.getMiVisualizerRpcClient().reloadDependencies({ newDependencies: [addedDependency] });
         await rpcClient.getMiDiagramRpcClient().formatPomFile();
 
         await fetchDependencies();
@@ -228,7 +228,7 @@ export function DependencyManager(props: ManageDependenciesProps) {
                 pomValues: [{ range: existingDependencyToReplace.range, value: '' }]
             });
 
-            await rpcClient.getMiVisualizerRpcClient().reloadDependencies({ isProjectDependenciesUpdated: existingDependencyToReplace.type === 'car' });
+            await rpcClient.getMiVisualizerRpcClient().reloadDependencies();
             await rpcClient.getMiDiagramRpcClient().formatPomFile();
             await fetchDependencies();
 

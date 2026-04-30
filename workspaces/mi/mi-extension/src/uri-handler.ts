@@ -17,6 +17,7 @@
  */
 import { URLSearchParams } from "url";
 import { window, Uri, ProviderResult, commands } from "vscode";
+import { exchangeAuthCode } from "./ai-panel/auth";
 import { COMMANDS } from "./constants";
 import { checkForDevantExt } from "./extension";
 import { IOpenCompSrcCmdParams, CommandIds as PlatformExtCommandIds } from "@wso2/wso2-platform-core";
@@ -27,8 +28,15 @@ export function activateUriHandlers() {
             const urlParams = new URLSearchParams(uri.query);
             switch (uri.path) {
                 case '/signin':
-                    // Legacy OAuth callback route - no longer used for MI Copilot auth.
-                    console.log("Legacy /signin route called - MI Copilot authentication now uses Devant platform extension.");
+                    console.log("Signin callback hit");
+                    const query = new URLSearchParams(uri.query);
+                    const code = query.get('code');
+                    console.log("Code: " + code);
+                    if (code) {
+                        exchangeAuthCode(code);
+                    } else {
+                        window.showErrorMessage('Auth code not found');
+                    }
                     break;
                 case '/open':
                     if(!checkForDevantExt()) {

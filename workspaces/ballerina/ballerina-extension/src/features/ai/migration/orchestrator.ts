@@ -554,6 +554,22 @@ async function runStagesForPackage(opts: StageRunnerOpts): Promise<void> {
 
         // Start transcript recording for this stage
         const isWorkspaceValidation = stageIdPrefix.includes("workspace-validation");
+
+        // Skip stages already fully completed in a previous run
+        if (transcriptWriter?.isStageCompleted(packageRelPath ?? "", i, isWorkspaceValidation)) {
+            console.log(`[MigrationEnhancement] Skipping already-completed stage: ${stage.name}`);
+            eventHandler({ type: "content_block", content: `\n\n---\n\n⏭️ **${stage.name}** already completed — skipping.\n\n` });
+            continue;
+        }
+
+        // For partially-completed stages, inject transcript content as a resume preamble
+        const partialTranscript = transcriptWriter?.readStageTranscript(packageRelPath ?? "", i, isWorkspaceValidation);
+        if (partialTranscript) {
+            const resumeHeader = `## ⚠️ STAGE RESUME — Previous partial work is shown below. Continue from where it left off.\n\n`;
+            stages[i] = { ...stages[i], prompt: resumeHeader + partialTranscript + "\n\n---\n\n" + stages[i].prompt };
+            console.log(`[MigrationEnhancement] Injected partial transcript for resume: ${stage.name}`);
+        }
+
         if (transcriptWriter) {
             transcriptWriter.startStage(packageRelPath ?? "", i, stage.name, isWorkspaceValidation);
         }
@@ -734,9 +750,10 @@ export async function runMigrationAgent(): Promise<void> {
                 } catch (pkgError) {
                     if (_migrationAbortController.signal.aborted) { throw pkgError; }
                     const errMsg = pkgError instanceof Error ? pkgError.message : String(pkgError);
+                    const safeErrMsg = errMsg.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
                     console.error(`[MigrationEnhancement] Package ${pkgRelPath} failed:`, pkgError);
                     debugLogger.logError(`Package ${pkgRelPath}`, pkgError);
-                    eventHandler({ type: "content_block", content: `\n\n⚠️ Package \`${pkgRelPath}\` failed: ${errMsg}. Continuing to next package.\n\n` });
+                    eventHandler({ type: "content_block", content: `\n\n<errormsg>Package \`${pkgRelPath}\` failed: ${safeErrMsg}. Continuing to next package.</errormsg>\n\n` });
                     results.push({ packagePath: pkgRelPath, success: false, error: errMsg });
                 }
             }
@@ -759,8 +776,9 @@ export async function runMigrationAgent(): Promise<void> {
                     } catch (wsError) {
                         if (!_migrationAbortController.signal.aborted) {
                             const errMsg = wsError instanceof Error ? wsError.message : String(wsError);
+                            const safeErrMsg = errMsg.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
                             debugLogger.logError("workspace validation", wsError);
-                            eventHandler({ type: "content_block", content: `\n\n⚠️ Workspace validation failed: ${errMsg}\n\n` });
+                            eventHandler({ type: "content_block", content: `\n\n<errormsg>Workspace validation failed: ${safeErrMsg}</errormsg>\n\n` });
                         }
                     }
                 }
@@ -1027,6 +1045,169 @@ export async function signInForAI(): Promise<{ success: boolean; error?: string 
     });
 }
 
+/**
+ * Waits until the AI state machine leaves the `Initialize` state, settling on
+ * `Authenticated`, `Unauthenticated`, or `Disabled`. Returns `"timeout"` if the
+ * machine has not settled within `timeoutMs` milliseconds.
+ */
+async function waitForAuthStateToSettle(
+    timeoutMs: number
+): Promise<"Authenticated" | "Unauthenticated" | "Disabled" | "timeout"> {
+    return new Promise((resolve) => {
+        let sub: { unsubscribe: () => void } | undefined;
+        const timer = setTimeout(() => {
+            sub?.unsubscribe();
+            resolve("timeout");
+        }, timeoutMs);
+
+        sub = AIStateMachine.service().subscribe((snapshot) => {
+            const s = snapshot.value as string;
+            if (s === "Authenticated" || s === "Unauthenticated" || s === "Disabled") {
+                clearTimeout(timer);
+                sub?.unsubscribe();
+                resolve(s as "Authenticated" | "Unauthenticated" | "Disabled");
+            }
+        });
+    });
+}
+
+/**
+ * Authenticates with Anthropic using an API key and waits until the state machine
+ * reaches Authenticated (or fails), with a 2-minute timeout.
+ */
+export async function signInWithAnthropicKey(apiKey: string): Promise<{ success: boolean; error?: string }> {
+    const AUTH_TIMEOUT_MS = 120_000;
+
+    let state = AIStateMachine.state();
+    if (state === "Authenticated") { return { success: true }; }
+    if (state === "Disabled") { return { success: false, error: "AI features are disabled." }; }
+    if (state === "Initialize") {
+        const settled = await waitForAuthStateToSettle(AUTH_TIMEOUT_MS);
+        if (settled === "Authenticated") { return { success: true }; }
+        if (settled === "Disabled") { return { success: false, error: "AI features are disabled." }; }
+        if (settled === "timeout") { return { success: false, error: "Sign-in timed out. Please try again." }; }
+        state = settled;
+    }
+
+    AIStateMachine.sendEvent(AIMachineEventType.AUTH_WITH_API_KEY);
+    AIStateMachine.sendEvent({ type: AIMachineEventType.SUBMIT_API_KEY, payload: { apiKey } } as any);
+
+    return new Promise<{ success: boolean; error?: string }>((resolve) => {
+        let settled = false;
+        const finish = (result: { success: boolean; error?: string }) => {
+            if (settled) { return; }
+            settled = true;
+            clearTimeout(timeout);
+            sub.unsubscribe();
+            resolve(result);
+        };
+        const timeout = setTimeout(() => finish({ success: false, error: "Sign-in timed out. Please try again." }), AUTH_TIMEOUT_MS);
+        const sub = AIStateMachine.service().subscribe((snapshot) => {
+            const s = snapshot.value;
+            if (s === "Authenticated") {
+                finish({ success: true });
+            } else if (s === "Unauthenticated" || s === "Disabled") {
+                const ctx = AIStateMachine.context();
+                finish({ success: false, error: ctx?.errorMessage || "Authentication failed. Please check your API key." });
+            }
+        });
+    });
+}
+
+/**
+ * Authenticates with AWS Bedrock using access key credentials.
+ */
+export async function signInWithAwsBedrock(creds: {
+    accessKeyId: string;
+    secretAccessKey: string;
+    region: string;
+    sessionToken?: string;
+}): Promise<{ success: boolean; error?: string }> {
+    const AUTH_TIMEOUT_MS = 120_000;
+
+    let state = AIStateMachine.state();
+    if (state === "Authenticated") { return { success: true }; }
+    if (state === "Disabled") { return { success: false, error: "AI features are disabled." }; }
+    if (state === "Initialize") {
+        const settled = await waitForAuthStateToSettle(AUTH_TIMEOUT_MS);
+        if (settled === "Authenticated") { return { success: true }; }
+        if (settled === "Disabled") { return { success: false, error: "AI features are disabled." }; }
+        if (settled === "timeout") { return { success: false, error: "Sign-in timed out. Please try again." }; }
+        state = settled;
+    }
+
+    AIStateMachine.sendEvent(AIMachineEventType.AUTH_WITH_AWS_BEDROCK);
+    AIStateMachine.sendEvent({ type: AIMachineEventType.SUBMIT_AWS_CREDENTIALS, payload: creds } as any);
+
+    return new Promise<{ success: boolean; error?: string }>((resolve) => {
+        let settled = false;
+        const finish = (result: { success: boolean; error?: string }) => {
+            if (settled) { return; }
+            settled = true;
+            clearTimeout(timeout);
+            sub.unsubscribe();
+            resolve(result);
+        };
+        const timeout = setTimeout(() => finish({ success: false, error: "Sign-in timed out. Please try again." }), AUTH_TIMEOUT_MS);
+        const sub = AIStateMachine.service().subscribe((snapshot) => {
+            const s = snapshot.value;
+            if (s === "Authenticated") {
+                finish({ success: true });
+            } else if (s === "Unauthenticated" || s === "Disabled") {
+                const ctx = AIStateMachine.context();
+                finish({ success: false, error: ctx?.errorMessage || "Authentication failed. Please check your AWS credentials." });
+            }
+        });
+    });
+}
+
+/**
+ * Authenticates with Google Vertex AI using service account credentials.
+ */
+export async function signInWithVertexAI(creds: {
+    projectId: string;
+    location: string;
+    clientEmail: string;
+    privateKey: string;
+}): Promise<{ success: boolean; error?: string }> {
+    const AUTH_TIMEOUT_MS = 120_000;
+
+    let state = AIStateMachine.state();
+    if (state === "Authenticated") { return { success: true }; }
+    if (state === "Disabled") { return { success: false, error: "AI features are disabled." }; }
+    if (state === "Initialize") {
+        const settled = await waitForAuthStateToSettle(AUTH_TIMEOUT_MS);
+        if (settled === "Authenticated") { return { success: true }; }
+        if (settled === "Disabled") { return { success: false, error: "AI features are disabled." }; }
+        if (settled === "timeout") { return { success: false, error: "Sign-in timed out. Please try again." }; }
+        state = settled;
+    }
+
+    AIStateMachine.sendEvent(AIMachineEventType.AUTH_WITH_VERTEX_AI);
+    AIStateMachine.sendEvent({ type: AIMachineEventType.SUBMIT_VERTEX_AI_CREDENTIALS, payload: creds } as any);
+
+    return new Promise<{ success: boolean; error?: string }>((resolve) => {
+        let settled = false;
+        const finish = (result: { success: boolean; error?: string }) => {
+            if (settled) { return; }
+            settled = true;
+            clearTimeout(timeout);
+            sub.unsubscribe();
+            resolve(result);
+        };
+        const timeout = setTimeout(() => finish({ success: false, error: "Sign-in timed out. Please try again." }), AUTH_TIMEOUT_MS);
+        const sub = AIStateMachine.service().subscribe((snapshot) => {
+            const s = snapshot.value;
+            if (s === "Authenticated") {
+                finish({ success: true });
+            } else if (s === "Unauthenticated" || s === "Disabled") {
+                const ctx = AIStateMachine.context();
+                finish({ success: false, error: ctx?.errorMessage || "Authentication failed. Please check your Google Vertex AI credentials." });
+            }
+        });
+    });
+}
+
 export async function runWizardMigrationEnhancement(): Promise<void> {
     console.log('[orchestrator] runWizardMigrationEnhancement called. _wizardProjectRoot:', _wizardProjectRoot);
     const projectRoot = _wizardProjectRoot;
@@ -1141,9 +1322,10 @@ export async function runWizardMigrationEnhancement(): Promise<void> {
                 } catch (pkgError) {
                     if (_migrationAbortController.signal.aborted) { throw pkgError; }
                     const errMsg = pkgError instanceof Error ? pkgError.message : String(pkgError);
+                    const safeErrMsg = errMsg.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
                     console.error(`[MigrationEnhancement] Package ${pkgRelPath} failed:`, pkgError);
                     debugLogger.logError(`Package ${pkgRelPath}`, pkgError);
-                    eventHandler({ type: "content_block", content: `\n\n⚠️ Package \`${pkgRelPath}\` failed: ${errMsg}. Continuing to next package.\n\n` });
+                    eventHandler({ type: "content_block", content: `\n\n<errormsg>Package \`${pkgRelPath}\` failed: ${safeErrMsg}. Continuing to next package.</errormsg>\n\n` });
                     results.push({ packagePath: pkgRelPath, success: false, error: errMsg });
                 }
             }
@@ -1166,8 +1348,9 @@ export async function runWizardMigrationEnhancement(): Promise<void> {
                     } catch (wsError) {
                         if (!_migrationAbortController.signal.aborted) {
                             const errMsg = wsError instanceof Error ? wsError.message : String(wsError);
+                            const safeErrMsg = errMsg.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
                             debugLogger.logError("workspace validation (wizard)", wsError);
-                            eventHandler({ type: "content_block", content: `\n\n⚠️ Workspace validation failed: ${errMsg}\n\n` });
+                            eventHandler({ type: "content_block", content: `\n\n<errormsg>Workspace validation failed: ${safeErrMsg}</errormsg>\n\n` });
                         }
                     }
                 }

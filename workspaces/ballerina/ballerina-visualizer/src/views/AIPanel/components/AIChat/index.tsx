@@ -55,7 +55,7 @@ import { ConfigurationCollectorSegment, ConfigurationCollectionData } from "../C
 import CheckpointSeparator from "../CheckpointSeparator";
 import { Attachment, AttachmentStatus, TaskApprovalRequest } from "@wso2/ballerina-core";
 
-import { AIChatView, Header, HeaderButtons, ChatMessage, TurnGroup, AuthProviderChip, UsageBadge, ApprovalOverlay, OverlayMessage } from "../../styles";
+import { AIChatView, Header, HeaderButtons, ChatMessage, TurnGroup, AuthProviderChip, UsageBadge, ApprovalOverlay, OverlayMessage, OverlayCloseButton } from "../../styles";
 import ReferenceDropdown from "../ReferenceDropdown";
 import { VSCodeButton } from "@vscode/webview-ui-toolkit/react";
 import MarkdownRenderer from "../MarkdownRenderer";
@@ -211,6 +211,7 @@ const AIChat: React.FC = () => {
     };
 
     const [availableCheckpointIds, setAvailableCheckpointIds] = useState<Set<string>>(new Set());
+    const [restoringCheckpointId, setRestoringCheckpointId] = useState<string | null>(null);
     const [hasActiveReview, setHasActiveReview] = useState(false);
 
     const [approvalRequest, setApprovalRequest] = useState<TaskApprovalRequest | null>(null);
@@ -385,6 +386,14 @@ const AIChat: React.FC = () => {
     }, []);
 
     const handleCheckpointRestore = async (checkpointId: string) => {
+        // Guard against concurrent restores — the separator UI also disables
+        // itself, but this is defensive in case the handler is called directly.
+        if (restoringCheckpointId) {
+            return;
+        }
+        // Mark this checkpoint as restoring immediately so the separator can
+        // swap to the "Restoring checkpoint..." spinner on the same tick.
+        setRestoringCheckpointId(checkpointId);
         try {
             // Call backend to restore checkpoint (files + chat history)
             await rpcClient.getAiPanelRpcClient().restoreCheckpoint({ checkpointId });
@@ -415,6 +424,8 @@ const AIChat: React.FC = () => {
             setHasActiveReview(false);
         } catch (error) {
             console.error("Failed to restore checkpoint:", error);
+        } finally {
+            setRestoringCheckpointId(null);
         }
     };
 
@@ -1718,7 +1729,22 @@ const AIChat: React.FC = () => {
                 <AIChatView style={{ position: "relative" }}>
                     {approvalOverlay.show && (
                         <ApprovalOverlay>
-                            <OverlayMessage>{approvalOverlay.message || 'Processing...'}</OverlayMessage>
+                            <OverlayMessage>
+                                <span>{approvalOverlay.message || 'Processing...'}</span>
+                                {approvalOverlay.requestId && (
+                                    <OverlayCloseButton
+                                        title="Close"
+                                        aria-label="Close"
+                                        onClick={() => {
+                                            rpcClient
+                                                .getVisualizerRpcClient()
+                                                .handleApprovalPopupClose({ requestId: approvalOverlay.requestId! });
+                                        }}
+                                    >
+                                        <span className="codicon codicon-close" />
+                                    </OverlayCloseButton>
+                                )}
+                            </OverlayMessage>
                         </ApprovalOverlay>
                     )}
                     <Header>
@@ -1832,8 +1858,9 @@ const AIChat: React.FC = () => {
                                                     <CheckpointSeparator
                                                         checkpointId={message.checkpointId}
                                                         isAvailable={availableCheckpointIds.has(message.checkpointId)}
-                                                        isDisabled={isLoading}
+                                                        isDisabled={isLoading || restoringCheckpointId !== null}
                                                         isCreating={false}
+                                                        isRestoring={restoringCheckpointId === message.checkpointId}
                                                         isGroupHovered={hoveredTurnIndex === turnIndex}
                                                         onRestore={handleCheckpointRestore}
                                                     />
