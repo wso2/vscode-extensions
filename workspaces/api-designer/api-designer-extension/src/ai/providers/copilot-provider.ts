@@ -94,10 +94,7 @@ export class CopilotProvider implements IAIProvider {
             // Build the full query with file reference and prompt
             const fullQuery = fileRef ? `${fileRef}\n\n${request.prompt}` : request.prompt;
 
-            // Open the Copilot chat panel in agent mode
-            await vscode.commands.executeCommand('workbench.action.chat.openagent', {
-                query: fullQuery
-            });
+            await this.openCopilotChat(fullQuery);
             
             return {
                 success: true,
@@ -114,5 +111,29 @@ export class CopilotProvider implements IAIProvider {
         }
     }
 
+    private async openCopilotChat(query: string): Promise<void> {
+        const attempts: Array<{ command: string; args?: unknown[] }> = [
+            { command: 'workbench.action.chat.openagent', args: [{ query }] },
+            { command: 'workbench.action.chat.open', args: [{ query }] },
+            { command: 'workbench.action.chat.open', args: [query] },
+            { command: 'github.copilot.chat.open', args: [{ prompt: query }] }
+        ];
+
+        let lastError: unknown;
+        for (const attempt of attempts) {
+            try {
+                await vscode.commands.executeCommand(attempt.command, ...(attempt.args || []));
+                return;
+            } catch (error) {
+                lastError = error;
+                const message = error instanceof Error ? error.message : String(error);
+                // Continue fallback chain only for unknown/missing command cases.
+                if (!message.includes('not found')) {
+                    throw error;
+                }
+            }
+        }
+        throw lastError instanceof Error ? lastError : new Error('No supported Copilot chat command found');
+    }
 }
 

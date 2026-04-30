@@ -50,6 +50,11 @@ export function formatLlmFailureError(error: unknown): string {
     return "LLM validation failed";
 }
 
+function isUnsupportedModelError(error: unknown): boolean {
+    const message = formatLlmFailureError(error).toLowerCase();
+    return message.includes("model_not_supported") || message.includes("requested model is not supported");
+}
+
 export class LlmValidationService {
     private guidelinesContent: string | null = null;
 
@@ -191,32 +196,40 @@ export class LlmValidationService {
                 "No GitHub Copilot chat model is registered. Sign in to Copilot and ensure the default chat model is available, then try again."
             );
         }
-        const model = models[0];
         const prompt = await this.buildLlmPrompt(specContent);
         const userMessage = vscodeAny.LanguageModelChatMessage?.User
             ? vscodeAny.LanguageModelChatMessage.User(prompt)
             : { role: "user", content: prompt };
-        let output = "";
-        try {
-            const response = await model.sendRequest([userMessage], {}, new vscode.CancellationTokenSource().token);
-            for await (const chunk of response.text) {
-                output += String(chunk);
+        let lastError: unknown;
+
+        for (const model of models) {
+            let output = "";
+            try {
+                const response = await model.sendRequest([userMessage], {}, new vscode.CancellationTokenSource().token);
+                for await (const chunk of response.text) {
+                    output += String(chunk);
+                }
+                const modelId = String((model as { id?: string; name?: string })?.id || (model as { id?: string; name?: string })?.name || "copilot");
+                return { result: this.normalizeLlmResult(output), modelId };
+            } catch (e) {
+                lastError = e;
+                // If this specific model is unsupported, try the next available Copilot model.
+                if (isUnsupportedModelError(e)) {
+                    continue;
+                }
+                const detail = formatLlmFailureError(e);
+                throw new Error(
+                    `The language model request did not complete: ${detail}. ` +
+                        "If this persists, check your Copilot subscription and try a smaller spec."
+                );
             }
-        } catch (e) {
-            const detail = formatLlmFailureError(e);
-            throw new Error(
-                `The language model request did not complete: ${detail}. ` +
-                    "If this persists, check your Copilot subscription and try a smaller spec."
-            );
         }
-        const modelId = String((model as { id?: string; name?: string })?.id || (model as { id?: string; name?: string })?.name || "copilot");
-        try {
-            return { result: this.normalizeLlmResult(output), modelId };
-        } catch (e) {
-            if (e instanceof Error) {
-                throw e;
-            }
-            throw new Error(formatLlmFailureError(e));
-        }
+
+        const detail = formatLlmFailureError(lastError);
+        throw new Error(
+            `The language model request did not complete: ${detail}. ` +
+                "No supported Copilot chat model was accepted. " +
+                "Check your Copilot subscription/model access and try again."
+        );
     }
 }
