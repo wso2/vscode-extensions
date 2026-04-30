@@ -283,6 +283,11 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Show context usage indicator in the AI chat input footer."
+                },
+                "ballerina.scanner.enable": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable or disable the Ballerina Security Scanner for project."
                 }
             }
         },
@@ -835,6 +840,18 @@
                 "title": "Evaluation History",
                 "category": "Ballerina",
                 "icon": "$(history)"
+            },
+            {
+                "command": "ballerina.scan.project",
+                "title": "Scan for Vulnerabilities",
+                "category": "Ballerina",
+                "icon": "$(shield)"
+            },
+            {
+                "command": "ballerina.scanner.showPanel",
+                "title": "Show Scanner Panel",
+                "category": "Ballerina",
+                "icon": "$(shield)"
             }
         ],
         "views": {
@@ -1066,6 +1083,11 @@
                     "group": "navigation",
                     "title": "Save Changes in the cloud",
                     "when": "isBIProject && devant.editor"
+                },
+                {
+                    "command": "ballerina.scanner.showPanel",
+                    "group": "navigation",
+                    "when": "(resourceLangId == ballerina || isBallerinaDiagram || (isBalVisualizerActive && isSupportedProject)) && ballerinaScannerEnabled"
                 }
             ],
             "notebook/toolbar": [
@@ -1101,6 +1123,11 @@
                     "command": "ballerina.project.run",
                     "group": "Ballerina",
                     "when": "resourceLangId == ballerina"
+                },
+                {
+                    "command": "ballerina.scan.project",
+                    "group": "navigation",
+                    "when": "resourceScheme == file"
                 }
             ],
             "commandPalette": [

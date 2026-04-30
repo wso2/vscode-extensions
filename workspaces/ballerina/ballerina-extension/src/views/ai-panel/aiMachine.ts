@@ -39,10 +39,8 @@ export const openAIWebview = (defaultprompt?: AIPanelPrompt) => {
         AiPanelWebview.currentPanel = new AiPanelWebview();
     } else {
         AiPanelWebview.currentPanel!.getWebview()?.reveal();
-        // Notify the webview to refetch the prompt since it's already open
-        if (defaultprompt) {
-            notifyAiPromptUpdated();
-        }
+        // Always notify the open webview to refresh prompt state.
+        notifyAiPromptUpdated();
     }
 };
 

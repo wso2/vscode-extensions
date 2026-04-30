@@ -55,6 +55,7 @@ import { RunningServicesManager } from './tools/running-service-manager';
 import { createHurlTool, HURL_TOOL_NAME } from './tools/hurl-tool';
 import { createWebSearchTool, WEB_SEARCH_TOOL_NAME, createWebFetchTool, WEB_FETCH_TOOL_NAME } from './tools/web-tools';
 import { createClarifyTool, CLARIFY_TOOL } from './tools/clarify';
+import { createSecurityTool, SECURITY_TOOL_NAME } from './tools/security-diagnostics';
 
 export interface ToolRegistryOptions {
     eventHandler: CopilotEventHandler;
@@ -123,6 +124,11 @@ export function createToolRegistry(opts: ToolRegistryOptions) {
         [FILE_READ_TOOL_NAME]: createReadTool(
             createReadExecute(eventHandler, tempProjectPath)
         ),
+        [SECURITY_TOOL_NAME]: createSecurityTool(tempProjectPath, eventHandler, {
+            workspacePath: projectRootPath,
+            projectPath: ctx.projectPath,
+            modifiedFiles,
+        }),
         [DIAGNOSTICS_TOOL_NAME]: createDiagnosticsTool(tempProjectPath, eventHandler),
         [TEST_RUNNER_TOOL_NAME]: createTestRunnerTool(tempProjectPath, eventHandler, modifiedFiles, allModifiedFiles, ctx),
         // Migration source tools — registered only when a source project path is available
