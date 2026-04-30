@@ -85,7 +85,10 @@ export class WebviewHtmlBuilder {
             <script nonce="${nonce}">
             (function() {
                 // Render React app
+                let attempts = 0;
+                const MAX_ATTEMPTS = 50;
                 function render() {
+                    attempts += 1;
                     if (typeof visualizerWebview !== 'undefined') {
                         try {
                             const viewType = ${JSON.stringify(viewType)};
@@ -98,7 +101,11 @@ export class WebviewHtmlBuilder {
                             console.error('[Webview] Error rendering webview:', e);
                         }
                     } else {
-                        setTimeout(render, 100);
+                        if (attempts < MAX_ATTEMPTS) {
+                            setTimeout(render, 100);
+                        } else {
+                            console.error('[Webview] visualizerWebview did not initialize in time.');
+                        }
                     }
                 }
                 render();

@@ -68,7 +68,6 @@ export class LlmJobOrchestrator {
     }
 
     private async persistLlmState(filePath: string, state: LlmValidationState, options?: { modelId?: string }): Promise<void> {
-        LlmJobOrchestrator.llmStateByApiHash.clear();
         LlmJobOrchestrator.llmStateByApiHash.set(state.apiHash, state);
         await this.cacheStore.persistLlmState(this.normalizeFilePath(filePath), state, options);
     }

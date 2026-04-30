@@ -204,8 +204,10 @@ export class LlmValidationService {
 
         for (const model of models) {
             let output = "";
+            let tokenSource: vscode.CancellationTokenSource | undefined;
             try {
-                const response = await model.sendRequest([userMessage], {}, new vscode.CancellationTokenSource().token);
+                tokenSource = new vscode.CancellationTokenSource();
+                const response = await model.sendRequest([userMessage], {}, tokenSource.token);
                 for await (const chunk of response.text) {
                     output += String(chunk);
                 }
@@ -222,6 +224,8 @@ export class LlmValidationService {
                     `The language model request did not complete: ${detail}. ` +
                         "If this persists, check your Copilot subscription and try a smaller spec."
                 );
+            } finally {
+                tokenSource?.dispose();
             }
         }
 

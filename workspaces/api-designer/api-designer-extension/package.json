@@ -211,7 +211,7 @@
             "GitHub Copilot (requires GitHub Copilot extension)"
           ],
           "description": "AI provider to use for code generation and assistance",
-          "order": 1
+          "order": 2
         },
         "apiDesigner.spectral.rulesetFolder": {
           "type": "string",

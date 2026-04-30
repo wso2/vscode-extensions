@@ -61,6 +61,16 @@ export class AIProviderFactory {
         if (configured && await configured.isAvailable()) {
             return configured;
         }
+
+        // Fallback: return the first other available provider.
+        for (const provider of this.providers.values()) {
+            if (provider === configured) {
+                continue;
+            }
+            if (await provider.isAvailable()) {
+                return provider;
+            }
+        }
         return null;
     }
 

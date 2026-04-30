@@ -22,7 +22,7 @@ import { logError, logDebug } from '../utils/logger';
 import { loadYaml } from '@wso2/api-designer-core';
 import { GovernanceManager } from '../rpc-managers/api-designer-visualizer/managers/governance-manager';
 
-type LanguageModelToolResultLike = { [key: string]: unknown };
+type LanguageModelToolResultLike = unknown;
 type VSCodeLMCompat = typeof vscode & {
     lm?: { registerTool: (id: string, tool: unknown) => vscode.Disposable };
     LanguageModelToolResult?: new (parts: unknown[]) => LanguageModelToolResultLike;

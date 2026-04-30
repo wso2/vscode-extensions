@@ -64,7 +64,7 @@ const functionMap: Record<string, any> = {
 
 /**
  * Convert severity string to numeric value
- * error=0, warn=1, info=3, hint=2
+ * error=0, warn=1, info=2, hint=3
  */
 function convertSeverity(severity: string | number): number {
     if (typeof severity === 'number') {
@@ -74,8 +74,8 @@ function convertSeverity(severity: string | number): number {
     switch (severity) {
         case 'error': return 0;
         case 'warn': return 1;
-        case 'info': return 3;
-        case 'hint': return 2;
+        case 'info': return 2;
+        case 'hint': return 3;
         default: return 1; // Default to warning
     }
 }
@@ -690,9 +690,6 @@ export async function validateApiSpec(apiSpec: any): Promise<any> {
             warningCount: 0
         };
     }
-    
-    // Resolve default validation ruleset for this spec type.
-    specService.getDefaultValidationRuleset();
     
     // Run Spectral linting with appropriate ruleset
     let spectralResults: any[] = [];

@@ -354,7 +354,7 @@ export const OWASP_DIMENSIONS = [
         aggregationWeight: 1,
     },
     {
-        key: "API4:2023",
+        key: "api4:2023",
         label: "Unrestricted Resource Consumption",
         description: "Identifies missing limits and throttling controls that can allow denial of service through excessive consumption.",
         docsUrl: "https://owasp.org/API-Security/editions/2023/en/0xa4-unrestricted-resource-consumption/",
@@ -363,7 +363,7 @@ export const OWASP_DIMENSIONS = [
         aggregationWeight: 1,
     },
     {
-        key: "API5:2023",
+        key: "api5:2023",
         label: "Broken Function Level Authorization",
         description: "Verifies that privileged operations are properly restricted and cannot be invoked by lower-privilege users.",
         docsUrl: "https://owasp.org/API-Security/editions/2023/en/0xa5-broken-function-level-authorization/",
@@ -372,7 +372,7 @@ export const OWASP_DIMENSIONS = [
         aggregationWeight: 1,
     },
     {
-        key: "API6:2023",
+        key: "api6:2023",
         label: "Unrestricted Access to Sensitive Business Flows",
         description: "Highlights business-critical workflows that need stronger anti-abuse controls and transaction safeguards.",
         docsUrl: "https://owasp.org/API-Security/editions/2023/en/0xa6-unrestricted-access-to-sensitive-business-flows/",
@@ -381,7 +381,7 @@ export const OWASP_DIMENSIONS = [
         aggregationWeight: 1,
     },
     {
-        key: "API7:2023",
+        key: "api7:2023",
         label: "Server Side Request Forgery",
         description: "Detects opportunities for untrusted input to trigger server-side outbound requests to internal or protected systems.",
         docsUrl: "https://owasp.org/API-Security/editions/2023/en/0xa7-server-side-request-forgery/",
@@ -390,7 +390,7 @@ export const OWASP_DIMENSIONS = [
         aggregationWeight: 1,
     },
     {
-        key: "API8:2023",
+        key: "api8:2023",
         label: "Security Misconfiguration",
         description: "Flags insecure defaults, weak transport/security settings, and missing hardening controls across API surfaces.",
         docsUrl: "https://owasp.org/API-Security/editions/2023/en/0xa8-security-misconfiguration/",
@@ -399,7 +399,7 @@ export const OWASP_DIMENSIONS = [
         aggregationWeight: 1,
     },
     {
-        key: "API9:2023",
+        key: "api9:2023",
         label: "Improper Inventory Management",
         description: "Ensures API assets, versions, and environments are properly documented and governed to avoid unmanaged exposure.",
         docsUrl: "https://owasp.org/API-Security/editions/2023/en/0xa9-improper-inventory-management/",
@@ -408,7 +408,7 @@ export const OWASP_DIMENSIONS = [
         aggregationWeight: 1,
     },
     {
-        key: "API10:2023",
+        key: "api10:2023",
         label: "Unsafe Consumption of APIs",
         description: "Evaluates trust boundaries and validation when integrating third-party or downstream APIs and services.",
         docsUrl: "https://owasp.org/API-Security/editions/2023/en/0xaa-unsafe-consumption-of-apis/",

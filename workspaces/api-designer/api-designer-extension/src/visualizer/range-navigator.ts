@@ -113,7 +113,7 @@ export class RangeNavigator {
                 endOffset = node.range[1] ?? node.range[0];
             }
 
-            if ((!startOffset || !endOffset) && node.cstNode?.range) {
+            if ((startOffset === undefined || endOffset === undefined) && node.cstNode?.range) {
                 startOffset = node.cstNode.range.start;
                 endOffset = node.cstNode.range.end ?? node.cstNode.range.start;
             }

@@ -46,12 +46,16 @@ export class SpecContentManager extends BaseRpcManager {
         let fileContent;
         if (!params.filePath) {
             this.logError('File path is not provided');
+            handleError(createError(ErrorCode.FILE_NOT_FOUND, this.CONTEXT), `${this.CONTEXT}.getAPISpecContent`);
+            return { content: '', type: undefined };
         } else if (params.filePath.endsWith('.json')) {
             fileType = 'json';
         } else if (params.filePath.endsWith('.yaml') || params.filePath.endsWith('.yml')) {
             fileType = 'yaml';
         } else {
             this.logError('Unsupported file type');
+            handleError(createError(ErrorCode.FILE_NOT_FOUND, this.CONTEXT), `${this.CONTEXT}.getAPISpecContent`);
+            return { content: '', type: undefined };
         }
         try {
             fileContent = await readFile(params.filePath, 'utf8');

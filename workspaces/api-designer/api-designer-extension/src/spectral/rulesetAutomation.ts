@@ -167,10 +167,11 @@ async function syncRulesetsWithSettings(context: vscode.ExtensionContext, reason
         await config.update('spectral.selectedRulesets', updatedRulesets.map(toStoredRuleset), vscode.ConfigurationTarget.Global);
     }
 
-    if (foldersChanged) {
+    const nextFolder = folders[0];
+    if (foldersChanged && typeof nextFolder === 'string' && nextFolder.length > 0 && nextFolder !== configuredFolder) {
         await config.update(
             RULESET_FOLDER_KEY,
-            folders[0] ?? '',
+            nextFolder,
             vscode.ConfigurationTarget.Global
         );
     }
