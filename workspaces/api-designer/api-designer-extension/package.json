@@ -34,9 +34,6 @@
   "contributes": {
     "chatSkills": [
       {
-        "path": "./skills/api-platform/SKILL.md"
-      },
-      {
         "path": "./skills/api-design/SKILL.md"
       }
     ],

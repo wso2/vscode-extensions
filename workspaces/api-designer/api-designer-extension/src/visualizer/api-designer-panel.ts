@@ -75,6 +75,7 @@ export class ApiDesignerPanel {
         this._panel = existingPanel ?? ApiDesignerPanel.createWebview();
         if (existingPanel) {
             this._panel.title = "API Designer";
+            // @ts-expect-error VS Code runtime supports ThemeIcon for panel icon in newer API versions.
             this._panel.iconPath = new vscode.ThemeIcon('preview');
             this._panel.webview.options = {
                 enableScripts: true,
@@ -304,6 +305,7 @@ export class ApiDesignerPanel {
                 ]
             }
         );
+        // @ts-expect-error VS Code runtime supports ThemeIcon for panel icon in newer API versions.
         panel.iconPath = new vscode.ThemeIcon('preview');
         return panel;
     }
