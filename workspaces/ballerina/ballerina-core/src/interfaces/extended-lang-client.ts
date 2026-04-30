@@ -1990,6 +1990,7 @@ export interface BaseArtifact<T = any> {
 export enum ARTIFACT_TYPE {
     Functions = "Functions",
     Connections = "Connections",
+    Agents = "Agents",
     Listeners = "Listeners",
     EntryPoints = "Entry Points",
     Types = "Types",
@@ -2007,6 +2008,7 @@ export enum PROJECT_KIND {
 export interface Artifacts {
     [ARTIFACT_TYPE.Functions]: Record<string, BaseArtifact>;
     [ARTIFACT_TYPE.Connections]: Record<string, BaseArtifact>;
+    [ARTIFACT_TYPE.Agents]: Record<string, BaseArtifact>;
     [ARTIFACT_TYPE.Listeners]: Record<string, BaseArtifact>;
     [ARTIFACT_TYPE.EntryPoints]: Record<string, BaseArtifact>;
     [ARTIFACT_TYPE.Types]: Record<string, BaseArtifact>;

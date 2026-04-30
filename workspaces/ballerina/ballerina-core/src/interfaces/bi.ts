@@ -332,6 +332,7 @@ export type TargetMetadata = {
 
 export enum DIRECTORY_MAP {
     AGENTS = "agents",
+    AGENT = "AGENT",
     AUTOMATION = "AUTOMATION",
     CONFIGURABLE = "CONFIGURABLE",
     CONNECTION = "CONNECTION",
