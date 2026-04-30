@@ -1,75 +1,99 @@
 # Arazzo Visualizer for VS Code
 
-The Arazzo Visualizer VS Code extension offers the ability to **visualize and navigate [Arazzo Specification](https://www.openapis.org/arazzo-specification) workflows** through an interactive graphical interface with live updates powered by GitHub Copilot.
+Arazzo Visualizer helps you understand, edit, and run [Arazzo Specification](https://www.openapis.org/arazzo-specification) workflows directly inside VS Code.
 
-Beyond the visual features, the extension enhances the Arazzo authoring experience with syntax highlighting, intelligent code completions, and real-time validation provided by a built-in language server.
+It turns Arazzo files into interactive diagrams, keeps the diagram in sync with your code, and includes a built-in Go runner so you can try workflows against real APIs without leaving the editor.
 
 ## Quick Start
 
 1. Install the extension from the VS Code Marketplace.
-2. Open any Arazzo file (`.arazzo.yaml`, `.arazzo.yml`).
-3. Click the **Arazzo Overview** icon in the editor toolbar, or use the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and run **"ArazzoDesigner: Open Arazzo Visualizer"**.
+2. Open an Arazzo file, such as `.arazzo.yaml`, `.arazzo.yml`, or `.arazzo.json`.
+3. Click the **Arazzo Overview** icon in the editor toolbar, or open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and run **ArazzoDesigner: Open Arazzo Visualizer**.
 
-The visualizer opens beside your code and stays in sync as you edit.
+The visualizer opens beside your file and updates as you edit.
 
-## Features
+## Main Features
 
-### Workflow Visualizer
+### Visualize Workflows
 
-Open an Arazzo file and click the **Arazzo Visualizer** toolbar icon (or use `Ctrl+Shift+P` → *"ArazzoDesigner: Open Arazzo Visualizer"*) to launch the **Overview**. The Overview gives you a bird's-eye view of every workflow defined in your specification including their names, summaries, and how many steps they contain. Click any workflow card to drill into the full **Workflow View**, which renders every step as a node, every decision branch as a labelled edge, and every success/failure path in a clean interactive diagram. Click any node to open the **Properties Panel** on the right and inspect that step's inputs, parameters, success criteria, and outputs without leaving the diagram.
+Read complex API flows as a clear diagram instead of scanning long YAML or JSON files.
 
+- **See the full flow:** View workflows, steps, decisions, and connections in one place.
+- **Focus on one workflow:** Open a specific workflow when you want a closer look.
+- **Inspect details:** Select a step to understand the request, response, inputs, outputs, and success checks.
+- **Stay in sync:** Update the file and the diagram refreshes automatically.
 
----
+### CodeLens and Quick Actions
 
-### Code Lens — Jump Straight to a Workflow
+The extension adds helpful actions above workflow definitions.
 
-You don't always need to go through the Overview. When you open an Arazzo file, the extension adds clickable **Code Lens** action buttons directly above each workflow definition in the editor. Click **"Visualize"** on any workflow to jump straight into its Workflow View in one click, great when you know exactly which workflow you want to inspect.
+- **Visualize:** Open the selected workflow in the visualizer.
+- **Try with AI:** Run the selected workflow through Copilot and the Go runner.
+- **Retry with AI:** Re-run a workflow after saving changes.
 
+### GitHub Copilot Support
 
----
+Arazzo Visualizer works with GitHub Copilot so you can create, change, and run workflows using plain English.
 
-### Getting Started with GitHub Copilot
+Starting from scratch? Open Copilot Chat and ask for the workflow you need:
 
-The Arazzo Visualizer works hand-in-hand with **GitHub Copilot**, making it easy to create and evolve Arazzo workflows using plain English — no need to memorise the spec syntax.
+> "Create a sample Arazzo file named petstore.arazzo.yaml with 5 steps using the Petstore OpenAPI specification below:
+> https://petstore3.swagger.io/api/v3/openapi.json"
 
-**Starting from scratch?** Open GitHub Copilot Chat and describe the workflow you want. For example:
+Editing an existing file? Ask Copilot for a change:
 
-> *"create a sample arazzo file named petstore.arazzo.yaml with 5 steps using the petstore openAPI specification given below
-https://petstore3.swagger.io/api/v3/openapi.json"*
+> "Add a retry step if the profile fetch fails."
 
-Copilot will generate the Arazzo file for you. Open it and the extension will visualize it instantly.
+> "Add success criteria to check that the status code is 200."
 
-**Editing an existing file?** Ask Copilot to change it in plain language:
+After you save, the visualizer updates to match the latest file.
 
-> *"Add a retry step if the profile fetch fails."*
-> *"Add success criteria to check that the status code is 200."*
+![Sample Demo](https://raw.githubusercontent.com/wso2/vscode-extensions/arazzo-extension/workspaces/arazzo/arazzo-designer-extension/assets/v2_visualizer_demo.gif)
 
-Every time you save, the diagram **automatically re-renders** to reflect the latest state of your file — no manual refresh, no switching context.
+### Run Workflows with the Go Runner
 
+The visualizer shows how a workflow is designed. The bundled **Go runner** helps you prove that the workflow actually works.
 
----
+Use it to execute an Arazzo workflow from VS Code and see how each API call behaves in a real run. This makes the extension useful not only for reading workflows, but also for testing, validating, and improving them as you build.
 
-### Smart Editor Support
+- **Run real API sequences:** Execute workflow steps in the order defined by your Arazzo file.
+- **Validate each step:** Check responses, status codes, success criteria, and output values as the workflow runs.
+- **Pass data between steps:** Use values returned by one API call in later steps, just like the workflow describes.
+- **Start from anywhere:** Run a workflow from the toolbar, Command Palette, visualizer, or CodeLens actions above each workflow.
+- **Use Copilot as the entry point:** Ask Copilot to run a workflow in plain English, such as `execute the workflow checkout`.
+- **Review what happened:** Use the execution logs and trace details to understand failures, slow steps, and unexpected results.
+- **No separate setup:** The runner is packaged with the extension, so you do not need to install another tool to try a workflow.
 
-The extension includes a built-in language server that quietly improves the editing experience in the background:
+![Execution Demo](https://raw.githubusercontent.com/wso2/vscode-extensions/arazzo-extension/workspaces/arazzo/arazzo-designer-extension/assets/v2_execution_demo.gif)
 
-- **Syntax highlighting** so Arazzo keywords and runtime expressions (`$statusCode`, `$response.body`, etc.) stand out clearly
-- **Intelligent completions** that suggest valid fields and values as you type
-- **Real-time validation** that flags missing required fields, invalid references, and structural errors in the Problems panel before you even save
-- **File association** so `.arazzo.yaml`, `.arazzo.yml` files are automatically recognised
+### Execution Logs
 
-![Sample Demo](https://raw.githubusercontent.com/wso2/vscode-extensions/arazzo-extension/workspaces/arazzo/arazzo-designer-extension/assets/demo_final_final.gif)
+When a workflow runs, the extension shows what happened step by step.
 
----
+- **Live progress:** Watch the workflow as it runs.
+- **Clear results:** See which steps passed, which failed, and why.
+- **Trace details:** Review timing and request flow information when you need to troubleshoot a slow or failing workflow.
+
+### Smart Editing Support
+
+The extension also improves the normal editing experience for Arazzo files.
+
+- **Syntax highlighting** for Arazzo keywords and runtime expressions like `$statusCode` and `$response.body`
+- **Suggestions** for valid fields and values while you type
+- **Validation** for missing fields, invalid references, and structure issues
+- **File recognition** for `.arazzo.yaml`, `.arazzo.yml`, `.arazzo.json`, and matching `-arazzo` file names
+- **Custom file icons** for easier file navigation
 
 ## About Arazzo
 
-The [Arazzo Specification](https://spec.openapis.org/arazzo/v1.0.1.html) is an OpenAPI Initiative standard for describing sequences of API calls and the dependencies between them. It is designed for:
+The [Arazzo Specification](https://spec.openapis.org/arazzo/v1.0.1.html) is an OpenAPI Initiative standard for describing API workflows. It is useful when you need to show or test how several API calls work together.
 
-- Multi-step API workflow documentation
-- Automated test case generation
-- SDK and code generation driven by real-world use cases
-- Regulatory compliance automation
+Common use cases include:
+
+- Documenting multi-step API flows
+- Testing end-to-end API journeys
+- Describing real user or system workflows
+- Supporting SDK, code generation, and compliance automation
 
 ## Resources
 
