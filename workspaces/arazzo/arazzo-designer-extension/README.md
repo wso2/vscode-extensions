@@ -29,7 +29,6 @@ The extension adds helpful actions above workflow definitions.
 
 - **Visualize:** Open the selected workflow in the visualizer.
 - **Try with AI:** Run the selected workflow through Copilot and the Go runner.
-- **Retry with AI:** Re-run a workflow after saving changes.
 
 ### GitHub Copilot Support
 
@@ -37,14 +36,14 @@ Arazzo Visualizer works with GitHub Copilot so you can create, change, and run w
 
 Starting from scratch? Open Copilot Chat and ask for the workflow you need:
 
-> "Create a sample Arazzo file named petstore.arazzo.yaml with 5 steps using the Petstore OpenAPI specification below:
-> https://petstore3.swagger.io/api/v3/openapi.json"
+> "Create a sample Arazzo file named toolshop.arazzo.yaml with 3 steps using the Toolshop OpenAPI specification below to list all products and create a cart:
+>  https://api.practicesoftwaretesting.com/docs"
 
 Editing an existing file? Ask Copilot for a change:
 
-> "Add a retry step if the profile fetch fails."
+> "Add a retry step if the tool list fetch fails."
 
-> "Add success criteria to check that the status code is 200."
+> "Add success criteria to the 'create cart' step to check that the status code is 200."
 
 After you save, the visualizer updates to match the latest file.
 
@@ -52,15 +51,15 @@ After you save, the visualizer updates to match the latest file.
 
 ### Run Workflows with the Go Runner
 
-The visualizer shows how a workflow is designed. The bundled **Go runner** helps you prove that the workflow actually works.
+The visualizer shows how a workflow is designed. The built-in **Go runner engine** helps you prove that the workflow actually works.
 
 Use it to execute an Arazzo workflow from VS Code and see how each API call behaves in a real run. This makes the extension useful not only for reading workflows, but also for testing, validating, and improving them as you build.
 
 - **Run real API sequences:** Execute workflow steps in the order defined by your Arazzo file.
 - **Validate each step:** Check responses, status codes, success criteria, and output values as the workflow runs.
 - **Pass data between steps:** Use values returned by one API call in later steps, just like the workflow describes.
-- **Start from anywhere:** Run a workflow from the toolbar, Command Palette, visualizer, or CodeLens actions above each workflow.
-- **Use Copilot as the entry point:** Ask Copilot to run a workflow in plain English, such as `execute the workflow checkout`.
+- **Start from anywhere:** Run a workflow from the visualizer, or via CodeLens actions above each workflow.
+- **Use Copilot as the entry point:** Ask Copilot to run a workflow in plain English, such as `List all available products in the tool shop and create a cart`.
 - **Review what happened:** Use the execution logs and trace details to understand failures, slow steps, and unexpected results.
 - **No separate setup:** The runner is packaged with the extension, so you do not need to install another tool to try a workflow.
 
@@ -82,7 +81,6 @@ The extension also improves the normal editing experience for Arazzo files.
 - **Suggestions** for valid fields and values while you type
 - **Validation** for missing fields, invalid references, and structure issues
 - **File recognition** for `.arazzo.yaml`, `.arazzo.yml`, `.arazzo.json`, and matching `-arazzo` file names
-- **Custom file icons** for easier file navigation
 
 ## About Arazzo
 
