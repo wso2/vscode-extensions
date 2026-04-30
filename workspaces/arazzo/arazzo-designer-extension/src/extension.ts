@@ -69,7 +69,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	let showCodeDisposable = vscode.commands.registerCommand('ArazzoDesigner.showCode', showCode);
 	context.subscriptions.push(showCodeDisposable);
 
-	// Register the MCP Server command
+	// Register the Start Arazzo Server command
 	let mcpServerDisposable = vscode.commands.registerCommand('arazzo.startMCPServer', async (args?: any) => {
 		let filePath: string | undefined;
 		if (args && args.uri) {
@@ -79,7 +79,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	});
 	context.subscriptions.push(mcpServerDisposable);
 
-	// Register the Run-workflow CodeLens provider (shows "▶ Run" when MCP server is active)
+	// Register the Run-workflow CodeLens provider (shows "▶ Try" when arazzo server is active)
 	const runCodeLensProvider = new RunWorkflowCodeLensProvider();
 	context.subscriptions.push(
 		vscode.languages.registerCodeLensProvider(
@@ -88,17 +88,17 @@ export async function activate(context: vscode.ExtensionContext) {
 		)
 	);
 
-	// Refresh CodeLenses whenever the MCP server starts or stops.
+	// Refresh CodeLenses whenever the arazzo server starts or stops.
 	// Also reset the dirty flag so the lens reverts from "Rerun" to "Run".
 	onMCPServerStateChange(() => {
 		runCodeLensProvider.setFileDirty(false);
 		runCodeLensProvider.refresh();
-		// Notify webview that MCP state changed
+		// Notify webview that arazzo server state changed
 		RPCLayer.sendMCPStateChange({ isMCPRunning: isMCPServerRunning(), isFileDirty: false });
 	});
 
-	// When the active file is saved and the MCP server is serving it, switch
-	// the CodeLens from "Run" to "Rerun" to signal the server needs restarting.
+	// When the active file is saved and the arazzo server is serving it, switch
+	// the CodeLens from "Try" to "Retry" to signal the server needs restarting.
 	context.subscriptions.push(
 		vscode.workspace.onDidSaveTextDocument(document => {
 			const activeFile = getMCPActiveFilePath();
@@ -281,7 +281,7 @@ function initializeLanguageServer(context: vscode.ExtensionContext, runCodeLensP
 	context.subscriptions.push(designerCommand);
 
 	// Register "Run Workflow" command — triggered by the Run Code Lens.
-	// Ensures the MCP server is running, then opens Copilot with a prompt
+	// Ensures the arazzo server is running, then opens Copilot with a prompt
 	// to execute the specific workflow.
 	const runWorkflowCommand = vscode.commands.registerCommand('arazzo.runWorkflow', async (args?: any) => {
 		let filePath: string | undefined;
@@ -314,12 +314,12 @@ function initializeLanguageServer(context: vscode.ExtensionContext, runCodeLensP
 
 			if (!alreadyOpen) {
 				await vscode.commands.executeCommand('arazzo.openDesigner', args);
-				// Small delay to let the panel render before the MCP server starts
+				// Small delay to let the panel render before the arazzo server starts
 				await new Promise(resolve => setTimeout(resolve, 300));
 			}
 		}
 
-		// Start the MCP server if it isn't running, serving a different file,
+		// Start the arazzo server if it isn't running, serving a different file,
 		// or the file has been modified since the last server start (dirty).
 		const activeMCPFilePath = getMCPActiveFilePath();
 		if (!isMCPServerRunning() || activeMCPFilePath !== filePath || runCodeLensProvider.isFileDirty()) {

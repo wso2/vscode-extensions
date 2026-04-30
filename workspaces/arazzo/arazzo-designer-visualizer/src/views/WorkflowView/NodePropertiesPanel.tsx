@@ -234,9 +234,10 @@ interface NodePropertiesPanelProps {
     workflow?: ArazzoWorkflow | undefined;
     definition?: ArazzoDefinition | undefined;
     traceSpans?: WebviewTraceEvent[];
+    forceTab?: 'properties' | 'logs';
 }
 
-export function NodePropertiesPanel({ node, workflow, definition, traceSpans }: NodePropertiesPanelProps) {
+export function NodePropertiesPanel({ node, workflow, definition, traceSpans, forceTab }: NodePropertiesPanelProps) {
     const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['general']));
     const [expandedArrayItems, setExpandedArrayItems] = useState<Set<string>>(new Set());
     const [activeTab, setActiveTab] = useState<'properties' | 'logs'>('properties');
@@ -277,6 +278,16 @@ export function NodePropertiesPanel({ node, workflow, definition, traceSpans }: 
         setExpandedArrayItems(new Set());
         setActiveTab('properties');
     }, [node?.id, node?.type, workflow]);
+
+    // If a forceTab is provided (e.g. from "View Logs" click), switch to it.
+    // node?.id is included so that if forceTab is already set (e.g. 'logs') and
+    // the user clicks "View Logs" on a different step, the node-change effect
+    // above resets to 'properties' first and then this effect re-applies forceTab.
+    useEffect(() => {
+        if (forceTab) {
+            setActiveTab(forceTab);
+        }
+    }, [forceTab, node?.id]);
 
     // Early return AFTER all hooks have been declared
     if (!node) return null;

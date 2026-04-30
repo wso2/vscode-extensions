@@ -66,7 +66,7 @@ export const WAYPOINT_SKIP_HORIZONTAL_OFFSET = NODE_GAP_X_Vertical/2;
 //canvas constants
 export const CANVAS_PADDING = 100;
 export const DOT_SIZE = 1.5;
-export const CANVAS_ZOOM = 1.25;
+export const CANVAS_ZOOM = 1;
 export const DOT_GAP = 18;
 
 //label related constants

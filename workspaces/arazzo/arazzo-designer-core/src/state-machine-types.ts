@@ -157,3 +157,6 @@ export interface MCPStateChangeEvent {
     isFileDirty: boolean;
 }
 export const onMCPStateChange: NotificationType<MCPStateChangeEvent> = { method: 'onMCPStateChange' };
+
+/** Sent from the workflow panel to the extension to open/focus the overview panel. */
+export const focusOverviewPanel: NotificationType<string> = { method: 'focusOverviewPanel' };

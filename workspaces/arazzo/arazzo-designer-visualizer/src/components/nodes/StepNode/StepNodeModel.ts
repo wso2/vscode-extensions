@@ -26,6 +26,7 @@ import { StepTraceStatus } from '@wso2/arazzo-designer-core';
 export interface StepNodeData extends BaseNodeData {
     stepType?: string;
     traceStatus?: StepTraceStatus;
+    onViewLogs?: () => void;
 }
 
 /**

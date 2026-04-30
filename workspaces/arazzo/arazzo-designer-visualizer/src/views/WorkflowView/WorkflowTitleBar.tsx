@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { ThemeColors, Button } from "@wso2/ui-toolkit";
+import { ThemeColors, Button, Codicon } from "@wso2/ui-toolkit";
 import styled from "@emotion/styled";
 import { MODERN } from '../../constants';
 
@@ -43,9 +43,8 @@ const TitleName = styled.span`
     color: var(--vscode-foreground);
     font-family: var(--vscode-font-family);
     white-space: nowrap;
-    overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 60%;
+    max-width: 100%;
     letter-spacing: 0.01em;
 `;
 
@@ -62,6 +61,24 @@ const TryButton = styled(Button)`
     }
 `;
 
+const TitleLeft = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+`;
+
+const HomeButton = styled(Button)`
+    border-radius: 6px;
+    border: 1px solid transparent;
+    flex-shrink: 0;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+    &:hover {
+        border-color: var(--vscode-focusBorder);
+        background-color: rgba(255,255,255,0.05);
+    }
+`;
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -69,12 +86,30 @@ const TryButton = styled(Button)`
 interface WorkflowTitleBarProps {
     workflowId: string;
     onTry: () => void;
+    onHome?: () => void;
 }
 
-export function WorkflowTitleBar({ workflowId, onTry }: WorkflowTitleBarProps) {
+export function WorkflowTitleBar({ workflowId, onTry, onHome }: WorkflowTitleBarProps) {
     return (
         <TitleBar>
-            <TitleName title={workflowId}>{workflowId}</TitleName>
+            <TitleLeft>
+                {onHome && (
+                    <span title="Go to Overview">
+                        <HomeButton
+                            appearance="secondary"
+                            buttonSx={{
+                                backgroundColor: "transparent",
+                                color: "var(--vscode-foreground)",
+                                boxShadow: "none",
+                            }}
+                            onClick={onHome}
+                        >
+                            <Codicon name="home" />
+                        </HomeButton>
+                    </span>
+                )}
+                <TitleName title={workflowId}>{workflowId}</TitleName>
+            </TitleLeft>
             <TryButton
                 appearance="secondary"
                 buttonSx={{
@@ -85,7 +120,7 @@ export function WorkflowTitleBar({ workflowId, onTry }: WorkflowTitleBarProps) {
                 }}
                 onClick={onTry}
             >
-                ▶ Try
+                ▶ Try with AI
             </TryButton>
         </TitleBar>
     );

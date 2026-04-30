@@ -156,7 +156,7 @@ function getFirstWorkflowId(arazzoFilePath: string): string | undefined {
 }
 
 /**
- * Start the Arazzo MCP server for the given Arazzo file.
+ * Start the arazzo server for the given Arazzo file.
  * Spawns the Go binary, writes .vscode/mcp.json, and shows output.
  *
  * @param suppressPrompt - When true, the "Try Now" follow-up notification is
@@ -165,12 +165,10 @@ function getFirstWorkflowId(arazzoFilePath: string): string | undefined {
  */
 export async function startMCPServer(context: vscode.ExtensionContext, arazzoFilePath?: string, suppressPrompt = false): Promise<void> {
     const output = getOutputChannel();
-    output.show(false); // Move focus to output panel so clicking back on the editor
-                        // fires onDidChangeActiveTextEditor and restores toolbar buttons.
 
     // Stop any existing server
     if (mcpServerProcess) {
-        output.appendLine('Stopping previous MCP server...');
+        output.appendLine('Stopping previous arazzo server...');
         mcpServerProcess.kill();
         mcpServerProcess = undefined;
     }
@@ -290,8 +288,8 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
     });
 
     mcpServerProcess.on('error', (err: Error) => {
-        output.appendLine(`\nMCP server error: ${err.message}`);
-        vscode.window.showErrorMessage(`Failed to start MCP server: ${err.message}`);
+        output.appendLine(`\narazzo server error: ${err.message}`);
+        vscode.window.showErrorMessage(`Failed to start arazzo server: ${err.message}`);
         // Only clear if this is still the active process
         if (mcpServerProcess === thisProcess) {
             mcpServerProcess = undefined;
@@ -301,7 +299,7 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
     });
 
     mcpServerProcess.on('exit', (code: number | null) => {
-        output.appendLine(`\nMCP server exited with code: ${code}`);
+        output.appendLine(`\narazzo server exited with code: ${code}`);
         // Only clear if this is still the active process — a newer spawn
         // may have already replaced mcpServerProcess.
         if (mcpServerProcess === thisProcess) {
@@ -323,23 +321,16 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
         const serverUrl = `http://localhost:${port}/mcp`;
         const configNote = mcpConfigPath ? ` Config added to mcp.json.` : '';
 
-        // Primary status message
-        vscode.window.showInformationMessage(
-            `Arazzo server started. Running on ${serverUrl}.${configNote}`
-        );
-
         // Get first workflow name for the "Try Now" prompt
         const firstWorkflow = getFirstWorkflowId(arazzoFilePath!);
         const copilotPrompt = firstWorkflow
             ? `execute the workflow ${firstWorkflow}`
             : `list all workflows`;
 
-        // "Try with Copilot" follow-up message — skip when the caller will
-        // open Copilot itself (e.g. arazzo.runWorkflow) to avoid a duplicate
-        // prompt that targets the wrong workflow.
+        // Combined status message: Server started + Try with AI invitation
         if (!suppressPrompt) {
             const action = await vscode.window.showInformationMessage(
-                `Try your Arazzo workflows with GitHub Copilot.`,
+                `Arazzo server started. Running on ${serverUrl}.${configNote} Try your workflows with GitHub Copilot.`,
                 'Try Now'
             );
             if (action === 'Try Now') {
@@ -352,6 +343,11 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
                     // Copilot not available — non-fatal
                 }
             }
+        } else {
+            // If suppressPrompt is true, still show the base status message
+            vscode.window.showInformationMessage(
+                `Arazzo server started. Running on ${serverUrl}.${configNote}`
+            );
         }
     }, 1500);
 }
@@ -365,7 +361,7 @@ export function stopMCPServer(): void {
         mcpServerProcess = undefined;
         mcpActiveFilePath = undefined;
         const output = getOutputChannel();
-        output.appendLine('MCP server stopped.');
+        output.appendLine('arazzo server stopped.');
         notifyStateChange();
     }
     TracerServer.getInstance().stop();
