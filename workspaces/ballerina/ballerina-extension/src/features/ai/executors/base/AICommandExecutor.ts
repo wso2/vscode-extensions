@@ -361,7 +361,7 @@ export abstract class AICommandExecutor<TParams = any> {
      */
     protected addGeneration(userPrompt: string, metadata: any): any {
         if (!this.config.chatStorage) {
-            return null;
+            return undefined;
         }
         const { projectRootPath, threadId } = this.config.chatStorage;
         return chatStateStorage.addGeneration(
