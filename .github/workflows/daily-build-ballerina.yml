@@ -1,0 +1,849 @@
+name: Ballerina Daily Build
+
+on:
+  schedule:
+    # 05:00 UTC = 10:30 Colombo (nominal). Actual firing drifts 0–30 min
+    # later; build completes well under an hour, so the run finishes
+    # comfortably before noon Colombo. Exact timing is not achievable
+    # with scheduled triggers — platform limitation.
+    - cron: '0 5 * * *'
+  workflow_dispatch:
+    inputs:
+      sendNotification:
+        description: 'Send Google Chat notifications (success/failure)'
+        type: boolean
+        default: true
+
+jobs:
+  PrepareBranches:
+    name: Prepare branch matrix
+    runs-on: ubuntu-latest
+    outputs:
+      vscodeBranches: ${{ steps.branches.outputs.vscodeBranches }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Load branch matrix config
+        id: branches
+        run: |
+          set -euo pipefail
+          CONFIG=.github/daily-build/release.properties
+          if [ ! -f "$CONFIG" ]; then
+            echo "::error::Missing $CONFIG"
+            exit 1
+          fi
+
+          branches=$(awk -F= '
+            /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
+            {
+              key=$1
+              gsub(/^[[:space:]]+|[[:space:]]+$/, "", key)
+              if (key == "vscodeBranches") {
+                value=substr($0, index($0, "=") + 1)
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+                print value
+                exit
+              }
+            }
+          ' "$CONFIG")
+
+          if [ -z "$branches" ]; then
+            echo "::error::Required key 'vscodeBranches' missing or blank in $CONFIG"
+            exit 1
+          fi
+
+          json=$(
+            IFS=',' read -ra branchArray <<< "$branches"
+            for branch in "${branchArray[@]}"; do
+              branch="${branch#"${branch%%[![:space:]]*}"}"
+              branch="${branch%"${branch##*[![:space:]]}"}"
+              if [ -z "$branch" ]; then
+                echo "::error::vscodeBranches contains an empty branch entry" >&2
+                exit 1
+              fi
+              printf '%s\n' "$branch"
+            done | jq -R -s -c 'split("\n")[:-1]'
+          )
+
+          echo "vscodeBranches=$json" >> "$GITHUB_OUTPUT"
+          echo "Using Ballerina daily-build branches: $json"
+
+  Build:
+    name: Build Ballerina Extension (${{ matrix.vscodeBranch }})
+    needs: PrepareBranches
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        vscodeBranch: ${{ fromJson(needs.PrepareBranches.outputs.vscodeBranches) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.vscodeBranch }}
+
+      - name: Slugify branch name
+        id: slug
+        run: |
+          slug=$(echo "${{ matrix.vscodeBranch }}" | tr '/' '-')
+          echo "slug=$slug" >> "$GITHUB_OUTPUT"
+
+      - name: Load per-branch config
+        id: config
+        run: |
+          set -euo pipefail
+          CONFIG=.github/daily-build/release.properties
+          if [ ! -f "$CONFIG" ]; then
+            echo "::error::Missing $CONFIG on branch ${{ matrix.vscodeBranch }}"
+            exit 1
+          fi
+          declare -A parsed=()
+          while IFS='=' read -r key value; do
+            [[ -z "${key// /}" || "$key" =~ ^[[:space:]]*# ]] && continue
+            key="${key// /}"
+            value="${value## }"; value="${value%% }"
+            parsed["$key"]="$value"
+            echo "${key}=${value}"
+            echo "${key}=${value}" >> "$GITHUB_OUTPUT"
+          done < "$CONFIG"
+          for required in lsArtifactPrefix productIntegratorBranch; do
+            if [ -z "${parsed[$required]:-}" ]; then
+              echo "::error::Required key '$required' missing or blank in $CONFIG on branch ${{ matrix.vscodeBranch }}"
+              exit 1
+            fi
+          done
+
+      # LS artifact fetch runs BEFORE Setup Rush so LS lookup failures abort
+      # the job in ~10s instead of wasting ~1-2 min on pnpm/node install.
+      - name: Fetch latest LS daily-build artifact
+        id: ls
+        env:
+          GH_TOKEN: ${{ secrets.CHOREO_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+          LS_REPO: ballerina-platform/ballerina-language-server
+          LS_WORKFLOW: daily-build.yml
+          ARTIFACT_PREFIX: ${{ steps.config.outputs.lsArtifactPrefix }}
+        run: |
+          set -euo pipefail
+
+          api() {
+            curl -fsSL \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "$@"
+          }
+
+          # We iterate recent runs (any conclusion) newest-first and pick the first
+          # one that actually has an artifact matching our prefix. The LS workflow
+          # publishes artifacts from its pack stage before running tests, so runs
+          # can finish with conclusion=failure while still carrying a usable
+          # artifact — we tolerate that on purpose. A run matching ARTIFACT_PREFIX
+          # proves the pack stage for this branch succeeded (other branches'
+          # failures publish different prefixes or none).
+          echo "Looking up recent runs of $LS_WORKFLOW on $LS_REPO..."
+          runs=$(api "https://api.github.com/repos/${LS_REPO}/actions/workflows/${LS_WORKFLOW}/runs?per_page=10")
+          mapfile -t runEntries < <(echo "$runs" | jq -r '.workflow_runs[] | "\(.id) \(.conclusion // "in_progress") \(.created_at)"')
+          if [ ${#runEntries[@]} -eq 0 ]; then
+            echo "::error::No recent runs found for $LS_WORKFLOW on $LS_REPO"
+            exit 1
+          fi
+
+          selectedRunId=""
+          selectedArtifact=""
+          selectedRunConclusion=""
+          selectedRunCreated=""
+          for entry in "${runEntries[@]}"; do
+            read -r rid rconc rat <<<"$entry"
+            if [ "$rconc" = "in_progress" ] || [ "$rconc" = "null" ]; then
+              echo "Skipping run $rid (still in progress, created=$rat)"
+              continue
+            fi
+            arts=$(api "https://api.github.com/repos/${LS_REPO}/actions/runs/${rid}/artifacts?per_page=100")
+            art=$(echo "$arts" | jq -r --arg p "$ARTIFACT_PREFIX" \
+              '[.artifacts[] | select(.name | startswith($p))][0]')
+            if [ -n "$art" ] && [ "$art" != "null" ]; then
+              selectedRunId="$rid"
+              selectedArtifact="$art"
+              selectedRunConclusion="$rconc"
+              selectedRunCreated="$rat"
+              echo "Selected run $rid (conclusion=$rconc, created=$rat) with prefix '$ARTIFACT_PREFIX'"
+              break
+            else
+              echo "Run $rid (conclusion=$rconc) has no artifact matching '$ARTIFACT_PREFIX'; trying next"
+            fi
+          done
+
+          if [ -z "$selectedRunId" ]; then
+            echo "::error::No recent run of $LS_WORKFLOW has an artifact matching '$ARTIFACT_PREFIX'. Checked ${#runEntries[@]} runs."
+            exit 1
+          fi
+
+          if [ "$selectedRunConclusion" != "success" ]; then
+            echo "::notice::Using LS artifact from run $selectedRunId despite run conclusion='$selectedRunConclusion' — pack stage succeeded and artifact is available."
+          fi
+
+          artifactId=$(echo "$selectedArtifact" | jq -r '.id')
+          artifactName=$(echo "$selectedArtifact" | jq -r '.name')
+          echo "Using artifact: $artifactName (id=$artifactId) from run $selectedRunId"
+
+          # Parse LS version independently of ARTIFACT_PREFIX (the prefix is used
+          # only for selection). Artifact name shape:
+          #   ballerina-language-server-<lsVer>-<YYYYMMDD>-<HHMMSS>.jar
+          # e.g. ballerina-language-server-1.8.0.m3-20260421-150453.jar -> 1.8.0.m3
+          lsVersion=$(echo "$artifactName" | sed -E '
+            s/^ballerina-language-server-//
+            s/\.jar$//
+            s/-[0-9]{8}-[0-9]{6}$//')
+          echo "Parsed LS version: $lsVersion"
+
+          echo "Downloading artifact zip..."
+          curl -fsSL \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            -o /tmp/ls-artifact.zip \
+            "https://api.github.com/repos/${LS_REPO}/actions/artifacts/${artifactId}/zip"
+
+          # The downloaded "zip" from /artifacts/{id}/zip may either wrap the JAR
+          # file or be the JAR itself (JARs are zips). Detect which by peeking at
+          # the top-level entries: a wrapper zip lists one `*.jar` entry; a raw
+          # JAR lists class files / META-INF / etc.
+          mkdir -p /tmp/ls-unpack
+          mapfile -t topEntries < <(unzip -Z1 /tmp/ls-artifact.zip | awk -F/ '{print $1}' | sort -u)
+          innerJar=$(unzip -Z1 /tmp/ls-artifact.zip | grep -E '^[^/]+\.jar$' | head -1 || true)
+
+          # Preserve the artifact's full timestamped filename so the JAR shipped
+          # in the VSIX traces back to the exact LS build.
+          target="workspaces/ballerina/ballerina-extension/ls/${artifactName}"
+          mkdir -p workspaces/ballerina/ballerina-extension/ls
+          rm -f workspaces/ballerina/ballerina-extension/ls/*.jar
+
+          if [ -n "$innerJar" ]; then
+            echo "Artifact is a wrapper zip; extracting $innerJar"
+            unzip -o /tmp/ls-artifact.zip -d /tmp/ls-unpack >/dev/null
+            cp "/tmp/ls-unpack/$innerJar" "$target"
+          else
+            echo "Artifact is the JAR itself (no inner .jar entry); copying directly"
+            cp /tmp/ls-artifact.zip "$target"
+          fi
+          ls -la workspaces/ballerina/ballerina-extension/ls/
+
+          echo "lsVersion=$lsVersion" >> "$GITHUB_OUTPUT"
+          echo "lsArtifactName=$artifactName" >> "$GITHUB_OUTPUT"
+          echo "lsRunId=$selectedRunId" >> "$GITHUB_OUTPUT"
+          echo "lsRunConclusion=$selectedRunConclusion" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Rush
+        uses: gigara/setup-rush@v1.2.0
+        with:
+          pnpm: 10.10.0
+          node: 22.x
+          cache-rush: true
+          cache-pnpm: true
+
+      - name: Rush install
+        run: node common/scripts/install-run-rush.js install
+
+      - name: Compute version
+        id: version
+        run: |
+          set -euo pipefail
+          currentVersion=$(node -p "require('./workspaces/ballerina/ballerina-extension/package.json').version")
+          base=$(echo "$currentVersion" | sed -E 's/[-+].*$//')
+          datePart=$(date -u '+%y%m%d')
+          timePart=$(date -u '+%H%M')
+          newVersion="${base}-${datePart}-${timePart}"
+          echo "version=$newVersion" >> "$GITHUB_OUTPUT"
+          echo "Computed version: $newVersion"
+
+      - name: Update extension version
+        run: |
+          cd workspaces/ballerina/ballerina-extension
+          npm version ${{ steps.version.outputs.version }} --no-git-tag-version
+
+      - name: Copy .env.example to .env
+        run: |
+          find . -type f -name ".env.example" | while read example; do
+            envfile="$(dirname "$example")/.env"
+            cp "$example" "$envfile"
+          done
+          ballerinaEnv="workspaces/ballerina/ballerina-extension/.env"
+          for key in COPILOT_ROOT_URL COPILOT_DEV_ROOT_URL APPINSIGHTS_INSTRUMENTATION_KEY; do
+            if grep -q "^${key}=" "$ballerinaEnv"; then
+              sed -i "s|^${key}=.*|${key}=|" "$ballerinaEnv"
+            else
+              echo "${key}=" >> "$ballerinaEnv"
+            fi
+          done
+
+      - name: Build Ballerina extension
+        run: node common/scripts/install-run-rush.js build -t ballerina --verbose
+        env:
+          isPreRelease: true
+          COPILOT_ROOT_URL: ${{ secrets.COPILOT_ROOT_URL }}
+          COPILOT_DEV_ROOT_URL: ${{ secrets.COPILOT_DEV_ROOT_URL }}
+          APPINSIGHTS_INSTRUMENTATION_KEY: ${{ secrets.APPINSIGHTS_INSTRUMENTATION_KEY }}
+
+      - name: Run Ballerina package tests
+        continue-on-error: true
+        env:
+          PACKAGES: ballerina-visualizer ballerina-side-panel type-diagram sequence-diagram component-diagram bi-diagram
+        run: |
+          set +e
+          mkdir -p /tmp/snapshot
+          echo "$PACKAGES" > /tmp/snapshot/.packages
+          for pkg in $PACKAGES; do
+            echo "::group::Package tests — $pkg"
+            (cd "workspaces/ballerina/$pkg" && pnpm test) 2>&1 | tee "/tmp/snapshot/${pkg}.log"
+            rc=${PIPESTATUS[0]}
+            if [ "$rc" -eq 0 ]; then
+              echo pass > "/tmp/snapshot/${pkg}.status"
+            else
+              echo fail > "/tmp/snapshot/${pkg}.status"
+              echo "::warning::Package tests failed for $pkg (non-blocking for daily build)"
+            fi
+            echo "::endgroup::"
+          done
+          exit 0
+
+      - name: Prepare Trivy output directory
+        run: mkdir -p /tmp/trivy
+
+      - name: Run Trivy vulnerability scanner
+        id: trivy
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          output: '/tmp/trivy/trivy-results.txt'
+          exit-code: '1'
+          timeout: '10m'
+          skip-dirs: 'common/temp'
+          ignore-unfixed: true
+
+      - name: Get VSIX file name
+        id: vsix
+        run: |
+          shopt -s nullglob
+          files=(ballerina-*.vsix)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "VSIX not found at root, copying manually..."
+            cp workspaces/ballerina/ballerina-extension/vsix/*.vsix ./ 2>/dev/null || true
+            files=(ballerina-*.vsix)
+          fi
+          if [ ${#files[@]} -ne 1 ]; then
+            echo "Expected exactly one Ballerina VSIX, found ${#files[@]}:"
+            printf ' - %s\n' "${files[@]}"
+            exit 1
+          fi
+          file="${files[0]}"
+          echo "fileName=$file" >> "$GITHUB_OUTPUT"
+          echo "Built VSIX: $file"
+
+      - name: Write job summary
+        run: |
+          set -euo pipefail
+          branch='${{ matrix.vscodeBranch }}'
+          version='${{ steps.version.outputs.version }}'
+          vsix='${{ steps.vsix.outputs.fileName }}'
+          lsArtifact='${{ steps.ls.outputs.lsArtifactName }}'
+          lsRunId='${{ steps.ls.outputs.lsRunId }}'
+          lsRunUrl="https://github.com/ballerina-platform/ballerina-language-server/actions/runs/${lsRunId}"
+
+          {
+            echo "#### Daily build — ${branch}"
+            echo ""
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Version | \`${version}\` |"
+            echo "| VSIX | \`${vsix}\` |"
+            echo "| LS JAR | \`${lsArtifact}\` |"
+            echo "| LS source run | [${lsRunId}](${lsRunUrl}) |"
+            echo ""
+            echo "#### Package tests"
+            echo ""
+            echo "| Package | Test Suites | Tests | Status |"
+            echo "|---|---|---|---|"
+            for pkg in $(cat /tmp/snapshot/.packages); do
+              log="/tmp/snapshot/${pkg}.log"
+              status=$(cat "/tmp/snapshot/${pkg}.status" 2>/dev/null || echo "fail")
+              suites="—"
+              tests="—"
+              if [ -f "$log" ]; then
+                s=$(grep -E '^Test Suites:' "$log" | tail -1 | sed 's/^Test Suites:[[:space:]]*//' || true)
+                t=$(grep -E '^Tests:' "$log" | tail -1 | sed 's/^Tests:[[:space:]]*//' || true)
+                [ -n "${s:-}" ] && suites="$s"
+                [ -n "${t:-}" ] && tests="$t"
+              fi
+              if [ "$status" = "pass" ]; then
+                status_txt="passed"
+              else
+                status_txt="failed"
+              fi
+              echo "| ${pkg} | ${suites} | ${tests} | ${status_txt} |"
+            done
+            echo ""
+            echo "#### Trivy scan"
+            echo ""
+            if [ '${{ steps.trivy.outcome }}' = "success" ]; then
+              echo "Status: passed"
+            else
+              echo "Status: failed (non-blocking)"
+            fi
+            echo ""
+            if [ -s /tmp/trivy/trivy-results.txt ]; then
+              echo "<details><summary>Trivy output excerpt</summary>"
+              echo ""
+              echo '```'
+              sed -n '1,120p' /tmp/trivy/trivy-results.txt
+              echo '```'
+              echo ""
+              echo "</details>"
+            else
+              echo "No Trivy output file was produced."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ballerina-daily-vsix-${{ steps.slug.outputs.slug }}
+          path: ${{ steps.vsix.outputs.fileName }}
+          retention-days: 30
+
+      # Per-branch metadata artifact. Matrix-aggregated `needs.Build.outputs.*` is last-writer-wins
+      # in GitHub Actions, so downstream matrix legs cannot rely on it for per-leg values. Each
+      # leg uploads its own metadata file keyed by branch slug; downstream legs download the
+      # matching one.
+      - name: Write build metadata
+        run: |
+          mkdir -p build-metadata
+          cat > build-metadata/build.env <<EOF
+          version=${{ steps.version.outputs.version }}
+          vsixFileName=${{ steps.vsix.outputs.fileName }}
+          lsVersion=${{ steps.ls.outputs.lsVersion }}
+          lsArtifactName=${{ steps.ls.outputs.lsArtifactName }}
+          lsRunId=${{ steps.ls.outputs.lsRunId }}
+          lsRunConclusion=${{ steps.ls.outputs.lsRunConclusion }}
+          productIntegratorBranch=${{ steps.config.outputs.productIntegratorBranch }}
+          vscodeBranch=${{ matrix.vscodeBranch }}
+          branchSlug=${{ steps.slug.outputs.slug }}
+          EOF
+
+      - name: Upload build metadata artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ballerina-daily-metadata-${{ steps.slug.outputs.slug }}
+          path: build-metadata/build.env
+          retention-days: 30
+
+  Release:
+    name: Release (${{ matrix.vscodeBranch }})
+    needs: [PrepareBranches, Build]
+    # !cancelled() lets this job run even when a different matrix leg of Build failed —
+    # per-leg isolation. The `gate` step below skips this specific leg if its own
+    # Build didn't produce the metadata artifact.
+    if: ${{ !cancelled() && github.repository == 'wso2/vscode-extensions' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        vscodeBranch: ${{ fromJson(needs.PrepareBranches.outputs.vscodeBranches) }}
+    steps:
+      - name: Slugify branch name
+        id: slug
+        run: echo "slug=$(echo '${{ matrix.vscodeBranch }}' | tr '/' '-')" >> "$GITHUB_OUTPUT"
+
+      - name: Gate on this branch's Build success
+        id: gate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          artifact="ballerina-daily-metadata-${{ steps.slug.outputs.slug }}"
+          found=$(gh api --paginate \
+            "/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" \
+            --jq ".artifacts[] | select(.name == \"$artifact\") | .id" | head -n1)
+          if [ -z "$found" ]; then
+            echo "Build for ${{ matrix.vscodeBranch }} did not produce $artifact; skipping this leg."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download VSIX artifact
+        if: steps.gate.outputs.skip != 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: ballerina-daily-vsix-${{ steps.slug.outputs.slug }}
+
+      - name: Download build metadata artifact
+        if: steps.gate.outputs.skip != 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: ballerina-daily-metadata-${{ steps.slug.outputs.slug }}
+          path: build-metadata
+
+      - name: Load build metadata
+        if: steps.gate.outputs.skip != 'true'
+        id: meta
+        run: |
+          set -euo pipefail
+          declare -A parsed=()
+          while IFS='=' read -r key value; do
+            [[ -z "${key// /}" || "$key" =~ ^[[:space:]]*# ]] && continue
+            parsed["$key"]="$value"
+            echo "${key}=${value}" >> "$GITHUB_OUTPUT"
+          done < build-metadata/build.env
+          for required in version lsVersion vsixFileName; do
+            if [ -z "${parsed[$required]:-}" ]; then
+              echo "::error::Required key '$required' missing or blank in build-metadata/build.env for branch ${{ matrix.vscodeBranch }}"
+              exit 1
+            fi
+          done
+
+      - name: Create release on wso2/ballerina-vscode
+        if: steps.gate.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.CHOREO_BOT_TOKEN }}
+          NEW_VERSION: ${{ steps.meta.outputs.version }}
+          LS_ARTIFACT_NAME: ${{ steps.meta.outputs.lsArtifactName }}
+          LS_RUN_ID: ${{ steps.meta.outputs.lsRunId }}
+          SOURCE_BRANCH: ${{ matrix.vscodeBranch }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          TAG="v${NEW_VERSION}"
+          RELEASE_NAME="Ballerina Extension Daily Build v${NEW_VERSION}"
+          shopt -s nullglob
+          files=(ballerina-*.vsix)
+          if [ ${#files[@]} -ne 1 ]; then
+            echo "::error::Expected exactly one VSIX file, found ${#files[@]}"
+            exit 1
+          fi
+          VSIX_FILE="${files[0]}"
+
+          # Display the full snapshot name (with timestamp) rather than the
+          # stripped version — traceability to the exact LS build.
+          LS_SNAPSHOT="${LS_ARTIFACT_NAME#ballerina-language-server-}"
+          LS_SNAPSHOT="${LS_SNAPSHOT%.jar}"
+          LS_RUN_URL="https://github.com/ballerina-platform/ballerina-language-server/actions/runs/${LS_RUN_ID}"
+          body=$(jq -n \
+            --arg branch "$SOURCE_BRANCH" \
+            --arg ls "$LS_SNAPSHOT" \
+            --arg lsRun "$LS_RUN_URL" \
+            --arg run "$RUN_URL" \
+            '"Automated daily build.\n\n- Source branch: `\($branch)`\n- Ballerina language server: `\($ls)`\n- LS run: \($lsRun)\n- Workflow run: \($run)"')
+
+          payload=$(jq -n \
+            --arg tag "$TAG" \
+            --arg name "$RELEASE_NAME" \
+            --argjson body "$body" \
+            '{tag_name:$tag, name:$name, draft:false, prerelease:true, body:$body}')
+
+          createResponse=$(curl -sS -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            -d "$payload" \
+            "https://api.github.com/repos/wso2/ballerina-vscode/releases")
+
+          releaseId=$(echo "$createResponse" | jq -r '.id // empty')
+          if [ -z "$releaseId" ] || [ "$releaseId" = "null" ]; then
+            echo "::error::Failed to create release"
+            echo "$createResponse"
+            exit 1
+          fi
+          echo "Created release ID: $releaseId"
+
+          uploadResponse=$(curl -sS -w "\n%{http_code}" -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Content-Type: application/octet-stream" \
+            --data-binary @"$VSIX_FILE" \
+            "https://uploads.github.com/repos/wso2/ballerina-vscode/releases/${releaseId}/assets?name=${VSIX_FILE}")
+
+          httpCode=$(echo "$uploadResponse" | tail -1)
+          responseBody=$(echo "$uploadResponse" | sed '$d')
+          if [ "$httpCode" -ge 200 ] && [ "$httpCode" -lt 300 ]; then
+            echo "Upload successful: $(echo "$responseBody" | jq -r '.name')"
+          else
+            echo "::error::Upload failed with HTTP $httpCode"
+            echo "$responseBody"
+            exit 1
+          fi
+
+      # Per-leg release-success marker. Downstream gates key off this — the
+      # metadata artifact alone isn't enough (Build can succeed while Release
+      # fails, e.g. release creation or asset upload errors).
+      - name: Mark release success
+        if: steps.gate.outputs.skip != 'true'
+        run: |
+          mkdir -p release-ok
+          echo "releaseId=required" > release-ok/release.env
+
+      - name: Upload release success marker
+        if: steps.gate.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ballerina-daily-release-ok-${{ steps.slug.outputs.slug }}
+          path: release-ok/release.env
+          retention-days: 30
+
+  UpdateProductIntegrator:
+    name: Update product-integrator (${{ matrix.vscodeBranch }})
+    needs: [PrepareBranches, Build, Release]
+    # Per-leg gating: !cancelled() allows this leg to run even when another matrix
+    # leg of Build/Release failed. The `gate` step skips this specific leg if its
+    # own Release didn't complete successfully (marker artifact absent).
+    if: ${{ !cancelled() && github.repository == 'wso2/vscode-extensions' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        vscodeBranch: ${{ fromJson(needs.PrepareBranches.outputs.vscodeBranches) }}
+    steps:
+      - name: Slugify branch name
+        id: slug
+        run: echo "slug=$(echo '${{ matrix.vscodeBranch }}' | tr '/' '-')" >> "$GITHUB_OUTPUT"
+
+      - name: Gate on this branch's Release success
+        id: gate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Key off the release-ok marker rather than the build metadata: Build
+          # can succeed while Release fails (e.g. GH API hiccup during release
+          # create or asset upload). If we gate on metadata alone, we would
+          # open a product-integrator PR referencing a release that doesn't
+          # exist. The marker is only uploaded at the end of a successful
+          # Release run for this specific matrix leg.
+          artifact="ballerina-daily-release-ok-${{ steps.slug.outputs.slug }}"
+          found=$(gh api --paginate \
+            "/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" \
+            --jq ".artifacts[] | select(.name == \"$artifact\") | .id" | head -n1)
+          if [ -z "$found" ]; then
+            echo "Release for ${{ matrix.vscodeBranch }} did not produce $artifact; skipping this leg."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download build metadata artifact
+        if: steps.gate.outputs.skip != 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: ballerina-daily-metadata-${{ steps.slug.outputs.slug }}
+          path: build-metadata
+
+      - name: Load build metadata
+        if: steps.gate.outputs.skip != 'true'
+        id: meta
+        run: |
+          set -euo pipefail
+          declare -A parsed=()
+          while IFS='=' read -r key value; do
+            [[ -z "${key// /}" || "$key" =~ ^[[:space:]]*# ]] && continue
+            parsed["$key"]="$value"
+            echo "${key}=${value}" >> "$GITHUB_OUTPUT"
+          done < build-metadata/build.env
+          for required in version productIntegratorBranch; do
+            if [ -z "${parsed[$required]:-}" ]; then
+              echo "::error::Required key '$required' missing or blank in build-metadata/build.env for branch ${{ matrix.vscodeBranch }}"
+              exit 1
+            fi
+          done
+
+      - name: Checkout product-integrator
+        if: steps.gate.outputs.skip != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: wso2/product-integrator
+          ref: ${{ steps.meta.outputs.productIntegratorBranch }}
+          token: ${{ secrets.CHOREO_BOT_TOKEN }}
+          path: product-integrator
+
+      - name: Update ballerina.extension.version and open PR
+        id: productIntegratorPr
+        if: steps.gate.outputs.skip != 'true'
+        working-directory: product-integrator
+        env:
+          NEW_VERSION: ${{ steps.meta.outputs.version }}
+          GH_TOKEN: ${{ secrets.CHOREO_BOT_TOKEN }}
+          BASE_BRANCH: ${{ steps.meta.outputs.productIntegratorBranch }}
+          SOURCE_BRANCH: ${{ matrix.vscodeBranch }}
+        run: |
+          set -euo pipefail
+          PROPERTIES_FILE="ci/build/component-versions.properties"
+          slug=$(echo "$SOURCE_BRANCH" | tr '/' '-')
+          BRANCH_NAME="update-bal-ext-version-${slug}-${NEW_VERSION}"
+
+          sed -i "s/^ballerina\.extension\.version=.*/ballerina.extension.version=${NEW_VERSION}/" "$PROPERTIES_FILE"
+          grep "ballerina.extension.version" "$PROPERTIES_FILE"
+
+          if git diff --quiet; then
+            echo "No changes detected, skipping PR creation"
+            exit 0
+          fi
+
+          git config user.name "WSO2 Builder"
+          git config user.email "builder@wso2.com"
+          git checkout -b "$BRANCH_NAME"
+          git add "$PROPERTIES_FILE"
+          git commit -m "Update ballerina.extension.version to ${NEW_VERSION}"
+          git push origin "$BRANCH_NAME"
+
+          pr_body=$(printf 'Automated PR to update Ballerina extension version after daily build.\n\n- Source vscode branch: %s\n- Release: https://github.com/wso2/ballerina-vscode/releases/tag/v%s' "$SOURCE_BRANCH" "$NEW_VERSION")
+          payload=$(jq -n \
+            --arg title "Update ballerina.extension.version to ${NEW_VERSION}" \
+            --arg head "$BRANCH_NAME" \
+            --arg base "$BASE_BRANCH" \
+            --arg body "$pr_body" \
+            '{title:$title, head:$head, base:$base, body:$body}')
+
+          pr_response=$(curl -sS -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -d "$payload" \
+            "https://api.github.com/repos/wso2/product-integrator/pulls")
+
+          pr_url=$(echo "$pr_response" | jq -r '.html_url // empty')
+          if [ -n "$pr_url" ] && [ "$pr_url" != "null" ]; then
+            echo "Created PR: $pr_url"
+            echo "prUrl=$pr_url" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Failed to create PR"
+            echo "$pr_response"
+            exit 1
+          fi
+
+      # Per-leg product-integrator success marker. NotifySuccess gates on this
+      # so a leg whose UpdateProductIntegrator failed does not get a
+      # "daily build succeeded" chat notification alongside NotifyFailure.
+      - name: Mark product-integrator success
+        if: steps.gate.outputs.skip != 'true'
+        run: |
+          mkdir -p pi-ok
+          {
+            echo "updated=required"
+            echo "prUrl=${{ steps.productIntegratorPr.outputs.prUrl }}"
+          } > pi-ok/pi.env
+
+      - name: Upload product-integrator success marker
+        if: steps.gate.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ballerina-daily-product-integrator-ok-${{ steps.slug.outputs.slug }}
+          path: pi-ok/pi.env
+          retention-days: 30
+
+  NotifySuccess:
+    name: Notify Success (${{ matrix.vscodeBranch }})
+    needs: [PrepareBranches, Build, Release, UpdateProductIntegrator]
+    # Per-leg gating: !cancelled() allows this leg to run even when another matrix
+    # leg failed. The `gate` step skips this specific leg if its own Build didn't
+    # produce the metadata artifact. Manual dispatch can opt out via
+    # sendNotification=false; scheduled runs always notify.
+    if: ${{ !cancelled() && github.repository == 'wso2/vscode-extensions' && (github.event_name != 'workflow_dispatch' || inputs.sendNotification) }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        vscodeBranch: ${{ fromJson(needs.PrepareBranches.outputs.vscodeBranches) }}
+    steps:
+      - name: Slugify branch name
+        id: slug
+        run: echo "slug=$(echo '${{ matrix.vscodeBranch }}' | tr '/' '-')" >> "$GITHUB_OUTPUT"
+
+      - name: Gate on this branch's Release and UpdateProductIntegrator success
+        id: gate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Only post success notification if BOTH Release and
+          # UpdateProductIntegrator succeeded for this leg. `needs.*.result`
+          # is aggregated across the matrix and can't be used for per-leg
+          # gating, so we key off the two markers. A failure in either will
+          # be surfaced by NotifyFailure.
+          slug="${{ steps.slug.outputs.slug }}"
+          releaseMarker="ballerina-daily-release-ok-${slug}"
+          piMarker="ballerina-daily-product-integrator-ok-${slug}"
+          artifacts=$(gh api --paginate \
+            "/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" \
+            --jq '.artifacts[].name')
+          missing=""
+          for name in "$releaseMarker" "$piMarker"; do
+            if ! echo "$artifacts" | grep -Fxq "$name"; then
+              missing="$missing $name"
+            fi
+          done
+          if [ -n "$missing" ]; then
+            echo "Missing markers for ${{ matrix.vscodeBranch }}:$missing; skipping notify."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Checkout without ref so the composite action at
+      # ./.github/actions/dailyBuildNotification resolves to the workflow's
+      # own commit (github.sha), not the checked-out leg's branch tip. This
+      # keeps both matrix legs using the same action definition — otherwise
+      # release/bi-1.8.x could load a stale copy of the action.
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.skip != 'true'
+
+      - name: Download VSIX artifact
+        if: steps.gate.outputs.skip != 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: ballerina-daily-vsix-${{ steps.slug.outputs.slug }}
+
+      - name: Download product-integrator metadata
+        if: steps.gate.outputs.skip != 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: ballerina-daily-product-integrator-ok-${{ steps.slug.outputs.slug }}
+          path: pi-ok
+
+      - name: Load product-integrator metadata
+        if: steps.gate.outputs.skip != 'true'
+        id: pi
+        run: |
+          set -euo pipefail
+          prUrl=""
+          if [ -f pi-ok/pi.env ]; then
+            while IFS='=' read -r key value; do
+              [[ -z "${key// /}" || "$key" =~ ^[[:space:]]*# ]] && continue
+              if [ "$key" = "prUrl" ]; then
+                prUrl="$value"
+              fi
+            done < pi-ok/pi.env
+          fi
+          echo "prUrl=$prUrl" >> "$GITHUB_OUTPUT"
+
+      - name: Notification - Ballerina
+        if: steps.gate.outputs.skip != 'true'
+        uses: ./.github/actions/dailyBuildNotification
+        with:
+          title: "Ballerina (${{ matrix.vscodeBranch }})"
+          fileName: ballerina
+          chatAPI: ${{ secrets.BI_TEAM_CHAT_API }}
+          prUrl: ${{ steps.pi.outputs.prUrl }}
+
+  NotifyFailure:
+    name: Notify Failure
+    needs: [PrepareBranches, Build, Release, UpdateProductIntegrator]
+    if: ${{ always() && contains(needs.*.result, 'failure') && github.repository == 'wso2/vscode-extensions' && (github.event_name != 'workflow_dispatch' || inputs.sendNotification) }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Failure Notification
+        uses: ./.github/actions/failure-notification
+        with:
+          title: "Ballerina Daily Build Failed"
+          run_id: ${{ github.run_id }}
+          chat_api: ${{ secrets.TOOLING_TEAM_CHAT_API }}
+          repository: ${{ github.repository }}

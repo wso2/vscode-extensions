@@ -137,14 +137,16 @@ interface DeploymentOptionsProps {
     handleDockerBuild: () => void;
     handleConfigureKubernetes: () => void;
     handleCAPPBuild: () => void;
+    handleConsolidatedBuild: () => void;
     handleRemoteDeploy: () => void;
     handleDeploy: (params: DeployProjectRequest) => void;
     goToDevant: () => void;
     devantMetadata?: DevantMetadata;
+    isConsolidatedProject?: boolean;
 }
 
-export function DeploymentOptions({ handleDockerBuild, handleConfigureKubernetes, handleCAPPBuild, handleRemoteDeploy, handleDeploy, goToDevant, devantMetadata }: DeploymentOptionsProps) {
-    const [expandedOptions, setExpandedOptions] = useState<Set<string>>(new Set(['cloud', 'devant']));
+export function DeploymentOptions({ handleDockerBuild, handleConfigureKubernetes, handleCAPPBuild, handleConsolidatedBuild, handleRemoteDeploy, handleDeploy, goToDevant, devantMetadata, isConsolidatedProject }: DeploymentOptionsProps) {
+    const [expandedOptions, setExpandedOptions] = useState<Set<string>>(new Set(['cloud', isConsolidatedProject ? 'vm' : 'devant']));
     const { rpcClient } = useVisualizerContext();
 
     const toggleOption = (option: string) => {
@@ -216,14 +218,24 @@ export function DeploymentOptions({ handleDockerBuild, handleConfigureKubernetes
                 onDeploy={handleConfigureKubernetes}
             />
 
-            <DeploymentOption
-                title="Build CAPP"
-                description="Create an Integration Application (CApp) that runs on WSO2 Integrator: MI Server."
-                buttonText="Create CAPP"
-                isExpanded={expandedOptions.has('vm')}
-                onToggle={() => toggleOption('vm')}
-                onDeploy={handleCAPPBuild}
-            />
+            {isConsolidatedProject ?
+                <DeploymentOption
+                    title="Build Consolidated Project"
+                    description="Build the entire consolidated project to get the CApps that runs on WSO2 Integrator: MI Server."
+                    buttonText="Build"
+                    isExpanded={expandedOptions.has('vm')}
+                    onToggle={() => toggleOption('vm')}
+                    onDeploy={handleConsolidatedBuild}
+                /> :
+                <DeploymentOption
+                    title="Build CApp"
+                    description="Build Composite Application (CApp) that runs on WSO2 Integrator: MI Server."
+                    buttonText="Build CApp"
+                    isExpanded={expandedOptions.has('vm')}
+                    onToggle={() => toggleOption('vm')}
+                    onDeploy={handleCAPPBuild}
+                />
+            }
         </div>
     );
 }

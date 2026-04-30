@@ -135,7 +135,7 @@ export function TaskForm(props: TaskFormProps) {
 
     const schema = yup.object({
         name: yup.string().required("Task Name is required")
-            .matches(/^[a-zA-Z0-9]*$/, "Invalid characters in Task name")
+            .matches(/^[a-zA-Z0-9_-]*$/, "Invalid characters in Task name")
             .test('validateTaskName',
                 'An artifact with same name already exists', value => {
                     return !(workspaceFileNames.includes(value.toLowerCase()) && savedTaskName !== value)

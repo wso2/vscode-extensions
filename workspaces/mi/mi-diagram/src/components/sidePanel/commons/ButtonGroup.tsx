@@ -107,6 +107,17 @@ const DownloadIconContainer = styled.div`
     }
 `;
 
+const WarningBanner = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    background-color: var(--vscode-inputValidation-warningBackground);
+    border: 1px solid var(--vscode-inputValidation-warningBorder);
+    color: var(--vscode-inputValidation-warningForeground);
+    font-size: 12px;
+`;
+
 interface ButtonroupProps {
     title: string;
     children?: React.ReactNode;
@@ -118,6 +129,7 @@ interface ButtonroupProps {
     onDelete?: (connectorName: string, artifactId: string, version: string, iconUrl: string, connectorPath: string) => void;
     onRefresh?: (connectorName: string, ballerinaModulePath: string) => void;
     disableGrid?: boolean;
+    warningMessage?: string;
 }
 export const ButtonGroup: React.FC<ButtonroupProps> = ({
     title,
@@ -129,7 +141,8 @@ export const ButtonGroup: React.FC<ButtonroupProps> = ({
     connectorDetails,
     onDelete,
     onRefresh,
-    disableGrid
+    disableGrid,
+    warningMessage
 }) => {
     const [collapsed, setCollapsed] = useState(isCollapsed);
 
@@ -191,12 +204,14 @@ export const ButtonGroup: React.FC<ButtonroupProps> = ({
                         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
                             {connectorDetails &&
                             <>
-                                <DeleteIconContainer
-                                    onClick={() => onDelete(title, connectorDetails.artifactId, connectorDetails.version,
-                                        iconUri, connectorDetails.connectorPath)}
-                                    className="delete-icon">
-                                    <Codicon name="trash" iconSx={{ fontSize: 20 }} />
-                                </DeleteIconContainer>
+                                {onDelete &&
+                                    <DeleteIconContainer
+                                        onClick={() => onDelete(title, connectorDetails.artifactId, connectorDetails.version,
+                                            iconUri, connectorDetails.connectorPath)}
+                                        className="delete-icon">
+                                        <Codicon name="trash" iconSx={{ fontSize: 20 }} />
+                                    </DeleteIconContainer>
+                                }
                                 {connectorDetails.isBallerinaModule &&
                                     <RefreshIconContainer
                                         onClick={() => onRefresh(title, connectorDetails.ballerinaModulePath)}
@@ -218,6 +233,12 @@ export const ButtonGroup: React.FC<ButtonroupProps> = ({
                     </CardLabel>
                 </CardContent>
             </ComponentCard>
+            {warningMessage && (
+                <WarningBanner>
+                    <Codicon name="warning" />
+                    {warningMessage}
+                </WarningBanner>
+            )}
             {!collapsed && (
                 !disableGrid ?
                     <ButtonGrid>

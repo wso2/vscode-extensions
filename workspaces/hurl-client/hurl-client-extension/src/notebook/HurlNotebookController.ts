@@ -185,7 +185,7 @@ export class HurlNotebookController {
 
         const statusIcon = entry.status === 'passed' ? '✅' : entry.status === 'error' ? '⚠️' : '❌';
         const duration = entry.durationMs !== undefined ? ` *(${entry.durationMs}ms)*` : '';
-        const label = entry.name || 'Request';
+        const label = 'Request';
 
         if (entry.statusCode !== undefined) {
             lines.push(`**Status:** \`${entry.statusCode} ${httpStatusText(entry.statusCode)}\``);

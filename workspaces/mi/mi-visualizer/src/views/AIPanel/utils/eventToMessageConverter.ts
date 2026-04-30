@@ -1,0 +1,380 @@
+/**
+ * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ *
+ * WSO2 LLC. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import { ChatMessage, Role, MessageType, AgentEvent, ChatHistoryEvent, TodoItem } from "@wso2/mi-core";
+import { generateId } from "../utils";
+
+// Tool name constants
+const TODO_WRITE_TOOL_NAME = 'todo_write';
+const SHELL_TOOL_NAMES = new Set(['shell', 'bash']);
+
+/**
+ * Calculate overall status from todo items
+ */
+function calculateTodoStatus(todos: TodoItem[]): 'active' | 'completed' | 'pending' {
+    if (todos.some(t => t.status === 'in_progress')) {
+        return 'active';
+    }
+    if (todos.every(t => t.status === 'completed')) {
+        return 'completed';
+    }
+    return 'pending';
+}
+
+function getEventChatId(event: AgentEvent | ChatHistoryEvent): number | undefined {
+    if ('chatId' in event && typeof event.chatId === 'number') {
+        return event.chatId;
+    }
+    return undefined;
+}
+
+/**
+ * Convert agent events (streaming or history) to UI messages
+ * Handles chronological ordering of text and tool calls
+ *
+ * @param events - Array of AgentEvent or ChatHistoryEvent objects
+ * @returns Array of ChatMessage objects with inline <toolcall> tags
+ */
+export function convertEventsToMessages(
+    events: Array<AgentEvent | ChatHistoryEvent>
+): ChatMessage[] {
+    const messages: ChatMessage[] = [];
+    let currentUserMessage: ChatMessage | null = null;
+    let currentAssistantMessage: ChatMessage | null = null;
+    let activeChatId: number | undefined = undefined;
+    let nextSyntheticChatId = -1;
+    const allocateSyntheticChatId = (): number => nextSyntheticChatId--;
+    const pendingCheckpointAnchorsByChatId = new Map<number, string>();
+    const pendingCheckpointAnchorsWithoutChatId: string[] = [];
+    // Track pending tool calls by toolCallId for proper matching
+    const pendingToolCalls = new Map<string, {
+        toolName: string;
+        toolInput: unknown;
+        filePath: string;
+    }>();
+
+    for (const event of events) {
+        switch (event.type) {
+            case 'user': {
+                // Flush any pending assistant message
+                if (currentAssistantMessage) {
+                    messages.push(currentAssistantMessage);
+                    currentAssistantMessage = null;
+                }
+
+                const userChatId = getEventChatId(event) ?? allocateSyntheticChatId();
+                activeChatId = userChatId;
+                let checkpointAnchorId: string | undefined;
+                if (pendingCheckpointAnchorsByChatId.has(userChatId)) {
+                    checkpointAnchorId = pendingCheckpointAnchorsByChatId.get(userChatId);
+                    pendingCheckpointAnchorsByChatId.delete(userChatId);
+                } else if (pendingCheckpointAnchorsWithoutChatId.length > 0) {
+                    checkpointAnchorId = pendingCheckpointAnchorsWithoutChatId.shift();
+                }
+
+                // Create new user message
+                currentUserMessage = {
+                    id: userChatId,
+                    role: Role.MIUser,
+                    content: event.content || '',
+                    type: MessageType.UserMessage,
+                    checkpointAnchorId,
+                    files: (event as ChatHistoryEvent).files,
+                    images: (event as ChatHistoryEvent).images,
+                };
+                messages.push(currentUserMessage);
+                currentUserMessage = null;
+                break;
+            }
+
+            case 'checkpoint_anchor': {
+                const checkpointAnchor = (event as ChatHistoryEvent).checkpointAnchor;
+                if (!checkpointAnchor?.checkpointId || checkpointAnchor.source !== 'agent') {
+                    break;
+                }
+
+                if (typeof checkpointAnchor.chatId === 'number') {
+                    pendingCheckpointAnchorsByChatId.set(checkpointAnchor.chatId, checkpointAnchor.checkpointId);
+                } else {
+                    pendingCheckpointAnchorsWithoutChatId.push(checkpointAnchor.checkpointId);
+                }
+                break;
+            }
+
+            case 'assistant':
+            case 'content_block':
+                activeChatId = getEventChatId(event) ?? activeChatId;
+                // Create or append to assistant message
+                if (!currentAssistantMessage) {
+                    currentAssistantMessage = {
+                        id: activeChatId ?? allocateSyntheticChatId(),
+                        role: Role.MICopilot,
+                        content: event.content || '',
+                        type: MessageType.AssistantMessage
+                    };
+                } else {
+                    currentAssistantMessage.content += event.content || '';
+                }
+                break;
+
+            case 'tool_call':
+                activeChatId = getEventChatId(event) ?? activeChatId;
+                // Handle todo_write tool calls - generate inline todolist tag
+                if (event.toolName === TODO_WRITE_TOOL_NAME) {
+                    const todoInput = event.toolInput as { todos?: TodoItem[] };
+                    if (todoInput?.todos && todoInput.todos.length > 0) {
+                        // Calculate status and generate todolist tag
+                        const status = calculateTodoStatus(todoInput.todos);
+                        const todoData = {
+                            status,
+                            items: todoInput.todos
+                        };
+                        const todoTag = `\n\n<todolist>${JSON.stringify(todoData)}</todolist>`;
+
+                        // Ensure assistant message exists
+                        if (!currentAssistantMessage) {
+                            currentAssistantMessage = {
+                                id: activeChatId ?? allocateSyntheticChatId(),
+                                role: Role.MICopilot,
+                                content: '',
+                                type: MessageType.AssistantMessage
+                            };
+                        }
+
+                        // Check if message already has a todolist tag and replace it
+                        const todolistRegex = /<todolist>[\s\S]*?<\/todolist>/;
+                        if (todolistRegex.test(currentAssistantMessage.content)) {
+                            currentAssistantMessage.content = currentAssistantMessage.content.replace(todolistRegex, todoTag.trim());
+                        } else {
+                            currentAssistantMessage.content += todoTag;
+                        }
+                    }
+                    continue;
+                }
+
+                // Extract file path and toolCallId for display
+                const toolInput = event.toolInput as any;
+                const filePath = toolInput?.file_path || toolInput?.file_paths?.[0] || '';
+                const toolCallId = 'toolCallId' in event ? (event.toolCallId as string) : '';
+
+                // Store pending tool call info keyed by toolCallId (needed for proper matching)
+                if (toolCallId) {
+                    pendingToolCalls.set(toolCallId, {
+                        toolName: event.toolName || '',
+                        toolInput: event.toolInput,
+                        filePath
+                    });
+                }
+
+                // Ensure assistant message exists
+                if (!currentAssistantMessage) {
+                    currentAssistantMessage = {
+                        id: activeChatId ?? allocateSyntheticChatId(),
+                        role: Role.MICopilot,
+                        content: '',
+                        type: MessageType.AssistantMessage
+                    };
+                }
+
+                // Handle bash tool specially - show loading bash component with command
+                // Include toolCallId in the tag for proper matching with tool_result
+                if (event.toolName && SHELL_TOOL_NAMES.has(event.toolName)) {
+                    const bashData = {
+                        command: toolInput?.command || '',
+                        description: toolInput?.description || '',
+                        output: '',
+                        exitCode: 0,
+                        loading: true
+                    };
+                    currentAssistantMessage.content += `\n\n<bashoutput data-loading="true" data-tool-call-id="${toolCallId}">${JSON.stringify(bashData)}</bashoutput>`;
+                    continue;
+                }
+
+                // Get loading action from event (for live streaming) or create generic message
+                const loadingAction = 'loadingAction' in event ? event.loadingAction : undefined;
+                const loadingMessage = loadingAction
+                    ? `${loadingAction.charAt(0).toUpperCase() + loadingAction.slice(1)} ${filePath}...`
+                    : `Using ${event.toolName}${filePath ? `: ${filePath}` : ''}...`;
+
+                // Insert loading tool call tag (with data-loading attribute for replacement)
+                currentAssistantMessage.content += `\n\n<toolcall data-loading="true" data-file="${filePath}">${loadingMessage}</toolcall>`;
+                break;
+
+            case 'tool_result':
+                activeChatId = getEventChatId(event) ?? activeChatId;
+                // Skip todo_write tool results (handled by inline todo list in tool_call)
+                if ('toolName' in event && event.toolName === TODO_WRITE_TOOL_NAME) {
+                    continue;
+                }
+
+                // Get toolCallId to find the matching pending tool call
+                const resultToolCallId = 'toolCallId' in event ? (event.toolCallId as string) : '';
+                const pendingToolCall = resultToolCallId ? pendingToolCalls.get(resultToolCallId) : null;
+
+                if (pendingToolCall) {
+                    // Ensure assistant message exists
+                    if (!currentAssistantMessage) {
+                        currentAssistantMessage = {
+                            id: activeChatId ?? allocateSyntheticChatId(),
+                            role: Role.MICopilot,
+                            content: '',
+                            type: MessageType.AssistantMessage
+                        };
+                    }
+
+                    // Handle bash tool specially - replace loading bashoutput tag with completed one
+                    if (SHELL_TOOL_NAMES.has(pendingToolCall.toolName)) {
+                        const bashCommand = 'bashCommand' in event ? event.bashCommand : undefined;
+                        const bashDescription = 'bashDescription' in event ? event.bashDescription : undefined;
+                        const bashStdout = 'bashStdout' in event ? event.bashStdout : undefined;
+                        const bashExitCode = 'bashExitCode' in event ? event.bashExitCode : undefined;
+                        const bashRunning = 'bashRunning' in event ? event.bashRunning : false;
+
+                        // Create completed bash output data structure
+                        const bashData = {
+                            command: bashCommand || '',
+                            description: bashDescription || '',
+                            output: bashStdout || '',
+                            exitCode: bashExitCode ?? 0,
+                            running: bashRunning,
+                            loading: false
+                        };
+
+                        const completedBashTag = `<bashoutput>${JSON.stringify(bashData)}</bashoutput>`;
+
+                        // Find and replace the loading bashoutput tag by toolCallId
+                        const bashPatternWithId = new RegExp(`<bashoutput data-loading="true" data-tool-call-id="${resultToolCallId}">[\\s\\S]*?<\\/bashoutput>`, 'g');
+                        const bashMatchesWithId = [...currentAssistantMessage.content.matchAll(bashPatternWithId)];
+
+                        if (bashMatchesWithId.length > 0) {
+                            // Replace the matching bash output by toolCallId
+                            const match = bashMatchesWithId[0];
+                            const fullMatch = match[0];
+                            currentAssistantMessage.content = currentAssistantMessage.content.replace(fullMatch, completedBashTag);
+                        } else {
+                            // Fallback: try to find any loading bashoutput tag (for backwards compatibility)
+                            const bashPattern = /<bashoutput data-loading="true"[^>]*>[\s\S]*?<\/bashoutput>/g;
+                            const bashMatches = [...currentAssistantMessage.content.matchAll(bashPattern)];
+
+                            if (bashMatches.length > 0) {
+                                // Replace the first matching bash output
+                                const firstMatch = bashMatches[0];
+                                const fullMatch = firstMatch[0];
+                                currentAssistantMessage.content = currentAssistantMessage.content.replace(fullMatch, completedBashTag);
+                            } else {
+                                // No loading tag found, append directly
+                                currentAssistantMessage.content += `\n\n${completedBashTag}`;
+                            }
+                        }
+
+                        pendingToolCalls.delete(resultToolCallId);
+                        continue;
+                    }
+
+                    // Get action from event (backend provides this)
+                    const action = 'action' in event ? event.action : undefined;
+                    const completedAction = 'completedAction' in event ? event.completedAction : undefined;
+                    const finalAction = action || completedAction || 'Executed';
+
+                    const capitalizedAction = finalAction.charAt(0).toUpperCase() + finalAction.slice(1);
+
+                    // Create standard completed message for other tools
+                    const completedMessage = pendingToolCall.filePath
+                        ? `<toolcall>${capitalizedAction} ${pendingToolCall.filePath}</toolcall>`
+                        : `<toolcall>${capitalizedAction}</toolcall>`;
+
+                    // Find and replace the loading toolcall tag
+                    const toolPattern = /<toolcall data-loading="true" data-file="([^"]*)">([^<]*?)<\/toolcall>/g;
+                    const matches = [...currentAssistantMessage.content.matchAll(toolPattern)];
+
+                    if (matches.length > 0) {
+                        // Replace the last matching tool call (most recent)
+                        const lastMatch = matches[matches.length - 1];
+                        const fullMatch = lastMatch[0];
+                        const lastIndex = currentAssistantMessage.content.lastIndexOf(fullMatch);
+
+                        currentAssistantMessage.content =
+                            currentAssistantMessage.content.substring(0, lastIndex) +
+                            completedMessage +
+                            currentAssistantMessage.content.substring(lastIndex + fullMatch.length);
+                    }
+
+                    pendingToolCalls.delete(resultToolCallId);
+                }
+                break;
+
+            case 'stop':
+                // End of assistant message - flush it
+                if (currentAssistantMessage) {
+                    messages.push(currentAssistantMessage);
+                    currentAssistantMessage = null;
+                }
+                break;
+
+            case 'compact_summary':
+                // Flush any pending assistant message
+                if (currentAssistantMessage) {
+                    messages.push(currentAssistantMessage);
+                    currentAssistantMessage = null;
+                }
+                activeChatId = undefined;
+                // Render as a standalone assistant message with <compact> tag
+                // (splitContent in utils.ts parses this; CompactSummarySegment renders it)
+                messages.push({
+                    id: generateId(),
+                    role: Role.MICopilot,
+                    content: `<compact>${event.content || ''}</compact>`,
+                    type: MessageType.AssistantMessage,
+                });
+                break;
+
+            case 'undo_checkpoint': {
+                // Undo checkpoint entries from history/stream are ignored.
+                // Review card state is ephemeral and managed from live stop events only.
+                break;
+            }
+
+            case 'error':
+            case 'abort':
+                // Flush any current message and add error
+                if (currentAssistantMessage) {
+                    messages.push(currentAssistantMessage);
+                    currentAssistantMessage = null;
+                }
+                if (event.type === 'error' && event.error) {
+                    messages.push({
+                        id: generateId(),
+                        role: Role.MICopilot,
+                        content: `Error: ${event.error}`,
+                        type: MessageType.Error
+                    });
+                }
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    // Flush any remaining assistant message
+    if (currentAssistantMessage) {
+        messages.push(currentAssistantMessage);
+    }
+
+    return messages;
+}

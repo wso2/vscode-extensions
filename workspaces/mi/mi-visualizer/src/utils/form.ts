@@ -396,21 +396,30 @@ const proxyRange = (model:Proxy,tag:string):Range => {
 export const getResourceDeleteRanges = (model: APIResource, formData: ResourceFormData): Range[] => {
     const ranges: Range[] = [];
     if (formData.inSequenceType === "named" && model.inSequence) {
+        const space = model.inSequence.selfClosed ? 
+                            model.inSequence.spaces.startingTagSpace :
+                            model.inSequence.spaces.endingTagSpace;
         ranges.push({
             start: model.inSequence.range.startTagRange.start,
-            end: model.inSequence.spaces.endingTagSpace.trailingSpace.range.end,
+            end: space.trailingSpace.range.end,
         });
     }
     if (formData.outSequenceType === "named" && model.outSequence) {
+        const space = model.outSequence.selfClosed ? 
+                            model.outSequence.spaces.startingTagSpace :
+                            model.outSequence.spaces.endingTagSpace;
         ranges.push({
             start: model.outSequence.range.startTagRange.start,
-            end: model.outSequence.spaces.endingTagSpace.trailingSpace.range.end,
+            end: space.trailingSpace.range.end,
         });
     }
     if (formData.faultSequenceType === "named" && model.faultSequence) {
+        const space = model.faultSequence.selfClosed ? 
+                            model.faultSequence.spaces.startingTagSpace :
+                            model.faultSequence.spaces.endingTagSpace;
         ranges.push({
             start: model.faultSequence.range.startTagRange.start,
-            end: model.faultSequence.spaces.endingTagSpace.trailingSpace.range.end,
+            end: space.trailingSpace.range.end,
         });
     }
 

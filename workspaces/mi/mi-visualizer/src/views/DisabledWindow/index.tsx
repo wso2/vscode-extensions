@@ -75,16 +75,16 @@ export const DisabledMessage = (props: { showProjectHeader?: boolean }) => {
                 buttonTitle="Retry"
                 onClick={Retry}
                 subTitle={
-                    "An error occurred while trying to establish a connection with the MI Copilot server. Please click retry to try again."
+                    "An error occurred while trying to establish a connection with the WSO2 Integrator Copilot server. Please click retry to try again."
                 }
                 title={"Error in establishing Connection"}
             />
             <AlertBox
                 variant="secondary"
-                buttonTitle="Logout"
+                buttonTitle="Sign out of Copilot"
                 onClick={handleLogout}
                 subTitle={
-                    "Try logging out and logging back in again."
+                    "Try signing out of MI Copilot and signing back in. Your WSO2 platform session stays active."
                 }
                 title={"Still having trouble?"}
             />
@@ -92,7 +92,7 @@ export const DisabledMessage = (props: { showProjectHeader?: boolean }) => {
                 <TroubleshootingHeader>Troubleshooting Guide</TroubleshootingHeader>
                 <TroubleshootingList>
                     <li>Check your internet connection</li>
-                    <li>Try logging out and logging in again</li>
+                    <li>Try signing out of MI Copilot and signing in again</li>
                     <li>Try restarting VSCode</li>
                 </TroubleshootingList>
                 <IssueTrackerLink>

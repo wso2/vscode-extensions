@@ -33,17 +33,20 @@ import { runCommand, runBasicCommand } from '../test-explorer/runner';
 import { XMLParser, XMLBuilder } from "fast-xml-parser";
 
 const AdmZip = require('adm-zip');
-// Add Latest MI version as the first element in the array
-export const supportedJavaVersionsForMI: { [key: string]: string } = {
-    '4.5.0': '21',
-    '4.4.0': '21',
-    '4.3.0': '17',
-    '4.2.0': '17',
-    '4.1.0': '11',
+// Put MI versions in descending order.
+// Put Java versions in ascending order for each MI version
+export const javaVersionCompatibilityMap: { [key: string]: { supportedRange: { min: string; max: string }, recommended: string[] } } = {
+    '4.6.0': { supportedRange: { min: '21', max: '25' }, recommended: ['21', '25'] },
+    '4.5.0': { supportedRange: { min: '11', max: '21' }, recommended: ['21'] },
+    '4.4.0': { supportedRange: { min: '11', max: '21' }, recommended: ['21'] },
+    '4.3.0': { supportedRange: { min: '11', max: '17' }, recommended: ['17'] },
+    '4.2.0': { supportedRange: { min: '11', max: '17' }, recommended: ['17'] },
+    '4.1.0': { supportedRange: { min: '11', max: '11' }, recommended: ['11'] },
 };
-export const LATEST_MI_VERSION = "4.4.0";
+export const LATEST_MI_VERSION = "4.6.0";
 const COMPATIBLE_JDK_VERSION = "11";
 const miDownloadUrls: { [key: string]: string } = {
+    '4.6.0': 'https://mi-distribution.wso2.com/4.6.0/wso2mi-4.6.0.zip',
     '4.5.0': 'https://mi-distribution.wso2.com/4.5.0/wso2mi-4.5.0.zip',
     '4.4.0-UPDATED': 'https://mi-distribution.wso2.com/4.4.0/wso2mi-4.4.0-UPDATED.zip',
     '4.4.0': 'https://mi-distribution.wso2.com/4.4.0/wso2mi-4.4.0.zip',
@@ -127,7 +130,8 @@ export async function getProjectSetupDetails(projectUri: string): Promise<SetupD
         return { miVersionStatus: 'missing', javaDetails: { status: 'not-valid' }, miDetails: { status: 'not-valid' } };
     }
     if (isSupportedMIVersion(miVersion)) {
-        const recommendedVersions = { miVersion, javaVersion: supportedJavaVersionsForMI[miVersion] };
+        const highestSupportedJavaVersion = javaVersionCompatibilityMap[miVersion].supportedRange.max;
+        const recommendedVersions = { miVersion, javaVersion: highestSupportedJavaVersion };
         const setupDetails = await getJavaAndMIPathsFromWorkspace(projectUri, miVersion);
         return { ...setupDetails, miVersionStatus: 'valid', showDownloadButtons: isDownloadableMIVersion(miVersion), recommendedVersions, miVersionFromPom: miVersion };
     }
@@ -215,7 +219,10 @@ export async function isMISetup(projectUri: string, miVersion: string): Promise<
     if (oldServerPath) {
         const availableMIVersion = getMIVersion(oldServerPath);
         if (availableMIVersion && compareVersions(availableMIVersion, miVersion) >= 0) {
-            if (availableMIVersion !== miVersion) {
+            if (availableMIVersion === miVersion) {
+                await config.update(SELECTED_SERVER_PATH, oldServerPath, vscode.ConfigurationTarget.WorkspaceFolder);
+                return true;
+            } else {
                 showMIPathChangePrompt();
             }
         }
@@ -413,9 +420,9 @@ export function verifyMIPath(folderPath: string): string | null {
 
 export function getSupportedMIVersionsHigherThan(version: string): string[] {
     if (version) {
-        return Object.keys(supportedJavaVersionsForMI).filter((v) => compareVersions(v, version) >= 0);
+        return Object.keys(javaVersionCompatibilityMap).filter((v) => compareVersions(v, version) >= 0);
     }
-    return Object.keys(supportedJavaVersionsForMI);
+    return Object.keys(javaVersionCompatibilityMap);
 }
 
 export async function downloadJavaFromMI(projectUri: string, miVersion: string): Promise<string> {
@@ -431,7 +438,7 @@ export async function downloadJavaFromMI(projectUri: string, miVersion: string):
         };
     }
 
-    const javaVersion = supportedJavaVersionsForMI[miVersion];
+    const javaVersions = javaVersionCompatibilityMap[miVersion];
     const javaPath = path.join(CACHED_FOLDER, 'java');
     const osType = os.type();
 
@@ -458,9 +465,10 @@ export async function downloadJavaFromMI(projectUri: string, miVersion: string):
             throw new Error(`Unsupported architecture: ${os.arch()}`);
         }
 
-        if (!javaVersion) {
-            throw new Error('Unsupported Java version.');
+        if (!javaVersions) {
+            throw new Error('Unsupported MI version.');
         }
+        const javaVersion = javaVersions.supportedRange.max; // Get the highest supported Java version for the MI version
 
         if (!fs.existsSync(javaPath)) {
             fs.mkdirSync(javaPath, { recursive: true });
@@ -501,7 +509,7 @@ export async function downloadJavaFromMI(projectUri: string, miVersion: string):
         throw new Error(
             `Failed to download Java. ${error instanceof Error ? error.message : error
             }.
-            If issue persists, please download and install Java ${javaVersion} manually.`
+            If issue persists, please download and install Java ${javaVersions ? javaVersions.supportedRange.max : 'the required version'} manually.`
         );
     }
 }
@@ -554,7 +562,7 @@ function isSupportedJavaVersionForLS(version: string): boolean {
     return compareVersions(version, COMPATIBLE_JDK_VERSION) >= 0;
 }
 function isSupportedMIVersion(version: string): boolean {
-    return Object.keys(supportedJavaVersionsForMI).includes(version);
+    return Object.keys(javaVersionCompatibilityMap).includes(version);
 }
 function isDownloadableMIVersion(version: string): boolean {
     return miDownloadUrls[version] !== undefined;
@@ -584,15 +592,22 @@ function isRecommendedJavaVersionForMI(javaVersion: string, miVersion: string): 
     if (!javaVersion || !miVersion) {
         return false;
     }
-    const supportedVersion = supportedJavaVersionsForMI[miVersion];
-    return supportedVersion ? javaVersion === supportedVersion : false;
+    const compatibleJavaVersion = javaVersionCompatibilityMap[miVersion];
+    return compatibleJavaVersion ? compatibleJavaVersion.recommended.includes(javaVersion) : false;
 }
 function isCompatibleJavaVersionForMI(javaVersion: string, miVersion: string): boolean {
     if (!javaVersion || !miVersion) {
         return false;
     }
-    return isSupportedJavaVersionForLS(javaVersion) &&
-        compareVersions(javaVersion, supportedJavaVersionsForMI[miVersion]) <= 0; // higher java version not compatible
+    const compatibleJavaVersion = javaVersionCompatibilityMap[miVersion];
+    if (!compatibleJavaVersion) {
+        return false;
+    }
+    const lowestSupportedVersion = compatibleJavaVersion.supportedRange.min;
+    const highestSupportedVersion = compatibleJavaVersion.supportedRange.max;
+    return isSupportedJavaVersionForLS(javaVersion)
+        && compareVersions(javaVersion, lowestSupportedVersion) >= 0
+        && compareVersions(javaVersion, highestSupportedVersion) <= 0;
 }
 
 function isCompatibleMIVersion(runtimeVersion: string, projectVersion: string): boolean {
@@ -616,7 +631,8 @@ export async function setPathsInWorkSpace(request: SetPathRequest): Promise<Path
             const validJavaHome = verifyJavaHomePath(request.path);
             if (validJavaHome) {
                 const javaVersion = getJavaVersion(path.join(validJavaHome, 'bin'));
-                if (supportedJavaVersionsForMI[projectMIVersion] === javaVersion) {
+                const compatibleJavaVersion = javaVersionCompatibilityMap[projectMIVersion];
+                if (compatibleJavaVersion && javaVersion && compatibleJavaVersion.recommended.includes(javaVersion)) { 
                     response = { status: "valid", path: validJavaHome, version: javaVersion };
                 } else if (javaVersion && isCompatibleJavaVersionForMI(javaVersion, projectMIVersion)) {
                     response = { status: "mismatch", path: validJavaHome, version: javaVersion! };
@@ -654,8 +670,10 @@ export async function setPathsInWorkSpace(request: SetPathRequest): Promise<Path
 }
 
 async function getJavaAndMIPathsFromWorkspace(projectUri: string, projectMiVersion: string): Promise<SetupDetails> {
+    const compatibleJavaVersion = javaVersionCompatibilityMap[projectMiVersion];
+    const highestSupportedJavaVersion = compatibleJavaVersion && compatibleJavaVersion.supportedRange.max;
     const response: SetupDetails = {
-        javaDetails: { status: 'not-valid', version: supportedJavaVersionsForMI[projectMiVersion] },
+        javaDetails: { status: 'not-valid', version: highestSupportedJavaVersion },
         miDetails: { status: 'not-valid', version: projectMiVersion }
     };
     if (projectMiVersion) {
@@ -667,7 +685,7 @@ async function getJavaAndMIPathsFromWorkspace(projectUri: string, projectMiVersi
             getJavaHomeForMIVersionFromCache(projectMiVersion);
         if (validJavaHome) {
             const javaVersion = getJavaVersion(path.join(validJavaHome, 'bin'));
-            if (supportedJavaVersionsForMI[projectMiVersion] === javaVersion) {
+            if (compatibleJavaVersion && javaVersion && compatibleJavaVersion.recommended.includes(javaVersion)) {
                 response.javaDetails = { status: "valid", path: validJavaHome, version: javaVersion };
             } else if (javaVersion && isCompatibleJavaVersionForMI(javaVersion, projectMiVersion)) {
                 response.javaDetails = { status: "mismatch", path: validJavaHome, version: javaVersion! };
@@ -1011,6 +1029,15 @@ function setupConfigFiles(projectUri: string): void {
     }
 }
 
+export function getProjectJavaVersion(projectUri: string): string | null {
+    const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
+    const javaHome = config.get<string>(SELECTED_JAVA_HOME);
+    if (!javaHome) {
+        return null;
+    }
+    return getJavaVersion(path.join(javaHome, 'bin'));
+}
+
 export function getJavaHomeFromConfig(projectUri: string): string | undefined {
     const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
     const currentJavaHome = config.get<string>(SELECTED_JAVA_HOME);
@@ -1061,8 +1088,39 @@ export function getDefaultProjectPath(): string {
 }
 
 export async function buildBallerinaModule(projectPath: string) {
+    const MIN_REQUIRED_UPDATE = 13;
     const isBallerinaInstalled = await isBallerinaAvailableGlobally();
-    if (isBallerinaInstalled || fs.existsSync(path.join(os.homedir(), '.ballerina', 'ballerina-home', 'bin', process.platform === 'win32' ? 'bal.bat' : 'bal'))) {
+    const isLocalBallerina = fs.existsSync(path.join(os.homedir(), '.ballerina', 'ballerina-home', 'bin', process.platform === 'win32' ? 'bal.bat' : 'bal'));
+
+    if (isBallerinaInstalled || isLocalBallerina) {
+        const updateNumber = await getBallerinaVersion(isBallerinaInstalled);
+
+        if (updateNumber !== null && updateNumber < MIN_REQUIRED_UPDATE) {
+            const selection = await vscode.window.showWarningMessage(
+                `Ballerina Swan Lake Update ${updateNumber} is installed, but Update ${MIN_REQUIRED_UPDATE} or higher is required. Would you like to update Ballerina now?`,
+                { modal: true },
+                'Update'
+            );
+
+            if (selection !== 'Update') {
+                vscode.window.showErrorMessage(`Ballerina Update ${MIN_REQUIRED_UPDATE} or higher is required. Build process stopped.`);
+                return;
+            }
+
+            let updateSucceeded = false;
+            await vscode.window.withProgress(
+                { location: vscode.ProgressLocation.Notification, title: 'Updating Ballerina...', cancellable: false },
+                async () => {
+                    updateSucceeded = await updateBallerinaDistribution(isBallerinaInstalled);
+                }
+            );
+
+            if (!updateSucceeded) {
+                vscode.window.showErrorMessage('Failed to update Ballerina. Please update manually and try again.');
+                return;
+            }
+        }
+
         await runBallerinaBuildsWithProgress(projectPath, isBallerinaInstalled);
     } else {
         vscode.window.showErrorMessage('Ballerina not found. Please download Ballerina and try again.');
@@ -1109,8 +1167,8 @@ async function runBallerinaBuildsWithProgress(projectPath: string, isBallerinaIn
 
             // Use global bal if installed, otherwise use local installation
             const pullCommand = isBallerinaInstalled 
-                ? (isWindows ? 'bal.bat tool pull mi-module-gen' : 'bal tool pull mi-module-gen')
-                : `${quotedBalCommand} tool pull mi-module-gen`;
+                ? (isWindows ? 'bal.bat tool pull migen' : 'bal tool pull migen')
+                : `${quotedBalCommand} tool pull migen`;
 
             console.debug('[Ballerina Build] Command to execute:', pullCommand);
             console.debug('[Ballerina Build] Working directory:', quotedProjectPath);
@@ -1139,6 +1197,14 @@ async function runBallerinaBuildsWithProgress(projectPath: string, isBallerinaIn
                 if (data) {
                     // Convert data to string with simplified logic
                     const errorMessage: string = data?.toString?.() ?? String(data);
+
+                    // Ignore Java logging warnings written to stderr (e.g. StAX dialect warnings)
+                    if (/^\w{3} \d{1,2}, \d{4}.*\n?WARNING:/m.test(errorMessage) ||
+                        /^WARNING:/m.test(errorMessage) ||
+                        errorMessage.trim() === '') {
+                        console.debug('[Ballerina Build] Ignoring stderr warning:', errorMessage.trim());
+                        return;
+                    }
 
                     console.debug('[Ballerina Build] Error encountered:', errorMessage);
                     const commonErrors = [
@@ -1183,9 +1249,9 @@ async function runBallerinaBuildsWithProgress(projectPath: string, isBallerinaIn
                 }
                 ballerinaOutputChannel.clear();
                 const isWindows = process.platform === 'win32';
-                const moduleGenCommand = isBallerinaInstalled 
-                    ? (isWindows ? 'bal.bat mi-module-gen -i .' : 'bal mi-module-gen -i .') 
-                    : `${path.join(balHome, isWindows ? 'bal.bat' : 'bal')} mi-module-gen -i .`;
+                const moduleGenCommand = isBallerinaInstalled
+                    ? (isWindows ? 'bal.bat migen module' : 'bal migen module')
+                    : `${path.join(balHome, isWindows ? 'bal.bat' : 'bal')} migen module`;
 
                 console.debug('Running module gen command:', moduleGenCommand, 'in directory:', projectPath);
                 runBasicCommand(moduleGenCommand, projectPath,
@@ -1206,13 +1272,6 @@ async function runBallerinaBuildsWithProgress(projectPath: string, isBallerinaIn
                             console.debug('[Ballerina Build] Build output directory not found:', buildOutput);
                             reject();
                             return vscode.window.showErrorMessage("Ballerina module build process failed - no output generated.");
-                        }
-
-                        // Clean up old target folder if it exists
-                        const targetFolderPath = path.join(projectPath, 'target');
-                        if (fs.existsSync(targetFolderPath)) {
-                            console.debug('[Ballerina Build] Cleaning up old target folder');
-                            fs.rmSync(targetFolderPath, { recursive: true, force: true });
                         }
 
                         console.debug('[Ballerina Build] Reading module configuration');
@@ -1238,7 +1297,7 @@ async function runBallerinaBuildsWithProgress(projectPath: string, isBallerinaIn
                         console.debug('[Ballerina Build] Module name:', name, 'version:', version);
 
                         const zipName = name + "-connector-" + version + ".zip";
-                        const zipPath = path.join(projectPath, zipName);
+                        const zipPath = path.join(projectPath, "target", "mi", zipName);
                         console.debug('[Ballerina Build] Generated zip path:', zipPath);
 
                         const projectUri = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(projectPath))?.uri?.fsPath;
@@ -1254,8 +1313,12 @@ async function runBallerinaBuildsWithProgress(projectPath: string, isBallerinaIn
                             // https://github.com/wso2/mi-vscode/issues/952
                             await new Promise((resolve) => setTimeout(resolve, 1000));
                         }
+                        if (!fs.existsSync(zipPath)) {
+                            reject();
+                            return vscode.window.showErrorMessage(`Ballerina module build failed - output zip not found at ${zipPath}.`);
+                        }
                         await fs.promises.copyFile(zipPath, copyTo);
-                        await fs.promises.rm(zipPath);
+                        fs.rmSync(path.join(projectPath, 'target'), { recursive: true, force: true });
 
                         progress.report({ increment: 10, message: "Completed Ballerina module build." });
                         vscode.window.showInformationMessage("Ballerina module build successful");
@@ -1291,6 +1354,53 @@ async function isBallerinaAvailableGlobally(): Promise<boolean> {
         const proc = child_process.spawn("bal version", [], { shell: true });
         proc.on("error", () => resolve(false));
         proc.on("exit", (code) => resolve(code === 0));
+    });
+}
+
+// Returns the Swan Lake update number (e.g. 13 for version 2201.13.x), or null if it cannot be determined.
+async function getBallerinaVersion(isBallerinaInstalledGlobally: boolean): Promise<number | null> {
+    return new Promise<number | null>((resolve) => {
+        const isWindows = process.platform === 'win32';
+        let command: string;
+
+        if (isBallerinaInstalledGlobally) {
+            command = isWindows ? 'bal.bat version' : 'bal version';
+        } else {
+            const balHome = path.normalize(path.join(os.homedir(), '.ballerina', 'ballerina-home', 'bin'));
+            const balExecutable = isWindows ? 'bal.bat' : 'bal';
+            const balCommand = path.join(balHome, balExecutable);
+            command = `"${balCommand}" version`;
+        }
+
+        const proc = child_process.spawn(command, [], { shell: true });
+        let output = '';
+        proc.stdout?.on('data', (data: Buffer) => { output += data.toString(); });
+        proc.on('error', () => resolve(null));
+        proc.on('close', () => {
+            // Matches version strings like "Ballerina 2201.13.0 (Swan Lake Update 13)"
+            const match = output.match(/Ballerina\s+2201\.(\d+)\.\d+/);
+            resolve(match ? parseInt(match[1], 10) : null);
+        });
+    });
+}
+
+async function updateBallerinaDistribution(isBallerinaInstalledGlobally: boolean): Promise<boolean> {
+    return new Promise<boolean>((resolve) => {
+        const isWindows = process.platform === 'win32';
+        let command: string;
+
+        if (isBallerinaInstalledGlobally) {
+            command = isWindows ? 'bal.bat dist update' : 'bal dist update';
+        } else {
+            const balHome = path.normalize(path.join(os.homedir(), '.ballerina', 'ballerina-home', 'bin'));
+            const balExecutable = isWindows ? 'bal.bat' : 'bal';
+            const balCommand = path.join(balHome, balExecutable);
+            command = `"${balCommand}" dist update`;
+        }
+
+        const proc = child_process.spawn(command, [], { shell: true });
+        proc.on('error', () => resolve(false));
+        proc.on('close', (code) => resolve(code === 0));
     });
 }
 
@@ -1490,5 +1600,31 @@ export async function updateCarPluginVersion(projectUri: string): Promise<void> 
     }
     if(compareVersions(carPluginVersion, LATEST_CAR_PLUGIN_VERSION) < 0) {
         await updateRuntimeVersionsInPom(result.project.properties['project.runtime.version']);
+    }
+}
+
+export function isConsolidatedProject(filePath: string): boolean {
+    try {
+        if (!filePath) {
+            return false;
+        }
+
+        const pomPath = path.join(filePath, 'pom.xml');
+        if (!fs.existsSync(pomPath)) {
+            return false;
+        }
+
+        const pomContent = fs.readFileSync(pomPath, 'utf-8');
+        const match = pomContent.match(
+            /<is\.consolidated\.project>\s*(true|false)\s*<\/is\.consolidated\.project>/i
+        );
+
+        if (!match) {
+            return false;
+        }
+        return match[1].toLowerCase() === 'true';
+
+    } catch (error) {
+        return false;
     }
 }

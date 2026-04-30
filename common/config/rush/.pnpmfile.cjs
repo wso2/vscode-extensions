@@ -25,6 +25,7 @@ module.exports = {
         if (deps['js-yaml']) deps['js-yaml'] = '4.1.1';
         if (deps['diff']) deps['diff'] = '8.0.3';
         if (deps['eslint']) deps['eslint'] = '^9.27.0';
+        if (deps['axios']) deps['axios'] = '1.15.0';
         if (deps['fast-xml-parser']) deps['fast-xml-parser'] = '5.7.0';
         if (deps['esbuild']) deps['esbuild'] = '0.25.12';
         if (deps['lodash']) deps['lodash'] = '4.18.0';
@@ -34,6 +35,10 @@ module.exports = {
         if (deps['@tootallnate/once']) deps['@tootallnate/once'] = '3.0.1';
         if (deps['dompurify']) deps['dompurify'] = '3.4.0';
         if (deps['follow-redirects']) deps['follow-redirects'] = '1.16.0';
+        if (deps['serialize-javascript']) deps['serialize-javascript'] = '7.0.3';
+        if (deps['@hono/node-server']) deps['@hono/node-server'] = '1.19.13';
+        if (deps['@tootallnate/once']) deps['@tootallnate/once'] = '3.0.1';
+        if (deps['dompurify']) deps['dompurify'] = '3.4.0';
         if (deps['express-rate-limit']) deps['express-rate-limit'] = '8.2.2';
         if (deps['file-type']) deps['file-type'] = '21.3.2';
         if (deps['immutable']) deps['immutable'] = '3.8.3';
@@ -42,6 +47,7 @@ module.exports = {
         if (deps['handlebars']) deps['handlebars'] = '4.7.9';
         if (deps['tmp']) deps['tmp'] = '0.2.4';
         if (deps['undici']) deps['undici'] = '7.24.0';
+        if (deps['uuid']) deps['uuid'] = '14.0.0';
         if (deps['protobufjs']) {
           const currentVersion = deps['protobufjs'];
           if (currentVersion.startsWith('^8') || currentVersion.startsWith('8')) {
@@ -52,6 +58,7 @@ module.exports = {
         }
         if (deps['vite']) deps['vite'] = '6.0.14';
         if (deps['yauzl']) deps['yauzl'] = '3.2.1';
+        if (deps['follow-redirects']) deps['follow-redirects'] = '1.16.0';
         if (deps['bn.js']) {
           deps['bn.js'] = deps['bn.js'].startsWith('^5') ? '5.2.3' : '4.12.3';
         }

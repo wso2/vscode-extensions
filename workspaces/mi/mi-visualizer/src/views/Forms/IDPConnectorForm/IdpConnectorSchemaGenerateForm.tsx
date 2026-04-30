@@ -116,14 +116,14 @@ export function IdpConnectorSchemaGenerateForm({ onClose, path,fileContent }: Id
                 try {
                     const token = await rpcClient.getMiDiagramRpcClient().getUserAccessToken();
                     if (token) {
-                        const backendRootUri = (await rpcClient.getMiDiagramRpcClient().getProxyRootUrl()).openaiUrl;
-                        const endpoint = `${backendRootUri}/proxy/openai/v1/chat/completions`;
+                        const backendRootUri = (await rpcClient.getMiDiagramRpcClient().getProxyRootUrl()).anthropicUrl;
+                        const endpoint = `${backendRootUri}/messages`;
                         
                         allConnections.push({
                             name: "[Built-in]",
                             apiKey: token.token,
                             url: endpoint,
-                            model: "gpt-4.1-mini"
+                            model: "claude-haiku-4-5"
                         });
                     }
                 } catch (error) {

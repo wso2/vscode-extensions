@@ -65,6 +65,7 @@ export const NodeLinkWidget: React.FC<NodeLinkWidgetProps> = ({ link, engine }) 
     const addButtonPosition = link.getAddButtonPosition();
     const sidePanelContext = useContext(SidePanelContext);
     const hasDiagnotics = link.hasDiagnotics();
+    const hasErrors = link.hasErrors();
     const tooltip = hasDiagnotics
         ? link
             .getDiagnostics()
@@ -159,7 +160,7 @@ export const NodeLinkWidget: React.FC<NodeLinkWidgetProps> = ({ link, engine }) 
                                     justifyContent: "center",
                                     alignItems: "center",
                                     borderRadius: "20px",
-                                    border: `2px solid ${link.hasDiagnotics()
+                                    border: `2px solid ${hasErrors
                                         ? Colors.ERROR
                                         : link.showAddButton && isHovered
                                             ? Colors.SECONDARY
@@ -175,7 +176,7 @@ export const NodeLinkWidget: React.FC<NodeLinkWidgetProps> = ({ link, engine }) 
                             >
                                 <span
                                     style={{
-                                        color: link.hasDiagnotics()
+                                        color: hasErrors
                                             ? Colors.ERROR
                                             : link.showAddButton && isHovered
                                                 ? Colors.SECONDARY

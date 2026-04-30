@@ -270,9 +270,7 @@ export default function createTests() {
       await ballerinaModule.openFromMediatorPaletteAndBuild(ballerinaModuleName);
       console.log('Create Ballerina Module from Project Explorer');
       await ballerinaModule.createBallerinaModuleFromProjectExplorer("TestNewBallerinaModule" + testAttempt);
-      console.log('Uninstall Ballerina Extension');
-      await ballerinaModule.removeBallerinaExtension();
-      console.log('Successfully uninstalled Ballerina Extension');
+      console.log('Re-enable notifications');
       await toggleNotifications(true);
     });
 

@@ -17,7 +17,7 @@ import {
 import { VisualizerWebview, webviews } from './visualizer/webview';
 import { RPCLayer } from './RPCLayer';
 import { history } from './history/activator';
-import { COMMANDS, MI_PROJECT_EXPLORER_VIEW_ID, WI_EXTENSION_ID, WI_PROJECT_EXPLORER_VIEW_ID, RUNTIME_VERSION_440 } from './constants';
+import { COMMANDS, MI_PROJECT_EXPLORER_VIEW_ID, WI_EXTENSION_ID, RUNTIME_VERSION_440 } from './constants';
 import { activateProjectExplorer } from './project-explorer/activate';
 import { MockService, STNode, UnitTest, Task, InboundEndpoint } from '../../syntax-tree/lib/src';
 import { log, logDebug } from './util/logger';
@@ -390,8 +390,7 @@ const stateMachine = createMachine<MachineContext>({
             return new Promise(async (resolve, reject) => {
                 console.log("Waiting for LS to be ready " + new Date().toLocaleTimeString());
                 try {
-                    const treeViewId = context.isInWI ? WI_PROJECT_EXPLORER_VIEW_ID : MI_PROJECT_EXPLORER_VIEW_ID;
-                    vscode.commands.executeCommand(`${treeViewId}.focus`);
+                    vscode.commands.executeCommand(`${MI_PROJECT_EXPLORER_VIEW_ID}.focus`);
                     const ls = await MILanguageClient.getInstance(context.projectUri!);
                     vscode.commands.executeCommand('setContext', 'MI.status', 'projectLoaded');
 
@@ -648,8 +647,7 @@ const stateMachine = createMachine<MachineContext>({
         },
         activateOtherFeatures: (context, event) => {
             return new Promise(async (resolve, reject) => {
-                const treeviewId = context.isInWI ? WI_PROJECT_EXPLORER_VIEW_ID : MI_PROJECT_EXPLORER_VIEW_ID;
-                await activateProjectExplorer(treeviewId, extension.context, context.projectUri!, context.isInWI);
+                await activateProjectExplorer(MI_PROJECT_EXPLORER_VIEW_ID, extension.context, context.projectUri!);
                 await activateTestExplorer(extension.context);
                 resolve(true);
             });
@@ -663,8 +661,7 @@ const stateMachine = createMachine<MachineContext>({
         },
         focusProjectExplorer: (context, event) => {
             return new Promise(async (resolve, reject) => {
-                const treeViewId = context.isInWI ? WI_PROJECT_EXPLORER_VIEW_ID : MI_PROJECT_EXPLORER_VIEW_ID;
-                vscode.commands.executeCommand(`${treeViewId}.focus`);
+                vscode.commands.executeCommand(`${MI_PROJECT_EXPLORER_VIEW_ID}.focus`);
                 resolve(true);
             });
         }

@@ -28,6 +28,10 @@ import {
     ProjectStructureResponse,
     GetAvailableConnectorRequest,
     GetAvailableConnectorResponse,
+    GetConnectorInfoRequest,
+    GetConnectorInfoResponse,
+    GetInboundInfoRequest,
+    GetInboundInfoResponse,
     UpdateConnectorRequest,
     GetConnectorConnectionsRequest,
     GetConnectorConnectionsResponse,
@@ -80,12 +84,22 @@ import {
     UpdateAiDependenciesRequest,
     MavenDeployPluginDetails,
     DependencyStatusResponse,
-    GenerateMappingsParamsRequest
+    GenerateMappingsParamsRequest,
+    McpToolsRequest,
+    McpToolsResponse,
+    LoadDriverAndTestConnectionRequest,
+    GetDynamicFieldsRequest,
+    GetDynamicFieldsResponse,
+    GetStoredProceduresResponse,
+    DriverDownloadRequest,
+    DriverDownloadResponse,
+    DriverMavenCoordinatesRequest,
+    DriverMavenCoordinatesResponse
 } from "@wso2/mi-core";
 import { readFileSync } from "fs";
 import { CancellationToken, FormattingOptions, Position, Uri, workspace } from "vscode";
 import { CompletionParams, LanguageClient, LanguageClientOptions, ServerOptions, TextEdit } from "vscode-languageclient/node";
-import { TextDocumentIdentifier } from "vscode-languageserver-protocol";
+import { TextDocumentIdentifier, CodeAction, CodeActionParams } from "vscode-languageserver-protocol";
 import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { RPCLayer } from "../RPCLayer";
@@ -156,6 +170,20 @@ export interface RangeFormatParams {
 export interface ArtifactType {
     artifactType: string;
     artifactFolder: string;
+}
+
+export interface ConflictingDependency {
+    groupId: string;
+    artifactId: string;
+    version: string;
+    conflictingArtifacts: string[];
+    conflictingConnectors: string[];
+}
+
+export interface LoadDependentResourcesResponse {
+    status: 'SUCCESS' | 'NO_DEPS_FOUND' | 'ERROR' | 'CONFLICT';
+    message: string;
+    conflictingDependencies?: ConflictingDependency[];
 }
 
 export class ExtendedLanguageClient extends LanguageClient {
@@ -257,7 +285,10 @@ export class ExtendedLanguageClient extends LanguageClient {
         if (req.documentIdentifier) {
             uri = Uri.file(req.documentIdentifier).toString();
         }
-        return this.sendRequest("synapse/availableResources", { documentIdentifier: { uri: uri }, "resourceType": req.resourceType });
+        return this.sendRequest("synapse/availableResources", { 
+            documentIdentifier: { uri: uri }, resourceType: req.resourceType, 
+            ...(req.isDebugFlow && { customProjectUri: req.documentIdentifier }) 
+        });
     }
 
     async getDiagnostics(req: GetDiagnosticsReqeust): Promise<GetDiagnosticsResponse> {
@@ -266,6 +297,18 @@ export class ExtendedLanguageClient extends LanguageClient {
 
     async rangeFormat(req: RangeFormatParams): Promise<vscode.TextEdit[]> {
         return this.sendRequest("textDocument/rangeFormatting", req)
+    }
+
+    // Returns a full connector object on success, or a plain string error message on failure.
+    // Single-call replacement for the old resolveConnector + availableConnectors two-step.
+    async getConnectorInfo(req: GetConnectorInfoRequest): Promise<GetConnectorInfoResponse> {
+        return this.sendRequest("synapse/getConnectorInfo", req);
+    }
+
+    // Accepts either { id } for bundled inbounds or Maven coords for downloadable ones.
+    // Returns an InboundEndpointInfo on success, or a plain string error message on failure.
+    async getInboundInfo(req: GetInboundInfoRequest): Promise<GetInboundInfoResponse> {
+        return this.sendRequest("synapse/getInboundInfo", req);
     }
 
     async getAvailableConnectors(req: GetAvailableConnectorRequest): Promise<GetAvailableConnectorResponse> {
@@ -368,7 +411,11 @@ export class ExtendedLanguageClient extends LanguageClient {
         return this.sendRequest('synapse/updateConnectorDependencies');
     }
 
-    async loadDependentCAppResources(): Promise<string> {
+    async refetchIntegrationProjectDependencies(): Promise<string> {
+        return this.sendRequest('synapse/refetchIntegrationProjectDependencies');
+    }
+
+    async loadDependentCAppResources(): Promise<LoadDependentResourcesResponse> {
         return this.sendRequest('synapse/loadDependentResources');
     }
 
@@ -476,5 +523,36 @@ export class ExtendedLanguageClient extends LanguageClient {
 
     async getInputOutputMappings(req: GenerateMappingsParamsRequest): Promise<string[]> {
         return this.sendRequest('synapse/getInputOutputMappings', req);
+    }  
+    
+    async getMcpTools(req: McpToolsRequest): Promise<McpToolsResponse> {
+        return this.sendRequest("synapse/getMCPTools", { documentUri: Uri.file(req.documentUri).toString(), connectionName: req.connectionName, range: req.range });
+    }
+
+    async getCodeActions(params: CodeActionParams): Promise<CodeAction[]> {
+        return this.sendRequest("textDocument/codeAction", params);
+    }
+    async loadDriverAndTestConnection(req: LoadDriverAndTestConnectionRequest): Promise<TestDbConnectionResponse> {
+        return this.sendRequest("synapse/loadDriverAndTestConnection", req);
+    }
+
+    async getDynamicFields(req: GetDynamicFieldsRequest): Promise<GetDynamicFieldsResponse> {
+        return this.sendRequest("synapse/getDynamicFields", req);
+    }
+
+    async getStoredProcedures(req: DSSQueryGenRequest): Promise<GetStoredProceduresResponse> {
+        return this.sendRequest("synapse/getStoredProcedures", req);
+    }
+
+    async downloadDriverForConnector(params: DriverDownloadRequest): Promise<DriverDownloadResponse> {
+        return this.sendRequest("synapse/downloadDriverForConnector", params);
+    }
+
+    async getDriverMavenCoordinates(params: DriverMavenCoordinatesRequest): Promise<DriverMavenCoordinatesResponse> {
+        return this.sendRequest("synapse/getDriverMavenCoordinates", params);
+    }
+
+    async isDuplicateConnector(params: string): Promise<any> {
+        return this.sendRequest("synapse/isDuplicateConnector", { connectorPath: params });
     }
 }

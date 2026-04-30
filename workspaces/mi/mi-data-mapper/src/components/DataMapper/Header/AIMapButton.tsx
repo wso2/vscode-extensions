@@ -17,8 +17,7 @@
  */
 import React, { useEffect, useState } from "react";
 import styled from "@emotion/styled";
-import { Button } from "@wso2/ui-toolkit";
-import { Codicon } from "@wso2/ui-toolkit";
+import { Button, Icon } from "@wso2/ui-toolkit";
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
 
 interface AIMapButtonProps {
@@ -50,46 +49,70 @@ const StyledButton = styled(Button) <{ isLoading: boolean }>`
 
 const AIMapButton: React.FC<AIMapButtonProps> = ({ onClick, isLoading, disabled = false }) => {
   var [remainingTokenLessThanOne, setRemainingTokenLessThanOne] = useState(false);
-  var [remainingTokenPercentage, setRemainingTokenPercentage] = useState<string | number>("");
+  var [remainingTokenPercentage, setRemainingTokenPercentage] = useState<number | "Unlimited" | null>(null);
+  var [usageResetText, setUsageResetText] = useState<string>("");
 
   const { rpcClient } = useVisualizerContext();
 
   useEffect(() => {
     rpcClient.getAIVisualizerState()
       .then((machineView: any) => {
-        if (machineView && machineView.userTokens) {
-          const maxTokens = machineView.userTokens.max_usage;
-          if (maxTokens === -1) {
+        const userTokens = machineView?.userTokens ?? machineView?.usage;
+        if (userTokens) {
+          const remainingUsagePercentage = userTokens.remainingUsagePercentage;
+          if (remainingUsagePercentage === -1) {
             setRemainingTokenPercentage("Unlimited");
+            setRemainingTokenLessThanOne(false);
+            setUsageResetText("");
           } else {
-            const remainingTokens = machineView.userTokens.remaining_tokens;
-            const percentage = (remainingTokens / maxTokens) * 100;
+            const percentage = typeof remainingUsagePercentage === "number"
+              ? Math.max(0, Math.min(100, remainingUsagePercentage))
+              : NaN;
             if (percentage < 1 && percentage > 0) {
               setRemainingTokenLessThanOne(true);
             } else {
               setRemainingTokenLessThanOne(false);
             }
-            setRemainingTokenPercentage(Math.round(percentage));
+            setRemainingTokenPercentage(Number.isNaN(percentage) ? null : Math.round(percentage));
+
+            const resetsIn = userTokens.resetsIn;
+            if (typeof resetsIn === "number" && resetsIn > 0) {
+              const days = Math.ceil(resetsIn / (60 * 60 * 24));
+              setUsageResetText(`${days} day${days === 1 ? "" : "s"}`);
+            } else {
+              setUsageResetText("");
+            }
           }
         } else {
           // Handle the case when machineView or userTokens is undefined
-          setRemainingTokenPercentage("Not Available");
+          setRemainingTokenPercentage(null);
+          setRemainingTokenLessThanOne(false);
+          setUsageResetText("");
         }
       })
       .catch((error) => {
         // Handle errors from the API call
         console.error("Error fetching AI Visualizer State:", error);
-        setRemainingTokenPercentage("Not Available");
+        setRemainingTokenPercentage(null);
+        setRemainingTokenLessThanOne(false);
+        setUsageResetText("");
       });
   }, []);
 
-  var tokenUsageText = remainingTokenPercentage === 'Unlimited' ? remainingTokenPercentage : (remainingTokenLessThanOne ? '<1%' : `${remainingTokenPercentage}%`);
+  var tokenUsageText =
+    remainingTokenPercentage === "Unlimited"
+      ? "Unlimited"
+      : (remainingTokenLessThanOne && typeof remainingTokenPercentage === "number" && remainingTokenPercentage > 0)
+        ? "<1%"
+        : (typeof remainingTokenPercentage === "number" && Number.isFinite(remainingTokenPercentage))
+          ? `${remainingTokenPercentage}%`
+          : "Not Available";
 
   return (
     <ButtonContainer>
       <StyledButton
         appearance="secondary"
-        tooltip={`Generate Mapping using AI.\nRemaining Free Usage: ${tokenUsageText}`}
+        tooltip={`Generate Mapping using AI.\nRemaining Free Usage: ${tokenUsageText}${usageResetText ? `\nResets in: ${usageResetText}` : ''}`}
         onClick={async () => {
           if (!isLoading && !disabled) {
             await onClick();
@@ -99,7 +122,7 @@ const AIMapButton: React.FC<AIMapButtonProps> = ({ onClick, isLoading, disabled 
         isLoading={isLoading}
       >
         <div style={{ display: "flex", alignItems: "center" }}>
-          <Codicon name="wand" />
+          <Icon name="bi-ai-chat" />
           <span style={{ marginLeft: "3px" }}>Map</span>
         </div>
       </StyledButton>
