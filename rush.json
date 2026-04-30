@@ -533,10 +533,10 @@
       "projectFolder": "workspaces/ballerina/ballerina-extension",
       "versionPolicyName": "ballerina-extension"
     },
-    {
-      "packageName": "micro-integrator",
-      "projectFolder": "workspaces/mi/mi-extension"
-    },
+    // {
+    //   "packageName": "micro-integrator",
+    //   "projectFolder": "workspaces/mi/mi-extension"
+    // },
     {
       "packageName": "@wso2/mi-diagram",
       "projectFolder": "workspaces/mi/mi-diagram"
