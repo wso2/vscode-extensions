@@ -2,7 +2,7 @@
   "name": "api-designer",
   "displayName": "API Designer",
   "description": "OpenAPI-first API Designer for visual editing, governance validation, and AI readiness analysis in VS Code.",
-  "version": "0.1.0",
+  "version": "0.9.0",
   "publisher": "wso2",
   "license": "Apache-2.0",
   "repository": {
