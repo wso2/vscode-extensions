@@ -2,7 +2,7 @@
 
 Arazzo Visualizer helps you understand, edit, and run [Arazzo Specification](https://www.openapis.org/arazzo-specification) workflows directly inside VS Code.
 
-It turns Arazzo files into interactive diagrams, keeps the diagram in sync with your code, and includes a built-in Go runner so you can try workflows against real APIs without leaving the editor.
+It turns Arazzo files into interactive diagrams, keeps the diagram in sync with your code, and includes a built-in runner engine so you can try workflows against real APIs without leaving the editor.
 
 ## Quick Start
 
@@ -28,7 +28,7 @@ Read complex API flows as a clear diagram instead of scanning long YAML or JSON 
 The extension adds helpful actions above workflow definitions.
 
 - **Visualize:** Open the selected workflow in the visualizer.
-- **Try with AI:** Run the selected workflow through Copilot and the Go runner.
+- **Try with AI:** Run the selected workflow through Github Copilot.
 
 ### GitHub Copilot Support
 
@@ -49,9 +49,9 @@ After you save, the visualizer updates to match the latest file.
 
 ![Sample Demo](https://raw.githubusercontent.com/wso2/vscode-extensions/arazzo-extension/workspaces/arazzo/arazzo-designer-extension/assets/v2_visualizer_demo.gif)
 
-### Run Workflows with the Go Runner
+### Run Workflows
 
-The visualizer shows how a workflow is designed. The built-in **Go runner engine** helps you prove that the workflow actually works.
+The visualizer shows how a workflow is designed. The built-in **Runner Engine** helps you prove that the workflow actually works.
 
 Use it to execute an Arazzo workflow from VS Code and see how each API call behaves in a real run. This makes the extension useful not only for reading workflows, but also for testing, validating, and improving them as you build.
 
