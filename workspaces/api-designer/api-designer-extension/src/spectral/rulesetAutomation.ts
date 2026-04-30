@@ -22,83 +22,42 @@ import { logDebug, logError, logWarning } from '../utils/logger';
 
 const FOLDER_STATE_KEY = 'apiDesigner.spectral.cachedRulesetFolders';
 
-/**
- * One setting value: split into folder paths (newlines, commas, or semicolons).
- */
-export function parseRulesetFoldersString(raw: string | undefined | null): string[] {
-    if (raw == null || typeof raw !== 'string') {
-        return [];
+/** Read a single ruleset folder from config. */
+export function getRulesetFolderFromConfigValue(value: unknown): string | undefined {
+    if (typeof value !== 'string') {
+        return undefined;
     }
-    return raw
-        .split(/[\n,;]+/u)
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0);
-}
-
-/** Read folder list from config; supports legacy `string[]` in user settings until re-saved. */
-export function getRulesetFoldersFromConfigValue(value: unknown): string[] {
-    if (Array.isArray(value)) {
-        return value.map((v) => String(v).trim()).filter((s) => s.length > 0);
-    }
-    if (typeof value === 'string') {
-        return parseRulesetFoldersString(value);
-    }
-    return [];
-}
-
-export function serializeRulesetFoldersToString(folders: string[]): string {
-    return folders.join('\n');
+    const normalized = value.trim();
+    return normalized.length > 0 ? normalized : undefined;
 }
 
 /** Current setting key (singular). */
 const RULESET_FOLDER_KEY = 'spectral.rulesetFolder' as const;
-/** Legacy key before rename; still read for migration. */
-const LEGACY_RULESET_FOLDERS_KEY = 'spectral.rulesetFolders' as const;
 
 /**
- * Raw value from `spectral.rulesetFolder`, or the legacy `spectral.rulesetFolders` value
- * if the new key was never set in any scope (migrates existing user settings).
+ * Raw value from `spectral.rulesetFolder`.
  */
-export function getRulesetFolderSettingRaw(config: vscode.WorkspaceConfiguration): unknown {
-    const inspected = config.inspect<unknown>(RULESET_FOLDER_KEY);
-    const newKeyTouched =
-        inspected?.globalValue !== undefined ||
-        inspected?.workspaceValue !== undefined ||
-        inspected?.workspaceFolderValue !== undefined;
-    if (newKeyTouched) {
-        return config.get<unknown>(RULESET_FOLDER_KEY);
-    }
-    const legacy = config.get<unknown>(LEGACY_RULESET_FOLDERS_KEY);
-    if (legacy !== undefined) {
-        return legacy;
-    }
-    return config.get<unknown>(RULESET_FOLDER_KEY);
+export function getRulesetFolderSetting(config: vscode.WorkspaceConfiguration): string | undefined {
+    return getRulesetFolderFromConfigValue(config.get<unknown>(RULESET_FOLDER_KEY));
 }
 
 type SyncReason = 'initial' | 'configuration-change';
-
-interface RulesetQuickPickItem extends vscode.QuickPickItem {
-    ruleset: RulesetMetadata;
-}
 
 let syncQueue: Promise<void> = Promise.resolve();
 
 /**
  * Initialize automatic Spectral ruleset discovery.
  *
- * - On startup we make sure every configured folder has a corresponding ruleset entry.
- * - When users change `apiDesigner.spectral.rulesetFolder` (or the legacy key) we fetch each
- *   listed path, list the rulesets and prompt for selection immediately.
+ * - On startup we make sure the configured folder has discovered ruleset entries.
+ * - When users change `apiDesigner.spectral.rulesetFolder` we fetch that path and refresh
+ *   all discovered rulesets immediately.
  */
 export function initializeSpectralRulesetAutomation(context: vscode.ExtensionContext): void {
     scheduleSync(context, 'initial');
 
     context.subscriptions.push(
         vscode.workspace.onDidChangeConfiguration(event => {
-            if (
-                event.affectsConfiguration('apiDesigner.spectral.rulesetFolder') ||
-                event.affectsConfiguration('apiDesigner.spectral.rulesetFolders')
-            ) {
+            if (event.affectsConfiguration('apiDesigner.spectral.rulesetFolder')) {
                 scheduleSync(context, 'configuration-change');
             }
         })
@@ -133,7 +92,8 @@ async function syncRulesetsWithSettings(context: vscode.ExtensionContext, reason
     logDebug(`[Spectral] Sync triggered (${reason})`);
 
     const config = vscode.workspace.getConfiguration('apiDesigner');
-    const folderSetting = getRulesetFoldersFromConfigValue(getRulesetFolderSettingRaw(config));
+    const configuredFolder = getRulesetFolderSetting(config);
+    const folderSetting = configuredFolder ? [configuredFolder] : [];
     const { values: configuredFolders, changed: foldersSanitized } = sanitizeFolders(folderSetting);
     const folders = configuredFolders;
     const foldersChanged = foldersSanitized;
@@ -142,11 +102,8 @@ async function syncRulesetsWithSettings(context: vscode.ExtensionContext, reason
     const cachedFolders = context.globalState.get<string[]>(FOLDER_STATE_KEY);
 
     // Default from package.json (empty string -> no extra default folders)
-    const defaultFolders = getRulesetFoldersFromConfigValue(
-        config.inspect<unknown>(RULESET_FOLDER_KEY)?.defaultValue
-    );
-    const normalizedDefaultFolders = defaultFolders.map(normalizeFolder);
-
+    const defaultFolder = getRulesetFolderFromConfigValue(config.inspect<unknown>(RULESET_FOLDER_KEY)?.defaultValue);
+    const defaultFolders = defaultFolder ? [defaultFolder] : [];
     const folderSet = new Set(folders.map(normalizeFolder));
     const removedFolders = cachedFolders
         ? cachedFolders.filter(folder => !folderSet.has(normalizeFolder(folder)))
@@ -199,11 +156,7 @@ async function syncRulesetsWithSettings(context: vscode.ExtensionContext, reason
                       defaultFolders.find(f => normalizeFolder(f) === normalizedFolderToProcess) ||
                       normalizedFolderToProcess;
         
-        const isDefaultFolder = normalizedDefaultFolders.includes(normalizedFolderToProcess);
-        const next = await handleNewFolderSelection(folder, updatedRulesets, {
-            suppressPrompt: isDefaultFolder,
-            autoEnableAll: isDefaultFolder
-        });
+        const next = await handleNewFolderSelection(folder, updatedRulesets);
         if (next && next !== updatedRulesets) {
             updatedRulesets = next;
             didChangeRules = true;
@@ -217,7 +170,7 @@ async function syncRulesetsWithSettings(context: vscode.ExtensionContext, reason
     if (foldersChanged) {
         await config.update(
             RULESET_FOLDER_KEY,
-            serializeRulesetFoldersToString(folders),
+            folders[0] ?? '',
             vscode.ConfigurationTarget.Global
         );
     }
@@ -225,15 +178,9 @@ async function syncRulesetsWithSettings(context: vscode.ExtensionContext, reason
     await context.globalState.update(FOLDER_STATE_KEY, folders);
 }
 
-interface FolderSelectionOptions {
-    suppressPrompt?: boolean;
-    autoEnableAll?: boolean;
-}
-
 async function handleNewFolderSelection(
     folder: string,
-    currentRulesets: StoredRuleset[],
-    options: FolderSelectionOptions = {}
+    currentRulesets: StoredRuleset[]
 ): Promise<StoredRuleset[] | null> {
     const normalizedFolder = normalizeFolder(folder);
     logDebug(`[Spectral] Discovering rulesets for: ${normalizedFolder}`);
@@ -259,54 +206,10 @@ async function handleNewFolderSelection(
                 return currentRulesets;
             }
 
-            progress.report({ increment: 60, message: 'Preparing selection...' });
-
-            const existingByKey = new Map(currentRulesets.map(ruleset => [getRulesetKey(ruleset), ruleset] as const));
-
-            let selectedKeys: Set<string> | null = null;
-
-            if (options.suppressPrompt) {
-                if (options.autoEnableAll) {
-                    selectedKeys = new Set(discovered.map(ruleset => getRulesetKey(ruleset)));
-                } else {
-                    selectedKeys = new Set();
-                }
-            }
-
-            if (!selectedKeys) {
-                const quickPickItems: RulesetQuickPickItem[] = discovered.map(ruleset => {
-                    const key = getRulesetKey(ruleset);
-                    const existing = existingByKey.get(key);
-                    return {
-                        label: ruleset.name || deriveNameFromFile(ruleset.fileName),
-                        description: ruleset.fileName,
-                        detail: normalizedFolder,
-                        picked: existing ? existing.enabled !== false : true,
-                        ruleset
-                    };
-                });
-
-                const selected = await vscode.window.showQuickPick(quickPickItems, {
-                    canPickMany: true,
-                    title: 'Select Spectral rulesets to enable',
-                    placeHolder: 'Choose the rulesets to use for governance',
-                    matchOnDescription: true,
-                    matchOnDetail: true
-                });
-
-                selectedKeys = new Set((selected || []).map(item => getRulesetKey(item.ruleset)));
-
-                if (!selected || selected.length === 0) {
-                    vscode.window.showInformationMessage(
-                        `No rulesets selected for ${getFolderLabel(normalizedFolder)}. You can enable them later using the Manage Spectral Rulesets command.`
-                    );
-                }
-            }
-
             const updated = mergeRulesets(currentRulesets, discovered.map(ruleset => ({
                 ...ruleset,
                 sourceFolder: normalizedFolder,
-                enabled: selectedKeys!.has(getRulesetKey(ruleset))
+                enabled: true
             })));
 
             progress.report({ increment: 30, message: 'Saving selection...' });
@@ -427,14 +330,6 @@ function getFolderLabel(folder: string): string {
     }
     const parts = folder.split('github.com/')[1];
     return parts || folder;
-}
-
-function deriveNameFromFile(fileName: string): string {
-    return fileName
-        .replace(/\.(yaml|yml)$/i, '')
-        .split(/[-_]/)
-        .map(segment => segment.charAt(0).toUpperCase() + segment.slice(1))
-        .join(' ');
 }
 
 export function toStoredRuleset(ruleset: Pick<RulesetMetadata, 'name' | 'sourceFolder' | 'fileName' | 'rulesetContentPath' | 'enabled'> | StoredRuleset): StoredRuleset {

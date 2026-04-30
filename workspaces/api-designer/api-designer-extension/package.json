@@ -216,46 +216,9 @@
         "apiDesigner.spectral.rulesetFolder": {
           "type": "string",
           "default": "",
-          "description": "Spectral ruleset location: a GitHub folder URL or a local path. For more than one location, put each on its own line or separate with a comma or semicolon. Changing this value triggers a scan so you can choose which rulesets to enable.",
-          "markdownDescription": "Where to find Spectral ruleset files: one GitHub folder URL or one local directory path, or several paths in this single field (one per line, or separated by commas or semicolons). On save, the extension scans each location and lets you choose which rulesets to use.\n\nIf this is empty, the extension uses the bundled rulesets under `<extension>/spectral-rulesets` by default.",
+          "description": "Single folder for Spectral rulesets: a GitHub folder URL or a local directory path. Changing this value triggers a scan so you can choose which rulesets to enable.",
+          "markdownDescription": "A GitHub folder URL or a local path where ruleset files (for example `.yaml`) can be found. On save, the extension scans it and lets you choose which rulesets to use.\n\nIf this is empty, the extension uses the bundled rulesets under `<extension>/spectral-rulesets` by default.",
           "order": 4
-        },
-        "apiDesigner.spectral.selectedRulesets": {
-          "type": "array",
-          "description": "Rulesets discovered from configured folders and whether they are enabled for selection and analysis.",
-          "default": [],
-          "items": {
-            "type": "object",
-            "properties": {
-              "name": {
-                "type": "string",
-                "description": "Display name for the ruleset"
-              },
-              "sourceFolder": {
-                "type": "string",
-                "description": "The source folder URL or path the ruleset was discovered from"
-              },
-              "fileName": {
-                "type": "string",
-                "description": "The ruleset file name"
-              },
-              "rulesetContentPath": {
-                "type": "string",
-                "description": "Optional JSONPath inside the YAML where the ruleset content resides"
-              },
-              "enabled": {
-                "type": "boolean",
-                "default": true,
-                "description": "Whether the ruleset is enabled for governance/ruleset selection workflows"
-              }
-            },
-            "required": [
-              "name",
-              "sourceFolder",
-              "fileName"
-            ]
-          },
-          "order": 5
         }
       }
     }

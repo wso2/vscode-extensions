@@ -16,19 +16,19 @@ API Designer is an OpenAPI-first extension for designing and analyzing API speci
 
 ### Ruleset Support
 - Built-in default governance rulesets:
+  - WSO2 REST API AI Readiness Guidelines
   - WSO2 REST API Design Guidelines
   - OWASP API Security Top 10
-  - WSO2 REST API AI Readiness Guidelines
 - Additional rulesets can be discovered from configured GitHub/local folders via extension settings.
 
 ## Quick Start
 
 1. Install the extension from Marketplace or VSIX.
-2. Open an OpenAPI YAML/JSON file.
+2. Open an OpenAPI YAML file.
 3. Run **Open API Designer** (CodeLens, editor title action, or command palette).
-4. Use:
-   - **Design** view to edit the API.
-   - **Analyze** view to run governance and AI readiness checks.
+4. Edit your API in the main designer canvas (paths, operations, schemas, and components).
+5. In the score cards section, click a report card (**AI Readiness**, **Security (OWASP)**, or **REST Compliance**) to open the detailed analysis report.
+6. In the report page, review breakdowns and issue explorer entries to inspect and fix findings.
 
 ## Resources
 

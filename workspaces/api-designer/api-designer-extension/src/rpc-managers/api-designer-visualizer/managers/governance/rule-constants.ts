@@ -573,7 +573,7 @@ export const REPORT_BREAKDOWN_META: Record<GovernanceReportId, { title: string; 
     },
     "owasp": {
         title: "Security (OWASP) Breakdown",
-        subtitle: "OWASP API Security themes for which this analysis found issues. The bundled ruleset includes a subset of API1–10 rules (for example API2, API3, API4, API8, API9), not every category.",
+        subtitle: "OWASP API Security themes for which this analysis found issues.",
     },
     "rest-api-readiness": {
         title: "REST Compliance Breakdown",

@@ -7,10 +7,8 @@
 
 name: WSO2 REST API AI Readiness Guidelines
 description: >-
-  This ruleset ensures that REST APIs are well-documented and structured to be
-  easily understood and utilized by AI systems. It checks for comprehensive
-  descriptions, examples, and proper structuring of API components to enhance
-  AI readiness.
+  A set of rules that ensures that REST APIs are well-documented and structured to be
+  easily understood and utilized by AI systems. 
 ruleCategory: SPECTRAL
 ruleType: API_DEFINITION
 artifactType: REST_API

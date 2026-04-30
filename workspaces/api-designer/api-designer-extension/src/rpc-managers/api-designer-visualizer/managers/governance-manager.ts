@@ -42,9 +42,7 @@ import {
     validateWithSpectralRuleset
 } from '../../../utils/validation-utils';
 import {
-    getAllSpectralRulesets as getAllSpectralRulesetsFromConfig,
-    getRulesetFolderSettingRaw,
-    getRulesetFoldersFromConfigValue
+    getAllSpectralRulesets as getAllSpectralRulesetsFromConfig
 } from '../../../spectral/rulesetAutomation';
 import { resolveGitHubRawUrl } from '../../../utils/github-utils';
 import { BaseRpcManager } from './base-rpc-manager';
@@ -234,6 +232,12 @@ type BuiltUnifiedReport = {
  * Handles API spec validation, governance checks, and Spectral ruleset management
  */
 export class GovernanceManager extends BaseRpcManager {
+    private static readonly defaultRulesetFileByReportId: Record<'ai-readiness' | 'owasp' | 'rest-api-readiness', string> = {
+        'ai-readiness': 'ai-readiness.yaml',
+        'owasp': 'owasp_top_10.yaml',
+        'rest-api-readiness': 'wso2_rest_api_design_guidelines.yaml',
+    };
+
     private static readonly llmInternalRuleAllowlist = new Set([
         ...Object.values(AI_READINESS_GUIDELINE_RULE_TO_INTERNAL_RULE).map((rule) => rule.toLowerCase()),
         'ai-readiness-llm-general'
@@ -389,6 +393,108 @@ export class GovernanceManager extends BaseRpcManager {
         if (lower.includes('ai') && lower.includes('readiness')) return 'ai-readiness';
         if (lower.includes('owasp') || lower.includes('security')) return 'owasp';
         return 'rest-api-readiness';
+    }
+
+    private inferReportKeyFromRuleset(ruleset: Pick<SpectralRuleset, 'name' | 'fileName'>): 'ai-readiness' | 'owasp' | 'rest-api-readiness' {
+        const fileName = String(ruleset.fileName || '').toLowerCase();
+        if (fileName.includes('ai-readiness')) return 'ai-readiness';
+        if (fileName.includes('owasp')) return 'owasp';
+        if (fileName.includes('design_guidelines') || fileName.includes('rest_api_design')) return 'rest-api-readiness';
+        return this.inferReportKey(ruleset.name);
+    }
+
+    private buildBundledDefaultRulesetMap(bundledRulesetsFolder: string): Record<'ai-readiness' | 'owasp' | 'rest-api-readiness', SpectralRuleset> {
+        const defaults = getDefaultGovernanceSpectralRulesets(bundledRulesetsFolder);
+        const map: Partial<Record<'ai-readiness' | 'owasp' | 'rest-api-readiness', SpectralRuleset>> = {};
+        for (const ruleset of defaults) {
+            map[this.inferReportKeyFromRuleset(ruleset)] = ruleset;
+        }
+
+        // Safety net if default naming changes unexpectedly.
+        const normalizedFolder = bundledRulesetsFolder.replace(/[\\/]+$/, '');
+        return {
+            'ai-readiness': map['ai-readiness'] || {
+                name: 'WSO2 REST API AI Readiness Guidelines',
+                sourceFolder: normalizedFolder,
+                fileName: GovernanceManager.defaultRulesetFileByReportId['ai-readiness'],
+                rulesetContentPath: 'rulesetContent',
+            },
+            'owasp': map['owasp'] || {
+                name: 'OWASP Top 10 Security',
+                sourceFolder: normalizedFolder,
+                fileName: GovernanceManager.defaultRulesetFileByReportId['owasp'],
+                rulesetContentPath: 'rulesetContent',
+            },
+            'rest-api-readiness': map['rest-api-readiness'] || {
+                name: 'WSO2 REST API Design Guidelines',
+                sourceFolder: normalizedFolder,
+                fileName: GovernanceManager.defaultRulesetFileByReportId['rest-api-readiness'],
+                rulesetContentPath: 'rulesetContent',
+            },
+        };
+    }
+
+    private selectGovernanceRulesets(
+        configuredRulesets: SpectralRuleset[],
+        bundledDefaults: Record<'ai-readiness' | 'owasp' | 'rest-api-readiness', SpectralRuleset>
+    ): SpectralRuleset[] {
+        const configuredByReport = new Map<'ai-readiness' | 'owasp' | 'rest-api-readiness', SpectralRuleset>();
+        for (const ruleset of configuredRulesets) {
+            const key = this.inferReportKeyFromRuleset(ruleset);
+            if (!configuredByReport.has(key)) {
+                configuredByReport.set(key, ruleset);
+            }
+        }
+
+        return (['ai-readiness', 'owasp', 'rest-api-readiness'] as const).map((reportId) =>
+            configuredByReport.get(reportId) || bundledDefaults[reportId]
+        );
+    }
+
+    private async runSpectralValidationWithPerReportFallback(
+        content: string,
+        reportDisplayName: string,
+        requestedRuleset: SpectralRuleset,
+        reportId: 'ai-readiness' | 'owasp' | 'rest-api-readiness',
+        bundledDefaultRuleset: SpectralRuleset,
+        gitRootPath?: string
+    ): Promise<{ result: SpectralGovernancePayload; usedRuleset: SpectralRuleset }> {
+        const runValidation = async (ruleset: SpectralRuleset): Promise<SpectralGovernancePayload> => {
+            const resolvedPath = this.constructRulesetPath(ruleset.sourceFolder, ruleset.fileName);
+            const result = await validateWithSpectralRuleset(
+                content,
+                reportDisplayName,
+                resolvedPath,
+                ruleset.rulesetContentPath || '',
+                gitRootPath,
+                undefined
+            );
+            return result as SpectralGovernancePayload;
+        };
+
+        try {
+            return { result: await runValidation(requestedRuleset), usedRuleset: requestedRuleset };
+        } catch (primaryError: unknown) {
+            const isSameAsDefault =
+                requestedRuleset.sourceFolder === bundledDefaultRuleset.sourceFolder &&
+                requestedRuleset.fileName === bundledDefaultRuleset.fileName &&
+                (requestedRuleset.rulesetContentPath || '') === (bundledDefaultRuleset.rulesetContentPath || '');
+
+            if (isSameAsDefault) {
+                throw primaryError;
+            }
+
+            this.logWarning(
+                `[Governance] Failed to validate with configured ruleset for ${reportId}. Falling back to bundled default.`,
+                primaryError
+            );
+
+            try {
+                return { result: await runValidation(bundledDefaultRuleset), usedRuleset: bundledDefaultRuleset };
+            } catch {
+                throw primaryError;
+            }
+        }
     }
 
     private async readRulesetInsights(
@@ -559,52 +665,49 @@ export class GovernanceManager extends BaseRpcManager {
                 throw new Error(`Ruleset parameter is required with sourceFolder and fileName`);
             }
             
-            // Use the provided ruleset
-            const resolvedPath = this.constructRulesetPath(params.ruleset.sourceFolder, params.ruleset.fileName);
-            const rulesetConfig = {
-                filePath: resolvedPath,
-                rulesetContentPath: params.ruleset.rulesetContentPath || ''
-            };
+            const reportId = this.inferReportKey(params.name);
+            const bundledRulesetsFolder = extension.context?.extensionPath
+                ? path.join(extension.context.extensionPath, 'spectral-rulesets')
+                : 'spectral-rulesets';
+            const bundledDefaults = this.buildBundledDefaultRulesetMap(bundledRulesetsFolder);
+            const bundledDefaultRuleset = bundledDefaults[reportId];
             
             // Get git root for resolving local ruleset file paths (if ruleset source is local)
             const fileUri = vscode.Uri.file(normalizedPath);
             const gitRoot = await this.findGitRoot(fileUri);
             const gitRootPath = gitRoot?.fsPath;
             
-            // GitHub authentication will be handled by fetchRulesetsFromFolders if needed
-            // Try without auth first (works for public repos), only prompt if 401/403 error occurs
-            let authToken: string | undefined = undefined;
-            
-            const result = await validateWithSpectralRuleset(
+            const { result: response, usedRuleset } = await this.runSpectralValidationWithPerReportFallback(
                 content,
                 params.name,
-                rulesetConfig.filePath,
-                rulesetConfig.rulesetContentPath,
+                params.ruleset,
+                reportId,
+                bundledDefaultRuleset,
                 gitRootPath,
-                authToken
             );
-            const response = result as SpectralGovernancePayload & {
+            const enrichedResponse = response as SpectralGovernancePayload & {
                 metadata?: GovernanceRulesetMetadata;
                 schemaVersion?: '2';
                 reportId?: 'ai-readiness' | 'owasp' | 'rest-api-readiness';
                 report?: BuiltUnifiedReport;
             };
-            const rulesetInsights = await this.readRulesetInsights(rulesetConfig.filePath, params.name);
-            response.metadata = rulesetInsights.metadata;
-            const reportTitle = response.metadata?.name || params.name;
+            const resolvedPathForMetadata = this.constructRulesetPath(usedRuleset.sourceFolder, usedRuleset.fileName);
+            const rulesetInsights = await this.readRulesetInsights(resolvedPathForMetadata, params.name);
+            enrichedResponse.metadata = rulesetInsights.metadata;
+            const reportTitle = enrichedResponse.metadata?.name || params.name;
             const inferredReportId = this.inferReportKey(reportTitle);
             if (inferredReportId === 'ai-readiness' && llmValidation?.status === 'ready' && llmValidation.result) {
                 const llmViolations = this.llmService.mapLlmFindingsToGovernanceViolations(llmValidation);
-                response.violations = [...(response.violations || []), ...llmViolations];
+                enrichedResponse.violations = [...(enrichedResponse.violations || []), ...llmViolations];
             }
-            const unifiedReport = this.buildUnifiedReport(reportTitle, response);
-            response.score = unifiedReport.overview.score;
+            const unifiedReport = this.buildUnifiedReport(reportTitle, enrichedResponse);
+            enrichedResponse.score = unifiedReport.overview.score;
             await this.persistSpectralSection(normalizedPath, unifiedReport.reportId, unifiedReport.violationsById, apiHash);
-            (response as GetGovernanceResponse & { schemaVersion?: '2' }).schemaVersion = '2';
-            (response as GetGovernanceResponse).reportId = unifiedReport.reportId;
-            (response as GetGovernanceResponse).report = unifiedReport as UnifiedAnalyzeReport;
-            (response as any).llmValidation = llmValidation;
-            return response as GetGovernanceResponse;
+            (enrichedResponse as GetGovernanceResponse & { schemaVersion?: '2' }).schemaVersion = '2';
+            (enrichedResponse as GetGovernanceResponse).reportId = unifiedReport.reportId;
+            (enrichedResponse as GetGovernanceResponse).report = unifiedReport as UnifiedAnalyzeReport;
+            (enrichedResponse as any).llmValidation = llmValidation;
+            return enrichedResponse as GetGovernanceResponse;
         } catch (error: unknown) {
             this.logError(`Error checking ${params.name}:`, error);
             throw new Error(`Failed to check ${params.name}: ${(error as { message?: string }).message || 'Unknown error'}`);
@@ -786,17 +889,20 @@ export class GovernanceManager extends BaseRpcManager {
     }
 
     async getApplicableRulesets(params: GetApplicableRulesetsRequest): Promise<GetApplicableRulesetsResponse> {
-        const configuredFolders = getRulesetFoldersFromConfigValue(
-            getRulesetFolderSettingRaw(vscode.workspace.getConfiguration('apiDesigner'))
-        );
         const bundledRulesetsFolder = extension.context?.extensionPath
             ? path.join(extension.context.extensionPath, 'spectral-rulesets')
             : 'spectral-rulesets';
-        const primaryFolder = (configuredFolders[0] || bundledRulesetsFolder).replace(/[\\/]+$/, '');
-        const DEFAULT_GOVERNANCE_RULESETS = getDefaultGovernanceSpectralRulesets(primaryFolder);
+        const bundledDefaults = this.buildBundledDefaultRulesetMap(bundledRulesetsFolder);
+        const configuredRulesets = getAllSpectralRulesetsFromConfig().map((ruleset) => ({
+            name: ruleset.name,
+            sourceFolder: ruleset.sourceFolder,
+            fileName: ruleset.fileName,
+            rulesetContentPath: ruleset.rulesetContentPath || '',
+        }));
+        const governanceRulesets = this.selectGovernanceRulesets(configuredRulesets, bundledDefaults);
 
         const buildResponse = (): GetApplicableRulesetsResponse => ({
-            governanceRulesets: DEFAULT_GOVERNANCE_RULESETS.map(ruleset => ({
+            governanceRulesets: governanceRulesets.map(ruleset => ({
                 ...ruleset
             })),
         });
