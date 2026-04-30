@@ -4,7 +4,7 @@ API Designer is an OpenAPI-first extension for designing and analyzing API speci
 
 ## Quick Start
 
-1. Install the extension from Marketplace or VSIX.
+1. Install the API Designer extension from the VS Code marketplace
 2. Open an OpenAPI YAML file.
 3. Open the visual designer using any of these entry points:
    - The **Open in API Designer** CodeLens
