@@ -28,7 +28,7 @@ import { activateMCPServer } from './mcp';
 import { RPCLayer } from './RPCLayer';
 import { VisualizerWebview } from './visualizer/webview';
 import { EVENT_TYPE, MACHINE_VIEW } from '@wso2/arazzo-designer-core';
-import { startMCPServer, disposeMCPServer, isMCPServerRunning, onMCPServerStateChange, getMCPActiveFilePath } from './mcp/mcpServerRunner';
+import { startMCPServer, disposeMCPServer, isMCPServerRunning, onMCPServerStateChange, getMCPActiveFilePath, initializeMCPServerRunner } from './mcp/mcpServerRunner';
 import { RunWorkflowCodeLensProvider } from './mcp/runWorkflowCodeLens';
 
 let languageClient: LanguageClient | undefined;
@@ -70,6 +70,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(showCodeDisposable);
 
 	// Register the Start Arazzo Server command
+	initializeMCPServerRunner(context);
 	let mcpServerDisposable = vscode.commands.registerCommand('arazzo.startMCPServer', async (args?: any) => {
 		let filePath: string | undefined;
 		if (args && args.uri) {
@@ -116,6 +117,15 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Restart the server (like the play button) then run the workflow (like the Run lens).
 	context.subscriptions.push(
 		vscode.commands.registerCommand('arazzo.rerunWorkflow', async (args?: any) => {
+			const answer = await vscode.window.showWarningMessage(
+				'This file has changed since the Arazzo server was last started. Restart the server to run the workflow?',
+				{ modal: true },
+				'Yes'
+			);
+			if (answer !== 'Yes') {
+				vscode.window.showInformationMessage('Workflow execution cancelled.');
+				return;
+			}
 			await vscode.commands.executeCommand('arazzo.startMCPServer', args);
 			await new Promise(resolve => setTimeout(resolve, 2000));
 			await vscode.commands.executeCommand('arazzo.runWorkflow', args);
@@ -323,6 +333,18 @@ function initializeLanguageServer(context: vscode.ExtensionContext, runCodeLensP
 		// or the file has been modified since the last server start (dirty).
 		const activeMCPFilePath = getMCPActiveFilePath();
 		if (!isMCPServerRunning() || activeMCPFilePath !== filePath || runCodeLensProvider.isFileDirty()) {
+			const serverMessage = runCodeLensProvider.isFileDirty()
+				? 'This file has changed since the Arazzo server was last started. Restart the server to run the workflow?'
+				: 'The Arazzo server is not currently running for this file. Start it to run the workflow?';
+			const answer = await vscode.window.showWarningMessage(
+				serverMessage,
+				{ modal: true },
+				'Yes'
+			);
+			if (answer !== 'Yes') {
+				vscode.window.showInformationMessage('Workflow execution cancelled.');
+				return;
+			}
 			// Pass suppressPrompt=true so startMCPServer does not show its own
 			// "Try Now" notification — this command will open Copilot itself
 			// with the correct workflow ID below.

@@ -18,12 +18,15 @@
 
 import * as vscode from 'vscode';
 import { COMMANDS } from '../constants';
-import { startMCPServer } from './mcpServerRunner';
+import { startMCPServer, initializeMCPServerRunner } from './mcpServerRunner';
 
 /**
  * Registers the MCP Server CLI command so it can be triggered from the editor title bar play button.
  */
 export function activateMCPServer(context: vscode.ExtensionContext): void {
+    // Register the task-end listener so state is cleaned up when the server exits
+    initializeMCPServerRunner(context);
+
     const disposable = vscode.commands.registerCommand(
         COMMANDS.ARAZZO_START_MCP_SERVER,
         () => startMCPServer(context)
