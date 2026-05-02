@@ -106,8 +106,8 @@
         "icon": "$(play)"
       },
       {
-        "command": "arazzo.runWorkflow",
-        "title": "Run Arazzo Workflow",
+        "command": "arazzo.tryAIWorkflow",
+        "title": "Try Arazzo Workflow with AI",
         "category": "Arazzo"
       }
     ],

@@ -76,6 +76,6 @@ export class VisualizerRpcManager implements VisualizerAPI {
     }
 
     async runWorkflow(params: RunWorkflowRequest): Promise<void> {
-        await vscode.commands.executeCommand('arazzo.runWorkflow', params);
+        await vscode.commands.executeCommand('arazzo.tryAIWorkflow', params);
     }
 }
