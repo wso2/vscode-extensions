@@ -405,27 +405,40 @@ function initializeLanguageServer(context: vscode.ExtensionContext, runCodeLensP
 			return;
 		}
 
+		// Open the visualizer for this workflow if it is not already showing it.
+		const ctx = StateMachine.context();
+		const alreadyOpen =
+			VisualizerWebview.workflowPanel !== undefined &&
+			ctx.view === MACHINE_VIEW.Workflow &&
+			ctx.identifier === workflowId &&
+			ctx.documentUri === (args?.uri ?? vscode.Uri.file(filePath).toString());
+		if (!alreadyOpen) {
+			await vscode.commands.executeCommand('arazzo.openDesigner', args);
+			await new Promise(resolve => setTimeout(resolve, 300));
+		}
+
 		const port = getMCPServerPort();
 		if (!port) {
 			vscode.window.showWarningMessage('Arazzo server is not running. Start it using the play button.');
 			return;
 		}
 
-		const curlCommand = buildCurlCommand(workflowId, port, filePath);
+		const runCommand = buildRunCommand(workflowId, port, filePath);
 		const terminal = vscode.window.terminals.find(t => t.name === 'Arazzo') ?? vscode.window.createTerminal('Arazzo');
 		terminal.show(true); // preserve focus on the editor
-		terminal.sendText(curlCommand, false /* do not press Enter */);
+		terminal.sendText(runCommand, false /* do not press Enter */);
 	});
 
 	context.subscriptions.push(tryWorkflowCommand);
 }
 
 /**
- * Build a curl command string for POST /run/{workflowId}.
+ * Build a platform-appropriate HTTP request command for POST /run/{workflowId}.
+ * Uses Invoke-RestMethod on Windows and curl on Linux/macOS.
  * Input values are filled from the workflow's declared defaults;
  * any input without a default gets the placeholder "ENTER".
  */
-function buildCurlCommand(workflowId: string, port: number, filePath: string): string {
+function buildRunCommand(workflowId: string, port: number, filePath: string): string {
 	const inputsBody: Record<string, any> = {};
 	try {
 		const content = fs.readFileSync(filePath, 'utf-8');
@@ -455,9 +468,16 @@ function buildCurlCommand(workflowId: string, port: number, filePath: string): s
 	}
 
 	const bodyJson = JSON.stringify({ inputs: inputsBody });
-	// Escape double-quotes so the body embeds safely in a double-quoted shell argument.
-	const escapedBody = bodyJson.replace(/"/g, '\\"');
-	return `curl -X POST "http://localhost:${port}/run/${workflowId}" -H "Content-Type: application/json" -d "${escapedBody}"`;
+	const url = `http://localhost:${port}/run/${workflowId}`;
+
+	if (process.platform === 'win32') {
+		// PowerShell: single-quote the body so double-quotes inside are literal.
+		return `Invoke-RestMethod -Method Post -Uri "${url}" -ContentType "application/json" -Body '${bodyJson}'`;
+	} else {
+		// bash/zsh: escape double-quotes inside the double-quoted -d argument.
+		const escapedBody = bodyJson.replace(/"/g, '\\"');
+		return `curl -X POST "${url}" -H "Content-Type: application/json" -d "${escapedBody}"`;
+	}
 }
 
 async function promptForFileIconTheme(context: vscode.ExtensionContext) {
