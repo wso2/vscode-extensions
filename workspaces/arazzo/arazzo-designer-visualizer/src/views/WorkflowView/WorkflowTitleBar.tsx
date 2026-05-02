@@ -43,9 +43,11 @@ const TitleName = styled.span`
     color: var(--vscode-foreground);
     font-family: var(--vscode-font-family);
     white-space: nowrap;
+    overflow: hidden;
     text-overflow: ellipsis;
     max-width: 100%;
     letter-spacing: 0.01em;
+    flex-shrink: 1;
 `;
 
 const TryButton = styled(Button)`
