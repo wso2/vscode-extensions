@@ -99,6 +99,15 @@ export class RunWorkflowCodeLensProvider implements vscode.CodeLensProvider {
             if (match) {
                 const workflowId = match[1].trim().replace(/^['"]|['"]$/g, '');
                 const range = new vscode.Range(i, 0, i, line.length);
+    
+                lenses.push(new vscode.CodeLens(range, {
+                    title: this._fileDirty ? '↺ Retry' : '▶ Try',
+                    command: this._fileDirty ? 'arazzo.retryWorkflow' : 'arazzo.tryWorkflow',
+                    arguments: [{
+                        workflowId,
+                        uri: document.uri.toString()
+                    }]
+                }));
 
                 lenses.push(new vscode.CodeLens(range, {
                     title: this._fileDirty ? '↺ Retry with Copilot' : '▶ Try with Copilot',
@@ -109,14 +118,6 @@ export class RunWorkflowCodeLensProvider implements vscode.CodeLensProvider {
                     }]
                 }));
 
-                lenses.push(new vscode.CodeLens(range, {
-                    title: this._fileDirty ? '↺ Retry' : '▶ Try',
-                    command: this._fileDirty ? 'arazzo.retryWorkflow' : 'arazzo.tryWorkflow',
-                    arguments: [{
-                        workflowId,
-                        uri: document.uri.toString()
-                    }]
-                }));
             }
         }
 
