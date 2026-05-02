@@ -19,6 +19,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as yaml from 'js-yaml';
 import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from 'vscode-languageclient/node';
 import { StateMachine, openView } from './stateMachine';
 import { extension } from './Context';
@@ -28,7 +29,7 @@ import { activateMCPServer } from './mcp';
 import { RPCLayer } from './RPCLayer';
 import { VisualizerWebview } from './visualizer/webview';
 import { EVENT_TYPE, MACHINE_VIEW } from '@wso2/arazzo-designer-core';
-import { startMCPServer, disposeMCPServer, isMCPServerRunning, onMCPServerStateChange, getMCPActiveFilePath, initializeMCPServerRunner } from './mcp/mcpServerRunner';
+import { startMCPServer, disposeMCPServer, isMCPServerRunning, onMCPServerStateChange, getMCPActiveFilePath, initializeMCPServerRunner, getMCPServerPort } from './mcp/mcpServerRunner';
 import { RunWorkflowCodeLensProvider } from './mcp/runWorkflowCodeLens';
 
 let languageClient: LanguageClient | undefined;
@@ -116,7 +117,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	// "↺ Rerun" (i.e. the file was saved since the last server start).
 	// Restart the server (like the play button) then run the workflow (like the Run lens).
 	context.subscriptions.push(
-		vscode.commands.registerCommand('arazzo.rerunWorkflow', async (args?: any) => {
+		vscode.commands.registerCommand('arazzo.retryAIWorkflow', async (args?: any) => {
 			const answer = await vscode.window.showWarningMessage(
 				'This file has changed since the Arazzo server was last started. Restart the server to run the workflow?',
 				{ modal: true },
@@ -128,7 +129,27 @@ export async function activate(context: vscode.ExtensionContext) {
 			}
 			await vscode.commands.executeCommand('arazzo.startMCPServer', args);
 			await new Promise(resolve => setTimeout(resolve, 2000));
-			await vscode.commands.executeCommand('arazzo.runWorkflow', args);
+			await vscode.commands.executeCommand('arazzo.tryAIWorkflow', args);
+		})
+	);
+
+	// Register the Retry-workflow (curl) command — triggered when the "↺ Retry" CodeLens
+	// is clicked after the file has been saved.  Mirrors arazzo.retryAIWorkflow but targets
+	// the terminal curl flow instead of Copilot.
+	context.subscriptions.push(
+		vscode.commands.registerCommand('arazzo.retryWorkflow', async (args?: any) => {
+			const answer = await vscode.window.showWarningMessage(
+				'This file has changed since the Arazzo server was last started. Restart the server to run the workflow?',
+				{ modal: true },
+				'Yes'
+			);
+			if (answer !== 'Yes') {
+				vscode.window.showInformationMessage('Workflow execution cancelled.');
+				return;
+			}
+			await vscode.commands.executeCommand('arazzo.startMCPServer', args);
+			await new Promise(resolve => setTimeout(resolve, 2000));
+			await vscode.commands.executeCommand('arazzo.tryWorkflow', args);
 		})
 	);
 
@@ -290,10 +311,10 @@ function initializeLanguageServer(context: vscode.ExtensionContext, runCodeLensP
 
 	context.subscriptions.push(designerCommand);
 
-	// Register "Run Workflow" command — triggered by the Run Code Lens.
+	// Register "Try with AI" command — triggered by the "▶ Try with AI" Code Lens.
 	// Ensures the arazzo server is running, then opens Copilot with a prompt
 	// to execute the specific workflow.
-	const runWorkflowCommand = vscode.commands.registerCommand('arazzo.runWorkflow', async (args?: any) => {
+	const tryAIWorkflowCommand = vscode.commands.registerCommand('arazzo.tryAIWorkflow', async (args?: any) => {
 		let filePath: string | undefined;
 		let workflowId: string | undefined;
 
@@ -370,7 +391,73 @@ function initializeLanguageServer(context: vscode.ExtensionContext, runCodeLensP
 		}
 	});
 
-	context.subscriptions.push(runWorkflowCommand);
+	context.subscriptions.push(tryAIWorkflowCommand);
+
+	// Register "Try Workflow" command — triggered by the "▶ Try" / "↺ Retry" Code Lens.
+	// The server is already running when this is called (the lens only appears when running).
+	// For the dirty-file case, arazzo.retryWorkflow restarts the server first, then calls this.
+	const tryWorkflowCommand = vscode.commands.registerCommand('arazzo.tryWorkflow', async (args?: any) => {
+		const filePath = args?.uri ? vscode.Uri.parse(args.uri).fsPath : vscode.window.activeTextEditor?.document.uri.fsPath;
+		const workflowId: string | undefined = args?.workflowId;
+
+		if (!filePath || !workflowId) {
+			vscode.window.showWarningMessage('No Arazzo workflow found. Click the lens directly above a workflow definition.');
+			return;
+		}
+
+		const port = getMCPServerPort();
+		if (!port) {
+			vscode.window.showWarningMessage('Arazzo server is not running. Start it using the play button.');
+			return;
+		}
+
+		const curlCommand = buildCurlCommand(workflowId, port, filePath);
+		const terminal = vscode.window.terminals.find(t => t.name === 'Arazzo') ?? vscode.window.createTerminal('Arazzo');
+		terminal.show(true); // preserve focus on the editor
+		terminal.sendText(curlCommand, false /* do not press Enter */);
+	});
+
+	context.subscriptions.push(tryWorkflowCommand);
+}
+
+/**
+ * Build a curl command string for POST /run/{workflowId}.
+ * Input values are filled from the workflow's declared defaults;
+ * any input without a default gets the placeholder "ENTER".
+ */
+function buildCurlCommand(workflowId: string, port: number, filePath: string): string {
+	const inputsBody: Record<string, any> = {};
+	try {
+		const content = fs.readFileSync(filePath, 'utf-8');
+		const doc = yaml.load(content) as any;
+		const workflows: any[] = doc?.workflows ?? [];
+		const wf = workflows.find((w: any) => w?.workflowId === workflowId);
+		if (wf) {
+			// inputs JSON-Schema style (Arazzo 1.0.0)
+			const properties: Record<string, any> = wf?.inputs?.properties ?? {};
+			for (const [key, schemaDef] of Object.entries<any>(properties)) {
+				inputsBody[key] = schemaDef?.default !== undefined ? schemaDef.default : 'ENTER';
+			}
+			// parameters array style
+			const params: any[] = wf?.parameters ?? [];
+			for (const p of params) {
+				const name: string = p?.name;
+				if (!name) { continue; }
+				const inVal: string = p?.in ?? '';
+				if (inVal !== '' && inVal !== 'inputs') { continue; }
+				if (!(name in inputsBody)) {
+					inputsBody[name] = p?.value !== undefined ? p.value : 'ENTER';
+				}
+			}
+		}
+	} catch {
+		// Non-fatal — use empty inputs
+	}
+
+	const bodyJson = JSON.stringify({ inputs: inputsBody });
+	// Escape double-quotes so the body embeds safely in a double-quoted shell argument.
+	const escapedBody = bodyJson.replace(/"/g, '\\"');
+	return `curl -X POST "http://localhost:${port}/run/${workflowId}" -H "Content-Type: application/json" -d "${escapedBody}"`;
 }
 
 async function promptForFileIconTheme(context: vscode.ExtensionContext) {

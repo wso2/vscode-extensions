@@ -102,7 +102,16 @@ export class RunWorkflowCodeLensProvider implements vscode.CodeLensProvider {
 
                 lenses.push(new vscode.CodeLens(range, {
                     title: this._fileDirty ? '↺ Retry with AI' : '▶ Try with AI',
-                    command: this._fileDirty ? 'arazzo.rerunWorkflow' : 'arazzo.runWorkflow',
+                    command: this._fileDirty ? 'arazzo.retryAIWorkflow' : 'arazzo.tryAIWorkflow',
+                    arguments: [{
+                        workflowId,
+                        uri: document.uri.toString()
+                    }]
+                }));
+
+                lenses.push(new vscode.CodeLens(range, {
+                    title: this._fileDirty ? '↺ Retry' : '▶ Try',
+                    command: this._fileDirty ? 'arazzo.retryWorkflow' : 'arazzo.tryWorkflow',
                     arguments: [{
                         workflowId,
                         uri: document.uri.toString()

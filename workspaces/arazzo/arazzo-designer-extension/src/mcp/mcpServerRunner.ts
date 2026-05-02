@@ -32,12 +32,23 @@ import {
 /** The absolute path of the Arazzo file the current MCP server is serving. */
 let mcpActiveFilePath: string | undefined;
 
+/** The port the current MCP server is listening on. */
+let mcpServerPort: number | undefined;
+
 /**
  * Returns the file path of the Arazzo file currently being served by the MCP
  * server, or undefined if the server is not running.
  */
 export function getMCPActiveFilePath(): string | undefined {
     return isMCPServerRunning() ? mcpActiveFilePath : undefined;
+}
+
+/**
+ * Returns the port the current MCP server is listening on,
+ * or undefined if the server is not running.
+ */
+export function getMCPServerPort(): number | undefined {
+    return isMCPServerRunning() ? mcpServerPort : undefined;
 }
 
 /** Callback invoked whenever the MCP server starts or stops. */
@@ -152,7 +163,7 @@ function getFirstWorkflowId(arazzoFilePath: string): string | undefined {
  * Spawns the Go binary, writes .vscode/mcp.json, and shows output.
  *
  * @param suppressPrompt - When true, the "Try Now" follow-up notification is
- *   suppressed. Pass true when the caller (e.g. arazzo.runWorkflow) will open
+ *   suppressed. Pass true when the caller (e.g. arazzo.tryAIWorkflow) will open
  *   Copilot itself, to avoid showing a duplicate/wrong-workflow prompt.
  */
 export async function startMCPServer(context: vscode.ExtensionContext, arazzoFilePath?: string, suppressPrompt = false): Promise<void> {
@@ -244,8 +255,9 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
     // Launch the MCP server binary as a VS Code Task (mirrors the trace server)
     await executeMCPServerTask({ binaryPath, arazzoFilePath, port, tracerPort });
 
-    // Record which file this server is serving
+    // Record which file this server is serving and the port it is on
     mcpActiveFilePath = arazzoFilePath;
+    mcpServerPort = port;
 
     // Give the server a moment to start, then notify the user
     setTimeout(async () => {
@@ -318,6 +330,7 @@ export function disposeMCPServer(): void {
 export function initializeMCPServerRunner(context: vscode.ExtensionContext): void {
     registerMCPTaskEndListener(context, () => {
         mcpActiveFilePath = undefined;
+        mcpServerPort = undefined;
         notifyStateChange();
     });
 }
