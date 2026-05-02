@@ -61,6 +61,14 @@ let pipeline: Pipeline | null = null;
 let artifactDirs: string[] = [];
 let pollTimer: NodeJS.Timeout | null = null;
 
+// Indexing job queue — ensures only one indexing operation runs at a time
+let indexingJob: Promise<void> = Promise.resolve();
+
+function enqueueIndexing(job: () => Promise<void>): Promise<void> {
+    indexingJob = indexingJob.then(job, job);
+    return indexingJob;
+}
+
 function now(): number {
     return Date.now();
 }
@@ -293,7 +301,7 @@ async function handleInit(req: IpcRequestMessage): Promise<IpcResponseMessage> {
 
         if (db) {
             try {
-                db.close();
+                await db.close();
             } catch {
                 // Ignore close errors
             }
@@ -331,15 +339,20 @@ async function handleInit(req: IpcRequestMessage): Promise<IpcResponseMessage> {
 
                     // Start polling for incremental updates now that initial indexing is complete.
                     clearPolling();
-                    pollTimer = setInterval(async () => {
-                        try {
-                            await runIncrementalIndexing(artifactDirs);
-                            emitStatusChanged();
-                        } catch (error) {
-                            const msg = error instanceof Error ? error.message : String(error);
-                            emitLog('warn', `[Worker] Incremental indexing failed: ${msg}`);
-                        }
-                    }, pollIntervalMs);
+                    const scheduleNextPoll = () => {
+                        pollTimer = setTimeout(async () => {
+                            try {
+                                await enqueueIndexing(() => runIncrementalIndexing(artifactDirs));
+                                emitStatusChanged();
+                            } catch (error) {
+                                const msg = error instanceof Error ? error.message : String(error);
+                                emitLog('warn', `[Worker] Incremental indexing failed: ${msg}`);
+                            } finally {
+                                scheduleNextPoll();
+                            }
+                        }, pollIntervalMs);
+                    };
+                    scheduleNextPoll();
                 })
                 .catch((error) => {
                     const msg = error instanceof Error ? error.message : String(error);
@@ -392,7 +405,7 @@ async function handleIndexInitial(req: IpcRequestMessage): Promise<IpcResponseMe
         }
     }
 
-    await runInitialIndexing(dirs);
+    await enqueueIndexing(() => runInitialIndexing(dirs));
 
     return responseOk(req, {
         accepted: true,
@@ -428,7 +441,7 @@ async function handleIndexIncremental(req: IpcRequestMessage): Promise<IpcRespon
         }
     }
 
-    await runIncrementalIndexing(dirs);
+    await enqueueIndexing(() => runIncrementalIndexing(dirs));
     emitStatusChanged();
 
     return responseOk(req, {
@@ -452,7 +465,7 @@ async function handleNotifyFileChange(req: IpcRequestMessage): Promise<IpcRespon
     }
 
     const dir = path.dirname(req.payload.filePath);
-    await runIncrementalIndexing([dir]);
+    await enqueueIndexing(() => runIncrementalIndexing([dir]));
     emitStatusChanged();
 
     return responseOk(req, {
@@ -519,13 +532,20 @@ async function handleSearchSemantic(req: IpcRequestMessage): Promise<IpcResponse
 async function handleShutdown(req: IpcRequestMessage): Promise<IpcResponseMessage> {
     clearPolling();
 
+    // Wait for any pending indexing job to complete before shutting down
+    try {
+        await indexingJob;
+    } catch {
+        // Ignore errors in pending indexing job during shutdown
+    }
+
     if (embedder) {
         await embedder.close();
         embedder = null;
     }
     if (db) {
         try {
-            db.close();
+            await db.close();
         } catch {
             // Ignore close errors
         }
@@ -534,6 +554,7 @@ async function handleShutdown(req: IpcRequestMessage): Promise<IpcResponseMessag
 
     pipeline = null;
     artifactDirs = [];
+    indexingJob = Promise.resolve();
 
     state.available = false;
     state.initializing = false;

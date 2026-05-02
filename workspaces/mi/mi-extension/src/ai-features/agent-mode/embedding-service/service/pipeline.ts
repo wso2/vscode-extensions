@@ -20,6 +20,7 @@ import { Watcher, FileChange } from './file-watcher';
 import { XMLChunker } from './chunker';
 import { Embedder } from './embedder';
 import { OramaDB, ChunkMetadata } from '../db/orama';
+import * as path from 'path';
 
 export type PipelineProgressCallback = (
   stage: 'scanning' | 'embedding' | 'updating' | 'complete',
@@ -79,7 +80,7 @@ export class Pipeline {
 
     for (let i = 0; i < changes.length; i++) {
       const change = changes[i];
-      const fileName = change.filePath.split('/').pop() ?? change.filePath;
+      const fileName = path.basename(change.filePath);
 
       if (!change.exists) {
         console.log(`Deleting chunks for removed file: ${change.filePath}`);

@@ -86,7 +86,6 @@ export interface InitRequestPayload {
 	dbPath: string;
 	modelRootPath: string;
 	pollIntervalMs: number;
-	maxTokens: number;
 }
 
 export interface HealthRequestPayload {

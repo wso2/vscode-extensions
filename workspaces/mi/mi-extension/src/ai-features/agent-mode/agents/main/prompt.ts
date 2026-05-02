@@ -612,7 +612,7 @@ async function buildSessionContextSnapshot(params: SessionContextParams): Promis
  * value against the previous value stored on `SessionMetadata.sessionContextBlocks`
  * to decide which blocks to re-inject this turn.
  */
-function deriveBlockHashes(snapshot: SessionContextSnapshot): SessionContextBlockHashes {
+function deriveBlockHashes(snapshot: SessionContextSnapshot, semanticStatusToken?: string): SessionContextBlockHashes {
     return {
         env: hashJson({
             workingDirectory: snapshot.workingDirectory,
@@ -630,6 +630,7 @@ function deriveBlockHashes(snapshot: SessionContextSnapshot): SessionContextBloc
             miHttpAccessLogPath: snapshot.miHttpAccessLogPath,
             miServiceLogPath: snapshot.miServiceLogPath,
             miCorrelationLogPath: snapshot.miCorrelationLogPath,
+            semanticStatusToken: semanticStatusToken ?? null,
         }),
         connectors: hashJson({
             connectorArtifactIds: snapshot.connectorArtifactIds,
@@ -669,8 +670,22 @@ export interface SessionContextBuildResult {
  */
 export async function computeSessionContextBlockHashes(params: SessionContextParams): Promise<SessionContextBuildResult> {
     const built = await buildSessionContextSnapshot(params);
+    let semanticStatusToken: string | undefined = undefined;
+    try {
+        const svc = getEmbeddingService(params.projectPath);
+        if (svc.isAvailable) {
+            semanticStatusToken = 'semantic_ready';
+        } else if (svc.isInitializing) {
+            semanticStatusToken = 'semantic_initializing';
+        } else {
+            semanticStatusToken = 'semantic_unavailable';
+        }
+    } catch {
+        semanticStatusToken = undefined;
+    }
+
     return {
-        hashes: deriveBlockHashes(built.snapshot),
+        hashes: deriveBlockHashes(built.snapshot, semanticStatusToken),
         snapshot: built.snapshot,
         catalogWarnings: built.catalogWarnings,
         catalogStoreStatus: built.catalogStoreStatus,

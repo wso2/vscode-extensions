@@ -73,15 +73,26 @@ const Container = styled.div`
     font-size: 12px;
 `;
 
-const Header = styled.div`
+const Header = styled.button`
     display: flex;
     align-items: center;
+    width: 100%;
     padding: 6px 10px;
     background-color: color-mix(in srgb, var(--vscode-editorWidget-background) 92%, var(--vscode-foreground) 8%);
+    border: none;
+    color: inherit;
     border-bottom: 1px solid var(--vscode-editorWidget-border);
     cursor: pointer;
     user-select: none;
     gap: 6px;
+    text-align: left;
+    appearance: none;
+    -webkit-appearance: none;
+
+    &:focus-visible {
+        outline: 1px solid var(--vscode-focusBorder);
+        outline-offset: -1px;
+    }
 
     &:hover {
         background-color: var(--vscode-list-hoverBackground);
@@ -165,6 +176,11 @@ const ChunkHeader = styled.div`
     gap: 6px;
     user-select: none;
 
+    &:focus-visible {
+        outline: 1px solid var(--vscode-focusBorder);
+        outline-offset: -1px;
+    }
+
     &:hover {
         background-color: var(--vscode-list-hoverBackground);
     }
@@ -190,7 +206,7 @@ const ScoreBadge = styled.span<{ score: number }>`
     }};
 `;
 
-const FileLink = styled.span`
+const FileLink = styled.button`
     color: var(--vscode-textLink-foreground);
     font-size: 11px;
     cursor: pointer;
@@ -198,9 +214,19 @@ const FileLink = styled.span`
     text-overflow: ellipsis;
     white-space: nowrap;
     flex: 1;
+    border: none;
+    background: transparent;
+    padding: 0;
+    text-align: left;
+    font: inherit;
 
     &:hover {
         text-decoration: underline;
+    }
+
+    &:focus-visible {
+        outline: 1px solid var(--vscode-focusBorder);
+        outline-offset: 2px;
     }
 `;
 
@@ -287,8 +313,26 @@ interface ChunkItemProps {
 const ChunkItemComponent: React.FC<ChunkItemProps> = ({ chunk, index, onFileClick }) => {
     const [expanded, setExpanded] = useState(false);
     const hasContent = Boolean(chunk.content);
+    const contentId = `chunk-content-${chunk.chunk_id || index}`;
     const hierarchy = chunk.xml_element_hierarchy.join(' → ');
     const fileName = basename(chunk.file_path);
+
+    const toggleExpanded = () => {
+        if (hasContent) {
+            setExpanded((currentExpanded) => !currentExpanded);
+        }
+    };
+
+    const handleHeaderKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+        if (!hasContent) {
+            return;
+        }
+
+        if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
+            event.preventDefault();
+            toggleExpanded();
+        }
+    };
 
     const renderCodeWithLineNumbers = (code: string, startLine: number) => {
         const lines = code.split('\n');
@@ -302,9 +346,17 @@ const ChunkItemComponent: React.FC<ChunkItemProps> = ({ chunk, index, onFileClic
 
     return (
         <ChunkItem>
-            <ChunkHeader onClick={() => hasContent && setExpanded(!expanded)}>
+            <ChunkHeader
+                role={hasContent ? 'button' : undefined}
+                tabIndex={hasContent ? 0 : undefined}
+                aria-expanded={hasContent ? expanded : undefined}
+                aria-controls={hasContent ? contentId : undefined}
+                onClick={toggleExpanded}
+                onKeyDown={handleHeaderKeyDown}
+            >
                 <ScoreBadge score={chunk.score}>{(chunk.score * 100).toFixed(0)}%</ScoreBadge>
                 <FileLink
+                    type="button"
                     title={chunk.file_path}
                     onClick={(e) => {
                         e.stopPropagation();
@@ -318,13 +370,13 @@ const ChunkItemComponent: React.FC<ChunkItemProps> = ({ chunk, index, onFileClic
                     <HierarchyText title={hierarchy}>{hierarchy}</HierarchyText>
                 )}
                 {hasContent && (
-                    <ChunkExpandIcon>
+                    <ChunkExpandIcon aria-hidden="true">
                         <span className={`codicon ${expanded ? 'codicon-chevron-up' : 'codicon-chevron-down'}`} />
                     </ChunkExpandIcon>
                 )}
             </ChunkHeader>
             {expanded && hasContent && chunk.content && (
-                <ChunkContent>
+                <ChunkContent id={contentId}>
                     <CodeBlock>
                         {renderCodeWithLineNumbers(chunk.content, chunk.line_range[0])}
                     </CodeBlock>
@@ -362,7 +414,11 @@ const SemanticSearchSegment: React.FC<SemanticSearchSegmentProps> = ({ data, loa
 
     return (
         <Container>
-            <Header onClick={() => !loading && resultCount > 0 && setExpanded(!expanded)}>
+            <Header
+                type="button"
+                aria-expanded={!loading && resultCount > 0 ? expanded : undefined}
+                onClick={() => !loading && resultCount > 0 && setExpanded((currentExpanded) => !currentExpanded)}
+            >
                 {loading ? (
                     <Spinner className="codicon codicon-loading" />
                 ) : (
@@ -381,7 +437,7 @@ const SemanticSearchSegment: React.FC<SemanticSearchSegmentProps> = ({ data, loa
                     </>
                 )}
                 {!loading && resultCount > 0 && (
-                    <ExpandIcon>
+                    <ExpandIcon aria-hidden="true">
                         <span className={`codicon ${expanded ? 'codicon-chevron-up' : 'codicon-chevron-down'}`} />
                     </ExpandIcon>
                 )}
@@ -392,7 +448,7 @@ const SemanticSearchSegment: React.FC<SemanticSearchSegmentProps> = ({ data, loa
             )}
 
             {!loading && expanded && resultCount > 0 && (
-                <ChunkList>
+                <ChunkList id="semantic-search-results">
                     {results.map((chunk: SemanticSearchChunk, i: number) => (
                         <ChunkItemComponent
                             key={chunk.chunk_id || i}

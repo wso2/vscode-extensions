@@ -282,8 +282,11 @@ export class OramaDB {
     };
   }
 
-  close(): void {
-    this.persist().catch(console.error);
-    this.isInitialized = false;
+  async close(): Promise<void> {
+    try {
+      await this.persist();
+    } finally {
+      this.isInitialized = false;
+    }
   }
 }

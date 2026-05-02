@@ -37,6 +37,8 @@ const REQUIRED_MODEL_FILES = [
 ];
 
 const HF_BASE_URL = `https://huggingface.co/${MODEL_ID}/resolve/main`;
+const MAX_REDIRECTS = 5;
+const DOWNLOAD_TIMEOUT_MS = 30_000;
 
 // ─── Path Helpers ─────────────────────────────────────────────────────────────
 
@@ -122,17 +124,17 @@ function downloadFile(
             reject(err);
         };
 
-        const request = (reqUrl: string) => {
-            https.get(reqUrl, { headers: { 'User-Agent': 'wso2-mi-vscode-extension' } }, (res) => {
+        const request = (reqUrl: string, redirects = 0) => {
+            const req = https.get(reqUrl, { headers: { 'User-Agent': 'wso2-mi-vscode-extension' } }, (res) => {
                 // Follow redirects (HuggingFace issues both relative and absolute redirects)
                 if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+                    if (redirects >= MAX_REDIRECTS) {
+                        cleanup(new Error(`Too many redirects downloading ${url}`));
+                        return;
+                    }
                     res.resume(); // Consume response to free socket
-                    const location = res.headers.location;
-                    // Resolve relative redirect paths against the HuggingFace base origin
-                    const nextUrl = location.startsWith('/')
-                        ? `https://huggingface.co${location}`
-                        : location;
-                    request(nextUrl);
+                    const nextUrl = new URL(res.headers.location, reqUrl).toString();
+                    request(nextUrl, redirects + 1);
                     return;
                 }
 
@@ -172,7 +174,12 @@ function downloadFile(
 
                 res.on('error', cleanup);
                 fileStream.on('error', cleanup);
-            }).on('error', cleanup);
+            });
+
+            req.setTimeout(DOWNLOAD_TIMEOUT_MS, () => {
+                req.destroy(new Error(`Download timeout after ${DOWNLOAD_TIMEOUT_MS}ms: ${reqUrl}`));
+            });
+            req.on('error', cleanup);
         };
 
         request(url);

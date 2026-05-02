@@ -23,6 +23,10 @@ import { generateId } from "../utils";
 const TODO_WRITE_TOOL_NAME = 'todo_write';
 const SHELL_TOOL_NAMES = new Set(['shell', 'bash']);
 const SEMANTIC_SEARCH_TOOL_NAME = 'semantic_code_search';
+
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 /**
  * Calculate overall status from todo items
  */
@@ -317,7 +321,7 @@ export function convertEventsToMessages(
 
                         // Find and replace the loading semanticsearch tag by toolCallId
                         const semanticPatternWithId = new RegExp(
-                            `<semanticsearch data-loading="true" data-tool-call-id="${resultToolCallId}">[\\s\\S]*?<\\/semanticsearch>`, 'g'
+                            `<semanticsearch data-loading="true" data-tool-call-id="${escapeRegExp(resultToolCallId)}">[\\s\\S]*?<\\/semanticsearch>`, 'g'
                         );
                         const semanticMatchesWithId = [...currentAssistantMessage.content.matchAll(semanticPatternWithId)];
 
