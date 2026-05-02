@@ -426,7 +426,15 @@ function initializeLanguageServer(context: vscode.ExtensionContext, runCodeLensP
 		const runCommand = buildRunCommand(workflowId, port, filePath);
 		const terminal = vscode.window.terminals.find(t => t.name === 'Arazzo') ?? vscode.window.createTerminal('Arazzo');
 		terminal.show(true); // preserve focus on the editor
-		terminal.sendText(runCommand, false /* do not press Enter */);
+		
+		// If on Windows, pipe to Out-String to avoid truncation and then 
+		// convert from JSON for a clear property-list view.
+		let commandToExecute = runCommand;
+		if (process.platform === 'win32') {
+			commandToExecute = `${runCommand} | Format-List`;
+		}
+		
+		terminal.sendText(commandToExecute, false /* do not press Enter */);
 	});
 
 	context.subscriptions.push(tryWorkflowCommand);
