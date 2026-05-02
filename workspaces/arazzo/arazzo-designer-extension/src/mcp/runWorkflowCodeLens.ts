@@ -20,7 +20,7 @@ import * as vscode from 'vscode';
 import { isMCPServerRunning, getMCPActiveFilePath } from './mcpServerRunner';
 
 /**
- * CodeLens provider that shows a "▶ Try with AI" lens above each workflow
+ * CodeLens provider that shows a "▶ Try with Copilot" lens above each workflow
  * definition in an Arazzo YAML file, but ONLY when the MCP server
  * is currently running.
  */
@@ -33,7 +33,7 @@ export class RunWorkflowCodeLensProvider implements vscode.CodeLensProvider {
 
     /**
      * Mark the active file as dirty (saved since last server start).
-     * The CodeLens title switches from "▶ Try with AI" to "↺ Retry with AI".
+     * The CodeLens title switches from "▶ Try with Copilot" to "↺ Retry with Copilot".
      */
     public setFileDirty(dirty: boolean): void {
         this._fileDirty = dirty;
@@ -101,7 +101,7 @@ export class RunWorkflowCodeLensProvider implements vscode.CodeLensProvider {
                 const range = new vscode.Range(i, 0, i, line.length);
 
                 lenses.push(new vscode.CodeLens(range, {
-                    title: this._fileDirty ? '↺ Retry with AI' : '▶ Try with AI',
+                    title: this._fileDirty ? '↺ Retry with Copilot' : '▶ Try with Copilot',
                     command: this._fileDirty ? 'arazzo.retryAIWorkflow' : 'arazzo.tryAIWorkflow',
                     arguments: [{
                         workflowId,

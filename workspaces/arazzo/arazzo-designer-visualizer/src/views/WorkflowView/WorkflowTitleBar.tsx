@@ -120,7 +120,7 @@ export function WorkflowTitleBar({ workflowId, onTry, onHome }: WorkflowTitleBar
                 }}
                 onClick={onTry}
             >
-                ▶ Try with AI
+                🤖Try with Copilot
             </TryButton>
         </TitleBar>
     );

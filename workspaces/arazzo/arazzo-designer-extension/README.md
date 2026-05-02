@@ -28,7 +28,7 @@ Read complex API flows as a clear diagram instead of scanning long YAML or JSON 
 The extension adds helpful actions above workflow definitions.
 
 - **Visualize:** Open the selected workflow in the visualizer.
-- **Try with AI:** Run the selected workflow through Github Copilot.
+- **Try with Copilot:** Run the selected workflow through Github Copilot.
 
 ### GitHub Copilot Support
 

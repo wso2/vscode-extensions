@@ -311,7 +311,7 @@ function initializeLanguageServer(context: vscode.ExtensionContext, runCodeLensP
 
 	context.subscriptions.push(designerCommand);
 
-	// Register "Try with AI" command — triggered by the "▶ Try with AI" Code Lens.
+	// Register "Try with Copilot" command — triggered by the "▶ Try with Copilot" Code Lens.
 	// Ensures the arazzo server is running, then opens Copilot with a prompt
 	// to execute the specific workflow.
 	const tryAIWorkflowCommand = vscode.commands.registerCommand('arazzo.tryAIWorkflow', async (args?: any) => {
