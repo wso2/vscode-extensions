@@ -628,7 +628,9 @@ export function WorkflowView(props: WorkflowViewProps) {
                             onViewLogs: () => {
                                 setForcedPanelTab('logs');
                                 setSelectedNode(node);
-                                setIsPanelOpen(true);
+                                requestAnimationFrame(() => {
+                                    setIsPanelOpen(true);
+                                });
                             }
                         }
                     };
