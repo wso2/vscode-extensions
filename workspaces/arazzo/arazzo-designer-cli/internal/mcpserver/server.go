@@ -10,6 +10,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -248,6 +249,13 @@ func (s *MCPServer) executeWorkflowHandler(ctx context.Context, workflowID strin
 
 	log.Printf("Workflow inputs: %v", inputs)
 
+	// Validate inputs against the workflow schema (same logic as /run endpoint)
+	if wf := s.Runner.GetWorkflow(workflowID); wf != nil {
+		if errMsg := validateWorkflowInputs(wf, inputs); errMsg != "" {
+			return mcp.NewToolResultError(fmt.Sprintf("input validation failed: %s", errMsg)), nil
+		}
+	}
+
 	// Execute the workflow
 	result := s.Runner.ExecuteWorkflow(workflowID, inputs)
 
@@ -450,6 +458,11 @@ func validateWorkflowInputs(wf map[string]interface{}, inputs map[string]interfa
 		if schema := toMap(p["schema"]); schema != nil {
 			if typStr, ok := schema["type"].(string); ok {
 				if val, exists := inputs[name]; exists {
+					// Coerce if possible
+					if newVal, coerced := coerceValue(val, typStr); coerced {
+						val = newVal
+						inputs[name] = newVal
+					}
 					if errMsg := validateType(name, val, typStr); errMsg != "" {
 						errs = append(errs, errMsg)
 					}
@@ -494,6 +507,11 @@ func validateWorkflowInputs(wf map[string]interface{}, inputs map[string]interfa
 		}
 		if typStr, ok := propDef["type"].(string); ok {
 			if val, exists := inputs[propName]; exists {
+				// Coerce if possible
+				if newVal, coerced := coerceValue(val, typStr); coerced {
+					val = newVal
+					inputs[propName] = newVal
+				}
 				if errMsg := validateType(propName, val, typStr); errMsg != "" {
 					errs = append(errs, errMsg)
 				}
@@ -502,6 +520,28 @@ func validateWorkflowInputs(wf map[string]interface{}, inputs map[string]interfa
 	}
 
 	return strings.Join(errs, "; ")
+}
+
+// coerceValue attempts to convert a value (usually a string from a CLI or URL)
+// to the expected JSON Schema type. Returns the coerced value and true if
+// conversion was performed, or the original value and false otherwise.
+func coerceValue(val interface{}, typStr string) (interface{}, bool) {
+	s, isString := val.(string)
+	if !isString {
+		return val, false
+	}
+
+	switch typStr {
+	case "number", "integer":
+		if f, err := strconv.ParseFloat(s, 64); err == nil {
+			return f, true
+		}
+	case "boolean":
+		if b, err := strconv.ParseBool(s); err == nil {
+			return b, true
+		}
+	}
+	return val, false
 }
 
 // validateType verifies that val conforms to the given JSON Schema primitive type.
