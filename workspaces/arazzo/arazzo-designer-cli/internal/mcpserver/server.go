@@ -312,12 +312,17 @@ func (s *MCPServer) registerUtilityTools() {
 }
 
 // sanitizeToolName converts a workflow ID to a valid MCP tool name.
+// All characters that are not alphanumeric or underscores are replaced with "_".
 func sanitizeToolName(workflowID string) string {
-	// Replace characters that aren't valid in tool names
-	name := strings.ReplaceAll(workflowID, "-", "_")
-	name = strings.ReplaceAll(name, " ", "_")
-	name = strings.ReplaceAll(name, ".", "_")
-	return name
+	var b strings.Builder
+	for _, r := range workflowID {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' {
+			b.WriteRune(r)
+		} else {
+			b.WriteRune('_')
+		}
+	}
+	return b.String()
 }
 
 // Helper functions (local to mcpserver package)
@@ -349,6 +354,9 @@ func (s *MCPServer) handleRun(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.URL.Path, "/run/") {
 		workflowID = strings.TrimPrefix(r.URL.Path, "/run/")
 	}
+
+	// Limit request body to 1 MB to prevent memory exhaustion
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 
 	// Parse JSON body for inputs (and optional body-level workflowId as fallback)
 	var req RunRequest
@@ -479,6 +487,9 @@ func validateWorkflowInputs(wf map[string]interface{}, inputs map[string]interfa
 
 	properties := toMap(inputsDef["properties"])
 	requiredList := toSlice(inputsDef["required"])
+	// Track which fields were already reported missing to avoid duplicate errors
+	// when a field appears in both required[] and has required:true on the property.
+	reportedMissing := make(map[string]bool)
 	for _, r := range requiredList {
 		if rs, ok := r.(string); ok {
 			if _, exists := inputs[rs]; !exists {
@@ -489,6 +500,7 @@ func validateWorkflowInputs(wf map[string]interface{}, inputs map[string]interfa
 						continue
 					}
 				}
+				reportedMissing[rs] = true
 				errs = append(errs, fmt.Sprintf("missing required input: %s", rs))
 			}
 		}
@@ -501,7 +513,9 @@ func validateWorkflowInputs(wf map[string]interface{}, inputs map[string]interfa
 		}
 		if req, ok := propDef["required"].(bool); ok && req {
 			if _, exists := inputs[propName]; !exists {
-				errs = append(errs, fmt.Sprintf("missing required input: %s", propName))
+				if !reportedMissing[propName] {
+					errs = append(errs, fmt.Sprintf("missing required input: %s", propName))
+				}
 				continue // skip type check when value is absent
 			}
 		}
