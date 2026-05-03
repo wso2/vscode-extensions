@@ -60,6 +60,7 @@ let embedder: Embedder | null = null;
 let pipeline: Pipeline | null = null;
 let artifactDirs: string[] = [];
 let pollTimer: NodeJS.Timeout | null = null;
+let shuttingDown = false;
 
 // Indexing job queue — ensures only one indexing operation runs at a time
 let indexingJob: Promise<void> = Promise.resolve();
@@ -277,6 +278,9 @@ async function handleInit(req: IpcRequestMessage): Promise<IpcResponseMessage> {
     state.reason = 'Initializing worker resources';
     emitStatusChanged();
 
+    let nextDb: OramaDB | null = null;
+    let nextEmbedder: Embedder | null = null;
+
     try {
         const dbDirectory = path.dirname(dbPath);
         if (!fs.existsSync(dbDirectory)) {
@@ -288,9 +292,9 @@ async function handleInit(req: IpcRequestMessage): Promise<IpcResponseMessage> {
             await downloadModel(undefined, modelRootPath);
         }
 
-        const nextDb = new OramaDB(dbPath);
+        nextDb = new OramaDB(dbPath);
         await nextDb.initialize();
-        const nextEmbedder = new Embedder();
+        nextEmbedder = new Embedder();
 
         // Phase 1: Load the ONNX model 
         emitLog('info', '[Worker] Loading ONNX model — this may take a moment for large models');
@@ -315,6 +319,8 @@ async function handleInit(req: IpcRequestMessage): Promise<IpcResponseMessage> {
         db = nextDb;
         embedder = nextEmbedder;
         pipeline = nextPipeline;
+        nextDb = null;
+        nextEmbedder = null;
         artifactDirs = resolveArtifactDirs(projectPath, artifactsSubPath);
 
         // Phase 2: Mark worker as available immediately 
@@ -366,6 +372,22 @@ async function handleInit(req: IpcRequestMessage): Promise<IpcResponseMessage> {
 
         return responseOk(req, getStatusPayload());
     } catch (error) {
+        await Promise.allSettled([
+            nextEmbedder ? (async () => {
+                try {
+                    await nextEmbedder.close();
+                } catch {
+                    // Ignore close errors during failed init cleanup
+                }
+            })() : Promise.resolve(),
+            nextDb ? (async () => {
+                try {
+                    await nextDb.close();
+                } catch {
+                    // Ignore close errors during failed init cleanup
+                }
+            })() : Promise.resolve(),
+        ]);
         const message = error instanceof Error ? error.message : String(error);
         state.initializing = false;
         state.available = false;
@@ -530,7 +552,13 @@ async function handleSearchSemantic(req: IpcRequestMessage): Promise<IpcResponse
 }
 
 async function handleShutdown(req: IpcRequestMessage): Promise<IpcResponseMessage> {
+    shuttingDown = true;
     clearPolling();
+
+    state.available = false;
+    state.initializing = false;
+    state.reason = 'Shutdown in progress';
+    emitStatusChanged();
 
     // Wait for any pending indexing job to complete before shutting down
     try {
@@ -556,8 +584,6 @@ async function handleShutdown(req: IpcRequestMessage): Promise<IpcResponseMessag
     artifactDirs = [];
     indexingJob = Promise.resolve();
 
-    state.available = false;
-    state.initializing = false;
     state.chunkCount = 0;
     state.reason = 'Shutdown requested';
     emitStatusChanged();
@@ -619,6 +645,15 @@ function isInboundRequest(value: unknown): value is IpcInboundMessage {
 process.on('message', async (raw: unknown) => {
     if (!isInboundRequest(raw)) {
         emitLog('warn', 'Received invalid IPC message shape');
+        return;
+    }
+
+    if (shuttingDown && raw.method !== 'shutdown') {
+        sendMessage(responseError(raw, {
+            code: 'WORKER_NOT_READY',
+            message: 'Worker is shutting down',
+            retryable: true,
+        }));
         return;
     }
 

@@ -1612,7 +1612,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             }
             let content = lastMessage.content
                 .replace(/<toolcall data-loading="true"[^>]*>[^<]*<\/toolcall>/g, '')
-                .replace(/<bashoutput data-loading="true"[^>]*>[\s\S]*?<\/bashoutput>/g, '');
+                .replace(/<bashoutput data-loading="true"[^>]*>[\s\S]*?<\/bashoutput>/g, '')
+                .replace(/<semanticsearch data-loading="true"[^>]*>[\s\S]*?<\/semanticsearch>/g, '');
             content = content.trim();
             // Either marker counts as "already finalized" — prevents the
             // second path (user then backend, or vice versa) from stacking.

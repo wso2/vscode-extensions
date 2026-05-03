@@ -134,6 +134,7 @@ export class VSCodeEmbeddingService {
     private workerStopRequested = false;
     private workerStatusSnapshot: WorkerStatusSnapshot | null = null;
     private _onReady = new vscode.EventEmitter<boolean>();
+    private _onReadyDisposed = false;
     /** Fires when the service finishes initialization (true = success, false = failed). */
     public readonly onReady = this._onReady.event;
 
@@ -390,6 +391,7 @@ export class VSCodeEmbeddingService {
             this._statusBarItem.dispose();
             this._statusBarItem = null;
         }
+        this._onReadyDisposed = true;
         this._onReady.dispose();
         if (this.fileWatcher) {
             this.fileWatcher.dispose();
@@ -464,7 +466,9 @@ export class VSCodeEmbeddingService {
                 this.workerReady = false;
                 this.workerProcess = null;
                 this._isAvailable = false;
-                this._onReady.fire(false);
+                if (!this._onReadyDisposed) {
+                    this._onReady.fire(false);
+                }
                 this.rejectAllPendingWorkerRequests(
                     new Error(`[EmbeddingService] Worker exited (code=${code}, signal=${signal})`)
                 );
