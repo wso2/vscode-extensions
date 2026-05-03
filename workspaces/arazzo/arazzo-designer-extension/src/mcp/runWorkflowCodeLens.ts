@@ -101,7 +101,7 @@ export class RunWorkflowCodeLensProvider implements vscode.CodeLensProvider {
                 const range = new vscode.Range(i, 0, i, line.length);
     
                 lenses.push(new vscode.CodeLens(range, {
-                    title: this._fileDirty ? '↺ Retry' : '▶ Try',
+                    title: /*this._fileDirty ? '↺ Retry' :*/ '▶ Try',
                     command: this._fileDirty ? 'arazzo.retryWorkflow' : 'arazzo.tryWorkflow',
                     arguments: [{
                         workflowId,
@@ -110,7 +110,7 @@ export class RunWorkflowCodeLensProvider implements vscode.CodeLensProvider {
                 }));
 
                 lenses.push(new vscode.CodeLens(range, {
-                    title: this._fileDirty ? '↺ Retry with Copilot' : '▶ Try with Copilot',
+                    title: /* this._fileDirty ? '↺ Retry with Copilot' : */ '🤖Try with Copilot',
                     command: this._fileDirty ? 'arazzo.retryAIWorkflow' : 'arazzo.tryAIWorkflow',
                     arguments: [{
                         workflowId,
