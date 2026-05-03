@@ -183,8 +183,13 @@ func (s *MCPServer) buildWorkflowTool(workflowID string, wf map[string]interface
 			paramOpts = append(paramOpts, mcp.Required())
 		}
 
-		// Infer type from default value or use string
-		toolOpts = append(toolOpts, mcp.WithString(name, paramOpts...))
+		// Use the correct MCP property type based on the schema type
+		schemaMap := toMap(p["schema"])
+		schemaType := ""
+		if schemaMap != nil {
+			schemaType, _ = schemaMap["type"].(string)
+		}
+		toolOpts = append(toolOpts, mcpPropertyForType(schemaType, name, paramOpts...))
 	}
 
 	// Add parameters from workflow "inputs" JSON Schema (Arazzo 1.0.0 style)
@@ -229,7 +234,9 @@ func (s *MCPServer) buildWorkflowTool(workflowID string, wf map[string]interface
 				}
 			}
 
-			toolOpts = append(toolOpts, mcp.WithString(propName, paramOpts...))
+			// Use the correct MCP property type based on the schema type
+			propType, _ := propDef["type"].(string)
+			toolOpts = append(toolOpts, mcpPropertyForType(propType, propName, paramOpts...))
 		}
 	}
 
@@ -323,6 +330,23 @@ func sanitizeToolName(workflowID string) string {
 		}
 	}
 	return b.String()
+}
+
+// mcpPropertyForType returns the correct mcp.ToolOption for the given JSON Schema type.
+// Falls back to mcp.WithString for unknown or empty types.
+func mcpPropertyForType(typStr string, name string, opts ...mcp.PropertyOption) mcp.ToolOption {
+	switch typStr {
+	case "number", "integer":
+		return mcp.WithNumber(name, opts...)
+	case "boolean":
+		return mcp.WithBoolean(name, opts...)
+	case "object":
+		return mcp.WithObject(name, opts...)
+	case "array":
+		return mcp.WithArray(name, opts...)
+	default:
+		return mcp.WithString(name, opts...)
+	}
 }
 
 // Helper functions (local to mcpserver package)
@@ -536,23 +560,28 @@ func validateWorkflowInputs(wf map[string]interface{}, inputs map[string]interfa
 	return strings.Join(errs, "; ")
 }
 
-// coerceValue attempts to convert a value (usually a string from a CLI or URL)
-// to the expected JSON Schema type. Returns the coerced value and true if
-// conversion was performed, or the original value and false otherwise.
+// coerceValue attempts to convert val to the expected JSON Schema type.
+// Handles both directions: string→number/boolean and number/boolean→string.
+// Returns the coerced value and true if a conversion was performed,
+// or the original value and false if no conversion is needed or possible.
 func coerceValue(val interface{}, typStr string) (interface{}, bool) {
-	s, isString := val.(string)
-	if !isString {
-		return val, false
-	}
-
 	switch typStr {
+	case "string":
+		if _, ok := val.(string); !ok {
+			// Convert any primitive to its string representation (e.g. 1 → "1")
+			return fmt.Sprintf("%v", val), true
+		}
 	case "number", "integer":
-		if f, err := strconv.ParseFloat(s, 64); err == nil {
-			return f, true
+		if s, ok := val.(string); ok {
+			if f, err := strconv.ParseFloat(s, 64); err == nil {
+				return f, true
+			}
 		}
 	case "boolean":
-		if b, err := strconv.ParseBool(s); err == nil {
-			return b, true
+		if s, ok := val.(string); ok {
+			if b, err := strconv.ParseBool(s); err == nil {
+				return b, true
+			}
 		}
 	}
 	return val, false
