@@ -125,6 +125,7 @@ export class VSCodeEmbeddingService {
     private _isInitializing = false;
     private _initPromise: Promise<void> | null = null;
     private _statusBarItem: vscode.StatusBarItem | null = null;
+    private _disposed = false;
     private workerProcess: ChildProcess | null = null;
     private workerReady = false;
     private workerRequestSeq = 0;
@@ -234,6 +235,9 @@ export class VSCodeEmbeddingService {
     }
 
     private async _start(): Promise<void> {
+        if (this._disposed) {
+            return;
+        }
         try {
             // ── Phase 1: Download model with VS Code progress UI (one-time) ──
             if (!isModelDownloaded()) {
@@ -254,7 +258,13 @@ export class VSCodeEmbeddingService {
                         }
                     );
                     console.log(`[EmbeddingService] Model downloaded to: ${this.config.modelPath}`);
+                    if (this._disposed) {
+                        return;
+                    }
                 } catch (downloadError) {
+                    if (this._disposed) {
+                        return;
+                    }
                     console.error('[EmbeddingService] Model download failed:', downloadError);
                     this.showStatusBar('$(warning) MI: Model Download Failed',
                         `Failed to download embedding model: ${downloadError}`);
@@ -265,6 +275,9 @@ export class VSCodeEmbeddingService {
 
             // ── Phase 2: Start the worker process ────────────────────────────
             const workerStarted = await this.tryStartWorkerMode();
+            if (this._disposed) {
+                return;
+            }
             if (workerStarted) {
                 this.ensureFileWatcher();
                 return;
@@ -279,6 +292,9 @@ export class VSCodeEmbeddingService {
             );
             this._onReady.fire(false);
         } catch (error) {
+            if (this._disposed) {
+                return;
+            }
             console.error('[EmbeddingService] Failed to start:', error);
             this._isAvailable = false;
             this.showStatusBar('$(error) MI: Index Error', `Embedding service failed: ${error}`);
@@ -288,6 +304,10 @@ export class VSCodeEmbeddingService {
 
     private async tryStartWorkerMode(): Promise<boolean> {
         this.startWorkerSupervisor();
+
+        if (this._disposed) {
+            return false;
+        }
 
         if (!this.workerProcess) {
             this.workerReady = false;
@@ -305,8 +325,16 @@ export class VSCodeEmbeddingService {
                 pollIntervalMs: this.config.pollIntervalMs,
             }, WORKER_INIT_TIMEOUT_MS);
 
+            if (this._disposed) {
+                return false;
+            }
+
             await this.sendWorkerRequest('health', { ping: true });
             const status = await this.sendWorkerRequest<{}, WorkerStatusSnapshot>('status.get', {});
+
+            if (this._disposed) {
+                return false;
+            }
 
             this.workerReady = status.available;
             this.workerStatusSnapshot = status;
@@ -339,6 +367,9 @@ export class VSCodeEmbeddingService {
             this._onReady.fire(false);
             return false;
         } catch (error) {
+            if (this._disposed) {
+                return false;
+            }
             this.workerReady = false;
             this.workerStatusSnapshot = {
                 available: false,
@@ -386,6 +417,7 @@ export class VSCodeEmbeddingService {
      * Stop the service and release all resources.
      */
     async stop(): Promise<void> {
+        this._disposed = true;
         this.stopWorkerSupervisor();
         if (this._statusBarItem) {
             this._statusBarItem.dispose();
@@ -422,11 +454,12 @@ export class VSCodeEmbeddingService {
     }
 
     private startWorkerSupervisor(): void {
+        if (this._disposed || this.workerStopRequested) {
+            return;
+        }
         if (this.workerProcess) {
             return;
         }
-
-        this.workerStopRequested = false;
 
         if (this.workerRestartTimer) {
             clearTimeout(this.workerRestartTimer);
@@ -480,6 +513,15 @@ export class VSCodeEmbeddingService {
 
             this.workerProcess.on('error', (error) => {
                 console.error('[EmbeddingService] Worker process error:', error);
+                this.workerReady = false;
+                this.workerProcess = null;
+                this._isAvailable = false;
+                if (!this._onReadyDisposed) {
+                    this._onReady.fire(false);
+                }
+                this.rejectAllPendingWorkerRequests(
+                    new Error(`[EmbeddingService] Worker error: ${error?.message || error}`)
+                );
                 if (!this.workerStopRequested) {
                     this.scheduleWorkerRestart(`error(${error.message})`);
                 }
@@ -594,6 +636,10 @@ export class VSCodeEmbeddingService {
                     };
                     if (typeof status.available === 'boolean') {
                         this.workerReady = status.available;
+                        this._isAvailable = status.available;
+                    }
+                    if (typeof status.initializing === 'boolean') {
+                        this._isInitializing = status.initializing;
                     }
                     // Refresh status bar to reflect the latest worker state.
                     // This fires when background indexing completes (initializing

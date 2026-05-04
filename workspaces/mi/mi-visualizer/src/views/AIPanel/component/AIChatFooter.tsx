@@ -122,21 +122,38 @@ function upsertLoadingBashOutputTag(
     return beforeMatch + loadingTag + afterMatch;
 }
 
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+const serializeSemanticSearchPayload = (data: unknown): string =>
+    JSON.stringify(data)
+        .replace(/</g, '\\u003c')
+        .replace(/>/g, '\\u003e');
+
 function upsertLoadingSemanticSearchTag(
     content: string,
     query: string,
     toolCallId: string
 ): string {
-    const semanticData = JSON.stringify({ query, results: [], confidence: 'low', confidence_threshold: 0, query_latency_ms: 0, loading: true });
+    const semanticData = serializeSemanticSearchPayload({
+        query,
+        results: [],
+        confidence: 'low',
+        confidence_threshold: 0,
+        query_latency_ms: 0,
+        loading: true
+    });
     const loadingTag = `<semanticsearch data-loading="true" data-tool-call-id="${toolCallId}">${semanticData}</semanticsearch>`;
-    const pattern = /<semanticsearch data-loading="true"[^>]*>[\s\S]*?<\/semanticsearch>/g;
-    const matches = [...content.matchAll(pattern)];
-    if (matches.length === 0) {
-        return content + `\n\n${loadingTag}`;
+    if (toolCallId) {
+        const pattern = new RegExp(
+            `<semanticsearch data-loading="true" data-tool-call-id="${escapeRegExp(toolCallId)}">[\\s\\S]*?<\\/semanticsearch>`
+        );
+        return pattern.test(content)
+            ? content.replace(pattern, loadingTag)
+            : content + `\n\n${loadingTag}`;
     }
-    const fullMatch = matches[matches.length - 1][0];
-    const lastIndex = content.lastIndexOf(fullMatch);
-    return content.substring(0, lastIndex) + loadingTag + content.substring(lastIndex + fullMatch.length);
+    return content + `\n\n${loadingTag}`;
 }
 
 const WORKING_ON_IT_TOOL_MESSAGE = 'copilot is working on it...';
@@ -698,7 +715,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                         const completedData = semanticSearchData
                             ? { ...semanticSearchData, loading: false }
                             : { query: '', results: [], confidence: 'low' as const, confidence_threshold: 0, query_latency_ms: 0, loading: false };
-                        const completedTag = `<semanticsearch>${JSON.stringify(completedData)}</semanticsearch>`;
+                        const completedTag = `<semanticsearch>${serializeSemanticSearchPayload(completedData)}</semanticsearch>`;
                         const resultToolCallId = (event as any).toolCallId || '';
                         const patternWithId = resultToolCallId
                             ? new RegExp(`<semanticsearch data-loading="true" data-tool-call-id="${resultToolCallId}">[\\s\\S]*?<\\/semanticsearch>`)
