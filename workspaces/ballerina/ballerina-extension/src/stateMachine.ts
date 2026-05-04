@@ -884,6 +884,7 @@ export function openView(type: EVENT_TYPE, viewLocation: VisualizerLocation, res
     const { orgName, packageName } = getOrgAndPackageName(StateMachine.context().projectInfo, projectPath);
     viewLocation.org = orgName;
     viewLocation.package = packageName;
+    VisualizerWebview.currentPanel?.getWebview()?.reveal();
     stateService.send({ type: type, viewLocation: viewLocation });
 }
 
