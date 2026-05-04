@@ -646,9 +646,10 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
             const xmlPath = tool.apiXmlPath || api?.xmlPath || '';
             if (!xmlPath) return;
 
-            // Derive the resource index: unique paths in operation order match the XML resource array order
-            const uniquePaths = api ? [...new Set(api.operations.map(op => op.path))] : [];
-            const resourceIndex = uniquePaths.indexOf(tool.operationPath);
+            // Find resource index by matching both method and path
+            const resourceIndex = api?.operations.findIndex(
+                op => op.method === tool.operationMethod && op.path === tool.operationPath
+            ) ?? -1;
 
             rpcClient.getMiVisualizerRpcClient().openView({
                 type: EVENT_TYPE.OPEN_VIEW,
