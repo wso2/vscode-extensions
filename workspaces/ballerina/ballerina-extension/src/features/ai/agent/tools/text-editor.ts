@@ -924,16 +924,15 @@ export function createReadTool(execute: ReadExecute) {
     NOTE: The following files are restricted and cannot be read: ${RESTRICTED_READ_FILES.join(", ")}.
     Usage:
     - For workspace projects, include the package directory prefix in the file path (e.g., "myPackage/main.bal").
-    - If you know the line range of components, ALWAYS use the startLine and endLine parameters to read just that line ranges.
+    - If you know the line range of components, ALWAYS use the startLine and endLine parameters to read that component.
     - Any lines longer than 2000 characters will be truncated
     - If you don't know the line ranges of components and if the file is very large (more than 2000 characters), consider using the startLine and endLine parameters to read it in chunks.
-    - If the file is not large, you can read the entire file at once without providing startLine and endLine parameters.
     - The file content will be returned as string
     - If you read a file that exists but has empty contents you will receive a system reminder warning in place of file contents`,
     inputSchema: z.object({
       file_path: z.string().describe(getFilePathDescription("read")),
       startLine: z.number().optional().describe("The line number to start reading from. Use to read a specific range of lines."),
-      endLine: z.number().optional().describe("The line number to stop reading at (inclusive). Use to read a specific range of lines.")
+      endLine: z.number().optional().describe("The line number to stop reading at. Use to read a specific range of lines.")
     }),
     execute
   });

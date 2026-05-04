@@ -367,10 +367,10 @@ export const langlibTestCases = [
 
 // Code Indexing test cases for single packages existing codebase - Basic common prompts
 export const codeIndexingTestCasesForSinglePackage = [
-// {
-//   prompt: "Update calculate total function to accept an optional discount percentage and apply it to the final total. Also add a discount field to make sure it's used where relevant.", // keyword that already exists in the bal-md
-//   projectPath: "simple_order_management_system",
-// },
+{
+  prompt: "Update calculate total function to accept an optional discount percentage and apply it to the final total. Also add a discount field to make sure it's used where relevant.", // keyword that already exists in the bal-md
+  projectPath: "simple_order_management_system",
+},
 // {
 //   prompt: "Refactor the delete order id endpoint to add rate limiting so that each client can only make 100 requests per minute.", // unrelevant prompt
 //   projectPath: "simple_order_management_system"
@@ -419,10 +419,10 @@ export const codeIndexingTestCasesForSinglePackage = [
 //   prompt: "Delete the job role field from the employee record", // delete a field
 //   projectPath: "menu_app",
 // },
-{
-  prompt: "I want to add a maximum booking limit on dinner requests so once it is reached for a given date any new requests get rejected, the limit should be configurable.", // add new feature
-  projectPath: "menu_app"
-},
+// {
+//   prompt: "I want to add a maximum booking limit on dinner requests so once it is reached for a given date any new requests get rejected, the limit should be configurable.", // add new feature
+//   projectPath: "menu_app"
+// },
 // {
 //   prompt: "We're moving away from syncing dinner orders to Google Sheets, remove the sheet sync from the dinner flow so requests only get saved to the database.", // delete a feature
 //   projectPath: "menu_app"
@@ -436,32 +436,32 @@ export const codeIndexingTestCasesForSinglePackage = [
 // Code Indexing test cases for workspace existing codebase
 export const codeIndexingTestCasesForWorkspace = [
 // {
-//   prompt: "When we confirm an order, the payment method is accepted as any arbitrary string which means invalid values can slip through. Update the existing payment record type to replace the plain string field with a proper enum that restricts it to a fixed set of accepted methods like credit card, debit card, cash, and wallet.", // chnage the existing logic
+//   prompt: "When we confirm an order, the payment method is accepted as any arbitrary string which means invalid values can slip through. Update the existing payment record type to replace the plain string field with a proper enum that restricts it to a fixed set of accepted methods like credit card, debit card, cash, and wallet.", // change the existing logic
 //   projectPath: "workspace_order_management_system",
 // },
 // {
 //   prompt: "I want to add a gift wrapping option to the checkout process. When a customer checks out, they should be able to indicate that they want their order gift wrapped, and a small fixed surcharge should be added to the total. This choice should be visible in the final order result and mentioned in the confirmation email the customer receives.", // add new feature
-//   projectPath: "microservices"
+//   projectPath: "gcp_microservices"
 // },
 // {
 //   prompt: "I want to update the way product recommendations work so that instead of just returning a list of product identifiers, the service returns the full product details like name, description, and price directly in the response. This means the frontend won't need to make extra calls to look up each recommended product separately, so the shared response structure between the recommendation service and its callers will need to be updated too.", // change the existing logic
-//   projectPath: "microservices"
+//   projectPath: "gcp_microservices"
 // },
 // {
 //   prompt: "I want to remove the advertising feature from the platform entirely. This means stripping out the logic the frontend uses to fetch and display ads on the home page and product detail page, removing the ad fields from the response structures those pages return, and cleaning up all the shared type definitions and service client code that was used to communicate with the ad backend.", // delete a feature
-//   projectPath: "microservices"
+//   projectPath: "gcp_microservices"
 // },
 // {
 //   prompt: "I want to change how product search works, right now it does a plain text match against product names and descriptions, but I want it to instead filter by category so users can pass in one or more category identifiers and get back only products that belong to those categories. The search request structure, the matching logic, and the way the frontend sends search queries all need to be updated to reflect this new approach.", // change the existing logic
-//   projectPath: "microservices"
+//   projectPath: "gcp_microservices"
 // },
 // {
 //   prompt: "I want to add tests for the payment service to cover invalid card scenarios that aren't tested at all right now. We only have a test for a successful charge with a valid card, but there's nothing checking that the service correctly rejects an expired card or a card number that fails checksum validation.", // add new tests
-//   projectPath: "microservices"
+//   projectPath: "gcp_microservices"
 // },
 // {
 //   prompt: "I want to update the cart test to also verify that emptying the cart actually works.", // change the existing test logic
-//   projectPath: "microservices"
+//   projectPath: "gcp_microservices"
 // }
 ];
 

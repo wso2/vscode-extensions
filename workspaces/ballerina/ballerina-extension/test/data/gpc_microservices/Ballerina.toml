@@ -1,0 +1,2 @@
+[workspace]
+packages = ["client_stubs", "money", "adservice", "cartservice", "checkoutservice", "currencyservice", "emailservice", "frontend", "paymentservice", "productcatalogservice", "recommendationservice", "shippingservice"]
