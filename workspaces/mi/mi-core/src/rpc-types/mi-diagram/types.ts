@@ -1292,11 +1292,11 @@ export interface GetIdpSchemaFilesResponse {
     schemaFiles:  {fileName: string; documentUriWithFileName?: string}[];
 }
 
-export interface ReadIdpSchemaFileContentRequest{
+export interface ReadFileContentRequest{
     filePath: string;
 }
 
-export interface ReadIdpSchemaFileContentResponse{
+export interface ReadFileContentResponse{
     fileContent: string;
     base64Content?: string;
 }

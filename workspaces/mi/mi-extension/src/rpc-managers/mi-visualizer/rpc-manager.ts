@@ -69,7 +69,9 @@ import {
     ReloadDependenciesRequest,
     DependencyStatusResponse,
     ExecuteRemoteDeployParams,
-    DeployConfigParam
+    DeployConfigParam,
+    McpToolSuggestionRequest,
+    McpToolSuggestionResponse
 } from "@wso2/mi-core";
 import * as https from "https";
 import Mustache from "mustache";
@@ -1015,6 +1017,59 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
         } catch (e) {
             log(`Failed to parse URL. originalUrl="${originalUrl}", targetHost="${targetHost}", error=${e}`);
             return originalUrl;
+        }
+    }
+    
+    async getMcpToolSuggestion(params: McpToolSuggestionRequest): Promise<McpToolSuggestionResponse> {
+        const { toolName, operationMethod, operationPath, operationSummary } = params;
+
+        const contextLines: string[] = [`Tool name: ${toolName}`];
+        if (operationMethod) contextLines.push(`HTTP method: ${operationMethod}`);
+        if (operationPath) contextLines.push(`HTTP path: ${operationPath}`);
+        if (operationSummary) contextLines.push(`Operation summary: ${operationSummary}`);
+        const context = contextLines.join('\n');
+
+        const prompt = `You are helping to configure an MCP (Model Context Protocol) tool for a WSO2 Micro Integrator project.
+
+Given the following tool context:
+${context}
+
+Generate:
+1. A clear, one-sentence description of what this tool does (suitable as the MCP tool description shown to an AI assistant).
+2. A JSON input schema using shorthand notation {"paramName": "type"} where type is one of: string, number, boolean, integer. Always infer typical parameters based on the tool name and context — for example, get_weather would have {"city": "string", "units": "string"}, create_order would have {"customerId": "string", "amount": "number"}.
+
+Respond ONLY with a JSON object in this exact format, no other text:
+{"description": "...", "inputSchema": {"param1": "type1", "param2": "type2"}}`;
+
+        try {
+            const [model] = await vscode.lm.selectChatModels({ vendor: 'copilot', family: 'gpt-4o' });
+            if (!model) {
+                vscode.window.showWarningMessage(
+                    'Fill With AI requires GitHub Copilot. Please install and sign in to GitHub Copilot.'
+                );
+                return { description: '', inputSchema: '{}' };
+            }
+            const token = new vscode.CancellationTokenSource().token;
+            const request = await model.sendRequest(
+                [vscode.LanguageModelChatMessage.User(prompt)],
+                {},
+                token
+            );
+            let text = '';
+            for await (const chunk of request.stream) {
+                if (chunk instanceof vscode.LanguageModelTextPart) {
+                    text += chunk.value;
+                }
+            }
+            const cleaned = text.trim().replace(/^```json\s*/i, '').replace(/```\s*$/, '');
+            const parsed = JSON.parse(cleaned);
+            return {
+                description: parsed.description || '',
+                inputSchema: JSON.stringify(parsed.inputSchema || {}),
+            };
+        } catch (error: any) {
+            vscode.window.showErrorMessage(`Fill With AI failed: ${error?.message ?? 'Unknown error'}`);
+            return { description: '', inputSchema: '{}' };
         }
     }
 }
