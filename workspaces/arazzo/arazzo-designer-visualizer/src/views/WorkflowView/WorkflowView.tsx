@@ -746,6 +746,11 @@ export function WorkflowView(props: WorkflowViewProps) {
         rpcClient?.getVisualizerRpcClient().runWorkflow(params);
     }, [rpcClient, fileUri]);
 
+    const handleTryCurlWorkflow = useCallback(() => {
+        const params = { workflowId: effectiveWorkflowIdRef.current, uri: fileUri, mode: 'curl' as const };
+        rpcClient?.getVisualizerRpcClient().runWorkflow(params);
+    }, [rpcClient, fileUri]);
+
     const handleGoHome = useCallback(() => {
         rpcClient?.focusOverviewPanel(fileUri);
     }, [rpcClient, fileUri]);
@@ -801,6 +806,7 @@ export function WorkflowView(props: WorkflowViewProps) {
             <WorkflowTitleBar
                 workflowId={workflow?.workflowId ?? ''}
                 onTry={handleTryWorkflow}
+                onTryCurl={handleTryCurlWorkflow}
                 onHome={handleGoHome}
             />
         <div

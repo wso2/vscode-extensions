@@ -393,9 +393,9 @@ function initializeLanguageServer(context: vscode.ExtensionContext, runCodeLensP
 
 	context.subscriptions.push(tryAIWorkflowCommand);
 
-	// Register "Try Workflow" command — triggered by the "▶ Try" / "↺ Retry" Code Lens.
-	// The server is already running when this is called (the lens only appears when running).
-	// For the dirty-file case, arazzo.retryWorkflow restarts the server first, then calls this.
+	// Register "Try Workflow" command — triggered by the "▶ Try" / "↺ Retry" Code Lens
+	// or the "▶ Try" button in the webview title bar.
+	// Mirrors arazzo.tryAIWorkflow: prompts to start/restart the server when needed.
 	const tryWorkflowCommand = vscode.commands.registerCommand('arazzo.tryWorkflow', async (args?: any) => {
 		const filePath = args?.uri ? vscode.Uri.parse(args.uri).fsPath : vscode.window.activeTextEditor?.document.uri.fsPath;
 		const workflowId: string | undefined = args?.workflowId;
@@ -417,9 +417,29 @@ function initializeLanguageServer(context: vscode.ExtensionContext, runCodeLensP
 			await new Promise(resolve => setTimeout(resolve, 300));
 		}
 
+		// Start/restart the server when it is not running, serving a different file,
+		// or the file has been modified since the last server start.
+		const activeMCPFilePath = getMCPActiveFilePath();
+		if (!isMCPServerRunning() || activeMCPFilePath !== filePath || runCodeLensProvider.isFileDirty()) {
+			const serverMessage = runCodeLensProvider.isFileDirty()
+				? 'This file has changed since the Arazzo server was last started. Restart the server to run the workflow?'
+				: 'The Arazzo server is not currently running for this file. Start it to run the workflow?';
+			const answer = await vscode.window.showWarningMessage(
+				serverMessage,
+				{ modal: true },
+				'Yes'
+			);
+			if (answer !== 'Yes') {
+				vscode.window.showInformationMessage('Workflow execution cancelled.');
+				return;
+			}
+			await startMCPServer(context, filePath, true);
+			await new Promise(resolve => setTimeout(resolve, 2000));
+		}
+
 		const port = getMCPServerPort();
 		if (!port) {
-			vscode.window.showWarningMessage('Arazzo server is not running. Start it using the play button.');
+			vscode.window.showWarningMessage('Arazzo server failed to start. Please try again.');
 			return;
 		}
 

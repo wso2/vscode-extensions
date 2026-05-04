@@ -81,6 +81,13 @@ const HomeButton = styled(Button)`
     }
 `;
 
+const ButtonGroup = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+`;
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -88,10 +95,11 @@ const HomeButton = styled(Button)`
 interface WorkflowTitleBarProps {
     workflowId: string;
     onTry: () => void;
+    onTryCurl?: () => void;
     onHome?: () => void;
 }
 
-export function WorkflowTitleBar({ workflowId, onTry, onHome }: WorkflowTitleBarProps) {
+export function WorkflowTitleBar({ workflowId, onTry, onTryCurl, onHome }: WorkflowTitleBarProps) {
     return (
         <TitleBar>
             <TitleLeft>
@@ -112,18 +120,34 @@ export function WorkflowTitleBar({ workflowId, onTry, onHome }: WorkflowTitleBar
                 )}
                 <TitleName title={workflowId}>{workflowId}</TitleName>
             </TitleLeft>
-            <TryButton
-                appearance="secondary"
-                buttonSx={{
-                    backgroundColor: "transparent",
-                    color: "var(--vscode-foreground)",
-                    border: "none",
-                    boxShadow: "none",
-                }}
-                onClick={onTry}
-            >
-                🤖Try with Copilot
-            </TryButton>
+            <ButtonGroup>
+                {onTryCurl && (
+                    <TryButton
+                        appearance="secondary"
+                        buttonSx={{
+                            backgroundColor: "transparent",
+                            color: "var(--vscode-foreground)",
+                            border: "none",
+                            boxShadow: "none",
+                        }}
+                        onClick={onTryCurl}
+                    >
+                        ▶ Try
+                    </TryButton>
+                )}
+                <TryButton
+                    appearance="secondary"
+                    buttonSx={{
+                        backgroundColor: "transparent",
+                        color: "var(--vscode-foreground)",
+                        border: "none",
+                        boxShadow: "none",
+                    }}
+                    onClick={onTry}
+                >
+                    🤖Try with Copilot
+                </TryButton>
+            </ButtonGroup>
         </TitleBar>
     );
 }

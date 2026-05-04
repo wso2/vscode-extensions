@@ -56,4 +56,5 @@ export interface GetArazzoModelResponse {
 export interface RunWorkflowRequest {
     workflowId?: string;
     uri?: string;
+    mode?: 'ai' | 'curl';
 }
