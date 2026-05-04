@@ -856,8 +856,14 @@ function generateMcpServers(data: any[]): ProjectExplorerEntry[] {
 	for (const server of data) {
 		const serverEntry = new ProjectExplorerEntry(
 			server.name,
-			isCollapsibleState(true),
-			{ name: server.name, type: 'MCP_SERVER', path: server.localEntry?.path ?? '' },
+			isCollapsibleState(false),
+			{
+				name: server.name,
+				type: 'MCP_SERVER',
+				path: server.localEntry?.path ?? '',
+				localEntry: server.localEntry,
+				inboundEndpoint: server.inboundEndpoint
+			} as any,
 			'inbound-endpoint'
 		);
 		serverEntry.contextValue = 'mcpServer';
@@ -867,41 +873,6 @@ function generateMcpServers(data: any[]): ProjectExplorerEntry[] {
 			arguments: [server.localEntry?.path ?? '', server.name]
 		};
 
-		const children: ProjectExplorerEntry[] = [];
-
-		if (server.localEntry) {
-			const leEntry = new ProjectExplorerEntry(
-				server.localEntry.name,
-				isCollapsibleState(false),
-				server.localEntry,
-				'local-entry'
-			);
-			leEntry.contextValue = 'localEntry';
-			leEntry.command = {
-				title: 'Show Local Entry',
-				command: COMMANDS.SHOW_LOCAL_ENTRY,
-				arguments: [vscode.Uri.file(server.localEntry.path), undefined, false]
-			};
-			children.push(leEntry);
-		}
-
-		if (server.inboundEndpoint) {
-			const ieEntry = new ProjectExplorerEntry(
-				server.inboundEndpoint.name,
-				isCollapsibleState(false),
-				server.inboundEndpoint,
-				getInboundEndpointIcon(server.inboundEndpoint.subType as InboundEndpointTypes)
-			);
-			ieEntry.contextValue = 'inboundEndpoint';
-			ieEntry.command = {
-				title: 'Show Inbound Endpoint',
-				command: COMMANDS.SHOW_INBOUND_ENDPOINT,
-				arguments: [vscode.Uri.file(server.inboundEndpoint.path), undefined, false]
-			};
-			children.push(ieEntry);
-		}
-
-		serverEntry.children = children;
 		result.push(serverEntry);
 	}
 	return result;
