@@ -414,6 +414,9 @@ function initializeLanguageServer(context: vscode.ExtensionContext, runCodeLensP
 			commandToExecute = `${runCommand} | Format-List`;
 		}
 		
+		// Send a Ctrl+C (\u0003) to break anything currently running in the terminal
+		// before typing the new command.
+		terminal.sendText('\u0003', false);
 		terminal.sendText(commandToExecute, false /* do not press Enter */);
 	});
 
