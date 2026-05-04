@@ -113,46 +113,6 @@ export async function activate(context: vscode.ExtensionContext) {
 		})
 	);
 
-	// Register the Rerun-workflow command — triggered when the CodeLens shows
-	// "↺ Rerun" (i.e. the file was saved since the last server start).
-	// Restart the server (like the play button) then run the workflow (like the Run lens).
-	context.subscriptions.push(
-		vscode.commands.registerCommand('arazzo.retryAIWorkflow', async (args?: any) => {
-			const answer = await vscode.window.showWarningMessage(
-				'This file has changed since the Arazzo server was last started. Restart the server to run the workflow?',
-				{ modal: true },
-				'Yes'
-			);
-			if (answer !== 'Yes') {
-				vscode.window.showInformationMessage('Workflow execution cancelled.');
-				return;
-			}
-			await vscode.commands.executeCommand('arazzo.startMCPServer', args);
-			await new Promise(resolve => setTimeout(resolve, 2000));
-			await vscode.commands.executeCommand('arazzo.tryAIWorkflow', args);
-		})
-	);
-
-	// Register the Retry-workflow (curl) command — triggered when the "↺ Retry" CodeLens
-	// is clicked after the file has been saved.  Mirrors arazzo.retryAIWorkflow but targets
-	// the terminal curl flow instead of Copilot.
-	context.subscriptions.push(
-		vscode.commands.registerCommand('arazzo.retryWorkflow', async (args?: any) => {
-			const answer = await vscode.window.showWarningMessage(
-				'This file has changed since the Arazzo server was last started. Restart the server to run the workflow?',
-				{ modal: true },
-				'Yes'
-			);
-			if (answer !== 'Yes') {
-				vscode.window.showInformationMessage('Workflow execution cancelled.');
-				return;
-			}
-			await vscode.commands.executeCommand('arazzo.startMCPServer', args);
-			await new Promise(resolve => setTimeout(resolve, 2000));
-			await vscode.commands.executeCommand('arazzo.tryWorkflow', args);
-		})
-	);
-
 	// Initialize Arazzo Language Server for procode features
 	initializeLanguageServer(context, runCodeLensProvider);
 }
