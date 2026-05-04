@@ -99,6 +99,8 @@ import { findMultiModuleProjectsInWorkspaceDir } from "../../util/migrationUtils
 import { MILanguageClient } from "../../lang-client/activator";
 import { reorderModulesByBuildOrder } from "../../debugger/pomResolver";
 import { buildDeployExtraArgs, executeRemoteDeployTask } from "../../debugger/debugHelper";
+import { getAnthropicClient, ANTHROPIC_HAIKU_4_5 } from "../../ai-features/connection";
+import { generateText } from "ai";
 
 Mustache.escape = escapeXml;
 
@@ -1042,25 +1044,14 @@ Respond ONLY with a JSON object in this exact format, no other text:
 {"description": "...", "inputSchema": {"param1": "type1", "param2": "type2"}}`;
 
         try {
-            const [model] = await vscode.lm.selectChatModels({ vendor: 'copilot', family: 'gpt-4o' });
-            if (!model) {
-                vscode.window.showWarningMessage(
-                    'Fill With AI requires GitHub Copilot. Please install and sign in to GitHub Copilot.'
-                );
-                return { description: '', inputSchema: '{}' };
-            }
-            const token = new vscode.CancellationTokenSource().token;
-            const request = await model.sendRequest(
-                [vscode.LanguageModelChatMessage.User(prompt)],
-                {},
-                token
-            );
-            let text = '';
-            for await (const chunk of request.stream) {
-                if (chunk instanceof vscode.LanguageModelTextPart) {
-                    text += chunk.value;
-                }
-            }
+            const model = await getAnthropicClient(ANTHROPIC_HAIKU_4_5);
+            const { text } = await generateText({
+                model: model,
+                prompt: prompt,
+                temperature: 0.3,
+                maxOutputTokens: 500,
+            });
+
             const cleaned = text.trim().replace(/^```json\s*/i, '').replace(/```\s*$/, '');
             const parsed = JSON.parse(cleaned);
             return {
