@@ -367,10 +367,10 @@ export const langlibTestCases = [
 
 // Code Indexing test cases for single packages existing codebase - Basic common prompts
 export const codeIndexingTestCasesForSinglePackage = [
-{
-  prompt: "Update calculate total function to accept an optional discount percentage and apply it to the final total. Also add a discount field to make sure it's used where relevant.", // keyword that already exists in the bal-md
-  projectPath: "simple_order_management_system",
-},
+// {
+//   prompt: "Update calculate total function to accept an optional discount percentage and apply it to the final total. Also add a discount field to make sure it's used where relevant.", // keyword that already exists in the bal-md
+//   projectPath: "simple_order_management_system",
+// },
 // {
 //   prompt: "Refactor the delete order id endpoint to add rate limiting so that each client can only make 100 requests per minute.", // unrelevant prompt
 //   projectPath: "simple_order_management_system"
@@ -391,10 +391,10 @@ export const codeIndexingTestCasesForSinglePackage = [
 //   prompt: "Can you rename the dinner request record name to DodMealRequest", // refactor record name
 //   projectPath: "menu_app"
 // },
-// {
-//   prompt: "Can you merge the get dinner req by email and get dinner req by id function into one?", // merger two components
-//   projectPath: "menu_app"
-// },
+{
+  prompt: "Can you merge the get dinner req by email and get dinner req by id function into one?", // merger two components
+  projectPath: "menu_app"
+},
 // {
 //   prompt: "Can you explain how the authentication works in here?", // ask for explanation
 //   projectPath: "menu_app"

@@ -175,20 +175,16 @@ ${getLanglibInstructions()}
 - Mention types EXPLICITLY in variable declarations and foreach statements. (Avoid var at all costs)
 - To narrow down a union type(or optional type), always declare a separate variable and then use that variable in the if condition.
 
-# Codebase Understanding and Exploration Guidelines
-- When a user submits a query, it may include an attached Code Map (bal.md). The Code Map is your primary navigator into the codebase.
-- The Code Map lists each file's components (imports, configurables, variables, types, functions, services, listeners, classes) as **signature-only** entries annotated with their exact line range. Implementation bodies are intentionally excluded.
-- You have two primary tools for exploring the codebase: ${FILE_READ_TOOL_NAME} and ${GREP_TOOL_NAME}.
-- **Always consult the Code Map first** to locate the components you need to understand before fulfilling the user's request.
-- Use ${FILE_READ_TOOL_NAME} to read component implementation details.
-- Use ${GREP_TOOL_NAME} to search for specific keywords, types, or identifiers across the entire codebase. This is especially useful for understanding how a component is used, its dependencies, and its relationships with other components.
+# Codebase Exploration
+- When the user submit the query, You may receive the codebase summary known as **Code Map** (bal.md).
+- This Code Map contains each file's components (imports, configurables, variables, types, functions, services, listeners, classes). Entries are signature-only with exact line ranges in the format \`<signature> [L:<startLine> - L:<endLine>]\`; implementation bodies are excluded.
 
-## Codebase Exploration Rules
-- If you make changes to the codebase, the Code Map may become outdated. In such cases, rely more on ${GREP_TOOL_NAME} and ${FILE_READ_TOOL_NAME} for accurate information rather than the Code Map signatures.
-- After code changes, failing to update component usages may break the codebase. Make sure to check the usages of any components you have changed and update them accordingly.
-- DO NOT make assumptions about implementation behavior from Code Map signatures alone. When implementation details matter, read the precise range to verify.
+Use tools in this priority order:
+1. Find the relevant components - **first** analyse the signatures and their line ranges in the Code Map to understand where the relevant code is located. (This will help you determine which files and line ranges to read instead of blindly reading entire files.)
+2. **${FILE_READ_TOOL_NAME}** — read the precise line range to verify implementation details. Never assume behavior from a signature alone.
+3. **${GREP_TOOL_NAME}** — after any code change, the Code Map **will** become outdated. Use grep to find current usages, dependencies, and relationships instead of relying on stale signatures.
 
-## File modifications
+## File modifications and Component modifications
 - You must apply changes to the existing source code using the provided ${[
             FILE_BATCH_EDIT_TOOL_NAME,
             FILE_SINGLE_EDIT_TOOL_NAME,
@@ -201,6 +197,8 @@ ${getLanglibInstructions()}
 - Do not manually add/modify Dependencies.toml. For Config.toml configuration management, use ${CONFIG_COLLECTOR_TOOL}.
 - NEVER read Config.toml or tests/Config.toml directly. Use ${CONFIG_COLLECTOR_TOOL} CHECK mode to inspect configuration status — actual values must never be visible to you.
 - Prefer modifying existing bal files over creating new files unless explicitly asked to create a new file in the query.
+- **[CRITICAL — do not skip]** After every code change, immediately run ${GREP_TOOL_NAME} for every symbol you added, modified, or removed. You MUST update every callsite to match the new signature or behavior before responding to the user. Failing to do this WILL break the codebase.
+- After each code change, **always**use ${DIAGNOSTICS_TOOL_NAME} to check for compilation errors and fix them before proceeding. If errors cannot be resolved after multiple attempts, bring the code to a good state and finish the task.
 
 ## Workspace Management
 When working with Ballerina workspace projects (projects with a root Ballerina.toml containing a [workspace] section):
