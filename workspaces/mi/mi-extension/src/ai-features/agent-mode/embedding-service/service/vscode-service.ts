@@ -342,6 +342,7 @@ export class VSCodeEmbeddingService {
             this._isInitializing = status.initializing;
 
             if (status.available) {
+                this.workerRestartAttempts = 0;
                 // Worker is ready — initial indexing may still be running in the
                 // background (status.initializing === true). Show the appropriate
                 // status bar message based on the current indexing state.
@@ -499,6 +500,15 @@ export class VSCodeEmbeddingService {
                 this.workerReady = false;
                 this.workerProcess = null;
                 this._isAvailable = false;
+                this._isInitializing = false;
+                const exitReason = `Worker exited (code=${code}, signal=${signal})`;
+                this.workerStatusSnapshot = {
+                    available: false,
+                    initializing: false,
+                    chunkCount: 0,
+                    reason: exitReason,
+                };
+                this.showStatusBar('$(warning) MI: Worker Unavailable', exitReason);
                 if (!this._onReadyDisposed) {
                     this._onReady.fire(false);
                 }
@@ -516,6 +526,15 @@ export class VSCodeEmbeddingService {
                 this.workerReady = false;
                 this.workerProcess = null;
                 this._isAvailable = false;
+                this._isInitializing = false;
+                const errorReason = `Worker error: ${error?.message || error}`;
+                this.workerStatusSnapshot = {
+                    available: false,
+                    initializing: false,
+                    chunkCount: 0,
+                    reason: errorReason,
+                };
+                this.showStatusBar('$(warning) MI: Worker Unavailable', errorReason);
                 if (!this._onReadyDisposed) {
                     this._onReady.fire(false);
                 }
@@ -526,8 +545,6 @@ export class VSCodeEmbeddingService {
                     this.scheduleWorkerRestart(`error(${error.message})`);
                 }
             });
-
-            this.workerRestartAttempts = 0;
         } catch (error) {
             console.error('[EmbeddingService] Failed to start worker supervisor:', error);
             this.workerProcess = null;
