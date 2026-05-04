@@ -69,7 +69,8 @@ export class RPCLayer {
 
             if (state.event.viewLocation?.view) {
                 const documentUri = state.event.viewLocation?.documentUri?.toLowerCase();
-                commands.executeCommand('setContext', 'showGoToSource', documentUri?.endsWith('.xml') || documentUri?.endsWith('.ts') || documentUri?.endsWith('.dbs') || documentUri?.endsWith('.json'));
+                const isMcpConfigFile = documentUri?.includes('/local-entries/') && documentUri?.endsWith('-mcp-config.xml');
+                commands.executeCommand('setContext', 'showGoToSource', !isMcpConfigFile && (documentUri?.endsWith('.xml') || documentUri?.endsWith('.ts') || documentUri?.endsWith('.dbs') || documentUri?.endsWith('.json')));
             }
         });
         window.onDidChangeActiveColorTheme((theme) => {
