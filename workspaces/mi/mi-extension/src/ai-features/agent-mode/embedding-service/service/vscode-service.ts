@@ -37,6 +37,7 @@ const WORKER_INIT_TIMEOUT_MS = 15 * 60_000;
 const WORKER_RESTART_BASE_DELAY_MS = 1_000;
 const WORKER_RESTART_MAX_DELAY_MS = 30_000;
 const WORKER_RESTART_MAX_ATTEMPTS = 5;
+const WORKER_SHUTDOWN_TIMEOUT_MS = 3_000;
 
 interface PendingWorkerRequest {
     resolve: (value: unknown) => void;
@@ -419,7 +420,7 @@ export class VSCodeEmbeddingService {
      */
     async stop(): Promise<void> {
         this._disposed = true;
-        this.stopWorkerSupervisor();
+        await this.stopWorkerSupervisor();
         if (this._statusBarItem) {
             this._statusBarItem.dispose();
             this._statusBarItem = null;
@@ -555,7 +556,7 @@ export class VSCodeEmbeddingService {
         }
     }
 
-    private stopWorkerSupervisor(): void {
+    private async stopWorkerSupervisor(): Promise<void> {
         this.workerStopRequested = true;
         this.workerStatusSnapshot = null;
 
@@ -575,13 +576,41 @@ export class VSCodeEmbeddingService {
             new Error('[EmbeddingService] Worker supervisor stopped')
         );
 
+        proc.removeAllListeners('message');
+        proc.removeAllListeners('exit');
+        proc.removeAllListeners('error');
+
+        let shutdownSent = false;
         try {
-            proc.removeAllListeners('message');
-            proc.removeAllListeners('exit');
-            proc.removeAllListeners('error');
-            proc.kill();
+            proc.send({
+                v: IPC_PROTOCOL_VERSION,
+                id: `ws-shutdown-${Date.now()}`,
+                ts: Date.now(),
+                type: 'request',
+                method: 'shutdown',
+                payload: {},
+            });
+            shutdownSent = true;
         } catch {
-            // Ignore shutdown errors
+            // IPC channel already closed — skip to force kill
+        }
+
+        if (shutdownSent) {
+            await new Promise<void>((resolve) => {
+                const timer = setTimeout(resolve, WORKER_SHUTDOWN_TIMEOUT_MS);
+                proc.once('exit', () => {
+                    clearTimeout(timer);
+                    resolve();
+                });
+            });
+        }
+
+        try {
+            if (proc.exitCode === null && !proc.killed) {
+                proc.kill();
+            }
+        } catch {
+            // Ignore force-kill errors
         }
     }
 

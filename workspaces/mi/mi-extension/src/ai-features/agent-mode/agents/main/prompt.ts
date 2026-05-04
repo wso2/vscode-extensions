@@ -671,17 +671,21 @@ export interface SessionContextBuildResult {
 export async function computeSessionContextBlockHashes(params: SessionContextParams): Promise<SessionContextBuildResult> {
     const built = await buildSessionContextSnapshot(params);
     let semanticStatusToken: string | undefined = undefined;
-    try {
-        const svc = getEmbeddingService(params.projectPath);
-        if (svc.isAvailable) {
-            semanticStatusToken = 'semantic_ready';
-        } else if (svc.isInitializing) {
-            semanticStatusToken = 'semantic_initializing';
-        } else {
-            semanticStatusToken = 'semantic_unavailable';
+    if (!isSemanticToolEnabled(params.projectPath)) {
+        semanticStatusToken = 'semantic_disabled';
+    } else {
+        try {
+            const svc = getEmbeddingService(params.projectPath);
+            if (svc.isAvailable) {
+                semanticStatusToken = 'semantic_ready';
+            } else if (svc.isInitializing) {
+                semanticStatusToken = 'semantic_initializing';
+            } else {
+                semanticStatusToken = 'semantic_unavailable';
+            }
+        } catch {
+            semanticStatusToken = undefined;
         }
-    } catch {
-        semanticStatusToken = undefined;
     }
 
     return {
