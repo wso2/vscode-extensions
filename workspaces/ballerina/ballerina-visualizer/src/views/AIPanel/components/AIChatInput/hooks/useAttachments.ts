@@ -17,12 +17,13 @@
  */
 
 import { useState, useRef, ChangeEvent } from "react";
-import { Attachment, Command } from "@wso2/ballerina-core";
+import { Attachment, AttachmentStatus, Command } from "@wso2/ballerina-core";
 
 export interface AttachmentOptions {
     multiple: boolean;
     acceptResolver: (command: Command | null) => string;
     handleAttachmentSelection: (e: ChangeEvent<HTMLInputElement>, command: Command | null) => Promise<Attachment[]>;
+    onAttachClick?: (command: Command | null) => Promise<Attachment[]>;
 }
 
 interface UseAttachmentsProps {
@@ -34,9 +35,30 @@ export function useAttachments({ attachmentOptions, activeCommand }: UseAttachme
     const [attachments, setAttachments] = useState<Attachment[]>([]);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-    // open file input
-    function handleAttachClick() {
-        if (fileInputRef.current) {
+    // open file picker
+    async function handleAttachClick() {
+        if (attachmentOptions.onAttachClick) {
+            try {
+                const results = await attachmentOptions.onAttachClick(activeCommand);
+                setAttachments((prev) => {
+                    const updated = [...prev];
+                    results
+                        .filter((newFile) => newFile.status === AttachmentStatus.Success)
+                        .forEach((newFile) => {
+                            const existingIndex = updated.findIndex(
+                                (existing) => existing.name === newFile.name && existing.content === newFile.content
+                            );
+                            if (existingIndex !== -1) {
+                                updated.splice(existingIndex, 1);
+                            }
+                            updated.push(newFile);
+                        });
+                    return updated;
+                });
+            } catch (error) {
+                console.error("Failed to select context files", error);
+            }
+        } else if (fileInputRef.current) {
             fileInputRef.current.click();
         }
     }

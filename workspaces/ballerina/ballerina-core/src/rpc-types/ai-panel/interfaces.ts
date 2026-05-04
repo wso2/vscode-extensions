@@ -240,6 +240,10 @@ export interface ExistingFunction {
 // ==================================
 // Attachment-Related Interfaces
 // ==================================
+export interface SelectContextFilesRequest {
+    command: Command | null;
+}
+
 export interface Attachment {
     name: string;
     path?: string

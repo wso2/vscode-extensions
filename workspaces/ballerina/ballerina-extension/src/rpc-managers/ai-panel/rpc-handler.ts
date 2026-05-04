@@ -106,6 +106,8 @@ import {
     runService,
     RunServiceRequest,
     getDefaultVertexCredsPath,
+    selectContextFiles,
+    SelectContextFilesRequest,
 } from "@wso2/ballerina-core";
 import { workspace } from 'vscode';
 import { Messenger } from "vscode-messenger";
@@ -182,6 +184,7 @@ export function registerAiPanelRpcHandlers(messenger: Messenger) {
     messenger.onRequest(stopRunningService, (args: StopRunningServiceRequest) => rpcManger.stopRunningService(args));
     messenger.onRequest(runService, (args: RunServiceRequest) => rpcManger.runService(args));
     messenger.onRequest(getDefaultVertexCredsPath, () => rpcManger.getDefaultVertexCredsPath());
+    messenger.onRequest(selectContextFiles, (args: SelectContextFilesRequest) => rpcManger.selectContextFiles(args));
 
     // Push updates to the webview whenever the set of running services changes.
     runningServicesManager.onChange = (services) => {

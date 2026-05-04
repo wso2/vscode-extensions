@@ -24,6 +24,8 @@ import {
     AIPanelPrompt,
     AbortAIGenerationRequest,
     AddFilesToProjectRequest,
+    Attachment,
+    AttachmentStatus,
     CheckpointInfo,
     Command,
     DocGenerationRequest,
@@ -42,6 +44,7 @@ import {
     RestoreCheckpointRequest,
     SemanticDiffRequest,
     SemanticDiffResponse,
+    SelectContextFilesRequest,
     SubmitFeedbackRequest,
     TestGenerationMentions,
     UIChatMessage,
@@ -864,4 +867,39 @@ User reverted the last made changes. The files have been restored to the state b
         return "";
     }
 
+    async selectContextFiles(params: SelectContextFilesRequest): Promise<Attachment[]> {
+        const projectPath = StateMachine.context().projectPath;
+        const defaultUri = projectPath ? vscode.Uri.file(projectPath) : vscode.Uri.file(os.homedir());
+
+        const uris = await vscode.window.showOpenDialog({
+            canSelectMany: true,
+            canSelectFiles: true,
+            canSelectFolders: false,
+            defaultUri,
+            openLabel: "Attach",
+        });
+
+        if (!uris || uris.length === 0) {
+            return [];
+        }
+
+        const MAX_FILE_SIZE = 5 * 1024 * 1024;
+        const isDataMapper = params.command === Command.DataMap || params.command === Command.TypeCreator;
+
+        return uris.map((uri) => {
+            const filePath = uri.fsPath;
+            const name = path.basename(filePath);
+            try {
+                if (fs.statSync(filePath).size > MAX_FILE_SIZE) {
+                    return { name, status: AttachmentStatus.FileSizeExceeded };
+                }
+                const content = isDataMapper
+                    ? fs.readFileSync(filePath).toString("base64")
+                    : fs.readFileSync(filePath, "utf-8");
+                return { name, content, status: AttachmentStatus.Success };
+            } catch {
+                return { name, status: AttachmentStatus.UnknownError };
+            }
+        });
+    }
 }
