@@ -54,7 +54,9 @@ import {
     ProjectConfig,
     MavenDeployPluginDetails,
     ReloadDependenciesRequest,
-    DependencyStatusResponse
+    DependencyStatusResponse,
+    McpToolSuggestionRequest,
+    McpToolSuggestionResponse
 } from "./types";
 import { GettingStartedData, SampleDownloadRequest } from "./types";
 
@@ -111,4 +113,5 @@ export interface MIVisualizerAPI {
     getDeployPluginDetails: () => Promise<MavenDeployPluginDetails>;
     removeDeployPlugin: () => Promise<MavenDeployPluginDetails>;
     updateAiDependencies: (params: UpdateAiDependenciesRequest) => Promise<boolean>;
+    getMcpToolSuggestion: (params: McpToolSuggestionRequest) => Promise<McpToolSuggestionResponse>;
 }

@@ -195,6 +195,20 @@ export async function activateProjectExplorer(treeviewId: string, context: Exten
 		console.log('Add Data Source');
 	});
 
+	commands.registerCommand(COMMANDS.ADD_MCP_SERVER_COMMAND, (entry: ProjectExplorerEntry) => {
+		openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.MCPServerForm, documentUri: entry.info?.path });
+		console.log('Add MCP Server');
+	});
+
+	commands.registerCommand(COMMANDS.SHOW_MCP_SERVER, (localEntryPath: string, serverName: string) => {
+		revealWebviewPanel(true);
+		openView(EVENT_TYPE.OPEN_VIEW, {
+			view: MACHINE_VIEW.MCPServerFromAPIsForm,
+			documentUri: localEntryPath,
+			customProps: { editData: { serverName, localEntryPath } }
+		});
+	});
+	
 	commands.registerCommand(COMMANDS.REVEAL_ITEM_COMMAND, async (viewLocation: VisualizerLocation) => {
 		const data = projectExplorerDataProvider.getChildren();
 

@@ -52,8 +52,8 @@ import {
     WriteIdpSchemaFileToRegistryRequest,
     WriteIdpSchemaFileToRegistryResponse,
     GetIdpSchemaFilesResponse,
-    ReadIdpSchemaFileContentRequest,
-    ReadIdpSchemaFileContentResponse,
+    ReadFileContentRequest,
+    ReadFileContentResponse,
     CreateLocalEntryRequest,
     CreateLocalEntryResponse,
     FileDirResponse,
@@ -359,7 +359,7 @@ export const handleFileWithFS: RequestType<HandleFileRequest, HandleFileResponse
 export const writeIdpSchemaFileToRegistry: RequestType<WriteIdpSchemaFileToRegistryRequest, WriteIdpSchemaFileToRegistryResponse> = { method: `${_preFix}/writeIdpSchemaFileToRegistry` };
 export const getIdpSchemaFiles: RequestType<void, GetIdpSchemaFilesResponse> = { method: `${_preFix}/getIdpSchemaFiles` };
 export const convertPdfToBase64Images: RequestType<string, string[]> = { method: `${_preFix}/convertPdfToBase64Images` };
-export const readIdpSchemaFileContent: RequestType<ReadIdpSchemaFileContentRequest, ReadIdpSchemaFileContentResponse> = { method: `${_preFix}/readIdpSchemaFileContent` };
+export const readFileContent: RequestType<ReadFileContentRequest, ReadFileContentResponse> = { method: `${_preFix}/readFileContent` };
 export const highlightCode: NotificationType<HighlightCodeRequest> = { method: `${_preFix}/highlightCode` };
 export const getWorkspaceContext: RequestType<void, GetWorkspaceContextResponse> = { method: `${_preFix}/getWorkspaceContext` };
 export const getProjectUuid: RequestType<void, GetProjectUuidResponse> = { method: `${_preFix}/getProjectUuid` };
