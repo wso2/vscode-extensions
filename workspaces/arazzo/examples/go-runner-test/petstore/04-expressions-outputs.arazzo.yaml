@@ -1,0 +1,100 @@
+arazzo: 1.0.0
+info:
+  title: "Test 04 - Expressions and Outputs"
+  version: "1.0.0"
+  description: >
+    Tests various expression types:
+    - $inputs references
+    - $steps.stepId.outputs.x
+    - $steps.stepId.statusCode
+    - $response.body#/json/pointer
+    - $response.body.dotNotation
+    - $statusCode
+    - Nested object access
+    - Array access
+
+sourceDescriptions:
+  - name: petstore
+    url: ./petstore-openapi.yaml
+    type: openapi
+
+workflows:
+  - workflowId: expression_tests
+    summary: Test various expression evaluation scenarios
+    inputs:
+      type: object
+      properties:
+        petId:
+          type: integer
+          default: 11111
+        petName:
+          type: string
+          default: "ExpressionTestPet"
+    steps:
+      - stepId: createPet
+        operationId: addPet
+        requestBody:
+          contentType: application/json
+          payload:
+            id: "$inputs.petId"
+            name: "$inputs.petName"
+            photoUrls:
+              - "https://example.com/photo1.jpg"
+              - "https://example.com/photo2.jpg"
+            status: "available"
+            category:
+              id: 10
+              name: "TestCategory"
+            tags:
+              - id: 1
+                name: "friendly"
+              - id: 2
+                name: "trained"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          petId: "$response.body#/id"
+          petName: "$response.body#/name"
+          petStatus: "$response.body#/status"
+          categoryName: "$response.body#/category/name"
+          firstPhotoUrl: "$response.body#/photoUrls/0"
+          firstTagName: "$response.body#/tags/0/name"
+          statusCode: "$statusCode"
+          fullBody: "$response.body"
+
+      - stepId: verifyPet
+        operationId: getPetById
+        parameters:
+          - name: petId
+            in: path
+            value: "$steps.createPet.outputs.petId"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          verifiedName: "$response.body#/name"
+          verifiedCategoryName: "$response.body#/category/name"
+          dotNotationName: "$response.body.name"
+          dotNotationCatName: "$response.body.category.name"
+          httpStatus: "$statusCode"
+
+      # - stepId: cleanupPet
+      #   operationId: deletePet
+      #   parameters:
+      #     - name: petId
+      #       in: path
+      #       value: "$steps.createPet.outputs.petId"
+
+    outputs:
+      # Test $steps expressions chain
+      createdPetId: "$steps.createPet.outputs.petId"
+      createdPetName: "$steps.createPet.outputs.petName"
+      categoryNameFromCreate: "$steps.createPet.outputs.categoryName"
+      firstPhoto: "$steps.createPet.outputs.firstPhotoUrl"
+      firstTag: "$steps.createPet.outputs.firstTagName"
+      createStatusCode: "$steps.createPet.outputs.statusCode"
+      # Test verified outputs
+      verifiedName: "$steps.verifyPet.outputs.verifiedName"
+      verifiedCategory: "$steps.verifyPet.outputs.verifiedCategoryName"
+      dotName: "$steps.verifyPet.outputs.dotNotationName"
+      dotCatName: "$steps.verifyPet.outputs.dotNotationCatName"
+      verifyHttpStatus: "$steps.verifyPet.outputs.httpStatus"

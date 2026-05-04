@@ -52,3 +52,8 @@ export interface GetArazzoModelRequest {
 export interface GetArazzoModelResponse {
     model: ArazzoDefinition;
 }
+
+export interface RunWorkflowRequest {
+    workflowId?: string;
+    uri?: string;
+}

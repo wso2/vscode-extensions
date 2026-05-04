@@ -1,0 +1,72 @@
+arazzo: 1.0.0
+info:
+  title: "Test 09 - Request Body with Replacements"
+  version: "1.0.0"
+  description: >
+    Tests request body features:
+    - Direct payload with expression resolution
+    - Replacements using JSON Pointer targets
+    - Template string expressions in payload values
+
+sourceDescriptions:
+  - name: toolshop
+    url: ./toolshop-openapi.yaml
+    type: openapi
+
+workflows:
+  - workflowId: request_body_tests
+    summary: Test request body handling with replacements
+    inputs:
+      type: object
+      properties:
+        contactName:
+          type: string
+          default: "ReplacedUser"
+        contactSubject:
+          type: string
+          default: "ReplacedSubject"
+    steps:
+      - stepId: sendWithReplacements
+        description: "Send contact message with JSON Pointer replacements"
+        operationId: sendMessage
+        requestBody:
+          contentType: application/json
+          payload:
+            name: "placeholder"
+            email: "replacement-test@example.com"
+            subject: "placeholder"
+            message: "This is a test with replacements"
+          replacements:
+            - target: /name
+              value: "$inputs.contactName"
+            - target: /subject
+              value: "$inputs.contactSubject"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          replacedName: "$response.body#/name"
+          replacedSubject: "$response.body#/subject"
+          replacementId: "$response.body#/id"
+
+      - stepId: sendWithTemplateExpressions
+        description: "Send contact message using template expressions in body"
+        operationId: sendMessage
+        requestBody:
+          contentType: application/json
+          payload:
+            name: "{$inputs.contactName}-v2"
+            email: "template-test@example.com"
+            subject: "{$inputs.contactSubject}-followup"
+            message: "This is a follow-up message"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          templateName: "$response.body#/name"
+          templateSubject: "$response.body#/subject"
+          templateId: "$response.body#/id"
+
+    outputs:
+      replacedName: "$steps.sendWithReplacements.outputs.replacedName"
+      replacedSubject: "$steps.sendWithReplacements.outputs.replacedSubject"
+      templateName: "$steps.sendWithTemplateExpressions.outputs.templateName"
+      templateSubject: "$steps.sendWithTemplateExpressions.outputs.templateSubject"

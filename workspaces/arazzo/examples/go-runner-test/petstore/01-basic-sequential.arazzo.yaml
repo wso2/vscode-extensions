@@ -1,0 +1,73 @@
+arazzo: 1.0.0
+info:
+  title: "Test 01 - Basic Sequential Workflow"
+  version: "1.0.0"
+  description: >
+    Tests implicit next step execution (sequential flow).
+    Creates a pet, retrieves it by ID, then deletes it.
+    Validates: step outputs, $response.body expressions, path params, request body.
+
+sourceDescriptions:
+  - name: petstore
+    url: ./petstore-openapi.yaml
+    type: openapi
+
+workflows:
+  - workflowId: create_get_delete_pet
+    summary: Create, get, and delete a pet sequentially. if pet name is not provided, ask the user for a pet name
+    inputs:
+      type: object
+      properties:
+        petName:
+          type: string
+          # default: "TestDog"
+          required: true
+        petStatus:
+          type: string
+          default: "available"
+    steps:
+      - stepId: createPet
+        operationId: addPet
+        requestBody:
+          contentType: application/json
+          payload:
+            id: 98765
+            name: "$inputs.petName"
+            photoUrls:
+              - "https://example.com/photo.jpg"
+            status: "$inputs.petStatus"
+            category:
+              id: 1
+              name: "Dogs"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          petId: "$response.body#/id"
+          petName: "$response.body#/name"
+
+      - stepId: getPet
+        operationId: getPetById
+        parameters:
+          - name: petId
+            in: path
+            value: "$steps.createPet.outputs.petId"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          retrievedName: "$response.body#/name"
+          retrievedStatus: "$response.body#/status"
+
+      # - stepId: deletePet
+      #   operationId: deletePet
+      #   parameters:
+      #     - name: petId
+      #       in: path
+      #       value: "$steps.createPet.outputs.petId"
+      #   successCriteria:
+      #     - condition: "$statusCode == 200"
+
+    outputs:
+      createdPetId: "$steps.createPet.outputs.petId"
+      createdPetName: "$steps.createPet.outputs.petName"
+      retrievedPetName: "$steps.getPet.outputs.retrievedName"
+      retrievedPetStatus: "$steps.getPet.outputs.retrievedStatus"

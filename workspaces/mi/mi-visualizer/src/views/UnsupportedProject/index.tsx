@@ -236,7 +236,6 @@ export function UnsupportedProject(props: UnsupportedProjectProps) {
         await rpcClient.getMiDiagramRpcClient().migrateProject({ dir: openedDirectory, sources: foundOldProjects });
       } catch (error) {
         console.error('Migration failed:', error);
-      } finally {
         setIsMigrating(false);
       }
     }

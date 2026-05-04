@@ -191,14 +191,12 @@ export const ButtonGroup: React.FC<ButtonroupProps> = ({
                         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
                             {connectorDetails &&
                             <>
-                                {onDelete &&
-                                    <DeleteIconContainer
-                                        onClick={() => onDelete(title, connectorDetails.artifactId, connectorDetails.version,
-                                            iconUri, connectorDetails.connectorPath)}
-                                        className="delete-icon">
-                                        <Codicon name="trash" iconSx={{ fontSize: 20 }} />
-                                    </DeleteIconContainer>
-                                }
+                                <DeleteIconContainer
+                                    onClick={() => onDelete(title, connectorDetails.artifactId, connectorDetails.version,
+                                        iconUri, connectorDetails.connectorPath)}
+                                    className="delete-icon">
+                                    <Codicon name="trash" iconSx={{ fontSize: 20 }} />
+                                </DeleteIconContainer>
                                 {connectorDetails.isBallerinaModule &&
                                     <RefreshIconContainer
                                         onClick={() => onRefresh(title, connectorDetails.ballerinaModulePath)}

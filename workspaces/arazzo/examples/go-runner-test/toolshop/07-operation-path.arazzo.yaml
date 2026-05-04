@@ -1,0 +1,54 @@
+arazzo: "1.0.0"
+info:
+  title: "Test 07 - operationPath with JSON Pointer"
+  version: "1.0.0"
+  description: >
+    Tests using operationPath instead of operationId to reference operations.
+    Uses the {sourceDescriptionName}#{jsonPointer} format.
+
+sourceDescriptions:
+  - name: toolshop
+    url: ./toolshop-openapi.yaml
+    type: openapi
+
+workflows:
+  - workflowId: operation_path_test
+    summary: Test operationPath references
+    steps:
+      - stepId: getBrandsViaPath
+        description: "Use operationPath to reference getBrands"
+        operationPath: "toolshop#/paths/~1brands/get"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          firstBrandId: "$response.body#/0/id"
+          firstBrandName: "$response.body#/0/name"
+
+      - stepId: getBrandViaPath
+        description: "Use operationPath to reference getBrand"
+        operationPath: "toolshop#/paths/~1brands~1{brandId}/get"
+        parameters:
+          - name: brandId
+            in: path
+            value: "$steps.getBrandsViaPath.outputs.firstBrandId"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          verifiedName: "$response.body#/name"
+
+      - stepId: searchProductsViaPath
+        description: "Use operationPath to reference searchProduct"
+        operationPath: "toolshop#/paths/~1products~1search/get"
+        parameters:
+          - name: q
+            in: query
+            value: "$steps.getBrandsViaPath.outputs.firstBrandName"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          searchTotal: "$response.body#/total"
+
+    outputs:
+      firstBrandId: "$steps.getBrandsViaPath.outputs.firstBrandId"
+      verifiedBrandName: "$steps.getBrandViaPath.outputs.verifiedName"
+      searchTotal: "$steps.searchProductsViaPath.outputs.searchTotal"

@@ -22,7 +22,7 @@ import * as path from 'path';
 import * as childprocess from 'child_process';
 import { parseString, Builder } from 'xml2js';
 import { v4 as uuidv4 } from 'uuid';
-import { consolidatedProjectPomContent, dockerfileContent, rootPomXmlContent } from './templates';
+import { dockerfileContent, rootPomXmlContent } from './templates';
 import { createFolderStructure, copyDockerResources, copyMavenWrapper, removeMavenWrapper } from '.';
 import { commands, Uri, window, workspace } from 'vscode';
 import { extension } from '../MIExtensionContext';
@@ -30,7 +30,6 @@ import { XMLParser, XMLBuilder } from "fast-xml-parser";
 import { updatePomForClassMediator, LATEST_MI_VERSION } from './onboardingUtils';
 import { setJavaHomeInEnvironmentAndPath } from '../debugger/debugHelper';
 import { MVN_COMMANDS } from "../constants";
-import { updatePomWithParent } from './fileOperations';
 
 enum Nature {
     MULTIMODULE,
@@ -114,7 +113,6 @@ const xmlBuilderOptions = {
 };
 
 const BACKUP_DIR = '.backup';
-const MIGRATION_LOG_FILE = 'migration.log';
 const SRC = 'src';
 const MAIN = 'main';
 const WSO2MI = 'wso2mi';
@@ -128,9 +126,6 @@ const DATA_SOURCES = 'data-sources';
 const DATA_SERVICES = 'data-services';
 const CONNECTORS = 'connectors';
 const MAX_PROJECTS_TO_OPEN = 5;
-let migrationLogFilePath: string | undefined;
-const logQueue: string[] = [];
-let isFlushing = false;
 
 const SYNAPSE_TO_MI_ARTIFACT_FOLDER_MAP: Record<string, string> = {
     'api': 'apis',
@@ -145,271 +140,50 @@ const SYNAPSE_TO_MI_ARTIFACT_FOLDER_MAP: Record<string, string> = {
     'templates': 'templates'
 };
 
-const VALIDATION_SKIPPED_DIRS = new Set(['.backup', '.git']);
 const OLD_MULTI_MODULE_PROJECT_NATURES = [
     'org.wso2.developerstudio.eclipse.mavenmultimodule.project.nature',
     'org.eclipse.m2e.core.maven2Nature'
 ];
 
-function setMigrationLogFilePath(projectRoot: string) {
-    migrationLogFilePath = path.join(projectRoot, BACKUP_DIR, MIGRATION_LOG_FILE);
-}
-
-function stringifyForLog(value: unknown): string {
-    if (value instanceof Error) {
-        return value.stack || value.message;
-    }
-
-    if (typeof value === 'string') {
-        return value;
-    }
-
-    try {
-        return JSON.stringify(value);
-    } catch {
-        return String(value);
-    }
-}
-
-/**
- * Flushes queued migration log messages to the log file asynchronously.
- *
- * Writes all messages in `logQueue` to `migrationLogFilePath` in one batch.
- * If new logs arrive during writing, flushes again to ensure nothing is lost.
- *
- * @async
- * @returns {Promise<void>}
- */
-async function flushLogs() {
-    if (isFlushing || logQueue.length === 0 || !migrationLogFilePath) {
-        return;
-    }
-
-    isFlushing = true;
-
-    try {
-        // Take all queued logs
-        const logsToWrite = logQueue.splice(0, logQueue.length).join('\n') + '\n';
-        await fs.promises.appendFile(migrationLogFilePath, logsToWrite, 'utf-8');
-    } catch (error) {
-        console.error(`Failed to write migration log to ${migrationLogFilePath}:`, error);
-    } finally {
-        isFlushing = false;
-
-        // If new logs arrived while writing, flush again
-        if (logQueue.length > 0) {
-            flushLogs();
-        }
-    }
-}
-
-/**
- * Appends a formatted log entry to the migration log file, if available.
- *
- * @param level Log severity level.
- * @param args Values to serialize into the log line.
- */
-function appendLogToMigrationLogFile(level: 'log' | 'warn' | 'error', args: unknown[]) {
-    if (!migrationLogFilePath) {
-        return;
-    }
-
-    const timestamp = new Date().toISOString();
-    const logLine = `[${timestamp}] [${level.toUpperCase()}] ${args.map((arg) => stringifyForLog(arg)).join(' ')}`;
-
-    try {
-        const logDirectory = path.dirname(migrationLogFilePath);
-        if (!fs.existsSync(logDirectory)) {
-            fs.mkdirSync(logDirectory, { recursive: true });
-        }
-        // Add to queue
-        logQueue.push(logLine);
-        flushLogs()
-    } catch (error) {
-        console.error(`Failed to write migration log to ${migrationLogFilePath}:`, error);
-    }
-}
-
-function logInfo(...args: unknown[]) {
-    console.log(...args);
-    appendLogToMigrationLogFile('log', args);
-}
-
-function logWarn(...args: unknown[]) {
-    console.warn(...args);
-    appendLogToMigrationLogFile('warn', args);
-}
-
-function logError(...args: unknown[]) {
-    console.error(...args);
-    appendLogToMigrationLogFile('error', args);
-}
-
-/**
- * Returns a readable project nature name for logging.
- *
- * @param nature Project nature enum value.
- * @returns Nature name, or `UNKNOWN` when the value is undefined.
- */
-function getNatureName(nature: Nature | undefined): string {
-    return nature === undefined ? 'UNKNOWN' : Nature[nature];
-}
-
-/**
- * Recursively scans the source tree and returns all `pom.xml`, `artifact.xml` and `.project` file paths,
- * excluding directories listed in `VALIDATION_SKIPPED_DIRS`.
- *
- * @param rootDir Root directory to scan.
- * @returns Absolute paths of XML files that should be validated.
- */
-function collectXmlFilesForValidation(rootDir: string): string[] {
-    const neededFileNames = new Set(['pom.xml', 'artifact.xml', '.project']);
-    const files: string[] = [];
-
-    function walk(currentDir: string) {
-        const items = fs.readdirSync(currentDir, { withFileTypes: true });
-        for (const item of items) {
-            const fullPath = path.join(currentDir, item.name);
-            if (item.isDirectory()) {
-                if (VALIDATION_SKIPPED_DIRS.has(item.name)) {
-                    continue;
-                }
-                walk(fullPath);
-                continue;
-            }
-            if (neededFileNames.has(item.name)) {
-                files.push(fullPath);
-            }
-        }
-    }
-
-    walk(rootDir);
-    return files;
-}
-
-/**
- * Validates whether a given XML file can be parsed successfully.
- *
- * @param filePath Absolute path of the XML file to validate.
- * @returns `true` when parsing succeeds, otherwise `false`.
- */
-async function validateXmlFileIsParsable(filePath: string): Promise<boolean> {
-    try {
-        const content = fs.readFileSync(filePath, 'utf-8');
-        await new Promise<void>((resolve, reject) => {
-            parseString(content, { explicitArray: false, ignoreAttrs: false }, (err) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-                resolve();
-            });
-        });
-        return true;
-    } catch (error) {
-        logError(`Failed to parse ${filePath}: ${stringifyForLog(error)}`);
-        return false;
-    }
-}
-
-/**
- * Validates migration input files by parsing all required XML files under the source directory.
- *
- * @param source Source project root path.
- * @returns `true` when all required XML files are valid, otherwise `false`.
- */
-async function validateMigrationInputs(source: string): Promise<boolean> {
-    logInfo('Migration validation phase started.');
-    const xmlFilesToValidate = collectXmlFilesForValidation(source);
-    const invalidFiles: string[] = [];
-
-    for (const filePath of xmlFilesToValidate) {
-        const valid = await validateXmlFileIsParsable(filePath);
-        if (!valid) {
-            invalidFiles.push(filePath);
-        }
-    }
-
-    if (invalidFiles.length > 0) {
-        const MAX_DISPLAY = 10;
-
-        const filesToShow = invalidFiles.slice(0, MAX_DISPLAY);
-        const remainingCount = invalidFiles.length - filesToShow.length;
-
-        const displayedList = filesToShow.join('\n');
-        const moreMessage = remainingCount > 0
-            ? `\n...and ${remainingCount} more file(s).\n\nRefer to the migration.log file inside the .backup directory for the full list.`
-            : '';
-
-        const fullList = invalidFiles.join('\n');
-
-        logError(`Migration validation failed. Invalid files:\n${fullList}`);
-        void window.showErrorMessage(
-            `Migration stopped: Found ${invalidFiles.length} invalid file(s).\n\n` +
-            `${displayedList}${moreMessage}`,
-            { modal: true }
-        );
-        return false;
-    }
-
-    logInfo('Migration validation phase completed successfully.');
-    return true;
-}
-
 export async function importProjects(params: ImportProjectRequest[]): Promise<ImportProjectResponse[]> {
     const responses: ImportProjectResponse[] = [];
     const allCreatedFolderUris: Uri[] = [];
-    logInfo(`Starting migrate projects for ${params.length} request(s).`);
     for (const param of params) {
-        setMigrationLogFilePath(param.source);
-        logInfo(`Starting migration for project: ${param.source}`);
         try {
             const createdFolderPaths = await importProject(param);
-            logInfo(`Migration completed for source=${param.source}. Newly created project count=${createdFolderPaths.length}`);
             for (const folder of createdFolderPaths) {
                 responses.push({ filePath: folder.filePath });
                 allCreatedFolderUris.push(Uri.file(folder.filePath));
             }
         } catch (error) {
-            logError(`Failed to migrate project from source=${param.source}:`, error);
+            console.error(`Failed to import project from ${param.source}:`, error);
             responses.push({ filePath: '' });
         }
     }
-    const closeWindow = await handleWorkspaceAfterMigration(params[0].directory, allCreatedFolderUris);
-    logInfo("Project migration finished.");
-    await flushLogs();
-    await closeWindowIfRequired(closeWindow);
+    if (allCreatedFolderUris.length > 0) {
+        await handleWorkspaceAfterMigration(params[0].directory, allCreatedFolderUris);
+    }
     return responses;
 }
 
 export async function importProject(params: ImportProjectRequest): Promise<ImportProjectResponse[]> {
     const { source, directory, open } = params;
-
     const projectUri = workspace.getWorkspaceFolder(Uri.file(source))?.uri?.fsPath;
     if (!projectUri) {
         window.showErrorMessage('Please select a valid project directory');
         throw new Error('Invalid project directory');
     }
 
-    const validationSucceeded = await validateMigrationInputs(source);
-    if (!validationSucceeded) {
-        logWarn('Migration aborted due to validation errors.');
-        return [];
-    }
-
     const projectUuid = uuidv4();
 
     let { projectName, groupId, artifactId, version, runtimeVersion } = getProjectDetails(source);
-    logInfo(`Project details lookup completed, projectName=${projectName ?? ''}, groupId=${groupId ?? ''}, artifactId=${artifactId ?? ''}, version=${version ?? ''}`);
 
     if (projectName && groupId && artifactId && version) {
         const destinationFolderPath = path.join(source, ".backup");
-        logInfo(`Moving source content to backup. from=${source}, to=${destinationFolderPath}`);
         moveFiles(source, destinationFolderPath);
         deleteEmptyFoldersInPath(source);
-        logInfo('Source directory cleanup completed after moving content to .backup directory.');
 
-        const projectDirsWithType = await getProjectDirectoriesWithType(destinationFolderPath);
+        const projectDirsWithType = getProjectDirectoriesWithType(destinationFolderPath);
         const projectDirToResolvedPomMap = await generateProjectDirToResolvedPomMap(destinationFolderPath);
 
         const createdProjectCount = await createFolderStructuresForDistributionProjects(
@@ -419,13 +193,12 @@ export async function importProject(params: ImportProjectRequest): Promise<Impor
             projectDirToResolvedPomMap,
             projectDirsWithType
         );
-
         // If no folder structure was created, create one in the given directory
         if (createdProjectCount == 0) {
-            const folderStructure = await getFolderStructure(projectName, groupId, artifactId, projectUuid, version, runtimeVersion ?? LATEST_MI_VERSION);
+            const folderStructure = getFolderStructure(projectName, groupId, artifactId, projectUuid, version, runtimeVersion ?? LATEST_MI_VERSION);
             await createFolderStructure(source, folderStructure);
             copyDockerResources(extension.context.asAbsolutePath(path.join('resources', 'docker-resources')), source);
-            logInfo("Created project structure for project: " + projectName);
+            console.log("Created project structure for project: " + projectName);
         }
 
         const createdFolderUris = await migrateConfigs(projectUri, path.join(source, ".backup"), source, projectDirToResolvedPomMap, projectDirsWithType, createdProjectCount);
@@ -464,20 +237,18 @@ async function createFolderStructuresForDistributionProjects(
     projectDirsWithType: { projectDir: string, projectType: Nature }[]
 ): Promise<number> {
     let distributionProjectCount = 0;
-    logInfo(`Scanning for distribution projects.`);
 
     for (const { projectDir, projectType } of projectDirsWithType) {
         if (projectType === Nature.DISTRIBUTION) {
             const relativeDir = path.relative(destinationFolderPath, projectDir);
             const newProjectDir = path.join(directory, relativeDir);
-            logInfo(`Creating folder structure for distribution project. projectDir=${projectDir}, targetDir=${newProjectDir}`);
             try {
                 fs.mkdirSync(newProjectDir, { recursive: true });
                 let { projectName, groupId, artifactId, version, runtimeVersion } =
                     getProjectDetails(projectDir, projectDirToResolvedPomMap);
 
                 if (projectName && groupId && artifactId && version) {
-                    const newFolderStructure = await getFolderStructure(
+                    const newFolderStructure = getFolderStructure(
                         projectName,
                         groupId,
                         artifactId,
@@ -490,16 +261,15 @@ async function createFolderStructuresForDistributionProjects(
                         extension.context.asAbsolutePath(path.join("resources", "docker-resources")),
                         newProjectDir
                     );
-                    logInfo("Created project structure for project: " + projectName);
+                    console.log("Created project structure for project: " + projectName);
                 }
             } catch (err) {
-                logError(`Failed to create folder structure at ${newProjectDir}:`, err);
+                console.error(`Failed to create folder structure at ${newProjectDir}:`, err);
             }
             distributionProjectCount++;
         }
     }
 
-    logInfo(`Distribution project scan finished. Identified distribution projects count=${distributionProjectCount}`);
     return distributionProjectCount;
 }
 
@@ -518,12 +288,10 @@ async function createFolderStructuresForDistributionProjects(
  */
 export async function generateProjectDirToResolvedPomMap(multiModuleProjectDir: string): Promise<Map<string, string>> {
     const projectDirToResolvedPomMap = new Map<string, string>();
-    logInfo(`Generating resolved POM map.`);
 
-    await copyMavenWrapper(extension.context.asAbsolutePath(path.join('resources', 'maven-wrapper')), multiModuleProjectDir, true);
+    await copyMavenWrapper(extension.context.asAbsolutePath(path.join('resources', 'maven-wrapper')), multiModuleProjectDir);
     const pomResolvedResult = await getResolvedPomXmlContent(path.join(multiModuleProjectDir, 'pom.xml'));
     if (!pomResolvedResult.success) {
-        logWarn(`Failed to resolve root pom.xml in ${multiModuleProjectDir}, error=${pomResolvedResult.error ?? ''}`);
         await window.showWarningMessage(
             `Migration may fail: Unable to resolve the root pom.xml in ${multiModuleProjectDir}.\nError: ${pomResolvedResult.error}`,
             { modal: true }
@@ -535,14 +303,8 @@ export async function generateProjectDirToResolvedPomMap(multiModuleProjectDir: 
     let match;
     while ((match = projectRegex.exec(resolvedPomContent)) !== null) {
         const projectXml = match[0];
-        let parsed: any;
-        try {
-            const parser = new XMLParser({ ignoreAttributes: false });
-            parsed = parser.parse(projectXml);
-        } catch (error) {
-            logError(`Resolved pom content is not valid XML and cannot be parsed. Content: '${projectXml}'`)
-            continue;
-        }
+        const parser = new XMLParser({ ignoreAttributes: false });
+        const parsed = parser.parse(projectXml);
         const reportingDir = parsed?.project?.build?.sourceDirectory;
 
         if (reportingDir) {
@@ -560,7 +322,7 @@ export async function generateProjectDirToResolvedPomMap(multiModuleProjectDir: 
         }
     }
 
-    logInfo(`Resolved POM map generation completed, entryCount=${projectDirToResolvedPomMap.size}`);
+    removeMavenWrapper(multiModuleProjectDir);
     return projectDirToResolvedPomMap;
 }
 
@@ -595,7 +357,7 @@ export function getProjectDetails(filePath: string, projectDirToResolvedPomMap?:
             const pomContent = fs.readFileSync(pomPath, 'utf8');
             parseString(pomContent, { explicitArray: false, ignoreAttrs: true }, (err, result) => {
                 if (err) {
-                    logError('Error parsing pom.xml:', err)
+                    console.error('Error parsing pom.xml:', err);
                     return;
                 }
                 projectName = result?.project?.name;
@@ -645,13 +407,11 @@ export async function migrateConfigs(
     const projectType = await determineProjectType(source);
     let hasClassMediatorModule = false;
     const createdFolderUris: Uri[] = [];
-    logInfo(`Migrating configs started. source=${source}, target=${target}, projectType=${getNatureName(projectType)}`);
 
     if (projectType === Nature.MULTIMODULE) {
         const artifactIdToFileInfoMap = generateArtifactIdToFileInfoMap(projectDirToResolvedPomMap, projectDirsWithType);
         const { configToTests, configToMockServices } = generateConfigToTestAndMockServiceMaps(source, projectDirsWithType);
         const projectDirToMetaFilesMap = generateProjectDirToMetaFilesMap(projectDirsWithType);
-        logInfo(`Multimodule maps prepared. artifactEntries=${artifactIdToFileInfoMap.size}, testEntries=${configToTests.size}, mockServiceEntries=${configToMockServices.size}, metadataProjectEntries=${projectDirToMetaFilesMap.size}`);
 
         const allUsedDependencyIds = new Set<string>();
         for (const { projectDir, projectType } of projectDirsWithType) {
@@ -670,18 +430,15 @@ export async function migrateConfigs(
                 );
                 usedDepIds.forEach(depId => allUsedDependencyIds.add(depId));
                 createdFolderUris.push(Uri.file(targetPath));
-                logInfo(`Processed distribution project dependencies. projectDir=${projectDir}, dependencyCount=${usedDepIds.length}`);
             }
         }
         writeUnusedFileInfos(allUsedDependencyIds, artifactIdToFileInfoMap, source)
     } else if (projectType === Nature.LEGACY) {
-        logInfo(`Processing legacy project migration. source=${source}, target=${target}`);
         const items = fs.readdirSync(source, { withFileTypes: true });
         for (const item of items) {
             if (item.isDirectory()) {
                 const sourceAbsolutePath = path.join(source, item.name);
                 const moduleType = await determineProjectType(path.join(source, item.name));
-                logInfo(`Legacy module check. modulePath=${sourceAbsolutePath}, moduleType=${getNatureName(moduleType)}`);
                 if (moduleType === Nature.LEGACY) {
                     processArtifactsFolder(sourceAbsolutePath, target);
                     processMetaDataFolder(sourceAbsolutePath, target);
@@ -691,17 +448,12 @@ export async function migrateConfigs(
         }
     } else if (projectType === Nature.ESB || projectType === Nature.DS || projectType === Nature.DATASOURCE ||
         projectType === Nature.CONNECTOR || projectType === Nature.REGISTRY || projectType === Nature.CLASS) {
-        logInfo(`Processing single-module migration. source=${source}, nature=${getNatureName(projectType)}`);
         copyConfigsToNewProjectStructure(projectType, source, target);
-    } else {
-        logWarn(`Unsupported or undetected project type. source=${source}, projectType=${getNatureName(projectType)}`);
     }
     if (hasClassMediatorModule) {
-        logInfo("Updating the pom file for class mediator modules.");
         await updatePomForClassMediator(projectUri);
     }
     commands.executeCommand('setContext', 'MI.migrationStatus', 'done');
-    logInfo(`Migrating configs finished.`);
     return createdFolderUris;
 }
 
@@ -713,20 +465,14 @@ export async function migrateConfigs(
  *
  * @param projectUri - The URI of the original project being migrated.
  * @param createdFolderUris - An array of URIs representing the folders created during migration.
- * @returns A promise resolving to `true` if the current window should be closed after this operation, otherwise `false`.
+ * @returns A promise that resolves when the workspace has been updated accordingly.
  */
-async function handleWorkspaceAfterMigration(projectUri: string, createdFolderUris: Uri[]): Promise<boolean> {
-    if (createdFolderUris.length <= 0) {
-        return false;
-    }
-    logInfo("Updating workspace after migration.");
+async function handleWorkspaceAfterMigration(projectUri: string, createdFolderUris: Uri[]) {
     const createdProjectCount = createdFolderUris.length;
-    logInfo(`Handling workspace after migration started. projectUri=${projectUri}, createdProjectCount=${createdProjectCount}, workspaceFolderCount=${workspace.workspaceFolders?.length ?? 0}`);
     if (!workspace.workspaceFolders || workspace.workspaceFolders.length <= 1) {
         if (createdProjectCount === 1) {
-            logInfo(`Opening single created project in new window. uri=${createdFolderUris[0].fsPath}`);
+            await commands.executeCommand('workbench.action.closeWindow');
             await commands.executeCommand('vscode.openFolder', createdFolderUris[0], true);
-            return true;
         } else {
             await commands.executeCommand('workbench.action.closeActiveEditor');
             await updateWorkspaceWithNewFolders(projectUri, createdFolderUris);
@@ -735,18 +481,6 @@ async function handleWorkspaceAfterMigration(projectUri: string, createdFolderUr
         // If in a workspace with multiple folders, close the current open tab
         await commands.executeCommand('workbench.action.closeActiveEditor');
         await updateWorkspaceWithNewFolders(projectUri, createdFolderUris);
-    }
-    return false;
-}
-
-/**
- * Closes the current VS Code window if required.
- *
- * @param shouldCloseWindow Indicates whether the window should be closed.
- */
-async function closeWindowIfRequired(shouldCloseWindow: boolean): Promise<void> {
-    if (shouldCloseWindow) {
-        await commands.executeCommand('workbench.action.closeWindow');
     }
 }
 
@@ -767,7 +501,6 @@ async function updateWorkspaceWithNewFolders(projectUri: string, createdFolderUr
     const urisToAdd = createdFolderUris.filter(folderUri =>
         !workspaceFolders.some(folder => folder.uri.fsPath === folderUri.fsPath)
     );
-    logInfo(`Updating current workspace with multiple created projects. existingCount=${workspaceFolders.length}, toAddCount=${urisToAdd.length}`);
 
     if (urisToAdd.length > 0) {
         // Remove the current project folder from workspaceFolders
@@ -775,34 +508,11 @@ async function updateWorkspaceWithNewFolders(projectUri: string, createdFolderUr
         const foldersToAdd = urisToAdd.map(uri => ({ uri }));
         const foldersToRemove = currentProjectIndex !== -1 ? [currentProjectIndex] : [];
 
-        const config = workspace.getConfiguration('MI', Uri.file(projectUri));
-        const convertToConsolidated = config.get("convertToConsolidatedProjectAfterMigration");
-
-        if (convertToConsolidated) {
-            const runtimeVersion = getProjectDetails(foldersToAdd[0].uri.fsPath).runtimeVersion;
-            fs.writeFileSync(
-                path.join(path.dirname(foldersToAdd[0].uri.fsPath), 'pom.xml'),
-                consolidatedProjectPomContent(
-                    "consolidated-project",
-                    "com.microintegrator.projects",
-                    "consolidated-project",
-                    "1.0.0",
-                    runtimeVersion ?? LATEST_MI_VERSION,
-                    foldersToAdd.map(folder => path.basename(folder.uri.fsPath))));
-            for (const folder of foldersToAdd) {
-                const pomPath = path.join(folder.uri.fsPath, 'pom.xml');
-                updatePomWithParent(pomPath, { groupId: "com.microintegrator.projects", artifactId: "consolidated-project", version: "1.0.0" });
-            }
-        }
-
         workspace.updateWorkspaceFolders(
             foldersToRemove[0] ?? workspaceFolders.length,
             foldersToRemove.length,
             ...foldersToAdd
         );
-        logInfo(`Workspace folders updated. removedCount=${foldersToRemove.length}, addedCount=${foldersToAdd.length}`);
-    } else {
-        logInfo(`No workspace folder update needed. All target folders already exist in workspace.`);
     }
 }
 
@@ -829,9 +539,8 @@ function writeUnusedFileInfos(
     const outputFilePath = path.join(backupDir, 'skipped-files-during-migration.txt');
     try {
         fs.writeFileSync(outputFilePath, unusedFilePaths.join('\n'), 'utf-8');
-        logInfo(`Wrote skipped file list in ${outputFilePath}, skipped file count=${unusedFilePaths.length}`);
     } catch (err) {
-        logError(`Failed to write skipped files during migration to ${outputFilePath}:`, err);
+        console.error(`Failed to write skipped files during migration to ${outputFilePath}:`, err);
     }
 }
 
@@ -845,9 +554,8 @@ function writeUnusedFileInfos(
  *   - `projectDir`: The absolute path to the project directory.
  *   - `projectType`: The type of the project as determined by `determineProjectType`.
  */
-async function getProjectDirectoriesWithType(rootDir: string, items?: fs.Dirent[]): Promise<{ projectDir: string; projectType: Nature; }[]> {
+function getProjectDirectoriesWithType(rootDir: string, items?: fs.Dirent[]): { projectDir: string, projectType: Nature }[] {
     const results: { projectDir: string, projectType: Nature }[] = [];
-    logInfo(`Scanning for project directories.`);
 
     async function traverse(dir: string) {
         const items = fs.readdirSync(dir, { withFileTypes: true });
@@ -859,17 +567,15 @@ async function getProjectDirectoriesWithType(rootDir: string, items?: fs.Dirent[
                 const projectType = await determineProjectType(fullPath);
                 if (projectType !== undefined) {
                     results.push({ projectDir: fullPath, projectType });
-                    logInfo(`Detected a project. projectDirectory=${fullPath}, projectType=${getNatureName(projectType)}`);
                 }
 
                 // Recursively check subdirectories
-                await traverse(fullPath);
+                traverse(fullPath);
             }
         }
     }
 
-    await traverse(rootDir);
-    logInfo(`Project directory scan finished, detected project count=${results.length}`);
+    traverse(rootDir);
     return results;
 }
 
@@ -919,7 +625,6 @@ function generateArtifactIdToFileInfoMap(
         }
     });
 
-    logInfo(`Artifact lookup map generated of size ${artifactIdToFileInfoMap.size}.`);
     return artifactIdToFileInfoMap;
 }
 
@@ -982,7 +687,6 @@ function generateConfigToTestAndMockServiceMaps(
             }
         }
     });
-    logInfo(`Config to test and mock service mappings generated. configToTestsCount=${configToTests.size}, configToMockServiceCount=${configToMockServices.size}`);
     return { configToTests, configToMockServices };
 }
 
@@ -1006,7 +710,6 @@ function generateProjectDirToMetaFilesMap(projectDirsWithType: { projectDir: str
             }
         }
     });
-    logInfo(`Metadata mapping generated. projectEntryCount=${metaDataMap.size}`);
     return metaDataMap;
 }
 
@@ -1068,7 +771,6 @@ function getFileInfoForArtifact(
             }
         }
     }
-    logWarn(`Artifact path not found. projectDir=${projectFilePath}, artifactName=${artifact['@_name'] ?? ''}, projectType=${getNatureName(projectType)}`);
     return null;
 }
 
@@ -1114,7 +816,7 @@ export async function getResolvedPomXmlContent(pomFilePath: string): Promise<Pom
     const mvnCmd = config.get("useLocalMaven") ? "mvn" : (process.platform === "win32" ?
         MVN_COMMANDS.MVN_WRAPPER_WIN_COMMAND : MVN_COMMANDS.MVN_WRAPPER_COMMAND);
     const command = `${mvnCmd} -f "${pomFilePath}" ${MVN_COMMANDS.GEN_POM_COMMAND}`;
-    logInfo(`Running command: ${command} in directory: ${pomDir}`);
+    console.log(`Running command: ${command} in directory: ${pomDir}`);
 
     return new Promise((resolve, reject) => {
         let output = '';
@@ -1141,21 +843,21 @@ export async function getResolvedPomXmlContent(pomFilePath: string): Promise<Pom
             if (code === 0) {
                 const xmlContent = extractXmlFromMavenOutput(output);
                 if (!xmlContent) {
-                    logWarn(`Output of 'mvn help:effective-pom -f ${pomFilePath}' might be corrupted.`);
+                    console.warn(`Output of 'mvn help:effective-pom -f ${pomFilePath}' might be corrupted.`);
                     const warnMsg = `Failed to obtain effective-pom for '${pomFilePath}'. The obtained effective pom might be corrupted.`;
                     resolve({ success: false, error: warnMsg });
                 } else {
                     resolve({ success: true, content: xmlContent });
                 }
             } else {
-                logError(`Failed to run 'mvn help:effective-pom -f ${pomFilePath}'. Exit code: ${code}\n${errorOutput}`);
+                console.error(`Failed to run 'mvn help:effective-pom -f ${pomFilePath}'. Exit code: ${code}\n${errorOutput}`);
                 const errMsg = `Failed to obtain effective-pom for '${pomFilePath}'. Exit code: ${code}\n${errorOutput}`;
                 resolve({ success: false, error: errMsg });
             }
         });
 
         child.on('error', (err) => {
-            logError(`Failed to run 'mvn help:effective-pom -f ${pomFilePath}'`, err);
+            console.error(`Failed to run 'mvn help:effective-pom -f ${pomFilePath}'`, err);
             const errMsg = `Failed to obtain effective-pom for '${pomFilePath}': ${err.message}`;
             resolve({ success: false, error: errMsg });
         });
@@ -1199,16 +901,16 @@ function getPomIdentifier(projectDir: string, projectDirToResolvedPom: Map<strin
     return null;
 }
 
-async function getFolderStructure(
+function getFolderStructure(
     projectName: string,
     groupId: string,
     artifactId: string,
     projectUuid: string,
     version: string,
     runtimeVersion: string | undefined
-): Promise<FileStructure> {
+): FileStructure {
     return {
-        'pom.xml': await rootPomXmlContent(projectName, groupId, artifactId, projectUuid, version, runtimeVersion ?? LATEST_MI_VERSION, ""),
+        'pom.xml': rootPomXmlContent(projectName, groupId, artifactId, projectUuid, version, runtimeVersion ?? LATEST_MI_VERSION, ""),
         '.env': '',
         'src': {
             'main': {
@@ -1262,52 +964,34 @@ async function determineProjectType(source: string): Promise<Nature | undefined>
     const rootMetaDataFilePath = path.join(source, '.project');
     const rootPomFilePath = path.join(source, 'pom.xml');
     let configType;
-    // Try reading from .project file
     if (fs.existsSync(rootMetaDataFilePath)) {
-        configType = await getNatureFromProjectFile(rootMetaDataFilePath);
-    } 
-    // If not found OR it is LEGACY, fallback to pom.xml
-    if ((!configType || configType === Nature.LEGACY) && fs.existsSync(rootPomFilePath)) {
+        const projectFileContent = fs.readFileSync(rootMetaDataFilePath, 'utf-8');
+        const result = await new Promise<any>((resolve, reject) => {
+            parseString(projectFileContent, { explicitArray: false, ignoreAttrs: true }, (err, result) => {
+                if (err) {
+                    console.error('Error occured while reading ' + rootMetaDataFilePath, err);
+                    resolve('');
+                } else {
+                    resolve(result);
+                }
+            });
+        });
+        if (result && result.projectDescription) {
+            const projectDescription = result.projectDescription;
+            if (projectDescription && projectDescription.natures && projectDescription.natures.nature) {
+                let nature = projectDescription.natures.nature;
+                if (Array.isArray(nature)) {
+                    nature = nature.find(element => element.startsWith("org.wso2.developerstudio.eclipse"));
+                }
+                configType = getNatureFromString(nature);
+            }
+        }
+    } else if (fs.existsSync(rootPomFilePath)) {
         const pomContent = fs.readFileSync(rootPomFilePath, 'utf-8');
         const fetchedNatureStr = await extractNatureFromPomContent(pomContent);
         configType = getNatureFromString(fetchedNatureStr);
     }
     return configType;
-}
-
-/**
- * Extracts the {@link Nature} from a `.project` file.
- *
- * If multiple natures are present, the method selects the one that starts
- * with "org.wso2.developerstudio.eclipse".
- *
- * @param projectFilePath Absolute path to the `.project` file.
- * @returns A resolved {@link Nature} if a valid nature is found,
- *          otherwise `undefined`.
- */
-async function getNatureFromProjectFile(projectFilePath: string): Promise<Nature | undefined> {
-    const projectFileContent = fs.readFileSync(projectFilePath, 'utf-8');
-    const result = await new Promise<any>((resolve) => {
-        parseString(projectFileContent, { explicitArray: false, ignoreAttrs: true }, (err, result) => {
-            if (err) {
-                logError('Error occurred while reading ' + projectFilePath, err);
-                resolve('');
-            } else {
-                resolve(result);
-            }
-        });
-    });
-    if (result && result.projectDescription) {
-        const projectDescription = result.projectDescription;
-        if (projectDescription && projectDescription.natures && projectDescription.natures.nature) {
-            let nature = projectDescription.natures.nature;
-            if (Array.isArray(nature)) {
-                nature = nature.find(element => element.startsWith("org.wso2.developerstudio.eclipse"));
-            }
-            return getNatureFromString(nature);
-        }
-    }
-    return undefined;
 }
 
 function getNatureFromString(nature: string | undefined): Nature | undefined {
@@ -1336,7 +1020,6 @@ function getNatureFromString(nature: string | undefined): Nature | undefined {
 }
 
 function copyConfigToNewProjectStructure(sourceFileInfo: FileInfo, target: string) {
-    logInfo(`Copying config to new project structure. sourcePath=${sourceFileInfo.path}, sourceType=${getNatureName(sourceFileInfo.projectType)}, target=${target}`);
     switch (sourceFileInfo.projectType) {
         case Nature.ESB:
             const artifactType = getArtifactType(sourceFileInfo.path);
@@ -1364,7 +1047,6 @@ function copyConfigToNewProjectStructure(sourceFileInfo: FileInfo, target: strin
 }
 
 function copyConfigsToNewProjectStructure(nature: Nature, source: string, target: string) {
-    logInfo(`Started copying configs to new project structure.`);
     switch (nature) {
         case Nature.ESB:
             processArtifactsFolder(source, target);
@@ -1473,7 +1155,6 @@ function copyConfigMetaData(configFiles: string[], targetDir: string, projectDir
             }
         });
     }
-    logInfo(`Copied metadata for ${configFiles.length} configs.`);
 }
 
 /**
@@ -1514,7 +1195,6 @@ function copyConfigTests(
             copyFile(mockServiceFile, path.join(mockServicesTargetDir, fileName));
         }
     }
-    logInfo(`Copied tests/mock services for ${configFiles.length} configs. testsTargetDir=${testTargetDir}, mockServicesTargetDir=${mockServicesTargetDir}`);
 }
 
 function processMetaDataFolder(source: string, target: string) {
@@ -1556,7 +1236,7 @@ function processConnectors(source: string, target: string) {
 
     fs.readdir(source, { withFileTypes: true }, (err, files) => {
         if (err) {
-            logError(`Failed to list contents of the folder: ${source}`, err);
+            console.error(`Failed to list contents of the folder: ${source}`, err);
             return;
         }
 
@@ -1612,7 +1292,7 @@ function parseArtifactsXmlFile(filePath: string): ArtifactsRoot {
 
         return result as ArtifactsRoot;
     } catch (error) {
-        logError(`Failed to parse XML file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        console.error(`Failed to parse XML file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`);
         return {
             artifacts: { artifact: [] }
         };
@@ -1651,7 +1331,7 @@ function writeUpdatedArtifactXml(filePath: string, artifactsRoot: ArtifactsRoot)
         const updatedXml = builder.build(artifactsRoot);
         fs.writeFileSync(filePath, updatedXml, 'utf-8');
     } catch (error) {
-        logError(`Failed to write XML file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        console.error(`Failed to write XML file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 }
 
@@ -1691,11 +1371,11 @@ function copyRegistryFile(sourceFileInfo: FileInfo, targetProjectDir: string): v
                 fs.mkdirSync(targetDir, { recursive: true });
                 copy(sourceFileInfo.path, targetDir);
             } else {
-                logError('Artifact does not have item or collection for registry resource.');
+                console.error('Artifact does not have item or collection for registry resource.');
             }
         }
     } catch (error) {
-        logError(`Failed to copy registry file: ${error instanceof Error ? error.message : error}`);
+        console.error(`Failed to copy registry file: ${error instanceof Error ? error.message : error}`);
     }
 }
 
@@ -1795,13 +1475,12 @@ function processRegistryResources(source: string, target: string) {
 
     parseString(xmlContent, { explicitArray: false, ignoreAttrs: false }, (err, result) => {
         if (err) {
-            logError(`Error parsing ${artifactXMLPath}`, err);
+            console.error('Error parsing pom.xml:', err);
             return;
         }
 
         const artifactsData = result.artifacts.artifact;
         const artifacts = Array.isArray(artifactsData) ? artifactsData : [artifactsData];
-        logInfo(`Processing ${artifacts.length} registry resources.`);
 
         artifacts.forEach(artifact => {
             const fileName = artifact.item.file;
@@ -1820,13 +1499,12 @@ function processRegistryResources(source: string, target: string) {
                 copyFile(sourceFile, targetFile);
                 artifact.item.file = artifact.item.file.split("/").pop();
             } catch (err) {
-                logError(`Failed to create folder structure ${targetAbsolutePath}`, err);
+                console.error(`Failed to create folder structure ${targetAbsolutePath}`, err);
             }
         });
         const builder = new Builder({ headless: false });
         const updatedXml = builder.buildObject(result);
         fs.writeFileSync(path.join(newRegistryPath, 'artifact.xml'), updatedXml, 'utf-8');
-        logInfo(`Registry resource migration completed. targetArtifactXml=${path.join(newRegistryPath, 'artifact.xml')}`);
     });
 }
 
@@ -1838,7 +1516,6 @@ function processTestsFolder(source: string, target: string) {
     const newResPath = path.join(target, 'src', 'test', 'resources', 'mock-services');
     copy(oldResPath, newResPath);
     fixTestFilePaths(target);
-    logInfo(`Processed tests folder.`);
 }
 
 function processClassMediators(source: string, target: string) {
@@ -1846,7 +1523,6 @@ function processClassMediators(source: string, target: string) {
     const newClassMediatorPath = path.join(target, 'src', 'main', 'java');
 
     copyFilesAndDirectories();
-    logInfo(`Processed class mediator sources.`);
 
     function copyFilesAndDirectories() {
         function copyRecursive(source: string, target: string) {
@@ -1880,9 +1556,8 @@ function processClassMediators(source: string, target: string) {
  */
 function processDependency(depId: string, sourceFileInfo: FileInfo | undefined, target: string) {
     if (!sourceFileInfo) {
-        logWarn(`Dependency '${depId}' selected for the composite exporter project was not found. Skipping migration for this dependency.`);
+        console.warn(`Dependency '${depId}' selected for the composite exporter project was not found. Skipping migration for this dependency.`);
     } else {
-        logInfo(`Processing dependency. depId=${depId}, sourceType=${getNatureName(sourceFileInfo.projectType)}, sourcePath=${sourceFileInfo.path}`);
         if (sourceFileInfo.projectType === Nature.ESB || sourceFileInfo.projectType === Nature.DS || sourceFileInfo.projectType === Nature.DATASOURCE ||
             sourceFileInfo.projectType === Nature.CONNECTOR || sourceFileInfo.projectType === Nature.REGISTRY || sourceFileInfo.projectType === Nature.CLASS) {
             copyConfigToNewProjectStructure(sourceFileInfo, target);
@@ -1905,17 +1580,17 @@ function processDependency(depId: string, sourceFileInfo: FileInfo | undefined, 
 function readPomDependencies(source: string, projectDirToResolvedPomMap: Map<string, string>): Dependency[] {
     const pomFilePath = path.join(source, 'pom.xml');
     if (!fs.existsSync(pomFilePath)) {
-        logError(`pom.xml file not found in the source directory: ${source}`);
+        console.error(`pom.xml file not found in the source directory: ${source}`);
         return [];
     }
     let resolvedPomContent = projectDirToResolvedPomMap.get(source) || '';
     if (!resolvedPomContent) {
-        logError(`Resolved POM content not found for the directory: ${source}`);
+        console.error(`Resolved POM content not found for the directory: ${source}`);
         // Fallback: read the pom.xml directly if resolved content is missing
         try {
             resolvedPomContent = fs.readFileSync(pomFilePath, 'utf-8');
         } catch (err) {
-            logError(`Failed to read pom.xml from ${pomFilePath}:`, err);
+            console.error(`Failed to read pom.xml from ${pomFilePath}:`, err);
             return [];
         }
     }
@@ -1927,7 +1602,6 @@ function readPomDependencies(source: string, projectDirToResolvedPomMap: Map<str
     if (!dependencies) return [];
 
     const dependencyList = Array.isArray(dependencies) ? dependencies : [dependencies];
-    logInfo(`Parsed dependencies from pom. source=${source}, dependencyCount=${dependencyList.length}`);
     return dependencyList.map((dep: any) => ({
         groupId: dep.groupId,
         artifactId: dep.artifactId,
@@ -2114,7 +1788,6 @@ async function processCompositeExporterProject(
 ): Promise<string[]> {
 
     const dependencies = readPomDependencies(source, projectDirToResolvedPomMap);
-    logInfo(`Processing Composite Exporter Project started. source=${source}, target=${target}, dependencyCount=${dependencies.length}`);
 
     let hasClassMediatorModule = false;
     let registryArtifactsList: Artifact[] = [];
@@ -2147,7 +1820,6 @@ async function processCompositeExporterProject(
         copyConfigTests(configFiles, target, configToTests, configToMockServices);
     }
     fixTestFilePaths(target);
-    logInfo(`Processing Composite Exporter Project finished. source=${source}, usedDependencyCount=${usedDependencyIds.length}, hasClassMediatorModule=${hasClassMediatorModule}, registryArtifactCount=${registryArtifactsList.length}, configFileCount=${configFiles.length}`);
 
     return usedDependencyIds;
 }
@@ -2155,7 +1827,6 @@ async function processCompositeExporterProject(
 function fixTestFilePaths(source: string) {
     const testPath = path.join(source, 'src', 'test', 'wso2mi');
     if (!fs.existsSync(testPath)) {
-        logInfo(`Skipping test file path fixes. Test path not found: ${testPath}`);
         return;
     }
     const items = fs.readdirSync(testPath, { withFileTypes: true });
@@ -2166,10 +1837,8 @@ function fixTestFilePaths(source: string) {
         format: true,
     };
     const parser = new XMLParser(options);
-    let processedTestCount = 0;
     items.forEach(item => {
         if (!item.isDirectory()) {
-            processedTestCount++;
             const filePath = path.join(testPath, item.name);
             const fileContent = fs.readFileSync(filePath, 'utf-8');
             const jsonData = parser.parse(fileContent);
@@ -2229,7 +1898,6 @@ function fixTestFilePaths(source: string) {
             fs.writeFileSync(filePath, updatedXmlString);
         }
     });
-    logInfo(`Fixing test file paths completed. Processed test count=${processedTestCount}`);
 }
 
 function updateArtifactPath(artifact: any): string {
@@ -2292,7 +1960,7 @@ function copyFile(sourcePath: string, targetPath: string) {
     try {
         fs.copyFileSync(sourcePath, targetPath);
     } catch (err) {
-        logError(`Failed to copy file from ${sourcePath} to ${targetPath}`, err);
+        console.error(`Failed to copy file from ${sourcePath} to ${targetPath}`, err);
     }
 }
 
@@ -2313,9 +1981,7 @@ function moveFiles(sourcePath: string, destinationPath: string) {
 
         if (isDirectory) {
             moveFiles(sourceItemPath, destinationItemPath);
-            if (item !== ".vscode") {
-                fs.rmSync(sourceItemPath, { recursive: true });
-            }
+            fs.rmSync(sourceItemPath, { recursive: true });
         } else {
             fs.renameSync(sourceItemPath, destinationItemPath);
         }

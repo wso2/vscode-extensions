@@ -51,7 +51,6 @@ const ProgressRing = styled(VSCodeProgressRing)`
 const MODES = {
     VISUALIZER: "visualizer",
     AI: "ai",
-    AGENT: "agent",
     RUNTIME_SERVICES: "runtime-services",
     SWAGGER: "swagger"
 };
@@ -140,9 +139,6 @@ export function Visualizer({ mode, swaggerData }: { mode: string, swaggerData?: 
                     );
             }
         } else if (mode === MODES.AI) {
-            setView(<>{state && <AiVisualizerComponent state={state as AIMachineStateValue} />}</>);
-        } else if (mode === MODES.AGENT) {
-            // Agent mode now uses AIPanel (which internally uses agent service)
             setView(<>{state && <AiVisualizerComponent state={state as AIMachineStateValue} />}</>);
         } else if (mode === MODES.RUNTIME_SERVICES) {
             setView(<RuntimeServicesComponent />);

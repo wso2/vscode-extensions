@@ -1,0 +1,112 @@
+arazzo: 1.0.0
+info:
+  title: "Test 14 - JSONPath Criteria (RFC 9535)"
+  version: "1.0.0"
+  description: >
+    Tests JSONPath criterion type per Arazzo spec §4.6.11.
+    A JSONPath criterion passes when the JSONPath query (RFC 9535)
+    applied against the resolved context yields a non-empty nodelist.
+
+sourceDescriptions:
+  - name: toolshop
+    url: ./toolshop-openapi.yaml
+    type: openapi
+
+workflows:
+  - workflowId: jsonpath_criteria_tests
+    summary: Test JSONPath criterion evaluation (RFC 9535)
+    steps:
+
+      # Step 1: Basic - verify data array exists in products response
+      - stepId: arrayExists
+        description: "JSONPath: verify $.data array exists"
+        operationId: getProducts
+        successCriteria:
+          - condition: "$.data"
+            context: "$response.body"
+            type: jsonpath
+        outputs:
+          firstProductName: "$response.body#/data/0/name"
+          total: "$response.body#/total"
+
+      # Step 2: Numeric filter - products priced above 10
+      - stepId: priceFilter
+        description: "JSONPath: filter products with price > 10"
+        operationId: getProducts
+        successCriteria:
+          - condition: "$.data[?(@.price > 10)]"
+            context: "$response.body"
+            type: jsonpath
+        outputs:
+          expensiveProductName: "$response.body#/data/0/name"
+
+      # Step 3: String equality filter on nested brand name
+      - stepId: brandFilter
+        description: "JSONPath: filter by brand name ForgeFlex Tools"
+        operationId: getProducts
+        successCriteria:
+          - condition: "$.data[?(@.brand.name == 'ForgeFlex Tools')]"
+            context: "$response.body"
+            type: jsonpath
+
+      # Step 4: Boolean filter - products in stock
+      - stepId: booleanFilter
+        description: "JSONPath: filter products where in_stock == true"
+        operationId: getProducts
+        successCriteria:
+          - condition: "$.data[?(@.in_stock == true)]"
+            context: "$response.body"
+            type: jsonpath
+
+      # Step 5: Wildcard access - all product brand names
+      - stepId: wildcardAccess
+        description: "JSONPath: wildcard access to all brand names"
+        operationId: getProducts
+        successCriteria:
+          - condition: "$.data[*].brand.name"
+            context: "$response.body"
+            type: jsonpath
+
+      # Step 6: Multiple criteria - simple + jsonpath combined
+      - stepId: multipleCriteriaMixed
+        description: "JSONPath + simple criteria combined"
+        operationId: getProducts
+        successCriteria:
+          - condition: "$statusCode == 200"
+          - condition: "$.data[0].name"
+            context: "$response.body"
+            type: jsonpath
+
+      # Step 7: Brands endpoint - context is an array directly
+      - stepId: brandsArrayContext
+        description: "JSONPath: brands endpoint returns array, filter by index"
+        operationId: getBrands
+        successCriteria:
+          - condition: "$[0].name"
+            context: "$response.body"
+            type: jsonpath
+
+      # Step 8: Combined logical filter - price > 10 AND specific brand
+      - stepId: combinedLogicalFilter
+        description: "JSONPath: combined && filter (price > 10 AND ForgeFlex)"
+        operationId: getProducts
+        successCriteria:
+          - condition: "$.data[?(@.price > 10 && @.brand.name == 'ForgeFlex Tools')]"
+            context: "$response.body"
+            type: jsonpath
+
+      # Step 9: Deeply nested access - category slug
+      - stepId: deepNestedAccess
+        description: "JSONPath: access deeply nested category.slug"
+        operationId: getProducts
+        successCriteria:
+          - condition: "$.data[0].category.slug"
+            context: "$response.body"
+            type: jsonpath
+        outputs:
+          categorySlug: "$response.body#/data/0/category/slug"
+
+    outputs:
+      firstProductName: "$steps.arrayExists.outputs.firstProductName"
+      total: "$steps.arrayExists.outputs.total"
+      categorySlug: "$steps.deepNestedAccess.outputs.categorySlug"

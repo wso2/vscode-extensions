@@ -19,7 +19,9 @@
 import { Node } from '@xyflow/react';
 import { BaseNodeModel, BaseNodeData } from '../BaseNode/BaseNodeModel';
 
-export interface RetryNodeData extends BaseNodeData {}
+export interface RetryNodeData extends BaseNodeData {
+    retryAttempt?: number;
+}
 
 export class RetryNodeModel extends BaseNodeModel {
     declare data: RetryNodeData;

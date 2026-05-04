@@ -134,7 +134,14 @@ export const getComponentTypeText = (componentType: string): string => {
 export const getIntegrationComponentTypeText = (componentType: string, subType: string): string => {
 	switch (componentType) {
 		case ChoreoComponentType.Service:
-			return subType === ChoreoComponentSubType.AiAgent ? "AI Agent" : "Integration as API";
+			switch (subType) {
+				case ChoreoComponentSubType.AiAgent:
+					return "AI Agent";
+				case ChoreoComponentSubType.MCP:
+					return "MCP Server";
+				default:
+					return "Integration as API";
+			}
 		case ChoreoComponentType.ManualTrigger:
 			return "Automation";
 		case ChoreoComponentType.ScheduledTask:
@@ -158,6 +165,8 @@ export const getIntegrationScopeText = (integrationScope: string): string => {
 			return "File Integration";
 		case DevantScopes.AI_AGENT:
 			return "AI Agent";
+		case DevantScopes.MCP:
+			return "MCP Server";
 		case DevantScopes.LIBRARY:
 			return "Library";
 		default:
@@ -177,6 +186,8 @@ export const getTypeOfIntegrationType = (integrationScope: string): { type?: str
 			return { type: ChoreoComponentType.EventHandler, subType: ChoreoComponentSubType.fileIntegration };
 		case DevantScopes.AI_AGENT:
 			return { type: ChoreoComponentType.Service, subType: ChoreoComponentSubType.AiAgent };
+		case DevantScopes.MCP:
+			return { type: ChoreoComponentType.Service, subType: ChoreoComponentSubType.MCP };
 		case DevantScopes.LIBRARY:
 			return { type: ChoreoComponentType.Library };
 		default:
@@ -194,6 +205,9 @@ export const getIntegrationTypeFromComponentType = (componentType: string, subTy
 	// Handle subTypes first for more specific matches
 	if (componentType === ChoreoComponentType.Service && subType === ChoreoComponentSubType.AiAgent) {
 		return DevantScopes.AI_AGENT;
+	}
+	if (componentType === ChoreoComponentType.Service && subType === ChoreoComponentSubType.MCP) {
+		return DevantScopes.MCP;
 	}
 	if (componentType === ChoreoComponentType.EventHandler && subType === ChoreoComponentSubType.fileIntegration) {
 		return DevantScopes.FILE_INTEGRATION;

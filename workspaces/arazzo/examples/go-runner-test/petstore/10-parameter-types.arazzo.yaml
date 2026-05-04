@@ -1,0 +1,124 @@
+arazzo: "1.0.0"
+info:
+  title: "Test 10 - Parameter Types"
+  version: "1.0.0"
+  description: >
+    Tests all parameter locations:
+    - path parameters (getPetById with expression from prior step output)
+    - query parameters (findPetsByStatus with $inputs expression)
+    - header parameters (deletePet with api_key header)
+    - Multiple query parameters (loginUser)
+    - Parameters with expression resolution across steps
+
+sourceDescriptions:
+  - name: petstore
+    url: ./petstore-openapi.yaml
+    type: openapi
+
+workflows:
+  - workflowId: parameter_tests
+    summary: Test different parameter types
+    inputs:
+      type: object
+      properties:
+        searchStatus:
+          type: string
+          default: "available"
+        petName:
+          type: string
+          default: "ParamTestPet"
+        apiKey:
+          type: string
+          default: "special-api-key-123"
+    steps:
+      # Step 1: Create a pet to use in subsequent steps
+      - stepId: createPet
+        description: "Create a pet for parameter testing"
+        operationId: addPet
+        requestBody:
+          contentType: application/json
+          payload:
+            id: 55501
+            name: "$inputs.petName"
+            status: "available"
+            category:
+              id: 1
+              name: "Dogs"
+            photoUrls:
+              - "https://example.com/photo.jpg"
+            tags:
+              - id: 1
+                name: "paramtest"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          petId: "$response.body#/id"
+          petName: "$response.body#/name"
+
+      # Step 2: Test query parameter with expression from $inputs
+      - stepId: queryParamTest
+        description: "Test query parameter with $inputs expression"
+        operationId: findPetsByStatus
+        parameters:
+          - name: status
+            in: query
+            value: "$inputs.searchStatus"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          queryStatus: "$statusCode"
+
+      # Step 3: Test path parameter with expression from prior step output
+      - stepId: pathParamTest
+        description: "Test path parameter resolved from step output expression"
+        operationId: getPetById
+        parameters:
+          - name: petId
+            in: path
+            value: "$steps.createPet.outputs.petId"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          retrievedName: "$response.body#/name"
+          retrievedId: "$response.body#/id"
+
+      # Step 4: Test multiple query parameters
+      - stepId: multiQueryTest
+        description: "Test multiple query parameters"
+        operationId: loginUser
+        parameters:
+          - name: username
+            in: query
+            value: "testuser"
+          - name: password
+            in: query
+            value: "testpass"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          loginStatus: "$statusCode"
+
+      # Step 5: Test header parameter + path parameter together
+      - stepId: headerParamTest
+        description: "Test header parameter (api_key) + path parameter"
+        operationId: deletePet
+        parameters:
+          - name: api_key
+            in: header
+            value: "$inputs.apiKey"
+          - name: petId
+            in: path
+            value: "$steps.createPet.outputs.petId"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          deleteStatus: "$statusCode"
+
+    outputs:
+      createdPetId: "$steps.createPet.outputs.petId"
+      createdPetName: "$steps.createPet.outputs.petName"
+      queryStatus: "$steps.queryParamTest.outputs.queryStatus"
+      retrievedName: "$steps.pathParamTest.outputs.retrievedName"
+      retrievedId: "$steps.pathParamTest.outputs.retrievedId"
+      loginStatus: "$steps.multiQueryTest.outputs.loginStatus"
+      deleteStatus: "$steps.headerParamTest.outputs.deleteStatus"

@@ -20,7 +20,7 @@ import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { TraceAnimationEvent } from "@wso2/ballerina-core";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import styled from "@emotion/styled";
-import { removeMcpServerFromAgentNode, findAgentNodeFromAgentCallNode, findFlowNode } from "../AIChatAgent/utils";
+import { removeMcpServerFromAgentNode, findAgentNodeFromAgentCallNode, findFlowNode, removeAgentNode, confirmAgentCallDeletion } from "../AIChatAgent/utils";
 import { MemoizedDiagram, setTraceAnimationActive, setTraceAnimationInactive } from "@wso2/bi-diagram";
 import {
     BIAvailableNodesRequest,
@@ -491,10 +491,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                     filePath: model?.fileName,
                 });
                 setCategories(
-                    convertFunctionCategoriesToSidePanelCategories(
-                        response.categories as Category[],
-                        FUNCTION_TYPE.REGULAR
-                    )
+                    convertKnowledgeBaseCategoriesToSidePanelCategories(response.categories as Category[])
                 );
                 setSidePanelView(SidePanelView.KNOWLEDGE_BASE_LIST);
                 setShowSidePanel(true);
@@ -1459,10 +1456,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                     })
                     .then((response) => {
                         setCategories(
-                            convertFunctionCategoriesToSidePanelCategories(
-                                response.categories as Category[],
-                                FUNCTION_TYPE.REGULAR
-                            )
+                            convertKnowledgeBaseCategoriesToSidePanelCategories(response.categories as Category[])
                         );
                         setSidePanelView(SidePanelView.KNOWLEDGE_BASE_LIST);
                         setShowSidePanel(true);
@@ -1660,6 +1654,12 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             return;
         }
 
+        const NODES_TO_SKIP_ARTIFACT = ["MODEL_PROVIDER", "KNOWLEDGE_BASE", "DATA_LOADER"];
+        let skipArtifact = false;
+        if (NODES_TO_SKIP_ARTIFACT.includes(updatedNode?.codedata?.node)) {
+            skipArtifact = true;
+        }
+
         rpcClient
             .getBIDiagramRpcClient()
             .getSourceCode({
@@ -1667,10 +1667,8 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 flowNode: updatedNode,
                 isFunctionNodeUpdate: editorConfig?.displayMode !== EditorDisplayMode.NONE,
                 isHelperPaneChange: options?.isChangeFromHelperPane,
-                artifactData: editorConfig &&
-                    editorConfig.displayMode !== EditorDisplayMode.NONE &&
-                    editorConfig.view === MACHINE_VIEW.DataMapper ?
-                    { artifactType: DIRECTORY_MAP.DATA_MAPPER } : undefined,
+                artifactData: !skipArtifact ? getArtifactData(editorConfig) : undefined,
+
             })
             .then(async (response) => {
                 if (response.artifacts.length > 0) {
@@ -1684,7 +1682,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                     }
 
                     if (updatedNode?.codedata?.symbol === GET_DEFAULT_MODEL_PROVIDER
-                        || (updatedNode?.codedata?.node === "AGENT_CALL" && updatedNode?.properties?.model?.value === "")) {
+                        || (updatedNode?.codedata?.node === "AGENT_CALL" && (updatedNode?.properties?.model?.value === "" || updatedNode?.properties?.model?.value === undefined))) {
                         await rpcClient.getAIAgentRpcClient().configureDefaultModelProvider();
                     }
                     if (noFormSubmitOptions) {
@@ -1694,9 +1692,6 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                     if (options?.closeSidePanel) {
                         selectedNodeRef.current = undefined;
                         closeSidePanelAndFetchUpdatedFlowModel();
-                    }
-                    if (options?.postUpdateCallBack) {
-                        options.postUpdateCallBack();
                     }
                     shouldUpdateLineRangeRef.current = options?.isChangeFromHelperPane;
                     if (options?.isChangeFromHelperPane) {
@@ -1741,6 +1736,9 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                         shouldUpdateLineRangeRef.current = false;
                     }
                     updatedNodeRef.current = updatedNode;
+                    if (options?.postUpdateCallBack) {
+                        options.postUpdateCallBack();
+                    }
                 } else {
                     console.error(">>> Error updating source code", response);
                 }
@@ -1753,7 +1751,50 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             });
     };
 
+
+    function getArtifactData(editorConfig?: EditorConfig) {
+        // When editorConfig is absent, derive the artifact type from the EVENT_START node's metadata.
+        //   kind="Function" + label="main" → AUTOMATION
+        //   kind="Function" + other label  → FUNCTION
+        //   isServiceFunction              → SERVICE
+        if (!editorConfig) {
+            const eventStartNode = model?.nodes?.find((node) => node.codedata.node === "EVENT_START");
+            const parentData = eventStartNode?.metadata?.data as ParentMetadata;
+            if (parentData) {
+                const { kind, label, isServiceFunction } = parentData;
+                if (!isServiceFunction && kind === "Function") {
+                    if (label?.toLowerCase() === "main") {
+                        return { artifactType: DIRECTORY_MAP.AUTOMATION };
+                    }
+                    return { artifactType: DIRECTORY_MAP.FUNCTION };
+                }
+                if (isServiceFunction) {
+                    return { artifactType: DIRECTORY_MAP.SERVICE };
+                }
+            }
+        } else {
+            if (editorConfig.artifactType) {
+                return { artifactType: editorConfig.artifactType };
+            }
+            if (
+                editorConfig.displayMode !== EditorDisplayMode.NONE &&
+                editorConfig.view === MACHINE_VIEW.DataMapper
+            ) {
+                return { artifactType: DIRECTORY_MAP.DATA_MAPPER };
+            }
+        }
+    }
+
     const handleOnDeleteNode = async (node: FlowNode) => {
+        let shouldDeleteAgent = false;
+        if (node.codedata?.node === "AGENT_CALL") {
+            const result = await confirmAgentCallDeletion(rpcClient);
+            if (!result) {
+                return;
+            }
+            shouldDeleteAgent = result.shouldDeleteAgent;
+        }
+
         setShowProgressIndicator(true);
 
         const deleteNodeResponse = await rpcClient.getBIDiagramRpcClient().deleteFlowNode({
@@ -1765,6 +1806,13 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         }
 
         await updateArtifactLocation(deleteNodeResponse);
+
+        if (shouldDeleteAgent) {
+            const isAgentRemoved = await removeAgentNode(node, rpcClient);
+            if (!isAgentRemoved) {
+                console.error(">>> Failed to remove agent node after deleting agent call");
+            }
+        }
 
         selectedNodeRef.current = undefined;
         closeSidePanelAndFetchUpdatedFlowModel();

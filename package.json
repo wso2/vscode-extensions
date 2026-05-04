@@ -2,7 +2,7 @@
   "name": "ballerina-vscode-extensions-mono-repo",
   "pnpm": {
     "overrides": {
-      "@tootallnate/once": "3.0.1",
+      "@tootallnate/once": "2.0.0",
       "@hono/node-server": "1.19.13",
       "braces": "3.0.3",
       "brace-expansion": "1.1.13",

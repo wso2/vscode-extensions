@@ -1,0 +1,84 @@
+arazzo: "1.0.0"
+info:
+  title: "Test 06 - Success Criteria Types"
+  version: "1.0.0"
+  description: >
+    Tests different success criteria types:
+    - simple conditions ($statusCode comparisons)
+    - regex matching
+    - default (no criteria = 2xx check)
+    - multiple criteria (all must pass)
+
+sourceDescriptions:
+  - name: petstore
+    url: ./petstore-openapi.yaml
+    type: openapi
+
+workflows:
+  - workflowId: success_criteria_tests
+    summary: Test various success criteria
+    steps:
+      - stepId: defaultCriteria
+        description: "No explicit successCriteria - should pass with 2xx default"
+        operationId: findPetsByStatus
+        parameters:
+          - name: status
+            in: query
+            value: "available"
+        outputs:
+          inventoryResult: "$statusCode"
+
+      - stepId: simpleCriteria
+        description: "Simple condition - $statusCode == 200"
+        operationId: addPet
+        requestBody:
+          contentType: application/json
+          payload:
+            id: 66601
+            name: "CriteriaTestPet"
+            photoUrls:
+              - "https://example.com/photo.jpg"
+            status: "available"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          petId: "$response.body#/id"
+
+      - stepId: multipleSimpleCriteria
+        description: "Multiple simple criteria - all must pass"
+        operationId: getPetById
+        parameters:
+          - name: petId
+            in: path
+            value: "$steps.simpleCriteria.outputs.petId"
+        successCriteria:
+          - condition: "$statusCode == 200"
+          - condition: "$response.body#/name == CriteriaTestPet"
+        outputs:
+          verifiedName: "$response.body#/name"
+
+      - stepId: regexCriteria
+        description: "Regex criteria - match response body content"
+        operationId: loginUser
+        parameters:
+          - name: username
+            in: query
+            value: "testuser"
+          - name: password
+            in: query
+            value: "testpass"
+        successCriteria:
+          - condition: "(?i).*logged in.*"
+            type: regex
+
+      - stepId: cleanupPet
+        operationId: deletePet
+        parameters:
+          - name: petId
+            in: path
+            value: "$steps.simpleCriteria.outputs.petId"
+
+    outputs:
+      defaultCheck: "$steps.defaultCriteria.outputs.inventoryResult"
+      createdPetId: "$steps.simpleCriteria.outputs.petId"
+      verifiedName: "$steps.multipleSimpleCriteria.outputs.verifiedName"

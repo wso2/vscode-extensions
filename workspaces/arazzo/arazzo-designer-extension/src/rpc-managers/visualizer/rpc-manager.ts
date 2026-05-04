@@ -26,7 +26,9 @@ import {
     GetArazzoModelRequest,
     GetArazzoModelResponse,
     ArazzoDefinition,
+    RunWorkflowRequest,
 } from "@wso2/arazzo-designer-core";
+import * as vscode from 'vscode';
 import { getLanguageClient } from '../../extension';
 import { openView as stateMachineOpenView } from '../../stateMachine';
 
@@ -71,5 +73,9 @@ export class VisualizerRpcManager implements VisualizerAPI {
             { uri: params.uri }
         );
         return { model: result };
+    }
+
+    async runWorkflow(params: RunWorkflowRequest): Promise<void> {
+        await vscode.commands.executeCommand('arazzo.runWorkflow', params);
     }
 }

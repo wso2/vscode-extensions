@@ -16,10 +16,13 @@
  * under the License.
  */
 
-import { WebviewView, WebviewPanel, window, QuickPickItem } from 'vscode';
+import { WebviewView, WebviewPanel, window, QuickPickItem, commands } from 'vscode';
 import { Messenger } from 'vscode-messenger';
 import { StateMachine } from './stateMachine';
-import { stateChanged, getVisualizerState, VisualizerLocation, getPopupVisualizerState, PopupVisualizerLocation, popupStateChanged, selectQuickPickItem, WebviewQuickPickItem, selectQuickPickItems, showConfirmMessage, showInputBox, showInfoNotification, showErrorNotification } from '@wso2/arazzo-designer-core';
+import { COMMANDS } from './constants';
+import { stateChanged, getVisualizerState, VisualizerLocation, getPopupVisualizerState, PopupVisualizerLocation, popupStateChanged, selectQuickPickItem, WebviewQuickPickItem, selectQuickPickItems, showConfirmMessage, showInputBox, showInfoNotification, showErrorNotification, onTraceEvent, onMCPStateChange, MCPStateChangeEvent, focusOverviewPanel, EVENT_TYPE, MACHINE_VIEW } from '@wso2/arazzo-designer-core';
+import { openView } from './stateMachine';
+import { TracerServer } from './mcp/tracing';
 import { VisualizerWebview } from './visualizer/webview';
 import { StateMachinePopup } from './stateMachinePopup';
 import path = require('path');
@@ -75,6 +78,21 @@ export class RPCLayer {
         RPCLayer._messenger.onNotification(showErrorNotification, (message) => {
             window.showErrorMessage(message);
         });
+
+        // Handle focus-overview-panel request from the workflow panel webview
+        RPCLayer._messenger.onNotification(focusOverviewPanel, (fileUri: string) => {
+            commands.executeCommand(COMMANDS.OPEN_WELCOME, fileUri);
+        });
+
+        // Forward trace events from the tracer server to the webview
+        TracerServer.getInstance().onEvent((event) => {
+            RPCLayer._messenger.sendNotification(onTraceEvent, { type: 'webview', webviewType: VisualizerWebview.viewType }, event as any);
+        });
+    }
+
+    /** Broadcast the current MCP server state to the webview. */
+    static sendMCPStateChange(state: MCPStateChangeEvent): void {
+        RPCLayer._messenger.sendNotification(onMCPStateChange, { type: 'webview', webviewType: VisualizerWebview.viewType }, state);
     }
 
 }

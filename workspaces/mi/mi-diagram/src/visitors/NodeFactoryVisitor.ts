@@ -83,8 +83,7 @@ import {
     DbMediator,
     Rewrite,
     Query,
-    ThrowError,
-    Tool
+    ThrowError
 } from "@wso2/mi-syntax-tree/lib/src";
 import { NodeLinkModel } from "../components/NodeLink/NodeLinkModel";
 import { MediatorNodeModel } from "../components/nodes/MediatorNode/MediatorNodeModel";
@@ -729,35 +728,8 @@ export class NodeFactoryVisitor implements Visitor {
             if (tools) {
                 if (toolsList?.length > 0) {
                     this.parents.push(node);
-                    const toolsWithUniqueConnections = toolsList.filter((tool: Tool, index: number) => {
-                        const isMcpTool = tool.isMcpTool;
-                        if (!isMcpTool) {
-                            return true; // Include all non-MCP tools
-                        }
-                        // For MCP tools, only include the first one with each unique connection name
-                        const connectionName = tool.mcpConnection;
-                        if (!connectionName) {
-                            return false;
-                        }
-                        const firstIndex = toolsList.findIndex((t: Tool) => t.mcpConnection === connectionName);
-                        return index === firstIndex;
-                    });
-
-                    for (let i = 0; i < toolsWithUniqueConnections.length; i++) {
-                        const toolNode = toolsWithUniqueConnections[i];
-                        const isMCPTool = toolNode.isMcpTool;
-                        if (isMCPTool) {
-                            if (toolNode.mcpConnection) {
-                                toolNode.mcpToolNames = toolsList
-                                    .filter((t: Tool) => t.mcpConnection === toolNode.mcpConnection)
-                                    .map((t: Tool) => t.name);
-                            }
-                            this.createNodeAndLinks({ node: toolNode, name: toolNode.tag, type: NodeTypes.CONNECTOR_NODE, dontLink: true });
-                            continue;
-                        }
-                        if (toolNode.mediator == undefined) {
-                            continue;
-                        }
+                    for (let i = 0; i < toolsList.length; i++) {
+                        const toolNode = toolsList[i];
                         const isConnector = toolNode.mediator?.connectorName !== undefined;
                         if (isConnector) {
                             this.createNodeAndLinks({ node: toolNode, name: toolNode.mediator.connectorName, type: NodeTypes.CONNECTOR_NODE, dontLink: true });

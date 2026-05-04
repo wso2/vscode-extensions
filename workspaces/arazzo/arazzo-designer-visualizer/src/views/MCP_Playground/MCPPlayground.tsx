@@ -453,7 +453,7 @@ export function MCPPlayground({ port, vscodeApi }: MCPPlaygroundProps) {
     const [selectedToolIdx, setSelectedToolIdx] = useState<number | null>(null);
     const [executingTools, setExecutingTools] = useState(false);
     const [outputs, setOutputs] = useState<OutputEntry[]>([
-        { id: outputIdCounter++, html: `<span class="${styles.timestamp}">Ready \u2014 connect to an MCP server to begin.</span>` },
+        { id: outputIdCounter++, html: `<span class="${styles.timestamp}">Ready \u2014 connect to an arazzo server to begin.</span>` },
     ]);
 
     const outputRef = useRef<HTMLDivElement>(null);
@@ -482,7 +482,7 @@ export function MCPPlayground({ port, vscodeApi }: MCPPlaygroundProps) {
                     setConnecting(false);
                     if (msg.success) {
                         setConnected(true);
-                        const serverName = msg.serverInfo?.name || "MCP Server";
+                        const serverName = msg.serverInfo?.name || "arazzo server";
                         setStatusText(`Connected to ${serverName}`);
                         appendOutput(
                             `<span class="${styles.successText}">[${now()}] Connected successfully to ${escapeHtml(serverName)}</span>`
@@ -572,7 +572,7 @@ export function MCPPlayground({ port, vscodeApi }: MCPPlaygroundProps) {
             {/* Header */}
             <div className={styles.header}>
                 <span className={styles.headerIcon}>&#9881;</span>
-                <h1 className={styles.headerTitle}>MCP Playground</h1>
+                <h1 className={styles.headerTitle}>arazzo Playground</h1>
             </div>
 
             {/* Connection Section */}

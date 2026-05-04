@@ -110,7 +110,7 @@ const LegalNotice: React.FC = () => {
     return (
         <PostLoginSection>
             <div>
-                WSO2 Integrator Copilot uses AI to assist with integration. Please review all suggested content before adding it to
+                MI Copilot uses AI to assist with integration. Please review all suggested content before adding it to
                 your integration.
             </div>
             <div>
@@ -140,10 +140,6 @@ export const SignInToCopilotMessage = (props: { showProjectHeader?: boolean }) =
         rpcClient.sendAIStateEvent(AI_EVENT_TYPE.AUTH_WITH_API_KEY);
     };
 
-    const handleAwsBedrockClick = () => {
-        rpcClient.sendAIStateEvent(AI_EVENT_TYPE.AUTH_WITH_AWS_BEDROCK);
-    };
-
     return (
         <PanelWrapper>
             <TopSpacer />
@@ -153,7 +149,7 @@ export const SignInToCopilotMessage = (props: { showProjectHeader?: boolean }) =
                     sx={{ width: 54, height: 54 }}
                     iconSx={{ fontSize: "54px", color: "var(--vscode-foreground)", cursor: "default" }}
                 />
-                <Title>Welcome to WSO2 Integrator Copilot</Title>
+                <Title>Welcome to MI Copilot</Title>
                 <Typography
                     variant="body1"
                     sx={{
@@ -169,10 +165,9 @@ export const SignInToCopilotMessage = (props: { showProjectHeader?: boolean }) =
             <BottomSpacer />
             <FooterContent>
                 <LegalNotice />
-                <StyledButton onClick={signInToMIAI}>Login to WSO2 Integrator Copilot</StyledButton>
+                <StyledButton onClick={signInToMIAI}>Login to MI Copilot</StyledButton>
                 <Divider>or</Divider>
                 <TextButton onClick={handleAnthropicKeyClick}>Enter your Anthropic API key</TextButton>
-                <TextButton onClick={handleAwsBedrockClick}>Enter your AWS Bedrock credentials</TextButton>
             </FooterContent>
         </PanelWrapper>
     );

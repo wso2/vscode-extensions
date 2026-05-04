@@ -25,6 +25,7 @@ import {
     HistoryEntry,
     HistoryEntryResponse,
     OpenViewRequest,
+    RunWorkflowRequest,
     addToHistory,
     getHistory,
     getArazzoModel,
@@ -32,6 +33,7 @@ import {
     goHome,
     goToSource,
     openView,
+    runWorkflow,
 } from "@wso2/arazzo-designer-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -69,5 +71,9 @@ export class VisualizerRpcClient implements VisualizerAPI {
 
     getArazzoModel(params: GetArazzoModelRequest): Promise<GetArazzoModelResponse> {
         return this._messenger.sendRequest(getArazzoModel, HOST_EXTENSION, params);
+    }
+
+    runWorkflow(params: RunWorkflowRequest): void {
+        return this._messenger.sendNotification(runWorkflow, HOST_EXTENSION, params);
     }
 }

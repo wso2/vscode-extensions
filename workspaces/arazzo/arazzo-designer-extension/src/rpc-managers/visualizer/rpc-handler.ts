@@ -22,6 +22,7 @@ import {
     GoToSourceRequest,
     HistoryEntry,
     OpenViewRequest,
+    RunWorkflowRequest,
     addToHistory,
     getHistory,
     getArazzoModel,
@@ -29,6 +30,7 @@ import {
     goHome,
     goToSource,
     openView,
+    runWorkflow,
 } from "@wso2/arazzo-designer-core";
 import { Messenger } from "vscode-messenger";
 import { VisualizerRpcManager } from "./rpc-manager";
@@ -42,4 +44,5 @@ export function registerVisualizerRpcHandlers(messenger: Messenger) {
     messenger.onNotification(goHome, () => rpcManger.goHome());
     messenger.onNotification(goToSource, (args: GoToSourceRequest) => rpcManger.goToSource(args));
     messenger.onRequest(getArazzoModel, (args: GetArazzoModelRequest) => rpcManger.getArazzoModel(args));
+    messenger.onNotification(runWorkflow, (args: RunWorkflowRequest) => rpcManger.runWorkflow(args));
 }

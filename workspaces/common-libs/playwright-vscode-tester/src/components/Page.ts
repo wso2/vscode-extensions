@@ -52,7 +52,7 @@ export class ExtendedPage {
 
     async executePaletteCommand(command: string) {
         await this._page.keyboard.press(os.platform() === 'darwin' ? 'Meta+Shift+p' : 'Control+Shift+p');
-        await this._page.keyboard.type(command);
+        await this._page.keyboard.insertText(command);
         await this._page.keyboard.press('Enter');
     }
 

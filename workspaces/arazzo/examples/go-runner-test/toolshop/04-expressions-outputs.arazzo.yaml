@@ -1,0 +1,93 @@
+arazzo: 1.0.0
+info:
+  title: "Test 04 - Expressions and Outputs"
+  version: "1.0.0"
+  description: >
+    Tests various expression types:
+    - $inputs references
+    - $steps.stepId.outputs.x
+    - $response.body#/json/pointer (JSON Pointer notation)
+    - $response.body.dotNotation (dot notation)
+    - $statusCode
+    - Nested object access (brand, category within product)
+    - Array element access within paginated response
+
+sourceDescriptions:
+  - name: toolshop
+    url: ./toolshop-openapi.yaml
+    type: openapi
+
+workflows:
+  - workflowId: expression_tests
+    summary: Test various expression evaluation scenarios
+    inputs:
+      type: object
+      properties:
+        page:
+          type: integer
+          default: 1
+    steps:
+      - stepId: getProductsList
+        operationId: getProducts
+        parameters:
+          - name: page
+            in: query
+            value: "$inputs.page"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          firstProductId: "$response.body#/data/0/id"
+          firstProductName: "$response.body#/data/0/name"
+          firstProductPrice: "$response.body#/data/0/price"
+          firstProductBrandName: "$response.body#/data/0/brand/name"
+          totalProducts: "$response.body#/total"
+          currentPage: "$response.body#/current_page"
+          statusCode: "$statusCode"
+          fullBody: "$response.body"
+
+      - stepId: getProductDetail
+        operationId: getProduct
+        parameters:
+          - name: productId
+            in: path
+            value: "$steps.getProductsList.outputs.firstProductId"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          productName: "$response.body#/name"
+          productDescription: "$response.body#/description"
+          productPrice: "$response.body#/price"
+          brandId: "$response.body#/brand/id"
+          brandName: "$response.body#/brand/name"
+          categoryName: "$response.body#/category/name"
+          categorySlug: "$response.body#/category/slug"
+          categoryParentId: "$response.body#/category/parent_id"
+          dotNotationName: "$response.body.name"
+          dotNotationBrandName: "$response.body.brand.name"
+          dotNotationCategoryName: "$response.body.category.name"
+          httpStatus: "$statusCode"
+
+    outputs:
+      # From list step - JSON Pointer on arrays
+      listFirstId: "$steps.getProductsList.outputs.firstProductId"
+      listFirstName: "$steps.getProductsList.outputs.firstProductName"
+      listFirstPrice: "$steps.getProductsList.outputs.firstProductPrice"
+      listBrandName: "$steps.getProductsList.outputs.firstProductBrandName"
+      listTotal: "$steps.getProductsList.outputs.totalProducts"
+      listPage: "$steps.getProductsList.outputs.currentPage"
+      listStatusCode: "$steps.getProductsList.outputs.statusCode"
+      # From detail step - JSON Pointer on nested objects
+      detailName: "$steps.getProductDetail.outputs.productName"
+      detailDescription: "$steps.getProductDetail.outputs.productDescription"
+      detailPrice: "$steps.getProductDetail.outputs.productPrice"
+      detailBrandId: "$steps.getProductDetail.outputs.brandId"
+      detailBrandName: "$steps.getProductDetail.outputs.brandName"
+      detailCategoryName: "$steps.getProductDetail.outputs.categoryName"
+      detailCategorySlug: "$steps.getProductDetail.outputs.categorySlug"
+      detailCategoryParentId: "$steps.getProductDetail.outputs.categoryParentId"
+      # From detail step - dot notation
+      dotName: "$steps.getProductDetail.outputs.dotNotationName"
+      dotBrandName: "$steps.getProductDetail.outputs.dotNotationBrandName"
+      dotCategoryName: "$steps.getProductDetail.outputs.dotNotationCategoryName"
+      # Status code
+      detailHttpStatus: "$steps.getProductDetail.outputs.httpStatus"

@@ -206,7 +206,7 @@ export function ProjectInformation(props: ProjectInformationProps) {
     }
 
     const reloadDependencies = () => {
-       rpcClient.getMiVisualizerRpcClient().refetchIntegrationProjectDependencies();
+       rpcClient.getMiVisualizerRpcClient().reloadDependencies();
     }
 
     const handleEditProjectInformation = (componentType: string) => {
