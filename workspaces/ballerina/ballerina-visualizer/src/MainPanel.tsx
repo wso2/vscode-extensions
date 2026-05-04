@@ -666,6 +666,18 @@ const MainPanel = () => {
                             );
                             break;
                         }
+                        case MACHINE_VIEW.AddAgent: {
+                            const { default: AddAgentPopup } = await import("./views/BI/AIChatAgent/AddAgentPopup");
+                            if (isStaleNavigation()) return;
+                            setViewComponent(
+                                <AddAgentPopup
+                                    key={remountKey}
+                                    projectPath={value.projectPath}
+                                    onNavigateToOverview={handleNavigateToOverview}
+                                />
+                            );
+                            break;
+                        }
                         case MACHINE_VIEW.EditConnectionWizard: {
                             const { default: EditConnectionPopup } = await import("./views/BI/Connection/EditConnectionPopup");
                             if (isStaleNavigation()) return;

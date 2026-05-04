@@ -264,7 +264,10 @@ async function getEntryValue(artifact: BaseArtifact, projectPath: string, icon: 
             break;
         case DIRECTORY_MAP.LISTENER:
             // Do things related to listener
-            entryValue.icon = getCustomEntryNodeIcon(getTypePrefix(artifact.module));
+            const listenerModule = getTypePrefix(artifact.module);
+            entryValue.icon = listenerModule === "ai"
+                ? "bi-ai-listener"
+                : getCustomEntryNodeIcon(listenerModule);
             break;
         case DIRECTORY_MAP.CONNECTION:
             entryValue.icon = icon;
