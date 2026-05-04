@@ -659,10 +659,13 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                     if (event.toolName === SEMANTIC_SEARCH_TOOL_NAME) {
                         const query = (event.toolInput as { query?: string })?.query || '';
                         const toolCallId = (event as any).toolCallId || '';
-                        setToolStatus('Searching codebase...');
-                        setMessages((prev) => updateLastMessage(prev, (c) =>
-                            upsertLoadingSemanticSearchTag(c, query, toolCallId)
-                        ));
+                        // Only show loading tag if we have a real toolCallId to avoid orphaned tags
+                        if (toolCallId) {
+                            setToolStatus('Searching codebase...');
+                            setMessages((prev) => updateLastMessage(prev, (c) =>
+                                upsertLoadingSemanticSearchTag(c, query, toolCallId)
+                            ));
+                        }
                         break;
                     }
 
