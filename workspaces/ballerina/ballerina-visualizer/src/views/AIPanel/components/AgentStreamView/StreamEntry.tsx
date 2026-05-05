@@ -259,6 +259,16 @@ function renderItem(item: StreamItem, idx: number, streamActive: boolean, rpcCli
                     </ItemRow>
                 );
             }
+            if (item.componentType === "skill") {
+                return (
+                    <ItemRow key={idx}>
+                        <ToolIcon loading={false}>
+                            <span className="codicon codicon-book" />
+                        </ToolIcon>
+                        <ItemLabel loading={false}>Skill: {item.data.name}</ItemLabel>
+                    </ItemRow>
+                );
+            }
             return null;
         default:
             return null;

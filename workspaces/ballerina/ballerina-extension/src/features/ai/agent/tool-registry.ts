@@ -123,7 +123,7 @@ export function createToolRegistry(opts: ToolRegistryOptions) {
         [FILE_READ_TOOL_NAME]: createReadTool(
             createReadExecute(eventHandler, tempProjectPath)
         ),
-        [DIAGNOSTICS_TOOL_NAME]: createDiagnosticsTool(tempProjectPath, eventHandler),
+        [DIAGNOSTICS_TOOL_NAME]: createDiagnosticsTool(tempProjectPath, eventHandler, "DataMap"),
         [TEST_RUNNER_TOOL_NAME]: createTestRunnerTool(tempProjectPath, eventHandler, modifiedFiles, allModifiedFiles, ctx),
         // Migration source tools — registered only when a source project path is available
         ...(migrationSourcePath ? {
