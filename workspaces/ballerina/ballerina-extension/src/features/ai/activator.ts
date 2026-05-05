@@ -110,12 +110,9 @@ export function activateAIFeatures(ballerinaExternalInstance: BallerinaExtension
                     generationId: `test-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
                     abortController: new AbortController(),
                     params,
+                    // No chat storage in test mode
+                    chatStorage: undefined,
                     codeMapMarkdown,
-                    chatStorage: {
-                        projectRootPath: params.projectPath,
-                        threadId: 'default',
-                        enabled: true,
-                    },
                     // Immediate cleanup (AI_TEST_ENV prevents actual deletion)
                     lifecycle: {
                         cleanupStrategy: 'immediate'
