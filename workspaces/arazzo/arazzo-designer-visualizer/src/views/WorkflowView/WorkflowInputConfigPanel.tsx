@@ -20,6 +20,7 @@
 
 import styled from "@emotion/styled";
 import { Button, Codicon } from "@wso2/ui-toolkit";
+import { Fragment } from "react";
 import { WorkflowInputField } from "../../utils/inputUtils";
 
 // ---------------------------------------------------------------------------
@@ -75,6 +76,12 @@ const FieldGroup = styled.div`
     gap: 4px;
 `;
 
+const Divider = styled.div`
+    height: 1px;
+    background-color: var(--vscode-editorWidget-border, rgba(128,128,128,0.2));
+    margin: 4px 0;
+`;
+
 const FieldLabel = styled.label`
     font-size: 12px;
     font-weight: 500;
@@ -107,11 +114,34 @@ const baseInputStyles = `
     padding: 5px 8px;
     outline: none;
     transition: border-color 0.1s ease;
+    
     &:focus {
         border-color: var(--vscode-focusBorder);
     }
+    
     &::placeholder {
         color: var(--vscode-input-placeholderForeground, rgba(128,128,128,0.6));
+        opacity: 1;
+    }
+
+    &[type="number"] {
+        -moz-appearance: textfield;
+    }
+
+    &::-webkit-inner-spin-button,
+    &::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+        cursor: pointer;
+        width: 16px;
+        /* Redraw the arrows using an SVG, keeping the background completely transparent */
+        background: transparent url("data:image/svg+xml,%3Csvg width='16' height='16' viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 6L8 3L11 6H5Z' fill='%23888888'/%3E%3Cpath d='M5 10L8 13L11 10H5Z' fill='%23888888'/%3E%3C/svg%3E") no-repeat center center;
+        opacity: 0.6;
+        transition: opacity 0.2s ease;
+    }
+
+    /* 3. Add a hover effect so the user knows they are clickable */
+    &::-webkit-inner-spin-button:hover {
         opacity: 1;
     }
 `;
@@ -125,11 +155,6 @@ const FieldTextarea = styled.textarea`
     resize: vertical;
     min-height: 72px;
     line-height: 1.4;
-`;
-
-const FieldSelect = styled.select`
-    ${baseInputStyles}
-    cursor: pointer;
 `;
 
 const FieldError = styled.div`
@@ -256,60 +281,66 @@ export function WorkflowInputConfigPanel({
                         <span>This workflow has no input fields defined.</span>
                     </EmptyState>
                 ) : (
-                    fields.map(field => (
-                        <FieldGroup key={field.name}>
-                            <FieldLabel htmlFor={`input-${field.name}`}>
-                                {field.name}
-                                {field.required && <RequiredMark title="Required">*</RequiredMark>}
-                                {field.type !== 'string' && (
-                                    <span style={{ marginLeft: 4, opacity: 0.6, fontWeight: 400, fontSize: 11 }}>
-                                        ({field.type})
-                                    </span>
-                                )}
-                            </FieldLabel>
-
-                            {field.description && (
-                                <FieldDescription>{field.description}</FieldDescription>
-                            )}
-
-                            {field.type === 'boolean' ? (
-                                <BooleanRow>
-                                    <input
-                                        type="checkbox"
-                                        id={`input-${field.name}`}
-                                        checked={values[field.name] === 'true'}
-                                        onChange={e => onChange(field.name, e.target.checked ? 'true' : 'false')}
-                                        style={{ width: 15, height: 15, cursor: 'pointer', accentColor: 'var(--vscode-focusBorder)' }}
-                                    />
-                                    <label
-                                        htmlFor={`input-${field.name}`}
-                                        style={{ fontSize: 12, color: 'var(--vscode-foreground)', cursor: 'pointer' }}
-                                    >
+                    fields.map((field, index) => (
+                        <Fragment key={field.name}>
+                            <FieldGroup>
+                                {field.type !== 'boolean' && (
+                                    <FieldLabel htmlFor={`input-${field.name}`}>
                                         {field.name}
-                                    </label>
-                                </BooleanRow>
-                            ) : field.type === 'object' || field.type === 'array' ? (
-                                <FieldTextarea
-                                    id={`input-${field.name}`}
-                                    value={values[field.name] ?? ''}
-                                    placeholder={field.type === 'object' ? '{"key": "value"}' : '[1, 2, 3]'}
-                                    onChange={e => onChange(field.name, e.target.value)}
-                                />
-                            ) : (
-                                <FieldInput
-                                    id={`input-${field.name}`}
-                                    type={field.type === 'integer' ? 'number' : 'text'}
-                                    step={field.type === 'integer' ? 1 : undefined}
-                                    value={values[field.name] ?? ''}
-                                    placeholder='Enter value…'
-                                    onChange={e => onChange(field.name, e.target.value)}
-                                />
-                            )}
+                                        {field.required && <RequiredMark title="Required">*</RequiredMark>}
+                                        {field.type !== 'string' && (
+                                            <span style={{ marginLeft: 4, opacity: 0.6, fontWeight: 400, fontSize: 11 }}>
+                                                ({field.type})
+                                            </span>
+                                        )}
+                                    </FieldLabel>
+                                )}
 
-                            {errors[field.name] && (
-                                <FieldError>{errors[field.name]}</FieldError>
-                            )}
-                        </FieldGroup>
+                                {field.description && (
+                                    <FieldDescription>{field.description}</FieldDescription>
+                                )}
+
+                                {field.type === 'boolean' ? (
+                                    <BooleanRow>
+                                        <input
+                                            type="checkbox"
+                                            id={`input-${field.name}`}
+                                            checked={values[field.name] === 'true'}
+                                            onChange={e => onChange(field.name, e.target.checked ? 'true' : 'false')}
+                                            style={{ width: 15, height: 15, cursor: 'pointer', accentColor: 'var(--vscode-focusBorder)' }}
+                                        />
+                                        <label
+                                            htmlFor={`input-${field.name}`}
+                                            style={{ fontSize: 12, color: 'var(--vscode-foreground)', cursor: 'pointer', fontWeight: 500 }}
+                                        >
+                                            {field.name}
+                                            {field.required && <RequiredMark title="Required" style={{ marginLeft: 2 }}>*</RequiredMark>}
+                                        </label>
+                                    </BooleanRow>
+                                ) : field.type === 'object' || field.type === 'array' ? (
+                                    <FieldTextarea
+                                        id={`input-${field.name}`}
+                                        value={values[field.name] ?? ''}
+                                        placeholder={field.type === 'object' ? '{"key": "value"}' : '[1, 2, 3]'}
+                                        onChange={e => onChange(field.name, e.target.value)}
+                                    />
+                                ) : (
+                                    <FieldInput
+                                        id={`input-${field.name}`}
+                                        type={field.type === 'integer' ? 'number' : 'text'}
+                                        step={field.type === 'integer' ? 1 : undefined}
+                                        value={values[field.name] ?? ''}
+                                        placeholder='Enter value…'
+                                        onChange={e => onChange(field.name, e.target.value)}
+                                    />
+                                )}
+
+                                {errors[field.name] && (
+                                    <FieldError>{errors[field.name]}</FieldError>
+                                )}
+                            </FieldGroup>
+                            {index < fields.length - 1 && <Divider />}
+                        </Fragment>
                     ))
                 )}
             </PanelBody>
