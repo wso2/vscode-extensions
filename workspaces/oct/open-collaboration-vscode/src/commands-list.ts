@@ -1,0 +1,26 @@
+// ******************************************************************************
+// Copyright 2025 TypeFox GmbH
+// This program and the accompanying materials are made available under the
+// terms of the MIT License, which is available in the project root.
+// ******************************************************************************
+
+export namespace OctCommands {
+    export const FollowPeer = 'oct.followPeer';
+    export const StopFollowPeer = 'oct.stopFollowPeer';
+    export const Enter = 'oct.enter';
+    export const RejectJoin = 'oct.rejectJoin';
+    export const AcceptJoin = 'oct.acceptJoin';
+    export const JoinRoom = 'oct.joinRoom';
+    export const CreateRoom = 'oct.createRoom';
+    export const CloseConnection = 'oct.closeConnection';
+    export const SignOut = 'oct.signOut';
+    export const DevFuzzing = 'oct.dev.fuzzing';
+    export const UpdateTextSelection = 'oct.updateTextSelection';
+    export const RerenderPresence = 'oct.rerenderPresence';
+}
+
+export namespace CodeCommands {
+    export const CloseFolder = 'workbench.action.closeFolder';
+    export const OpenSettings = 'workbench.action.openSettings';
+    export const OpenFolder = 'vscode.openFolder';
+}

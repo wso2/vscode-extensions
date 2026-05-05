@@ -1,0 +1,65 @@
+{
+  "name": "open-collaboration-protocol",
+  "version": "0.3.1",
+  "license": "MIT",
+  "description": "Open Collaboration Protocol implementation, part of the Open Collaboration Tools project",
+  "files": [
+    "lib",
+    "src"
+  ],
+  "type": "module",
+  "main": "./lib/index.js",
+  "module": "./lib/index.js",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      ".": [
+        "lib/index.d.ts"
+      ]
+    }
+  },
+  "scripts": {
+    "build": "echo 'open-collaboration-protocol: Nothing extra to build.'"
+  },
+  "dependencies": {
+    "base64-js": "~1.5.1",
+    "fflate": "~0.8.2",
+    "msgpackr": "~1.11.2",
+    "semver": "~7.7.1",
+    "socket.io-client": "~4.8.1"
+  },
+  "devDependencies": {
+    "@types/semver": "~7.7.0"
+  },
+  "keywords": [
+    "collaboration",
+    "live-share",
+    "protocol"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eclipse-oct/open-collaboration-tools",
+    "directory": "packages/open-collaboration-protocol"
+  },
+  "bugs": {
+    "url": "https://github.com/eclipse-oct/open-collaboration-tools/issues"
+  },
+  "homepage": "https://www.open-collab.tools/",
+  "author": {
+    "name": "TypeFox",
+    "url": "https://www.typefox.io/"
+  },
+  "volta": {
+    "node": "22.14.0",
+    "npm": "10.9.2"
+  },
+  "engines": {
+    "node": ">=20.10.0",
+    "npm": ">=10.2.3"
+  }
+}

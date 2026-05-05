@@ -1,0 +1,20 @@
+{
+    "extends": "../../tsconfig.json",
+    "compilerOptions": {
+        "noEmit": false,
+        "rootDir": "src",
+        "outDir": "lib",
+        "jsx": "react"
+    },
+    "references": [
+        {
+            "path": "../open-collaboration-protocol/tsconfig.json"
+        },
+        {
+            "path": "../open-collaboration-yjs/tsconfig.json"
+        }
+    ],
+    "include": [
+        "src/**/*.ts*",
+    ]
+}

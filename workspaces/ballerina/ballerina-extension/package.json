@@ -1486,8 +1486,8 @@
         "zod": "4.1.8",
         "y-protocols": "^1.0.7",
         "yjs": "^13.6.29",
-        "open-collaboration-protocol": "^0.3.1",
-        "open-collaboration-yjs": "^0.3.1",
+        "open-collaboration-protocol": "workspace:*",
+        "open-collaboration-yjs": "workspace:*",
         "yaml": "2.8.0"
     },
     "devDependencies": {

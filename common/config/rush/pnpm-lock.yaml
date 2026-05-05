@@ -641,11 +641,11 @@ importers:
         specifier: 2.1.1
         version: 2.1.1
       open-collaboration-protocol:
-        specifier: ^0.3.1
-        version: 0.3.2
+        specifier: workspace:*
+        version: link:../../oct/open-collaboration-protocol
       open-collaboration-yjs:
-        specifier: ^0.3.1
-        version: 0.3.1(yjs@13.6.30)
+        specifier: workspace:*
+        version: link:../../oct/open-collaboration-yjs
       portfinder:
         specifier: 1.0.32
         version: 1.0.32
@@ -4668,6 +4668,40 @@ importers:
       typescript:
         specifier: 5.8.3
         version: 5.8.3
+
+  ../../workspaces/oct/open-collaboration-protocol:
+    dependencies:
+      base64-js:
+        specifier: ~1.5.1
+        version: 1.5.1
+      fflate:
+        specifier: ~0.8.2
+        version: 0.8.2
+      msgpackr:
+        specifier: ~1.11.2
+        version: 1.11.9
+      semver:
+        specifier: ~7.7.1
+        version: 7.7.4
+      socket.io-client:
+        specifier: ~4.8.1
+        version: 4.8.3
+    devDependencies:
+      '@types/semver':
+        specifier: ~7.7.0
+        version: 7.7.1
+
+  ../../workspaces/oct/open-collaboration-yjs:
+    dependencies:
+      lib0:
+        specifier: ^0.2.103
+        version: 0.2.117
+      open-collaboration-protocol:
+        specifier: workspace:~0.3.0
+        version: link:../open-collaboration-protocol
+      y-protocols:
+        specifier: ~1.0.6
+        version: 1.0.7(yjs@13.6.30)
 
   ../../workspaces/wso2-platform/wso2-platform-core:
     dependencies:
@@ -19762,16 +19796,6 @@ packages:
   onetime@7.0.0:
     resolution: {integrity: sha512-VXJjc87FScF88uafS3JllDgvAm+c/Slfz06lorj2uAY34rlUu0Nt+v8wreiImcrgAjjIHp1rXpTDlLOGw29WwQ==}
     engines: {node: '>=18'}
-
-  open-collaboration-protocol@0.3.2:
-    resolution: {integrity: sha512-jXnTXLj5Dfr43oYLnqJOV9Es7FwKxEF0EWg70F2dJXB6hXmBvvpVhSNbZuJgf/5og8JjT0bVcQyJpPCoAz/WmA==}
-    engines: {node: '>=20.10.0', npm: '>=10.2.3'}
-
-  open-collaboration-yjs@0.3.1:
-    resolution: {integrity: sha512-sMs2YBntYaWW3ck8msiINZOED80wGQWzuX2uBOqPMWDv0qmKHYsgSNpJ1cAvcYIeM/2pfxRC53ihpKlSW38HdQ==}
-    engines: {node: '>=20.10.0', npm: '>=10.2.3'}
-    peerDependencies:
-      yjs: ^13.0.0
 
   open@10.2.0:
     resolution: {integrity: sha512-YgBpdJHPyQ2UE5x+hlSXcnejzAvD0b22U2OuAP+8OnlJT+PjWPxtgmGqKKc+RgTM63U9gN0YzrYc71R2WT/hTA==}
@@ -50729,29 +50753,6 @@ snapshots:
   onetime@7.0.0:
     dependencies:
       mimic-function: 5.0.1
-
-  open-collaboration-protocol@0.3.2:
-    dependencies:
-      base64-js: 1.5.1
-      fflate: 0.8.2
-      msgpackr: 1.11.9
-      semver: 7.7.4
-      socket.io-client: 4.8.3
-    transitivePeerDependencies:
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-
-  open-collaboration-yjs@0.3.1(yjs@13.6.30):
-    dependencies:
-      lib0: 0.2.117
-      open-collaboration-protocol: 0.3.2
-      y-protocols: 1.0.7(yjs@13.6.30)
-      yjs: 13.6.30
-    transitivePeerDependencies:
-      - bufferutil
-      - supports-color
-      - utf-8-validate
 
   open@10.2.0:
     dependencies:
