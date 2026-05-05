@@ -65,7 +65,15 @@ export const ProxyView = ({ model: ProxyModel, documentUri, diagnostics }: Proxy
             setFormOpen(false);
         }
     }
-    
+
+    // Show Source button handler
+    const handleShowSource = () => {
+        rpcClient.getMiVisualizerRpcClient().openView({
+            type: EVENT_TYPE.OPEN_VIEW,
+            location: { view: MACHINE_VIEW.SourceView, documentUri }
+        });
+    };
+
     return (
         <View>
             {isFormOpen ?
@@ -77,6 +85,12 @@ export const ProxyView = ({ model: ProxyModel, documentUri, diagnostics }: Proxy
                     isOpen={isFormOpen}
                 /> : 
             <>
+            {/* Toolbar with Show Source button */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', padding: '8px 16px' }}>
+                <button onClick={handleShowSource} style={{ padding: '4px 12px', fontSize: '14px', cursor: 'pointer' }}>
+                    Show Source
+                </button>
+            </div>
             <ViewHeader title={`Proxy: ${model.name}`} codicon="arrow-swap" onEdit={handleEditProxy}>
                 <Switch
                     leftLabel="Flow"
