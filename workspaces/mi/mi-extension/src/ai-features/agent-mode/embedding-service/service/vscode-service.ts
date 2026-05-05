@@ -226,7 +226,7 @@ export class VSCodeEmbeddingService {
             // _start() handles its own errors internally and never throws,
             // but guard against unexpected throws so _isInitializing is reset.
         } finally {
-            this._isInitializing = false;
+            this._isInitializing = this.workerStatusSnapshot?.initializing ?? false;
             // If initialization failed, null out _initPromise so the next
             // call to start() will retry instead of returning a stale promise.
             if (!this._isAvailable) {
@@ -243,8 +243,11 @@ export class VSCodeEmbeddingService {
             // ── Phase 1: Download model with VS Code progress UI (one-time) ──
             if (!isModelDownloaded()) {
                 console.log(`[EmbeddingService] Model not found — starting download to ${this.config.modelPath}`);
-                this.showStatusBar('$(cloud-download) MI: Downloading model…',
-                    'Downloading embedding model to ~/.wso2-mi/models — this happens once');
+                const modelsDir = getWso2MiModelsDir();
+                const downloadTooltip = process.env.MI_COPILOT_MODELS_DIR
+                    ? `Downloading embedding model to ${modelsDir} (from MI_COPILOT_MODELS_DIR) — this happens once`
+                    : `Downloading embedding model to ${modelsDir} (~/.wso2-mi/copilot/models by default) — this happens once`;
+                this.showStatusBar('$(cloud-download) MI: Downloading model…', downloadTooltip);
                 try {
                     await vscode.window.withProgress(
                         {

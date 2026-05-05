@@ -721,7 +721,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                         const completedTag = `<semanticsearch>${serializeSemanticSearchPayload(completedData)}</semanticsearch>`;
                         const resultToolCallId = (event as any).toolCallId || '';
                         const patternWithId = resultToolCallId
-                            ? new RegExp(`<semanticsearch data-loading="true" data-tool-call-id="${resultToolCallId}">[\\s\\S]*?<\\/semanticsearch>`)
+                            ? new RegExp(`<semanticsearch data-loading="true" data-tool-call-id="${escapeRegExp(resultToolCallId)}">[\\s\\S]*?<\\/semanticsearch>`)
                             : null;
                         const matchWithId = patternWithId ? lastMessageContent.match(patternWithId) : null;
                         const fallbackMatch = lastMessageContent.match(/<semanticsearch data-loading="true"[^>]*>[\s\S]*?<\/semanticsearch>/);

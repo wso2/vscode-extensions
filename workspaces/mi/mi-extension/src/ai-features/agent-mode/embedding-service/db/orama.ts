@@ -52,7 +52,7 @@ export interface ChunkRecord extends ChunkMetadata {
  * file (`embeddings.json`) on the user's disk. Without this, the extension 
  * might crash trying to load stale data that doesn't match the new code structure.
  */
-const DB_SCHEMA_VERSION = '2';
+const DB_SCHEMA_VERSION = '3';
 
 const oramaSchema = {
   filePath: 'enum',
@@ -67,7 +67,6 @@ const oramaSchema = {
   sequenceKey: 'enum',
   isSequenceDefinition: 'boolean',
   referencedSequencesJson: 'string',
-  embeddingText: 'string',
   embedding: 'vector[384]',   // all-MiniLM-L6-v2 models output 384-dimensional vectors
 } as const;
 
@@ -127,7 +126,7 @@ export class OramaDB {
     }
   }
 
-  async insertChunk(metadata: ChunkMetadata, embedding: Float32Array, embeddingText: string = ''): Promise<string> {
+  async insertChunk(metadata: ChunkMetadata, embedding: Float32Array): Promise<string> {
     const id = await insert(this.db, {
       filePath: metadata.filePath,
       fileHash: metadata.fileHash,
@@ -141,13 +140,12 @@ export class OramaDB {
       sequenceKey: metadata.sequenceKey || '',
       isSequenceDefinition: metadata.isSequenceDefinition || false,
       referencedSequencesJson: metadata.referencedSequences ? JSON.stringify(metadata.referencedSequences) : '',
-      embeddingText: embeddingText,
       embedding: Array.from(embedding),
     });
     return id;
   }
 
-  async updateChunk(id: string, metadata: ChunkMetadata, embedding: Float32Array, embeddingText: string = ''): Promise<void> {
+  async updateChunk(id: string, metadata: ChunkMetadata, embedding: Float32Array): Promise<void> {
     await update(this.db, id, {
       filePath: metadata.filePath,
       fileHash: metadata.fileHash,
@@ -161,7 +159,6 @@ export class OramaDB {
       sequenceKey: metadata.sequenceKey || '',
       isSequenceDefinition: metadata.isSequenceDefinition || false,
       referencedSequencesJson: metadata.referencedSequences ? JSON.stringify(metadata.referencedSequences) : '',
-      embeddingText: embeddingText,
       embedding: Array.from(embedding),
     });
   }
@@ -179,28 +176,6 @@ export class OramaDB {
     return results.hits.map(hit => this.mapDocToRecord(hit.id, hit.document as any));
   }
 
-  async getSequenceDefinition(artifactRef: string): Promise<ChunkRecord | null> {
-    let artifactName = artifactRef;
-    if (artifactRef.includes(':')) {
-      [artifactName] = artifactRef.split(':', 2);
-    }
-
-    const results = await search(this.db, {
-      where: {
-        sequenceKey: {
-          eq: artifactName
-        },
-        isSequenceDefinition: true,
-      },
-      limit: 1
-    });
-
-    if (results.hits.length > 0) {
-      return this.mapDocToRecord(results.hits[0].id, results.hits[0].document as any);
-    }
-    return null;
-  }
-
   async deleteChunksByFile(filePath: string): Promise<void> {
     const chunks = await this.getChunksByFile(filePath);
     for (const chunk of chunks) {
@@ -210,13 +185,6 @@ export class OramaDB {
 
   async deleteChunk(id: string): Promise<void> {
     await remove(this.db, id);
-  }
-
-  async getAllChunks(): Promise<ChunkRecord[]> {
-    const results = await search(this.db, {
-      limit: 100000, // Reasonable max limit or paginated
-    });
-    return results.hits.map(hit => this.mapDocToRecord(hit.id, hit.document as any));
   }
 
   async getLatestFileHashesAsync(): Promise<Map<string, string>> {

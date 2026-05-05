@@ -27,6 +27,12 @@ const SEMANTIC_SEARCH_TOOL_NAME = 'semantic_code_search';
 function escapeRegExp(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
+
+const serializeSemanticSearchPayload = (data: unknown): string =>
+    JSON.stringify(data)
+        .replace(/</g, '\\u003c')
+        .replace(/>/g, '\\u003e');
+
 /**
  * Calculate overall status from todo items
  */
@@ -219,7 +225,7 @@ export function convertEventsToMessages(
                         query_latency_ms: 0,
                         loading: true
                     };
-                    currentAssistantMessage.content += `\n\n<semanticsearch data-loading="true" data-tool-call-id="${toolCallId}">${JSON.stringify(semanticData)}</semanticsearch>`;
+                    currentAssistantMessage.content += `\n\n<semanticsearch data-loading="true" data-tool-call-id="${toolCallId}">${serializeSemanticSearchPayload(semanticData)}</semanticsearch>`;
                     continue;
                 }
 
@@ -317,7 +323,7 @@ export function convertEventsToMessages(
                                 loading: false
                             };
 
-                        const completedTag = `<semanticsearch>${JSON.stringify(semanticData)}</semanticsearch>`;
+                        const completedTag = `<semanticsearch>${serializeSemanticSearchPayload(semanticData)}</semanticsearch>`;
 
                         // Find and replace the loading semanticsearch tag by toolCallId
                         const semanticPatternWithId = new RegExp(

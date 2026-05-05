@@ -120,7 +120,6 @@ export class Pipeline {
     }
 
     const matchedChunkIds = new Set<string>();
-    const chunkIndexToDbId = new Map<number, string>();
     let reusedCount = 0;
     let embeddedCount = 0;
 
@@ -148,23 +147,21 @@ export class Pipeline {
 
       if (existingChunk && existingChunk.contentHash === chunk.contentHash) {
         embedding = new Float32Array(existingChunk.embedding);
-        await this.db.updateChunk(existingChunk.id, metadata, embedding, chunk.embeddingText);
+        await this.db.updateChunk(existingChunk.id, metadata, embedding);
         dbId = existingChunk.id;
         matchedChunkIds.add(dbId);
         reusedCount++;
       } else if (existingChunk) {
         embedding = await this.embedder.embed(chunk.embeddingText);
-        await this.db.updateChunk(existingChunk.id, metadata, embedding, chunk.embeddingText);
+        await this.db.updateChunk(existingChunk.id, metadata, embedding);
         dbId = existingChunk.id;
         matchedChunkIds.add(dbId);
         embeddedCount++;
       } else {
         embedding = await this.embedder.embed(chunk.embeddingText);
-        dbId = await this.db.insertChunk(metadata, embedding, chunk.embeddingText);
+        dbId = await this.db.insertChunk(metadata, embedding);
         embeddedCount++;
       }
-
-      chunkIndexToDbId.set(chunk.chunkIndex, dbId);
     }
 
     let deletedCount = 0;

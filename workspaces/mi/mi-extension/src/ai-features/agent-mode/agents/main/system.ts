@@ -136,7 +136,7 @@ ${semanticEnabled ? `## Search tools: ${SEMANTIC_SEARCH_TOOL_NAME} and ${FILE_GR
 - ${SEMANTIC_SEARCH_TOOL_NAME}: inward/content questions — "what does X do", "how is Y implemented", "find pattern Z across the codebase". Returns ranked candidate chunks — treat them as a starting point. Verify the top chunk's operation type matches the query intent before concluding; if results come from a single file or seem approximate, read relevant sibling artifacts.
 - ${FILE_GREP_TOOL_NAME}: outward/reference questions — "who calls X", "what triggers Y", "where is artifact Z used", "what sets property FOO". Cross-references in Synapse XML are string keys (\`<sequence key="...">\`, \`name="..."\`) — they will not match semantically.
 - Cross-cutting pipeline questions: use ${SEMANTIC_SEARCH_TOOL_NAME} to locate the entry artifact, then one targeted ${FILE_GREP_TOOL_NAME} on the exact artifact name/key to find callers.
-- Call ${SEMANTIC_SEARCH_TOOL_NAME} at most once per user intent. Do not re-run with reworded queries — same intent returns the same chunks.
+- Call ${SEMANTIC_SEARCH_TOOL_NAME} at most once per turn. Do not re-run with reworded queries within the same turn — same intent returns the same chunks. Each new user message is a new intent; call it again if the new question requires it.
 - Confidence labels are loose hints — decide from chunk content.
 - Keep \`top_k\` at default (8, max 15).` : ''}
 

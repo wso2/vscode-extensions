@@ -63,8 +63,8 @@ const LOW_CONFIDENCE_THRESHOLD = 0.25;
 const CONFIDENCE_DIRECTIVES: Record<SemanticSearchConfidence, string> = {
     'high':     'CONFIDENCE: HIGH — top chunks are strongly relevant candidates. Read all returned chunks before deciding — the answer may not be at rank 1. Verify the top chunk\'s operation type matches what the user asked before anchoring. If it matches unambiguously, answer from the chunks. If the match is approximate or the chunk\'s operation type does not match the query intent, read relevant sibling artifacts before concluding.',
     'medium':   'CONFIDENCE: MEDIUM — chunks are candidate matches, likely relevant but may be partial or misdirected. Read all returned chunks before deciding — the answer may not be at rank 1. Verify the top chunk\'s operation type matches the query intent. If chunks clearly and unambiguously answer the question, respond. Otherwise corroborate with a single targeted file_read of the most likely sibling artifact.',
-    'low':      'CONFIDENCE: LOW — treat as candidate starting points. Inspect each chunk against the question; if one clearly answers it, use it. Otherwise fall back to a single targeted grep or file_read with concrete identifiers from the question — rewording the same query will return the same chunks.',
-    'very-low': 'CONFIDENCE: VERY LOW — no sufficiently relevant results found. Use grep or file_read with concrete identifiers from the question. Do NOT retry semantic_search with rewordings of the same intent.',
+    'low':      'CONFIDENCE: LOW — treat as candidate starting points. Inspect each chunk against the question; if one clearly answers it, use it. Otherwise fall back to a single targeted grep or file_read with concrete identifiers from the question — rewording the same query in this turn will return the same chunks.',
+    'very-low': 'CONFIDENCE: VERY LOW — no sufficiently relevant results found. Use grep or file_read with concrete identifiers from the question. Do NOT retry semantic_search with rewordings of the same question in this turn.',
 };
 
 // ============================================================================
@@ -232,6 +232,7 @@ export function createSemanticSearchExecute(projectPath: string): SemanticSearch
                         `No sufficiently relevant results for query "${query}" ` +
                         `(${latencyMs}ms, ${searchedChunkCount} chunks searched, top score: ${topScore.toFixed(4)}). ` +
                         'Results fell below the relevance threshold.',
+                    semanticSearchData: response,
                 };
             }
 
@@ -242,6 +243,7 @@ export function createSemanticSearchExecute(projectPath: string): SemanticSearch
                         `No results above threshold ${threshold} for query "${query}" ` +
                         `(${latencyMs}ms, ${searchedChunkCount} chunks searched). ` +
                         'FALLBACK: Use grep or glob with keywords from your query to find matching code.',
+                    semanticSearchData: response,
                 };
             }
 
