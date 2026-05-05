@@ -208,7 +208,11 @@ export async function activateProjectExplorer(treeviewId: string, context: Exten
 			customProps: { editData: { serverName, localEntryPath } }
 		});
 	});
-	
+
+	commands.registerCommand(COMMANDS.DELETE_MCP_SERVER_COMMAND, (entry: ProjectExplorerEntry) => {
+		commands.executeCommand(COMMANDS.DELETE_PROJECT_EXPLORER_ITEM, entry);
+	});
+
 	commands.registerCommand(COMMANDS.REVEAL_ITEM_COMMAND, async (viewLocation: VisualizerLocation) => {
 		const data = projectExplorerDataProvider.getChildren();
 
@@ -636,6 +640,43 @@ export async function activateProjectExplorer(treeviewId: string, context: Exten
 								}
 							}
 							removeFromHistory(fileUri.fsPath);
+						} catch (error) {
+							window.showErrorMessage(`Failed to delete ${item.label}: ${error}`);
+						}
+					}
+					break;
+				}
+			case 'mcpServer':
+				{
+					const localEntryPath = (item as any)?.info?.localEntry?.path;
+					const inboundEndpointPath = (item as any)?.info?.inboundEndpoint?.path;
+
+					if (!localEntryPath) {
+						window.showErrorMessage('Could not determine local entry path for MCP server');
+						return;
+					}
+
+					const confirmation = await window.showWarningMessage(
+						`Are you sure you want to delete MCP Server - ${item.label}?`,
+						{ modal: true },
+						'Yes'
+					);
+
+					if (confirmation === 'Yes') {
+						try {
+							// Delete local entry file
+							await vscode.workspace.fs.delete(Uri.file(localEntryPath), { recursive: true, useTrash: true });
+
+							// Delete inbound endpoint file if it exists
+							if (inboundEndpointPath) {
+								try {
+									await vscode.workspace.fs.delete(Uri.file(inboundEndpointPath), { recursive: true, useTrash: true });
+								} catch (err) {
+									console.warn(`Could not delete inbound endpoint at ${inboundEndpointPath}:`, err);
+								}
+							}
+
+							window.showInformationMessage(`${item.label} has been deleted.`);
 						} catch (error) {
 							window.showErrorMessage(`Failed to delete ${item.label}: ${error}`);
 						}

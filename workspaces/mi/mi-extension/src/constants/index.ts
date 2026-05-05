@@ -77,6 +77,7 @@ export const COMMANDS = {
     ADD_DATA_SERVICE_COMMAND: 'MI.project-explorer.add-data-service',
     ADD_MCP_SERVER_COMMAND: 'MI.project-explorer.add-mcp-server',
     SHOW_MCP_SERVER: 'MI.show.mcp-server',
+    DELETE_MCP_SERVER_COMMAND: 'MI.project-explorer.delete-mcp-server',
     CREATE_PROJECT_COMMAND: 'MI.project-explorer.create-project',
     REVEAL_ITEM_COMMAND: 'MI.project-explorer.revealItem',
     OPEN_SERVICE_DESIGNER: 'MI.project-explorer.open-service-designer',
