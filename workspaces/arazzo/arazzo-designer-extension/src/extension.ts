@@ -138,6 +138,20 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Initialize Arazzo Language Server for procode features
 	initializeLanguageServer(context, runCodeLensProvider);
+
+	// Watch for arazzo.disableTls changes
+	context.subscriptions.push(
+		vscode.workspace.onDidChangeConfiguration(event => {
+			if (event.affectsConfiguration('arazzo.disableTls')) {
+				if (!isMCPServerRunning()) {
+					const config = vscode.workspace.getConfiguration('arazzo');
+					const isDisabled = config.get<boolean>('disableTls');
+					const status = isDisabled ? 'disabled' : 'enabled';
+					vscode.window.showInformationMessage(`TLS certificate validation ${status}. This will take effect when the server starts.`);
+				}
+			}
+		})
+	);
 }
 
 function getLanguageServerBinaryName(): string {
