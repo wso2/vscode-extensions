@@ -96,10 +96,11 @@ interface WorkflowTitleBarProps {
     workflowId: string;
     onTry: () => void;
     onTryCurl?: () => void;
+    onConfigure?: () => void;
     onHome?: () => void;
 }
 
-export function WorkflowTitleBar({ workflowId, onTry, onTryCurl, onHome }: WorkflowTitleBarProps) {
+export function WorkflowTitleBar({ workflowId, onTry, onTryCurl, onConfigure, onHome }: WorkflowTitleBarProps) {
     return (
         <TitleBar>
             <TitleLeft>
@@ -121,6 +122,22 @@ export function WorkflowTitleBar({ workflowId, onTry, onTryCurl, onHome }: Workf
                 <TitleName title={workflowId}>{workflowId}</TitleName>
             </TitleLeft>
             <ButtonGroup>
+                {onConfigure && (
+                    <span title="Configure Inputs">
+                        <TryButton
+                            appearance="secondary"
+                            buttonSx={{
+                                backgroundColor: "transparent",
+                                color: "var(--vscode-foreground)",
+                                border: "none",
+                                boxShadow: "none",
+                            }}
+                            onClick={onConfigure}
+                        >
+                            <Codicon name="settings-gear" />
+                        </TryButton>
+                    </span>
+                )}
                 {onTryCurl && (
                     <TryButton
                         appearance="secondary"

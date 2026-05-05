@@ -44,6 +44,8 @@ import * as C from '../../constants/nodeConstants';
 import { NodePropertiesPanel } from './NodePropertiesPanel';
 import { WorkflowSelectionScreen } from './WorkflowSelectionScreen';
 import { WorkflowTitleBar } from './WorkflowTitleBar';
+import { WorkflowInputConfigPanel } from './WorkflowInputConfigPanel';
+import { WorkflowInputField, buildInputFields, buildInitialFieldValues, coerceInputValue, hasMissingRequiredInputs, buildCoercedInputs } from '../../utils/inputUtils';
 import { MODERN } from '../../constants';
 
 interface WorkflowViewProps {
@@ -273,6 +275,14 @@ export function WorkflowView(props: WorkflowViewProps) {
     // When the workflow ID in the file has been renamed/removed, this holds the
     // list of available workflows so the user can pick the correct one.
     const [workflowNotFoundOptions, setWorkflowNotFoundOptions] = useState<ArazzoWorkflow[] | null>(null);
+
+    // ---- Configure Inputs panel state ----
+    const [isConfigPanelOpen, setIsConfigPanelOpen] = useState(false);
+    const [pendingCurlAfterSave, setPendingCurlAfterSave] = useState(false);
+    const [inputFields, setInputFields] = useState<WorkflowInputField[]>([]);
+    const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+    const [isInputsDirty, setIsInputsDirty] = useState(false);
 
     // Edge types configuration
     const edgeTypes = {
@@ -730,14 +740,46 @@ export function WorkflowView(props: WorkflowViewProps) {
         setSelectedNode(null);
     }, []);
 
+    // Reloads persisted field values from workspaceState so that unsaved
+    // typed-but-not-Applied changes are discarded when the panel is closed
+    // without clicking Apply. Uses the fields captured at call time.
+    const reloadSavedValues = useCallback(() => {
+        const client = rpcClient?.getVisualizerRpcClient();
+        const wfId = effectiveWorkflowIdRef.current ?? '';
+        const fields = inputFields;
+        const load = async () => {
+            try {
+                if (client && typeof (client as any).getWorkflowRunInputs === 'function') {
+                    const resp = await (client as any).getWorkflowRunInputs({ uri: fileUri, workflowId: wfId });
+                    setFieldValues(buildInitialFieldValues(fields, resp?.inputs));
+                    setIsInputsDirty(false);
+                    return;
+                }
+            } catch { /* ignore */ }
+            setFieldValues(buildInitialFieldValues(fields, undefined));
+            setIsInputsDirty(false);
+        };
+        load();
+    }, [rpcClient, fileUri, inputFields]);
+
+    // Close config panel WITHOUT applying — discards any typed-but-unsaved changes.
+    const handleCloseConfigPanel = useCallback(() => {
+        setIsConfigPanelOpen(false);
+        setPendingCurlAfterSave(false);
+        setFieldErrors({});
+        reloadSavedValues();
+    }, [reloadSavedValues]);
+
     const onPaneClick = useCallback(() => {
-        // Close panel when canvas is clicked; otherwise focus canvas
-        if (isPanelOpen) {
+        // Close config panel first, then node properties panel, else focus canvas
+        if (isConfigPanelOpen) {
+            handleCloseConfigPanel();
+        } else if (isPanelOpen) {
             handleClosePanel();
         } else {
             reactFlowWrapper.current?.focus();
         }
-    }, [isPanelOpen, handleClosePanel]);
+    }, [isPanelOpen, isConfigPanelOpen, handleClosePanel, handleCloseConfigPanel]);
 
     const proOptions = { hideAttribution: true };
 
@@ -747,9 +789,22 @@ export function WorkflowView(props: WorkflowViewProps) {
     }, [rpcClient, fileUri]);
 
     const handleTryCurlWorkflow = useCallback(() => {
-        const params = { workflowId: effectiveWorkflowIdRef.current, uri: fileUri, mode: 'curl' as const };
+        if (hasMissingRequiredInputs(inputFields, fieldValues)) {
+            // Required inputs missing — open config panel first, then auto-run on Apply
+            setPendingCurlAfterSave(true);
+            setIsConfigPanelOpen(true);
+            return;
+        }
+        let coerced: Record<string, any> = {};
+        try { coerced = buildCoercedInputs(inputFields, fieldValues); } catch { /* ignore */ }
+        const params = {
+            workflowId: effectiveWorkflowIdRef.current,
+            uri: fileUri,
+            mode: 'curl' as const,
+            ...(Object.keys(coerced).length > 0 ? { inputs: coerced } : {}),
+        };
         rpcClient?.getVisualizerRpcClient().runWorkflow(params);
-    }, [rpcClient, fileUri]);
+    }, [rpcClient, fileUri, inputFields, fieldValues]);
 
     const handleGoHome = useCallback(() => {
         rpcClient?.focusOverviewPanel(fileUri);
@@ -758,6 +813,115 @@ export function WorkflowView(props: WorkflowViewProps) {
     const toggleOrientation = useCallback(() => {
         setIsVertical(prev => !prev);
     }, []);
+
+    // Load saved inputs whenever the displayed workflow OBJECT changes.
+    // We depend on `workflow` (object ref) not just workflowId so that any
+    // file-save that causes applyWorkflow() to call setWorkflow(wf) with a
+    // fresh object triggers a reload — picking up renamed/removed input fields.
+    useEffect(() => {
+        if (!workflow || !arazzoDefinition) { return; }
+        let fields: WorkflowInputField[] = [];
+        try {
+            fields = buildInputFields(workflow, arazzoDefinition);
+        } catch (e) {
+            console.warn('[WorkflowView] buildInputFields failed:', e);
+        }
+        // Always set fields immediately — do NOT wait for the async RPC call.
+        setInputFields(fields);
+        setFieldErrors({});
+        setIsInputsDirty(false);
+        if (fields.length === 0) {
+            setFieldValues({});
+            return;
+        }
+        // Try to load persisted values; fall back to schema defaults if unavailable.
+        const tryLoad = async () => {
+            try {
+                const client = rpcClient?.getVisualizerRpcClient();
+                if (client && typeof (client as any).getWorkflowRunInputs === 'function') {
+                    const resp = await (client as any).getWorkflowRunInputs({
+                        uri: fileUri,
+                        workflowId: workflow.workflowId,
+                    });
+                    setFieldValues(buildInitialFieldValues(fields, resp?.inputs));
+                    return;
+                }
+            } catch (e) {
+                console.warn('[WorkflowView] getWorkflowRunInputs failed:', e);
+            }
+            // Fallback: schema defaults only
+            setFieldValues(buildInitialFieldValues(fields, undefined));
+        };
+        tryLoad();
+    }, [workflow, fileUri, rpcClient]);
+
+    const handleFieldChange = useCallback((name: string, raw: string) => {
+        setFieldValues(prev => ({ ...prev, [name]: raw }));
+        setIsInputsDirty(true);
+        // Clear error on change; full validation runs on Apply
+        setFieldErrors(prev => {
+            if (!prev[name]) { return prev; }
+            const next = { ...prev };
+            delete next[name];
+            return next;
+        });
+    }, []);
+
+    const handleOpenConfig = useCallback(() => {
+        setPendingCurlAfterSave(false);
+        setIsConfigPanelOpen(true);
+    }, []);
+
+    const handleConfigApply = useCallback(() => {
+        // Validate all fields
+        const errors: Record<string, string> = {};
+        for (const field of inputFields) {
+            const raw = fieldValues[field.name] ?? '';
+            if (raw.trim() === '') {
+                if (field.required) { errors[field.name] = 'This field is required'; }
+                continue;
+            }
+            const result = coerceInputValue(raw, field.type);
+            if (!result.ok) { errors[field.name] = (result as { ok: false; error: string }).error; }
+        }
+        if (Object.keys(errors).length > 0) {
+            setFieldErrors(errors);
+            return;
+        }
+
+        // Persist to workspaceState
+        let coerced: Record<string, any> = {};
+        try { coerced = buildCoercedInputs(inputFields, fieldValues); } catch { /* validated above */ }
+        rpcClient?.getVisualizerRpcClient().saveWorkflowRunInputs({
+            uri: fileUri,
+            workflowId: workflow?.workflowId ?? '',
+            inputs: coerced,
+        });
+
+        const triggerCurl = pendingCurlAfterSave;
+        // Close panel directly (NOT via handleCloseConfigPanel which would reload
+        // workspaceState and discard the values we just saved).
+        setIsConfigPanelOpen(false);
+        setPendingCurlAfterSave(false);
+        setIsInputsDirty(false);
+
+        if (triggerCurl) {
+            // Reuse the existing handleTryCurlWorkflow which re-checks missing
+            // fields and calls runWorkflow — the fields are filled so it fires directly.
+            handleTryCurlWorkflow();
+        }
+    }, [inputFields, fieldValues, pendingCurlAfterSave, rpcClient, fileUri, workflow?.workflowId, handleTryCurlWorkflow]);
+
+    // Subscribe to the extension→webview notification that opens the config
+    // panel (emitted by the CodeLens path when required inputs are missing).
+    useEffect(() => {
+        if (!rpcClient) { return; }
+        rpcClient.onOpenInputConfigPanel((data: { workflowId: string }) => {
+            if (data.workflowId !== effectiveWorkflowIdRef.current) { return; }
+            setPendingCurlAfterSave(true);
+            setIsConfigPanelOpen(true);
+        });
+    }, [rpcClient]);
 
     if (isLoading) {
         return (
@@ -807,6 +971,7 @@ export function WorkflowView(props: WorkflowViewProps) {
                 workflowId={workflow?.workflowId ?? ''}
                 onTry={handleTryWorkflow}
                 onTryCurl={handleTryCurlWorkflow}
+                onConfigure={inputFields.length > 0 ? handleOpenConfig : undefined}
                 onHome={handleGoHome}
             />
         <div
@@ -912,6 +1077,38 @@ export function WorkflowView(props: WorkflowViewProps) {
                 <SidePanelBody onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                     <NodePropertiesPanel node={selectedNode} workflow={workflow} definition={arazzoDefinition} traceSpans={traceSpans} forceTab={forcedPanelTab} />
                 </SidePanelBody>
+            </SidePanel>
+            <SidePanel
+                isOpen={isConfigPanelOpen}
+                alignment="right"
+                overlay={false}
+                width={380}
+                sx={{
+                    fontFamily: "var(--vscode-font-family)",
+                    backgroundColor: MODERN ? ThemeColors.SURFACE_DIM : 'var(--vscode-sideBar-background)',
+                    boxShadow: "0 0 10px 0 rgba(0, 0, 0, 0.1)",
+                    padding: 0,
+                }}
+                onClose={handleCloseConfigPanel}
+            >
+                {/* Stop click propagation so inputs inside don't trigger onPaneClick
+                    (which calls reactFlowWrapper.focus() and steals focus from inputs). */}
+                <div
+                    style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+                    onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                    onMouseDown={(e: React.MouseEvent) => e.stopPropagation()}
+                >
+                    <WorkflowInputConfigPanel
+                        fields={inputFields}
+                        values={fieldValues}
+                        errors={fieldErrors}
+                        pendingCurl={pendingCurlAfterSave}
+                        isDirty={isInputsDirty}
+                        onChange={handleFieldChange}
+                        onApply={handleConfigApply}
+                        onClose={handleCloseConfigPanel}
+                    />
+                </div>
             </SidePanel>
         </div>
         </div>
