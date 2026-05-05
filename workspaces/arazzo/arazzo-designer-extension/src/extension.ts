@@ -139,16 +139,48 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Initialize Arazzo Language Server for procode features
 	initializeLanguageServer(context, runCodeLensProvider);
 
-	// Watch for arazzo.disableTls changes
+	// Watch for arazzo.disableTls changes.
+	// Guard flag prevents the revert config.update() from re-triggering this handler.
+	let revertingTlsSetting = false;
 	context.subscriptions.push(
-		vscode.workspace.onDidChangeConfiguration(event => {
-			if (event.affectsConfiguration('arazzo.disableTls')) {
-				if (!isMCPServerRunning()) {
-					const config = vscode.workspace.getConfiguration('arazzo');
-					const isDisabled = config.get<boolean>('disableTls');
-					const status = isDisabled ? 'disabled' : 'enabled';
-					vscode.window.showInformationMessage(`TLS certificate validation ${status}. This will take effect when the server starts.`);
+		vscode.workspace.onDidChangeConfiguration(async event => {
+			if (!event.affectsConfiguration('arazzo.disableTls')) {
+				return;
+			}
+			if (revertingTlsSetting) {
+				return;
+			}
+
+			const config = vscode.workspace.getConfiguration('arazzo');
+			const newValue = config.get<boolean>('disableTls', false);
+			const status = newValue ? 'disabled' : 'enabled';
+
+			if (!isMCPServerRunning()) {
+				vscode.window.showInformationMessage(
+					`TLS certificate validation ${newValue ? 'disabled' : 'enabled'}. This will take effect when the server starts.`
+				);
+				return;
+			}
+
+			// Server is running — show a modal popup with Restart / Cancel
+			const action = await vscode.window.showWarningMessage(
+				`TLS certificate validation ${newValue ? 'disabled' : 'enabled'}. Restart the server for this to take effect.`,
+				{ modal: true },
+				'Restart Server'
+			);
+
+			if (action === 'Restart Server') {
+				const activeFilePath = getMCPActiveFilePath();
+				await startMCPServer(context, activeFilePath, true);
+			} else {
+				// Revert — write the previous value back without re-triggering this handler
+				revertingTlsSetting = true;
+				try {
+					await config.update('disableTls', !newValue, vscode.ConfigurationTarget.Workspace);
+				} finally {
+					revertingTlsSetting = false;
 				}
+				vscode.window.showInformationMessage('TLS setting change cancelled. Configuration not applied.');
 			}
 		})
 	);
