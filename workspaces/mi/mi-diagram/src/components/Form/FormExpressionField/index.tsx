@@ -29,6 +29,7 @@ import {
     ErrorBanner,
     FormExpressionEditor,
     FormExpressionEditorRef,
+    Icon,
     RequiredFormInput,
     TextField,
     Typography,
@@ -569,8 +570,8 @@ export const FormExpressionField = (params: FormExpressionFieldProps) => {
                             backgroundColor: isAIFill ? Colors.PRIMARY : "transparent",
                         }}
                     >
-                        <Codicon
-                            name={"wand"}
+                        <Icon
+                            name="bi-ai-chat"
                             iconSx={{
                                 fontSize: '12px',
                                 color: isAIFill ? "white" : Colors.PRIMARY,

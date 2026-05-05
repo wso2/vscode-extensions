@@ -301,7 +301,13 @@ import {
     DriverDownloadRequest,
     DriverDownloadResponse,
     DriverMavenCoordinatesRequest,
-    DriverMavenCoordinatesResponse
+    DriverMavenCoordinatesResponse,
+    GetConnectorDependenciesRequest,
+    GetConnectorDependenciesResponse,
+    UpdateConnectorDependencyOverrideRequest,
+    ResetConnectorDependencyOverridesRequest,
+    UpdateConnectorFlagsRequest,
+    UpdateGlobalConnectorFlagsRequest,
 } from "@wso2/mi-core";
 import axios from 'axios';
 import { error } from "console";
@@ -322,7 +328,7 @@ import { RPCLayer } from "../../RPCLayer";
 import { StateMachineAI } from '../../ai-features/aiMachine';
 import {
     getAccessToken as getCopilotAccessToken,
-    getPlatformExtensionAPI,
+    getIntegratorExtensionAPI,
     getCopilotLlmApiBaseUrl,
     getLoginMethod as getCopilotLoginMethod,
     getRefreshedAccessToken as refreshCopilotAccessToken,
@@ -350,12 +356,11 @@ import { replaceFullContentToFile, saveIdpSchemaToFile } from "../../util/worksp
 import { VisualizerWebview, webviews } from "../../visualizer/webview";
 import path = require("path");
 import { importCapp } from "../../util/importCapp";
-import { compareVersions, filterConnectorVersion, generateInitialDependencies, getDefaultProjectPath, getMIVersionFromPom, buildBallerinaModule, updatePomForClassMediator, isConsolidatedProject } from "../../util/onboardingUtils";
+import { compareVersions, filterConnectorVersion, generateInitialDependencies, getDefaultProjectPath, getMIVersionFromPom, buildBallerinaModule, updatePomForClassMediator, isConsolidatedProject, getProjectJavaVersion } from "../../util/onboardingUtils";
 import { Range as STRange } from '@wso2/mi-syntax-tree/lib/src';
-import { checkForDevantExt } from "../../extension";
+import { checkForWso2IntegratorExt } from "../../extension";
 import { getAPIMetadata } from "../../util/template-engine/mustach-templates/API";
-import { DevantScopes } from "@wso2/wso2-platform-core";
-import { ICreateComponentCmdParams, CommandIds as PlatformExtCommandIds } from "@wso2/wso2-platform-core";
+import { WICommandIds, ICreateNewIntegrationCmdParams } from "@wso2/wso2-platform-core";
 import { MiVisualizerRpcManager } from "../mi-visualizer/rpc-manager";
 import { DebuggerConfig } from "../../debugger/config";
 import { getKubernetesConfiguration, getKubernetesDataConfiguration } from "../../util/template-engine/mustach-templates/KubernetesConfiguration";
@@ -390,14 +395,61 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
     async saveInputPayload(params: SavePayloadRequest): Promise<boolean> {
         return new Promise((resolve) => {
             const { name, type, key } = this.getResourceInfoToSavePayload(params.artifactModel);
-            let content;
-            if (type == "API") {
-                content = this.readInputPayloadFile(name) ?? { type };
-                content[key] = { requests: params.payload };
-                content[key].defaultRequest = params.defaultPayload;
+
+            let content = this.readInputPayloadFile(name) ?? { type };
+
+            let payloadArray: any[];
+            try {
+                payloadArray = typeof params.payload === "string"
+                    ? JSON.parse(params.payload)
+                    : params.payload;
+            } catch {
+                resolve(false);
+                return;
+            }
+            if (!Array.isArray(payloadArray)) {
+                resolve(false);
+                return;
+            }
+
+            const sharedRequests = payloadArray.filter((p: any) => p.sharePayload);
+            const scopedRequests = payloadArray.filter((p: any) => !p.sharePayload);
+
+            const stripFlag = (arr: any[]) => arr.map(({ sharePayload, ...rest }) => rest);
+
+            const cleanShared = stripFlag(sharedRequests);
+            const cleanScoped = stripFlag(scopedRequests);
+
+            if (type === "API") {
+                // Shared (top-level) — NO defaultRequest
+                if (cleanShared.length > 0) {
+                    content.requests = cleanShared;
+                    if (content.defaultRequest) {
+                        delete content.defaultRequest;
+                    }
+                } else {
+                    content.requests = [];
+                }
+
+                // Scoped — keeps defaultRequest
+                if (cleanScoped.length > 0) {
+                    content[key] = content[key] ?? {};
+                    content[key].requests = cleanScoped;
+                } else {
+                    if (content[key]) {
+                        content[key].requests = [];
+                    }
+                }
+
+                // Always update defaultRequest for this resource key, even when there are no scoped requests
+                if (params.defaultPayload !== undefined) {
+                    content[key] = content[key] ?? {};
+                    content[key].defaultRequest = params.defaultPayload;
+                }
+
             } else {
                 content = { type };
-                content.requests = params.payload;
+                content.requests = stripFlag(payloadArray);
                 content.defaultRequest = params.defaultPayload;
             }
             const tryout = path.join(this.projectUri, ".tryout");
@@ -436,14 +488,23 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
             const { name, type, key } = this.getResourceInfoToSavePayload(params.artifactModel);
             const allPayloads = this.readInputPayloadFile(name);
             if (allPayloads) {
-                let defaultPayload;
-                let payloads;
-                if (type == "API") {
-                    payloads = allPayloads[key]?.requests ?? [];
-                    defaultPayload = allPayloads[key]?.defaultRequest ?? "";
+                let payloads: any[] = [];
+                let defaultPayload = "";
+
+                if (type === "API") {
+                    const sharedPayloads = (allPayloads.requests ?? []).map((p: any) => ({
+                        ...p,
+                        sharePayload: true
+                    }));
+                    const scopedPayloads = (allPayloads[key]?.requests ?? []).map((p: any) => ({
+                        ...p,
+                        sharePayload: false
+                    }));
+                    payloads = [...sharedPayloads, ...scopedPayloads];
+                    defaultPayload = allPayloads[key]?.defaultRequest ?? allPayloads.defaultRequest ?? "";
                 } else {
                     payloads = allPayloads.requests ?? [];
-                    defaultPayload = allPayloads.defaultRequest;
+                    defaultPayload = allPayloads.defaultRequest ?? "";
                 }
                 resolve({ payloads, defaultPayload });
             } else {
@@ -470,8 +531,10 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
                         Object.keys(fileContent).forEach((key) => {
                             if (key.startsWith("/")) { // Select only API resources
                                 const defaultRequestName = fileContent[key].defaultRequest;
-                                const defaultRequest = fileContent[key].requests.find((request: any) => request.name === defaultRequestName);
-                                payloadMapByResource[key] = defaultRequest ? defaultRequest : null;
+                                const defaultRequest =
+                                    (fileContent[key].requests ?? []).find((request: any) => request.name === defaultRequestName)
+                                    ?? (fileContent.requests ?? []).find((request: any) => request.name === defaultRequestName);
+                                payloadMapByResource[key] = defaultRequest ?? null;
                             }
                         });
                         payloadMapByArtifact[fileNameWithoutExtension] = payloadMapByResource;
@@ -514,7 +577,8 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
     async getMIVersionFromPom(): Promise<MiVersionResponse> {
         return new Promise(async (resolve) => {
             const res = await getMIVersionFromPom(this.projectUri);
-            resolve({ version: res ?? '' });
+            const javaVersion = getProjectJavaVersion(this.projectUri) ?? undefined;
+            resolve({ version: res ?? '', javaVersion });
         });
     }
 
@@ -732,6 +796,9 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
                 }
             });
 
+            if (!saveSwaggerDef) {
+                await generateSwagger(filePath);
+            }
             const metadataPath = path.join(this.projectUri, "src", "main", "wso2mi", "resources", "metadata", name + (apiVersion == "" ? "" : "_" + apiVersion) + "_metadata.yaml");
             fs.writeFileSync(metadataPath, getAPIMetadata({ name: name, version: apiVersion == "" ? "1.0.0" : apiVersion, context: apiContext, versionType: apiVersionType ? (apiVersionType == "url" ? apiVersionType : false) : false }));
 
@@ -3867,15 +3934,19 @@ ${endpointAttributes}
                         await copy(tmpobj.name, connectorPath);
                         // Remove the temporary file
                         tmpobj.removeCallback();
+                        // Ensure connector-config.json exists for this project
+                        const langClient = await MILanguageClient.getInstance(this.projectUri);
+                        await langClient.initConnectorConfig(this.projectUri);
                         resolve({ path: connectorPath });
                     });
                     writer.on('error', reject);
                 });
             }
 
-            return new Promise((resolve, reject) => {
-                resolve({ path: connectorPath });
-            });
+            // Connector already present — still ensure config file exists
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
+            await langClient.initConnectorConfig(this.projectUri);
+            return { path: connectorPath };
         } catch (error) {
             console.error('Error downloading connector:', error);
             throw new Error('Failed to download connector');
@@ -4002,6 +4073,40 @@ ${endpointAttributes}
     async copyConnectorZip(params: CopyConnectorZipRequest): Promise<CopyConnectorZipResponse> {
         const { connectorPath } = params;
         try {
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
+            const isDuplicate = await langClient.isDuplicateConnector(connectorPath);
+            if (isDuplicate?.isFromProject === false) {
+                window.showErrorMessage('The connector you are trying to add is already added from a dependency project.');
+                return { success: false };
+            }
+            if (isDuplicate?.connectorName) {
+                const overwrite = await window.showWarningMessage(
+                    `A connector with the name already exists. Do you want to overwrite it?`,
+                    { modal: true },
+                    'Yes'
+                );
+                if (overwrite === 'Yes') {
+                    const rpcClient = new MiVisualizerRpcManager(this.projectUri);
+                    if (isDuplicate?.connectorPath) {
+                        await this.removeConnector({ connectorPath: isDuplicate.connectorPath });
+                    } else {
+                        const projectDetails = await rpcClient.getProjectDetails();
+                        const connectorDependencies = projectDetails.dependencies.connectorDependencies;
+                        for (const dependencies of connectorDependencies) {
+                            if (dependencies.artifact === isDuplicate.artifactId && dependencies.version === isDuplicate.version) {
+                                await rpcClient.updatePomValues({
+                                    pomValues: [{ range: dependencies.range, value: '' }]
+                                });
+                                break;
+                            }
+                        }
+                    }
+                    await rpcClient.updateConnectorDependencies();
+                } else {
+                    return { success: false };
+                }
+            }
+            
             const connectorDirectory = path.join(this.projectUri, 'src', 'main', 'wso2mi', 'resources', 'connectors');
 
             if (!fs.existsSync(connectorDirectory)) {
@@ -4892,11 +4997,11 @@ ${keyValuesXML}`;
 
     async logoutFromMIAccount(): Promise<void> {
         const confirm = await vscode.window.showWarningMessage(
-            'Are you sure you want to logout?',
+            'Sign out of WSO2 Integrator Copilot? This only clears MI Copilot credentials and keeps your WSO2 platform session active.',
             { modal: true },
-            'Yes'
+            'Sign out'
         );
-        if (confirm === 'Yes') {
+        if (confirm === 'Sign out') {
             await logoutFromCopilot();
             StateMachineAI.sendEvent(AI_EVENT_TYPE.LOGOUT);
         } else {
@@ -5119,21 +5224,15 @@ ${keyValuesXML}`;
 
     async deployProject(params: DeployProjectRequest): Promise<DeployProjectResponse> {
         return new Promise(async (resolve) => {
-            if (!checkForDevantExt()) {
+            if (!checkForWso2IntegratorExt()) {
                 return;
             }
-            const params: ICreateComponentCmdParams = {
-                buildPackLang: "microintegrator",
-                name: path.basename(this.projectUri),
-                componentDir: this.projectUri,
-                extName: "Devant",
-            };
 
             const langClient = await MILanguageClient.getInstance(this.projectUri);
 
             let integrationType: string | undefined;
-            if (params.componentDir) {
-                const rootPath = (await this.getProjectRoot({ path: params.componentDir })).path;
+            if (this.projectUri) {
+                const rootPath = (await this.getProjectRoot({ path: this.projectUri })).path;
                 const resp = await langClient.getProjectIntegrationType(rootPath);
 
                 function mapTypeToScope(type: string): string | undefined {
@@ -5173,9 +5272,17 @@ ${keyValuesXML}`;
                     return { success: false };
                 }
 
-                const paramsWithType: ICreateComponentCmdParams = { ...params, integrationType: integrationType as DevantScopes, };
-
-                commands.executeCommand(PlatformExtCommandIds.CreateNewComponent, paramsWithType);
+                const paramsWithType: ICreateNewIntegrationCmdParams = { 
+                    buildPackLang: "microintegrator", 
+                    workspaceDir: this.projectUri, 
+                    integrations: [{ 
+                        fsPath: this.projectUri, 
+                        name: path.basename(this.projectUri), 
+                        supportedIntegrationTypes: [integrationType]
+                    }]
+                }
+                
+                commands.executeCommand(WICommandIds.CreateNewComponent, paramsWithType);
                 resolve({ success: true });
 
             } else {
@@ -5198,7 +5305,7 @@ ${keyValuesXML}`;
                 }
             }
 
-            const platformExtAPI = await getPlatformExtensionAPI();
+            const platformExtAPI = await getIntegratorExtensionAPI();
             if (!platformExtAPI) {
                 return { hasComponent: hasContextYaml, isLoggedIn: false, hasLocalChanges: false };
             }
@@ -6484,6 +6591,46 @@ ${keyValuesXML}`;
         return new Promise(async (resolve) => {
             const langClient = await MILanguageClient.getInstance(this.projectUri);
             const res = await langClient.getInputOutputMappings(params);
+            resolve(res);
+        });
+    }
+
+    async getConnectorDependencies(params: GetConnectorDependenciesRequest): Promise<GetConnectorDependenciesResponse> {
+        return new Promise(async (resolve) => {
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
+            const res = await langClient.getConnectorDependencies(params);
+            resolve(res);
+        });
+    }
+
+    async updateConnectorDependencyOverride(params: UpdateConnectorDependencyOverrideRequest): Promise<boolean> {
+        return new Promise(async (resolve) => {
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
+            const res = await langClient.updateConnectorDependencyOverride(params);
+            resolve(res);
+        });
+    }
+
+    async resetConnectorDependencyOverrides(params: ResetConnectorDependencyOverridesRequest): Promise<boolean> {
+        return new Promise(async (resolve) => {
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
+            const res = await langClient.resetConnectorDependencyOverrides(params);
+            resolve(res);
+        });
+    }
+
+    async updateConnectorFlags(params: UpdateConnectorFlagsRequest): Promise<boolean> {
+        return new Promise(async (resolve) => {
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
+            const res = await langClient.updateConnectorFlags(params);
+            resolve(res);
+        });
+    }
+
+    async updateGlobalConnectorFlags(params: UpdateGlobalConnectorFlagsRequest): Promise<boolean> {
+        return new Promise(async (resolve) => {
+            const langClient = await MILanguageClient.getInstance(this.projectUri);
+            const res = await langClient.updateGlobalConnectorFlags(params);
             resolve(res);
         });
     }

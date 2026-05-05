@@ -160,7 +160,8 @@ async function getDataMapperFolder(projectPath: string, dmName: string): Promise
 export function createCreateDataMapperExecute(
     projectPath: string,
     modifiedFiles?: string[],
-    undoCheckpointManager?: AgentUndoCheckpointManager
+    undoCheckpointManager?: AgentUndoCheckpointManager,
+    mainAbortSignal?: AbortSignal
 ): CreateDataMapperExecuteFn {
     return async (args): Promise<ToolResult> => {
         const { name, input_schema, input_type, output_schema, output_type, auto_map, mapping_instructions } = args;
@@ -296,6 +297,7 @@ export function createCreateDataMapperExecute(
                     tsFilePath,
                     projectPath,
                     instructions: mapping_instructions,
+                    abortSignal: mainAbortSignal,
                 });
 
                 if (!mappingResult.success) {
@@ -353,7 +355,8 @@ export function createCreateDataMapperTool(execute: CreateDataMapperExecuteFn) {
 export function createGenerateDataMappingExecute(
     projectPath: string,
     modifiedFiles?: string[],
-    undoCheckpointManager?: AgentUndoCheckpointManager
+    undoCheckpointManager?: AgentUndoCheckpointManager,
+    mainAbortSignal?: AbortSignal
 ): GenerateDataMappingExecuteFn {
     return async (args): Promise<ToolResult> => {
         const { dm_config_path, instructions } = args;
@@ -431,6 +434,7 @@ export function createGenerateDataMappingExecute(
                 tsFilePath,
                 projectPath,
                 instructions,
+                abortSignal: mainAbortSignal,
             });
 
             if (result.success) {

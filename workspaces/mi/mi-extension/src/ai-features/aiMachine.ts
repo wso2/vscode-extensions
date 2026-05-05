@@ -24,16 +24,16 @@ import { AiPanelWebview } from './webview';
 import { extension } from '../MIExtensionContext';
 import {
     getAuthCredentials,
-    getPlatformExtensionAPI,
+    getIntegratorExtensionAPI,
     initiateInbuiltAuth,
     logout,
     validateApiKey,
     validateAwsCredentials,
-    isPlatformExtensionAvailable,
     isDevantUserLoggedIn,
     getPlatformStsToken,
     exchangeStsToCopilotToken,
-    storeAuthCredentials
+    storeAuthCredentials,
+    hasExplicitLogoutState
 } from './auth';
 import { PromptObject } from '@wso2/mi-core';
 import { logError, logInfo, logWarn } from './copilot/logger';
@@ -51,6 +51,10 @@ const trySilentPlatformBootstrap = async (): Promise<void> => {
 
     // Only bootstrap when the machine is currently unauthenticated.
     if (aiStateService.getSnapshot().value !== 'Unauthenticated') {
+        return;
+    }
+
+    if (hasExplicitLogoutState()) {
         return;
     }
 
@@ -537,8 +541,10 @@ const checkWorkspaceAndToken = async (): Promise<{ workspaceSupported: boolean; 
             tokenData = { token: apiKey, loginMethod: LoginMethod.ANTHROPIC_KEY };
         }
     } else if (credentials?.loginMethod === LoginMethod.AWS_BEDROCK) {
-        const secrets = credentials.secrets as { accessKeyId?: string; secretAccessKey?: string; region?: string };
-        if (secrets.accessKeyId && secrets.secretAccessKey && secrets.region) {
+        const secrets = credentials.secrets as { authType?: string; accessKeyId?: string; secretAccessKey?: string; region?: string; apiKey?: string };
+        if (secrets.authType === 'api_key' && secrets.apiKey && secrets.region) {
+            tokenData = { token: secrets.apiKey, loginMethod: LoginMethod.AWS_BEDROCK };
+        } else if (secrets.accessKeyId && secrets.secretAccessKey && secrets.region) {
             tokenData = { token: secrets.accessKeyId, loginMethod: LoginMethod.AWS_BEDROCK };
         }
     }
@@ -595,11 +601,18 @@ const validateApiKeyService = async (_context: AIMachineContext, event: any) => 
 };
 
 const validateAwsCredentialsService = async (_context: AIMachineContext, event: any) => {
-    const { accessKeyId, secretAccessKey, region, sessionToken } = event.payload || {};
+    const { authType, accessKeyId, secretAccessKey, region, sessionToken, apiKey, tavilyApiKey } = event.payload || {};
+    if (authType === 'api_key') {
+        if (!apiKey || !region) {
+            throw new Error('Amazon Bedrock API key and AWS region are required');
+        }
+        return await validateAwsCredentials({ authType, apiKey, region, tavilyApiKey });
+    }
+
     if (!accessKeyId || !secretAccessKey || !region) {
         throw new Error('AWS access key ID, secret access key, and region are required');
     }
-    return await validateAwsCredentials({ accessKeyId, secretAccessKey, region, sessionToken });
+    return await validateAwsCredentials({ authType: 'iam', accessKeyId, secretAccessKey, region, sessionToken, tavilyApiKey });
 };
 
 const getTokenAndLoginMethod = async () => {
@@ -625,7 +638,14 @@ const getTokenAndLoginMethod = async () => {
     }
 
     if (credentials.loginMethod === LoginMethod.AWS_BEDROCK) {
-        const secrets = credentials.secrets as { accessKeyId?: string; secretAccessKey?: string; region?: string };
+        const secrets = credentials.secrets as { authType?: string; accessKeyId?: string; secretAccessKey?: string; region?: string; apiKey?: string };
+        if (secrets.authType === 'api_key') {
+            if (!secrets.apiKey || !secrets.region) {
+                throw new Error('Incomplete AWS Bedrock API key credentials. Please log in again.');
+            }
+            return { token: secrets.apiKey, loginMethod: LoginMethod.AWS_BEDROCK };
+        }
+
         if (!secrets.accessKeyId || !secrets.secretAccessKey || !secrets.region) {
             throw new Error('Incomplete AWS Bedrock credentials. Please log in again.');
         }
@@ -668,7 +688,7 @@ const setupPlatformExtensionListener = async () => {
     platformLoginListenerSetup = true;
 
     try {
-        const api = await getPlatformExtensionAPI();
+        const api = await getIntegratorExtensionAPI();
         if (!api || !api.subscribeIsLoggedIn) {
             return;
         }

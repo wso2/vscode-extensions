@@ -331,7 +331,114 @@ common_patterns: `## Common Registry Resource Patterns
     <properties></properties>
   </item>
 </artifact>
-\`\`\``,
+\`\`\`
+
+### Common Mistake: Local Entries Are NOT Registry Resources
+\`\${registry("conf:/KEY")}\` and \`\${registry("gov:/...")}\` only resolve files registered as \`type="registry/resource"\` in artifact.xml. A \`<localEntry key="FOO">\` lives in the Synapse config (deployed via the .car) — it is **not** a registry resource, and \`\${registry(...)}\` will not see it.
+
+To read a local entry, use the legacy \`get-property('local-entry', ...)\` XPath inside a \`<property>\` mediator:
+\`\`\`xml
+<localEntry key="FOO"><![CDATA[some inline value]]></localEntry>
+
+<property name="myVar" expression="get-property('local-entry', 'FOO')" scope="default"/>
+\`\`\`
+Read the bound property in scripts/expressions as \`mc.getProperty('myVar')\` or \`\${props.synapse.myVar}\`. Do NOT use \`\${registry(...)}\` for local entries.`,
+
+secure_vault: `## Secure Vault — Secret Resolution
+
+Synapse resolves \`{wso2:vault-lookup('alias')}\` at deploy time (for local entries / connection init) or at mediation time (for property values). Use it for any credential that would otherwise be committed as plaintext.
+
+### Defining an alias
+1. Edit \`repository/conf/security/cipher-tool.properties\` (or equivalent deployment.toml entry): map the alias to the plaintext property key.
+2. Put the plaintext in \`repository/conf/security/cipher-text.properties\` (it will be encrypted after running the cipher tool).
+3. Run the cipher tool (\`./bin/ciphertool.sh\`) — it encrypts the values in place.
+4. At runtime, \`{wso2:vault-lookup('alias')}\` returns the decrypted plaintext.
+
+In deployment.toml-driven projects (MI 4.x default), the vault is usually configured under \`[secrets]\`:
+\`\`\`toml
+[secrets]
+backend.user = "[admin]"
+backend.password = "[alias:encryptedValue]"
+\`\`\`
+This produces aliases \`backend.user\` and \`backend.password\`.
+
+### Usage in XML
+\`\`\`xml
+<!-- In a connection local entry (resolved at deploy) -->
+<localEntry key="BackendConn">
+  <http.init>
+    <baseUrl>https://api.example.com</baseUrl>
+    <authType>Basic</authType>
+    <basicCredentialsUsername>{wso2:vault-lookup('backend.user')}</basicCredentialsUsername>
+    <basicCredentialsPassword>{wso2:vault-lookup('backend.password')}</basicCredentialsPassword>
+  </http.init>
+</localEntry>
+
+<!-- In a property mediator (resolved each time) -->
+<property name="dbPassword" value="{wso2:vault-lookup('db.password')}" scope="default" type="STRING"/>
+\`\`\`
+
+### Pitfalls
+- The \`wso2:\` prefix is literal — not a namespace you import. The expression must appear exactly as \`{wso2:vault-lookup('alias')}\`, quotes included.
+- Aliases are case-sensitive and must be registered before the artifact that references them is deployed; otherwise you get "Error occurred when resolving value: {wso2:vault-lookup(...)}" and the literal string is used.
+- Do not use vault lookups inside \`payload.\` or JSON-path expressions — the substitution runs on the XML text, not JSON values.`,
+
+config_properties: `## config.properties and \`configs.*\` Access
+
+\`config.properties\` in \`src/main/wso2mi/resources/conf/\` is **NOT** automatically loaded by the runtime. Values placed there are only surfaced via the \`\${configs.*}\` expression accessor when the file is registered as a \`config/property\` artifact in \`artifact.xml\`.
+
+### File placement
+\`\`\`
+src/main/wso2mi/
+└── resources/
+    └── conf/
+        └── config.properties
+\`\`\`
+
+\`\`\`properties
+# src/main/wso2mi/resources/conf/config.properties
+backend.base.url=https://api.example.com
+backend.timeout.ms=5000
+feature.flag.new_routing=true
+\`\`\`
+
+### Registering in artifact.xml
+Add a \`config/property\` artifact entry to \`src/main/wso2mi/resources/artifact.xml\` so the CAR build packages the file:
+
+\`\`\`xml
+<artifact name="resources_conf_config_properties"
+          groupId="com.microintegrator.projects"
+          version="1.0.0"
+          type="config/property"
+          serverRole="EnterpriseIntegrator">
+  <item>
+    <file>config.properties</file>
+    <path>/_system/governance/mi-resources/conf</path>
+    <mediaType>text/plain</mediaType>
+    <properties></properties>
+  </item>
+</artifact>
+\`\`\`
+
+### Consuming the values
+Use the \`configs.*\` expression accessor (see synapse-variable-resolution:configs):
+\`\`\`xml
+<property name="baseUrl" expression="\${configs.backend.base.url}" scope="default" type="STRING"/>
+<property name="timeout" expression="\${configs.backend.timeout.ms}" scope="default" type="INTEGER"/>
+\`\`\`
+
+### Startup log noise (non-fatal)
+Even with the \`artifact.xml\` entry, the \`ConfigDeployer\` can log messages like:
+\`\`\`
+value of key 'backend.base.url' not found
+\`\`\`
+at startup when the property file is processed before the CAR is fully deployed. These are **non-fatal** — the properties resolve correctly once the CAR finishes deploying. Do NOT treat these startup messages as a failure signal unless the runtime actually rejects a \`\${configs.*}\` lookup later at request time.
+
+### When \`configs.*\` is not a good fit
+If startup ordering or deployment-environment management is painful, keep the artifact portable — do NOT bake production values into a \`<localEntry>\`. Instead:
+- Provide documented **defaults/placeholders** in a \`<localEntry>\` (clearly labelled as examples) and keep the real value injectable per environment, or
+- Read from environment/system properties via \`\${sys.env.<VAR>}\` / \`\${vars.envValue}\` patterns (optionally hydrated by a bootstrap sequence).
+Hardcoding values in \`<localEntry>\` couples each deploy to a specific environment and defeats the per-environment configuration story that \`configs.*\` is meant to solve.`,
 
 };
 

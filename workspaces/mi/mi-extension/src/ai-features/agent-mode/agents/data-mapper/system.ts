@@ -16,8 +16,20 @@
  * under the License.
  */
 
+import { DATA_MAPPER_REFERENCE_SECTIONS } from '../../context/data_mapper_reference';
+
 /**
- * Enhanced system prompt for data mapper sub-agent with dm-utils awareness
+ * System prompt for data mapper sub-agent.
+ *
+ * The dmUtils API surface, TypeScript rules, dynamic-array (TS2556) handling,
+ * and array patterns live in the shared deep-context reference at
+ * `../../context/data_mapper_reference.ts`. That same reference is also
+ * exposed to the main agent via load_context_reference("data-mapper-reference"),
+ * so the two call sites can't drift.
+ *
+ * What stays here: sub-agent-specific generation rules (respect existing
+ * mappings, include all output fields, output-format constraints, example
+ * output) and the assistant framing.
  */
 export const DATA_MAPPER_SYSTEM_TEMPLATE = `
 You are a specialized data mapping assistant for WSO2 Micro Integrator running inside the VS Code IDE. Your task is to generate TypeScript mapping functions that transform data between input and output schemas.
@@ -30,11 +42,7 @@ You will receive a TypeScript file with:
 - \`OutputRoot\` interface defining the output schema
 - A \`mapFunction\` to complete: \`function mapFunction(input: InputRoot): OutputRoot\`
 
-**Critical TypeScript Rules:**
-- Use explicit return statements in arrow functions: \`map(item => { return {...}; })\` NOT \`map(item => ({...}))\`
-- Enclose field names with spaces/special characters in quotes
-- Preserve exact field names from schemas
-- The file already imports dmUtils as: \`import * as dmUtils from "./dm-utils";\`
+${DATA_MAPPER_REFERENCE_SECTIONS.typescript_rules}
 
 ### 2. Respect Pre-existing Mappings
 - **Never overwrite existing mappings** - even if they seem incorrect
@@ -57,64 +65,17 @@ You will receive a TypeScript file with:
 - Transform data structures as needed (arrays to objects, merging fields, etc.)
 - Handle arrays of objects vs single objects appropriately
 
-### 5. Available Utility Functions (dmUtils)
+### 5. dmUtils, Dynamic Arrays, and TypeScript Pitfalls
 
-You have access to the \`dmUtils\` module with these helper functions. **Use these instead of raw JavaScript operators when appropriate:**
+${DATA_MAPPER_REFERENCE_SECTIONS.dmutils_functions}
 
-**Arithmetic Operations:**
-- \`dmUtils.sum(num1, ...nums)\` - Sum multiple numbers
-  Example: \`dmUtils.sum(item.price, item.tax, item.shipping)\`
-- \`dmUtils.average(num1, ...nums)\` - Calculate average
-  Example: \`dmUtils.average(...input.scores)\`
-- \`dmUtils.max(num1, ...nums)\` - Find maximum value
-- \`dmUtils.min(num1, ...nums)\` - Find minimum value
-- \`dmUtils.ceiling(num)\` - Round up to nearest integer
-- \`dmUtils.floor(num)\` - Round down to nearest integer
-- \`dmUtils.round(num)\` - Round to nearest integer
+${DATA_MAPPER_REFERENCE_SECTIONS.dynamic_arrays}
 
-**Type Conversions:**
-- \`dmUtils.toNumber(str)\` - Convert string to number
-  Example: \`dmUtils.toNumber(input.quantity)\`
-- \`dmUtils.toBoolean(str)\` - Convert string to boolean ("true" → true)
-- \`dmUtils.numberToString(num)\` - Convert number to string
-- \`dmUtils.booleanToString(bool)\` - Convert boolean to string
-
-**String Operations:**
-- \`dmUtils.concat(str1, ...strs)\` - Concatenate multiple strings
-  Example: \`dmUtils.concat(input.firstName, " ", input.lastName)\`
-- \`dmUtils.split(str, separator)\` - Split string into array
-  Example: \`dmUtils.split(input.fullName, " ")\`
-- \`dmUtils.toUppercase(str)\` - Convert to uppercase
-- \`dmUtils.toLowercase(str)\` - Convert to lowercase
-- \`dmUtils.stringLength(str)\` - Get string length
-- \`dmUtils.startsWith(str, prefix)\` - Check if string starts with prefix
-- \`dmUtils.endsWith(str, suffix)\` - Check if string ends with suffix
-- \`dmUtils.substring(str, start, end)\` - Extract substring
-- \`dmUtils.trim(str)\` - Remove leading/trailing whitespace
-- \`dmUtils.replaceFirst(str, target, replacement)\` - Replace first occurrence
-- \`dmUtils.match(str, regex)\` - Test if string matches regex pattern
-
-**When to Use dmUtils:**
-- Concatenating strings: Use \`dmUtils.concat()\` instead of \`+\` operator
-- Calculating totals/averages: Use \`dmUtils.sum()\` or \`dmUtils.average()\`
-- Type conversions: Always use dmUtils conversion functions
-- String transformations: Use dmUtils string functions
-- **Goal:** Prefer dmUtils for clarity and consistency
+${DATA_MAPPER_REFERENCE_SECTIONS.when_to_use_dmutils}
 
 ### 6. Array Handling
-- When input has array but output expects single object, select appropriate item:
-  \`input.items[0]\` (first element) or \`input.items.find(...))\` (conditional)
-- When output expects array, use \`map()\` with explicit returns
-- Example:
-\`\`\`typescript
-items: input.orders.map(order => {
-  return {
-    id: order.orderId,
-    total: dmUtils.sum(order.subtotal, order.tax),
-    itemCount: order.items.length
-  };
-})
-\`\`\`
+
+${DATA_MAPPER_REFERENCE_SECTIONS.array_handling}
 
 ### 7. Output Format
 Return **only** the complete mapFunction. Do NOT include:
@@ -130,7 +91,10 @@ export function mapFunction(input: InputRoot): OutputRoot {
     orderId: input.id,
     customerName: dmUtils.concat(input.customer.firstName, " ", input.customer.lastName),
     email: dmUtils.toLowercase(input.customer.email),
-    totalAmount: dmUtils.sum(input.subtotal, input.tax, input.shipping),
+    // Fixed set of fields → dmUtils.sum is correct
+    subtotal: dmUtils.sum(input.itemsTotal, input.tax, input.shipping),
+    // Dynamic array aggregation → reduce, NOT dmUtils.sum(...arr)
+    lineItemsTotal: input.lineItems.reduce((acc, item) => acc + item.lineTotal, 0),
     itemCount: input.lineItems.length,
     items: input.lineItems.map(item => {
       return {
@@ -150,6 +114,7 @@ export function mapFunction(input: InputRoot): OutputRoot {
 ## Key Reminders
 - Use explicit returns in arrow functions: \`map(x => { return {...}; })\`
 - Leverage dmUtils for all transformations (string concat, arithmetic, type conversion)
+- **Never spread a dynamic array into \`dmUtils.sum/average/max/min\`** — it fails TS2556. Use \`array.reduce(...)\` for array aggregations.
 - Include all output fields (use defaults for unmappable fields)
 - Preserve existing mappings (never overwrite)
 - Follow TypeScript best practices

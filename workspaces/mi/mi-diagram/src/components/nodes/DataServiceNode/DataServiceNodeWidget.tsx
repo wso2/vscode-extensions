@@ -117,6 +117,7 @@ export function DataServiceNodeWidget(props: DataServiceNodeWidgetProps) {
     const sidePanelContext = React.useContext(SidePanelContext);
     const { rpcClient } = useVisualizerContext();
     const hasDiagnotics = node.hasDiagnotics();
+    const hasErrors = node.hasErrors();
     const tooltip = hasDiagnotics ? node.getDiagnostics().map(diagnostic => diagnostic.message).join("\n") : undefined;
     const hasBreakpoint = node.hasBreakpoint();
     const isActiveBreakpoint = node.isActiveBreakpoint();
@@ -169,7 +170,7 @@ export function DataServiceNodeWidget(props: DataServiceNodeWidgetProps) {
             <Tooltip content={!isPopoverOpen && tooltip ? <TooltipEl /> : ""} position={'bottom'} containerPosition={'absolute'}>
                 <S.Node
                     selected={node.isSelected() && !isHoveredDataSource}
-                    hasError={hasDiagnotics}
+                    hasError={hasErrors}
                     hovered={isHovered || isActiveBreakpoint}
                     isActiveBreakpoint={isActiveBreakpoint}
                     onMouseEnter={() => setIsHovered(true)}
@@ -207,7 +208,7 @@ export function DataServiceNodeWidget(props: DataServiceNodeWidgetProps) {
             {node.mediatorName === 'Query' &&
                 <S.DataSourceNode
                     selected={false}
-                    hasError={hasDiagnotics}
+                    hasError={hasErrors}
                     hovered={isHoveredDataSource}
                     onMouseEnter={() => setIsHoveredDataSource(true)}
                     onMouseLeave={() => setIsHoveredDataSource(false)}

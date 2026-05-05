@@ -41,6 +41,11 @@ on:
         type: boolean
         required: true
         default: false
+      ballerinaLsTag:
+        description: 'Override Ballerina LS download tag (latest, prerelease, v1.5.0). Overrides isPreRelease for LS download.'
+        type: string
+        required: false
+        default: ''
       version:
         type: choice
         description: 'Enter the version type'
@@ -60,6 +65,7 @@ jobs:
     with:
       runOnAWS: true
       isPreRelease: ${{ inputs.isPreRelease }}
+      ballerinaLsTag: ${{ inputs.ballerinaLsTag }}
       enableCache: false
       ballerina: ${{ inputs.ballerina }}
       wso2-platform: ${{ inputs.wso2-platform }}

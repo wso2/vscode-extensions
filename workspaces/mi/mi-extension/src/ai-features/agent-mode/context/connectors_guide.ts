@@ -34,7 +34,7 @@ noInitializationNeeded? (HIGHEST PRECEDENCE — check this first)
            ├─ true  → Local entry init (most connectors: HTTP, Email, DB, etc.)
            │         1. Create <localEntry> with <connector.init> inside
            │         2. Include <name> param matching the local entry key
-           │         3. Use configKey="..." in operations
+           │         3. Use configKey="..." in operations (the key of the local entry)
            │         4. NEVER call .init again in the sequence
            │
            └─ false → Inline init (legacy connectors)

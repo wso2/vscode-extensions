@@ -69,7 +69,9 @@ export function getStatusText(status: number) {
 
 export function splitHalfGeneratedCode(content: string) {
         const segments = [];
-        const regex = /```([\s\S]*?)$/g;
+        // Opening ``` must start a line (or start of string) so nested backticks
+        // inside JSON strings aren't mistaken for an unclosed fence during streaming.
+        const regex = /(?:^|\r?\n)```([\s\S]*?)$/g;
         let match;
         let lastIndex = 0;
 
@@ -77,7 +79,9 @@ export function splitHalfGeneratedCode(content: string) {
             if (match.index > lastIndex) {
                 segments.push({ isCode: false, loading: false, text: content.slice(lastIndex, match.index) });
             }
-            segments.push({ isCode: true, loading: true, text: match[0] });
+            // The regex's non-capturing group may consume a leading newline;
+            // strip it so identifyLanguage's startsWith('```') check works.
+            segments.push({ isCode: true, loading: true, text: match[0].replace(/^\r?\n/, '') });
             lastIndex = regex.lastIndex;
         }
 
@@ -110,8 +114,14 @@ export function splitContent(content: string): ContentSegment[] {
     const segments: ContentSegment[] = [];
     let match;
     // Updated regex to include <toolcall>, <todolist>, <bashoutput>, <compact>, <filechanges>, <plan>, and <thinking> tags.
-    // Code block regex matches any language (or no language) followed by a newline
-    const regex = /```(\w*)\n([\s\S]*?)```|<toolcall([^>]*)>([^<]*?)<\/toolcall>|<todolist>([\s\S]*?)<\/todolist>|<bashoutput(?:\s+[^>]*)?>([\s\S]*?)<\/bashoutput>|<compact>([\s\S]*?)<\/compact>|<filechanges>([\s\S]*?)<\/filechanges>|<plan>([\s\S]*?)<\/plan>|<thinking(?:\s+[^>]*)?>([\s\S]*?)<\/thinking>/g;
+    // Code block regex matches any language (or no language) followed by a newline.
+    // The closing ``` must start a line so nested backticks inside JSON strings
+    // (e.g. tool outputs) don't prematurely close the block. For a non-empty body
+    // the preceding \r?\n is consumed as the boundary; for an empty body the
+    // opening fence's \n already sits right before the closer, so we fall back
+    // to a `(?<=\n)` lookbehind (which doesn't consume) — otherwise `\`\`\`\n\`\`\``
+    // wouldn't match at all.
+    const regex = /```(\w*)\n([\s\S]*?)(?:\r?\n|(?<=\n))```(?=\r?\n|$)|<toolcall([^>]*)>([^<]*?)<\/toolcall>|<todolist>([\s\S]*?)<\/todolist>|<bashoutput(?:\s+[^>]*)?>([\s\S]*?)<\/bashoutput>|<compact>([\s\S]*?)<\/compact>|<filechanges>([\s\S]*?)<\/filechanges>|<plan>([\s\S]*?)<\/plan>|<thinking(\s+[^>]*)?>([\s\S]*?)<\/thinking>/g;
     let start = 0;
 
     // Helper function to mark the last toolcall segment as complete
@@ -165,11 +175,14 @@ export function splitContent(content: string): ContentSegment[] {
             // <plan> block matched
             updateLastToolCallSegmentLoading();
             segments.push({ isPlan: true, loading: false, text: match[9] });
-        } else if (match[10] !== undefined) {
-            // <thinking> block matched
+        } else if (match[11] !== undefined) {
+            // <thinking> block matched (match[10] = attrs only, match[11] = body)
             updateLastToolCallSegmentLoading();
-            const isLoading = /data-loading="true"/.test(match[0]);
-            segments.push({ isThinking: true, loading: isLoading, text: match[10] });
+            // Test data-loading against the attrs capture only so occurrences of
+            // that substring inside the thinking body don't cause false positives.
+            const thinkingAttrs = match[10] || '';
+            const isLoading = /data-loading="true"/.test(thinkingAttrs);
+            segments.push({ isThinking: true, loading: isLoading, text: match[11] });
         }
         start = regex.lastIndex;
     }

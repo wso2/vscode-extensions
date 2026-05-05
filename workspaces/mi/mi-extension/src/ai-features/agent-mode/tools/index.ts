@@ -44,7 +44,24 @@ export {
     // Utility functions
     getAvailableConnectors,
     getAvailableInboundEndpoints,
+    buildLSHighLevelSummary,
 } from './connector_tools';
+
+// Export connector LS client
+export {
+    getConnectorInfoFromLS,
+    getInboundInfoFromLS,
+    getLocalInboundCatalog,
+    readOutputSchema,
+    type LSConnectorResult,
+    type LSConnectorOperation,
+    type LSConnectorConnection,
+    type LSConnectorParameter,
+    type LSInboundResult,
+    type LSInboundParameter,
+    type LocalInboundCatalog,
+    type LocalInboundCatalogEntry,
+} from './connector_ls_client';
 
 // Export deep-context tools
 export {
@@ -149,6 +166,24 @@ export {
     createWebFetchTool,
 } from './web_tools';
 
+// Export DeepWiki tool
+export {
+    createDeepWikiExecute,
+    createDeepWikiTool,
+} from './deepwiki_tools';
+
+// Export log tools
+export {
+    createReadServerLogsExecute,
+    createReadServerLogsTool,
+} from './log_tools';
+
+// Export tool search
+export {
+    createToolSearchTool,
+    DEFERRED_TOOL_DESCRIPTIONS,
+} from './tool_load';
+
 // Re-export tool names for convenience
 export {
     FILE_WRITE_TOOL_NAME,
@@ -174,6 +209,11 @@ export {
     TASK_OUTPUT_TOOL_NAME,
     WEB_SEARCH_TOOL_NAME,
     WEB_FETCH_TOOL_NAME,
+    DEEPWIKI_ASK_QUESTION_TOOL_NAME,
+    // Log tool names
+    READ_SERVER_LOGS_TOOL_NAME,
+    // Tool search
+    TOOL_LOAD_TOOL_NAME,
 } from './types';
 
 /**

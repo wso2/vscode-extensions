@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { MANAGE_CONNECTOR_TOOL_NAME, ASK_USER_TOOL_NAME, BUILD_AND_DEPLOY_TOOL_NAME, CONNECTOR_TOOL_NAME, CONTEXT_TOOL_NAME, CREATE_DATA_MAPPER_TOOL_NAME, ENTER_PLAN_MODE_TOOL_NAME, EXIT_PLAN_MODE_TOOL_NAME, FILE_EDIT_TOOL_NAME, FILE_GLOB_TOOL_NAME, FILE_GREP_TOOL_NAME, FILE_READ_TOOL_NAME, FILE_WRITE_TOOL_NAME, GENERATE_DATA_MAPPING_TOOL_NAME, SERVER_MANAGEMENT_TOOL_NAME, SUBAGENT_TOOL_NAME, TODO_WRITE_TOOL_NAME, VALIDATE_CODE_TOOL_NAME, BASH_TOOL_NAME, KILL_TASK_TOOL_NAME, TASK_OUTPUT_TOOL_NAME, WEB_SEARCH_TOOL_NAME, WEB_FETCH_TOOL_NAME } from './tools/types';
+import { MANAGE_CONNECTOR_TOOL_NAME, ASK_USER_TOOL_NAME, BUILD_AND_DEPLOY_TOOL_NAME, CONNECTOR_TOOL_NAME, CONTEXT_TOOL_NAME, CREATE_DATA_MAPPER_TOOL_NAME, ENTER_PLAN_MODE_TOOL_NAME, EXIT_PLAN_MODE_TOOL_NAME, FILE_EDIT_TOOL_NAME, FILE_GLOB_TOOL_NAME, FILE_GREP_TOOL_NAME, FILE_READ_TOOL_NAME, FILE_WRITE_TOOL_NAME, GENERATE_DATA_MAPPING_TOOL_NAME, SERVER_MANAGEMENT_TOOL_NAME, SUBAGENT_TOOL_NAME, TODO_WRITE_TOOL_NAME, VALIDATE_CODE_TOOL_NAME, BASH_TOOL_NAME, KILL_TASK_TOOL_NAME, TASK_OUTPUT_TOOL_NAME, WEB_SEARCH_TOOL_NAME, WEB_FETCH_TOOL_NAME, DEEPWIKI_ASK_QUESTION_TOOL_NAME, READ_SERVER_LOGS_TOOL_NAME, TOOL_LOAD_TOOL_NAME } from './tools/types';
 /**
  * Tool action states for UI display
  */
@@ -69,14 +69,14 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
             return { loading: 'finding files', completed: 'found files', failed: 'failed to find files' };
 
         case CONNECTOR_TOOL_NAME: {
-            const targetName = toolInput?.name;
-            if (typeof targetName === 'string') {
-                const trimmedName = targetName.trim();
-                if (trimmedName.length > 0) {
+            const targetId = toolInput?.artifact_id;
+            if (typeof targetId === 'string') {
+                const trimmedId = targetId.trim();
+                if (trimmedId.length > 0) {
                     return {
-                        loading: `fetching ${trimmedName}`,
-                        completed: `fetched ${trimmedName}`,
-                        failed: `failed to fetch ${trimmedName}`
+                        loading: `fetching ${trimmedId}`,
+                        completed: `fetched ${trimmedId}`,
+                        failed: `failed to fetch ${trimmedId}`
                     };
                 }
             }
@@ -87,12 +87,34 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
             return { loading: 'loading deep context', completed: 'loaded deep context', failed: 'failed to load deep context' };
 
         case MANAGE_CONNECTOR_TOOL_NAME: {
-            // Extract operation, connector names, and inbound endpoint names from tool input
+            // Extract operation and artifact ids from tool input. The model
+            // occasionally emits a bare string, a single object, or null where
+            // we expect a string array — normalize defensively so the `allNames`
+            // spread doesn't blow up on `[...<non-iterable>]`.
             const operation = toolInput?.operation || 'managing';
             const isAdding = operation === 'add';
-            const connectorNames = toolInput?.connector_names || [];
-            const inboundNames = toolInput?.inbound_endpoint_names || [];
-            const allNames = [...connectorNames, ...inboundNames];
+            const normalizeArtifactField = (value: unknown): string[] => {
+                if (value === null || value === undefined) return [];
+                if (Array.isArray(value)) {
+                    return value
+                        .map((v) =>
+                            typeof v === 'string'
+                                ? v
+                                : typeof v === 'object' && v !== null && typeof (v as { id?: unknown }).id === 'string'
+                                    ? (v as { id: string }).id
+                                    : String(v),
+                        )
+                        .filter((v): v is string => typeof v === 'string' && v.length > 0);
+                }
+                if (typeof value === 'string') return [value];
+                if (typeof value === 'object' && typeof (value as { id?: unknown }).id === 'string') {
+                    return [(value as { id: string }).id];
+                }
+                return [String(value)];
+            };
+            const connectorIds = normalizeArtifactField(toolInput?.connector_artifact_ids);
+            const inboundIds = normalizeArtifactField(toolInput?.inbound_artifact_ids);
+            const allNames = [...connectorIds, ...inboundIds];
             
             if (allNames.length > 0) {
                 const itemList = allNames.length === 1
@@ -246,6 +268,31 @@ export function getToolAction(toolName: string, toolResult?: any, toolInput?: an
                 completed: 'fetched web page',
                 failed: 'web fetch failed'
             };
+
+        // Tool Loading (local — deferred tool loading)
+        case TOOL_LOAD_TOOL_NAME:
+            return {
+                loading: 'loading tools',
+                completed: 'loaded tools',
+                failed: 'tool loading failed'
+            };
+
+        case DEEPWIKI_ASK_QUESTION_TOOL_NAME:
+            return {
+                loading: 'querying DeepWiki',
+                completed: 'queried DeepWiki',
+                failed: 'DeepWiki query failed'
+            };
+
+        // Read Server Logs Tool
+        case READ_SERVER_LOGS_TOOL_NAME: {
+            const logFile = toolInput?.log_file || 'errors';
+            return {
+                loading: `reading ${logFile} log`,
+                completed: `read ${logFile} log`,
+                failed: `failed to read ${logFile} log`,
+            };
+        }
 
         default:
             return undefined;

@@ -16,184 +16,173 @@
  * under the License.
  */
 
-import React, { useMemo, useState } from "react";
-import { Codicon } from "@wso2/ui-toolkit";
-import { UndoCheckpointSummary } from "@wso2/mi-core";
+import React, { useState } from "react";
 import { useMICopilotContext } from "./MICopilotContext";
+import { convertEventsToMessages } from "../utils/eventToMessageConverter";
 
-interface FileChangesSegmentProps {
-    summaryText: string;
-}
+const FileChangesSegment: React.FC = () => {
+    const {
+        pendingReview,
+        setPendingReview,
+        rpcClient,
+        setMessages,
+    } = useMICopilotContext();
+    const [isRejecting, setIsRejecting] = useState(false);
+    const [error, setError] = useState("");
 
-const FileChangesSegment: React.FC<FileChangesSegmentProps> = ({ summaryText }) => {
-    const { rpcClient, setMessages } = useMICopilotContext();
-    const [isUndoing, setIsUndoing] = useState(false);
-    const [isUndone, setIsUndone] = useState(false);
-    const [error, setError] = useState<string>("");
-
-    const summary = useMemo<UndoCheckpointSummary | null>(() => {
-        try {
-            return JSON.parse(summaryText) as UndoCheckpointSummary;
-        } catch {
-            return null;
-        }
-    }, [summaryText]);
-
-    if (!summary) {
-        return (
-            <div style={{ color: "var(--vscode-errorForeground)", marginTop: "8px" }}>
-                Unable to render changed files.
-            </div>
-        );
+    if (!pendingReview) {
+        return null;
     }
 
-    const handleUndo = async () => {
-        if (isUndoing || isUndone || !summary.undoable) {
+    const handleAccept = () => {
+        if (isRejecting) {
+            return;
+        }
+        setError("");
+        setPendingReview(null);
+    };
+
+    const handleReject = async () => {
+        if (isRejecting) {
+            return;
+        }
+        if (!rpcClient) {
+            setError("Agent connection is unavailable. Please reopen the panel and try again.");
             return;
         }
 
-        setIsUndoing(true);
+        setIsRejecting(true);
         setError("");
         try {
-            let response = await rpcClient.getMiAgentPanelRpcClient().undoLastCheckpoint({
-                force: false,
-                checkpointId: summary.checkpointId,
-            } as any);
-            if (response.requiresConfirmation) {
-                const conflicts = response.conflicts || [];
-                const shouldForceUndo = window.confirm(
-                    `These files changed after the checkpoint and will be overwritten:\n\n${conflicts.join('\n')}\n\nContinue with undo?`
-                );
-                if (!shouldForceUndo) {
-                    setIsUndoing(false);
-                    return;
-                }
-                response = await rpcClient.getMiAgentPanelRpcClient().undoLastCheckpoint({
+            const agentRpcClient = rpcClient.getMiAgentPanelRpcClient();
+            let response = await agentRpcClient.undoLastCheckpoint({
+                checkpointId: pendingReview.checkpointId,
+                behavior: "soft",
+            });
+
+            // Backward compatibility with older backend confirmation handshake.
+            if (!response.success && response.requiresConfirmation) {
+                response = await agentRpcClient.undoLastCheckpoint({
+                    checkpointId: pendingReview.checkpointId,
                     force: true,
-                    checkpointId: summary.checkpointId,
-                } as any);
+                    behavior: "soft",
+                });
             }
 
             if (!response.success) {
-                throw new Error(response.error || "Undo failed");
+                throw new Error(response.error || "Reject failed");
             }
 
-            setMessages((prevMessages) => {
-                const markSummaryUndoable = (summaryJson: string): string => {
-                    try {
-                        const parsedSummary = JSON.parse(summaryJson) as UndoCheckpointSummary;
-                        if (!parsedSummary || typeof parsedSummary !== "object") {
-                            return summaryJson;
-                        }
+            // Clear the review card immediately — the undo succeeded
+            setPendingReview(null);
 
-                        const latestCheckpointId = (response as any).latestUndoCheckpoint?.checkpointId as string | undefined;
-                        const isLatest = latestCheckpointId !== undefined
-                            && parsedSummary.checkpointId === latestCheckpointId;
+            const historyResponse = await agentRpcClient.loadChatHistory({});
+            if (!historyResponse.success) {
+                throw new Error(historyResponse.error || "Reject applied but failed to refresh history");
+            }
 
-                        return JSON.stringify({
-                            ...parsedSummary,
-                            undoable: isLatest,
-                        });
-                    } catch {
-                        return summaryJson;
-                    }
-                };
-
-                return prevMessages.map((message) => ({
-                    ...message,
-                    content: (message.content || "").replace(
-                        /<filechanges>([\s\S]*?)<\/filechanges>/g,
-                        (_fullMatch, summaryJson) => `<filechanges>${markSummaryUndoable(summaryJson)}</filechanges>`
-                    ),
-                }));
-            });
-
-            setIsUndone(true);
-        } catch (undoError) {
-            setError(undoError instanceof Error ? undoError.message : "Undo failed");
+            setMessages(convertEventsToMessages(historyResponse.events));
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Reject failed");
         } finally {
-            setIsUndoing(false);
+            setIsRejecting(false);
         }
     };
-
-    const totalFiles = summary.files.length;
-    const canUndo = summary.undoable && !isUndone;
 
     return (
         <div
             style={{
-                marginTop: "10px",
-                borderRadius: "12px",
-                border: "1px solid var(--vscode-widget-border)",
-                background: "var(--vscode-editorHoverWidget-background)",
+                margin: "0 16px 10px 16px",
+                width: "calc(100% - 32px)",
+                maxWidth: "calc(100% - 32px)",
+                boxSizing: "border-box",
+                borderRadius: "10px",
                 overflow: "hidden",
+                border: "1px solid var(--vscode-panel-border)",
+                background: "var(--vscode-editorHoverWidget-background)",
             }}
         >
-            <div
-                style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    padding: "12px 14px",
-                    fontWeight: 500,
-                }}
-            >
-                <div>
-                    {totalFiles} {totalFiles === 1 ? "file" : "files"} changed{" "}
-                    <span style={{ color: "var(--vscode-testing-iconPassed)" }}>+{summary.totalAdded}</span>{" "}
-                    <span style={{ color: "var(--vscode-testing-iconFailed)" }}>-{summary.totalDeleted}</span>
-                </div>
+            <div className="px-3 pt-3 pb-1 font-semibold" style={{ fontSize: "13px", color: "var(--vscode-foreground)" }}>
+                Changes ready to review
+            </div>
+            <div className="px-3 pb-2" style={{ fontSize: "11px", color: "var(--vscode-descriptionForeground)" }}>
+                <span style={{ color: "var(--vscode-testing-iconPassed)" }}>+{pendingReview.totalAdded}</span>
+                {" "}
+                <span style={{ color: "var(--vscode-testing-iconFailed)" }}>-{pendingReview.totalDeleted}</span>
+                {" "}
+                across {pendingReview.files.length} file{pendingReview.files.length === 1 ? "" : "s"}
+            </div>
+
+            <div className="px-3 py-1" style={{ borderTop: "1px solid var(--vscode-panel-border)" }}>
+                {pendingReview.files.map((file) => (
+                    <div
+                        key={file.path}
+                        style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: "8px",
+                            padding: "6px 0",
+                            fontFamily: "var(--vscode-editor-font-family)",
+                            fontSize: "12px",
+                            minWidth: 0,
+                        }}
+                    >
+                        <span
+                            style={{
+                                color: "var(--vscode-foreground)",
+                                minWidth: 0,
+                                flex: 1,
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                            }}
+                            title={file.path}
+                        >
+                            {file.path}
+                        </span>
+                        <span style={{ flexShrink: 0, fontSize: "11px" }}>
+                            <span style={{ color: "var(--vscode-testing-iconPassed)" }}>+{file.addedLines}</span>
+                            {" "}
+                            <span style={{ color: "var(--vscode-testing-iconFailed)" }}>-{file.deletedLines}</span>
+                        </span>
+                    </div>
+                ))}
+            </div>
+
+            <div className="flex justify-end gap-2 px-3 py-2.5" style={{ borderTop: "1px solid var(--vscode-panel-border)" }}>
                 <button
-                    onClick={handleUndo}
-                    disabled={!canUndo || isUndoing}
+                    onClick={handleReject}
+                    disabled={isRejecting}
+                    className="px-4 py-1.5 rounded-md text-xs font-medium transition-colors"
                     style={{
-                        border: "none",
-                        background: "transparent",
-                        color: canUndo ? "var(--vscode-editor-foreground)" : "var(--vscode-descriptionForeground)",
-                        cursor: canUndo ? "pointer" : "default",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        fontSize: "14px",
+                        border: "1px solid var(--vscode-panel-border)",
+                        backgroundColor: "var(--vscode-button-secondaryBackground)",
+                        color: "var(--vscode-button-secondaryForeground)",
+                        cursor: isRejecting ? "not-allowed" : "pointer",
+                        opacity: isRejecting ? 0.6 : 1,
                     }}
                 >
-                    <span>{isUndone ? "Undone" : isUndoing ? "Undoing..." : "Undo"}</span>
-                    <Codicon name="discard" />
+                    {isRejecting ? "Rejecting..." : "Reject"}
+                </button>
+                <button
+                    onClick={handleAccept}
+                    disabled={isRejecting}
+                    className="px-4 py-1.5 rounded-md text-xs font-medium transition-colors"
+                    style={{
+                        border: "1px solid var(--vscode-button-border)",
+                        backgroundColor: "var(--vscode-button-background)",
+                        color: "var(--vscode-button-foreground)",
+                        cursor: isRejecting ? "not-allowed" : "pointer",
+                        opacity: isRejecting ? 0.6 : 1,
+                    }}
+                >
+                    Accept
                 </button>
             </div>
 
-            {summary.files.map((file) => (
-                <div
-                    key={file.path}
-                    style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        padding: "10px 14px",
-                        borderTop: "1px solid var(--vscode-widget-border)",
-                        fontFamily: "var(--vscode-editor-font-family)",
-                        fontSize: "12px",
-                    }}
-                >
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: "8px" }}>
-                        {file.path}
-                    </span>
-                    <span style={{ flexShrink: 0 }}>
-                        <span style={{ color: "var(--vscode-testing-iconPassed)" }}>+{file.addedLines}</span>{" "}
-                        <span style={{ color: "var(--vscode-testing-iconFailed)" }}>-{file.deletedLines}</span>
-                    </span>
-                </div>
-            ))}
-
             {error && (
-                <div
-                    style={{
-                        borderTop: "1px solid var(--vscode-widget-border)",
-                        padding: "10px 14px",
-                        color: "var(--vscode-errorForeground)",
-                        fontSize: "12px",
-                    }}
-                >
+                <div className="px-3 py-2 text-xs" style={{ color: "var(--vscode-errorForeground)", borderTop: "1px solid var(--vscode-panel-border)" }}>
                     {error}
                 </div>
             )}

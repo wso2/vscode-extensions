@@ -70,6 +70,12 @@ export function ImportConnectorForm(props: ImportConnectorFormProps) {
     const importWithZip = async () => {
         setIsImporting(true);
         const response = await rpcClient.getMiDiagramRpcClient().copyConnectorZip({ connectorPath: zipDir });
+
+        if (!response.success) {
+            setIsImporting(false);
+            return;
+        }
+
         try {
             const newConnector: any = await waitForEvent();
 

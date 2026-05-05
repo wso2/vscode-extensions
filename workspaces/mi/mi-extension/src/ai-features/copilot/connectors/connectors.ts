@@ -25,8 +25,9 @@ import { SYSTEM_TEMPLATE } from "./system";
 import { CONNECTOR_PROMPT } from "./prompt";
 import { CONNECTOR_DB } from "./connector_db";
 import { INBOUND_DB } from "./inbound_db";
-import { logInfo, logWarn, logError } from "../logger";
+import { logInfo, logWarn, logError, logDebug } from "../logger";
 import { buildMessageContent } from "../message-utils";
+import { getConnectorInfoFromLS, getInboundInfoFromLS } from "../../agent-mode/tools/connector_ls_client";
 
 // Type definition for selected connectors
 type SelectedConnectors = {
@@ -65,35 +66,149 @@ function getAvailableInboundEndpoints(): string[] {
 }
 
 /**
- * Get full connector definitions by names
+ * Get full connector definitions by names.
+ * When projectPath is provided, enriches definitions with LS data (xsdType, allowedConnectionTypes, supportsResponseModel).
  */
-function getConnectorDefinitions(connectorNames: string[]): Record<string, string> {
+async function getConnectorDefinitions(connectorNames: string[], projectPath?: string): Promise<Record<string, string>> {
     const definitions: Record<string, string> = {};
-    
+
     for (const name of connectorNames) {
         const connector = CONNECTOR_DB.find(c => c.connectorName === name);
         if (connector) {
-            definitions[name] = JSON.stringify(connector, null, 2);
+            const enriched = await enrichWithLSData(connector, name, projectPath);
+            definitions[name] = JSON.stringify(enriched, null, 2);
         }
     }
-    
+
     return definitions;
 }
 
 /**
- * Get full inbound endpoint definitions by names
+ * Get full inbound endpoint definitions by names.
+ * When projectPath is provided, enriches definitions with LS data via
+ * `synapse/getInboundInfo` (the inbound LS endpoint). Using the connector
+ * endpoint for inbounds would return the wrong shape or silently fail.
  */
-function getInboundEndpointDefinitions(inboundNames: string[]): Record<string, string> {
+async function getInboundEndpointDefinitions(inboundNames: string[], projectPath?: string): Promise<Record<string, string>> {
     const definitions: Record<string, string> = {};
-    
+
     for (const name of inboundNames) {
         const inbound = INBOUND_DB.find(i => i.connectorName === name);
         if (inbound) {
-            definitions[name] = JSON.stringify(inbound, null, 2);
+            const enriched = await enrichInboundWithLSData(inbound, name, projectPath);
+            definitions[name] = JSON.stringify(enriched, null, 2);
         }
     }
-    
+
     return definitions;
+}
+
+/**
+ * Enrich a static INBOUND_DB entry with LS data via `synapse/getInboundInfo`.
+ * Best-effort: returns the original definition if LS fails or the inbound has
+ * no Maven coordinates to resolve. Inbound LS responses have a flat
+ * `parameters` array (not `operations[].parameters`) — we merge it into the
+ * DB's init operation shape so downstream prompt rendering stays uniform.
+ */
+async function enrichInboundWithLSData(definition: any, name: string, projectPath?: string): Promise<any> {
+    if (!projectPath) {
+        return definition;
+    }
+
+    try {
+        const groupId = definition.mavenGroupId;
+        const artifactId = definition.mavenArtifactId;
+        const version = definition.version?.tagName;
+
+        if (!groupId || !artifactId || !version) {
+            return definition;
+        }
+
+        const lsResult = await getInboundInfoFromLS(projectPath, { groupId, artifactId, version });
+        if ('error' in lsResult) {
+            logDebug(`LS inbound enrichment skipped for '${name}': ${lsResult.error}`);
+            return definition;
+        }
+
+        const enriched = JSON.parse(JSON.stringify(definition));
+        const operations = enriched.version?.operations || enriched.operations || [];
+        const lsParameters = Array.isArray(lsResult.parameters) ? lsResult.parameters : [];
+        if (lsParameters.length > 0 && operations.length > 0) {
+            // Inbounds conventionally expose a single `init` operation in the static
+            // DB; fall through to the first operation if `init` isn't present.
+            const target = operations.find((op: any) => (op.name || '').toLowerCase() === 'init') ?? operations[0];
+            target.parameters = lsParameters.map(p => ({
+                name: p.name,
+                type: p.xsdType,
+                required: p.required,
+                description: p.description,
+            }));
+        }
+
+        logInfo(`Enriched inbound '${name}' with LS data (${lsParameters.length} parameters)`);
+        return enriched;
+    } catch (error) {
+        logWarn(`Failed to enrich inbound '${name}' with LS data: ${error instanceof Error ? error.message : String(error)}`);
+        return definition;
+    }
+}
+
+/**
+ * Enrich a static DB connector definition with LS data when available.
+ * Best-effort: returns original definition if LS fails.
+ */
+async function enrichWithLSData(definition: any, name: string, projectPath?: string): Promise<any> {
+    if (!projectPath) {
+        return definition;
+    }
+
+    try {
+        const groupId = definition.mavenGroupId;
+        const artifactId = definition.mavenArtifactId;
+        const version = definition.version?.tagName;
+
+        if (!groupId || !artifactId || !version) {
+            return definition;
+        }
+
+        // Single LS call: downloads + extracts + parses, returns the full Connector
+        // (or a { error } envelope which we treat as "LS data unavailable").
+        const lsResult = await getConnectorInfoFromLS(projectPath, groupId, artifactId, version);
+        if ('error' in lsResult) {
+            logDebug(`LS enrichment skipped for '${name}': ${lsResult.error}`);
+            return definition;
+        }
+
+        // Deep clone to avoid mutating the static DB
+        const enriched = JSON.parse(JSON.stringify(definition));
+
+        // Merge LS operation data into the definition
+        const operations = enriched.version?.operations || enriched.operations || [];
+        for (const op of operations) {
+            const lsOperation = lsResult.operations.find(a =>
+                (a.name || '').toLowerCase() === (op.name || '').toLowerCase()
+            );
+            if (lsOperation) {
+                // Replace parameters with LS versions (has xsdType)
+                op.parameters = lsOperation.parameters.map(p => ({
+                    name: p.name,
+                    type: p.xsdType,
+                    required: p.required,
+                    description: p.description,
+                    defaultValue: p.defaultValue ?? '',
+                }));
+                // Add LS-only fields
+                op.allowedConnectionTypes = lsOperation.allowedConnectionTypes;
+                op.supportsResponseModel = lsOperation.supportsResponseModel;
+            }
+        }
+
+        logInfo(`Enriched connector '${name}' with LS data (${lsResult.operations.length} operations)`);
+        return enriched;
+    } catch (error) {
+        logWarn(`Failed to enrich connector '${name}' with LS data: ${error instanceof Error ? error.message : String(error)}`);
+        return definition;
+    }
 }
 
 /**
@@ -106,6 +221,8 @@ export interface GetConnectorsParams {
     files?: FileObject[];
     /** Images for context (optional) - ImageObject array */
     images?: ImageObject[];
+    /** Project path for LS enrichment (optional) */
+    projectPath?: string;
 }
 
 /**
@@ -185,13 +302,13 @@ export async function getConnectors(
         // Extract the selected connectors from the result
         const selectedConnectors = result.object as SelectedConnectors;
         
-        // Get full definitions for selected connectors
+        // Get full definitions for selected connectors (enriched with LS data when projectPath available)
         const connectorDefinitions = selectedConnectors.selected_connector_names.length > 0
-            ? getConnectorDefinitions(selectedConnectors.selected_connector_names)
+            ? await getConnectorDefinitions(selectedConnectors.selected_connector_names, params.projectPath)
             : {};
-            
+
         const inboundDefinitions = selectedConnectors.selected_inbound_endpoint_names.length > 0
-            ? getInboundEndpointDefinitions(selectedConnectors.selected_inbound_endpoint_names)
+            ? await getInboundEndpointDefinitions(selectedConnectors.selected_inbound_endpoint_names, params.projectPath)
             : {};
         
         logInfo(`Selected ${selectedConnectors.selected_connector_names.length} connectors and ${selectedConnectors.selected_inbound_endpoint_names.length} inbound endpoints`);

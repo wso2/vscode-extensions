@@ -49,6 +49,8 @@ export interface DataMapperAgentRequest {
     subModelId?: string;
     /** Whether the sub-model ID is a custom (arbitrary) string */
     subModelIsCustom?: boolean;
+    /** Optional abort signal propagated from the main agent */
+    abortSignal?: AbortSignal;
 }
 
 export interface DataMapperAgentResult {
@@ -161,6 +163,7 @@ export async function executeDataMapperAgent(
             maxOutputTokens: 8000,
             temperature: 0.2, // Low temperature for deterministic mappings
             maxRetries: 0, // Disable retries on quota errors (429)
+            abortSignal: request.abortSignal,
         });
 
         logDebug(`[DataMapperAgent] AI response received: ${text.length} characters`);
@@ -174,6 +177,14 @@ export async function executeDataMapperAgent(
         }
 
         logDebug(`[DataMapperAgent] Extracted mapping body: ${mappingBody.substring(0, 100)}...`);
+
+        // Bail out if the user aborted while the AI call was in flight —
+        // don't mutate the TypeScript source file with stale generated code.
+        if (request.abortSignal?.aborted) {
+            const err: any = new Error('Data mapper generation aborted by user');
+            err.name = 'AbortError';
+            throw err;
+        }
 
         // 5. Update the file using ts-morph
         const project = new Project();

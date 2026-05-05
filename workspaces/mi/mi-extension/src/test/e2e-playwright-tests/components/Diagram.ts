@@ -218,7 +218,7 @@ export class Diagram {
         const sidePanel = new SidePanel(this.diagramWebView);
         await sidePanel.init();
         await sidePanel.search(operation);
-        await sidePanel.addConnector(connector, operation, operationId);
+        await sidePanel.addConnector(operation);
     }
 
     public async fillConnectorForm(props: FormFillProps) {
@@ -234,11 +234,14 @@ export class Diagram {
     }
 
     public async addNewConnectionFromConnectionsTab(index: number = 0) {
+        console.log("Clicking plus button to add new connection");
         await this.clickPlusButtonByIndex(index);
 
         const sidePanel = new SidePanel(this.diagramWebView);
         await sidePanel.init();
+        console.log("Navigating to Connections Page");
         await sidePanel.goToConnectionsPage();
+        console.log("Adding new connection");
         await sidePanel.addNewConnection();
     }
 
@@ -392,12 +395,8 @@ export class SidePanel {
         await this.sidePanel.waitFor({ state: 'detached' })
     }
 
-    public async addConnector(connectorName: string, operationName: string, operationId?: string) {
-        const connector = this.sidePanel.locator(`#card-select-${connectorName}`).nth(0);
-        await connector.waitFor();
-        const connectorComponent = connector.locator(`..`);
-
-        const operation = connectorComponent.locator(`#card-select-${operationId ? operationId : operationName}`);
+    public async addConnector(operationName: string) {
+        const operation = this.sidePanel.getByText(operationName);
         await operation.waitFor();
         await operation.click();
     }
@@ -410,35 +409,28 @@ export class SidePanel {
     }
 
     public async downloadConnector(name: string, version?: string, inDrawer?: boolean) {
-        const drawer = inDrawer ? this.sidePanel.locator(`#drawer1`) : this.sidePanel;
-        const connector = drawer.locator(`#card-select-${name}`);
+        const resourceView = await switchToIFrame("Resource View", this.container.page());
+        if (!resourceView) {
+            throw new Error("Failed to switch to Resource View iframe");
+        }
+        const connector = resourceView.getByTestId('sidepanel').getByText(name);
         await connector.waitFor();
 
         if (version) {
             await connector.click();
-            const connectorComponent = connector.locator(`..`);
-
-            const parentDiv = connectorComponent.locator(`label:text("Version")`).locator('../../..');
-            await parentDiv.waitFor();
-            const input = parentDiv.locator('input[role="combobox"]');
-            await input.click();
-            const option = parentDiv.locator(`li:has-text("${version}")`);
-            await option.click();
-
-            const versionInput = this.sidePanel.locator(`input[value="${version}"]`);
-            await versionInput.waitFor({ state: 'attached' });
+            await resourceView.getByRole('button', { name: '' }).click();
+            await resourceView.getByText(version).waitFor();
+            await resourceView.getByText(version).click();
         }
-        const downloadBtn = connector.locator(`.download-icon`);
-        await downloadBtn.waitFor();
-        await downloadBtn.click();
+
+        
+        await resourceView.locator(`#card-select-${name} i`).first().waitFor();
+        await resourceView.locator(`#card-select-${name} i`).first().click();
 
         await this.confirmDownloadDependency();
 
         const loader = this.sidePanel.locator(`span:text("Downloading Module...")`);
         await loader.waitFor({ state: "detached", timeout: 300000 });
-
-        const downloadedConnector = drawer.locator(`#card-select-${name}`);
-        await downloadedConnector.waitFor();
     }
 
     public async deleteConnector(connectorName: string) {
@@ -446,6 +438,7 @@ export class SidePanel {
         await connector.waitFor();
 
         const deleteBtn = connector.locator(`.delete-icon`);
+        await deleteBtn.waitFor();
         await deleteBtn.click();
 
         await this.sidePanel.locator(`p:text(" module will be removed from the project. Make sure all its dependencies are removed.")`);
@@ -493,13 +486,20 @@ export class SidePanel {
     }
 
     public async goToConnectionsPage() {
-        const connectorsPageBtn = this.sidePanel.locator(`vscode-button:text("Connections") >> ..`);
-        await connectorsPageBtn.waitFor();
-        await connectorsPageBtn.click();
+        const resourceView = await switchToIFrame("Resource View", this.container.page());
+        if (!resourceView) {
+            throw new Error("Failed to switch to Resource View iframe");
+        }
+        await resourceView.getByRole('button', { name: ' Connections' }).waitFor();
+        await resourceView.getByRole('button', { name: ' Connections' }).click();
     }
 
     public async addNewConnection() {
-        const addNewConnectionBtn = this.sidePanel.locator(`div:text("Add new connection")`);
+        const resourceView = await switchToIFrame("Resource View", this.container.page());
+        if (!resourceView) {
+            throw new Error("Failed to switch to Resource View iframe");
+        }
+        const addNewConnectionBtn = resourceView.getByTestId('sidepanel').getByText("Add new connection");
         await addNewConnectionBtn.waitFor();
         await addNewConnectionBtn.click();
     }

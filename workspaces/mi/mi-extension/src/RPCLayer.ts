@@ -156,7 +156,7 @@ function isWebviewPanel(webview: WebviewPanel | WebviewView): boolean {
     return webview.viewType === VisualizerWebview.viewType;
 }
 
-function getPlatform() {
+export function getPlatform() {
     if (os.platform() === 'linux' || env.remoteName === 'wsl') {
         return Platform.LINUX;
     }

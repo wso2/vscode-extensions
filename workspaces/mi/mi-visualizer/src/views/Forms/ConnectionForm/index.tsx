@@ -112,6 +112,18 @@ const NameLabel = styled(IconLabel)`
     font-size: 1.2em;
 `;
 
+const WarningBanner = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    margin-bottom: 8px;
+    background-color: var(--vscode-inputValidation-warningBackground);
+    border: 1px solid var(--vscode-inputValidation-warningBorder);
+    color: var(--vscode-inputValidation-warningForeground);
+    font-size: 12px;
+`;
+
 const connectorCardStyle = {
     border: '1px solid var(--vscode-dropdown-border)',
     backgroundColor: 'var(--vscode-dropdown-background)',
@@ -202,6 +214,7 @@ export function ConnectionWizard(props: ConnectionStoreProps) {
     const [isFailedDownload, setIsFailedDownload] = useState(false);
     const [selectedItem, setSelectedItem] = useState<string>("openapi");
     const [isMiCopilotLoggedIn, setIsMiCopilotLoggedIn] = useState<boolean>(false);
+    const [projectJavaVersion, setProjectJavaVersion] = useState<number | null>(null);
 
     const fetchLocalConnectorData = async () => {
         const connectorData = await rpcClient.getMiDiagramRpcClient().getAvailableConnectors({ documentUri: props.path, connectorName: "" });
@@ -259,6 +272,11 @@ export function ConnectionWizard(props: ConnectionStoreProps) {
         rpcClient.getMiAiPanelRpcClient().isMiCopilotLoggedIn()
             .then(setIsMiCopilotLoggedIn)
             .catch(() => setIsMiCopilotLoggedIn(false));
+        rpcClient.getMiDiagramRpcClient().getMIVersionFromPom().then((response) => {
+            if (response.javaVersion) {
+                setProjectJavaVersion(parseInt(response.javaVersion, 10));
+            }
+        });
     }, []);
 
     const searchConnectors = () => {
@@ -555,12 +573,21 @@ export function ConnectionWizard(props: ConnectionStoreProps) {
                                 {checkStoreConnectionsAvailable(displayedStoreConnectors, displayedLocalConnectors) &&
                                     <>
                                         <Typography variant="h3">In Store: </Typography>
-                                        {displayedStoreConnectors.sort((a: any, b: any) => a.connectorRank - b.connectorRank).map((connector: any) => (
-                                            (connector.version.connections?.length > 0) && <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '10px' }}>
+                                        {displayedStoreConnectors.sort((a: any, b: any) => a.connectorRank - b.connectorRank).map((connector: any) => {
+                                            const jdkMatch = connector.version.tagName?.match(/[-_]jdk(\d+)/i);
+                                            const requiredJavaVersion = jdkMatch ? parseInt(jdkMatch[1], 10) : null;
+                                            const showJavaWarning = requiredJavaVersion !== null && projectJavaVersion !== null && projectJavaVersion < requiredJavaVersion;
+                                            return (connector.version.connections?.length > 0) && <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '10px' }}>
                                                 <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
                                                     <Typography variant="h4">{connector.connectorName} Connector </Typography>
                                                     <VersionTag>{connector.version.tagName}</VersionTag>
                                                 </div>
+                                                {showJavaWarning && (
+                                                    <WarningBanner>
+                                                        <Codicon name="warning" />
+                                                        This version requires Java {requiredJavaVersion} or higher.
+                                                    </WarningBanner>
+                                                )}
                                                 <SampleGrid>
                                                     {(connector.version.connections).map((connection: any) => (
                                                         <ComponentCard
@@ -591,7 +618,7 @@ export function ConnectionWizard(props: ConnectionStoreProps) {
                                                     ))}
                                                 </SampleGrid>
                                             </div>
-                                        ))}
+                                        })}
                                     </>}
                             </>
                         )}

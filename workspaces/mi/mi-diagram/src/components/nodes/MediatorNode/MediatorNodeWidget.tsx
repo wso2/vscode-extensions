@@ -94,6 +94,7 @@ export function MediatorNodeWidget(props: CallNodeWidgetProps) {
     const sidePanelContext = React.useContext(SidePanelContext);
     const { rpcClient, setIsLoading: setDiagramLoading } = useVisualizerContext();
     const hasDiagnotics = node.hasDiagnotics();
+    const hasErrors = node.hasErrors();
     const tooltip = hasDiagnotics ? node.getDiagnostics().map(diagnostic => diagnostic.message).join("\n") : undefined;
     const hasBreakpoint = node.hasBreakpoint();
     const isActiveBreakpoint = node.isActiveBreakpoint();
@@ -127,7 +128,7 @@ export function MediatorNodeWidget(props: CallNodeWidgetProps) {
             <Tooltip content={!isPopoverOpen && tooltip ? <TooltipEl /> : ""} position={'bottom'} containerPosition={'absolute'}>
                 <S.Node
                     selected={node.isSelected()}
-                    hasError={hasDiagnotics}
+                    hasError={hasErrors}
                     hovered={isHovered || isActiveBreakpoint}
                     isActiveBreakpoint={isActiveBreakpoint}
                     onMouseEnter={() => setIsHovered(true)}

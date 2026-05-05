@@ -101,7 +101,7 @@ export const EnvironmentSetup = () => {
     const [miPathDetails, setPathDetails] = useState<PathDetailsResponse>({ status: "not-valid" });
     const [supportedMIVersions, setSupportedMIVersions] = useState<OptionProps[]>([]);
     const [selectedRuntimeVersion, setSelectedRuntimeVersion] = useState<string>('');
-    const [showDownloadButtons, setShowDownloadButtons] = useState<boolean>(false);
+    const [isDownloadableMIVersion, setIsDownloadableMIVersion] = useState<boolean>(false);
     const [isDownloadUpdatedPack, setIsDownloadUpdatedPack] = useState<boolean>(false);
     const [isLicenseAccepted, setIsLicenseAccepted] = useState<boolean>(false);
     const [showLicense, setShowLicense] = useState<boolean>(false);
@@ -121,7 +121,7 @@ export const EnvironmentSetup = () => {
                 setRecommendedVersions(recommendedVersions);
                 setJavaPathDetails(javaDetails);
                 setPathDetails(miDetails);
-                setShowDownloadButtons(showDownloadButtons);
+                setIsDownloadableMIVersion(showDownloadButtons);
             } else {
                 const supportedVersions = await rpcClient.getMiVisualizerRpcClient().getSupportedMIVersionsHigherThan('');
                 const supportedMIVersions = supportedVersions.map((version: string) => ({ value: version, content: version }));
@@ -212,7 +212,7 @@ export const EnvironmentSetup = () => {
     function renderJava() {
         const javaStatus = javaPathDetails?.status;
         const miStatus = miPathDetails?.status;
-        const bothNotFound = javaStatus === "not-valid" && miStatus === "not-valid";
+        const miandJavaUnavailable = javaStatus === "not-valid" && miStatus === "not-valid";
         if (isJavaDownloading) {
             return <DownloadComponent title="Java" description="Fetching the Java runtime required to run MI." progress={javaProgress} />;
         }
@@ -220,7 +220,7 @@ export const EnvironmentSetup = () => {
             type="JAVA"
             pathDetails={javaPathDetails}
             recommendedVersion={recommendedVersions.javaVersion}
-            showInlineDownloadButton={!bothNotFound}
+            showInlineDownloadButton={!miandJavaUnavailable || !isDownloadableMIVersion}
             handleDownload={handleJavaDownload}
             isDownloading={isJavaDownloading || isMIDownloading}
         />
@@ -229,7 +229,7 @@ export const EnvironmentSetup = () => {
     function renderMI() {
         const javaStatus = javaPathDetails?.status;
         const miStatus = miPathDetails?.status;
-        const bothNotFound = javaStatus === "not-valid" && miStatus === "not-valid";
+        const miandJavaUnavailable = javaStatus === "not-valid" && miStatus === "not-valid";
         if (isMIDownloading) {
             return <DownloadComponent title="WSO2 Integrator: MI" description="Fetching the MI runtime required to run MI." progress={miProgress} />;
         }
@@ -239,11 +239,11 @@ export const EnvironmentSetup = () => {
                     type="MI"
                     pathDetails={miPathDetails}
                     recommendedVersion={recommendedVersions.miVersion}
-                    showInlineDownloadButton={showDownloadButtons && !bothNotFound}
+                    showInlineDownloadButton={isDownloadableMIVersion && !miandJavaUnavailable}
                     handleDownload={handleMIDownload}
                     isDownloading={isJavaDownloading || isMIDownloading}
                 >
-                    {showDownloadButtons && (
+                    {isDownloadableMIVersion && (
                         <VSCodeCheckbox
                             checked={isDownloadUpdatedPack}
                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setIsDownloadUpdatedPack(e.target.checked)}>
@@ -257,7 +257,7 @@ export const EnvironmentSetup = () => {
                 type="MI"
                 pathDetails={miPathDetails}
                 recommendedVersion={recommendedVersions.miVersion}
-                showInlineDownloadButton={showDownloadButtons && !bothNotFound}
+                showInlineDownloadButton={isDownloadableMIVersion && !miandJavaUnavailable}
                 handleDownload={handleMIDownload}
                 isDownloading={isJavaDownloading || isMIDownloading}
             />
@@ -267,7 +267,7 @@ export const EnvironmentSetup = () => {
             type="MI"
             pathDetails={miPathDetails}
             recommendedVersion={recommendedVersions.miVersion}
-            showInlineDownloadButton={showDownloadButtons && !bothNotFound}
+            showInlineDownloadButton={isDownloadableMIVersion && !miandJavaUnavailable}
             handleDownload={handleMIDownload}
             isDownloading={isJavaDownloading || isMIDownloading}
         />
@@ -278,7 +278,7 @@ export const EnvironmentSetup = () => {
         const miStatus = miPathDetails?.status;
         const canContinue = javaStatus !== "not-valid" && miStatus !== "not-valid";
         const isProperlySetup = javaStatus === "valid" && miStatus === "valid";
-        const bothNotFound = javaStatus === "not-valid" && miStatus === "not-valid";
+        const miandJavaUnavailable = javaStatus === "not-valid" && miStatus === "not-valid";
 
         if (isProperlySetup) {
             return <ButtonWithDescription
@@ -298,7 +298,7 @@ export const EnvironmentSetup = () => {
             />
         }
 
-        if (bothNotFound && showDownloadButtons) {
+        if (miandJavaUnavailable && isDownloadableMIVersion) {
             return <ButtonWithDescription buttonDisabled={isJavaDownloading || isMIDownloading}
                 onClick={handleDownload}
                 buttonText="Download Java & MI"
@@ -370,7 +370,7 @@ export const EnvironmentSetup = () => {
                         {renderJava()}
                         {renderMI()}
                         {(javaPathDetails.status !== "valid" || miPathDetails.status !== "valid") &&
-                            <FormGroup title="Advanced Options" isCollapsed={showDownloadButtons}>
+                            <FormGroup title="Advanced Options" isCollapsed={isDownloadableMIVersion}>
                                 <React.Fragment>
                                     {javaPathDetails?.status !== "valid" &&
                                         <>

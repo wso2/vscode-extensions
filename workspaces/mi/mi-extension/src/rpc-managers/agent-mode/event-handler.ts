@@ -31,12 +31,18 @@ export class AgentEventHandler {
     private _isRunning = false;
     /** Monotonic sequence counter — increments across runs within a session */
     private _seqCounter = 0;
+    /**
+     * chatId of the currently-active run, stamped on every outgoing event so
+     * the frontend can drop events whose run was already interrupted.
+     */
+    private _activeChatId: number | undefined;
 
     constructor(private projectUri: string) {
         this.projectUri = projectUri;
     }
 
-    beginRun(): void {
+    beginRun(chatId?: number): void {
+        this._activeChatId = chatId;
         if (!ENABLE_AGENT_RUN_SAFEGUARDS) {
             return;
         }
@@ -86,6 +92,11 @@ export class AgentEventHandler {
     }
 
     handleEvent(event: AgentEvent): void {
+        // Stamp the run's chatId so the frontend can correlate and drop
+        // late events from a previously-interrupted run.
+        if (event.chatId === undefined && this._activeChatId !== undefined) {
+            event.chatId = this._activeChatId;
+        }
         if (ENABLE_AGENT_RUN_SAFEGUARDS) {
             // Assign monotonic sequence number
             event.seq = ++this._seqCounter;

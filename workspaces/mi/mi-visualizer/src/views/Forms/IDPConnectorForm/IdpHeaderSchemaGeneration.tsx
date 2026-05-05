@@ -17,8 +17,7 @@
  */
 
 import styled from "@emotion/styled";
-import { Typography, Button } from "@wso2/ui-toolkit";
-import { Codicon } from "@wso2/ui-toolkit";
+import { Typography, Button, Codicon, Icon } from "@wso2/ui-toolkit";
 import React from "react";
 
 const HeaderContainer = styled.div`
@@ -72,7 +71,7 @@ export function IdpHeaderSchemaGeneration({
                                 onClick={generateSchema}
                                 disabled={isLoading}
                             >
-                                <Codicon name="wand" />
+                                <Icon name="bi-ai-chat" />
                                 &nbsp; Extract Schema
                                 </Button>
                             <Button

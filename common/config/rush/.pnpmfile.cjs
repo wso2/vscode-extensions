@@ -25,7 +25,8 @@ module.exports = {
         if (deps['js-yaml']) deps['js-yaml'] = '4.1.1';
         if (deps['diff']) deps['diff'] = '8.0.3';
         if (deps['eslint']) deps['eslint'] = '^9.27.0';
-        if (deps['fast-xml-parser']) deps['fast-xml-parser'] = '5.5.7';
+        if (deps['axios']) deps['axios'] = '1.15.0';
+        if (deps['fast-xml-parser']) deps['fast-xml-parser'] = '5.7.0';
         if (deps['esbuild']) deps['esbuild'] = '0.25.12';
         if (deps['lodash']) deps['lodash'] = '4.18.0';
         if (deps['qs']) deps['qs'] = '6.14.2';
@@ -42,6 +43,15 @@ module.exports = {
         if (deps['handlebars']) deps['handlebars'] = '4.7.9';
         if (deps['tmp']) deps['tmp'] = '0.2.4';
         if (deps['undici']) deps['undici'] = '7.24.0';
+        if (deps['uuid']) deps['uuid'] = '14.0.0';
+        if (deps['protobufjs']) {
+          const currentVersion = deps['protobufjs'];
+          if (currentVersion.startsWith('^8') || currentVersion.startsWith('8')) {
+            deps['protobufjs'] = '8.0.1';
+          } else {
+            deps['protobufjs'] = '7.5.5';
+          }
+        }
         if (deps['vite']) deps['vite'] = '6.0.14';
         if (deps['yauzl']) deps['yauzl'] = '3.2.1';
         if (deps['follow-redirects']) deps['follow-redirects'] = '1.16.0';

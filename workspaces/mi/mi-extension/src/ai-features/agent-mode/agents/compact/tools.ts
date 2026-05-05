@@ -16,6 +16,8 @@
  */
 
 /**
+ * @deprecated See agent.ts in this directory for deprecation notice.
+ *
  * Compact Agent Tools
  *
  * Provides the same tool definitions as the main agent, but with dummy execute functions

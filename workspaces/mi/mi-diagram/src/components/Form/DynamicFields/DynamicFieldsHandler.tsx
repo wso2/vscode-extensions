@@ -649,9 +649,8 @@ export class DynamicFieldsHandler {
             if (!driverPath) {
                 while (!isDriverDownloaded && retryCount < maxRetries) {
                     const args = {
-                        groupId: groupId,
-                        artifactId: artifactId,
-                        version: version,
+                        connectorName: connectorName,
+                        connectionType: connectionType,
                     };
                     this.setCustomError(getNameForController(FIELD_NAMES.CONFIG_KEY), "Checking DB Driver...");
                     driverPath = await this.rpcClient.getMiDiagramRpcClient().downloadDriverForConnector(args);

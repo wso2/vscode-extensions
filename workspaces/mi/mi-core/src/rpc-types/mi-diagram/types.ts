@@ -1553,6 +1553,79 @@ export interface GetAvailableConnectorResponse {
     connectorZipPath?: string;
 }
 
+// --- synapse/getConnectorInfo ---
+// Per Connector-Info-API.md. Either returns a full Connector object or a plain
+// string error message.
+export interface GetConnectorInfoRequest {
+    groupId: string;
+    artifactId: string;
+    version: string;
+}
+
+export interface ConnectorActionParameter {
+    name: string;
+    description?: string;
+    required?: boolean;
+    xsdType?: string;
+}
+
+export interface ConnectorAction {
+    name: string;
+    tag?: string;
+    displayName?: string;
+    description?: string;
+    groupName?: string;
+    hidden?: boolean;
+    isHidden?: boolean;
+    supportsResponseModel?: boolean;
+    canActAsAgentTool?: boolean;
+    allowedConnectionTypes?: string[];
+    outputSchemaPath?: string;
+    outputSchema?: unknown;
+    parameters?: ConnectorActionParameter[];
+}
+
+export interface ConnectorInfo {
+    name: string;
+    displayName?: string;
+    artifactId?: string;
+    version?: string;
+    packageName?: string;
+    uiSchemaPath?: string;
+    outputSchemaPath?: string;
+    connectionUiSchema?: connectionUiSchemaRecord;
+    actions?: ConnectorAction[];
+}
+
+// Either the info object on success, or a plain string on error.
+export type GetConnectorInfoResponse = ConnectorInfo | string;
+
+// --- synapse/getInboundInfo ---
+// Accepts either a bundled id OR full Maven coordinates (never a partial mix).
+// Returns an InboundEndpointInfo or a plain string error.
+export type GetInboundInfoRequest =
+    | { id: string; groupId?: never; artifactId?: never; version?: never }
+    | { id?: never; groupId: string; artifactId: string; version: string };
+
+export interface InboundEndpointParameter {
+    name: string;
+    description?: string;
+    required?: boolean;
+    xsdType?: string;
+}
+
+export interface InboundEndpointInfo {
+    name: string;
+    id: string;
+    displayName?: string;
+    description?: string;
+    type?: string;              // "event-integration", "inbuilt-inbound-endpoint", ...
+    source: 'bundled' | 'downloaded';
+    parameters?: InboundEndpointParameter[];
+}
+
+export type GetInboundInfoResponse = InboundEndpointInfo | string;
+
 export interface ConnectorDependency {
     artifactId: string;
     version: string;
@@ -1972,6 +2045,7 @@ export interface FileRenameRequest {
 
 export interface MiVersionResponse {
     version: string;
+    javaVersion?: string;
 }
 
 export interface MediatorTryOutRequest {
@@ -2315,9 +2389,8 @@ export interface GetStoredProceduresResponse {
 }
 
 export interface DriverDownloadRequest {
-    groupId: string;
-    artifactId: string;
-    version: string;
+    connectorName: string;
+    connectionType: string;
 }
 
 export interface DriverDownloadResponse {
@@ -2351,4 +2424,61 @@ export interface LoadDriverAndTestConnectionRequest {
 export interface ProjectCreationStatusResponse {
     canCreateConsolidatedProject: boolean;
     isConsolidatedProject: boolean;
+}
+
+export interface ConnectorEffectiveDependency {
+    connectionType?: string;
+    groupId?: string;
+    artifactId?: string;
+    defaultVersion?: string;
+    overriddenVersion?: string;
+    omit?: boolean;
+    isOverridden?: boolean;
+    isConnectionTypeActive?: boolean;
+    localPath?: string;
+}
+
+export interface ConnectorEffectiveData {
+    omit?: boolean;
+    omitAllDrivers?: boolean;
+    dependencies?: ConnectorEffectiveDependency[];
+}
+
+export interface GetConnectorDependenciesRequest {
+    connectorArtifactId?: string;
+}
+
+export interface GetConnectorDependenciesResponse {
+    omitAllDrivers?: boolean;
+    omitAllConnectors?: boolean;
+    dependencies?: ConnectorEffectiveDependency[];
+    allConnectors?: { [connectorArtifactId: string]: ConnectorEffectiveData };
+}
+
+export interface UpdateConnectorDependencyOverrideRequest {
+    connectorArtifactId: string;
+    connectionType?: string;
+    groupId?: string;
+    artifactId?: string;
+    version?: string;
+    omit?: boolean;
+    localPath?: string;
+}
+
+export interface ResetConnectorDependencyOverridesRequest {
+    connectorArtifactId: string;
+    connectionType?: string;
+    groupId?: string;
+    artifactId?: string;
+}
+
+export interface UpdateConnectorFlagsRequest {
+    connectorArtifactId: string;
+    omit?: boolean;
+    omitAllDrivers?: boolean;
+}
+
+export interface UpdateGlobalConnectorFlagsRequest {
+    omitAllDrivers?: boolean;
+    omitAllConnectors?: boolean;
 }

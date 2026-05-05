@@ -641,7 +641,7 @@ export function TestCaseForm(props: TestCaseFormProps) {
                         appearance="primary"
                         onClick={() => setShowAIDialog(true)}
                     >
-                        <Icon name="wand-magic-sparkles-solid" sx="marginRight:5px" />&nbsp;
+                        <Icon name="bi-ai-chat" sx="marginRight:5px" />&nbsp;
                         Generate Test Case with AI
                     </Button>
                 )}
@@ -704,7 +704,7 @@ export function TestCaseForm(props: TestCaseFormProps) {
                                 onClick={() => handleAIGeneration()}
                                 disabled={!aiPrompt.trim()}
                             >
-                                <Icon name="wand-magic-sparkles-solid" sx="marginRight:5px" />&nbsp;
+                                <Icon name="bi-ai-chat" sx="marginRight:5px" />&nbsp;
                                 Generate
                             </Button>
                         </div>

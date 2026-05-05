@@ -85,6 +85,7 @@ export function ConditionNodeWidget(props: CallNodeWidgetProps) {
     const { node, engine, onClick } = props;
     const [isHovered, setIsHovered] = React.useState(false);
     const hasDiagnotics = node.hasDiagnotics();
+    const hasErrors = node.hasErrors();
     const tooltip = hasDiagnotics ? node.getDiagnostics().map(diagnostic => diagnostic.message).join("\n") : (node.getStNode() as any).description;
     const { rpcClient, setIsLoading: setDiagramLoading } = useVisualizerContext();
     const [isPopoverOpen, setIsPopoverOpen] = React.useState(false);
@@ -138,7 +139,7 @@ export function ConditionNodeWidget(props: CallNodeWidgetProps) {
                             ry="5"
                             fill={isActiveBreakpoint ? Colors.DEBUGGER_BREAKPOINT_BACKGROUND : Colors.SURFACE_BRIGHT}
                             stroke={
-                                node.hasDiagnotics() ? Colors.ERROR : node.isSelected() ? Colors.SECONDARY : (isHovered || isActiveBreakpoint) ? Colors.SECONDARY : Colors.OUTLINE_VARIANT
+                                hasErrors ? Colors.ERROR : node.isSelected() ? Colors.SECONDARY : (isHovered || isActiveBreakpoint) ? Colors.SECONDARY : Colors.OUTLINE_VARIANT
                             }
                             strokeWidth={2}
                             transform="rotate(45 28 28)"

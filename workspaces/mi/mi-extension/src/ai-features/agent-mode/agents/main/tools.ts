@@ -88,10 +88,23 @@ import {
     createWebSearchExecute,
     createWebFetchTool,
     createWebFetchExecute,
+    createAnthropicServerWebTools,
+    WebToolsProvider,
 } from '../../tools/web_tools';
-import { AnthropicModel, resolveMainModelId } from '../../../connection';
+import type { AnthropicProvider } from '@ai-sdk/anthropic';
+import {
+    createReadServerLogsTool,
+    createReadServerLogsExecute,
+} from '../../tools/log_tools';
+import {
+    createDeepWikiTool,
+    createDeepWikiExecute,
+} from '../../tools/deepwiki_tools';
+import { createToolSearchTool } from '../../tools/tool_load';
+import { AnthropicModel } from '../../../connection';
 import { AgentMode, ModelSettings } from '@wso2/mi-core';
 import { persistOversizedToolResult } from '../../tools/tool-result-persistence';
+import { analyzeShellCommand } from '../../tools/shell_sandbox';
 import {
     BashExecuteFn,
     FILE_WRITE_TOOL_NAME,
@@ -118,9 +131,15 @@ import {
     ToolResult,
     WEB_SEARCH_TOOL_NAME,
     WEB_FETCH_TOOL_NAME,
+    DEEPWIKI_ASK_QUESTION_TOOL_NAME,
+    READ_SERVER_LOGS_TOOL_NAME,
+    TOOL_LOAD_TOOL_NAME,
     ShellApprovalRuleStore,
+    DEFERRED_TOOLS,
 } from '../../tools/types';
 import { AgentUndoCheckpointManager } from '../../undo/checkpoint-manager';
+import { logError } from '../../../copilot/logger';
+import { z } from 'zod';
 import * as path from 'path';
 import { getCopilotSessionDir } from '../../storage-paths';
 
@@ -149,6 +168,9 @@ export {
     TASK_OUTPUT_TOOL_NAME,
     WEB_SEARCH_TOOL_NAME,
     WEB_FETCH_TOOL_NAME,
+    DEEPWIKI_ASK_QUESTION_TOOL_NAME,
+    READ_SERVER_LOGS_TOOL_NAME,
+    TOOL_LOAD_TOOL_NAME,
 };
 import { AgentEventHandler } from './agent';
 
@@ -174,8 +196,17 @@ export interface CreateToolsParams {
     pendingApprovals: Map<string, PendingPlanApproval>;
     /** Function to get Anthropic client for task tool */
     getAnthropicClient: (model: AnthropicModel) => Promise<any>;
-    /** Skip per-call web approval prompts for this run */
-    webAccessPreapproved: boolean;
+    /**
+     * Which web-tool implementation to register.
+     * - `anthropic-server`: native Anthropic `web_search` / `web_fetch` server tools (MI_INTEL Proxy + ANTHROPIC_KEY)
+     * - `tavily-local`: Tavily-backed local tools (AWS Bedrock with a Tavily key)
+     * - `none`: stubbed tools that return WEB_SEARCH/FETCH_NOT_CONFIGURED (Bedrock without a Tavily key)
+     */
+    webToolsProvider: WebToolsProvider;
+    /** Required when webToolsProvider === 'anthropic-server'. Resolved upstream in executeAgent. */
+    anthropicProvider?: AnthropicProvider;
+    /** Required when webToolsProvider === 'tavily-local'. */
+    tavilyApiKey?: string;
     /** Session-scoped shell approval rule store */
     shellApprovalRuleStore?: ShellApprovalRuleStore;
     /** Optional undo checkpoint manager for capturing pre-change states */
@@ -195,7 +226,9 @@ const READ_ONLY_MODE_ALLOWED_TOOLS = new Set<string>([
     VALIDATE_CODE_TOOL_NAME,
     WEB_SEARCH_TOOL_NAME,
     WEB_FETCH_TOOL_NAME,
+    DEEPWIKI_ASK_QUESTION_TOOL_NAME,
     SERVER_MANAGEMENT_TOOL_NAME,
+    READ_SERVER_LOGS_TOOL_NAME,
 ]);
 
 const PLAN_MODE_ALLOWED_TOOLS = new Set<string>([
@@ -210,6 +243,53 @@ const PLAN_MODE_ALLOWED_TOOLS = new Set<string>([
     EXIT_PLAN_MODE_TOOL_NAME,
     TODO_WRITE_TOOL_NAME,
 ]);
+
+const PLAN_MODE_READ_ONLY_SHELL_COMMANDS = new Set([
+    'basename',
+    'cat',
+    'cut',
+    'date',
+    'diff',
+    'dirname',
+    'echo',
+    'env',
+    'file',
+    'find',
+    'git',
+    'grep',
+    'head',
+    'id',
+    'ls',
+    'pwd',
+    'readlink',
+    'realpath',
+    'rg',
+    'sort',
+    'stat',
+    'tail',
+    'tree',
+    'uniq',
+    'wc',
+    'which',
+    'whoami',
+]);
+
+const PLAN_MODE_ALLOWED_GIT_ACTIONS = new Set([
+    'branch',
+    'describe',
+    'diff',
+    'log',
+    'remote',
+    'rev-parse',
+    'show',
+    'status',
+]);
+
+const ToolResultSchema = z.object({
+    success: z.boolean(),
+    message: z.string().optional(),
+    error: z.string().optional(),
+}).passthrough();
 
 function createModeBlockedExecute(toolName: string, mode: AgentMode) {
     const modeLabel = mode === 'plan' ? 'Plan' : 'Ask';
@@ -236,68 +316,77 @@ function isPathWithin(basePath: string, targetPath: string): boolean {
     return normalizedTarget === normalizedBase || normalizedTarget.startsWith(`${normalizedBase}/`);
 }
 
-function createPlanModePlanFileOnlyExecute<T extends (...args: any[]) => Promise<ToolResult>>(
-    execute: T,
+function validatePlanModePlanFileOnlyToolArgs(
     toolName: string,
     projectPath: string,
-    sessionId: string
-): T {
+    sessionId: string,
+    toolArgs: unknown
+): ToolResult | null {
     const planDir = path.join(getCopilotSessionDir(projectPath, sessionId), 'plan');
     const planDirDisplayPath = planDir.replace(/\\/g, '/');
+    const parsedArgs = toolArgs as { file_path?: unknown } | undefined;
+    const filePathArg = typeof parsedArgs?.file_path === 'string' ? parsedArgs.file_path.trim() : '';
+    if (!filePathArg) {
+        return {
+            success: false,
+            message: `Tool '${toolName}' in Plan mode requires a valid file_path for the assigned plan file.`,
+            error: 'PLAN_MODE_RESTRICTED',
+        };
+    }
 
-    return (async (...args: Parameters<T>): Promise<ToolResult> => {
-        const toolArgs = args[0] as { file_path?: unknown } | undefined;
-        const filePathArg = typeof toolArgs?.file_path === 'string' ? toolArgs.file_path.trim() : '';
-        if (!filePathArg) {
-            return {
-                success: false,
-                message: `Tool '${toolName}' in Plan mode requires a valid file_path for the assigned plan file.`,
-                error: 'PLAN_MODE_RESTRICTED',
-            };
-        }
+    const fullPath = path.isAbsolute(filePathArg)
+        ? path.resolve(filePathArg)
+        : path.resolve(projectPath, filePathArg);
+    const isMarkdown = path.extname(fullPath).toLowerCase() === '.md';
+    const isInPlanDir = isPathWithin(planDir, fullPath);
 
-        const fullPath = path.isAbsolute(filePathArg)
-            ? path.resolve(filePathArg)
-            : path.resolve(projectPath, filePathArg);
-        const isMarkdown = path.extname(fullPath).toLowerCase() === '.md';
-        const isInPlanDir = isPathWithin(planDir, fullPath);
+    if (!isMarkdown || !isInPlanDir) {
+        return {
+            success: false,
+            message: `Tool '${toolName}' is restricted in Plan mode. You may only modify the plan file under ${planDirDisplayPath}.`,
+            error: 'PLAN_MODE_RESTRICTED',
+        };
+    }
 
-        if (!isMarkdown || !isInPlanDir) {
-            return {
-                success: false,
-                message: `Tool '${toolName}' is restricted in Plan mode. You may only modify the plan file under ${planDirDisplayPath}.`,
-                error: 'PLAN_MODE_RESTRICTED',
-            };
-        }
-
-        return execute(...args);
-    }) as T;
+    return null;
 }
 
-function getPlanModeShellRestrictionReason(command: string): string | null {
+function normalizePlanShellCommandName(commandToken: string): string {
+    const normalized = commandToken.trim().toLowerCase().replace(/\\/g, '/');
+    const basename = path.posix.basename(normalized);
+    return basename.endsWith('.exe') ? basename.slice(0, -4) : basename;
+}
+
+function getPlanModeShellRestrictionReason(command: string, projectPath: string): string | null {
     const normalized = command.trim();
     if (!normalized) {
         return 'Plan mode shell command cannot be empty.';
     }
 
-    // Block output redirection and stream writes.
-    if (/>>\s*\S/.test(normalized) || /(^|[^<])>\s*\S/.test(normalized) || /\|\s*tee\b/i.test(normalized)) {
-        return 'Plan mode shell is read-only and does not allow file/output redirection.';
+    const analysis = analyzeShellCommand(normalized, process.platform, projectPath, false);
+    if (analysis.blocked) {
+        return `Plan mode shell command is blocked by sandbox policy: ${analysis.reasons.join(' ')}`;
     }
 
-    // Block common write/mutation commands across bash and PowerShell.
-    const blockedPatterns: RegExp[] = [
-        /\b(rm|rmdir|mv|cp|mkdir|touch|chmod|chown|chgrp|ln|truncate|dd|install)\b/i,
-        /\b(git)\s+(add|commit|reset|checkout|switch|restore|clean|stash|rebase|merge|cherry-pick|revert|am|apply|pull|push|fetch)\b/i,
-        /\b(npm|pnpm|yarn|bun|pip|pip3|poetry|cargo|go|dotnet|mvn|gradle)\s+(install|add|remove|update|upgrade|uninstall|init|build|run|test|publish)\b/i,
-        /\b(make|cmake|meson|ninja)\b/i,
-        /\b(sed|perl)\s+-i\b/i,
-        /\b(New-Item|Set-Content|Add-Content|Out-File|Remove-Item|Move-Item|Copy-Item|Rename-Item|Clear-Content)\b/i,
-    ];
+    if (analysis.isComplexSyntax) {
+        return 'Plan mode shell only allows simple read-only commands without complex shell syntax.';
+    }
 
-    for (const pattern of blockedPatterns) {
-        if (pattern.test(normalized)) {
+    for (const segment of analysis.segments) {
+        const commandName = normalizePlanShellCommandName(segment.command);
+        if (!commandName || !PLAN_MODE_READ_ONLY_SHELL_COMMANDS.has(commandName)) {
+            return `Plan mode shell only allows read-only exploration commands. '${commandName || segment.raw}' is not allowed.`;
+        }
+
+        if (segment.requiresApproval || segment.isDestructive || segment.blocked) {
             return 'Plan mode shell only allows read-only exploration commands.';
+        }
+
+        if (commandName === 'git') {
+            const gitAction = (segment.tokens[1] || '').trim().toLowerCase();
+            if (!gitAction || !PLAN_MODE_ALLOWED_GIT_ACTIONS.has(gitAction)) {
+                return `Plan mode shell only allows read-only git commands (${Array.from(PLAN_MODE_ALLOWED_GIT_ACTIONS).join(', ')}).`;
+            }
         }
     }
 
@@ -306,113 +395,146 @@ function getPlanModeShellRestrictionReason(command: string): string | null {
 
 const SERVER_MANAGEMENT_READ_ONLY_ACTIONS = new Set(['status', 'query']);
 
-function createReadOnlyServerManagementExecute(execute: ServerManagementExecuteFn): ServerManagementExecuteFn {
-    return async (args) => {
-        if (!SERVER_MANAGEMENT_READ_ONLY_ACTIONS.has(args.action)) {
-            return {
-                success: false,
-                message: `Action '${args.action}' is not allowed in Ask/Plan mode. Only 'status' and 'query' actions are available. Switch to Edit mode to use '${args.action}'.`,
-                error: 'ASK_MODE_RESTRICTED',
-            };
-        }
-        return execute(args);
+function validateReadOnlyServerManagementArgs(
+    toolArgs: unknown,
+    mode: AgentMode
+): ToolResult | null {
+    const args = toolArgs as Parameters<ServerManagementExecuteFn>[0];
+    if (!SERVER_MANAGEMENT_READ_ONLY_ACTIONS.has(args.action)) {
+        return {
+            success: false,
+            message: `Action '${args.action}' is not allowed in Ask/Plan mode. Only 'status' and 'query' actions are available. Switch to Edit mode to use '${args.action}'.`,
+            error: mode === 'plan' ? 'PLAN_MODE_RESTRICTED' : 'ASK_MODE_RESTRICTED',
+        };
+    }
+
+    return null;
+}
+
+function validatePlanModeReadOnlyBashArgs(
+    toolArgs: unknown,
+    projectPath: string
+): ToolResult | null {
+    const args = toolArgs as Parameters<BashExecuteFn>[0];
+    const restrictionReason = getPlanModeShellRestrictionReason(args.command, projectPath);
+    if (!restrictionReason) {
+        return null;
+    }
+
+    return {
+        success: false,
+        message: `${restrictionReason} Use read-only commands like ls, cat, grep, rg, find, git status, or git diff.`,
+        error: 'PLAN_MODE_RESTRICTED',
     };
 }
 
-function createPlanModeReadOnlyBashExecute(execute: BashExecuteFn): BashExecuteFn {
-    return async (args) => {
-        const restrictionReason = getPlanModeShellRestrictionReason(args.command);
-        if (restrictionReason) {
-            return {
-                success: false,
-                message: `${restrictionReason} Use read-only commands like ls, cat, grep, rg, find, git status, or git diff.`,
-                error: 'PLAN_MODE_RESTRICTED',
-            };
-        }
-
-        return execute(args);
-    };
+interface ToolExecutionPipelineOptions {
+    mode: AgentMode;
+    toolName: string;
+    projectPath: string;
+    sessionId: string;
+    sessionDir: string;
+    persistResult: boolean;
 }
 
-function getModeAwareExecute<T extends (...args: any[]) => Promise<ToolResult>>(
-    mode: AgentMode,
-    toolName: string,
-    execute: T,
-    options?: { projectPath: string; sessionId: string }
-): T {
+async function evaluateModeRestriction(
+    options: Pick<ToolExecutionPipelineOptions, 'mode' | 'toolName' | 'projectPath' | 'sessionId'>,
+    toolArgs: unknown
+): Promise<ToolResult | null> {
+    const { mode, toolName, projectPath, sessionId } = options;
     if (mode === 'edit') {
-        return execute;
+        return null;
     }
 
     const blockedExecute = createModeBlockedExecute(toolName, mode);
-    const planFileOnlyExecute = mode === 'plan'
-        && options
-        && (toolName === FILE_WRITE_TOOL_NAME || toolName === FILE_EDIT_TOOL_NAME)
-        ? createPlanModePlanFileOnlyExecute(
-            execute,
-            toolName,
-            options.projectPath,
-            options.sessionId
-        )
-        : undefined;
-    const planReadOnlyBashExecute = mode === 'plan' && toolName === BASH_TOOL_NAME
-        ? createPlanModeReadOnlyBashExecute(execute as unknown as BashExecuteFn)
-        : undefined;
-    const readOnlyServerManagementExecute = (mode === 'ask' || mode === 'plan') && toolName === SERVER_MANAGEMENT_TOOL_NAME
-        ? createReadOnlyServerManagementExecute(execute as unknown as ServerManagementExecuteFn)
-        : undefined;
-
-    return (async (...args: Parameters<T>): Promise<ToolResult> => {
-        if (mode === 'plan') {
-            const planRestrictionsActive = options
-                ? isPlanModeSessionActive(options.sessionId)
-                : true;
-
-            // Plan mode can transition to Edit mode mid-run after exit_plan_mode approval.
-            // Once plan session state is cleared, stop applying Plan-mode restrictions.
-            if (!planRestrictionsActive) {
-                return execute(...args);
-            }
-
-            if (planFileOnlyExecute) {
-                return planFileOnlyExecute(...args);
-            }
-
-            if (planReadOnlyBashExecute) {
-                return planReadOnlyBashExecute(args[0] as Parameters<BashExecuteFn>[0]);
-            }
-
-            if (readOnlyServerManagementExecute) {
-                return readOnlyServerManagementExecute(args[0] as Parameters<ServerManagementExecuteFn>[0]);
-            }
-
-            if (PLAN_MODE_ALLOWED_TOOLS.has(toolName)) {
-                return execute(...args);
-            }
-
-            return blockedExecute(args[0]);
+    if (mode === 'plan') {
+        // Fail closed: once a run starts in plan mode, do not auto-escalate tool permissions
+        // within the same run based on mutable session state.
+        if (!isPlanModeSessionActive(sessionId)) {
+            return {
+                success: false,
+                message: 'Plan mode state changed during this run. Send a new Edit mode message after exiting plan mode to run unrestricted tools.',
+                error: 'PLAN_MODE_TRANSITION_PENDING',
+            };
         }
 
-        if (readOnlyServerManagementExecute) {
-            return readOnlyServerManagementExecute(args[0] as Parameters<ServerManagementExecuteFn>[0]);
+        if (toolName === FILE_WRITE_TOOL_NAME || toolName === FILE_EDIT_TOOL_NAME) {
+            return validatePlanModePlanFileOnlyToolArgs(toolName, projectPath, sessionId, toolArgs);
         }
 
-        if (READ_ONLY_MODE_ALLOWED_TOOLS.has(toolName)) {
-            return execute(...args);
+        if (toolName === BASH_TOOL_NAME) {
+            return validatePlanModeReadOnlyBashArgs(toolArgs, projectPath);
         }
 
-        return blockedExecute(args[0]);
-    }) as T;
+        if (toolName === SERVER_MANAGEMENT_TOOL_NAME) {
+            return validateReadOnlyServerManagementArgs(toolArgs, mode);
+        }
+
+        if (PLAN_MODE_ALLOWED_TOOLS.has(toolName)) {
+            return null;
+        }
+
+        return blockedExecute(toolArgs);
+    }
+
+    if (toolName === SERVER_MANAGEMENT_TOOL_NAME) {
+        return validateReadOnlyServerManagementArgs(toolArgs, mode);
+    }
+
+    if (READ_ONLY_MODE_ALLOWED_TOOLS.has(toolName)) {
+        return null;
+    }
+
+    return blockedExecute(toolArgs);
 }
 
-function withPersistedToolResult<T extends (...args: any[]) => Promise<ToolResult>>(
-    toolName: string,
-    sessionDir: string,
+function createToolExecutionPipeline<T extends (...args: any[]) => Promise<ToolResult>>(
     execute: T,
-    sessionId: string
+    options: ToolExecutionPipelineOptions
 ): T {
+    const { toolName, sessionDir, sessionId, persistResult } = options;
+    const normalizeToolResult = (
+        result: unknown,
+        stage: 'execute' | 'persist'
+    ): ToolResult & Record<string, unknown> => {
+        const parsed = ToolResultSchema.safeParse(result);
+        if (!parsed.success) {
+            logError(`[AgentTools] Invalid tool result shape for '${toolName}' during ${stage}: ${parsed.error.message}`, result);
+            return {
+                success: false,
+                message: `Tool '${toolName}' returned an invalid result shape.`,
+                error: 'INVALID_TOOL_RESULT_SHAPE',
+            };
+        }
+
+        const normalized = parsed.data as ToolResult & Record<string, unknown>;
+        if (typeof normalized.message !== 'string') {
+            normalized.message = normalized.success
+                ? ''
+                : `Tool '${toolName}' failed without a message.`;
+        }
+        return normalized;
+    };
+
     return (async (...args: Parameters<T>): Promise<ToolResult> => {
-        const result = await execute(...args);
+        const modeRestriction = await evaluateModeRestriction(
+            {
+                mode: options.mode,
+                toolName,
+                projectPath: options.projectPath,
+                sessionId: options.sessionId,
+            },
+            args[0]
+        );
+        if (modeRestriction) {
+            return modeRestriction;
+        }
+
+        const result = normalizeToolResult(await execute(...args), 'execute');
+        if (!persistResult) {
+            return result;
+        }
+
         const processed = await persistOversizedToolResult({
             sessionDir,
             toolName,
@@ -422,7 +544,7 @@ function withPersistedToolResult<T extends (...args: any[]) => Promise<ToolResul
 
         // Append completion notifications for any background tasks that finished
         const notifications = drainBackgroundTaskNotifications(sessionId);
-        const toolResult = processed as ToolResult;
+        const toolResult = normalizeToolResult(processed, 'persist');
         if (notifications && typeof toolResult.message === 'string') {
             toolResult.message = toolResult.message.length > 0
                 ? toolResult.message + '\n' + notifications
@@ -438,7 +560,7 @@ function withPersistedToolResult<T extends (...args: any[]) => Promise<ToolResul
  * This ensures consistent tool definitions across main agent and compact agent.
  *
  * @param params - Tool creation parameters
- * @returns Tools object with all 23 tools
+ * @returns Tools object with all agent tools
  */
 export function createAgentTools(params: CreateToolsParams) {
     const {
@@ -451,34 +573,72 @@ export function createAgentTools(params: CreateToolsParams) {
         pendingQuestions,
         pendingApprovals,
         getAnthropicClient,
-        webAccessPreapproved,
+        webToolsProvider,
+        anthropicProvider,
+        tavilyApiKey,
         shellApprovalRuleStore,
         undoCheckpointManager,
         abortSignal,
         modelSettings,
     } = params;
 
-    // Resolve the main model ID for tools that need it (web search/fetch)
-    const mainModelId = modelSettings ? resolveMainModelId(modelSettings) : undefined;
-    const mainModelIsCustom = !!modelSettings?.mainModelCustomId;
-
     const getWrappedExecute = <T extends (...args: any[]) => Promise<ToolResult>>(
         toolName: string,
-        execute: T
-    ): T => withPersistedToolResult(
-        toolName,
-        sessionDir,
-        getModeAwareExecute(mode, toolName, execute, { projectPath, sessionId }),
-        sessionId
+        execute: T,
+        persistResult = true
+    ): T => createToolExecutionPipeline(
+        execute,
+        {
+            mode,
+            toolName,
+            projectPath,
+            sessionId,
+            sessionDir,
+            persistResult,
+        }
     );
+
+    // Shared set tracking files read in this session (for write tool's read-before-write guard)
+    const readFiles = new Set<string>();
+
+    const buildWebTools = (): Record<string, unknown> => {
+        if (webToolsProvider === 'anthropic-server') {
+            if (!anthropicProvider) {
+                throw new Error("createAgentTools: webToolsProvider='anthropic-server' requires anthropicProvider.");
+            }
+            return createAnthropicServerWebTools(anthropicProvider);
+        }
+        if (webToolsProvider === 'tavily-local' && tavilyApiKey) {
+            return {
+                [WEB_SEARCH_TOOL_NAME]: createWebSearchTool(
+                    getWrappedExecute(WEB_SEARCH_TOOL_NAME, createWebSearchExecute(tavilyApiKey))
+                ),
+                [WEB_FETCH_TOOL_NAME]: createWebFetchTool(
+                    getWrappedExecute(WEB_FETCH_TOOL_NAME, createWebFetchExecute(tavilyApiKey))
+                ),
+            };
+        }
+        // 'none' (or the unreachable tavily-local-without-key fallback): register stubs
+        // that surface a clear NOT_CONFIGURED error if the model ignores the
+        // `web_search_unavailable` system reminder and calls them anyway.
+        const notConfigured = (kind: 'search' | 'fetch') => async (): Promise<ToolResult> => ({
+            success: false,
+            message: `Web ${kind} is not configured. Add a Tavily API key in the AI Panel settings (Web Search section) to enable it on AWS Bedrock.`,
+            error: kind === 'search' ? 'WEB_SEARCH_NOT_CONFIGURED' : 'WEB_FETCH_NOT_CONFIGURED',
+        });
+        return {
+            [WEB_SEARCH_TOOL_NAME]: createWebSearchTool(getWrappedExecute(WEB_SEARCH_TOOL_NAME, notConfigured('search'))),
+            [WEB_FETCH_TOOL_NAME]: createWebFetchTool(getWrappedExecute(WEB_FETCH_TOOL_NAME, notConfigured('fetch'))),
+        };
+    };
 
     const allTools = {
         // File Operations (6 tools)
         [FILE_WRITE_TOOL_NAME]: createWriteTool(
-            getWrappedExecute(FILE_WRITE_TOOL_NAME, createWriteExecute(projectPath, modifiedFiles, undoCheckpointManager))
+            getWrappedExecute(FILE_WRITE_TOOL_NAME, createWriteExecute(projectPath, modifiedFiles, undoCheckpointManager, readFiles))
         ),
         [FILE_READ_TOOL_NAME]: createReadTool(
-            getWrappedExecute(FILE_READ_TOOL_NAME, createReadExecute(projectPath)),
+            getWrappedExecute(FILE_READ_TOOL_NAME, createReadExecute(projectPath, readFiles)),
             projectPath
         ),
         [FILE_EDIT_TOOL_NAME]: createEditTool(
@@ -493,15 +653,15 @@ export function createAgentTools(params: CreateToolsParams) {
 
         // Connector Tools (2 tools)
         [CONNECTOR_TOOL_NAME]: createConnectorTool(
-            getWrappedExecute(CONNECTOR_TOOL_NAME, createConnectorExecute(projectPath))
+            getWrappedExecute(CONNECTOR_TOOL_NAME, createConnectorExecute(projectPath, abortSignal))
         ),
         [CONTEXT_TOOL_NAME]: createContextTool(
-            getModeAwareExecute(mode, CONTEXT_TOOL_NAME, createContextExecute(projectPath), { projectPath, sessionId })
+            getWrappedExecute(CONTEXT_TOOL_NAME, createContextExecute(projectPath), false)
         ),
 
         // Project Tools (1 tool)
         [MANAGE_CONNECTOR_TOOL_NAME]: createManageConnectorTool(
-            getWrappedExecute(MANAGE_CONNECTOR_TOOL_NAME, createManageConnectorExecute(projectPath, undoCheckpointManager))
+            getWrappedExecute(MANAGE_CONNECTOR_TOOL_NAME, createManageConnectorExecute(projectPath, undoCheckpointManager, abortSignal))
         ),
 
         // LSP Tools (1 tool)
@@ -511,10 +671,10 @@ export function createAgentTools(params: CreateToolsParams) {
 
         // Data Mapper Tools (2 tools)
         [CREATE_DATA_MAPPER_TOOL_NAME]: createCreateDataMapperTool(
-            getWrappedExecute(CREATE_DATA_MAPPER_TOOL_NAME, createCreateDataMapperExecute(projectPath, modifiedFiles, undoCheckpointManager))
+            getWrappedExecute(CREATE_DATA_MAPPER_TOOL_NAME, createCreateDataMapperExecute(projectPath, modifiedFiles, undoCheckpointManager, abortSignal))
         ),
         [GENERATE_DATA_MAPPING_TOOL_NAME]: createGenerateDataMappingTool(
-            getWrappedExecute(GENERATE_DATA_MAPPING_TOOL_NAME, createGenerateDataMappingExecute(projectPath, modifiedFiles, undoCheckpointManager))
+            getWrappedExecute(GENERATE_DATA_MAPPING_TOOL_NAME, createGenerateDataMappingExecute(projectPath, modifiedFiles, undoCheckpointManager, abortSignal))
         ),
 
         // Runtime Tools (2 tools)
@@ -548,28 +708,15 @@ export function createAgentTools(params: CreateToolsParams) {
             getWrappedExecute(TODO_WRITE_TOOL_NAME, createTodoWriteExecute(eventHandler))
         ),
 
-        // Web Tools (2 tools)
-        [WEB_SEARCH_TOOL_NAME]: createWebSearchTool(
-            getWrappedExecute(WEB_SEARCH_TOOL_NAME, createWebSearchExecute(
-                getAnthropicClient,
-                eventHandler,
-                pendingApprovals,
-                webAccessPreapproved,
-                sessionId,
-                mainModelId,
-                mainModelIsCustom
-            ))
+        // Web Tools (2 tools) — branched by webToolsProvider, see CreateToolsParams
+        ...buildWebTools(),
+        [DEEPWIKI_ASK_QUESTION_TOOL_NAME]: createDeepWikiTool(
+            getWrappedExecute(DEEPWIKI_ASK_QUESTION_TOOL_NAME, createDeepWikiExecute(abortSignal))
         ),
-        [WEB_FETCH_TOOL_NAME]: createWebFetchTool(
-            getWrappedExecute(WEB_FETCH_TOOL_NAME, createWebFetchExecute(
-                getAnthropicClient,
-                eventHandler,
-                pendingApprovals,
-                webAccessPreapproved,
-                sessionId,
-                mainModelId,
-                mainModelIsCustom
-            ))
+
+        // Log Tools (1 tool)
+        [READ_SERVER_LOGS_TOOL_NAME]: createReadServerLogsTool(
+            getWrappedExecute(READ_SERVER_LOGS_TOOL_NAME, createReadServerLogsExecute(projectPath))
         ),
 
         // Shell Tools (3 tools)
@@ -580,7 +727,8 @@ export function createAgentTools(params: CreateToolsParams) {
                 pendingApprovals,
                 shellApprovalRuleStore,
                 sessionId,
-                abortSignal
+                abortSignal,
+                undoCheckpointManager
             ))
         ),
         [KILL_TASK_TOOL_NAME]: createKillTaskTool(
@@ -589,20 +737,23 @@ export function createAgentTools(params: CreateToolsParams) {
         [TASK_OUTPUT_TOOL_NAME]: createTaskOutputTool(
             getWrappedExecute(TASK_OUTPUT_TOOL_NAME, createTaskOutputExecute())
         ),
+
+        // Tool Search (local — returns tool-reference blocks for deferred tool discovery)
+        [TOOL_LOAD_TOOL_NAME]: createToolSearchTool(),
     };
 
-    if (mode === 'edit') {
-        return allTools;
+    // Mark deferred tools — schemas hidden from initial prompt, loaded on-demand
+    // via tool_search returning tool-reference content blocks.
+    for (const [toolName, toolDef] of Object.entries(allTools)) {
+        if (DEFERRED_TOOLS.has(toolName)) {
+            (toolDef as any).providerOptions = {
+                anthropic: { deferLoading: true },
+            };
+        }
     }
 
-    // Keep all tools visible in Plan mode so approved exit_plan_mode can continue
-    // implementation in the same run. Execution restrictions are enforced dynamically.
-    if (mode === 'plan') {
-        return allTools;
-    }
-
-    const visibleToolNames = READ_ONLY_MODE_ALLOWED_TOOLS;
-    return Object.fromEntries(
-        Object.entries(allTools).filter(([toolName]) => visibleToolNames.has(toolName))
-    );
+    // All modes return the same tools. Mode restrictions (Ask = read-only,
+    // Plan = plan-file-only mutations) are enforced at execution level by
+    // the execution pipeline, not by filtering the tool set.
+    return allTools;
 }

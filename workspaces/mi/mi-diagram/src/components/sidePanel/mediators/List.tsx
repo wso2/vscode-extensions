@@ -145,7 +145,7 @@ export function Mediators(props: MediatorProps) {
 
         let title, page;
         if (mediator.tag.includes('.')) {
-            title = mediator.operationName;
+            title = mediator.title || mediator.operationName;
 
             const connectotData = {
                 form: mediatorDetails,

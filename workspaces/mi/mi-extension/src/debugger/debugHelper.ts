@@ -538,11 +538,12 @@ export async function getServerPath(projectUri: string): Promise<string | undefi
     return path.normalize(currentPath);
 }
 export function setJavaHomeInEnvironmentAndPath(projectUri: string): { [key: string]: string; } {
-    const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
     const javaHome = getJavaHomeFromConfig(projectUri);
     const env = { ...process.env };
     if (javaHome) {
         env['JAVA_HOME'] = javaHome;
+        const pathKey = Object.keys(env).find(k => k.toUpperCase() === 'PATH') || 'PATH';
+        env[pathKey] = `${path.join(javaHome, 'bin')}${path.delimiter}${env[pathKey] || ''}`;
     }
     const sanitizedEnv: { [key: string]: string } = {};
 
