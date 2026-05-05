@@ -25,6 +25,6 @@ export function isSemanticToolEnabled(projectPath: string): boolean {
 }
 
 export function isSemanticToolEnabledForUri(projectUri: vscode.Uri): boolean {
-    const config = vscode.workspace.getConfiguration('MI', projectUri);
+    const config = vscode.workspace.getConfiguration('MI');
     return config.get<boolean>(MI_SEMANTIC_TOOL_ENABLED_SETTING, false);
 }

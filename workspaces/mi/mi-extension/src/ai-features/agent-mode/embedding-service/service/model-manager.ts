@@ -20,25 +20,53 @@ import * as fs from 'fs';
 import * as https from 'https';
 import * as os from 'os';
 import * as path from 'path';
+import { createHash } from 'crypto';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const MODEL_ORG = 'isuruwijesiri';
 const MODEL_NAME = 'all-MiniLM-L6-v2-code-search-512';
 const MODEL_ID = `${MODEL_ORG}/${MODEL_NAME}`;
+const MODEL_REVISION = '13b266a617039c16d924b49a56ae978dbd8727ff';
 
-// Required files for a complete model download (paths relative to model root).
-const REQUIRED_MODEL_FILES = [
-    'config.json',
-    'tokenizer_config.json',
-    'tokenizer.json',
-    'vocab.txt',
-    path.join('onnx', 'model_quantized.onnx'),
+type ModelFileMetadata = {
+    relativePath: string;
+    sizeBytes: number;
+    sha256: string;
+};
+
+// SHA-256 values for the files resolved from MODEL_REVISION.
+const REQUIRED_MODEL_FILES: ModelFileMetadata[] = [
+    {
+        relativePath: 'config.json',
+        sizeBytes: 611,
+        sha256: '7f0faf76d12c68326d6296638406f9c4507fa327e52ed6fdc3678c0761a6f760',
+    },
+    {
+        relativePath: 'tokenizer_config.json',
+        sizeBytes: 1464,
+        sha256: 'ccb4eb21a03e1442ee5c3f85431b9c307960a04579942537d74778dc8080a48c',
+    },
+    {
+        relativePath: 'tokenizer.json',
+        sizeBytes: 711649,
+        sha256: '91f1def9b9391fdabe028cd3f3fcc4efd34e5d1f08c3bf2de513ebb5911a1854',
+    },
+    {
+        relativePath: 'vocab.txt',
+        sizeBytes: 231508,
+        sha256: '07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3',
+    },
+    {
+        relativePath: 'onnx/model_quantized.onnx',
+        sizeBytes: 22862151,
+        sha256: 'a62789a43f6b95f497d214f7001d2311156215620e1e6ff96e90f303dca4404d',
+    },
 ];
 
-const HF_BASE_URL = `https://huggingface.co/${MODEL_ID}/resolve/main`;
+const HF_BASE_URL = `https://huggingface.co/${MODEL_ID}/resolve/${MODEL_REVISION}`;
 const MAX_REDIRECTS = 5;
-const DOWNLOAD_TIMEOUT_MS = 30_000;
+const DOWNLOAD_IDLE_TIMEOUT_MS = 120_000;
 
 // ─── Path Helpers ─────────────────────────────────────────────────────────────
 
@@ -65,11 +93,13 @@ export function getLocalModelDir(modelRootPath?: string): string {
 // ─── State Check ──────────────────────────────────────────────────────────────
 
 /**
- * Returns true if all required model files are present on disk.
+ * Returns true if all required model files are present and match the pinned hashes.
  */
 export function isModelDownloaded(modelRootPath?: string): boolean {
     const modelDir = getLocalModelDir(modelRootPath);
-    return REQUIRED_MODEL_FILES.every(f => fs.existsSync(path.join(modelDir, f)));
+    return REQUIRED_MODEL_FILES.every(file =>
+        isValidModelFile(path.join(modelDir, file.relativePath), file)
+    );
 }
 
 // ─── Download ─────────────────────────────────────────────────────────────────
@@ -78,7 +108,7 @@ export type ModelDownloadProgressCallback = (fileName: string, percent: number) 
 
 /**
  * Downloads the embedding model files from HuggingFace into the local model directory.
- * Files are written to .part temporaries and renamed on success — no corrupt partials on failure.
+ * Files are written to .part temporaries, hash-verified, and renamed on success.
  *
  * @param onProgress - Optional callback called with (fileName, percent 0-100)
  * @param modelRootPath - Optional override for the model root directory
@@ -89,19 +119,25 @@ export async function downloadModel(onProgress?: ModelDownloadProgressCallback, 
     // Ensure all required directories exist
     fs.mkdirSync(path.join(modelDir, 'onnx'), { recursive: true });
 
-    for (const relativePath of REQUIRED_MODEL_FILES) {
+    for (const file of REQUIRED_MODEL_FILES) {
+        const relativePath = file.relativePath;
         const destPath = path.join(modelDir, relativePath);
 
-        // Skip files that already exist (resume-friendly)
-        if (fs.existsSync(destPath)) {
+        // Skip only files that already match the pinned size and hash.
+        if (isValidModelFile(destPath, file)) {
             onProgress?.(relativePath, 100);
             continue;
         }
 
-        const url = `${HF_BASE_URL}/${relativePath.replace(/\\/g, '/')}`;
+        if (fs.existsSync(destPath)) {
+            console.warn(`[ModelManager] Removing invalid model file before redownload: ${destPath}`);
+            fs.unlinkSync(destPath);
+        }
+
+        const url = `${HF_BASE_URL}/${relativePath}`;
         console.log(`[ModelManager] Downloading: ${url}`);
 
-        await downloadFile(url, destPath, (percent) => {
+        await downloadFile(url, destPath, file, (percent) => {
             onProgress?.(relativePath, percent);
         });
 
@@ -112,14 +148,20 @@ export async function downloadModel(onProgress?: ModelDownloadProgressCallback, 
 function downloadFile(
     url: string,
     destPath: string,
+    metadata: ModelFileMetadata,
     onProgress?: (percent: number) => void
 ): Promise<void> {
     return new Promise((resolve, reject) => {
         const partPath = destPath + '.part';
-        const fileStream = fs.createWriteStream(partPath);
+        let settled = false;
+        let fileStream: fs.WriteStream | undefined;
 
         const cleanup = (err: Error) => {
-            fileStream.destroy();
+            if (settled) {
+                return;
+            }
+            settled = true;
+            fileStream?.destroy();
             try { fs.unlinkSync(partPath); } catch { /* ignore */ }
             reject(err);
         };
@@ -146,6 +188,8 @@ function downloadFile(
                 const totalBytes = parseInt(res.headers['content-length'] ?? '0', 10);
                 let downloadedBytes = 0;
                 let lastReportedPercent = -1;
+                const activeFileStream = fs.createWriteStream(partPath);
+                fileStream = activeFileStream;
 
                 res.on('data', (chunk: Buffer) => {
                     downloadedBytes += chunk.length;
@@ -158,13 +202,15 @@ function downloadFile(
                     }
                 });
 
-                res.pipe(fileStream);
+                res.pipe(activeFileStream);
 
-                fileStream.on('finish', () => {
-                    fileStream.close(() => {
+                activeFileStream.on('finish', () => {
+                    activeFileStream.close(() => {
                         try {
+                            assertValidModelFile(partPath, metadata);
                             fs.renameSync(partPath, destPath);
                             onProgress?.(100);
+                            settled = true;
                             resolve();
                         } catch (renameErr) {
                             cleanup(renameErr as Error);
@@ -173,15 +219,50 @@ function downloadFile(
                 });
 
                 res.on('error', cleanup);
-                fileStream.on('error', cleanup);
+                activeFileStream.on('error', cleanup);
             });
 
-            req.setTimeout(DOWNLOAD_TIMEOUT_MS, () => {
-                req.destroy(new Error(`Download timeout after ${DOWNLOAD_TIMEOUT_MS}ms: ${reqUrl}`));
+            req.setTimeout(DOWNLOAD_IDLE_TIMEOUT_MS, () => {
+                req.destroy(new Error(`Download stalled after ${DOWNLOAD_IDLE_TIMEOUT_MS}ms without data: ${reqUrl}`));
             });
             req.on('error', cleanup);
         };
 
         request(url);
     });
+}
+
+function isValidModelFile(filePath: string, metadata: ModelFileMetadata): boolean {
+    try {
+        assertValidModelFile(filePath, metadata);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+function assertValidModelFile(filePath: string, metadata: ModelFileMetadata): void {
+    if (!fs.existsSync(filePath)) {
+        throw new Error(`Missing model file: ${filePath}`);
+    }
+
+    const actualSize = fs.statSync(filePath).size;
+    if (actualSize !== metadata.sizeBytes) {
+        throw new Error(
+            `Invalid model file size for ${metadata.relativePath}: expected ${metadata.sizeBytes}, got ${actualSize}`
+        );
+    }
+
+    const actualSha256 = sha256File(filePath);
+    if (actualSha256 !== metadata.sha256) {
+        throw new Error(
+            `Invalid model file hash for ${metadata.relativePath}: expected ${metadata.sha256}, got ${actualSha256}`
+        );
+    }
+}
+
+function sha256File(filePath: string): string {
+    const hash = createHash('sha256');
+    hash.update(fs.readFileSync(filePath));
+    return hash.digest('hex');
 }

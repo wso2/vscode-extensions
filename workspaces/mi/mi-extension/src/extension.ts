@@ -27,6 +27,7 @@ import {
 	disposeEmbeddingService,
 	disposeAllEmbeddingServices,
 	getEmbeddingService,
+	RETRY_SEMANTIC_MODEL_DOWNLOAD_COMMAND,
 } from './ai-features/agent-mode/embedding-service/service/vscode-service';
 import { isSemanticToolEnabledForUri } from './ai-features/agent-mode/settings';
 import { activateMigrationSupport } from './migration';
@@ -110,9 +111,16 @@ export async function activate(context: vscode.ExtensionContext) {
 	});
 
 	context.subscriptions.push(
+		vscode.commands.registerCommand(RETRY_SEMANTIC_MODEL_DOWNLOAD_COMMAND, async (projectPath?: string) => {
+			const targetProjectPath = projectPath || workspace.workspaceFolders?.[0]?.uri.fsPath;
+			if (!targetProjectPath) {
+				return;
+			}
+			await getEmbeddingService(targetProjectPath).promptForModelDownloadRetry();
+		}),
 		workspace.onDidChangeConfiguration((event) => {
 			for (const folder of (workspace.workspaceFolders ?? [])) {
-				const semanticToggleChanged = event.affectsConfiguration('MI.IS_SEMANTIC_TOOL_ENABLED', folder.uri);
+				const semanticToggleChanged = event.affectsConfiguration('MI.IS_SEMANTIC_TOOL_ENABLED');
 				if (!semanticToggleChanged) {
 					continue;
 				}

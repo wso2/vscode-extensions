@@ -837,7 +837,7 @@ ${list}`;
  */
 async function getSemanticSearchStatus(projectPath: string): Promise<string> {
     if (!isSemanticToolEnabled(projectPath)) {
-        return 'disabled by workspace setting (MI.IS_SEMANTIC_TOOL_ENABLED=false) — use grep/glob/file_read';
+        return 'disabled by global setting (MI.IS_SEMANTIC_TOOL_ENABLED=false) — use grep/glob/file_read';
     }
 
     try {

@@ -23,6 +23,7 @@ import { ChildProcess, fork } from 'child_process';
 import { createEmbeddingFileWatcher } from './file-watcher';
 import { getCopilotProjectStorageDir } from '../../storage-paths';
 import { getWso2MiModelsDir, isModelDownloaded, downloadModel } from './model-manager';
+import { MI_SEMANTIC_TOOL_ENABLED_SETTING } from '../../settings';
 import {
     IPC_PROTOCOL_VERSION,
     IpcRequestMethod,
@@ -38,6 +39,8 @@ const WORKER_RESTART_BASE_DELAY_MS = 1_000;
 const WORKER_RESTART_MAX_DELAY_MS = 30_000;
 const WORKER_RESTART_MAX_ATTEMPTS = 5;
 const WORKER_SHUTDOWN_TIMEOUT_MS = 3_000;
+export const RETRY_SEMANTIC_MODEL_DOWNLOAD_COMMAND = 'MI.retrySemanticModelDownload';
+const RETRY_ACTION = 'Retry';
 
 interface PendingWorkerRequest {
     resolve: (value: unknown) => void;
@@ -135,6 +138,8 @@ export class VSCodeEmbeddingService {
     private workerRestartTimer: NodeJS.Timeout | null = null;
     private workerStopRequested = false;
     private workerStatusSnapshot: WorkerStatusSnapshot | null = null;
+    private modelDownloadError: unknown = null;
+    private modelDownloadFailurePrompt: Promise<boolean> | null = null;
     private _onReady = new vscode.EventEmitter<boolean>();
     private _onReadyDisposed = false;
     /** Fires when the service finishes initialization (true = success, false = failed). */
@@ -235,46 +240,36 @@ export class VSCodeEmbeddingService {
         }
     }
 
+    /**
+     * Shows the model download failure recovery prompt for this project.
+     * Used both immediately after a failed download and from the status bar command.
+     */
+    async promptForModelDownloadRetry(error?: unknown): Promise<boolean> {
+        if (error) {
+            this.modelDownloadError = error;
+        }
+
+        if (this.modelDownloadFailurePrompt) {
+            return this.modelDownloadFailurePrompt;
+        }
+
+        this.modelDownloadFailurePrompt = this.showModelDownloadFailurePrompt()
+            .finally(() => {
+                this.modelDownloadFailurePrompt = null;
+            });
+
+        return this.modelDownloadFailurePrompt;
+    }
+
     private async _start(): Promise<void> {
         if (this._disposed) {
             return;
         }
         try {
             // ── Phase 1: Download model with VS Code progress UI (one-time) ──
-            if (!isModelDownloaded()) {
-                console.log(`[EmbeddingService] Model not found — starting download to ${this.config.modelPath}`);
-                const modelsDir = getWso2MiModelsDir();
-                const downloadTooltip = process.env.MI_COPILOT_MODELS_DIR
-                    ? `Downloading embedding model to ${modelsDir} (from MI_COPILOT_MODELS_DIR) — this happens once`
-                    : `Downloading embedding model to ${modelsDir} (~/.wso2-mi/copilot/models by default) — this happens once`;
-                this.showStatusBar('$(cloud-download) MI: Downloading model…', downloadTooltip);
-                try {
-                    await vscode.window.withProgress(
-                        {
-                            location: vscode.ProgressLocation.Notification,
-                            title: 'MI Copilot: Downloading embedding model',
-                            cancellable: false,
-                        },
-                        async (progress) => {
-                            await downloadModel((fileName, percent) => {
-                                progress.report({ message: `${fileName} — ${percent}%` });
-                            });
-                        }
-                    );
-                    console.log(`[EmbeddingService] Model downloaded to: ${this.config.modelPath}`);
-                    if (this._disposed) {
-                        return;
-                    }
-                } catch (downloadError) {
-                    if (this._disposed) {
-                        return;
-                    }
-                    console.error('[EmbeddingService] Model download failed:', downloadError);
-                    this.showStatusBar('$(warning) MI: Model Download Failed',
-                        `Failed to download embedding model: ${downloadError}`);
-                    this._onReady.fire(false);
-                    return;
-                }
+            const modelReady = await this.ensureModelDownloaded();
+            if (!modelReady || this._disposed) {
+                return;
             }
 
             // ── Phase 2: Start the worker process ────────────────────────────
@@ -304,6 +299,97 @@ export class VSCodeEmbeddingService {
             this.showStatusBar('$(error) MI: Index Error', `Embedding service failed: ${error}`);
             this._onReady.fire(false);
         }
+    }
+
+    private async ensureModelDownloaded(): Promise<boolean> {
+        while (!isModelDownloaded()) {
+            console.log(`[EmbeddingService] Model not found — starting download to ${this.config.modelPath}`);
+            const modelsDir = getWso2MiModelsDir();
+            const downloadTooltip = process.env.MI_COPILOT_MODELS_DIR
+                ? `Downloading embedding model to ${modelsDir} (from MI_COPILOT_MODELS_DIR) — this happens once`
+                : `Downloading embedding model to ${modelsDir} (~/.wso2-mi/copilot/models by default) — this happens once`;
+            this.showStatusBar('$(cloud-download) MI: Downloading model…', downloadTooltip);
+
+            try {
+                await vscode.window.withProgress(
+                    {
+                        location: vscode.ProgressLocation.Notification,
+                        title: 'MI Copilot: Downloading embedding model',
+                        cancellable: false,
+                    },
+                    async (progress) => {
+                        await downloadModel((fileName, percent) => {
+                            progress.report({ message: `${fileName} — ${percent}%` });
+                        });
+                    }
+                );
+                console.log(`[EmbeddingService] Model downloaded to: ${this.config.modelPath}`);
+                this.modelDownloadError = null;
+                return true;
+            } catch (downloadError) {
+                if (this._disposed) {
+                    return false;
+                }
+
+                console.error('[EmbeddingService] Model download failed:', downloadError);
+                this.modelDownloadError = downloadError;
+                this.showModelDownloadFailedStatus(downloadError);
+                this._isAvailable = false;
+                this._onReady.fire(false);
+
+                const shouldRetry = await this.promptForModelDownloadRetry(downloadError);
+                if (!shouldRetry || this._disposed) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private showModelDownloadFailedStatus(error: unknown): void {
+        this.showStatusBar(
+            '$(warning) MI: Model Download Failed',
+            `Semantic search is unavailable: ${error}. Click to retry after checking your internet connection.`,
+            {
+                command: RETRY_SEMANTIC_MODEL_DOWNLOAD_COMMAND,
+                title: 'Retry MI semantic model download',
+                arguments: [this.config.projectPath],
+            }
+        );
+    }
+
+    private async showModelDownloadFailurePrompt(): Promise<boolean> {
+        this.showModelDownloadFailedStatus(this.modelDownloadError || 'Unknown error');
+        const selection = await vscode.window.showErrorMessage(
+            'Embedding model download failed',
+            {
+                modal: true,
+                detail:
+                    'Semantic search is unavailable because the embedding model could not be downloaded. ' +
+                    'Check your internet connection and retry. Cancel will disable semantic search globally.',
+            },
+            RETRY_ACTION,
+        );
+
+        if (selection === RETRY_ACTION) {
+            if (!this._isInitializing) {
+                void this.start();
+            }
+            return true;
+        }
+
+        if (selection === undefined) {
+            await this.disableSemanticSearch();
+        }
+
+        return false;
+    }
+
+    private async disableSemanticSearch(): Promise<void> {
+        await vscode.workspace
+            .getConfiguration('MI')
+            .update(MI_SEMANTIC_TOOL_ENABLED_SETTING, false, vscode.ConfigurationTarget.Global);
     }
 
     private async tryStartWorkerMode(): Promise<boolean> {
@@ -440,7 +526,7 @@ export class VSCodeEmbeddingService {
 
     // ── Status Bar Helpers ────────────────────────────────────────────
 
-    private showStatusBar(text: string, tooltip: string): void {
+    private showStatusBar(text: string, tooltip: string, command?: vscode.Command): void {
         if (!this._statusBarItem) {
             this._statusBarItem = vscode.window.createStatusBarItem(
                 vscode.StatusBarAlignment.Right,
@@ -449,6 +535,7 @@ export class VSCodeEmbeddingService {
         }
         this._statusBarItem.text = text;
         this._statusBarItem.tooltip = tooltip;
+        this._statusBarItem.command = command;
         this._statusBarItem.show();
     }
 

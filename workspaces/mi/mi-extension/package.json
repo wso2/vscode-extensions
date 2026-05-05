@@ -182,8 +182,7 @@
         "MI.IS_SEMANTIC_TOOL_ENABLED": {
           "type": "boolean",
           "default": false,
-          "description": "Enable semantic code search tool and embedding service for MI Copilot agent mode",
-          "scope": "resource"
+          "description": "Enable semantic code search tool and embedding service for MI Copilot agent mode"
         },
         "MI.Scope": {
           "type": "string",

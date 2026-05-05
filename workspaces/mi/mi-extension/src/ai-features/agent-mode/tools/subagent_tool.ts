@@ -285,7 +285,7 @@ async function runSubagent(
     getAnthropicClient: (model: AnthropicModel) => Promise<any>,
     previousMessages?: any[],
     abortSignal?: AbortSignal,
-    semanticEnabled: boolean = true
+    semanticEnabled: boolean = false
 ): Promise<SubagentResult> {
     switch (subagentType) {
         case 'Explore':
