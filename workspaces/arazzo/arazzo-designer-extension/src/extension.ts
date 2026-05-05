@@ -28,11 +28,33 @@ import { activateVisualizer } from './visualizer/activate';
 import { activateMCPServer } from './mcp';
 import { RPCLayer } from './RPCLayer';
 import { VisualizerWebview } from './visualizer/webview';
-import { EVENT_TYPE, MACHINE_VIEW } from '@wso2/arazzo-designer-core';
+import { EVENT_TYPE, MACHINE_VIEW, openInputConfigPanel } from '@wso2/arazzo-designer-core';
 import { startMCPServer, disposeMCPServer, isMCPServerRunning, onMCPServerStateChange, getMCPActiveFilePath, initializeMCPServerRunner, getMCPServerPort } from './mcp/mcpServerRunner';
 import { RunWorkflowCodeLensProvider } from './mcp/runWorkflowCodeLens';
 
 let languageClient: LanguageClient | undefined;
+
+const RUN_INPUTS_STATE_KEY = 'arazzo.runInputs.v1';
+
+type RunInputsStore = {
+	[fileUri: string]: {
+		[workflowId: string]: {
+			inputs: Record<string, any>;
+			updatedAt: number;
+		};
+	};
+};
+
+type WorkflowRunInputField = {
+	name: string;
+	required: boolean;
+	defaultValue?: any;
+};
+
+type WorkflowRunInputs = {
+	inputs: Record<string, any>;
+	missingRequired: boolean;
+};
 
 export function getLanguageClient(): LanguageClient | undefined {
 	return languageClient;
@@ -50,7 +72,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.window.onDidChangeActiveTextEditor(editor => checkDocumentForOpenAPI(editor?.document))
 	);
 
-	RPCLayer.init();
+	RPCLayer.init(context);
 	activateHistory();
 	activateVisualizer(context);
 	StateMachine.initialize();
@@ -403,7 +425,30 @@ function initializeLanguageServer(context: vscode.ExtensionContext, runCodeLensP
 			return;
 		}
 
-		const runCommand = buildRunCommand(workflowId, port, filePath);
+		// Resolve inputs by always cross-referencing current file fields:
+		//  1. Explicit inputs passed by the webview (already validated against current fields)
+		//  2. Saved values from workspaceState keyed by the current field names
+		//  3. Declared defaults in the YAML schema
+		// This ensures both the webview Try button and the CodeLens produce
+		// identical curl commands — stale/renamed/removed fields are excluded.
+		const fileUriStr = args?.uri ?? vscode.Uri.file(filePath).toString();
+		const explicitInputs: Record<string, any> | undefined = args?.inputs;
+		const runInputs = buildRunInputsFromWorkspaceState(
+			workflowId, filePath, fileUriStr, context, explicitInputs
+		);
+
+		// If required inputs are still missing (no saved value and no default),
+		// open the Configure Inputs panel so the user can provide them.
+		if (runInputs.missingRequired) {
+			RPCLayer._messenger.sendNotification(
+				openInputConfigPanel,
+				{ type: 'webview', webviewType: VisualizerWebview.viewType },
+				{ workflowId }
+			);
+			return;
+		}
+
+		const runCommand = buildRunCommand(workflowId, port, runInputs.inputs);
 		const terminal = vscode.window.terminals.find(t => t.name === 'Arazzo') ?? vscode.window.createTerminal('Arazzo');
 		terminal.show(true); // preserve focus on the editor
 		
@@ -424,40 +469,138 @@ function initializeLanguageServer(context: vscode.ExtensionContext, runCodeLensP
 }
 
 /**
- * Build a platform-appropriate HTTP request command for POST /run/{workflowId}.
- * Uses Invoke-RestMethod on Windows and curl on Linux/macOS.
- * Input values are filled from the workflow's declared defaults;
- * any input without a default gets the placeholder "ENTER".
+ * Builds the inputs object for a workflow run command by cross-referencing
+ * the current file's declared input fields (the source of truth) against:
+ *  1. explicitInputs — values already computed by the webview (highest priority)
+ *  2. workspaceState — values the user previously saved via the config panel
+ *  3. schema defaults — fallback when no other value is available
+ *
+ * Any field that no longer exists in the file is automatically excluded,
+ * so removed or renamed fields from a previous run never appear in the curl.
+ * Optional fields with no value are also excluded — they are only sent when
+ * a concrete value is available.
  */
-function buildRunCommand(workflowId: string, port: number, filePath: string): string {
-	const inputsBody: Record<string, any> = {};
+function buildRunInputsFromWorkspaceState(
+	workflowId: string,
+	filePath: string,
+	fileUri: string,
+	context: vscode.ExtensionContext,
+	explicitInputs?: Record<string, any>,
+): WorkflowRunInputs {
+	const fields = extractWorkflowRunInputFields(workflowId, filePath);
+	const store = context.workspaceState.get<RunInputsStore>(RUN_INPUTS_STATE_KEY, {});
+	const savedInputs = store[fileUri]?.[workflowId]?.inputs ?? {};
+	const inputs: Record<string, any> = {};
+	let missingRequired = false;
+
+	for (const field of fields) {
+		// Priority 1: explicit value passed by the webview (already coerced + validated)
+		if (explicitInputs !== undefined && Object.prototype.hasOwnProperty.call(explicitInputs, field.name)) {
+			inputs[field.name] = explicitInputs[field.name];
+			continue;
+		}
+		// Priority 2: saved value in workspaceState
+		if (Object.prototype.hasOwnProperty.call(savedInputs, field.name)) {
+			inputs[field.name] = savedInputs[field.name];
+			continue;
+		}
+		// Priority 3: schema default
+		if (field.defaultValue !== undefined) {
+			inputs[field.name] = field.defaultValue;
+			continue;
+		}
+		// No value available — required fields without a value block the run.
+		if (field.required) {
+			missingRequired = true;
+		}
+		// Optional fields with no value are silently omitted from the curl body.
+	}
+
+	return { inputs, missingRequired };
+}
+
+function extractWorkflowRunInputFields(workflowId: string, filePath: string): WorkflowRunInputField[] {
 	try {
 		const content = fs.readFileSync(filePath, 'utf-8');
 		const doc = yaml.load(content) as any;
 		const workflows: any[] = doc?.workflows ?? [];
 		const wf = workflows.find((w: any) => w?.workflowId === workflowId);
-		if (wf) {
-			// inputs JSON-Schema style (Arazzo 1.0.0)
-			const properties: Record<string, any> = wf?.inputs?.properties ?? {};
-			for (const [key, schemaDef] of Object.entries<any>(properties)) {
-				inputsBody[key] = schemaDef?.default !== undefined ? schemaDef.default : 'ENTER';
-			}
-			// parameters array style
-			const params: any[] = wf?.parameters ?? [];
-			for (const p of params) {
-				const name: string = p?.name;
-				if (!name) { continue; }
-				const inVal: string = p?.in ?? '';
-				if (inVal !== '' && inVal !== 'inputs') { continue; }
-				if (!(name in inputsBody)) {
-					inputsBody[name] = p?.value !== undefined ? p.value : 'ENTER';
-				}
-			}
+		if (!wf) { return []; }
+
+		const fields = new Map<string, WorkflowRunInputField>();
+		const inputsDef = resolveArazzoReference(wf.inputs, doc);
+		const required = new Set<string>(Array.isArray(inputsDef?.required) ? inputsDef.required : []);
+		const properties: Record<string, any> = inputsDef?.properties ?? {};
+
+		// Only fields declared in properties are real input fields.
+		// The required array only controls whether an existing property is
+		// mandatory — names in required that have no matching property are
+		// ignored (malformed schema) so they never appear in the curl body.
+		for (const [name, rawSchema] of Object.entries<any>(properties)) {
+			const schemaDef = resolveArazzoReference(rawSchema, doc);
+			fields.set(name, {
+				name,
+				required: required.has(name) || schemaDef?.required === true,
+				defaultValue: schemaDef?.default,
+			});
 		}
+
+		const params: any[] = wf?.parameters ?? [];
+		for (const rawParam of params) {
+			const p = resolveArazzoReference(rawParam, doc);
+			const name: string = p?.name;
+			if (!name || fields.has(name)) { continue; }
+			const inVal: string = p?.in ?? '';
+			if (inVal !== '' && inVal !== 'inputs') { continue; }
+			fields.set(name, {
+				name,
+				required: p?.required === true,
+				defaultValue: p?.value,
+			});
+		}
+
+		return Array.from(fields.values());
 	} catch {
-		// Non-fatal — use empty inputs
+		return [];
+	}
+}
+
+function resolveArazzoReference(value: any, doc: any): any {
+	const ref = value?.$ref ?? value?.reference;
+	if (typeof ref !== 'string') {
+		return value;
 	}
 
+	if (ref.startsWith('#/')) {
+		return ref
+			.slice(2)
+			.split('/')
+			.reduce((current: any, segment: string) => {
+				if (current === undefined || current === null) {
+					return undefined;
+				}
+				const key = segment.replace(/~1/g, '/').replace(/~0/g, '~');
+				return current[key];
+			}, doc) ?? value;
+	}
+
+	if (ref.startsWith('$components.')) {
+		return ref
+			.slice('$components.'.length)
+			.split('.')
+			.reduce((current: any, segment: string) => current?.[segment], doc?.components) ?? value;
+	}
+
+	return value;
+}
+
+/**
+ * Build a platform-appropriate HTTP request command for POST /run/{workflowId}.
+ * Uses Invoke-RestMethod on Windows and curl on Linux/macOS.
+ * inputsBody contains only the fields that exist in the current file and have
+ * an available value — stale/removed/renamed fields are never included.
+ */
+function buildRunCommand(workflowId: string, port: number, inputsBody: Record<string, any>): string {
 	const bodyJson = JSON.stringify({ inputs: inputsBody });
 	const url = `http://localhost:${port}/run/${workflowId}`;
 
