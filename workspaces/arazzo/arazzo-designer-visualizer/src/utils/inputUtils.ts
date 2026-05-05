@@ -131,8 +131,9 @@ export function buildInitialFieldValues(
 ): Record<string, string> {
     const result: Record<string, string> = {};
     for (const field of fields) {
-        if (savedInputs && Object.prototype.hasOwnProperty.call(savedInputs, field.name)) {
-            result[field.name] = stringifyInputValue(savedInputs[field.name], field.type);
+        const savedKey = `${field.name}::${field.type}`;
+        if (savedInputs && Object.prototype.hasOwnProperty.call(savedInputs, savedKey)) {
+            result[field.name] = stringifyInputValue(savedInputs[savedKey], field.type);
         } else if (field.defaultValue !== undefined) {
             result[field.name] = stringifyInputValue(field.defaultValue, field.type);
         } else {

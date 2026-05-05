@@ -47,6 +47,7 @@ type RunInputsStore = {
 
 type WorkflowRunInputField = {
 	name: string;
+	type: string;
 	required: boolean;
 	defaultValue?: any;
 };
@@ -500,8 +501,11 @@ function buildRunInputsFromWorkspaceState(
 			continue;
 		}
 		// Priority 2: saved value in workspaceState
-		if (Object.prototype.hasOwnProperty.call(savedInputs, field.name)) {
-			inputs[field.name] = savedInputs[field.name];
+		// Keys are stored as "name::type" so a field whose type was changed in the
+		// YAML automatically misses here rather than using a stale typed value.
+		const savedKey = `${field.name}::${field.type}`;
+		if (Object.prototype.hasOwnProperty.call(savedInputs, savedKey)) {
+			inputs[field.name] = savedInputs[savedKey];
 			continue;
 		}
 		// Priority 3: schema default
@@ -540,6 +544,7 @@ function extractWorkflowRunInputFields(workflowId: string, filePath: string): Wo
 			const schemaDef = resolveArazzoReference(rawSchema, doc);
 			fields.set(name, {
 				name,
+				type: typeof schemaDef?.type === 'string' ? schemaDef.type.toLowerCase() : 'string',
 				required: required.has(name) || schemaDef?.required === true,
 				defaultValue: schemaDef?.default,
 			});
@@ -554,6 +559,7 @@ function extractWorkflowRunInputFields(workflowId: string, filePath: string): Wo
 			if (inVal !== '' && inVal !== 'inputs') { continue; }
 			fields.set(name, {
 				name,
+				type: typeof p?.schema?.type === 'string' ? p.schema.type.toLowerCase() : 'string',
 				required: p?.required === true,
 				defaultValue: p?.value,
 			});

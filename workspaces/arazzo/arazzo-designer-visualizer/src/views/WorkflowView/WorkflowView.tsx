@@ -889,13 +889,19 @@ export function WorkflowView(props: WorkflowViewProps) {
             return;
         }
 
-        // Persist to workspaceState
+        // Persist to workspaceState, keying each value as "name::type" so that
+        // changing a field's type in the YAML causes the old stored value to be
+        // ignored on the next load (different key → no accidental reuse).
         let coerced: Record<string, any> = {};
         try { coerced = buildCoercedInputs(inputFields, fieldValues); } catch { /* validated above */ }
+        const typeMap = Object.fromEntries(inputFields.map(f => [f.name, f.type]));
+        const typedCoerced = Object.fromEntries(
+            Object.entries(coerced).map(([k, v]) => [`${k}::${typeMap[k] ?? 'string'}`, v])
+        );
         rpcClient?.getVisualizerRpcClient().saveWorkflowRunInputs({
             uri: fileUri,
             workflowId: workflow?.workflowId ?? '',
-            inputs: coerced,
+            inputs: typedCoerced,
         });
 
         const triggerCurl = pendingCurlAfterSave;
