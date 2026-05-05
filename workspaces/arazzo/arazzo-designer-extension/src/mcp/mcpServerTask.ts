@@ -109,9 +109,7 @@ class MCPServerPseudoterminal implements vscode.Pseudoterminal {
         if (tracerPort !== undefined) {
             this.writeLine(`  Tracer: http://127.0.0.1:${tracerPort}/span-events`);
         }
-        if (this.params.disableTls) {
-            this.writeLine('  TLS verification: disabled');
-        }
+        this.writeLine(`  TLS verification: ${this.params.disableTls ? 'disabled' : 'enabled'}`);
         this.writeLine('');
 
         this.serverProcess = spawn(binaryPath, args, {

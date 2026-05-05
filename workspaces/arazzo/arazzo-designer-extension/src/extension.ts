@@ -173,10 +173,16 @@ export async function activate(context: vscode.ExtensionContext) {
 				const activeFilePath = getMCPActiveFilePath();
 				await startMCPServer(context, activeFilePath, true);
 			} else {
-				// Revert — write the previous value back without re-triggering this handler
+				// Revert — write the previous value back without re-triggering this handler.
+				// Use inspect() to determine the level where the value was actually set,
+				// so we don't create a workspace override when the user edited User settings.
 				revertingTlsSetting = true;
 				try {
-					await config.update('disableTLSCertificationValidation', !newValue, vscode.ConfigurationTarget.Workspace);
+					const inspected = config.inspect<boolean>('disableTLSCertificationValidation');
+					const target = inspected?.workspaceValue !== undefined
+						? vscode.ConfigurationTarget.Workspace
+						: vscode.ConfigurationTarget.Global;
+					await config.update('disableTLSCertificationValidation', !newValue, target);
 				} finally {
 					revertingTlsSetting = false;
 				}

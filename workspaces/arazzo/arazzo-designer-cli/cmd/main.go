@@ -121,6 +121,7 @@ Flags (serve):
   --otlp-endpoint   OTLP/HTTP base URL for external tracing (e.g. http://localhost:4318)
   --bearer-token    Bearer token for API auth
   --api-key         API key for API auth
+  --disable-tls     Disable TLS certificate verification for outbound requests (development only)
 
 Examples:
   # VS Code plugin (automatic)

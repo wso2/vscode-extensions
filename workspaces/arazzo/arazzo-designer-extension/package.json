@@ -163,7 +163,7 @@
         "arazzo.disableTLSCertificationValidation": {
           "type": "boolean",
           "default": false,
-          "markdownDescription": "Disable TLS certificate verification for outbound API calls made by the Arazzo runner. Useful for testing against local or custom endpoints without valid certificates. **Note:** The Arazzo server must be restarted for this change to take effect.",
+          "markdownDescription": "Disable TLS certificate verification for outbound API calls made by the Arazzo runner. Useful for testing against local or custom endpoints without valid certificates.\n\n**Note:** The Arazzo server must be restarted for this change to take effect.",
           "scope": "resource"
         }
       }

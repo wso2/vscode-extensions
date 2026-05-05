@@ -48,7 +48,7 @@ func NewStepExecutor(
 		ActionHandler:      NewActionHandler(sourceDescs),
 		ServerProcessor:    NewServerProcessor(sourceDescs),
 		OperationFinder:    NewOperationFinder(sourceDescs),
-		HTTPExecutor:       httpexec.NewHTTPExecutor(sink, runtimeParams.DisableTLSVerification),
+		HTTPExecutor:       httpexec.NewHTTPExecutor(sink, runtimeParams != nil && runtimeParams.DisableTLSVerification),
 		Sink:               sink,
 	}
 }

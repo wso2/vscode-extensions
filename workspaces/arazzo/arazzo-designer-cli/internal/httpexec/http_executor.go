@@ -29,10 +29,11 @@ type HTTPExecutor struct {
 func NewHTTPExecutor(sink telemetry.SpanEventSink, disableTLS bool) *HTTPExecutor {
 	var transport http.RoundTripper
 	if disableTLS {
+		// Clone the default transport to preserve proxy, pooling, and HTTP/2 settings.
 		//nolint:gosec // intentionally disabled per user configuration
-		transport = &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
-		}
+		cloned := http.DefaultTransport.(*http.Transport).Clone()
+		cloned.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //nolint:gosec
+		transport = cloned
 	} else {
 		transport = http.DefaultTransport
 	}
