@@ -163,6 +163,13 @@ const PendingNotice = styled.div`
     flex-shrink: 0;
 `;
 
+const BooleanRow = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 0;
+`;
+
 const CloseBtn = styled(Button)`
     border-radius: 4px;
 `;
@@ -266,15 +273,21 @@ export function WorkflowInputConfigPanel({
                             )}
 
                             {field.type === 'boolean' ? (
-                                <FieldSelect
-                                    id={`input-${field.name}`}
-                                    value={values[field.name] ?? ''}
-                                    onChange={e => onChange(field.name, e.target.value)}
-                                >
-                                    <option value="">— select —</option>
-                                    <option value="true">true</option>
-                                    <option value="false">false</option>
-                                </FieldSelect>
+                                <BooleanRow>
+                                    <input
+                                        type="checkbox"
+                                        id={`input-${field.name}`}
+                                        checked={values[field.name] === 'true'}
+                                        onChange={e => onChange(field.name, e.target.checked ? 'true' : 'false')}
+                                        style={{ width: 15, height: 15, cursor: 'pointer', accentColor: 'var(--vscode-focusBorder)' }}
+                                    />
+                                    <label
+                                        htmlFor={`input-${field.name}`}
+                                        style={{ fontSize: 12, color: 'var(--vscode-foreground)', cursor: 'pointer' }}
+                                    >
+                                        {field.name}
+                                    </label>
+                                </BooleanRow>
                             ) : field.type === 'object' || field.type === 'array' ? (
                                 <FieldTextarea
                                     id={`input-${field.name}`}
@@ -285,9 +298,10 @@ export function WorkflowInputConfigPanel({
                             ) : (
                                 <FieldInput
                                     id={`input-${field.name}`}
-                                    type="text"
+                                    type={field.type === 'integer' ? 'number' : 'text'}
+                                    step={field.type === 'integer' ? 1 : undefined}
                                     value={values[field.name] ?? ''}
-                                    placeholder={field.defaultValue !== undefined ? String(field.defaultValue) : 'Enter value…'}
+                                    placeholder='Enter value…'
                                     onChange={e => onChange(field.name, e.target.value)}
                                 />
                             )}
