@@ -27,12 +27,32 @@ import {
     GetArazzoModelResponse,
     ArazzoDefinition,
     RunWorkflowRequest,
+    GetWorkflowRunInputsRequest,
+    GetWorkflowRunInputsResponse,
+    SaveWorkflowRunInputsRequest,
 } from "@wso2/arazzo-designer-core";
 import * as vscode from 'vscode';
 import { getLanguageClient } from '../../extension';
 import { openView as stateMachineOpenView } from '../../stateMachine';
 
+const RUN_INPUTS_STATE_KEY = 'arazzo.runInputs.v1';
+
+type RunInputsStore = {
+    [fileUri: string]: {
+        [workflowId: string]: {
+            inputs: Record<string, any>;
+            updatedAt: number;
+        };
+    };
+};
+
 export class VisualizerRpcManager implements VisualizerAPI {
+    private _context: vscode.ExtensionContext;
+
+    constructor(context: vscode.ExtensionContext) {
+        this._context = context;
+    }
+
     async openView(params: OpenViewRequest): Promise<void> {
         stateMachineOpenView(params.type, params.location);
     }
@@ -78,5 +98,23 @@ export class VisualizerRpcManager implements VisualizerAPI {
     async runWorkflow(params: RunWorkflowRequest): Promise<void> {
         const command = params.mode === 'curl' ? 'arazzo.tryWorkflow' : 'arazzo.tryAIWorkflow';
         await vscode.commands.executeCommand(command, params);
+    }
+
+    async getWorkflowRunInputs(params: GetWorkflowRunInputsRequest): Promise<GetWorkflowRunInputsResponse> {
+        const store = this._context.workspaceState.get<RunInputsStore>(RUN_INPUTS_STATE_KEY, {});
+        const inputs = store[params.uri]?.[params.workflowId]?.inputs;
+        return { inputs };
+    }
+
+    async saveWorkflowRunInputs(params: SaveWorkflowRunInputsRequest): Promise<void> {
+        const store = this._context.workspaceState.get<RunInputsStore>(RUN_INPUTS_STATE_KEY, {});
+        if (!store[params.uri]) {
+            store[params.uri] = {};
+        }
+        store[params.uri][params.workflowId] = {
+            inputs: params.inputs,
+            updatedAt: Date.now(),
+        };
+        await this._context.workspaceState.update(RUN_INPUTS_STATE_KEY, store);
     }
 }

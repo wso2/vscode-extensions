@@ -25,6 +25,9 @@ import {
     GetArazzoModelRequest,
     GetArazzoModelResponse,
     RunWorkflowRequest,
+    GetWorkflowRunInputsRequest,
+    GetWorkflowRunInputsResponse,
+    SaveWorkflowRunInputsRequest,
 } from "./types";
 import { NotificationType, RequestType } from "vscode-messenger-common";
 
@@ -37,3 +40,7 @@ export const goHome: NotificationType<void> = { method: `${_preFix}/goHome` };
 export const goToSource: NotificationType<GoToSourceRequest> = { method: `${_preFix}/goToSource` };
 export const getArazzoModel: RequestType<GetArazzoModelRequest, GetArazzoModelResponse> = { method: `${_preFix}/getArazzoModel` };
 export const runWorkflow: NotificationType<RunWorkflowRequest> = { method: `${_preFix}/runWorkflow` };
+export const getWorkflowRunInputs: RequestType<GetWorkflowRunInputsRequest, GetWorkflowRunInputsResponse> = { method: `${_preFix}/getWorkflowRunInputs` };
+export const saveWorkflowRunInputs: NotificationType<SaveWorkflowRunInputsRequest> = { method: `${_preFix}/saveWorkflowRunInputs` };
+/** Extension → webview: ask the webview to open the Configure Inputs panel for a workflow. */
+export const openInputConfigPanel: NotificationType<{ workflowId: string }> = { method: `${_preFix}/openInputConfigPanel` };

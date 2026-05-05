@@ -23,6 +23,8 @@ import {
     HistoryEntry,
     OpenViewRequest,
     RunWorkflowRequest,
+    GetWorkflowRunInputsRequest,
+    SaveWorkflowRunInputsRequest,
     addToHistory,
     getHistory,
     getArazzoModel,
@@ -31,12 +33,15 @@ import {
     goToSource,
     openView,
     runWorkflow,
+    getWorkflowRunInputs,
+    saveWorkflowRunInputs,
 } from "@wso2/arazzo-designer-core";
 import { Messenger } from "vscode-messenger";
+import * as vscode from 'vscode';
 import { VisualizerRpcManager } from "./rpc-manager";
 
-export function registerVisualizerRpcHandlers(messenger: Messenger) {
-    const rpcManger = new VisualizerRpcManager();
+export function registerVisualizerRpcHandlers(messenger: Messenger, context: vscode.ExtensionContext) {
+    const rpcManger = new VisualizerRpcManager(context);
     messenger.onNotification(openView, (args: OpenViewRequest) => rpcManger.openView(args));
     messenger.onNotification(goBack, () => rpcManger.goBack());
     messenger.onRequest(getHistory, () => rpcManger.getHistory());
@@ -45,4 +50,6 @@ export function registerVisualizerRpcHandlers(messenger: Messenger) {
     messenger.onNotification(goToSource, (args: GoToSourceRequest) => rpcManger.goToSource(args));
     messenger.onRequest(getArazzoModel, (args: GetArazzoModelRequest) => rpcManger.getArazzoModel(args));
     messenger.onNotification(runWorkflow, (args: RunWorkflowRequest) => rpcManger.runWorkflow(args));
+    messenger.onRequest(getWorkflowRunInputs, (args: GetWorkflowRunInputsRequest) => rpcManger.getWorkflowRunInputs(args));
+    messenger.onNotification(saveWorkflowRunInputs, (args: SaveWorkflowRunInputsRequest) => rpcManger.saveWorkflowRunInputs(args));
 }

@@ -26,6 +26,9 @@ import {
     HistoryEntryResponse,
     OpenViewRequest,
     RunWorkflowRequest,
+    GetWorkflowRunInputsRequest,
+    GetWorkflowRunInputsResponse,
+    SaveWorkflowRunInputsRequest,
     addToHistory,
     getHistory,
     getArazzoModel,
@@ -34,6 +37,8 @@ import {
     goToSource,
     openView,
     runWorkflow,
+    getWorkflowRunInputs,
+    saveWorkflowRunInputs,
 } from "@wso2/arazzo-designer-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -75,5 +80,13 @@ export class VisualizerRpcClient implements VisualizerAPI {
 
     runWorkflow(params: RunWorkflowRequest): void {
         return this._messenger.sendNotification(runWorkflow, HOST_EXTENSION, params);
+    }
+
+    getWorkflowRunInputs(params: GetWorkflowRunInputsRequest): Promise<GetWorkflowRunInputsResponse> {
+        return this._messenger.sendRequest(getWorkflowRunInputs, HOST_EXTENSION, params);
+    }
+
+    saveWorkflowRunInputs(params: SaveWorkflowRunInputsRequest): void {
+        return this._messenger.sendNotification(saveWorkflowRunInputs, HOST_EXTENSION, params);
     }
 }
