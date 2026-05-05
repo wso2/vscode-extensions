@@ -40,6 +40,7 @@ func serveCmd(args []string) {
 	apiKeyHeader := fs.String("api-key-header", "X-API-Key", "Header name for API key")
 	traceEndpoint := fs.String("trace-endpoint", "", "URL of the local tracer server to receive span events (e.g. http://127.0.0.1:59600/span-events)")
 	otlpEndpoint := fs.String("otlp-endpoint", "", "Base URL of an OTLP/HTTP trace backend (e.g. http://localhost:4318 for Jaeger/Honeycomb)")
+	disableTLS := fs.Bool("disable-tls", false, "Disable TLS certificate verification for outbound HTTP requests (development only)")
 
 	fs.Parse(args)
 
@@ -56,11 +57,15 @@ func serveCmd(args []string) {
 	}
 
 	// Build runtime params
+	if *disableTLS {
+		log.Println("WARNING: TLS certificate verification is disabled")
+	}
 	runtimeParams := &models.RuntimeParams{
-		BearerToken:  *bearerToken,
-		APIKey:       *apiKey,
-		APIKeyHeader: *apiKeyHeader,
-		AuthHeaders:  make(map[string]string),
+		BearerToken:            *bearerToken,
+		APIKey:                 *apiKey,
+		APIKeyHeader:           *apiKeyHeader,
+		AuthHeaders:            make(map[string]string),
+		DisableTLSVerification: *disableTLS,
 	}
 
 	// Create trace sink — combine whichever endpoints are configured.
