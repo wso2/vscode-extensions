@@ -2032,14 +2032,8 @@ export interface ProjectArtifacts {
 export interface CodeMapRequest {
     projectPath: string;
 }
-
-export interface CodeMapIncrementalChanges {
-    modifiedFiles?: Record<string, { markdown: string } | Record<string, { markdown: string }>>;
-    deletedFiles?: string[] | Record<string, string[]>;
-}
-
 export interface CodeMapResponse {
-    content?: string | CodeMapIncrementalChanges;
+    content?: string;
 }
 
 export interface ProjectInfoRequest {
