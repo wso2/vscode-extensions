@@ -253,7 +253,7 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
     }
 
     // Launch the MCP server binary as a VS Code Task (mirrors the trace server)
-    const disableTls = vscode.workspace.getConfiguration('arazzo').get<boolean>('disableTls', false);
+    const disableTls = vscode.workspace.getConfiguration('arazzo').get<boolean>('disableTLSCertificationValidation', false);
     await executeMCPServerTask({ binaryPath, arazzoFilePath, port, tracerPort, disableTls });
 
     // Record which file this server is serving and the port it is on

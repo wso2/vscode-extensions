@@ -139,12 +139,12 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Initialize Arazzo Language Server for procode features
 	initializeLanguageServer(context, runCodeLensProvider);
 
-	// Watch for arazzo.disableTls changes.
+	// Watch for arazzo.disableTLSCertificationValidation changes.
 	// Guard flag prevents the revert config.update() from re-triggering this handler.
 	let revertingTlsSetting = false;
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration(async event => {
-			if (!event.affectsConfiguration('arazzo.disableTls')) {
+			if (!event.affectsConfiguration('arazzo.disableTLSCertificationValidation')) {
 				return;
 			}
 			if (revertingTlsSetting) {
@@ -152,7 +152,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			}
 
 			const config = vscode.workspace.getConfiguration('arazzo');
-			const newValue = config.get<boolean>('disableTls', false);
+			const newValue = config.get<boolean>('disableTLSCertificationValidation', false);
 			const status = newValue ? 'disabled' : 'enabled';
 
 			if (!isMCPServerRunning()) {
@@ -176,7 +176,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				// Revert — write the previous value back without re-triggering this handler
 				revertingTlsSetting = true;
 				try {
-					await config.update('disableTls', !newValue, vscode.ConfigurationTarget.Workspace);
+					await config.update('disableTLSCertificationValidation', !newValue, vscode.ConfigurationTarget.Workspace);
 				} finally {
 					revertingTlsSetting = false;
 				}
