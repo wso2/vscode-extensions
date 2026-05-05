@@ -253,7 +253,8 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
     }
 
     // Launch the MCP server binary as a VS Code Task (mirrors the trace server)
-    await executeMCPServerTask({ binaryPath, arazzoFilePath, port, tracerPort });
+    const disableTls = vscode.workspace.getConfiguration('arazzo').get<boolean>('disableTls', false);
+    await executeMCPServerTask({ binaryPath, arazzoFilePath, port, tracerPort, disableTls });
 
     // Record which file this server is serving and the port it is on
     mcpActiveFilePath = arazzoFilePath;
@@ -270,6 +271,7 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
 
         const serverUrl = `http://localhost:${port}/mcp`;
         const configNote = mcpConfigPath ? ` Config added to mcp.json.` : '';
+        const tlsNote = disableTls ? ' TLS certificate validation disabled.' : '';
 
         // Get first workflow name for the "Try Now" prompt
         const firstWorkflow = getFirstWorkflowId(arazzoFilePath!);
@@ -280,7 +282,7 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
         // Combined status message: Server started + Try with Copilot invitation
         if (!suppressPrompt) {
             const action = await vscode.window.showInformationMessage(
-                `Arazzo server started. Running on ${serverUrl}.${configNote} Try your workflows with GitHub Copilot.`,
+                `Arazzo server started. Running on ${serverUrl}.${configNote}${tlsNote} Try your workflows with GitHub Copilot.`,
                 'Try Now'
             );
             if (action === 'Try Now') {
@@ -296,7 +298,7 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
         } else {
             // If suppressPrompt is true, still show the base status message
             vscode.window.showInformationMessage(
-                `Arazzo server started. Running on ${serverUrl}.${configNote}`
+                `Arazzo server started. Running on ${serverUrl}.${configNote}${tlsNote}`
             );
         }
     }, 1500);

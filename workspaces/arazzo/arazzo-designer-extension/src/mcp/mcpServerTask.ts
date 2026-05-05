@@ -26,6 +26,7 @@ export interface MCPServerTaskParams {
     arazzoFilePath: string;
     port: number;
     tracerPort?: number;
+    disableTls?: boolean;
 }
 
 /** The currently running task execution, if any. */
@@ -98,12 +99,18 @@ class MCPServerPseudoterminal implements vscode.Pseudoterminal {
         if (tracerPort !== undefined) {
             args.push('-trace-endpoint', `http://127.0.0.1:${tracerPort}/span-events`);
         }
+        if (this.params.disableTls) {
+            args.push('--disable-tls');
+        }
 
         this.writeLine('Starting Arazzo MCP Server...');
         this.writeLine(`  File:   ${arazzoFilePath}`);
         this.writeLine(`  Port:   ${port}`);
         if (tracerPort !== undefined) {
             this.writeLine(`  Tracer: http://127.0.0.1:${tracerPort}/span-events`);
+        }
+        if (this.params.disableTls) {
+            this.writeLine('  TLS verification: disabled');
         }
         this.writeLine('');
 
