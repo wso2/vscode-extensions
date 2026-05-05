@@ -112,7 +112,8 @@ export enum Protocol {
     MESSAGE_BROKER = "MESSAGE_BROKER",
     GRAPHQL = "GRAPHQL",
     FTP = "FTP",
-    CDC = "CDC"
+    CDC = "CDC",
+    SMB = "SMB"
 }
 
 export interface HttpPayloadContext {
