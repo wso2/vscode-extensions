@@ -721,6 +721,18 @@
           "when": "false"
         },
         {
+          "command": "MI.project-explorer.add-mcp-server",
+          "when": "false"
+        },
+        {
+          "command": "MI.project-explorer.show-mcp-server",
+          "when": "false"
+        },
+        {
+          "command": "MI.project-explorer.delete-mcp-server",
+          "when": "false"
+        },
+        {
           "command": "MI.project-explorer.open-dss-service-designer",
           "when": "false"
         },
