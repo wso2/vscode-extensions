@@ -730,7 +730,7 @@ function checkForTlsError(workflowId: string, port: number, inputs: Record<strin
 				).then(selection => {
 					if (selection === 'Go to Settings') {
 						vscode.commands.executeCommand(
-							'workbench.action.openSettings',
+							'workbench.action.openWorkspaceSettings',
 							'arazzo.disableTLSCertificationValidation'
 						);
 					}
