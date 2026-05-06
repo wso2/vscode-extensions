@@ -854,13 +854,17 @@ function getMesaaageStoreIcon(messageStoreType: MessageStoreTypes): string {
 function generateMcpServers(data: any[]): ProjectExplorerEntry[] {
 	const result: ProjectExplorerEntry[] = [];
 	for (const server of data) {
+		if (!server.localEntry?.path) {
+			continue;
+		}
+
 		const serverEntry = new ProjectExplorerEntry(
 			server.name,
 			isCollapsibleState(false),
 			{
 				name: server.name,
 				type: 'MCP_SERVER',
-				path: server.localEntry?.path ?? '',
+				path: server.localEntry.path,
 				localEntry: server.localEntry,
 				inboundEndpoint: server.inboundEndpoint
 			} as any,
@@ -870,7 +874,7 @@ function generateMcpServers(data: any[]): ProjectExplorerEntry[] {
 		serverEntry.command = {
 			title: 'Show MCP Server',
 			command: COMMANDS.SHOW_MCP_SERVER,
-			arguments: [server.localEntry?.path ?? '', server.name]
+			arguments: [server.localEntry.path, server.name]
 		};
 
 		result.push(serverEntry);
