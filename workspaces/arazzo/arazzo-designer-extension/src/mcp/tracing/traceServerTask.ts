@@ -25,6 +25,9 @@ import { TracerServer } from './tracerServer';
 let portResolve: ((port: number) => void) | undefined;
 let portReject: ((err: Error) => void) | undefined;
 
+/** The currently running trace task execution, if any. */
+let currentTraceExecution: vscode.TaskExecution | undefined;
+
 /**
  * Creates a VS Code Task that starts the trace server.
  * Uses CustomExecution to run the server inside the extension host.
@@ -153,7 +156,18 @@ export async function executeTraceServerTask(): Promise<number> {
     });
 
     const task = createTraceServerTask();
-    await vscode.tasks.executeTask(task);
+    currentTraceExecution = await vscode.tasks.executeTask(task);
 
     return portPromise;
+}
+
+/**
+ * Terminate the running trace server task, if any.
+ * The Pseudoterminal's close() method will stop the TracerServer HTTP server.
+ */
+export function stopTraceServerTask(): void {
+    if (currentTraceExecution) {
+        currentTraceExecution.terminate();
+        currentTraceExecution = undefined;
+    }
 }

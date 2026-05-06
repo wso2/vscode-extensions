@@ -16,6 +16,6 @@
  */
 
 export { TracerServer } from './tracerServer';
-export { executeTraceServerTask, createTraceServerTask } from './traceServerTask';
+export { executeTraceServerTask, createTraceServerTask, stopTraceServerTask } from './traceServerTask';
 export { TRACE_SERVER_PORT } from './constants';
 export type { TraceEvent, SpanKind, Lifecycle, SpanStatus } from './traceEvents';

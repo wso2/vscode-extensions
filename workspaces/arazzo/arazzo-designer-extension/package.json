@@ -108,6 +108,12 @@
         "icon": "$(play)"
       },
       {
+        "command": "arazzo.stopMCPServer",
+        "title": "Stop Arazzo Server",
+        "category": "Arazzo",
+        "icon": "$(debug-stop)"
+      },
+      {
         "command": "arazzo.tryAIWorkflow",
         "title": "Try Arazzo Workflow with AI",
         "category": "Arazzo"
@@ -129,6 +135,11 @@
         {
           "when": "isFileArazzo",
           "command": "arazzo.startMCPServer",
+          "group": "navigation"
+        },
+        {
+          "when": "isFileArazzo && arazzoServerRunning",
+          "command": "arazzo.stopMCPServer",
           "group": "navigation"
         }
       ],

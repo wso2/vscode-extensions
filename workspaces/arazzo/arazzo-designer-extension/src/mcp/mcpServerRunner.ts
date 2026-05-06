@@ -21,7 +21,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as yaml from 'js-yaml';
 import { TracerServer } from './tracing';
-import { executeTraceServerTask } from './tracing/traceServerTask';
+import { executeTraceServerTask, stopTraceServerTask } from './tracing/traceServerTask';
 import {
     executeMCPServerTask,
     stopMCPServerTask,
@@ -310,10 +310,18 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
  * listener registered in initializeMCPServerRunner().
  */
 export function stopMCPServer(): void {
+    // Terminate the MCP server VS Code task (closes its pseudoterminal).
     if (isMCPTaskRunning()) {
         stopMCPServerTask();
     }
+    // Terminate the trace server VS Code task (its pseudoterminal's close()
+    // method will also call TracerServer.stop() for us).
+    stopTraceServerTask();
+    // Safety net: stop the in-process HTTP server in case the tracer was
+    // running without a task (e.g. already-running path in executeTraceServerTask).
     TracerServer.getInstance().stop();
+
+    vscode.window.showInformationMessage('Arazzo server stopped.');
 }
 
 /**

@@ -30,7 +30,7 @@ import { activateMCPServer } from './mcp';
 import { RPCLayer } from './RPCLayer';
 import { VisualizerWebview } from './visualizer/webview';
 import { EVENT_TYPE, MACHINE_VIEW, openInputConfigPanel } from '@wso2/arazzo-designer-core';
-import { startMCPServer, disposeMCPServer, isMCPServerRunning, onMCPServerStateChange, getMCPActiveFilePath, initializeMCPServerRunner, getMCPServerPort } from './mcp/mcpServerRunner';
+import { startMCPServer, stopMCPServer, disposeMCPServer, isMCPServerRunning, onMCPServerStateChange, getMCPActiveFilePath, initializeMCPServerRunner, getMCPServerPort } from './mcp/mcpServerRunner';
 import { RunWorkflowCodeLensProvider } from './mcp/runWorkflowCodeLens';
 import { registerArazzoCopilotTools } from './copilotTools';
 
@@ -115,13 +115,35 @@ export async function activate(context: vscode.ExtensionContext) {
 		)
 	);
 
+	// Status bar item — visible whenever the Arazzo server is running.
+	// Clicking it stops the server. Starts hidden; shown by onMCPServerStateChange.
+	const serverStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+	serverStatusBar.command = 'arazzo.stopMCPServer';
+	serverStatusBar.text = '$(debug-stop) Arazzo Server';
+	serverStatusBar.tooltip = 'Arazzo server is running. Click to stop.';
+	serverStatusBar.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+	context.subscriptions.push(serverStatusBar);
+
+	// Register the Stop Arazzo Server command
+	context.subscriptions.push(
+		vscode.commands.registerCommand('arazzo.stopMCPServer', () => stopMCPServer())
+	);
+
 	// Refresh CodeLenses whenever the arazzo server starts or stops.
 	// Also reset the dirty flag so the lens reverts from "Rerun" to "Run".
 	onMCPServerStateChange(() => {
 		runCodeLensProvider.setFileDirty(false);
 		runCodeLensProvider.refresh();
 		// Notify webview that arazzo server state changed
-		RPCLayer.sendMCPStateChange({ isMCPRunning: isMCPServerRunning(), isFileDirty: false });
+		const running = isMCPServerRunning();
+		RPCLayer.sendMCPStateChange({ isMCPRunning: running, isFileDirty: false });
+		// Drive the status bar stop button and the editor-title-menu context.
+		if (running) {
+			serverStatusBar.show();
+		} else {
+			serverStatusBar.hide();
+		}
+		vscode.commands.executeCommand('setContext', 'arazzoServerRunning', running);
 	});
 
 	// When the active file is saved and the arazzo server is serving it, switch
