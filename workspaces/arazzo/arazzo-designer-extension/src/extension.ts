@@ -18,6 +18,7 @@
 
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+import * as http from 'http';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
 import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from 'vscode-languageclient/node';
@@ -516,6 +517,35 @@ function initializeLanguageServer(context: vscode.ExtensionContext, runCodeLensP
 		// before typing the new command.
 		terminal.sendText('\u0003', false);
 		terminal.sendText(commandToExecute, false /* do not press Enter */);
+
+		// After the user presses Enter, onDidEndTerminalShellExecution fires.
+		// We verify the finished command actually contains our port AND workflowId
+		// so we never react to stale completions (previous runs, Ctrl+C, etc.).
+		// The cast through `any` is required because @types/vscode is pinned to
+		// 1.81 while the engine requires 1.100 where this API exists.
+		const anyWindow = vscode.window as any;
+		if (typeof anyWindow.onDidEndTerminalShellExecution === 'function') {
+			let shellListener: { dispose(): void } | undefined;
+			let closeListener: vscode.Disposable | undefined;
+
+			shellListener = anyWindow.onDidEndTerminalShellExecution((event: any) => {
+				if (event.terminal !== terminal) { return; }
+				// Only act when the command that just finished is our workflow
+				// run command (identified by port and workflowId in the cmd line).
+				const cmd: string = event.execution?.commandLine?.value ?? '';
+				if (!cmd.includes(String(port)) || !cmd.includes(workflowId)) { return; }
+				shellListener?.dispose();
+				closeListener?.dispose();
+				checkForTlsError(workflowId, port, runInputs.inputs);
+			});
+
+			closeListener = vscode.window.onDidCloseTerminal(closed => {
+				if (closed === terminal) {
+					shellListener?.dispose();
+					closeListener?.dispose();
+				}
+			});
+		}
 	});
 
 	context.subscriptions.push(tryWorkflowCommand);
@@ -650,6 +680,69 @@ function resolveArazzoReference(value: any, doc: any): any {
 	}
 
 	return value;
+}
+
+/**
+ * Called programmatically after the terminal run command has completed.
+ * Makes a single background HTTP POST to /run/{workflowId}.  If the result
+ * is a failure caused by a TLS certificate error AND TLS validation is
+ * currently ENABLED, shows a warning notification with a Go to Settings
+ * button that opens arazzo.disableTLSCertificationValidation directly.
+ */
+function checkForTlsError(workflowId: string, port: number, inputs: Record<string, any>): void {
+	// Nothing to do when TLS validation is already disabled.
+	if (vscode.workspace.getConfiguration('arazzo').get<boolean>('disableTLSCertificationValidation', false)) {
+		return;
+	}
+
+	const body = JSON.stringify({ inputs });
+	const options: http.RequestOptions = {
+		hostname: 'localhost',
+		port,
+		path: `/run/${encodeURIComponent(workflowId)}`,
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+			'Content-Length': Buffer.byteLength(body),
+		},
+	};
+
+	const req = http.request(options, res => {
+		let data = '';
+		res.on('data', (chunk: string) => { data += chunk; });
+		res.on('end', () => {
+			try {
+				const result = JSON.parse(data) as { status: string; error?: string };
+				if (result.status !== 'failed' || !result.error) { return; }
+				const lower = result.error.toLowerCase();
+				const isTls =
+					lower.includes('x509') ||
+					lower.includes('tls:') ||
+					lower.includes('certificate signed by unknown authority') ||
+					lower.includes('failed to verify certificate') ||
+					lower.includes('certificate is not trusted') ||
+					lower.includes('ssl');
+				if (!isTls) { return; }
+				vscode.window.showWarningMessage(
+					'Workflow failed due to a TLS certificate validation error. ' +
+					'Try disabling TLS validation in the Arazzo settings.',
+					'Go to Settings'
+				).then(selection => {
+					if (selection === 'Go to Settings') {
+						vscode.commands.executeCommand(
+							'workbench.action.openSettings',
+							'arazzo.disableTLSCertificationValidation'
+						);
+					}
+				});
+			} catch {
+				// Ignore JSON parse errors — the terminal output already shows the result.
+			}
+		});
+	});
+	req.on('error', () => { /* ignore — terminal already shows the result */ });
+	req.write(body);
+	req.end();
 }
 
 /**
