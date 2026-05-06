@@ -31,6 +31,7 @@ func main() {
 		json.NewEncoder(w).Encode(map[string]any{
 			"confirmed": true,
 			"status":    "verified",
+			"message":   "Session confirmed successfully",
 		})
 	})
 
