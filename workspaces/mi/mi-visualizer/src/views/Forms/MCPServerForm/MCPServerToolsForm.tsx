@@ -32,6 +32,7 @@ import {
     artifactParserConfig,
     buildInputSchemasForAPITools,
     cleanPathForToolName,
+    convertToJsonSchema,
     generateToolsXml,
     getUsedInboundPorts,
     parsePortFromInboundEndpoint,
@@ -687,7 +688,11 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
         const updatedTools = tools.map(t => {
             if (t.id !== editingToolId) return t;
             const base = { ...t, name: editToolName.trim() || t.name, description: editToolDescription };
-            return t.kind === 'sequence' ? { ...base, inputSchema: editToolInputSchema } : base;
+            if (t.kind === 'sequence') {
+                const normalizedSchema = editToolInputSchema.trim() ? convertToJsonSchema(editToolInputSchema) : null;
+                return { ...base, inputSchema: normalizedSchema || t.inputSchema };
+            }
+            return base;
         });
         setTools(updatedTools);
         saveToolsToLocalEntry(updatedTools);
