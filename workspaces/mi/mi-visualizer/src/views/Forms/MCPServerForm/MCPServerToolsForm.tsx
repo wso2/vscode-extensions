@@ -642,12 +642,15 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
 
     const goToToolSource = (tool: UnifiedTool) => {
         if (tool.kind === 'api') {
-            const api = apis.find(a => a.name === tool.apiName);
-            const xmlPath = tool.apiXmlPath || api?.xmlPath || '';
+            const xmlPath = tool.apiXmlPath;
             if (!xmlPath) return;
 
+            // Find the exact API using stable identifier (xmlPath)
+            const api = apis.find(a => a.xmlPath === xmlPath);
+            if (!api) return;
+
             // Find resource index by matching both method and path
-            const resourceIndex = api?.operations.findIndex(
+            const resourceIndex = api.operations.findIndex(
                 op => op.method === tool.operationMethod && op.path === tool.operationPath
             ) ?? -1;
 
