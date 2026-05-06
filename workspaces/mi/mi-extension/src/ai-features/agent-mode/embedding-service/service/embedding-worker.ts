@@ -70,10 +70,6 @@ function enqueueIndexing(job: () => Promise<void>): Promise<void> {
     return indexingJob;
 }
 
-function now(): number {
-    return Date.now();
-}
-
 function isObject(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null;
 }
@@ -88,8 +84,8 @@ function sendMessage(message: IpcOutboundMessage): void {
 function emitLog(level: WorkerLogEventPayload['level'], message: string): void {
     sendMessage({
         v: IPC_PROTOCOL_VERSION,
-        id: `evt-log-${now()}`,
-        ts: now(),
+        id: `evt-log-${Date.now()}`,
+        ts: Date.now(),
         type: 'event',
         method: 'worker.log',
         payload: { level, message } satisfies WorkerLogEventPayload,
@@ -107,8 +103,8 @@ function emitStatusChanged(): void {
 
     sendMessage({
         v: IPC_PROTOCOL_VERSION,
-        id: `evt-status-${now()}`,
-        ts: now(),
+        id: `evt-status-${Date.now()}`,
+        ts: Date.now(),
         type: 'event',
         method: 'status.changed',
         payload,
@@ -125,8 +121,8 @@ function emitProgress(stage: IndexProgressEventPayload['stage'], detail: string,
 
     sendMessage({
         v: IPC_PROTOCOL_VERSION,
-        id: `evt-index-${now()}`,
-        ts: now(),
+        id: `evt-index-${Date.now()}`,
+        ts: Date.now(),
         type: 'event',
         method: 'index.progress',
         payload,
@@ -140,7 +136,7 @@ function responseOk<TResult>(
     return {
         v: IPC_PROTOCOL_VERSION,
         id: req.id,
-        ts: now(),
+        ts: Date.now(),
         type: 'response',
         method: req.method,
         ok: true,
@@ -155,7 +151,7 @@ function responseError(
     return {
         v: IPC_PROTOCOL_VERSION,
         id: req.id,
-        ts: now(),
+        ts: Date.now(),
         type: 'response',
         method: req.method,
         ok: false,
@@ -406,7 +402,7 @@ async function handleHealth(req: IpcRequestMessage): Promise<IpcResponseMessage>
         status: state.available ? 'ready' : (state.initializing ? 'initializing' : 'unavailable'),
         available: state.available,
         initializing: state.initializing,
-        ts: now(),
+        ts: Date.now(),
     });
 }
 
@@ -518,7 +514,7 @@ async function handleSearchSemantic(req: IpcRequestMessage): Promise<IpcResponse
         ? req.payload.scoreThreshold
         : 0.35;
 
-    const startedAt = now();
+    const startedAt = Date.now();
 
     const queryEmbedding = await embedder.embed(req.payload.query);
     
@@ -543,7 +539,7 @@ async function handleSearchSemantic(req: IpcRequestMessage): Promise<IpcResponse
 
     const result: SemanticSearchResponsePayload = {
         query: req.payload.query,
-        latencyMs: now() - startedAt,
+        latencyMs: Date.now() - startedAt,
         totalChunksScanned: state.chunkCount, // Not exactly scanned, but the total db size
         hits,
     };

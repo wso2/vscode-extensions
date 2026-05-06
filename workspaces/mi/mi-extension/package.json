@@ -179,7 +179,7 @@
           "description": "Use local Maven within the extension",
           "scope": "resource"
         },
-        "MI.IS_SEMANTIC_TOOL_ENABLED": {
+        "MI.enableSemanticSearchTool": {
           "type": "boolean",
           "default": false,
           "description": "Enable semantic code search tool and embedding service for MI Copilot agent mode"

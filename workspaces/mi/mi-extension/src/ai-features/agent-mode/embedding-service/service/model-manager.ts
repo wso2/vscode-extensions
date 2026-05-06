@@ -66,7 +66,7 @@ const REQUIRED_MODEL_FILES: ModelFileMetadata[] = [
 
 const HF_BASE_URL = `https://huggingface.co/${MODEL_ID}/resolve/${MODEL_REVISION}`;
 const MAX_REDIRECTS = 5;
-const DOWNLOAD_IDLE_TIMEOUT_MS = 120_000;
+const DOWNLOAD_IDLE_TIMEOUT_MS = 30_000;
 
 // ─── Path Helpers ─────────────────────────────────────────────────────────────
 

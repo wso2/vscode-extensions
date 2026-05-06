@@ -377,9 +377,7 @@ export class VSCodeEmbeddingService {
                 void this.start();
             }
             return true;
-        }
-
-        if (selection === undefined) {
+        } else if (selection === undefined) {
             await this.disableSemanticSearch();
         }
 

@@ -590,7 +590,7 @@ export function createAgentTools(params: CreateToolsParams) {
         abortSignal,
         modelSettings,
     } = params;
-    const semanticEnabled = isSemanticToolEnabled(projectPath);
+    const semanticEnabled = isSemanticToolEnabled();
 
     const getWrappedExecute = <T extends (...args: any[]) => Promise<ToolResult>>(
         toolName: string,

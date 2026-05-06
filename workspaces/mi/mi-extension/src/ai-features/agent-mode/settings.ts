@@ -18,13 +18,9 @@
 
 import * as vscode from 'vscode';
 
-export const MI_SEMANTIC_TOOL_ENABLED_SETTING = 'IS_SEMANTIC_TOOL_ENABLED';
+export const MI_SEMANTIC_TOOL_ENABLED_SETTING = 'enableSemanticSearchTool';
 
-export function isSemanticToolEnabled(projectPath: string): boolean {
-    return isSemanticToolEnabledForUri(vscode.Uri.file(projectPath));
-}
-
-export function isSemanticToolEnabledForUri(projectUri: vscode.Uri): boolean {
+export function isSemanticToolEnabled(): boolean {
     const config = vscode.workspace.getConfiguration('MI');
     return config.get<boolean>(MI_SEMANTIC_TOOL_ENABLED_SETTING, false);
 }

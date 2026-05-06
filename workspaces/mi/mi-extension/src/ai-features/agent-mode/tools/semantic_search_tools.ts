@@ -157,7 +157,7 @@ export function createSemanticSearchExecute(projectPath: string): SemanticSearch
     return async (args) => {
         const startTime = Date.now();
         const { query, score_threshold } = args;
-        const topK = Math.min(args.top_k ?? DEFAULT_TOP_K, MAX_TOP_K);
+        const topK = args.top_k ?? DEFAULT_TOP_K;
 
         try {
             // Get the embedding service (singleton per project)
@@ -316,18 +316,18 @@ export function createSemanticSearchExecute(projectPath: string): SemanticSearch
  */
 export function createSemanticSearchTool(execute: SemanticSearchExecuteFn) {
     const inputSchema = z.object({
-        query: z.string().describe(
+        query: z.string().min(3).max(500).describe(
             'Describe what you are looking for in natural language. ' +
             'Works with both conceptual queries ("how are errors handled") and specific queries ("hotel booking POST endpoint"). ' +
             'Tip: phrase as a question or intent for best results.'
         ),
-        top_k: z.number().optional().describe(
-            'Maximum results to return (default: 8, max: 15). ' +
+        top_k: z.number().int().min(1).max(MAX_TOP_K).optional().describe(
+            'Maximum results to return. ' +
             'Use 5 for targeted single-artifact lookup, 8 for general exploration, 12-15 for broad queries. ' +
             'Scan all returned chunks before answering — the most relevant chunk may not be ranked first.'
         ),
-        score_threshold: z.number().optional().describe(
-            'Minimum similarity score 0–1 (default: 0.20). ' +
+        score_threshold: z.number().min(0).max(1).optional().describe(
+            'Minimum similarity score. ' +
             'For Synapse XML projects, relevant chunks typically score 0.30–0.50.'
         ),
     });

@@ -320,7 +320,7 @@ export function createSubagentExecute(
 
     return async (args): Promise<SubagentToolResult> => {
         const { description, prompt, subagent_type, model: requestedModel = 'haiku', run_in_background = false, resume } = args;
-        const semanticEnabled = isSemanticToolEnabled(projectPath);
+        const semanticEnabled = isSemanticToolEnabled();
 
         // Resolve the effective sub-model: custom ID takes full precedence,
         // otherwise the preset overrides the LLM's model choice.

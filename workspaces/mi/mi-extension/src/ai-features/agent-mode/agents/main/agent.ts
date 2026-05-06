@@ -548,7 +548,7 @@ export async function executeAgent(
     try {
         logInfo(`[Agent] Starting agent execution for project: ${request.projectPath}`);
 
-        const semanticToolEnabled = isSemanticToolEnabled(request.projectPath);
+        const semanticToolEnabled = isSemanticToolEnabled();
         if (semanticToolEnabled) {
             // Warm the embedding service in background when semantic search is enabled.
             getEmbeddingService(request.projectPath).start().catch(err => {

@@ -39,7 +39,7 @@ You can provide integration requirements as:
 
 ### Semantic Search Tool
 
-MI Copilot semantic indexing and search can be enabled with `MI.IS_SEMANTIC_TOOL_ENABLED` : `true` and run in a worker process to keep heavy embedding tasks isolated from the main extension runtime.
+MI Copilot semantic indexing and search can be enabled with `MI.enableSemanticSearchTool` : `true` and run in a worker process to keep heavy embedding tasks isolated from the main extension runtime.
 
 The extension downloads model files on first use and caches them under `~/.wso2-mi/copilot/models` (or `MI_COPILOT_MODELS_DIR` when set). The worker runtime is bundled with the VSIX.
 

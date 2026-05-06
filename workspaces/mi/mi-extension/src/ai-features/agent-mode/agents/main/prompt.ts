@@ -671,7 +671,7 @@ export interface SessionContextBuildResult {
 export async function computeSessionContextBlockHashes(params: SessionContextParams): Promise<SessionContextBuildResult> {
     const built = await buildSessionContextSnapshot(params);
     let semanticStatusToken: string | undefined = undefined;
-    if (!isSemanticToolEnabled(params.projectPath)) {
+    if (!isSemanticToolEnabled()) {
         semanticStatusToken = 'semantic_disabled';
     } else {
         try {
@@ -836,8 +836,8 @@ ${list}`;
  * Injected into the user prompt so the LLM knows whether semantic search is usable.
  */
 async function getSemanticSearchStatus(projectPath: string): Promise<string> {
-    if (!isSemanticToolEnabled(projectPath)) {
-        return 'disabled by global setting (MI.IS_SEMANTIC_TOOL_ENABLED=false) — use grep/glob/file_read';
+    if (!isSemanticToolEnabled()) {
+        return 'disabled by global setting (MI.enableSemanticSearchTool=false) — use grep/glob/file_read';
     }
 
     try {

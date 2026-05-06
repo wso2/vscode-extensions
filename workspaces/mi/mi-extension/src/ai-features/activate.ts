@@ -33,8 +33,11 @@ import {
 } from './configUtils';
 import { initializeLangfuse, shutdownLangfuse } from './agent-mode/langfuse-setup';
 import { ENABLE_LANGFUSE } from './agent-mode/agents/main/agent';
-import { getEmbeddingService } from './agent-mode/embedding-service/service/vscode-service';
-import { isSemanticToolEnabledForUri } from './agent-mode/settings';
+import {
+    getEmbeddingService,
+    RETRY_SEMANTIC_MODEL_DOWNLOAD_COMMAND,
+} from './agent-mode/embedding-service/service/vscode-service';
+import { isSemanticToolEnabled } from './agent-mode/settings';
 
 
 export function activateAiPanel(context: vscode.ExtensionContext) {
@@ -58,7 +61,7 @@ export function activateAiPanel(context: vscode.ExtensionContext) {
             // Lazily start semantic embedding services on panel open.
             const folders = vscode.workspace.workspaceFolders ?? [];
             for (const folder of folders) {
-                if (!isSemanticToolEnabledForUri(folder.uri)) {
+                if (!isSemanticToolEnabled()) {
                     continue;
                 }
                 getEmbeddingService(folder.uri.fsPath).start().catch(err => {
@@ -67,6 +70,15 @@ export function activateAiPanel(context: vscode.ExtensionContext) {
                 });
             }
             openAIWebview(initialPrompt);
+        })
+    );
+    context.subscriptions.push(
+        vscode.commands.registerCommand(RETRY_SEMANTIC_MODEL_DOWNLOAD_COMMAND, async (projectPath?: string) => {
+            const targetProjectPath = projectPath || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+            if (!targetProjectPath) {
+                return;
+            }
+            await getEmbeddingService(targetProjectPath).promptForModelDownloadRetry();
         })
     );
     context.subscriptions.push(

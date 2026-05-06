@@ -27,9 +27,8 @@ import {
 	disposeEmbeddingService,
 	disposeAllEmbeddingServices,
 	getEmbeddingService,
-	RETRY_SEMANTIC_MODEL_DOWNLOAD_COMMAND,
 } from './ai-features/agent-mode/embedding-service/service/vscode-service';
-import { isSemanticToolEnabledForUri } from './ai-features/agent-mode/settings';
+import { isSemanticToolEnabled } from './ai-features/agent-mode/settings';
 import { activateMigrationSupport } from './migration';
 import { activateRuntimeService } from './runtime-services-panel/activate';
 import { MILanguageClient } from './lang-client/activator';
@@ -46,6 +45,16 @@ import { disposeMIAgentPanelRpcManager } from './rpc-managers/agent-mode/rpc-han
 import { isConsolidatedProject } from './util/onboardingUtils';
 const os = require('os');
 const fs = require('fs');
+
+function startEmbeddingServiceInBackground(projectPath: string): void {
+	try {
+		getEmbeddingService(projectPath).start().catch(err => {
+			console.warn(`[EmbeddingService] Background start failed for ${projectPath}:`, err?.message || err);
+		});
+	} catch (err) {
+		console.warn(`[EmbeddingService] Background start failed for ${projectPath}:`, err);
+	}
+}
 
 export async function activate(context: vscode.ExtensionContext) {
 	extension.context = context;
@@ -86,10 +95,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		if (event.added.length > 0) {
 			for (const addedProject of event.added) {
 				getStateMachine(addedProject.uri.fsPath);
-				if (isSemanticToolEnabledForUri(addedProject.uri)) {
-					getEmbeddingService(addedProject.uri.fsPath).start().catch(err => {
-						console.warn(`[EmbeddingService] Background start failed for ${addedProject.uri.fsPath}:`, err?.message);
-					});
+				if (isSemanticToolEnabled()) {
+					startEmbeddingServiceInBackground(addedProject.uri.fsPath);
 				}
 			}
 		}
@@ -111,24 +118,15 @@ export async function activate(context: vscode.ExtensionContext) {
 	});
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand(RETRY_SEMANTIC_MODEL_DOWNLOAD_COMMAND, async (projectPath?: string) => {
-			const targetProjectPath = projectPath || workspace.workspaceFolders?.[0]?.uri.fsPath;
-			if (!targetProjectPath) {
-				return;
-			}
-			await getEmbeddingService(targetProjectPath).promptForModelDownloadRetry();
-		}),
 		workspace.onDidChangeConfiguration((event) => {
 			for (const folder of (workspace.workspaceFolders ?? [])) {
-				const semanticToggleChanged = event.affectsConfiguration('MI.IS_SEMANTIC_TOOL_ENABLED');
+				const semanticToggleChanged = event.affectsConfiguration('MI.enableSemanticSearchTool');
 				if (!semanticToggleChanged) {
 					continue;
 				}
 
-				if (isSemanticToolEnabledForUri(folder.uri)) {
-					getEmbeddingService(folder.uri.fsPath).start().catch(err => {
-						console.warn(`[EmbeddingService] Background start failed for ${folder.uri.fsPath}:`, err?.message);
-					});
+				if (isSemanticToolEnabled()) {
+					startEmbeddingServiceInBackground(folder.uri.fsPath);
 				} else {
 					disposeEmbeddingService(folder.uri.fsPath).catch(err => {
 						console.warn(`[EmbeddingService] Dispose failed for ${folder.uri.fsPath}:`, err?.message);
@@ -150,15 +148,13 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Start embedding services eagerly for all workspace folders so the
 	// semantic search index is warm by the time the user opens MI Copilot.
-	// Each service is a singleton — safe to call from here and again from
-	// the OPEN_AI_PANEL command handler or executeAgent().
+	// Startup runs in the background; failures are logged and Copilot
+	// continues with semantic search unavailable.
 	for (const folder of (workspace.workspaceFolders ?? [])) {
-		if (!isSemanticToolEnabledForUri(folder.uri)) {
+		if (!isSemanticToolEnabled()) {
 			continue;
 		}
-		getEmbeddingService(folder.uri.fsPath).start().catch(err => {
-			console.warn(`[EmbeddingService] Background start failed for ${folder.uri.fsPath}:`, err?.message);
-		});
+		startEmbeddingServiceInBackground(folder.uri.fsPath);
 	}
 
 	workspace.workspaceFolders?.forEach(folder => {
