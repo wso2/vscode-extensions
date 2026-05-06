@@ -151,7 +151,7 @@ export function MCPServerWizard({ path }: MCPServerWizardProps) {
     const { rpcClient } = useVisualizerContext();
     const corsSettings = loadCorsSettingsFromStorage();
     
-    const { register, handleSubmit, setError: setFieldError, formState: { errors }, watch } = useForm({
+    const { register, handleSubmit, formState: { errors }, watch, trigger, setError } = useForm({
         resolver: yupResolver(schema),
         defaultValues: {
             serverName: '',
@@ -164,9 +164,11 @@ export function MCPServerWizard({ path }: MCPServerWizardProps) {
         },
     });
     const [submitting, setSubmitting] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [error, setSubmissionError] = useState<string | null>(null);
     const [usedPorts, setUsedPorts] = useState<Set<number>>(new Set());
     const [showAdvanced, setShowAdvanced] = useState(false);
+    const [portDiscoveryLoading, setPortDiscoveryLoading] = useState(true);
+    const [portDiscoveryError, setPortDiscoveryError] = useState<string | null>(null);
 
     // Watch CORS fields and save to localStorage when they change
     const corsAllowOrigin = watch('corsAllowOrigin');
@@ -187,26 +189,52 @@ export function MCPServerWizard({ path }: MCPServerWizardProps) {
 
     useEffect(() => {
         const loadUsedPorts = async () => {
+            setPortDiscoveryLoading(true);
+            setPortDiscoveryError(null);
             try {
                 const projectRootResp = await rpcClient.getMiDiagramRpcClient().getProjectRoot({ path });
                 const projectDir = projectRootResp.path;
                 const projectStructure = await rpcClient.getMiVisualizerRpcClient().getProjectStructure({
                     documentUri: projectDir,
                 });
+                const artifacts = projectStructure?.directoryMap?.src?.main?.wso2mi?.artifacts;
                 const inboundEndpoints: Array<{ path: string }> =
-                    projectStructure?.directoryMap?.src?.main?.wso2mi?.artifacts?.inboundEndpoints || [];
+                    artifacts?.inboundEndpoints || [];
+                const mcpServers: Array<{ inboundEndpoint?: { path: string } }> =
+                    (artifacts as any)?.mcpServers || [];
+
+                // Collect all inbound endpoint paths from both regular endpoints and MCP servers
+                const allEndpointPaths = [
+                    ...inboundEndpoints.map(ep => ep.path),
+                    ...mcpServers.filter(mcp => mcp.inboundEndpoint?.path).map(mcp => mcp.inboundEndpoint!.path)
+                ];
+
+                console.log('[MCPServerForm] Found inbound endpoints:', inboundEndpoints.length);
+                console.log('[MCPServerForm] Found MCP servers:', mcpServers.length);
+                console.log('[MCPServerForm] All endpoint paths to check:', allEndpointPaths);
+
                 const ports = await getUsedInboundPorts(
-                    inboundEndpoints.map(ep => ep.path),
+                    allEndpointPaths,
                     async (filePath) => {
                         const resp = await rpcClient.getMiDiagramRpcClient().readFileContent({ filePath });
                         return resp.fileContent ?? null;
                     }
                 );
+                console.log('[MCPServerForm] Discovered used ports:', Array.from(ports));
                 setUsedPorts(ports);
-            } catch {}
+                setPortDiscoveryLoading(false);
+            } catch (err) {
+                console.error('[MCPServerForm] Port discovery error:', err);
+                setPortDiscoveryError(`Failed to check existing ports: ${err instanceof Error ? err.message : String(err)}`);
+                setPortDiscoveryLoading(false);
+            }
         };
         loadUsedPorts();
     }, [rpcClient, path]);
+
+    useEffect(() => {
+        trigger('port');
+    }, [usedPorts, trigger]);
 
     const handleClose = () => {
         rpcClient.getMiVisualizerRpcClient().openView({
@@ -216,12 +244,18 @@ export function MCPServerWizard({ path }: MCPServerWizardProps) {
     };
 
     const onSubmit = async (data: any) => {
+        console.log('[MCPServerForm] onSubmit called with data:', data);
+        console.log('[MCPServerForm] Current used ports:', Array.from(usedPorts));
+
+        // Check if port is already in use
         if (usedPorts.has(Number(data.port))) {
-            setFieldError('port', { message: `Port ${data.port} is already in use by another inbound endpoint in this project` });
+            console.log(`[MCPServerForm] Port ${data.port} is already in use!`);
+            setError('port', { message: `Port ${data.port} is already in use by another inbound endpoint in this project` });
             return;
         }
+
         setSubmitting(true);
-        setError(null);
+        setSubmissionError(null);
         try {
             const projectRootResp = await rpcClient.getMiDiagramRpcClient().getProjectRoot({ path });
             const projectDir = projectRootResp.path;
@@ -273,7 +307,7 @@ export function MCPServerWizard({ path }: MCPServerWizardProps) {
                 },
             });
         } catch (err) {
-            setError(`Failed to create MCP Server: ${err instanceof Error ? err.message : String(err)}`);
+            setSubmissionError(`Failed to create MCP Server: ${err instanceof Error ? err.message : String(err)}`);
         } finally {
             setSubmitting(false);
         }
@@ -336,13 +370,14 @@ export function MCPServerWizard({ path }: MCPServerWizardProps) {
                 )}
             </AdvancedSection>
             {error && <ErrorMessage>{error}</ErrorMessage>}
+            {portDiscoveryError && <ErrorMessage>{portDiscoveryError}</ErrorMessage>}
             <FormActions>
                 <Button
                     appearance="primary"
-                    disabled={submitting}
+                    disabled={submitting || portDiscoveryLoading || !!portDiscoveryError}
                     onClick={handleSubmit(onSubmit)}
                 >
-                    {submitting ? 'Creating...' : 'Create MCP Server'}
+                    {submitting ? 'Creating...' : portDiscoveryLoading ? 'Discovering ports...' : 'Create MCP Server'}
                 </Button>
                 <Button appearance="secondary" onClick={handleClose}>
                     Cancel
