@@ -669,13 +669,10 @@ export async function activateProjectExplorer(treeviewId: string, context: Exten
 
 							// Delete inbound endpoint file if it exists
 							if (inboundEndpointPath) {
-								try {
-									await vscode.workspace.fs.delete(Uri.file(inboundEndpointPath), { recursive: true, useTrash: true });
-								} catch (err) {
-									console.warn(`Could not delete inbound endpoint at ${inboundEndpointPath}:`, err);
-								}
+								await vscode.workspace.fs.delete(Uri.file(inboundEndpointPath), { recursive: true, useTrash: true });
 							}
 
+							file = localEntryPath;
 							window.showInformationMessage(`${item.label} has been deleted.`);
 						} catch (error) {
 							window.showErrorMessage(`Failed to delete ${item.label}: ${error}`);
