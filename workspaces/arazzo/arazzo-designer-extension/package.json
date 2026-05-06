@@ -19,7 +19,9 @@
     "onLanguage:yaml",
     "onLanguage:json",
     "onLanguage:arazzo-yaml",
-    "onLanguage:arazzo-json"
+    "onLanguage:arazzo-json",
+    "onLanguageModelTool:arazzo_start_server",
+    "onLanguageModelTool:arazzo_set_tls_validation"
   ],
   "icon": "./assets/logo.png",
   "main": "./dist/extension.js",
@@ -155,6 +157,53 @@
         "id": "arazzo-icon-theme",
         "label": "Arazzo File Icons",
         "path": "./icons/arazzo-icon-theme.json"
+      }
+    ],
+    "languageModelTools": [
+      {
+        "name": "arazzo_start_server",
+        "displayName": "Start Arazzo Server",
+        "toolReferenceName": "startArazzoServer",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(play)",
+        "userDescription": "Start the Arazzo server for an Arazzo file.",
+        "modelDescription": "Use this when the user asks to start or restart the Arazzo server for a specific Arazzo file. It starts the server using the extension's existing flow and writes .vscode/mcp.json so Copilot can call workflows via MCP. The current arazzo.disableTLSCertificationValidation workspace setting is applied automatically.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "Absolute path to the .arazzo.yaml, .arazzo.yml, or .arazzo.json file to serve."
+            },
+            "fileUri": {
+              "type": "string",
+              "description": "File URI for the Arazzo file. Use only when filePath is unavailable."
+            }
+          }
+        }
+      },
+      {
+        "name": "arazzo_set_tls_validation",
+        "displayName": "Set Arazzo TLS Validation",
+        "toolReferenceName": "setArazzoTlsValidation",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(shield)",
+        "userDescription": "Enable or disable TLS certificate validation for outbound Arazzo runner API calls.",
+        "modelDescription": "Use this when the user asks to disable TLS, enable TLS, skip certificate validation, or fix self-signed certificate errors for Arazzo workflow API calls. This updates the workspace setting arazzo.disableTLSCertificationValidation and restarts the running Arazzo server by default unless restartServer is false.",
+        "inputSchema": {
+          "type": "object",
+          "required": ["disable"],
+          "properties": {
+            "disable": {
+              "type": "boolean",
+              "description": "true to disable TLS certificate validation; false to enable it."
+            },
+            "restartServer": {
+              "type": "boolean",
+              "description": "Whether to restart the running Arazzo server after changing the setting. Defaults to true."
+            }
+          }
+        }
       }
     ],
     "configuration": {

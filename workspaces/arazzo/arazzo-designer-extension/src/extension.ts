@@ -32,6 +32,7 @@ import { VisualizerWebview } from './visualizer/webview';
 import { EVENT_TYPE, MACHINE_VIEW, openInputConfigPanel } from '@wso2/arazzo-designer-core';
 import { startMCPServer, disposeMCPServer, isMCPServerRunning, onMCPServerStateChange, getMCPActiveFilePath, initializeMCPServerRunner, getMCPServerPort } from './mcp/mcpServerRunner';
 import { RunWorkflowCodeLensProvider } from './mcp/runWorkflowCodeLens';
+import { registerArazzoCopilotTools } from './copilotTools';
 
 let languageClient: LanguageClient | undefined;
 
@@ -143,12 +144,20 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Watch for arazzo.disableTLSCertificationValidation changes.
 	// Guard flag prevents the revert config.update() from re-triggering this handler.
 	let revertingTlsSetting = false;
+	// Set to true by the Copilot TLS tool so the modal below is skipped when
+	// the tool is the one changing the setting (it handles the restart itself).
+	let suppressNextTlsSettingPrompt = false;
+	registerArazzoCopilotTools(context, () => { suppressNextTlsSettingPrompt = true; });
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration(async event => {
 			if (!event.affectsConfiguration('arazzo.disableTLSCertificationValidation')) {
 				return;
 			}
 			if (revertingTlsSetting) {
+				return;
+			}
+			if (suppressNextTlsSettingPrompt) {
+				suppressNextTlsSettingPrompt = false;
 				return;
 			}
 
