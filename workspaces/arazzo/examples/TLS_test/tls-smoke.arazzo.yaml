@@ -1,0 +1,38 @@
+arazzo: 1.0.0
+info:
+  title: TLS Disable Smoke Test
+  version: 1.0.0
+
+sourceDescriptions:
+  - name: tlsSmokeApi
+    url: ./tls-smoke-openapi.yaml
+    type: openapi
+
+workflows:
+  - workflowId: tls_smoke_flow
+    summary: Two-step workflow against a self-signed HTTPS API
+
+    steps:
+      - stepId: createSession
+        operationId: createSession
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          sessionId: "$response.body#/sessionId"
+
+      - stepId: confirmSession
+        operationId: confirmSession
+        parameters:
+          - name: sessionId
+            in: path
+            value: "$steps.createSession.outputs.sessionId"
+        successCriteria:
+          - condition: "$statusCode == 200"
+        outputs:
+          confirmed: "$response.body#/confirmed"
+          message: "$response.body#/message"
+
+    outputs:
+      sessionId: "$steps.createSession.outputs.sessionId"
+      confirmed: "$steps.confirmSession.outputs.confirmed"
+      message: "$steps.confirmSession.outputs.message"

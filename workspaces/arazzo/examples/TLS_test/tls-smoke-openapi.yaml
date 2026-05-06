@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: TLS Smoke API
+  version: 1.0.0
+
+servers:
+  - url: https://localhost:9443
+
+paths:
+  /session:
+    get:
+      operationId: createSession
+      responses:
+        "200":
+          description: Session created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessionId:
+                    type: string
+                  status:
+                    type: string
+
+  /session/{sessionId}/confirm:
+    get:
+      operationId: confirmSession
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Session confirmed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  confirmed:
+                    type: boolean
+                  message:
+                    type: string
