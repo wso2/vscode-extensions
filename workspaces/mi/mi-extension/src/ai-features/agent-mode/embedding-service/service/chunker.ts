@@ -19,6 +19,7 @@
 import * as fs from 'fs';
 import { XMLParser } from 'fast-xml-parser';
 import { createHash } from 'crypto';
+import { Embedder } from './embedder';
 
 interface LineRange {
   start: number;
@@ -59,9 +60,9 @@ export class XMLChunker {
   private chunkCounter = 0;
   private lastSearchPosition: number = 0;
   private readonly maxTokens: number;
-  private embedder: any;
+  private embedder: Embedder;
 
-  constructor(embedder?: any, maxTokens?: number) {
+  constructor(embedder: Embedder, maxTokens?: number) {
     this.embedder = embedder;
     this.maxTokens = maxTokens ?? 256;
   }
@@ -287,11 +288,7 @@ export class XMLChunker {
   }
 
   private countTokens(text: string): number {
-    if (this.embedder && this.embedder.countTokens) {
-      return this.embedder.countTokens(text);
-    }
-    // Fallback to character approximation (~4 chars per token)
-    return Math.ceil(text.length / 4);
+    return this.embedder.countTokens(text);
   }
 
   private formatMetadata(context: SemanticContext): string {

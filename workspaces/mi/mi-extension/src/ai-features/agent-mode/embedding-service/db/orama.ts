@@ -188,15 +188,21 @@ export class OramaDB {
   }
 
   async getLatestFileHashesAsync(): Promise<Map<string, string>> {
-    const results = await search(this.db, {
-      limit: 100000,
-    });
-    
+    // Page through all chunks so large integrations aren't silently truncated.
+    const PAGE_SIZE = 100000;
+    const total = count(this.db);
     const map = new Map<string, string>();
-    for (const hit of results.hits) {
-      const doc = hit.document as any;
-      if (!map.has(doc.filePath)) {
-        map.set(doc.filePath, doc.fileHash);
+
+    for (let offset = 0; offset < total; offset += PAGE_SIZE) {
+      const results = await search(this.db, {
+        limit: PAGE_SIZE,
+        offset,
+      });
+      for (const hit of results.hits) {
+        const doc = hit.document as any;
+        if (!map.has(doc.filePath)) {
+          map.set(doc.filePath, doc.fileHash);
+        }
       }
     }
     return map;

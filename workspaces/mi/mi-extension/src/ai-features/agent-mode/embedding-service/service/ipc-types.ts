@@ -41,6 +41,7 @@ export type IpcErrorCode =
 	| 'MODEL_NOT_READY'
 	| 'DB_ERROR'
 	| 'INDEX_ERROR'
+	| 'INDEX_NOT_READY'
 	| 'WORKER_NOT_READY'
 	| 'INTERNAL';
 

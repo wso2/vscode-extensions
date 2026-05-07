@@ -73,19 +73,30 @@ const CONFIDENCE_DIRECTIVES: Record<SemanticSearchConfidence, string> = {
 
 /**
  * Read specific line range from a file (1-based, inclusive).
+ * Uses async I/O so we don't block the extension host event loop, and accepts a
+ * per-call cache so multiple chunks from the same file only trigger one read.
  * Returns the extracted lines as a string, or an empty string on error.
  */
-function readFileLines(filePath: string, startLine: number, endLine: number): string {
-    try {
-        const content = fs.readFileSync(filePath, 'utf8');
-        const lines = content.split('\n');
-        // Convert 1-based to 0-based index
-        const start = Math.max(0, startLine - 1);
-        const end = Math.min(lines.length - 1, endLine - 1);
-        return lines.slice(start, end + 1).join('\n');
-    } catch {
+async function readFileLines(
+    filePath: string,
+    startLine: number,
+    endLine: number,
+    cache: Map<string, Promise<string>>,
+): Promise<string> {
+    let contentPromise = cache.get(filePath);
+    if (!contentPromise) {
+        contentPromise = fs.promises.readFile(filePath, 'utf8').catch(() => '');
+        cache.set(filePath, contentPromise);
+    }
+    const content = await contentPromise;
+    if (!content) {
         return '';
     }
+    const lines = content.split('\n');
+    // Convert 1-based to 0-based index
+    const start = Math.max(0, startLine - 1);
+    const end = Math.min(lines.length - 1, endLine - 1);
+    return lines.slice(start, end + 1).join('\n');
 }
 
 /**
@@ -197,21 +208,26 @@ export function createSemanticSearchExecute(projectPath: string): SemanticSearch
 
             const searchedChunkCount = workerSearch.totalChunksScanned;
             const latencyMs = workerSearch.latencyMs || (Date.now() - startTime);
-            const results: SemanticSearchResult[] = workerSearch.hits.map((hit) => {
-                const pseudoChunk: ChunkLike = {
-                    chunkType: hit.chunkType,
-                    context: hit.context,
-                };
+            // Per-call cache: hits often share a file (different chunks of the same artifact),
+            // so we read each file at most once per search.
+            const fileContentCache = new Map<string, Promise<string>>();
+            const results: SemanticSearchResult[] = await Promise.all(
+                workerSearch.hits.map(async (hit) => {
+                    const pseudoChunk: ChunkLike = {
+                        chunkType: hit.chunkType,
+                        context: hit.context,
+                    };
 
-                return {
-                    file_path:             hit.filePath,
-                    line_range:            [hit.startLine, hit.endLine] as [number, number],
-                    xml_element_hierarchy: buildXmlHierarchy(pseudoChunk),
-                    score:                 Math.round(hit.score * 10000) / 10000,
-                    chunk_id:              `${hit.id}`,
-                    content:               readFileLines(hit.filePath, hit.startLine, hit.endLine),
-                } satisfies SemanticSearchResult;
-            });
+                    return {
+                        file_path:             hit.filePath,
+                        line_range:            [hit.startLine, hit.endLine] as [number, number],
+                        xml_element_hierarchy: buildXmlHierarchy(pseudoChunk),
+                        score:                 Math.round(hit.score * 10000) / 10000,
+                        chunk_id:              `${hit.id}`,
+                        content:               await readFileLines(hit.filePath, hit.startLine, hit.endLine, fileContentCache),
+                    } satisfies SemanticSearchResult;
+                })
+            );
 
             const topScore = results.length > 0 ? Math.max(...results.map(r => r.score)) : 0;
             const confidence = computeConfidence(topScore);

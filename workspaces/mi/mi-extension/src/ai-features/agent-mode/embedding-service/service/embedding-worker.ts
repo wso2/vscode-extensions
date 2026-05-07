@@ -64,10 +64,37 @@ let shuttingDown = false;
 
 // Indexing job queue — ensures only one indexing operation runs at a time
 let indexingJob: Promise<void> = Promise.resolve();
+// Incremental indexing requests are coalesced while a flush is queued/running,
+// so bursts of file notifications merge into one bounded worker job.
+let incrementalFlushPromise: Promise<void> | null = null;
+const pendingIncrementalDirs = new Set<string>();
 
 function enqueueIndexing(job: () => Promise<void>): Promise<void> {
-    indexingJob = indexingJob.then(job, job);
-    return indexingJob;
+    const run = indexingJob.then(job, job);
+    indexingJob = run.catch(() => undefined);
+    return run;
+}
+
+function enqueueIncrementalIndexing(dirs: string[]): Promise<void> {
+    for (const dir of dirs) {
+        pendingIncrementalDirs.add(dir);
+    }
+
+    if (!incrementalFlushPromise) {
+        incrementalFlushPromise = enqueueIndexing(async () => {
+            try {
+                while (pendingIncrementalDirs.size > 0) {
+                    const batch = Array.from(pendingIncrementalDirs);
+                    pendingIncrementalDirs.clear();
+                    await runIncrementalIndexing(batch);
+                }
+            } finally {
+                incrementalFlushPromise = null;
+            }
+        });
+    }
+
+    return incrementalFlushPromise;
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -339,12 +366,14 @@ async function handleInit(req: IpcRequestMessage): Promise<IpcResponseMessage> {
                     state.reason = 'Worker ready';
                     emitStatusChanged();
 
-                    // Start polling for incremental updates now that initial indexing is complete.
+                    // After initial indexing completes, schedule each incremental poll only
+                    // after the previous indexing job finishes. This intentionally allows
+                    // interval drift so long indexing runs never overlap.
                     clearPolling();
                     const scheduleNextPoll = () => {
                         pollTimer = setTimeout(async () => {
                             try {
-                                await enqueueIndexing(() => runIncrementalIndexing(artifactDirs));
+                                await enqueueIncrementalIndexing(artifactDirs);
                                 emitStatusChanged();
                             } catch (error) {
                                 const msg = error instanceof Error ? error.message : String(error);
@@ -459,7 +488,7 @@ async function handleIndexIncremental(req: IpcRequestMessage): Promise<IpcRespon
         }
     }
 
-    await enqueueIndexing(() => runIncrementalIndexing(dirs));
+    await enqueueIncrementalIndexing(dirs);
     emitStatusChanged();
 
     return responseOk(req, {
@@ -483,7 +512,7 @@ async function handleNotifyFileChange(req: IpcRequestMessage): Promise<IpcRespon
     }
 
     const dir = path.dirname(req.payload.filePath);
-    await enqueueIndexing(() => runIncrementalIndexing([dir]));
+    await enqueueIncrementalIndexing([dir]);
     emitStatusChanged();
 
     return responseOk(req, {
@@ -503,6 +532,14 @@ async function handleSearchSemantic(req: IpcRequestMessage): Promise<IpcResponse
         return responseError(req, {
             code: 'MODEL_NOT_READY',
             message: 'Worker is not ready for semantic search',
+            retryable: true,
+        });
+    }
+
+    if (state.initializing) {
+        return responseError(req, {
+            code: 'INDEX_NOT_READY',
+            message: 'Semantic index is still being built',
             retryable: true,
         });
     }

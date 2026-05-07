@@ -66,6 +66,10 @@ const REQUIRED_MODEL_FILES: ModelFileMetadata[] = [
 
 const HF_BASE_URL = `https://huggingface.co/${MODEL_ID}/resolve/${MODEL_REVISION}`;
 const MAX_REDIRECTS = 5;
+// Idle timeout only: this waits for network inactivity, not total download time.
+// It only fires when no data has streamed for 30s continuously.
+// If it triggers, the user can retry, or cancel to disable semantic search
+// until the model is downloaded successfully.
 const DOWNLOAD_IDLE_TIMEOUT_MS = 30_000;
 
 // ─── Path Helpers ─────────────────────────────────────────────────────────────
@@ -222,6 +226,7 @@ function downloadFile(
                 activeFileStream.on('error', cleanup);
             });
 
+            // Idle-only timeout: fires when no data streams for 30s.
             req.setTimeout(DOWNLOAD_IDLE_TIMEOUT_MS, () => {
                 req.destroy(new Error(`Download stalled after ${DOWNLOAD_IDLE_TIMEOUT_MS}ms without data: ${reqUrl}`));
             });
