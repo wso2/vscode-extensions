@@ -106,7 +106,7 @@ export class VisualizerWebview {
     private static createWebview(viewColumn: ViewColumn): vscode.WebviewPanel {
         const panel = vscode.window.createWebviewPanel(
             VisualizerWebview.viewType,
-            "Arazzo Designer",
+            "Arazzo Visualizer",
             viewColumn,
             {
                 enableScripts: true,
