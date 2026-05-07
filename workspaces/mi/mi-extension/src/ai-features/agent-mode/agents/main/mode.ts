@@ -30,6 +30,14 @@ const ASK_MODE_POLICY = `
 - Provide fully updated code in code blocks (not just edits). The system provides "Add to project" which replaces entire files.
 - For complex changes, suggest the user switch to EDIT mode.`;
 
+/**
+ * Short summary of Plan-mode's highest-stakes rules — kept always-rendered
+ * even when the full policy is gated behind change detection. Mirrors the
+ * "Critical Rules" from `PLAN_MODE_SHARED_GUIDELINES` so the model can never
+ * lose sight of the turn-ending rule and the read-only constraint.
+ */
+const PLAN_MODE_BRIEF_NOTE = `Plan-mode rules (must hold every turn): read-only — mutation tools are blocked except for writing/editing the assigned plan file; every turn MUST end with ${ASK_USER_TOOL_NAME} or ${EXIT_PLAN_MODE_TOOL_NAME}.`;
+
 const EDIT_MODE_POLICY = `
 - Use ${TODO_WRITE_TOOL_NAME} to track progress when you have multiple sub-tasks.
 - For complex tasks, enter PLAN mode with ${ENTER_PLAN_MODE_TOOL_NAME} to plan before implementing.
@@ -84,4 +92,17 @@ export async function getModeReminder(params: ModeReminderParams): Promise<strin
     }
 
     return EDIT_MODE_POLICY;
+}
+
+/**
+ * Brief always-rendered mode reminder — currently Plan-only. Keeps the
+ * highest-stakes Plan rules visible every turn even when the full policy is
+ * gated behind change detection in agent.ts. Returns `null` for Ask/Edit
+ * (their full policies are short enough to always render in full).
+ */
+export function getModeBriefNote(mode: AgentMode | undefined): string | null {
+    if ((mode || 'edit') === 'plan') {
+        return PLAN_MODE_BRIEF_NOTE;
+    }
+    return null;
 }

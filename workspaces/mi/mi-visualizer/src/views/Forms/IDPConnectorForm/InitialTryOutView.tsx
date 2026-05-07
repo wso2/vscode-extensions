@@ -17,7 +17,7 @@
  */
 
 import styled from "@emotion/styled";
-import { Codicon,Button,Typography,AutoComplete} from "@wso2/ui-toolkit";
+import { Codicon, Button, Typography, AutoComplete, Icon } from "@wso2/ui-toolkit";
 
 const IconContainer = styled.div`
   height: 70px;
@@ -71,7 +71,7 @@ export function InitialTryOutView({
                     appearance="primary"
                     onClick={fillSchema}
                 >
-                    <Codicon name="wand" />
+                    <Icon name="bi-ai-chat" />
                     &nbsp; Tryout
                 </Button>
             </RowContainer>

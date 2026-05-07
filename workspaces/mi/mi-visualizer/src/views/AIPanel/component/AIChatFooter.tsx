@@ -30,7 +30,6 @@ import Attachments from "./Attachments";
 // Tool name constant
 const SHELL_TOOL_NAMES = new Set(['shell', 'bash']);
 const EXIT_PLAN_MODE_TOOL_NAME = 'exit_plan_mode';
-const WEB_ACCESS_PREFERENCE_KEY = 'mi-agent-web-access-enabled';
 
 function appendThinkingPlaceholder(content: string, thinkingId: string): string {
     return `${content}\n\n<thinking data-id="${thinkingId}" data-loading="true"></thinking>`;
@@ -70,7 +69,12 @@ function appendThinkingDelta(content: string, thinkingId: string, delta: string)
         content.includes(`<thinking data-id="${thinkingId}">`);
 
     if (!hasExistingBlock) {
-        return appendThinkingPlaceholder(content, thinkingId).replace("</thinking>", `${delta}</thinking>`);
+        // Build the new placeholder directly with the delta inside. The previous
+        // approach (appendThinkingPlaceholder + .replace("</thinking>", …))
+        // matched the FIRST </thinking> in content, so a delta arriving without
+        // its start (e.g. during panel reconnect / event replay) would inject
+        // into a prior finalized block instead of the new one.
+        return `${content}\n\n<thinking data-id="${thinkingId}" data-loading="true">${delta}</thinking>`;
     }
 
     return updateThinkingContent(content, thinkingId, (current) => current + delta);
@@ -163,10 +167,6 @@ function getApprovalFallbackContent(
             return 'Agent recommends entering Plan mode. Do you want to switch now?';
         case 'exit_plan_mode_without_plan':
             return 'Agent wants to exit Plan mode without a full plan. Do you want to continue?';
-        case 'web_search':
-            return 'Agent wants permission to run a web search.';
-        case 'web_fetch':
-            return 'Agent wants permission to fetch a web page.';
         case 'shell_command':
             return 'Agent wants permission to run a shell command.';
         case 'continue_after_limit':
@@ -180,9 +180,6 @@ function getApprovalTitle(approvalKind: PlanApprovalKind | undefined): string {
     switch (approvalKind) {
         case 'exit_plan_mode':
             return 'Plan Approval';
-        case 'web_search':
-        case 'web_fetch':
-            return 'Web Access Approval';
         case 'shell_command':
             return 'Shell Access Approval';
         case 'continue_after_limit':
@@ -393,13 +390,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
     // Mode switcher state
     // Mode switcher is now a pill group (no dropdown menu needed)
-    const [isWebAccessEnabled, setIsWebAccessEnabled] = useState<boolean>(() => {
-        try {
-            return localStorage.getItem(WEB_ACCESS_PREFERENCE_KEY) === 'true';
-        } catch {
-            return false;
-        }
-    });
 
     // Manual compact state
     const [isCompacting, setIsCompacting] = useState(false);
@@ -1270,7 +1260,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 files,
                 images,
                 thinking: isThinkingEnabled,
-                webAccessPreapproved: isWebAccessEnabled,
                 chatHistory: chatHistory,
                 modelSettings,
             });
@@ -1358,14 +1347,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         textAreaRef.current.setSelectionRange(pendingMentionCursorPosition, pendingMentionCursorPosition);
         setPendingMentionCursorPosition(null);
     }, [pendingMentionCursorPosition, currentUserPrompt]);
-
-    useEffect(() => {
-        try {
-            localStorage.setItem(WEB_ACCESS_PREFERENCE_KEY, String(isWebAccessEnabled));
-        } catch {
-            // Ignore localStorage errors in restricted environments
-        }
-    }, [isWebAccessEnabled]);
 
     // Set up agent event listener
     useEffect(() => {
@@ -2809,35 +2790,6 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                                 );
                             })}
                         </div>
-
-                        {/* Web search toggle */}
-                        <FooterTooltip
-                            align="start"
-                            content="Enable web search and fetch without approval prompts"
-                        >
-                            <button
-                                type="button"
-                                onClick={() => setIsWebAccessEnabled((prev) => !prev)}
-                                disabled={isUsageExceeded || backendRequestTriggered}
-                                aria-pressed={isWebAccessEnabled}
-                                className="flex items-center justify-center rounded-md transition-colors"
-                                style={{
-                                    width: "26px",
-                                    height: "26px",
-                                    border: "none",
-                                    cursor: (isUsageExceeded || backendRequestTriggered) ? "not-allowed" : "pointer",
-                                    backgroundColor: isWebAccessEnabled
-                                        ? "var(--vscode-button-background)"
-                                        : "transparent",
-                                    color: isWebAccessEnabled
-                                        ? "var(--vscode-button-foreground)"
-                                        : "var(--vscode-descriptionForeground)",
-                                    opacity: (isUsageExceeded || backendRequestTriggered) ? 0.5 : 1
-                                }}
-                            >
-                                <Codicon name="globe" />
-                            </button>
-                        </FooterTooltip>
 
                         {/* Context usage indicator — always visible */}
                         <FooterTooltip

@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { CREATE_DATA_MAPPER_TOOL_NAME } from "../tools/types";
+import { CREATE_DATA_MAPPER_TOOL_NAME, GENERATE_DATA_MAPPING_TOOL_NAME } from "../tools/types";
 import { SYNAPSE_EXPRESSION_GUIDE } from "./synapse_expression_guide"
 
 export const SYNAPSE_GUIDE = `
@@ -396,41 +396,13 @@ For the full property reference (70+ properties with exact names, scopes, and us
 **Important runtime requirement:** Data mapper artifacts and the \`<datamapper>\` mediator require MI runtime \`4.4.0\` or newer. If runtime is below \`4.4.0\`, do not use data mapper generation.
 
 Data mappers transform data between input and output schemas using TypeScript. They are used with the \`<datamapper>\` mediator in Synapse integrations.
-Always use ${CREATE_DATA_MAPPER_TOOL_NAME} tool to create a data mapper. Do not create data mappers manually.
 
-**Folder Structure:**
-Each data mapper creates a folder at \`src/main/wso2mi/resources/datamapper/{name}/\` containing:
-- \`{name}.ts\` - TypeScript mapping file with input/output interfaces and mapFunction
-- \`dm-utils.ts\` - Utility operators (arithmetic, string, type conversion functions)
+**Tool routing (always prefer tools over hand-writing):**
+- New mapper → use \`${CREATE_DATA_MAPPER_TOOL_NAME}\` (scaffolds folder, \`.ts\` file, and \`dm-utils.ts\`).
+- Generate / fill the \`mapFunction\` body → use \`${GENERATE_DATA_MAPPING_TOOL_NAME}\`.
+- Direct \`file_edit\` on the \`.ts\` file is only for targeted single-field tweaks, user-dictated formula changes, or fixing a TS2556 spread error.
 
-**TypeScript Mapping File Format:**
-\`\`\`typescript
-import * as dmUtils from "./dm-utils";
-declare var DM_PROPERTIES: any;
-
-/**
- * inputType:JSON
- * title:"InputSchemaName"
- */
-interface InputRoot {
-    // Input schema fields
-}
-
-/**
- * outputType:JSON
- * title:"OutputSchemaName"
- */
-interface OutputRoot {
-    // Output schema fields
-}
-
-export function mapFunction(input: InputRoot): OutputRoot {
-    return {
-        // Field mappings: outputField: input.inputField
-        // Can use dmUtils functions for transformations
-    };
-}
-\`\`\`
+**Before editing an existing \`.ts\` mapping file**, load \`data-mapper-reference\` via \`load_context_reference\` for the dmUtils API, the TS2556 dynamic-array spread rule (use \`arr.reduce(...)\`, never \`dmUtils.sum(...arr)\`), and the file format. Sections: \`overview\`, \`typescript_rules\`, \`dmutils_functions\`, \`dynamic_arrays\`, \`when_to_use_dmutils\`, \`array_handling\`, \`tool_usage\`.
 
 **Using Data Mapper in Synapse XML:**
 \`\`\`xml
@@ -441,12 +413,6 @@ export function mapFunction(input: InputRoot): OutputRoot {
     outputSchema="resources:/datamapper/{name}/{name}_outputSchema.json"
     outputType="JSON"/>
 \`\`\`
-
-**Available dm-utils Functions:**
-- Arithmetic: \`dmUtils.sum()\`, \`dmUtils.max()\`, \`dmUtils.min()\`, \`dmUtils.average()\`, \`dmUtils.ceiling()\`, \`dmUtils.floor()\`, \`dmUtils.round()\`
-- String: \`dmUtils.concat()\`, \`dmUtils.split()\`, \`dmUtils.toUppercase()\`, \`dmUtils.toLowercase()\`, \`dmUtils.trim()\`, \`dmUtils.substring()\`, \`dmUtils.stringLength()\`, \`dmUtils.startsWith()\`, \`dmUtils.endsWith()\`, \`dmUtils.replaceFirst()\`, \`dmUtils.match()\`
-- Type conversion: \`dmUtils.toNumber()\`, \`dmUtils.toBoolean()\`, \`dmUtils.numberToString()\`, \`dmUtils.booleanToString()\`
-- Property access: \`dmUtils.getPropertyValue(scope, name)\`
 
 ## Registry Resources
 When creating supportive resources that are needed for the Integration inside src/main/wso2mi/resources, an entry should be added to the src/main/wso2mi/resources/artifact.xml. If an artifact.xml doesn't exist, then create one and add the entry. The format should be as follows:

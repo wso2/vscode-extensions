@@ -118,8 +118,6 @@ export const COMMANDS = {
     MANAGE_REGISTRY_PROPERTIES_COMMAND: 'MI.manage-registry-property',
     CONFIGURE_DEFAULT_MODEL: 'MI.configureDefaultModelProvider',
 
-    BI_EXTENSION: 'WSO2.ballerina-integrator',
-    BI_OPEN_COMMAND: 'ballerina.open.bi.welcome',
     INSTALL_EXTENSION_COMMAND: 'workbench.extensions.installExtension',
     RELOAD_WINDOW: 'workbench.action.reloadWindow'
 };
@@ -136,6 +134,8 @@ export const MVN_COMMANDS = {
 }
 
 export const DEFAULT_PROJECT_VERSION = "1.0.0";
+
+export const BALLERINA_VERSION = "2201.13.3";
 
 export const READONLY_MAPPING_FUNCTION_NAME = "mapFunction";
 

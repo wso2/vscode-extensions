@@ -48,6 +48,13 @@ Children: one or more \`<resource>\` elements + optional \`<handlers>\`.
 | \`protocol\` | \`http\` \\| \`https\` |
 | \`inSequence\`, \`outSequence\`, \`faultSequence\` | Named-sequence references; OR use inline \`<inSequence>\`, \`<outSequence>\`, \`<faultSequence>\` child elements |
 
+### Critical Rule — every \`<resource>\` must declare \`uri-template\` or \`url-mapping\`
+A bare \`<resource methods="POST">\` is invalid; the validator rejects it. Every resource must include exactly one routing attribute (mutually exclusive):
+\`\`\`xml
+<resource methods="POST" uri-template="/"/>           <!-- catches the root path -->
+<resource methods="POST" url-mapping="/process"/>     <!-- legacy exact-match -->
+\`\`\`
+
 ### Working example
 \`\`\`xml
 <api xmlns="http://ws.apache.org/ns/synapse" name="OrdersAPI"

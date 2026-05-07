@@ -4,7 +4,7 @@
     "overrides": {
       "@tootallnate/once": "3.0.1",
       "@hono/node-server": "1.19.13",
-      "axios": "1.15.0",
+      "axios": "1.15.2",
       "braces": "3.0.3",
       "brace-expansion": "1.1.13",
       "diff": "8.0.3",
@@ -13,7 +13,7 @@
       "file-type": "21.3.2",
       "flatted": "3.4.2",
       "handlebars": "4.7.9",
-      "hono": "4.12.14",
+      "hono": "4.12.16",
       "http-proxy": "1.18.1",
       "js-yaml": "4.1.1",
       "lodash": "4.18.0",

@@ -38,8 +38,6 @@ export const DEFERRED_TOOL_DESCRIPTIONS: Record<string, string> = {
     create_subagent: 'Spawn Explore or SynapseContext subagent for deep exploration',
     kill_task: 'Terminate a background shell or subagent task',
     task_output: 'Get output from a background task',
-    web_search: 'Search the web for external information',
-    web_fetch: 'Fetch and analyze content from a specific URL',
     read_server_logs: 'Read and analyze MI server log files (errors, deployments, HTTP requests)',
 };
 

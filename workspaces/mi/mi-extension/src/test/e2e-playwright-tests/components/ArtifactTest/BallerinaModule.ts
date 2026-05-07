@@ -21,7 +21,7 @@ import { switchToIFrame } from "@wso2/playwright-vscode-tester";
 import { ProjectExplorer } from "../ProjectExplorer";
 import { AddArtifact } from "../AddArtifact";
 import { Overview } from "../Overview";
-import { clearNotificationAlerts, page, showNotifications } from "../../Utils";
+import { clearNotificationAlerts, page } from "../../Utils";
 import { ServiceDesigner } from "../ServiceDesigner";
 import { Form } from '../Form';
 import { Diagram } from '../Diagram';
@@ -93,37 +93,31 @@ export class BallerinaModule {
         const currentPage = this._page;
         await currentPage.getByLabel('Build Ballerina Module').click();
         console.log("Clicked on Build Ballerina Module button");
-        const successNotification = currentPage.getByText('Ballerina module build successful', { exact: true })
-        const errorNotification = currentPage.getByText('Ballerina not found. Please download Ballerina and try again.', { exact: true })
-        await Promise.race([
-            successNotification.waitFor({ state: 'visible', timeout: 40000 }),
-            errorNotification.waitFor({ state: 'visible', timeout: 40000 })
+
+        const successNotification = currentPage.getByText('Ballerina module build successful', { exact: true });
+        const downloadButton = currentPage.getByRole('button', { name: 'Download Now' });
+
+        const result = await Promise.race([
+            successNotification.waitFor({ state: 'visible', timeout: 40000 }).then(() => 'success'),
+            downloadButton.waitFor({ state: 'visible', timeout: 40000 }).then(() => 'download')
         ]);
 
-        if (await errorNotification.isVisible()) {
-            await showNotifications();
-            await currentPage.getByRole('button', { name: 'Install Now' }).click();
-            console.log("Clicked on Install Now button to install Ballerina");
-            await clearNotificationAlerts();
-            console.log("Waiting for Ballerina download to complete");
-            const webview = await switchToIFrame('WSO2 Integrator: BI', this._page, 120000);
-            console.log("Switching to WSO2 Integrator: BI iframe");
-            if (!webview) {
-                throw new Error("Failed to switch to the Ballerina Module Form iframe");
-            }
-            await webview.locator('vscode-button').locator('div:has-text("Set up Ballerina distribution")').click();
-            console.log("Downloading Ballerina");
-            const restartButton = webview.locator('vscode-button').locator('div:has-text("Restart VS Code")');
-            await expect(restartButton).toBeVisible({ timeout: 600000 });
-            console.log("Ballerina download completed");
-            await currentPage.getByRole('tab', { name: 'WSO2 Integrator: BI', exact: true }).getByLabel('Close').click();
+        if (result === 'download') {
+            await downloadButton.click();
+            console.log("Clicked Download Now to install Ballerina");
+            const installSuccessNotification = currentPage.getByText(
+                'Ballerina has been installed successfully. Please retrigger the build to continue.',
+                { exact: true }
+            );
+            await expect(installSuccessNotification).toBeVisible({ timeout: 600000 });
+            console.log("Ballerina installed successfully");
             await clearNotificationAlerts();
             await currentPage.getByLabel('Build Ballerina Module').click();
-            console.log("Clicked on Build Ballerina Module button after installing Ballerina");
-            const updatedNotification = currentPage.getByText('Ballerina module build successful', { exact: true });
-            await expect(updatedNotification).toBeVisible({ timeout: 120000 });
-            console.log("Ballerina module build successful");
+            console.log("Retriggering build after Ballerina installation");
+            await expect(successNotification).toBeVisible({ timeout: 120000 });
         }
+
+        console.log("Ballerina module build successful");
         await clearNotificationAlerts();
 
         await currentPage.getByRole('tab', { name: `${moduleName}-module.bal` }).getByLabel('Close').click();
@@ -167,7 +161,7 @@ export class BallerinaModule {
         const diagram = new Diagram(page.page, 'Resource');
         await diagram.init();
         await diagram.refreshBallerinaModule(moduleName);
-        const notificationAlert = await page.page.getByText('Ballerina module build successful', { exact: true })
+        const notificationAlert = page.page.getByText('Ballerina module build successful', { exact: true })
         await expect(notificationAlert).toBeVisible({ timeout: 40000 });
     }
 

@@ -279,7 +279,13 @@ import {
     Property,
     UpdateRegistryPropertyRequest,
     GenerateMappingsParamsRequest,
-    ProjectCreationStatusResponse
+    ProjectCreationStatusResponse,
+    GetConnectorDependenciesRequest,
+    GetConnectorDependenciesResponse,
+    UpdateConnectorDependencyOverrideRequest,
+    ResetConnectorDependencyOverridesRequest,
+    UpdateConnectorFlagsRequest,
+    UpdateGlobalConnectorFlagsRequest,
 } from "./types";
 import { RequestType, NotificationType } from "vscode-messenger-common";
 
@@ -474,3 +480,9 @@ export const downloadDriverForConnector: RequestType<DriverDownloadRequest, Driv
 export const getDriverMavenCoordinates: RequestType<DriverMavenCoordinatesRequest, DriverMavenCoordinatesResponse> = { method: `${_preFix}/getDriverMavenCoordinates` };
 export const canCreateConsolidatedProject: RequestType<void, ProjectCreationStatusResponse> = { method: `${_preFix}/canCreateConsolidatedProject` };
 export const createConsolidatedProjectFromWorkspace: RequestType<CreateProjectRequest, CreateProjectResponse> = { method: `${_preFix}/createConsolidatedProjectFromWorkspace` };
+
+export const getConnectorDependencies: RequestType<GetConnectorDependenciesRequest, GetConnectorDependenciesResponse> = { method: `${_preFix}/getConnectorDependencies` };
+export const updateConnectorDependencyOverride: RequestType<UpdateConnectorDependencyOverrideRequest, boolean> = { method: `${_preFix}/updateConnectorDependencyOverride` };
+export const resetConnectorDependencyOverrides: RequestType<ResetConnectorDependencyOverridesRequest, boolean> = { method: `${_preFix}/resetConnectorDependencyOverrides` };
+export const updateConnectorFlags: RequestType<UpdateConnectorFlagsRequest, boolean> = { method: `${_preFix}/updateConnectorFlags` };
+export const updateGlobalConnectorFlags: RequestType<UpdateGlobalConnectorFlagsRequest, boolean> = { method: `${_preFix}/updateGlobalConnectorFlags` };

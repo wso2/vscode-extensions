@@ -32,7 +32,7 @@ import { AIUserToken, AuthCredentials, LoginMethod, AwsBedrockSecrets } from '@w
 import { extension } from '../MIExtensionContext';
 import * as vscode from 'vscode';
 import { createAnthropic } from '@ai-sdk/anthropic';
-import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
+import { createBedrockAnthropic } from '@ai-sdk/amazon-bedrock/anthropic';
 import { generateText } from 'ai';
 import { WICommandIds, IWso2PlatformExtensionAPI } from '@wso2/wso2-platform-core';
 import { logInfo, logWarn, logError } from './copilot/logger';
@@ -46,6 +46,7 @@ export const DEFAULT_ANTHROPIC_MODEL = 'claude-haiku-4-5';
 
 // Credential storage key
 const AUTH_CREDENTIALS_SECRET_KEY = 'MIAuthCredentials';
+const EXPLICIT_LOGOUT_STATE_KEY = 'MIAuthExplicitLogout';
 
 // Legacy keys (for migration)
 const LEGACY_ACCESS_TOKEN_SECRET_KEY = 'MIAIUser';
@@ -290,12 +291,25 @@ export const isStsTokenUnavailableError = (error: unknown): boolean => {
 // Credential Storage (Core)
 // ==================================
 
+export const hasExplicitLogoutState = (): boolean => {
+    return extension.context.globalState.get<boolean>(EXPLICIT_LOGOUT_STATE_KEY, false);
+};
+
+const setExplicitLogoutState = async (): Promise<void> => {
+    await extension.context.globalState.update(EXPLICIT_LOGOUT_STATE_KEY, true);
+};
+
+const clearExplicitLogoutState = async (): Promise<void> => {
+    await extension.context.globalState.update(EXPLICIT_LOGOUT_STATE_KEY, undefined);
+};
+
 /**
  * Store authentication credentials in VSCode secrets.
  */
 export const storeAuthCredentials = async (credentials: AuthCredentials): Promise<void> => {
     const credentialsJson = JSON.stringify(credentials);
     await extension.context.secrets.store(AUTH_CREDENTIALS_SECRET_KEY, credentialsJson);
+    await clearExplicitLogoutState();
 };
 
 /**
@@ -355,9 +369,10 @@ export const getAccessToken = async (): Promise<string | undefined> => {
         }
         case LoginMethod.ANTHROPIC_KEY:
             return credentials.secrets.apiKey;
-        case LoginMethod.AWS_BEDROCK:
-            // AWS Bedrock credentials are passed directly to the SDK, not as a single token
-            return credentials.secrets.accessKeyId;
+        case LoginMethod.AWS_BEDROCK: {
+            const secrets = credentials.secrets as AwsBedrockSecrets;
+            return secrets.authType === 'api_key' ? secrets.apiKey : secrets.accessKeyId;
+        }
     }
 
     return undefined;
@@ -407,7 +422,7 @@ export const cleanupLegacyTokens = async (): Promise<void> => {
 
 /**
  * Check if valid authentication credentials exist.
- * If not found but user is already logged in to Devant, bootstrap credentials via STS exchange.
+ * If not found but user is already logged in to Devant, bootstrap credentials via STS exchange unless the user explicitly logged out.
  */
 export const checkToken = async (): Promise<{ token: string; loginMethod: LoginMethod } | undefined> => {
     await cleanupLegacyTokens();
@@ -431,6 +446,10 @@ export const checkToken = async (): Promise<{ token: string; loginMethod: LoginM
 
     if (token && loginMethod) {
         return { token, loginMethod };
+    }
+
+    if (hasExplicitLogoutState()) {
+        return undefined;
     }
 
     if (!isIntegratorExtensionAvailable()) {
@@ -553,83 +572,141 @@ export const validateApiKey = async (apiKey: string, loginMethod: LoginMethod): 
     }
 };
 
+interface AwsBedrockValidationInput {
+    authType?: 'iam' | 'api_key';
+    accessKeyId?: string;
+    secretAccessKey?: string;
+    region?: string;
+    sessionToken?: string;
+    apiKey?: string;
+    /** Optional Tavily key bundled with Bedrock credentials so users can opt into web tools. */
+    tavilyApiKey?: string;
+}
+
+const validateBedrockRegion = (region: string): void => {
+    if (!region) {
+        throw new Error('AWS region is required.');
+    }
+
+    if (!/^[a-z]{2}(?:-gov)?-[a-z]+-\d+$/.test(region)) {
+        throw new Error('Invalid AWS region. Please enter a region like us-east-1 or us-west-2.');
+    }
+
+    // The `global.` Bedrock inference profile (used by getBedrockValidationModelId
+    // / getBedrockRegionalPrefix in connection.ts) is only published in the
+    // commercial AWS partition. GovCloud (`us-gov-*`) and China (`cn-*`) regions
+    // would silently fail at runtime with "model not found", so reject up front.
+    if (region.startsWith('us-gov-') || region.startsWith('cn-')) {
+        throw new Error(
+            `AWS region "${region}" is not supported. The Anthropic models on Bedrock ` +
+            `(Haiku 4.5, Sonnet 4.6, Opus 4.7) are only available via the global. ` +
+            `inference profile in the commercial AWS partition — GovCloud and China ` +
+            `partitions are not supported. Use a commercial region like us-east-1 or eu-west-1.`
+        );
+    }
+};
+
+const getBedrockValidationModelId = async (region: string): Promise<string> => {
+    const { getBedrockValidationModelId: resolveValidationModelId } = await import('./connection');
+    return resolveValidationModelId(region);
+};
+
 /**
  * Validate AWS Bedrock credentials by making a minimal test API call.
  */
-export const validateAwsCredentials = async (credentials: {
-    accessKeyId: string;
-    secretAccessKey: string;
-    region: string;
-    sessionToken?: string;
-}): Promise<AIUserToken> => {
-    const { accessKeyId, secretAccessKey, region, sessionToken } = credentials;
+export const validateAwsCredentials = async (credentials: AwsBedrockValidationInput): Promise<AIUserToken> => {
+    const authType = credentials.authType === 'api_key' ? 'api_key' : 'iam';
+    const region = credentials.region?.trim() ?? '';
+    const tavilyApiKey = credentials.tavilyApiKey?.trim() || undefined;
 
-    if (!accessKeyId || !secretAccessKey || !region) {
-        throw new Error('AWS access key ID, secret access key, and region are required.');
-    }
-
-    if (!accessKeyId.startsWith('AKIA') && !accessKeyId.startsWith('ASIA')) {
-        throw new Error('Please enter a valid AWS access key ID.');
-    }
-
-    if (secretAccessKey.length < 20) {
-        throw new Error('Please enter a valid AWS secret access key.');
-    }
-
-    // List of valid AWS regions
-    const validRegions = [
-        'us-east-1', 'us-west-2', 'us-west-1', 'eu-west-1', 'eu-central-1',
-        'ap-southeast-1', 'ap-southeast-2', 'ap-northeast-1', 'ap-northeast-2',
-        'ap-south-1', 'ca-central-1', 'sa-east-1', 'eu-west-2', 'eu-west-3',
-        'eu-north-1', 'ap-east-1', 'me-south-1', 'af-south-1', 'ap-southeast-3'
-    ];
-
-    if (!validRegions.includes(region)) {
-        throw new Error('Invalid AWS region. Please select a valid region like us-east-1, us-west-2, etc.');
-    }
+    validateBedrockRegion(region);
 
     try {
-        logInfo('Validating AWS Bedrock credentials...');
+        logInfo(`Validating AWS Bedrock ${authType === 'api_key' ? 'API key' : 'IAM credentials'}...`);
 
-        const bedrock = createAmazonBedrock({
-            region: region,
-            accessKeyId: accessKeyId,
-            secretAccessKey: secretAccessKey,
-            sessionToken: sessionToken,
+        if (authType === 'api_key') {
+            const apiKey = credentials.apiKey?.trim() ?? '';
+            if (!apiKey) {
+                throw new Error('Amazon Bedrock API key is required.');
+            }
+
+            const bedrock = createBedrockAnthropic({
+                region,
+                apiKey,
+            });
+            const bedrockClient = bedrock(await getBedrockValidationModelId(region));
+
+            await generateText({
+                model: bedrockClient,
+                maxOutputTokens: 1,
+                messages: [{ role: 'user', content: 'Hi' }]
+            });
+
+            const authCredentials: AuthCredentials = {
+                loginMethod: LoginMethod.AWS_BEDROCK,
+                secrets: {
+                    authType: 'api_key',
+                    apiKey,
+                    region,
+                    tavilyApiKey,
+                }
+            };
+            await storeAuthCredentials(authCredentials);
+
+            logInfo('AWS Bedrock API key validated successfully');
+            return { token: apiKey };
+        }
+
+        const accessKeyId = credentials.accessKeyId?.trim() ?? '';
+        const secretAccessKey = credentials.secretAccessKey?.trim() ?? '';
+        const sessionToken = credentials.sessionToken?.trim() || undefined;
+
+        if (!accessKeyId || !secretAccessKey) {
+            throw new Error('AWS access key ID and secret access key are required.');
+        }
+
+        if (!accessKeyId.startsWith('AKIA') && !accessKeyId.startsWith('ASIA')) {
+            throw new Error('Please enter a valid AWS access key ID.');
+        }
+
+        if (secretAccessKey.length < 20) {
+            throw new Error('Please enter a valid AWS secret access key.');
+        }
+
+        const bedrock = createBedrockAnthropic({
+            region,
+            accessKeyId,
+            secretAccessKey,
+            sessionToken,
         });
+        const bedrockClient = bedrock(await getBedrockValidationModelId(region));
 
-        // Get regional prefix based on AWS region and construct model ID
-        const { getBedrockRegionalPrefix } = await import('./connection');
-        const regionalPrefix = getBedrockRegionalPrefix(region);
-        const modelId = `${regionalPrefix}.anthropic.claude-3-5-haiku-20241022-v1:0`;
-        const bedrockClient = bedrock(modelId);
-
-        // Make a minimal test call to validate credentials
         await generateText({
             model: bedrockClient,
             maxOutputTokens: 1,
             messages: [{ role: 'user', content: 'Hi' }]
         });
 
-        logInfo('AWS Bedrock credentials validated successfully');
-
-        // Store credentials
         const authCredentials: AuthCredentials = {
             loginMethod: LoginMethod.AWS_BEDROCK,
             secrets: {
+                authType: 'iam',
                 accessKeyId,
                 secretAccessKey,
                 region,
-                sessionToken
+                sessionToken,
+                tavilyApiKey,
             }
         };
         await storeAuthCredentials(authCredentials);
 
+        logInfo('AWS Bedrock IAM credentials validated successfully');
         return { token: accessKeyId };
 
     } catch (error) {
         logError('AWS Bedrock credential validation failed', error);
-        throw new Error('Validation failed. Please check your AWS credentials and ensure you have access to Amazon Bedrock.');
+        const detail = error instanceof Error ? error.message : String(error);
+        throw new Error(`Validation failed. Please check your AWS Bedrock authentication details and model access. (${detail})`);
     }
 };
 
@@ -645,11 +722,45 @@ export const getAwsBedrockCredentials = async (): Promise<AwsBedrockSecrets | un
 };
 
 /**
- * Logout and clear authentication credentials.
- * Devant session is managed by platform extension separately.
+ * Read the Tavily API key bundled with Bedrock credentials, if any.
+ * Returns undefined for non-Bedrock auth methods or when the key is unset.
  */
-export const logout = async (_isUserLogout: boolean = true): Promise<void> => {
+export const getTavilyApiKey = async (): Promise<string | undefined> => {
+    const secrets = await getAwsBedrockCredentials();
+    return secrets?.tavilyApiKey?.trim() || undefined;
+};
+
+/**
+ * Update the Tavily API key on the stored Bedrock credentials.
+ * Pass undefined or empty string to clear it.
+ *
+ * Throws if no Bedrock credentials are stored — Tavily is currently a Bedrock-only opt-in.
+ */
+export const setTavilyApiKey = async (apiKey: string | undefined): Promise<void> => {
+    const credentials = await getAuthCredentials();
+    if (!credentials || credentials.loginMethod !== LoginMethod.AWS_BEDROCK) {
+        throw new Error('Tavily API key is only configurable when signed in via AWS Bedrock.');
+    }
+    const trimmed = apiKey?.trim() || undefined;
+    const updated: AuthCredentials = {
+        loginMethod: LoginMethod.AWS_BEDROCK,
+        secrets: {
+            ...credentials.secrets,
+            tavilyApiKey: trimmed,
+        } as AwsBedrockSecrets,
+    };
+    await storeAuthCredentials(updated);
+};
+
+/**
+ * Logout and clear only MI Copilot authentication credentials.
+ * The WSO2 platform session is owned by the platform extension and is intentionally left untouched.
+ */
+export const logout = async (isUserLogout: boolean = true): Promise<void> => {
     await clearAuthCredentials();
+    if (isUserLogout) {
+        await setExplicitLogoutState();
+    }
 };
 
 // ==================================

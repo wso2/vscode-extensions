@@ -37,6 +37,12 @@ export const generateCode: RequestType<GenerateCodeRequest, GenerateCodeResponse
 export const abortCodeGeneration: RequestType<void, AbortCodeGenerationResponse> = { method: `${_prefix}/abortCodeGeneration` };
 export const hasAnthropicApiKey: RequestType<void, boolean | undefined> = { method: `${_prefix}/hasAnthropicApiKey` };
 export const isMiCopilotLoggedIn: RequestType<void, boolean> = { method: `${_prefix}/isMiCopilotLoggedIn` };
+
+// Bedrock-only Tavily key management for web search/fetch tools.
+// `getTavilyApiKey` returns the configured key (or undefined). `setTavilyApiKey`
+// stores or clears it (pass an empty string to clear). Both reject for non-Bedrock auth.
+export const getTavilyApiKey: RequestType<void, string | undefined> = { method: `${_prefix}/getTavilyApiKey` };
+export const setTavilyApiKey: RequestType<{ apiKey: string }, { success: boolean; error?: string }> = { method: `${_prefix}/setTavilyApiKey` };
 export const fetchUsage: RequestType<void, {
     remainingUsagePercentage?: number;
     resetsIn?: number;

@@ -18,8 +18,7 @@
 
 import styled from "@emotion/styled";
 import { RpcClient } from "@wso2/mi-rpc-client";
-import { Typography, Button, AutoComplete } from "@wso2/ui-toolkit";
-import { Codicon } from "@wso2/ui-toolkit";
+import { Typography, Button, AutoComplete, Codicon, Icon } from "@wso2/ui-toolkit";
 
 const HeaderContainer = styled.div`
     height: 35px;
@@ -100,7 +99,7 @@ export function IdpHeaderTryout({
                             onClick={fillSchema}
                             disabled={isLoading}
                         >
-                            <Codicon name="wand" />
+                            <Icon name="bi-ai-chat" />
                             &nbsp; Tryout
                         </Button>
                     </>

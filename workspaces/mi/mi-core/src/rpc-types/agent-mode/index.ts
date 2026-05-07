@@ -44,6 +44,7 @@ export type {
     PlanApprovalResponse,
     // Session management types
     SessionMetadata,
+    SessionContextBlocksState,
     SessionSummary,
     GroupedSessions,
     ListSessionsRequest,

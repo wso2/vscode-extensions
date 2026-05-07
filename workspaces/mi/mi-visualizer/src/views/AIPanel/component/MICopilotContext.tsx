@@ -236,13 +236,16 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
         return { ...DEFAULT_MODEL_SETTINGS };
     });
 
-    // Thinking mode state (persisted in localStorage per agent mode)
+    // Thinking mode state (persisted in localStorage per agent mode).
+    // Default ON: adaptive thinking + low effort + Opus 4.7 omitted-mode
+    // means it self-regulates and helps on multi-step reasoning. Users who
+    // explicitly turned it OFF keep their preference.
     const THINKING_KEY_PREFIX = 'mi-agent-thinking-enabled';
     const [isThinkingEnabled, setIsThinkingEnabled] = useState<boolean>(() => {
         try {
             const stored = localStorage.getItem(`${THINKING_KEY_PREFIX}-${agentMode}`);
-            return stored === 'true';
-        } catch { return false; }
+            return stored === null ? true : stored === 'true';
+        } catch { return true; }
     });
 
     // One-shot cleanup: the memory tool was removed entirely. Clear any
@@ -501,8 +504,8 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
     useEffect(() => {
         try {
             const stored = localStorage.getItem(`${THINKING_KEY_PREFIX}-${agentMode}`);
-            setIsThinkingEnabled(stored === 'true');
-        } catch { setIsThinkingEnabled(false); }
+            setIsThinkingEnabled(stored === null ? true : stored === 'true');
+        } catch { setIsThinkingEnabled(true); }
     }, [agentMode]);
 
     // Persist thinking preference to localStorage

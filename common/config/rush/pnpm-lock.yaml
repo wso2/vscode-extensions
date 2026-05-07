@@ -71,8 +71,8 @@ importers:
         specifier: 0.5.14
         version: 0.5.14
       axios:
-        specifier: 1.15.0
-        version: 1.15.0
+        specifier: 1.15.2
+        version: 1.15.2
       copyfiles:
         specifier: 2.4.1
         version: 2.4.1
@@ -732,8 +732,8 @@ importers:
         specifier: 0.5.16
         version: 0.5.16
       axios:
-        specifier: 1.15.0
-        version: 1.15.0
+        specifier: 1.15.2
+        version: 1.15.2
       chai:
         specifier: 4.3.10
         version: 4.3.10
@@ -3056,8 +3056,8 @@ importers:
         specifier: workspace:*
         version: link:../../common-libs/playwright-vscode-tester
       axios:
-        specifier: 1.15.0
-        version: 1.15.0
+        specifier: 1.15.2
+        version: 1.15.2
       copy-webpack-plugin:
         specifier: 13.0.0
         version: 13.0.0(webpack@5.104.1)
@@ -4080,11 +4080,11 @@ importers:
   ../../workspaces/mi/mi-extension:
     dependencies:
       '@ai-sdk/amazon-bedrock':
-        specifier: 4.0.83
-        version: 4.0.83(zod@4.1.11)
+        specifier: 4.0.96
+        version: 4.0.96(zod@4.1.11)
       '@ai-sdk/anthropic':
-        specifier: 3.0.64
-        version: 3.0.64(zod@4.1.11)
+        specifier: 3.0.71
+        version: 3.0.71(zod@4.1.11)
       '@ai-sdk/mcp':
         specifier: 1.0.29
         version: 1.0.29(zod@4.1.11)
@@ -4109,6 +4109,9 @@ importers:
       '@opentelemetry/sdk-node':
         specifier: 0.210.0
         version: 0.210.0(@opentelemetry/api@1.9.1)
+      '@tavily/core':
+        specifier: 0.6.4
+        version: 0.6.4
       '@types/fs-extra':
         specifier: 11.0.4
         version: 11.0.4
@@ -4158,8 +4161,8 @@ importers:
         specifier: 6.0.140
         version: 6.0.140(zod@4.1.11)
       axios:
-        specifier: 1.15.0
-        version: 1.15.0
+        specifier: 1.15.2
+        version: 1.15.2
       copyfiles:
         specifier: 2.4.1
         version: 2.4.1
@@ -4791,8 +4794,8 @@ importers:
         specifier: workspace:*
         version: link:../../common-libs/playwright-vscode-tester
       axios:
-        specifier: 1.15.0
-        version: 1.15.0
+        specifier: 1.15.2
+        version: 1.15.2
       copy-webpack-plugin:
         specifier: 13.0.0
         version: 13.0.0(webpack@5.104.1)
@@ -4986,6 +4989,12 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
+  '@ai-sdk/amazon-bedrock@4.0.96':
+    resolution: {integrity: sha512-Mc4Ias2jRMD1jOB6xWtKNPdhECeuCZyIlbr9EAGfBnyBt++sS13ziZh9qv9TdyMCAZJ7xoQcpbchoRJcKwPdpA==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
   '@ai-sdk/anthropic@3.0.63':
     resolution: {integrity: sha512-SiLosFr0FfKfrNpAAj8mD/i3S5YBB/z5orb1DH3pN1yATuBNjjPMLnRE4P3Dn7Y5cQsro0uzw5g5117hkShWoQ==}
     engines: {node: '>=18'}
@@ -4994,6 +5003,12 @@ packages:
 
   '@ai-sdk/anthropic@3.0.64':
     resolution: {integrity: sha512-rwLi/Rsuj2pYniQXIrvClHvXDzgM4UQHHnvHTWEF14efnlKclG/1ghpNC+adsRujAbCTr6gRsSbDE2vEqriV7g==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/anthropic@3.0.71':
+    resolution: {integrity: sha512-bUWOzrzR0gJKJO/PLGMR4uH2dqEgqGhrsCV+sSpk4KtOEnUQlfjZI/F7BFlqSvVpFbjdgYRRLysAeEZpJ6S1lg==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -5046,6 +5061,12 @@ packages:
 
   '@ai-sdk/provider-utils@4.0.21':
     resolution: {integrity: sha512-MtFUYI1/8mgDvRmaBDjbLJPFFrMG777AvSgyIFQtZHIMzm88R/12vYBBpnk7pfiWLFE1DSZzY4WDYzGbKAcmiw==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/provider-utils@4.0.23':
+    resolution: {integrity: sha512-z8GlDaCmRSDlqkMF2f4/RFgWxdarvIbyuk+m6WXT1LYgsnGiXRJGTD2Z1+SDl3LqtFuRtGX1aghYvQLoHL/9pg==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -10680,6 +10701,9 @@ packages:
   '@tanstack/virtual-core@3.14.0':
     resolution: {integrity: sha512-JLANqGy/D6k4Ujmh8Tr25lGimuOXNiaVyXaCAZS0W+1390sADdGnyUdSWNIfd49gebtIxGMij4IktRVzrdr12Q==}
 
+  '@tavily/core@0.6.4':
+    resolution: {integrity: sha512-PppC0p2SwkoImLiYFT/uqDyWKPivpVsIM16HUf1Apmtbqg1YhI7Yg5Hq6eYSojC6COVCGXE4CotBnWqUmrai+A==}
+
   '@testing-library/dom@10.4.0':
     resolution: {integrity: sha512-pemlzrSESWbdAloYml3bAJMEfNh1Z7EduzqPKprCH5S341frlpYnUEW0H72dLxa6IsYr+mPno20GiSm+h9dEdQ==}
     engines: {node: '>=18'}
@@ -11910,6 +11934,7 @@ packages:
   '@xmldom/xmldom@0.8.10':
     resolution: {integrity: sha512-2WALfTl4xo2SkGCYRt6rDTFfk9R1czmBvUQy12gK2KuRKIpWEhcbbzy8EZXtz/jkRqHX8bFEc6FC1HjX4TUWYw==}
     engines: {node: '>=10.0.0'}
+    deprecated: this version has critical issues, please update to the latest version
 
   '@xtuc/ieee754@1.2.0':
     resolution: {integrity: sha512-DX8nKgqcGwsc0eJSqYt5lwP4DH5FlHnmuWWBRy7X0NcaGR0ZtuyeESgMwTYVEtxmsNGY+qit4QYT/MIYTOTPeA==}
@@ -12518,8 +12543,8 @@ packages:
     resolution: {integrity: sha512-zBQouZixDTbo3jMGqHKyePxYxr1e5W8UdTmBQ7sNtaA9M2bE32daxxPLS/jojhKOHxQ7LWwPjfiwf/fhaJWzlg==}
     engines: {node: '>=4'}
 
-  axios@1.15.0:
-    resolution: {integrity: sha512-wWyJDlAatxk30ZJer+GeCWS209sA42X+N5jU2jy6oHTp7ufw8uzUTVFBX9+wTfAlhiJXGS0Bq7X6efruWjuK9Q==}
+  axios@1.15.2:
+    resolution: {integrity: sha512-wLrXxPtcrPTsNlJmKjkPnNPK2Ihe0hn0wGSaTEiHRPxwjvJwT3hKmXF4dpqxmPO9SoNb2FsYXj/xEo0gHN+D5A==}
 
   axobject-query@4.1.0:
     resolution: {integrity: sha512-qIj0G9wZbMGNLjLmg1PT6v2mE9AH2zlnADJD/2tC6E00hgmhUOfEB6greHPAfLRSufHqROIUTkw6E+M3lH0PTQ==}
@@ -16461,8 +16486,8 @@ packages:
     resolution: {integrity: sha512-eSmmWE5bZTK2Nou4g0AI3zZ9rswp7GRKoKXS1BLUkvPviOqs4YTN1djQIqrXy9k5gEtdLPy86JjRwsNM9tnDcA==}
     engines: {node: '>=0.10.0'}
 
-  hono@4.12.14:
-    resolution: {integrity: sha512-am5zfg3yu6sqn5yjKBNqhnTX7Cv+m00ox+7jbaKkrLMRJ4rAdldd1xPd/JzbBWspqaQv6RSTrgFN95EsfhC+7w==}
+  hono@4.12.16:
+    resolution: {integrity: sha512-jN0ZewiNAWSe5khM3EyCmBb250+b40wWbwNILNfEvq84VREWwOIkuUsFONk/3i3nqkz7Oe1PcpM2mwQEK2L9Kg==}
     engines: {node: '>=16.9.0'}
 
   hookified@1.15.1:
@@ -16849,8 +16874,8 @@ packages:
     resolution: {integrity: sha512-xgs2NH9AE66ucSq4cNG1nhSFghr5l6tdL15Pk+jl46bmmBapgoaY/AacXyaDznAqmGL99TiLSQgO/XazFSKYeQ==}
     engines: {node: '>=0.10.0'}
 
-  ip-address@10.1.0:
-    resolution: {integrity: sha512-XXADHxXmvT9+CRxhXg56LJovE+bmWnEWB78LB83VZTprKTmaC5QfruXocxzTZ2Kl0DNwKuBdlIhjL8LeY8Sf8Q==}
+  ip-address@10.1.1:
+    resolution: {integrity: sha512-1FMu8/N15Ck1BL551Jf42NYIoin2unWjLQ2Fze/DXryJRl5twqtwNHlO39qERGbIOcKYWHdgRryhOC+NG4eaLw==}
     engines: {node: '>= 12'}
 
   ip-regex@2.1.0:
@@ -18114,6 +18139,9 @@ packages:
   js-string-escape@1.0.1:
     resolution: {integrity: sha512-Smw4xcfIQ5LVjAOuJCvN/zIodzA/BBSsluuoSykP+lUvScIi4U6RJLfwHet5cxFnCswUjISV8oAXaqaJDY3chg==}
     engines: {node: '>= 0.8'}
+
+  js-tiktoken@1.0.21:
+    resolution: {integrity: sha512-biOj/6M5qdgx5TKjDnFT1ymSpM5tbd3ylwDtrQvFQSu0Z7bBYko2dF+W/aUkXUPuk6IVpRxk/3Q2sHOzGlS36g==}
 
   js-tokens@3.0.2:
     resolution: {integrity: sha512-RjTcuD4xjtthQkaWH7dFlH85L+QaVtSoOyGdZ3g6HFhS9dFNDfLyqgm2NFe2X6cQpeFmt0452FJjFG5UameExg==}
@@ -25387,16 +25415,6 @@ snapshots:
 
   '@adobe/css-tools@4.4.4': {}
 
-  '@ai-sdk/amazon-bedrock@4.0.83(zod@4.1.11)':
-    dependencies:
-      '@ai-sdk/anthropic': 3.0.64(zod@4.1.11)
-      '@ai-sdk/provider': 3.0.8
-      '@ai-sdk/provider-utils': 4.0.21(zod@4.1.11)
-      '@smithy/eventstream-codec': 4.2.14
-      '@smithy/util-utf8': 4.2.2
-      aws4fetch: 1.0.20
-      zod: 4.1.11
-
   '@ai-sdk/amazon-bedrock@4.0.83(zod@4.1.8)':
     dependencies:
       '@ai-sdk/anthropic': 3.0.64(zod@4.1.8)
@@ -25407,23 +25425,33 @@ snapshots:
       aws4fetch: 1.0.20
       zod: 4.1.8
 
+  '@ai-sdk/amazon-bedrock@4.0.96(zod@4.1.11)':
+    dependencies:
+      '@ai-sdk/anthropic': 3.0.71(zod@4.1.11)
+      '@ai-sdk/provider': 3.0.8
+      '@ai-sdk/provider-utils': 4.0.23(zod@4.1.11)
+      '@smithy/eventstream-codec': 4.2.14
+      '@smithy/util-utf8': 4.2.2
+      aws4fetch: 1.0.20
+      zod: 4.1.11
+
   '@ai-sdk/anthropic@3.0.63(zod@4.1.8)':
     dependencies:
       '@ai-sdk/provider': 3.0.8
       '@ai-sdk/provider-utils': 4.0.21(zod@4.1.8)
       zod: 4.1.8
 
-  '@ai-sdk/anthropic@3.0.64(zod@4.1.11)':
-    dependencies:
-      '@ai-sdk/provider': 3.0.8
-      '@ai-sdk/provider-utils': 4.0.21(zod@4.1.11)
-      zod: 4.1.11
-
   '@ai-sdk/anthropic@3.0.64(zod@4.1.8)':
     dependencies:
       '@ai-sdk/provider': 3.0.8
       '@ai-sdk/provider-utils': 4.0.21(zod@4.1.8)
       zod: 4.1.8
+
+  '@ai-sdk/anthropic@3.0.71(zod@4.1.11)':
+    dependencies:
+      '@ai-sdk/provider': 3.0.8
+      '@ai-sdk/provider-utils': 4.0.23(zod@4.1.11)
+      zod: 4.1.11
 
   '@ai-sdk/devtools@0.0.6':
     dependencies:
@@ -25496,6 +25524,13 @@ snapshots:
       '@standard-schema/spec': 1.1.0
       eventsource-parser: 3.0.8
       zod: 4.1.8
+
+  '@ai-sdk/provider-utils@4.0.23(zod@4.1.11)':
+    dependencies:
+      '@ai-sdk/provider': 3.0.8
+      '@standard-schema/spec': 1.1.0
+      eventsource-parser: 3.0.8
+      zod: 4.1.11
 
   '@ai-sdk/provider@3.0.4':
     dependencies:
@@ -28954,9 +28989,9 @@ snapshots:
       react-dom: 18.2.0(react@18.2.0)
       use-sync-external-store: 1.6.0(react@18.2.0)
 
-  '@hono/node-server@1.19.13(hono@4.12.14)':
+  '@hono/node-server@1.19.13(hono@4.12.16)':
     dependencies:
-      hono: 4.12.14
+      hono: 4.12.16
 
   '@hookform/resolvers@2.8.0(react-hook-form@7.56.4(react@18.2.0))':
     dependencies:
@@ -30553,7 +30588,7 @@ snapshots:
 
   '@modelcontextprotocol/sdk@1.29.0':
     dependencies:
-      '@hono/node-server': 1.19.13(hono@4.12.14)
+      '@hono/node-server': 1.19.13(hono@4.12.16)
       ajv: 8.17.1
       ajv-formats: 3.0.1(ajv@8.17.1)
       content-type: 1.0.5
@@ -30563,8 +30598,8 @@ snapshots:
       eventsource-parser: 3.0.8
       express: 5.2.1
       express-rate-limit: 8.2.2(express@5.2.1)
-      hono: 4.12.14
-      jose: 6.2.2
+      hono: 4.12.16
+      jose: 6.2.3
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
       raw-body: 3.0.2
@@ -34675,7 +34710,7 @@ snapshots:
       ts-dedent: 2.2.0
       unfetch: 4.2.0
       util-deprecate: 1.0.2
-      webpack: 5.104.1(webpack-cli@4.10.0)
+      webpack: 5.104.1(webpack-cli@6.0.1)
     optionalDependencies:
       typescript: 5.8.3
 
@@ -36435,7 +36470,7 @@ snapshots:
       react-docgen-typescript: 2.4.0(typescript@5.8.3)
       tslib: 2.8.1
       typescript: 5.8.3
-      webpack: 5.104.1(webpack-cli@4.10.0)
+      webpack: 5.104.1(webpack-cli@6.0.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -37791,7 +37826,7 @@ snapshots:
       '@swagger-api/apidom-core': 1.10.2
       '@swagger-api/apidom-error': 1.10.2
       '@types/ramda': 0.30.2
-      axios: 1.15.0
+      axios: 1.15.2
       minimatch: 10.2.3
       ramda: 0.30.1
       ramda-adjunct: 5.1.0(ramda@0.30.1)
@@ -37914,6 +37949,15 @@ snapshots:
       react-dom: 19.1.0(react@19.1.0)
 
   '@tanstack/virtual-core@3.14.0': {}
+
+  '@tavily/core@0.6.4':
+    dependencies:
+      axios: 1.15.0
+      https-proxy-agent: 7.0.6
+      js-tiktoken: 1.0.21
+    transitivePeerDependencies:
+      - debug
+      - supports-color
 
   '@testing-library/dom@10.4.0':
     dependencies:
@@ -40152,7 +40196,7 @@ snapshots:
 
   axe-core@4.11.3: {}
 
-  axios@1.15.0:
+  axios@1.15.2:
     dependencies:
       follow-redirects: 1.16.0(debug@3.2.7)
       form-data: 4.0.5
@@ -44201,7 +44245,7 @@ snapshots:
   express-rate-limit@8.2.2(express@5.2.1):
     dependencies:
       express: 5.2.1
-      ip-address: 10.1.0
+      ip-address: 10.1.1
 
   express@4.22.1:
     dependencies:
@@ -45782,7 +45826,7 @@ snapshots:
     dependencies:
       parse-passwd: 1.0.0
 
-  hono@4.12.14: {}
+  hono@4.12.16: {}
 
   hookified@1.15.1: {}
 
@@ -46250,7 +46294,7 @@ snapshots:
 
   invert-kv@1.0.0: {}
 
-  ip-address@10.1.0: {}
+  ip-address@10.1.1: {}
 
   ip-regex@2.1.0: {}
 
@@ -47342,7 +47386,7 @@ snapshots:
 
   jest-diff@30.1.2:
     dependencies:
-      '@jest/diff-sequences': 30.0.1
+      '@jest/diff-sequences': 30.3.0
       '@jest/get-type': 30.1.0
       chalk: 4.1.2
       pretty-format: 30.0.5
@@ -47786,7 +47830,7 @@ snapshots:
   jest-message-util@30.2.0:
     dependencies:
       '@babel/code-frame': 7.29.0
-      '@jest/types': 30.2.0
+      '@jest/types': 30.3.0
       '@types/stack-utils': 2.0.3
       chalk: 4.1.2
       graceful-fs: 4.2.11
@@ -48389,18 +48433,9 @@ snapshots:
       graceful-fs: 4.2.11
       picomatch: 4.0.4
 
-  jest-util@30.2.0:
-    dependencies:
-      '@jest/types': 30.2.0
-      '@types/node': 20.19.17
-      chalk: 4.1.2
-      ci-info: 4.4.0
-      graceful-fs: 4.2.11
-      picomatch: 4.0.4
-
   jest-util@30.3.0:
     dependencies:
-      '@jest/types': 30.3.0
+      '@jest/types': 30.2.0
       '@types/node': 20.19.17
       chalk: 4.1.2
       ci-info: 4.4.0
@@ -48650,6 +48685,10 @@ snapshots:
   js-file-download@0.4.12: {}
 
   js-string-escape@1.0.1: {}
+
+  js-tiktoken@1.0.21:
+    dependencies:
+      base64-js: 1.5.1
 
   js-tokens@3.0.2: {}
 
@@ -54492,7 +54531,7 @@ snapshots:
 
   socks@2.8.7:
     dependencies:
-      ip-address: 10.1.0
+      ip-address: 10.1.1
       smart-buffer: 4.2.0
 
   sort-keys@1.1.2:

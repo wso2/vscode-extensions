@@ -331,7 +331,18 @@ common_patterns: `## Common Registry Resource Patterns
     <properties></properties>
   </item>
 </artifact>
-\`\`\``,
+\`\`\`
+
+### Common Mistake: Local Entries Are NOT Registry Resources
+\`\${registry("conf:/KEY")}\` and \`\${registry("gov:/...")}\` only resolve files registered as \`type="registry/resource"\` in artifact.xml. A \`<localEntry key="FOO">\` lives in the Synapse config (deployed via the .car) — it is **not** a registry resource, and \`\${registry(...)}\` will not see it.
+
+To read a local entry, use the legacy \`get-property('local-entry', ...)\` XPath inside a \`<property>\` mediator:
+\`\`\`xml
+<localEntry key="FOO"><![CDATA[some inline value]]></localEntry>
+
+<property name="myVar" expression="get-property('local-entry', 'FOO')" scope="default"/>
+\`\`\`
+Read the bound property in scripts/expressions as \`mc.getProperty('myVar')\` or \`\${props.synapse.myVar}\`. Do NOT use \`\${registry(...)}\` for local entries.`,
 
 secure_vault: `## Secure Vault — Secret Resolution
 
