@@ -101,6 +101,8 @@ export function parseToolsFromXML(xmlContent: string): UnifiedTool[] {
                 const resource = toolEl.querySelector('resource')?.textContent?.trim() || '';
                 const apiName = apiEl?.textContent?.trim() || '';
                 const existingSchema = toolEl.querySelector('inputSchema')?.textContent?.trim();
+                const apiRawVersion = toolEl.getAttribute('apiRawVersion') || '';
+                const apiXmlPath = toolEl.getAttribute('apiXmlPath') || '';
                 return {
                     kind: 'api' as const,
                     id: crypto.randomUUID(),
@@ -109,8 +111,8 @@ export function parseToolsFromXML(xmlContent: string): UnifiedTool[] {
                     apiId: apiName,
                     apiName,
                     apiVersion: '1.0.0',
-                    apiRawVersion: '',
-                    apiXmlPath: '',
+                    apiRawVersion,
+                    apiXmlPath,
                     operationId: `${method}_${resource}`.replace(/[^a-zA-Z0-9_]/g, '_'),
                     operationMethod: method,
                     operationPath: resource,
@@ -171,8 +173,10 @@ export function generateToolsXml(tools: UnifiedTool[], inputSchemas: Record<stri
                 ?? { type: 'object', properties: {} };
             const description = tool.description || tool.operationSummary
                 || `${tool.operationMethod} ${tool.operationPath} - ${tool.apiName}`;
+            const apiRawVersion = tool.apiRawVersion || '';
+            const apiXmlPath = tool.apiXmlPath || '';
             toolsXml += `
-            <tool name="${tool.name}">
+            <tool name="${tool.name}" apiRawVersion="${apiRawVersion}" apiXmlPath="${apiXmlPath}">
                 <api>${tool.apiName}</api>
                 <resource>${tool.operationPath}</resource>
                 <method>${tool.operationMethod}</method>
