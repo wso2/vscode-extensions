@@ -792,7 +792,7 @@ export function WorkflowView(props: WorkflowViewProps) {
         if (hasMissingRequiredInputs(inputFields, fieldValues)) {
             // Required inputs missing — open config panel first, then auto-run on Apply
             setPendingCurlAfterSave(true);
-            setIsConfigPanelOpen(true);
+            requestAnimationFrame(() => { setIsConfigPanelOpen(true); });
             return;
         }
         let coerced: Record<string, any> = {};
@@ -869,7 +869,7 @@ export function WorkflowView(props: WorkflowViewProps) {
 
     const handleOpenConfig = useCallback(() => {
         setPendingCurlAfterSave(false);
-        setIsConfigPanelOpen(true);
+        requestAnimationFrame(() => { setIsConfigPanelOpen(true); });
     }, []);
 
     const handleConfigApply = useCallback(() => {
@@ -925,7 +925,7 @@ export function WorkflowView(props: WorkflowViewProps) {
         rpcClient.onOpenInputConfigPanel((data: { workflowId: string }) => {
             if (data.workflowId !== effectiveWorkflowIdRef.current) { return; }
             setPendingCurlAfterSave(true);
-            setIsConfigPanelOpen(true);
+            requestAnimationFrame(() => { setIsConfigPanelOpen(true); });
         });
     }, [rpcClient]);
 
