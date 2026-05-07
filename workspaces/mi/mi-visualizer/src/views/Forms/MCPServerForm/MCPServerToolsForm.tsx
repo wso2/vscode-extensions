@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import styled from '@emotion/styled';
 import { TextField, Button } from '@wso2/ui-toolkit';
 import { useForm } from 'react-hook-form';
@@ -403,31 +403,43 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
     const [editToolDescription, setEditToolDescription] = useState('');
     const [editToolInputSchema, setEditToolInputSchema] = useState('');
 
+    // Serialize saves to prevent out-of-order writes
+    const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
+    const pendingToolsRef = useRef<UnifiedTool[] | null>(null);
+
     // Auto-save helpers (edit mode only)
 
-    const saveToolsToLocalEntry = async (currentTools: UnifiedTool[]) => {
+    const saveToolsToLocalEntry = (currentTools: UnifiedTool[]) => {
         if (!isEditMode || !editData?.localEntryPath) return;
-        try {
-            const projectRootResp = await rpcClient.getMiDiagramRpcClient().getProjectRoot({ path });
-            const projectDir = projectRootResp.path;
-            const localEntriesDir = pathModule.join(projectDir, 'src', 'main', 'wso2mi', 'artifacts', 'local-entries').toString();
-            const apiDefDir = pathModule.join(projectDir, 'src', 'main', 'wso2mi', 'resources', 'api-definitions').toString();
-            const apiTools = currentTools.filter((t): t is APITool => t.kind === 'api');
-            const inputSchemas = await buildInputSchemasForAPITools(apiTools, apiDefDir, async (filePath) => {
-                const resp = await rpcClient.getMiDiagramRpcClient().readFileContent({ filePath });
-                return resp.fileContent ?? null;
-            });
-            await rpcClient.getMiDiagramRpcClient().createLocalEntry({
-                directory: localEntriesDir,
-                name: `${editData.serverName}-mcp-config`,
-                type: 'In-Line XML Entry',
-                value: generateToolsXml(currentTools, inputSchemas),
-                URL: '',
-                getContentOnly: false,
-            });
-        } catch (err) {
-            console.error('Auto-save failed:', err);
-        }
+
+        pendingToolsRef.current = currentTools;
+        saveQueueRef.current = saveQueueRef.current.then(async () => {
+            const toolsToSave = pendingToolsRef.current;
+            if (!toolsToSave) return;
+
+            try {
+                const projectRootResp = await rpcClient.getMiDiagramRpcClient().getProjectRoot({ path });
+                const projectDir = projectRootResp.path;
+                const localEntriesDir = pathModule.join(projectDir, 'src', 'main', 'wso2mi', 'artifacts', 'local-entries').toString();
+                const apiDefDir = pathModule.join(projectDir, 'src', 'main', 'wso2mi', 'resources', 'api-definitions').toString();
+                const apiTools = toolsToSave.filter((t): t is APITool => t.kind === 'api');
+                const inputSchemas = await buildInputSchemasForAPITools(apiTools, apiDefDir, async (filePath) => {
+                    const resp = await rpcClient.getMiDiagramRpcClient().readFileContent({ filePath });
+                    return resp.fileContent ?? null;
+                });
+                await rpcClient.getMiDiagramRpcClient().createLocalEntry({
+                    directory: localEntriesDir,
+                    name: `${editData.serverName}-mcp-config`,
+                    type: 'In-Line XML Entry',
+                    value: generateToolsXml(toolsToSave, inputSchemas),
+                    URL: '',
+                    getContentOnly: false,
+                });
+                pendingToolsRef.current = null;
+            } catch (err) {
+                console.error('Auto-save failed:', err);
+            }
+        });
     };
 
     // Load project structure (APIs + sequences) and existing tools when editing
@@ -635,7 +647,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
             };
             const updatedTools = [...tools, newTool];
             setTools(updatedTools);
-            await saveToolsToLocalEntry(updatedTools);
+            saveToolsToLocalEntry(updatedTools);
             setShowCreateScratchDialog(false);
             setError(null);
 
