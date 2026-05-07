@@ -26,6 +26,7 @@ import {
     Checkpoint,
 } from '@wso2/ballerina-core/lib/state-machine-types';
 import { approvalManager } from '../../features/ai/state/ApprovalManager';
+import { cleanupTempProject } from '../../features/ai/utils/project/temp-project';
 import { generateId } from './idGenerators';
 import {
     CopilotPersistenceStore,
@@ -46,7 +47,7 @@ import {
  * `CLOUD_INITIAL_PROJECT_ID`, use it directly as the identity. Otherwise fall
  * back to the resolved path (local dev and any non-cloud environment).
  */
-function resolveWorkspaceIdentity(projectRootPath: string): string {
+export function resolveWorkspaceIdentity(projectRootPath: string): string {
     return process.env.CLOUD_INITIAL_PROJECT_ID ?? path.resolve(projectRootPath);
 }
 
@@ -427,7 +428,7 @@ export class ChatStateStorage {
 
                     // Cleanup temp directory
                     if (!process.env.AI_TEST_ENV) {
-                        const { cleanupTempProject } = require('../../features/ai/utils/project/temp-project');
+                        
                         try {
                             await cleanupTempProject(pendingReview.reviewState.tempProjectPath);
                         } catch (error) {
@@ -578,7 +579,7 @@ export class ChatStateStorage {
         // Cleanup temp project if needed
         const pendingReview = this.getPendingReviewGeneration(projectRootPath, threadId);
         if (pendingReview?.reviewState.tempProjectPath && !process.env.AI_TEST_ENV) {
-            const { cleanupTempProject } = require('../../features/ai/utils/project/temp-project');
+            
             try { await cleanupTempProject(pendingReview.reviewState.tempProjectPath); } catch { /* ignore */ }
         }
 
@@ -645,7 +646,8 @@ export class ChatStateStorage {
 
         // Auto-name thread from first user message
         if (thread.name === 'New Chat' && thread.generations.length === 0) {
-            thread.name = userPrompt.slice(0, 60).trim();
+            const trimmedName = userPrompt.slice(0, 60).trim();
+            if (trimmedName) { thread.name = trimmedName; }
         }
 
         thread.generations.push(generation);

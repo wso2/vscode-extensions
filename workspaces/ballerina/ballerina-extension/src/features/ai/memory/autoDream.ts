@@ -26,13 +26,16 @@ import {
     getLockPath,
     readLastConsolidatedAt,
     tryAcquireLock,
+    releaseLock,
     rollbackLock,
     countGenerationsSince,
     buildConsolidationPrompt,
+    invalidateMemoryPromptCache,
 } from '@wso2/copilot-utilities/auto-memory';
 import { computeWorkspaceHash } from '@wso2/copilot-utilities/chat-persistence';
-import { getAnthropicClient, ANTHROPIC_SONNET_4 } from '../utils/ai-client';
+import { getAnthropicClient, ANTHROPIC_HAIKU } from '../utils/ai-client';
 import { createMemoryTools } from './memoryTools';
+import { resolveWorkspaceIdentity } from '../../../views/ai-panel/chatStateStorage';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -40,7 +43,7 @@ import { createMemoryTools } from './memoryTools';
 
 const MIN_HOURS_BETWEEN_DREAMS   = 24;
 const MIN_GENERATIONS_SINCE_LAST = 10;
-const SCAN_THROTTLE_MS           = 10 * 60 * 1_000; // 10 minutes
+const SCAN_THROTTLE_MS           = 10 * 60 *1000; // 10 minutes
 
 /** ~/.ballerina/copilot/workspaces/ */
 const WORKSPACES_BASE_DIR = join(homedir(), '.ballerina', 'copilot', 'workspaces');
@@ -99,7 +102,7 @@ export function initAutoDream(): void {
 
     runner = (ctx: DreamContext): void => {
         if (!isDreamEnabled()) { return; }
-        const hash = computeWorkspaceHash(ctx.workspacePath);
+        const hash = computeWorkspaceHash(resolveWorkspaceIdentity(ctx.workspacePath));
         if (dreamsInProgress.has(hash)) { return; }
 
         dreamsInProgress.add(hash);
@@ -121,7 +124,7 @@ async function runDream(
     lastScanAt: number,
     setLastScanAt: (t: number) => void
 ): Promise<void> {
-    const workspaceHash = computeWorkspaceHash(ctx.workspacePath);
+    const workspaceHash = computeWorkspaceHash(resolveWorkspaceIdentity(ctx.workspacePath));
     const workspaceDir  = getMemoryDir(workspaceHash);
     const globalDir     = getGlobalMemoryDir();
 
@@ -138,7 +141,7 @@ async function runDream(
     setLastScanAt(now);
 
     // --- Gate 3: Activity gate (reads thread.json files) ---
-    const generationCount = countGenerationsSince(WORKSPACES_BASE_DIR, workspaceHash, lastWorkspaceDreamAt);
+    const generationCount = await countGenerationsSince(WORKSPACES_BASE_DIR, workspaceHash, lastWorkspaceDreamAt);
     if (generationCount < MIN_GENERATIONS_SINCE_LAST) { return; }
 
     // --- Acquire workspace lock (required) ---
@@ -155,9 +158,11 @@ async function runDream(
         ? (globalPriorMtime ?? 0)
         : readLastConsolidatedAt(globalLockPath);
 
-    ctx.onDreamStart?.();
     try {
-        const model   = await getAnthropicClient(ANTHROPIC_SONNET_4);
+        ctx.onDreamStart?.();
+        // Sonnet 4: consolidation involves cross-file reasoning across multiple memory
+        // files — more demanding than single-turn extraction, uses Sonnet 4.
+        const model   = await getAnthropicClient(ANTHROPIC_HAIKU);
         const tools   = createMemoryTools(globalDir, workspaceDir);
         const system  = buildMemoryLines(globalDir, workspaceDir).join('\n');
         const prompt  = buildConsolidationPrompt(globalDir, workspaceDir, {
@@ -175,10 +180,20 @@ async function runDream(
             stopWhen: [stepCountIs(30)],
         });
 
+        // Clear the PID body so future dreams from this same extension host
+        // are not blocked by the live-holder check in tryAcquireLock. The
+        // mtime advances to "now" — which is the completion time we want
+        // recorded as lastConsolidatedAt.
+        releaseLock(workspaceLockPath);
+        if (hasGlobalLock) { releaseLock(globalLockPath); }
+
+        // Bust the 5-second TTL cache so the next turn picks up the consolidated memories.
+        invalidateMemoryPromptCache(workspaceHash);
+
         console.log('[autoDream] consolidation complete');
         ctx.onDreamComplete?.();
     } catch (e: unknown) {
-        console.error('[autoDream] consolidation failed:', (e as Error).message);
+        console.error('[autoDream] consolidation failed:', e instanceof Error ? e.message : String(e));
         ctx.onDreamFail?.();
         rollbackLock(workspaceLockPath, workspacePriorMtime);
         if (hasGlobalLock && globalPriorMtime !== null) {
@@ -192,6 +207,12 @@ async function runDream(
  * Gates are checked internally — safe to call on every turn.
  */
 export function executeAutoDream(ctx: DreamContext): void {
-    // Merge in status bar callbacks registered from activate.ts
-    runner({ ...ctx, ...dreamCallbacks });
+    const compose = (a?: () => void, b?: () => void): (() => void) | undefined =>
+        (a || b) ? () => { a?.(); b?.(); } : undefined;
+    runner({
+        ...ctx,
+        onDreamStart:    compose(ctx.onDreamStart,    dreamCallbacks.onDreamStart),
+        onDreamComplete: compose(ctx.onDreamComplete, dreamCallbacks.onDreamComplete),
+        onDreamFail:     compose(ctx.onDreamFail,     dreamCallbacks.onDreamFail),
+    });
 }

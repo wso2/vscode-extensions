@@ -16,27 +16,38 @@
 
 /**
  * Memory type taxonomy for WSO2 Integrator Copilot.
- * 6 types across two scopes:
- *   Global  (user, pattern, history) — cross-project, shared across all workspaces
- *   Workspace (integration, project, reference) — specific to the current project
+ *
+ * To add, remove, or edit a memory type — edit MEMORY_TYPE_DEFINITIONS
+ * in memoryTypeTaxonomy.ts. MEMORY_TYPES, GLOBAL_MEMORY_TYPES,
+ * WORKSPACE_MEMORY_TYPES, and TYPES_SECTION are all derived from it.
  */
 
-export const MEMORY_TYPES = [
-    'user',
-    'integration',
-    'pattern',
-    'project',
-    'reference',
-    'history',
-] as const;
+import { MEMORY_TYPE_DEFINITIONS } from './memoryTypeTaxonomy';
+export type { MemoryTypeDefinition, MemoryTypeExample } from './memoryTypeTaxonomy';
 
-export type MemoryType = (typeof MEMORY_TYPES)[number];
+// ---------------------------------------------------------------------------
+// Type constants derived from taxonomy data
+// ---------------------------------------------------------------------------
+
+/**
+ * Source of truth for the memory type names.
+ * Adding/removing a type requires editing both this union AND the matching
+ * entry in MEMORY_TYPE_DEFINITIONS — TypeScript will fail compilation if
+ * MEMORY_TYPE_DEFINITIONS contains a name not present in this union.
+ */
+export type MemoryType = 'user' | 'codingstyle' | 'integration' | 'about' | 'reference' | 'history';
+
+export const MEMORY_TYPES: readonly MemoryType[] = MEMORY_TYPE_DEFINITIONS.map(d => d.name);
 
 /** Types that always belong in the global memory directory. */
-export const GLOBAL_MEMORY_TYPES: readonly MemoryType[] = ['user', 'pattern', 'history'];
+export const GLOBAL_MEMORY_TYPES: readonly MemoryType[] = MEMORY_TYPE_DEFINITIONS
+    .filter(d => d.scope === 'global')
+    .map(d => d.name) as MemoryType[];
 
 /** Types that always belong in the workspace memory directory. */
-export const WORKSPACE_MEMORY_TYPES: readonly MemoryType[] = ['integration', 'project', 'reference'];
+export const WORKSPACE_MEMORY_TYPES: readonly MemoryType[] = MEMORY_TYPE_DEFINITIONS
+    .filter(d => d.scope === 'workspace')
+    .map(d => d.name) as MemoryType[];
 
 export function isGlobalMemoryType(type: MemoryType): boolean {
     return (GLOBAL_MEMORY_TYPES as readonly string[]).includes(type);
@@ -84,154 +95,82 @@ export const MEMORY_FRONTMATTER_EXAMPLE: readonly string[] = [
     `type: {{${MEMORY_TYPES.join(', ')}}}`,
     '---',
     '',
-    '{{memory content — for pattern/project/history types include **Why:** and **How to apply:** lines}}',
+    '{{memory content — for codingstyle/about/history types include **Why:** and **How to apply:** lines}}',
     '```',
 ];
 
-export const TYPES_SECTION: readonly string[] = [
-    '## Types of memory',
-    '',
-    'There are 6 types of memory across two scopes — global (user, pattern, history) ' +
-    'and workspace (integration, project, reference):',
-    '',
-    '<types>',
-    '<type>',
-    '    <name>user</name>',
-    '    <description>Who the engineer is — their background, integration expertise, preferred tools, ' +
-    'and how they like the Copilot to communicate. Use this to tailor explanations and avoid ' +
-    'repeating things they already know. Avoid writing memories that could be viewed as a negative judgement. ' +
-    'SCOPE: global — write to the global memory directory.</description>',
-    '    <when_to_save>When you learn the user\'s role, integration background ' +
-    '(ESB/MI/MuleSoft/Ballerina experience), preferred language features, ' +
-    'or how they want explanations delivered.</when_to_save>',
-    '    <how_to_use>Tailor your communication style and code examples to their expertise. ' +
-    'A senior ESB architect migrating to Ballerina needs ESB analogues. ' +
-    'A non-developer Salesforce admin needs business terms, not code jargon.</how_to_use>',
-    '    <examples>',
-    '    user: I have 10 years of WSO2 ESB experience but this is my first Ballerina project',
-    '    assistant: [saves user memory (global): deep WSO2 ESB expertise, new to Ballerina — ' +
-    'frame Ballerina concepts using ESB analogues]',
-    '',
-    '    user: Stop showing me XML config examples — I only use Ballerina code',
-    '    assistant: [saves user memory (global): never suggest XML mediators — user works exclusively in Ballerina code]',
-    '    </examples>',
-    '</type>',
-    '<type>',
-    '    <name>integration</name>',
-    '    <description>Facts about the external systems being connected — authentication patterns, ' +
-    'data format quirks, API gotchas, naming conventions, rate limits, and anything surprising ' +
-    'about how a system behaves. These are things you\'d write on a sticky note next to your monitor. ' +
-    'SCOPE: workspace — write to the workspace memory directory.</description>',
-    '    <when_to_save>When you learn something non-obvious about an external system: how it authenticates, ' +
-    'a known quirk or limitation, its data format or naming convention, rate limits, or pagination behaviour. ' +
-    'Key distinction: this type captures how a system BEHAVES. The `reference` type captures WHERE to find things about it.</when_to_save>',
-    '    <how_to_use>Apply this knowledge when suggesting code that interacts with that system. ' +
-    'For example, if the API returns 200 on errors, always check the response body — never rely on HTTP status alone.</how_to_use>',
-    '    <examples>',
-    '    user: The Shopify webhook for orders fires twice — once on placement, once on payment confirmation',
-    '    assistant: [saves integration memory (workspace): Shopify order webhooks fire twice per order; ' +
-    'always deduplicate on order_id before processing downstream]',
-    '',
-    '    user: The inventory API returns HTTP 200 even when orders fail — check the response.status field',
-    '    assistant: [saves integration memory (workspace): inventory API returns HTTP 200 on business errors — ' +
-    'never rely on HTTP status code, always check response.status field]',
-    '    </examples>',
-    '</type>',
-    '<type>',
-    '    <name>pattern</name>',
-    '    <description>Architectural decisions and team standards for how integrations are built — ' +
-    'the "we always do it this way" rules. These are decisions the team has made once so they ' +
-    'don\'t get re-debated for every new integration. Includes both corrections and confirmations. ' +
-    'Always include WHY the decision was made. SCOPE: global — write to the global memory directory.</description>',
-    '    <when_to_save>When the user corrects a suggested approach ("don\'t do it that way, we use X"), ' +
-    'confirms a pattern worked ("yes, always do it that way"), or states a team convention. ' +
-    'Record corrections AND confirmations — if you only save corrections you will drift away from validated approaches.</when_to_save>',
-    '    <how_to_use>Apply these standards to every integration suggestion. ' +
-    'Never propose an approach that violates a saved pattern without explicitly flagging the conflict.</how_to_use>',
-    '    <body_structure>Lead with the rule itself, then a **Why:** line and a **How to apply:** line.</body_structure>',
-    '    <examples>',
-    '    user: We always buffer through Kafka before writing to Google Sheets — direct writes caused data loss',
-    '    assistant: [saves pattern memory (global): never write directly from source to Sheets — always buffer through Kafka. ' +
-    'Why: direct writes caused data loss during Sheets API outages. How to apply: all pipelines ending at Sheets must use a Kafka buffer stage.]',
-    '',
-    '    user: All our error handling follows: retry 3 times → dead-letter Kafka topic → Slack alert. Every integration.',
-    '    assistant: [saves pattern memory (global): standard error chain: retry 3× → dead-letter Kafka → Slack alert. ' +
-    'Why: ops SLA requires no silent failures. How to apply: every integration that calls an external system must implement this chain.]',
-    '    </examples>',
-    '</type>',
-    '<type>',
-    '    <name>project</name>',
-    '    <description>What is actively being built right now, why it exists, and constraints that affect ' +
-    'every suggestion — migration phase, deadlines, compliance requirements, feature freezes. ' +
-    'Time-sensitive context that matters today but may be irrelevant in a few months. ' +
-    'SCOPE: workspace — write to the workspace memory directory.</description>',
-    '    <when_to_save>When you learn the business driver behind current work, a migration phase, a hard deadline, ' +
-    'an active freeze, or a compliance constraint. Always convert relative dates to absolute dates ' +
-    '("by Thursday" → "by 2026-04-10") so the memory stays meaningful over time.</when_to_save>',
-    '    <how_to_use>Use this to prioritise suggestions and flag anything that conflicts with current constraints.</how_to_use>',
-    '    <body_structure>Lead with the fact or constraint, then a **Why:** line and a **How to apply:** line.</body_structure>',
-    '    <examples>',
-    '    user: We\'re migrating our Salesforce→SAP integration from MuleSoft to Ballerina — license expires 2026-07-01',
-    '    assistant: [saves project memory (workspace): MuleSoft→Ballerina migration, deadline 2026-07-01. ' +
-    'Why: license expiry. How to apply: prioritise completeness; flag any approach that risks missing the deadline.]',
-    '',
-    '    user: This Stripe→QuickBooks sync must be GDPR compliant — no customer PII in the integration layer',
-    '    assistant: [saves project memory (workspace): GDPR-scoped — PII must not be stored in the integration layer. ' +
-    'How to apply: never suggest caching or storing customer data in this integration.]',
-    '    </examples>',
-    '</type>',
-    '<type>',
-    '    <name>reference</name>',
-    '    <description>Where to find things — monitoring dashboards, issue tracker project keys, ' +
-    'internal documentation URLs, runbooks, Confluence spaces. Not what those things contain ' +
-    '(that belongs in `integration`) — just where they live. ' +
-    'SCOPE: workspace — write to the workspace memory directory.</description>',
-    '    <when_to_save>When you learn a URL, JIRA project key, Confluence space, monitoring dashboard, ' +
-    'or any external location where work or documentation is tracked.</when_to_save>',
-    '    <how_to_use>When the Copilot suggests "check the monitoring dashboard" or "file a ticket," ' +
-    'use these pointers to be specific rather than generic.</how_to_use>',
-    '    <examples>',
-    '    user: Integration monitoring is all in Grafana at grafana.internal/d/integrations — that\'s what on-call watches',
-    '    assistant: [saves reference memory (workspace): integration monitoring at grafana.internal/d/integrations — ' +
-    'check before touching any integration request-path code]',
-    '',
-    '    user: We use an internal Ballerina connector fork at confluence.internal/ballerina-connectors — not the public docs',
-    '    assistant: [saves reference memory (workspace): use internal connector docs at confluence.internal/ballerina-connectors — ' +
-    'not public ballerina.io docs]',
-    '    </examples>',
-    '</type>',
-    '<type>',
-    '    <name>history</name>',
-    '    <description>Completed integration projects — what was built, what systems were connected, ' +
-    'key architectural decisions, and lessons learned. This is permanent institutional knowledge ' +
-    'that persists across all future projects. It is the answer to: ' +
-    '"I finished the Salesforce→SAP integration last year — a new project session should know about it." ' +
-    'SCOPE: global — write to the global memory directory.</description>',
-    '    <when_to_save>When a user describes a completed integration ("we shipped X last quarter"), ' +
-    'references prior work ("like we did in the last project"), or when auto-dream detects that a ' +
-    'project memory has a passed deadline and the work is done. ' +
-    'Key distinction from `project`: project is for active work that fades when it ends. ' +
-    'history is permanent — it captures what was built and why.</when_to_save>',
-    '    <how_to_use>When starting a new integration, use history memories to bring forward relevant knowledge: ' +
-    'systems the developer has connected before, patterns that worked, lessons learned. ' +
-    'Saves the developer from re-explaining past work at the start of every new project.</how_to_use>',
-    '    <examples>',
-    '    user: We finished migrating the Salesforce→SAP integration from MuleSoft — it went live last month',
-    '    assistant: [saves history memory (global): Salesforce→SAP order fulfillment completed and live. ' +
-    'Used JWT Bearer OAuth2 for Salesforce, RFC auth for SAP BAPI, Kafka buffer between them. ' +
-    'Key lesson: always buffer before SAP — direct writes timeout under peak load.]',
-    '',
-    '    user: The OneDrive→Google Drive migration we did in 2024 is all done',
-    '    assistant: [saves history memory (global): OneDrive→Google Drive migration completed 2024. ' +
-    'OneDrive returns flat file metadata; Google Drive expects nested fileResource — always add mapping layer.]',
-    '    </examples>',
-    '</type>',
-    '</types>',
-    '',
-];
+// ---------------------------------------------------------------------------
+// TYPES_SECTION — built from MEMORY_TYPE_DEFINITIONS
+// ---------------------------------------------------------------------------
+
+function buildTypesSection(): readonly string[] {
+    const globalNames = GLOBAL_MEMORY_TYPES.join(', ');
+    const workspaceNames = WORKSPACE_MEMORY_TYPES.join(', ');
+
+    const lines: string[] = [
+        '## Types of memory',
+        '',
+        `There are ${MEMORY_TYPE_DEFINITIONS.length} types of memory across two scopes — ` +
+        `global (${globalNames}) and workspace (${workspaceNames}):`,
+        '',
+        '<types>',
+    ];
+
+    for (const def of MEMORY_TYPE_DEFINITIONS) {
+        const scopeNote = `SCOPE: ${def.scope} — write to the ${def.scope} memory directory.`;
+
+        lines.push('<type>');
+        lines.push(`    <name>${def.name}</name>`);
+        lines.push(`    <description>${def.description} ${scopeNote}</description>`);
+        lines.push(`    <when_to_save>${def.when_to_save}</when_to_save>`);
+        lines.push(`    <how_to_use>${def.how_to_use}</how_to_use>`);
+
+        if (def.body_structure) {
+            lines.push(`    <body_structure>${def.body_structure}</body_structure>`);
+        }
+
+        lines.push('    <examples>');
+        for (let i = 0; i < def.examples.length; i++) {
+            const ex = def.examples[i];
+            lines.push(`    user: ${ex.user}`);
+            lines.push(`    assistant: ${ex.assistant}`);
+            if (i < def.examples.length - 1) { lines.push(''); }
+        }
+        lines.push('    </examples>');
+        lines.push('</type>');
+    }
+
+    lines.push('</types>');
+    lines.push('');
+
+    return lines;
+}
+
+export const TYPES_SECTION: readonly string[] = buildTypesSection();
 
 export const WHAT_NOT_TO_SAVE_SECTION: readonly string[] = [
     '## What NOT to save in memory',
+    '',
+    '### Ballerina-native language mechanics — visible in source, the compiler enforces them',
+    '',
+    'Ballerina handles these declaratively. Saving them as memory is duplicate state. ' +
+    'Save the team\'s TOPOLOGY DECISION around them — never the language feature itself.',
+    '',
+    '- Retry / exponential backoff — `retry(N) { }` keyword and `http:Client retryConfig` field.',
+    '- Circuit breaker — `http:Client circuitBreaker` config (failureThreshold, resetTime).',
+    '- HTTP timeouts — `http:Client timeout` (default ~60s, configurable per client).',
+    '- Failover / load balance — `http:FailoverClient`, `http:LoadBalanceClient`.',
+    '- OAuth2 token refresh — automatic with `http:OAuth2*GrantConfig` (no manual refresh logic).',
+    '- Local + 2PC distributed transactions — `transaction { }`, `retry transaction { }`, `transactional` qualifier.',
+    '- Error propagation — `check`, `on fail`, `error?` enforced at compile time (no try/catch).',
+    '- Connector existence — `import ballerinax/salesforce` is visible in source. Save QUIRKS the compiler can\'t see, not which connector is in use.',
+    '- Service-to-service call topology — auto-rendered in the BI sequence diagram view. Save WHY a dependency exists or non-obvious dataflow, not that it exists.',
+    '- Standard project layout — `modules/`, `tests/`, `resources/` are enforced. Save only CUSTOM directories beyond this.',
+    '- `configurable` + `Config.toml` — language-standard config loading. Save only the project\'s SPECIFIC config-layout decisions, not that secrets live in Config.toml.',
+    '- Standard auth grant flows (OAuth2 client credentials, password, refresh-token, JWT, basic, API key) — built-in `http:*AuthConfig` records. Save only NON-STANDARD auth quirks of a specific system.',
+    '- JSON ↔ record / XML ↔ record binding — built-in via `cloneWithType`, `data.xmldata`, etc. Save only payload-shape EDGE CASES the binding cannot infer.',
+    '',
+    '### General exclusions',
     '',
     '- Ballerina sequences, integration XML, or connector configs already in the project — derivable by reading the files.',
     '- Deployment topology already in `deployment.toml` — derivable.',
@@ -243,6 +182,6 @@ export const WHAT_NOT_TO_SAVE_SECTION: readonly string[] = [
     '- Ephemeral task details: in-progress work, current conversation context.',
     '',
     'These exclusions apply even when the user explicitly asks you to save. ' +
-    'If they ask you to save payload examples or error logs, ask what was *surprising or non-obvious* ' +
-    'about it — that is the part worth keeping.',
+    'If they ask you to save retry counts, timeouts, payload examples, or error logs, ' +
+    'ask what was *surprising, non-obvious, or specific to your team\'s architecture* — that is the part worth keeping.',
 ];

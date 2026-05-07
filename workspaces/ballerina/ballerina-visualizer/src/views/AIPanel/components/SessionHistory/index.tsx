@@ -37,7 +37,6 @@ function formatRelativeTime(ts: number): string {
 }
 
 function groupByDate(threads: ThreadSummary[]): { label: string; items: ThreadSummary[] }[] {
-    const now = Date.now();
     const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
     const startOfWeek = new Date(startOfToday); startOfWeek.setDate(startOfWeek.getDate() - 6);
     const groups: Record<string, ThreadSummary[]> = { TODAY: [], "PAST WEEK": [], OLDER: [] };
@@ -120,10 +119,12 @@ const SessionItem = styled.div<{ isActive: boolean }>(({ isActive }: { isActive:
     position: "relative" as const,
     background: isActive ? "var(--vscode-list-activeSelectionBackground)" : "transparent",
     color: isActive ? "var(--vscode-list-activeSelectionForeground)" : "var(--vscode-foreground)",
+    outline: "none",
     "&:hover": {
         background: isActive ? "var(--vscode-list-activeSelectionBackground)" : "var(--vscode-list-hoverBackground)",
     },
-    "&:hover .delete-btn": { opacity: 1 },
+    "&:hover .delete-btn, &:focus-within .delete-btn": { opacity: 1 },
+    "&:focus-visible": { outline: "1px solid var(--vscode-focusBorder)" },
 }));
 
 const ActiveDot = styled.div<{ isActive: boolean }>(({ isActive }: { isActive: boolean }) => ({
@@ -150,7 +151,6 @@ const SessionTime = styled.span`
 `;
 
 const DeleteBtn = styled.button`
-    className: delete-btn;
     opacity: 0;
     background: transparent;
     border: none;
@@ -162,7 +162,7 @@ const DeleteBtn = styled.button`
     border-radius: 3px;
     flex-shrink: 0;
     transition: opacity 0.1s;
-    &:hover { color: var(--vscode-errorForeground); background: var(--vscode-list-hoverBackground); }
+    &:hover, &:focus-visible { color: var(--vscode-errorForeground); background: var(--vscode-list-hoverBackground); opacity: 1; }
 `;
 
 const NewChatRow = styled.button`
@@ -187,7 +187,6 @@ const NewChatRow = styled.button`
 
 export interface SessionHistoryDropdownProps {
     threads: ThreadSummary[];
-    anchorRef: React.RefObject<HTMLDivElement>;
     onNewChat: () => void;
     onSwitch: (threadId: string) => void;
     onDelete: (threadId: string) => void;
@@ -206,7 +205,12 @@ export function SessionHistoryDropdown({
 
     useEffect(() => {
         inputRef.current?.focus();
-    }, []);
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') { onClose(); }
+        };
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [onClose]);
 
     const filtered = search.trim()
         ? threads.filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
@@ -254,20 +258,21 @@ export function SessionHistoryDropdown({
                                 <SessionItem
                                     key={thread.id}
                                     isActive={thread.isActive}
+                                    role="button"
+                                    tabIndex={0}
                                     onClick={() => handleSwitch(thread.id)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSwitch(thread.id); } }}
                                 >
                                     <ActiveDot isActive={thread.isActive} />
                                     <SessionName title={thread.name}>{thread.name}</SessionName>
                                     <SessionTime>{formatRelativeTime(thread.updatedAt)}</SessionTime>
-                                    {!thread.isActive && (
-                                        <DeleteBtn
-                                            className="delete-btn"
-                                            onClick={e => handleDelete(e, thread.id)}
-                                            title="Delete session"
-                                        >
-                                            <Codicon name="trash" sx={{ fontSize: "12px" }} />
-                                        </DeleteBtn>
-                                    )}
+                                    <DeleteBtn
+                                        className="delete-btn"
+                                        onClick={e => handleDelete(e, thread.id)}
+                                        title="Delete session"
+                                    >
+                                        <Codicon name="trash" sx={{ fontSize: "12px" }} />
+                                    </DeleteBtn>
                                 </SessionItem>
                             ))}
                         </div>

@@ -32,6 +32,7 @@ import { BALLERINA_RUN_TOOL_NAME } from "./tools/ballerina-run";
 import { BALLERINA_STOP_TOOL_NAME } from "./tools/ballerina-stop";
 import { loadMemoryPrompt, isAutoMemoryEnabled } from '@wso2/copilot-utilities/auto-memory';
 import { computeWorkspaceHash } from '@wso2/copilot-utilities/chat-persistence';
+import { resolveWorkspaceIdentity } from '../../../views/ai-panel/chatStateStorage';
 
 /**
  * Returns the system prompt with memory context prepended when auto-memory is enabled.
@@ -41,7 +42,7 @@ export function getSystemPromptWithMemory(projects: ProjectSource[], op: Operati
     const base = getSystemPrompt(projects, op);
     if (!workspacePath || !isAutoMemoryEnabled()) { return base; }
     try {
-        const hash = computeWorkspaceHash(workspacePath);
+        const hash = computeWorkspaceHash(resolveWorkspaceIdentity(workspacePath));
         const memorySection = loadMemoryPrompt(hash);
         return memorySection + '\n\n---\n\n' + base;
     } catch {

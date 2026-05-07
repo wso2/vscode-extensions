@@ -55,12 +55,14 @@ export function createExecutorConfig<TParams>(
         chatStorageEnabled?: boolean;
         cleanupStrategy: 'immediate' | 'review';
         existingTempPath?: string;
+        projectRootPath?: string;
+        threadId?: string;
     }
 ): AICommandConfig<TParams> {
-    const projectRootPath = resolveProjectRootPath();
+    const projectRootPath = options.projectRootPath ?? resolveProjectRootPath();
     // Always use the active thread so new generations go to the correct thread
     // after the user has switched sessions via the history dropdown.
-    const threadId = chatStateStorage.getActiveThread(projectRootPath)?.id ?? 'default';
+    const threadId = options.threadId ?? chatStateStorage.getActiveThread(projectRootPath)?.id ?? 'default';
     return {
         executionContext: createExecutionContextFromStateMachine(),
         eventHandler: createWebviewEventHandler(options.command),
@@ -95,7 +97,9 @@ export async function generateAgent(params: GenerateAgentCodeRequest): Promise<b
             command: Command.Agent,
             chatStorageEnabled: true,  // Agent uses chat storage for multi-turn conversations
             cleanupStrategy: 'review', // Review mode - temp persists until user accepts/declines
-            existingTempPath: pendingReview?.reviewState.tempProjectPath
+            existingTempPath: pendingReview?.reviewState.tempProjectPath,
+            projectRootPath,
+            threadId,
         });
 
         // Get project metrics, project ID, and chat history for telemetry

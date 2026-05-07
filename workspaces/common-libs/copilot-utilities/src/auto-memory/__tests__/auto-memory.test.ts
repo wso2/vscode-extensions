@@ -22,7 +22,7 @@ import * as os from 'os';
 
 import { truncateEntrypointContent, MAX_ENTRYPOINT_LINES } from '../memdir/memdir';
 import { scanMemoryFiles, formatMemoryManifest, MemoryHeader } from '../memdir/memoryScan';
-import { tryAcquireLock, rollbackLock, readLastConsolidatedAt, getLockPath, countGenerationsSince } from '../services/autoDream/consolidationLock';
+import { tryAcquireLock, rollbackLock, releaseLock, readLastConsolidatedAt, getLockPath, countGenerationsSince } from '../services/autoDream/consolidationLock';
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -115,46 +115,46 @@ describe('scanMemoryFiles', () => {
     beforeEach(() => { tmpDir = makeTempDir(); });
     afterEach(() => removeTempDir(tmpDir));
 
-    it('returns empty array for empty directory', () => {
-        assert.deepEqual(scanMemoryFiles(tmpDir), []);
+    it('returns empty array for empty directory', async () => {
+        assert.deepEqual(await scanMemoryFiles(tmpDir), []);
     });
 
-    it('returns empty array for non-existent directory', () => {
-        assert.deepEqual(scanMemoryFiles(path.join(tmpDir, 'does-not-exist')), []);
+    it('returns empty array for non-existent directory', async () => {
+        assert.deepEqual(await scanMemoryFiles(path.join(tmpDir, 'does-not-exist')), []);
     });
 
-    it('excludes MEMORY.md and hidden files', () => {
+    it('excludes MEMORY.md and hidden files', async () => {
         fs.writeFileSync(path.join(tmpDir, 'MEMORY.md'), '# index', 'utf-8');
         fs.writeFileSync(path.join(tmpDir, '.consolidate-lock'), 'pid', 'utf-8');
         writeMemoryFile(tmpDir, 'user_expertise.md', 'user', 'WSO2 expert');
-        const results = scanMemoryFiles(tmpDir);
+        const results = await scanMemoryFiles(tmpDir);
         assert.equal(results.length, 1);
         assert.equal(results[0].filename, 'user_expertise.md');
     });
 
-    it('parses frontmatter type and description', () => {
-        writeMemoryFile(tmpDir, 'pattern_retry.md', 'pattern', 'retry 3× → dead-letter');
-        const results = scanMemoryFiles(tmpDir);
+    it('parses frontmatter type and description', async () => {
+        writeMemoryFile(tmpDir, 'codingstyle_retry.md', 'codingstyle', 'retry 3× → dead-letter');
+        const results = await scanMemoryFiles(tmpDir);
         assert.equal(results.length, 1);
-        assert.equal(results[0].type, 'pattern');
+        assert.equal(results[0].type, 'codingstyle');
         assert.equal(results[0].description, 'retry 3× → dead-letter');
     });
 
-    it('returns null description for file without frontmatter', () => {
+    it('returns null description for file without frontmatter', async () => {
         fs.writeFileSync(path.join(tmpDir, 'plain.md'), 'no frontmatter here', 'utf-8');
-        const results = scanMemoryFiles(tmpDir);
+        const results = await scanMemoryFiles(tmpDir);
         assert.equal(results[0].description, null);
         assert.equal(results[0].type, undefined);
     });
 
-    it('sorts newest-first by mtime', () => {
+    it('sorts newest-first by mtime', async () => {
         writeMemoryFile(tmpDir, 'old.md', 'user', 'old file');
         // Wait a tick so OS mtime differs, then write newer file
         const oldPath = path.join(tmpDir, 'old.md');
         const oldTime = (Date.now() - 2000) / 1000;
         fs.utimesSync(oldPath, oldTime, oldTime);
         writeMemoryFile(tmpDir, 'new.md', 'user', 'new file');
-        const results = scanMemoryFiles(tmpDir);
+        const results = await scanMemoryFiles(tmpDir);
         assert.equal(results[0].filename, 'new.md');
         assert.equal(results[1].filename, 'old.md');
     });
@@ -258,6 +258,44 @@ describe('rollbackLock', () => {
     });
 });
 
+describe('releaseLock', () => {
+    let tmpDir: string;
+    let lockPath: string;
+
+    beforeEach(() => {
+        tmpDir = makeTempDir();
+        lockPath = getLockPath(tmpDir);
+    });
+    afterEach(() => removeTempDir(tmpDir));
+
+    it('clears the PID body while keeping the lock file', () => {
+        fs.writeFileSync(lockPath, String(process.pid), 'utf-8');
+        releaseLock(lockPath);
+        assert.ok(fs.existsSync(lockPath), 'lock file should still exist');
+        const body = fs.readFileSync(lockPath, 'utf-8');
+        assert.equal(body, '', 'PID body should be empty after release');
+    });
+
+    it('advances mtime so readLastConsolidatedAt reflects completion time', () => {
+        const beforeMs = Date.now();
+        // Create lock with an old mtime
+        fs.writeFileSync(lockPath, String(process.pid), 'utf-8');
+        const oldTime = (beforeMs - 60_000) / 1000;
+        fs.utimesSync(lockPath, oldTime, oldTime);
+        releaseLock(lockPath);
+        const mtime = readLastConsolidatedAt(lockPath);
+        assert.ok(mtime >= beforeMs - 1_000, `mtime should be recent, got ${mtime}`);
+    });
+
+    it('allows tryAcquireLock to re-acquire after release (empty body = no live holder)', () => {
+        fs.writeFileSync(lockPath, String(process.pid), 'utf-8');
+        releaseLock(lockPath);
+        // After release, body is empty — isProcessRunning('') is false, so lock is reclaimable
+        const result = tryAcquireLock(lockPath);
+        assert.ok(result !== null, 'should be able to re-acquire after release');
+    });
+});
+
 describe('readLastConsolidatedAt', () => {
     let tmpDir: string;
 
@@ -294,17 +332,17 @@ describe('countGenerationsSince', () => {
     });
     afterEach(() => removeTempDir(tmpDir));
 
-    it('returns 0 when workspaces directory does not exist', () => {
-        const count = countGenerationsSince(path.join(tmpDir, 'no-such-dir'), HASH, 0);
+    it('returns 0 when workspaces directory does not exist', async () => {
+        const count = await countGenerationsSince(path.join(tmpDir, 'no-such-dir'), HASH, 0);
         assert.equal(count, 0);
     });
 
-    it('returns 0 when workspace hash directory has no threads', () => {
-        const count = countGenerationsSince(workspacesDir, HASH, 0);
+    it('returns 0 when workspace hash directory has no threads', async () => {
+        const count = await countGenerationsSince(workspacesDir, HASH, 0);
         assert.equal(count, 0);
     });
 
-    it('counts generations with timestamp after sinceMs', () => {
+    it('counts generations with timestamp after sinceMs', async () => {
         const threadsDir = path.join(workspacesDir, HASH, 'threads');
         const now = Date.now();
         // Thread with 3 generations: 2 after cutoff, 1 before
@@ -313,26 +351,26 @@ describe('countGenerationsSince', () => {
             { timestamp: now + 1_000 },  // after cutoff
             { timestamp: now + 2_000 },  // after cutoff
         ]);
-        const count = countGenerationsSince(workspacesDir, HASH, now - 5_000);
+        const count = await countGenerationsSince(workspacesDir, HASH, now - 5_000);
         assert.equal(count, 2);
     });
 
-    it('aggregates across multiple threads', () => {
+    it('aggregates across multiple threads', async () => {
         const threadsDir = path.join(workspacesDir, HASH, 'threads');
         const now = Date.now();
         writeThreadJson(threadsDir, 'thread1', [{ timestamp: now + 1_000 }, { timestamp: now + 2_000 }]);
         writeThreadJson(threadsDir, 'thread2', [{ timestamp: now + 3_000 }]);
-        const count = countGenerationsSince(workspacesDir, HASH, now);
+        const count = await countGenerationsSince(workspacesDir, HASH, now);
         assert.equal(count, 3);
     });
 
-    it('skips corrupt thread.json files gracefully', () => {
+    it('skips corrupt thread.json files gracefully', async () => {
         const threadsDir = path.join(workspacesDir, HASH, 'threads');
         const corruptDir = path.join(threadsDir, 'corrupt');
         fs.mkdirSync(corruptDir, { recursive: true });
         fs.writeFileSync(path.join(corruptDir, 'thread.json'), 'not valid json', 'utf-8');
         // Should not throw
-        const count = countGenerationsSince(workspacesDir, HASH, 0);
+        const count = await countGenerationsSince(workspacesDir, HASH, 0);
         assert.equal(count, 0);
     });
 });

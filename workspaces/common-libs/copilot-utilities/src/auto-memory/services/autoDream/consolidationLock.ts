@@ -14,7 +14,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { statSync, readFileSync, writeFileSync, unlinkSync, utimesSync, readdirSync } from 'fs';
+import {
+    statSync,
+    readFileSync,
+    writeFileSync,
+    openSync,
+    writeSync,
+    closeSync,
+    unlinkSync,
+    utimesSync,
+    promises as fsp,
+} from 'fs';
 import { join, sep } from 'path';
 import type { PersistedThread } from '../../../chat-persistence/types';
 
@@ -76,22 +86,42 @@ export function tryAcquireLock(lockPath: string): number | null {
         }
     }
 
-    // Write our PID
+    // Atomically create the lock file; on EEXIST the stale-check above already
+    // cleared the live-holder guard, so unlink and retry once.
+    let fd: number;
     try {
-        writeFileSync(lockPath, String(process.pid), 'utf-8');
-    } catch {
-        return null;
+        fd = openSync(lockPath, 'wx');
+    } catch (e: unknown) {
+        if ((e as NodeJS.ErrnoException).code !== 'EEXIST') { return null; }
+        try { unlinkSync(lockPath); } catch { return null; }
+        try { fd = openSync(lockPath, 'wx'); } catch { return null; }
     }
-
-    // Race detection: verify we won (last write wins between two concurrent reclaimers)
     try {
-        const verify = readFileSync(lockPath, 'utf-8');
-        if (parseInt(verify.trim(), 10) !== process.pid) { return null; }
+        writeSync(fd, String(process.pid));
+        closeSync(fd);
     } catch {
+        try { unlinkSync(lockPath); } catch { /* best-effort */ }
         return null;
     }
 
     return priorMtime ?? 0;
+}
+
+/**
+ * Releases the lock on dream success.
+ *
+ * Clears the PID body so a future `tryAcquireLock` does not treat this
+ * extension host as a live holder, while leaving the mtime as the dream's
+ * completion timestamp (= lastConsolidatedAt). Without this, subsequent
+ * dreams from the same extension host would be blocked for up to
+ * HOLDER_STALE_MS minutes because the PID stays alive between dreams.
+ */
+export function releaseLock(lockPath: string): void {
+    try {
+        writeFileSync(lockPath, '', 'utf-8');
+    } catch (e: unknown) {
+        console.error('[consolidationLock] release failed:', (e as Error).message);
+    }
 }
 
 /**
@@ -120,45 +150,48 @@ export function rollbackLock(lockPath: string, priorMtime: number): void {
  * given workspace directory. Uses the existing chat-persistence thread.json
  * files — no new files are created.
  *
+ * Async I/O so the dream gate scan does not block the event loop, even on
+ * workspaces with many threads.
+ *
  * @param workspacesBaseDir  ~/.ballerina/copilot/workspaces/
  * @param workspaceHash      16-char SHA-256 hash identifying the workspace
  * @param sinceMs            Count generations with timestamp after this value
- *
- * Note: uses synchronous readFileSync inside a loop over thread directories.
- * This is acceptable because it runs at most once every 10 minutes (scan throttle)
- * and typical workspaces have fewer than 50 threads.
  */
-export function countGenerationsSince(
+export async function countGenerationsSince(
     workspacesBaseDir: string,
     workspaceHash: string,
     sinceMs: number
-): number {
+): Promise<number> {
     const threadsDir = join(workspacesBaseDir, workspaceHash, 'threads');
-    let count = 0;
 
+    let entries: import('fs').Dirent[];
     try {
-        const threadDirs = readdirSync(threadsDir, { withFileTypes: true });
-
-        for (const entry of threadDirs) {
-            if (!entry.isDirectory()) { continue; }
-            const threadFile = join(threadsDir, entry.name, 'thread.json');
-            try {
-                const raw = readFileSync(threadFile, 'utf-8');
-                const thread = JSON.parse(raw) as PersistedThread;
-                if (Array.isArray(thread.generations)) {
-                    for (const gen of thread.generations) {
-                        if (typeof gen.timestamp === 'number' && gen.timestamp > sinceMs) {
-                            count++;
-                        }
-                    }
-                }
-            } catch {
-                // Skip unreadable thread files
-            }
-        }
+        entries = await fsp.readdir(threadsDir, { withFileTypes: true });
     } catch {
-        // threadsDir doesn't exist yet
+        return 0;  // threadsDir doesn't exist yet
     }
 
-    return count;
+    const counts = await Promise.all(
+        entries
+            .filter(e => e.isDirectory())
+            .map(async (entry): Promise<number> => {
+                const threadFile = join(threadsDir, entry.name, 'thread.json');
+                try {
+                    const raw = await fsp.readFile(threadFile, 'utf-8');
+                    const thread = JSON.parse(raw) as PersistedThread;
+                    if (!Array.isArray(thread.generations)) { return 0; }
+                    return thread.generations.reduce(
+                        (acc, gen) =>
+                            typeof gen.timestamp === 'number' && gen.timestamp > sinceMs
+                                ? acc + 1
+                                : acc,
+                        0
+                    );
+                } catch {
+                    return 0;  // skip unreadable thread files
+                }
+            })
+    );
+
+    return counts.reduce((a, b) => a + b, 0);
 }

@@ -41,7 +41,7 @@ export function buildConsolidationPrompt(
         : 'never';
 
     const globalScope = ctx.hasGlobalLock
-        ? `- Global memory: \`${globalMemoryDir}\`  (user, pattern, history types)`
+        ? `- Global memory: \`${globalMemoryDir}\`  (user, history types)`
         : `- Global memory: SKIPPED — lock held by another process`;
 
     const globalPhase1 = ctx.hasGlobalLock
@@ -50,9 +50,9 @@ export function buildConsolidationPrompt(
 
     const globalPhase3 = ctx.hasGlobalLock
         ? [
-            '- **Promote completed projects**: if a workspace `project` memory has a deadline that has',
+            '- **Promote completed projects**: if a workspace `about` memory has a deadline that has',
             '  passed and the work appears done, extract the durable learnings (systems connected,',
-            '  key patterns, lessons) into a new `history` memory in the **global** directory.',
+            '  key codingstyles, lessons) into a new `history` memory in the **global** directory.',
           ].join('\n')
         : '- Global promotion skipped (lock unavailable)';
 
@@ -69,12 +69,12 @@ export function buildConsolidationPrompt(
         '',
         'You are consolidating TWO memory directories:',
         globalScope,
-        `- Workspace memory: \`${workspaceMemoryDir}\`  (integration, project, reference types)`,
+        `- Workspace memory: \`${workspaceMemoryDir}\`  (codingstyle, integration, about, reference types)`,
         '',
         'Both directories already exist — write directly with the file write tools.',
         '',
-        'ROUTING RULE: user/pattern/history types → global directory.',
-        'integration/project/reference types → workspace directory.',
+        'ROUTING RULE: user/history types → global directory.',
+        'codingstyle/integration/about/reference types → workspace directory.',
         '',
         '---',
         '',

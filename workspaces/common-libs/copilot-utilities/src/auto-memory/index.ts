@@ -20,7 +20,7 @@
 export { getMemoryDir, getGlobalMemoryDir, isAutoMemoryEnabled, isInMemoryDir } from './memdir/paths';
 
 // Type taxonomy
-export type { MemoryType } from './memdir/memoryTypes';
+export type { MemoryType, MemoryTypeDefinition, MemoryTypeExample } from './memdir/memoryTypes';
 export {
     MEMORY_TYPES,
     GLOBAL_MEMORY_TYPES,
@@ -28,6 +28,7 @@ export {
     isGlobalMemoryType,
     parseMemoryType,
 } from './memdir/memoryTypes';
+export { MEMORY_TYPE_DEFINITIONS } from './memdir/memoryTypeTaxonomy';
 
 // Memory file scanning
 export type { MemoryHeader } from './memdir/memoryScan';
@@ -43,6 +44,7 @@ export {
     ensureMemoryDirsExist,
     buildMemoryLines,
     loadMemoryPrompt,
+    invalidateMemoryPromptCache,
 } from './memdir/memdir';
 
 // Extraction prompt builder
@@ -54,6 +56,7 @@ export {
     getLockPath,
     readLastConsolidatedAt,
     tryAcquireLock,
+    releaseLock,
     rollbackLock,
     countGenerationsSince,
 } from './services/autoDream/consolidationLock';

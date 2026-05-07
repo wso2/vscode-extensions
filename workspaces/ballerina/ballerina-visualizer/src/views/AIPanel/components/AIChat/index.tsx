@@ -91,6 +91,7 @@ import { SegmentType, splitContent } from "./segment";
 import { MigrationContextCard } from "../MigrationContextCard";
 import { ActiveMigrationSession } from "@wso2/ballerina-rpc-client";
 import { ReviewBar } from "../ReviewBar";
+import { MAX_CONTEXT_WINDOW } from "./compaction/ContextUsageWidget";
 
 const NO_DRIFT_FOUND = "No drift identified between the code and the documentation.";
 const DRIFT_CHECK_ERROR = "Failed to check drift between the code and the documentation. Please try again.";
@@ -863,7 +864,6 @@ const AIChat: React.FC = () => {
 
         } else if (type === "usage_metrics") {
             const inputTokens = (response as any).usage?.inputTokens ?? 0;
-            const MAX_CONTEXT_WINDOW = 1000_000;
             const percentage = Math.min(100, Math.round((inputTokens / MAX_CONTEXT_WINDOW) * 100));
             const breakdown = (response as any).breakdown;
             setContextUsage({ inputTokens, percentage, breakdown });
@@ -1537,9 +1537,18 @@ const AIChat: React.FC = () => {
 
     async function handleDeleteThread(threadId: string): Promise<void> {
         await rpcClient.getAiPanelRpcClient().deleteThread({ threadId });
-        // If we deleted the active thread, messages will have changed
-        const msgs = await rpcClient.getAiPanelRpcClient().getChatMessages();
+
+        // Reload messages and checkpoints for the (possibly new) active thread in parallel
+        const [msgs, checkpoints] = await Promise.all([
+            rpcClient.getAiPanelRpcClient().getChatMessages(),
+            rpcClient.getAiPanelRpcClient().getCheckpoints(),
+        ]);
         setMessages(msgs.map(m => ({ role: m.role === "user" ? "User" : "Copilot", content: m.content, type: "text", checkpointId: m.checkpointId, messageId: m.messageId })));
+        setAvailableCheckpointIds(new Set(checkpoints.map(cp => cp.id)));
+        setHasActiveReview(false);
+        setRestoringCheckpointId(null);
+        setApprovalRequest(null);
+        setContextUsage(null);
         loadThreads();
     }
 
@@ -1839,7 +1848,6 @@ const AIChat: React.FC = () => {
                                 {historyOpen && (
                                     <SessionHistoryDropdown
                                         threads={threads}
-                                        anchorRef={newChatAnchorRef}
                                         onNewChat={handleClearChat}
                                         onSwitch={handleSwitchThread}
                                         onDelete={handleDeleteThread}

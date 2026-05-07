@@ -522,6 +522,14 @@ export interface DeleteThreadRequest {
     threadId: string;
 }
 
+export interface ClearMemoryRequest {
+    scope: 'workspace' | 'all';
+}
+
+export interface OpenMemoryRequest {
+    scope: 'global' | 'workspace';
+}
+
 /**
  * Request to abort AI generation
  * Optional params default to current workspace and 'default' thread

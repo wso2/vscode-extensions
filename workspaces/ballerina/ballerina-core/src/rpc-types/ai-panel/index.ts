@@ -59,6 +59,8 @@ import {
     ThreadSummary,
     SwitchThreadRequest,
     DeleteThreadRequest,
+    ClearMemoryRequest,
+    OpenMemoryRequest,
 } from "./interfaces";
 
 export interface AIPanelAPI {
@@ -130,6 +132,9 @@ export interface AIPanelAPI {
     listThreads: () => Promise<ThreadSummary[]>;
     switchThread: (params: SwitchThreadRequest) => Promise<void>;
     deleteThread: (params: DeleteThreadRequest) => Promise<void>;
+    // Memory management
+    clearMemory: (params: ClearMemoryRequest) => Promise<void>;
+    openMemoryFiles: (params: OpenMemoryRequest) => void;
     // ==================================
     // Prompt Enhancement
     // ==================================

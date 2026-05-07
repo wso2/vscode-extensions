@@ -19,7 +19,8 @@
 import React, { useRef, useState } from "react";
 import styled from "@emotion/styled";
 
-const MAX_CONTEXT_WINDOW = 1000_000;
+/** Token budget the UI uses to compute context-usage percentages. Matches the model's 1M context window. */
+export const MAX_CONTEXT_WINDOW = 1_000_000;
 const TOOLTIP_SHOW_MS = 300;
 const TOOLTIP_HIDE_MS = 200;
 

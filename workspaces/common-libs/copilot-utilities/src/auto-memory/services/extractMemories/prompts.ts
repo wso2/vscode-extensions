@@ -42,8 +42,8 @@ export function buildExtractPrompt(params: ExtractPromptParams): string {
         `- \`workspace_file_read\`, \`workspace_file_write\`, \`workspace_file_edit\` — operate in: \`${workspaceMemoryDir}\``,
         '',
         'ROUTING RULE — you must write each memory to the correct directory based on its type:',
-        '  user, pattern, history  →  use global_file_write / global_file_edit',
-        '  integration, project, reference  →  use workspace_file_write / workspace_file_edit',
+        '  user, history  →  use global_file_write / global_file_edit',
+        '  codingstyle, integration, about, reference  →  use workspace_file_write / workspace_file_edit',
         '',
         `You have a limited step budget. The efficient strategy is:`,
         `  Step 1 — read all files you might update in parallel (global_file_read and workspace_file_read)`,
@@ -64,7 +64,7 @@ export function buildExtractPrompt(params: ExtractPromptParams): string {
         'Saving a memory is a two-step process:',
         '',
         `**Step 1** — write the memory to its own file ` +
-        `(e.g., \`user_expertise.md\`, \`integration_shopify.md\`, \`pattern_error_handling.md\`) ` +
+        `(e.g., \`user_expertise.md\`, \`integration_shopify.md\`, \`codingstyle_error_handling.md\`) ` +
         `using this frontmatter format:`,
         '',
         ...MEMORY_FRONTMATTER_EXAMPLE,

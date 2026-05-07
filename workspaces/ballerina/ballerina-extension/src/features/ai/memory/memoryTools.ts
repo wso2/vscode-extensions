@@ -35,6 +35,10 @@ import {
     createEditExecute,
 } from '../agent/tools/text-editor';
 import { CopilotEventHandler } from '../utils/events';
+import { GLOBAL_MEMORY_TYPES, WORKSPACE_MEMORY_TYPES } from '@wso2/copilot-utilities/auto-memory';
+
+const GLOBAL_TYPES_LABEL    = `${GLOBAL_MEMORY_TYPES.join(', ')} types`;
+const WORKSPACE_TYPES_LABEL = `${WORKSPACE_MEMORY_TYPES.join(', ')} types`;
 
 // Log tool failures to the extension console; ignore all other events (no UI wiring needed).
 const memoryEventHandler: CopilotEventHandler = (event) => {
@@ -61,7 +65,7 @@ export function createMemoryTools(globalDir: string, workspaceDir: string): Memo
 
     return {
         global_file_read: tool({
-            description: 'Read a memory file from the global directory (user, pattern, history types). ' +
+            description: `Read a memory file from the global directory (${GLOBAL_TYPES_LABEL}). ` +
                 'Pass the filename relative to the global memory directory (e.g. user_expertise.md).',
             inputSchema: z.object({
                 file_path: z.string().describe('Filename relative to global memory dir (e.g. user_expertise.md)'),
@@ -72,7 +76,7 @@ export function createMemoryTools(globalDir: string, workspaceDir: string): Memo
         }),
 
         global_file_write: tool({
-            description: 'Write a NEW memory file to the global directory (user, pattern, history types). ' +
+            description: `Write a NEW memory file to the global directory (${GLOBAL_TYPES_LABEL}). ` +
                 'Returns an error if the file already has content — use global_file_edit instead.',
             inputSchema: z.object({
                 file_path: z.string().describe('Filename relative to global memory dir'),
@@ -94,7 +98,7 @@ export function createMemoryTools(globalDir: string, workspaceDir: string): Memo
         }),
 
         workspace_file_read: tool({
-            description: 'Read a memory file from the workspace directory (integration, project, reference types). ' +
+            description: `Read a memory file from the workspace directory (${WORKSPACE_TYPES_LABEL}). ` +
                 'Pass the filename relative to the workspace memory directory (e.g. integration_shopify.md).',
             inputSchema: z.object({
                 file_path: z.string().describe('Filename relative to workspace memory dir (e.g. integration_shopify.md)'),
@@ -105,7 +109,7 @@ export function createMemoryTools(globalDir: string, workspaceDir: string): Memo
         }),
 
         workspace_file_write: tool({
-            description: 'Write a NEW memory file to the workspace directory (integration, project, reference types). ' +
+            description: `Write a NEW memory file to the workspace directory (${WORKSPACE_TYPES_LABEL}). ` +
                 'Returns an error if the file already has content — use workspace_file_edit instead.',
             inputSchema: z.object({
                 file_path: z.string().describe('Filename relative to workspace memory dir'),

@@ -28,6 +28,7 @@ import {
 import { computeWorkspaceHash } from '@wso2/copilot-utilities/chat-persistence';
 import { getAnthropicClient, ANTHROPIC_HAIKU } from '../utils/ai-client';
 import { createMemoryTools } from './memoryTools';
+import { resolveWorkspaceIdentity } from '../../../views/ai-panel/chatStateStorage';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -81,7 +82,7 @@ export function initExtractMemories(): void {
     async function runExtraction(ctx: ExtractionContext, isTrailing = false): Promise<void> {
         if (!isEnabled()) { return; }
 
-        const workspaceHash = computeWorkspaceHash(ctx.workspacePath);
+        const workspaceHash = computeWorkspaceHash(resolveWorkspaceIdentity(ctx.workspacePath));
         const globalDir     = getGlobalMemoryDir();
         const workspaceDir  = getMemoryDir(workspaceHash);
 
@@ -90,15 +91,13 @@ export function initExtractMemories(): void {
             initialisedHashes.add(workspaceHash);
         }
 
-        const globalFiles    = scanMemoryFiles(globalDir);
-        const workspaceFiles = scanMemoryFiles(workspaceDir);
+        const [globalFiles, workspaceFiles] = await Promise.all([
+            scanMemoryFiles(globalDir),
+            scanMemoryFiles(workspaceDir),
+        ]);
         const manifest       = formatMemoryManifest(globalFiles, workspaceFiles);
 
-        // TODO(v2): pass recent chat history (last N turns) for better cross-turn context.
-        // Currently the extraction agent only sees the current turn. This means if the user
-        // provided background context in an earlier turn (e.g. "I've been using WSO2 ESB for
-        // 8 years") and that turn was already extracted, it won't be re-processed here.
-        // The per-turn extraction is sufficient for most cases since memories are cumulative.
+        // Currently the extraction agent only sees the current turn.
         const newMessageCount = 2;
 
         const extractionPrompt = buildExtractPrompt({
@@ -128,7 +127,7 @@ export function initExtractMemories(): void {
             });
         } catch (e: unknown) {
             if (!isTrailing) {
-                console.error('[extractMemories] extraction failed:', (e as Error).message);
+                console.error('[extractMemories] extraction failed:', e instanceof Error ? e.message : String(e));
             }
         } finally {
             inProgress = false;

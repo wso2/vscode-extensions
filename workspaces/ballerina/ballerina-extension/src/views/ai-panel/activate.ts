@@ -59,26 +59,40 @@ export function activateAiPanel(ballerinaExtInstance: BallerinaExtension) {
     dreamStatusBar.tooltip = 'WSO2 Integrator Copilot memory consolidation';
     ballerinaExtInstance.context.subscriptions.push(dreamStatusBar);
 
+    let dreamHideTimeout: ReturnType<typeof setTimeout> | undefined;
+
     setDreamCallbacks({
         onDreamStart: () => {
-            dreamStatusBar.text = '$(sync~spin) Copilot Memory';
+            // Cancel any pending hide from a previous dream's completion timer
+            // so the spinning indicator is not hidden while a new dream is running.
+            clearTimeout(dreamHideTimeout);
+            dreamHideTimeout = undefined;
+            dreamStatusBar.text = '$(sync~spin) Copilot Dreaming...';
             dreamStatusBar.show();
         },
         onDreamComplete: () => {
             dreamStatusBar.text = '$(check) Memory updated';
             dreamStatusBar.show();
-            setTimeout(() => dreamStatusBar.hide(), 5_000);
+            dreamHideTimeout = setTimeout(() => dreamStatusBar.hide(), 5_000);
         },
-        onDreamFail: () => dreamStatusBar.hide(),
+        onDreamFail: () => {
+            clearTimeout(dreamHideTimeout);
+            dreamHideTimeout = undefined;
+            dreamStatusBar.hide();
+        },
     });
 
     // Initialise background memory agents
     initExtractMemories();
     initAutoDream();
 
-    // Drain in-flight extractions on extension deactivation
+    // Drain in-flight extractions and clear the dream-status timer on extension deactivation
     ballerinaExtInstance.context.subscriptions.push({
-        dispose: () => { drainPendingExtraction(30_000).catch(() => { /* best-effort */ }); },
+        dispose: () => {
+            clearTimeout(dreamHideTimeout);
+            dreamHideTimeout = undefined;
+            drainPendingExtraction(30_000).catch(() => { /* best-effort */ });
+        },
     });
 
     console.log("AI Panel Activated");

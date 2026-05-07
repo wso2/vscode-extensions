@@ -14,8 +14,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { readdirSync, statSync, readFileSync } from 'fs';
+import { promises as fsp } from 'fs';
 import { join } from 'path';
+import { GLOBAL_MEMORY_TYPES, WORKSPACE_MEMORY_TYPES } from './memoryTypes';
 
 export interface MemoryHeader {
     filename: string;
@@ -31,25 +32,30 @@ const MAX_MEMORY_FILES = 200;
  * Returns headers sorted newest-first, capped at 200 entries.
  * MEMORY.md and hidden files are excluded.
  */
-export function scanMemoryFiles(memoryDir: string): MemoryHeader[] {
+export async function scanMemoryFiles(memoryDir: string): Promise<MemoryHeader[]> {
     try {
-        const entries = readdirSync(memoryDir);
+        const entries = await fsp.readdir(memoryDir);
         const mdFiles = entries.filter(
             f => f.endsWith('.md') && f !== 'MEMORY.md' && !f.startsWith('.')
         );
 
-        return mdFiles
-            .map(filename => {
+        const headers = await Promise.all(
+            mdFiles.map(async filename => {
                 const filePath = join(memoryDir, filename);
                 try {
-                    const stat = statSync(filePath);
-                    const content = readFileSync(filePath, 'utf-8');
+                    const [stat, content] = await Promise.all([
+                        fsp.stat(filePath),
+                        fsp.readFile(filePath, 'utf-8'),
+                    ]);
                     const { description, type } = parseFrontmatter(content);
                     return { filename, mtimeMs: stat.mtimeMs, description, type };
                 } catch {
                     return null;
                 }
             })
+        );
+
+        return headers
             .filter((h): h is MemoryHeader => h !== null)
             .sort((a, b) => b.mtimeMs - a.mtimeMs)
             .slice(0, MAX_MEMORY_FILES);
@@ -59,7 +65,7 @@ export function scanMemoryFiles(memoryDir: string): MemoryHeader[] {
 }
 
 function parseFrontmatter(content: string): { description: string | null; type: string | undefined } {
-    const match = content.match(/^---\n([\s\S]*?)\n---/);
+    const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
     if (!match) { return { description: null, type: undefined }; }
 
     const frontmatter = match[1];
@@ -92,8 +98,10 @@ export function formatMemoryManifest(
                   })
                   .join('\n');
 
+    const globalTypeNames    = GLOBAL_MEMORY_TYPES.join('/');
+    const workspaceTypeNames = WORKSPACE_MEMORY_TYPES.join('/');
     return (
-        `## Global memory files (user/pattern/history types)\n\n${formatList(globalFiles)}\n\n` +
-        `## Workspace memory files (integration/project/reference types)\n\n${formatList(workspaceFiles)}`
+        `## Global memory files (${globalTypeNames} types)\n\n${formatList(globalFiles)}\n\n` +
+        `## Workspace memory files (${workspaceTypeNames} types)\n\n${formatList(workspaceFiles)}`
     );
 }
