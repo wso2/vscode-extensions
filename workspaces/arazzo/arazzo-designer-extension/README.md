@@ -80,8 +80,8 @@ For a direct, terminal-based run (without Copilot), use the **▶ Try with curl*
 
 When you click it, the extension builds the curl request for you, displays the response in a terminal, and animates the execution path live in the diagram. If the workflow has input fields, the input configuration panel provides a way to review and fill them in before the run starts.
 
-- **Configure inputs:** Required fields are clearly marked. The panel prevents you from running with missing values and shows exactly which fields still need attention.
-- **TLS validation:** If a run fails because of a certificate error, the extension detects it and offers a one-click shortcut to disable TLS validation in your workspace settings.
+- **Configure inputs:** Required fields are clearly marked. The panel prevents you from running with missing values and provides visual feedback to show exactly which fields still need attention.
+- **TLS validation:** If a run fails because of a certificate error, the extension detects it and offers a one-click shortcut to disable TLS validation in your workspace settings (or you can toggle it manually in **Settings -> Extensions -> Arazzo Visualizer**).
 - **Server control:** A stop button is available in the editor toolbar while the server is running, so you can shut it down at any time without leaving the editor.
 
 ![Try with curl Demo](https://raw.githubusercontent.com/wso2/vscode-extensions/arazzo-extension/workspaces/arazzo/arazzo-designer-extension/assets/v3_curl_demo.gif)
