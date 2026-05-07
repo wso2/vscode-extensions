@@ -19,7 +19,6 @@ import { StateMachine } from "../../../stateMachine";
 import { chatStateStorage } from '../../../views/ai-panel/chatStateStorage';
 import * as path from 'path';
 import * as fs from 'fs';
-import { Uri, languages } from 'vscode';
 import { AICommandConfig } from "../executors/base/AICommandExecutor";
 import { createWebviewEventHandler } from "../utils/events";
 import { AgentExecutor } from './AgentExecutor';
@@ -132,23 +131,13 @@ export async function generateAgent(params: GenerateAgentCodeRequest): Promise<b
         const workspacePath = StateMachine.context().workspacePath || projectRootPath;
         if (langClient) {
             try {
-                // Pull only modules that are not yet resolved.
-                const allDiagnostics = languages.getDiagnostics();
-                const unpulledModules = allDiagnostics
-                    .flatMap(([, diags]) => diags)
-                    .filter(d => d.code === 'BCE2003')
-                    .map(d => d.message);
-
-                if (unpulledModules.length > 0) {
-                    console.debug('[generateAgent] Unpulled modules detected:', unpulledModules);
-                    try {
-                        const pullResponse = await langClient.resolveModuleDependencies({
-                            documentIdentifier: { uri: Uri.file(workspacePath).toString() }
-                        });
-                        console.debug('[generateAgent] resolveModuleDependencies response:', JSON.stringify(pullResponse, null, 2));
-                    } catch (pullErr) {
-                        console.warn('[generateAgent] Failed to pull modules, continuing:', pullErr);
-                    }
+                try {
+                    const pullResponse = await langClient.codeMapResolveModuleDependencies({
+                        projectPath: workspacePath
+                    });
+                    console.debug('[generateAgent] resolveModuleDependencies response:', JSON.stringify(pullResponse, null, 2));
+                } catch (pullErr) {
+                    console.warn('[generateAgent] Failed to resolve module dependencies, continuing:', pullErr);
                 }
 
                 const codeMapResponse = await langClient.getCodeMap({

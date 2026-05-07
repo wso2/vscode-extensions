@@ -294,7 +294,9 @@ import {
     GetSimpleTypeOfExpressionResponse,
     GetSimpleTypeOfExpressionRequest,
     AIGetPackageVersionRequest,
-    AIGetPackageVersionResponse
+    AIGetPackageVersionResponse,
+    CodeMapResolveModuleDependenciesRequest,
+    CodeMapResolveModuleDependenciesResponse
 } from "@wso2/ballerina-core";
 import { BallerinaExtension } from "./index";
 import { debug, handlePullModuleProgress } from "../utils";
@@ -476,6 +478,7 @@ enum EXTENDED_APIS {
     BI_AI_GET_PACKAGE_VERSION = 'agentManager/getPackageVersion',
     BI_GET_SEMANTIC_DIFF = 'copilotAgentService/getSemanticDiff',
     BI_GET_CODE_MAP = 'designModelService/codemap',
+    BI_CODE_MAP_RESOLVE_MODULE_DEPENDENCIES = 'designModelService/codeMapResolveModuleDependencies',
     BI_IS_ICP_ENABLED = 'icpService/isIcpEnabled',
     BI_ADD_ICP = 'icpService/addICP',
     BI_DISABLE_ICP = 'icpService/disableICP',
@@ -1507,6 +1510,10 @@ export class ExtendedLangClient extends LanguageClient implements ExtendedLangCl
 
     async getCodeMap(params: CodeMapRequest): Promise<CodeMapResponse> {
         return this.sendRequest<CodeMapResponse>(EXTENDED_APIS.BI_GET_CODE_MAP, params);
+    }
+
+    async codeMapResolveModuleDependencies(params: CodeMapResolveModuleDependenciesRequest): Promise<CodeMapResolveModuleDependenciesResponse> {
+        return this.sendRequest<CodeMapResolveModuleDependenciesResponse>(EXTENDED_APIS.BI_CODE_MAP_RESOLVE_MODULE_DEPENDENCIES, params);
     }
 
     // <------------ BI APIS END --------------->

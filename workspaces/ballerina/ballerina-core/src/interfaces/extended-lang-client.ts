@@ -2036,6 +2036,14 @@ export interface CodeMapResponse {
     content?: string;
 }
 
+export interface CodeMapResolveModuleDependenciesRequest {
+    projectPath: string;
+}
+export interface CodeMapResolveModuleDependenciesResponse {
+    success: boolean;
+    errorMsg?: string;
+}
+
 export interface ProjectInfoRequest {
     projectPath: string;
 }
@@ -2149,6 +2157,7 @@ export interface ExtendedLangClientInterface extends BIInterface {
     getDidOpenParams(): DidOpenParams;
     getProjectArtifacts(params: ProjectArtifactsRequest): Promise<ProjectArtifacts>;
     getCodeMap(params: CodeMapRequest): Promise<CodeMapResponse>;
+    codeMapResolveModuleDependencies(params: CodeMapResolveModuleDependenciesRequest): Promise<CodeMapResolveModuleDependenciesResponse>;
     getProjectInfo(params: ProjectInfoRequest): Promise<ProjectInfo>;
     getSimpleTypeOfExpression(params: GetSimpleTypeOfExpressionRequest): Promise<GetSimpleTypeOfExpressionResponse>;
     openConfigToml(params: OpenConfigTomlRequest): Promise<void>;
