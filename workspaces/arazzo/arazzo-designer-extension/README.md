@@ -28,7 +28,8 @@ Read complex API flows as a clear diagram instead of scanning long YAML or JSON 
 The extension adds helpful actions above workflow definitions.
 
 - **Visualize:** Open the selected workflow in the visualizer.
-- **Try with AI:** Run the selected workflow through Github Copilot.
+- **▶ Try with curl:** Execute the workflow directly from the editor and see the result in a terminal. If the workflow has input fields, a panel opens so you can fill them in before running.
+- **▶ Try with AI:** Hand the workflow off to GitHub Copilot and run it through a natural language conversation.
 
 ### GitHub Copilot Support
 
@@ -47,7 +48,15 @@ Editing an existing file? Ask Copilot for a change:
 
 After you save, the visualizer updates to match the latest file.
 
-![Sample Demo](https://raw.githubusercontent.com/wso2/vscode-extensions/arazzo-extension/workspaces/arazzo/arazzo-designer-extension/assets/v2_visualizer_demo.gif)
+Copilot can also control the runner engine for you. Ask it to start the server, run a specific workflow, or turn off TLS validation when working with self-signed certificates:
+
+> "Start the Arazzo server for this file."
+
+> "Run the create-cart workflow."
+
+> "Disable TLS validation and try again."
+
+![Sample Demo](https://raw.githubusercontent.com/wso2/vscode-extensions/arazzo-extension/workspaces/arazzo/arazzo-designer-extension/assets/v3_visualizer_demo.gif)
 
 ### Run Workflows
 
@@ -63,7 +72,19 @@ Use it to execute an Arazzo workflow from VS Code and see how each API call beha
 - **Review what happened:** Use the execution logs and trace details to understand failures, slow steps, and unexpected results.
 - **No separate setup:** The runner is packaged with the extension, so you do not need to install another tool to try a workflow.
 
-![Execution Demo](https://raw.githubusercontent.com/wso2/vscode-extensions/arazzo-extension/workspaces/arazzo/arazzo-designer-extension/assets/v2_execution_demo.gif)
+![Execution Demo](https://raw.githubusercontent.com/wso2/vscode-extensions/arazzo-extension/workspaces/arazzo/arazzo-designer-extension/assets/v3_execution_demo.gif)
+
+### Try with curl
+
+For a direct, terminal-based run (without Copilot), use the **▶ Try with curl** action. It is available both as a CodeLens above each workflow in the editor and as a button in the visualizer diagram.
+
+When you click it, the extension builds the curl request for you, displays the response in a terminal, and animates the execution path live in the diagram. If the workflow has input fields, the input configuration panel provides a way to review and fill them in before the run starts.
+
+- **Configure inputs:** Required fields are clearly marked. The panel prevents you from running with missing values and shows exactly which fields still need attention.
+- **TLS validation:** If a run fails because of a certificate error, the extension detects it and offers a one-click shortcut to disable TLS validation in your workspace settings.
+- **Server control:** A stop button is available in the editor toolbar while the server is running, so you can shut it down at any time without leaving the editor.
+
+![Try with curl Demo](https://raw.githubusercontent.com/wso2/vscode-extensions/arazzo-extension/workspaces/arazzo/arazzo-designer-extension/assets/v3_curl_demo.gif)
 
 ### Execution Logs
 
