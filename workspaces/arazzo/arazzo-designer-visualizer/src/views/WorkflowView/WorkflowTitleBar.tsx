@@ -122,22 +122,6 @@ export function WorkflowTitleBar({ workflowId, onTry, onTryCurl, onConfigure, on
                 <TitleName title={workflowId}>{workflowId}</TitleName>
             </TitleLeft>
             <ButtonGroup>
-                {onConfigure && (
-                    <span title="Configure Inputs">
-                        <TryButton
-                            appearance="secondary"
-                            buttonSx={{
-                                backgroundColor: "transparent",
-                                color: "var(--vscode-foreground)",
-                                border: "none",
-                                boxShadow: "none",
-                            }}
-                            onClick={onConfigure}
-                        >
-                            <Codicon name="settings-gear" />
-                        </TryButton>
-                    </span>
-                )}
                 {onTryCurl && (
                     <TryButton
                         appearance="secondary"
@@ -164,6 +148,22 @@ export function WorkflowTitleBar({ workflowId, onTry, onTryCurl, onConfigure, on
                 >
                     ▶ Try with AI
                 </TryButton>
+                {onConfigure && (
+                    <span title="Configure Inputs">
+                        <TryButton
+                            appearance="secondary"
+                            buttonSx={{
+                                backgroundColor: "transparent",
+                                color: "var(--vscode-foreground)",
+                                border: "none",
+                                boxShadow: "none",
+                            }}
+                            onClick={onConfigure}
+                        >
+                            <Codicon name="settings-gear" />
+                        </TryButton>
+                    </span>
+                )}
             </ButtonGroup>
         </TitleBar>
     );
