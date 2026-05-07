@@ -338,6 +338,9 @@ export function WorkflowInputConfigPanel({
                                 {errors[field.name] && (
                                     <FieldError>{errors[field.name]}</FieldError>
                                 )}
+                                {field.required && (values[field.name] ?? '').trim() === '' && !errors[field.name] && (
+                                    <FieldError>Required field · Cannot be empty</FieldError>
+                                )}
                             </FieldGroup>
                             {index < fields.length - 1 && <Divider />}
                         </Fragment>
@@ -353,13 +356,15 @@ export function WorkflowInputConfigPanel({
             )}
 
             <PanelFooter>
-                <ApplyBtn
-                    appearance="primary"
-                    buttonSx={{ opacity: applyDisabled ? 0.5 : 1 }}
-                    onClick={applyDisabled ? undefined : onApply}
-                >
-                    {pendingCurl ? 'Apply & Run' : 'Apply'}
-                </ApplyBtn>
+                <span title={applyDisabled ? 'One or more required fields are missing' : undefined} style={{ display: 'contents' }}>
+                    <ApplyBtn
+                        appearance="primary"
+                        buttonSx={{ opacity: applyDisabled ? 0.5 : 1, cursor: applyDisabled ? 'not-allowed' : undefined }}
+                        onClick={applyDisabled ? undefined : onApply}
+                    >
+                        {pendingCurl ? 'Apply & Run' : 'Apply'}
+                    </ApplyBtn>
+                </span>
             </PanelFooter>
         </PanelRoot>
     );
