@@ -143,6 +143,11 @@ const SequenceHint = styled.div`
     margin-top: 2px;
 `;
 
+const NameError = styled.span`
+    color: var(--vscode-inputValidation-errorForeground, var(--vscode-errorForeground));
+    font-size: 11px;
+`;
+
 const DialogButtonGroup = styled.div`
     display: flex;
     justify-content: flex-end;
@@ -186,11 +191,20 @@ interface CreateScratchToolDialogProps {
     isOpen: boolean;
     onConfirm: (tool: ScratchToolData) => void;
     onCancel: () => void;
+    existingSequenceIds?: string[];
+    existingToolSequenceNames?: string[];
 }
 
-export function CreateScratchToolDialog({ isOpen, onConfirm, onCancel }: CreateScratchToolDialogProps) {
+export function CreateScratchToolDialog({
+    isOpen,
+    onConfirm,
+    onCancel,
+    existingSequenceIds = [],
+    existingToolSequenceNames = []
+}: CreateScratchToolDialogProps) {
     const { rpcClient } = useVisualizerContext();
     const [name, setName] = useState('');
+    const [nameError, setNameError] = useState('');
     const [description, setDescription] = useState('');
     const [descriptionError, setDescriptionError] = useState('');
     const [inputSchema, setInputSchema] = useState('');
@@ -198,6 +212,37 @@ export function CreateScratchToolDialog({ isOpen, onConfirm, onCancel }: CreateS
     const [aiDescLoading, setAiDescLoading] = useState(false);
     const [aiSchemaLoading, setAiSchemaLoading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+    const validateName = (value: string): boolean => {
+        if (!value.trim()) {
+            setNameError('');
+            return true;
+        }
+
+        const sanitized = value.trim().toLowerCase()
+            .replace(/[^a-z0-9]/g, '_')
+            .replace(/_{2,}/g, '_')
+            .replace(/^_+|_+$/, '');
+
+        if (!sanitized) {
+            setNameError('Tool name must contain alphanumeric characters.');
+            return false;
+        }
+
+        const sequenceName = sanitized + '_tool';
+        if (existingSequenceIds.includes(sequenceName) || existingToolSequenceNames.includes(sequenceName)) {
+            setNameError(`A sequence named "${sequenceName}" already exists.`);
+            return false;
+        }
+
+        setNameError('');
+        return true;
+    };
+
+    const handleNameChange = (value: string) => {
+        setName(value);
+        validateName(value);
+    };
 
     const handleFillDescription = async () => {
         if (!name.trim()) return;
@@ -259,7 +304,7 @@ export function CreateScratchToolDialog({ isOpen, onConfirm, onCancel }: CreateS
     };
 
     const handleConfirm = () => {
-        if (!name.trim() || schemaError) return;
+        if (!name.trim() || nameError || schemaError) return;
         if (!description.trim()) {
             setDescriptionError('Description is required.');
             return;
@@ -271,6 +316,7 @@ export function CreateScratchToolDialog({ isOpen, onConfirm, onCancel }: CreateS
             inputSchema: (inputSchema.trim() ? convertToJsonSchema(inputSchema) : null) || emptySchema,
         });
         setName('');
+        setNameError('');
         setDescription('');
         setDescriptionError('');
         setInputSchema('');
@@ -291,9 +337,10 @@ export function CreateScratchToolDialog({ isOpen, onConfirm, onCancel }: CreateS
                         type="text"
                         placeholder="e.g., get_weather"
                         value={name}
-                        onChange={e => setName(e.target.value)}
+                        onChange={e => handleNameChange(e.target.value)}
                     />
-                    {derivedSequenceName && (
+                    {nameError && <NameError>{nameError}</NameError>}
+                    {derivedSequenceName && !nameError && (
                         <SequenceHint>A sequence named "{derivedSequenceName}" will be created.</SequenceHint>
                     )}
                 </DialogField>
@@ -342,7 +389,7 @@ export function CreateScratchToolDialog({ isOpen, onConfirm, onCancel }: CreateS
 
                 <DialogButtonGroup>
                     <CancelBtn onClick={onCancel}>Cancel</CancelBtn>
-                    <ConfirmBtn onClick={handleConfirm} disabled={!name.trim() || !description.trim() || !!schemaError}>
+                    <ConfirmBtn onClick={handleConfirm} disabled={!name.trim() || !description.trim() || !!schemaError || !!nameError}>
                         Create Tool
                     </ConfirmBtn>
                 </DialogButtonGroup>

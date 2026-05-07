@@ -620,6 +620,23 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                 .replace(/_{2,}/g, '_')
                 .replace(/^_+|_+$/, '') + '_tool';
 
+            // Validate sequence name
+            const baseNameWithoutSuffix = sequenceName.slice(0, -5);
+            if (!baseNameWithoutSuffix || baseNameWithoutSuffix === '') {
+                setError('Tool name must contain alphanumeric characters. Please use a different name.');
+                return;
+            }
+
+            // Check for collisions with existing sequences
+            const existingSequenceNames = new Set(sequences.map(s => s.id));
+            const existingToolSequenceNames = new Set(
+                tools.filter((t): t is SequenceTool => t.kind === 'sequence').map(t => t.sequenceName)
+            );
+            if (existingSequenceNames.has(sequenceName) || existingToolSequenceNames.has(sequenceName)) {
+                setError(`A sequence with name "${sequenceName}" already exists. Please use a different tool name.`);
+                return;
+            }
+
             const projectRootResp = await rpcClient.getMiDiagramRpcClient().getProjectRoot({ path });
             const sequencesDir = pathModule.join(
                 projectRootResp.path, 'src', 'main', 'wso2mi', 'artifacts', 'sequences'
@@ -1061,6 +1078,8 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                     isOpen={showCreateScratchDialog}
                     onConfirm={confirmAddScratchTool}
                     onCancel={() => setShowCreateScratchDialog(false)}
+                    existingSequenceIds={sequences.map(s => s.id)}
+                    existingToolSequenceNames={tools.filter((t): t is SequenceTool => t.kind === 'sequence').map(t => t.sequenceName)}
                 />
             </ViewContent>
         </View>
