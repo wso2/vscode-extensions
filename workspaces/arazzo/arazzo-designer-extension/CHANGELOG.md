@@ -2,6 +2,21 @@
 
 All notable changes to the "arazzo-visualizer" extension will be documented in this file.
 
+## 0.3.0
+
+### Added
+- **Try with curl**: Added a standard execution mode for running workflows directly in the terminal
+  - Workflow-level CodeLens and visualizer button to execute workflows via curl
+  - Performance animations in the diagram synchronized with terminal execution
+- **Advanced Copilot Capabilities**: Enhanced AI integration to control the running environment
+  - Copilot can now start the Arazzo server, execute specific workflows, and manage security settings such as disabling TLS certification validation.
+- **Automatic TLS Error Handling**: Added smart detection for certificate validation failures
+  - Detection of "certificate signed by unknown authority" errors in the runner
+  - One-click shortcut to disable TLS validation and retry the workflow
+- **Workflow Input Configuration**: Added a dedicated panel for managing workflow parameters
+  - Inline validation for required fields
+- **Server Control**: Added a central stop button in the editor toolbar to shut down the runner engine
+
 ## 0.2.0
 
 ### Added
