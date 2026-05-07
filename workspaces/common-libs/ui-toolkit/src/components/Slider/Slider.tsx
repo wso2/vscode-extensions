@@ -47,7 +47,6 @@ const DescriptionRow = styled.div`
     justify-content: space-between;
     align-items: center;
     gap: 8px;
-    margin-bottom: 4px;
 `;
 
 const Description = styled.div<DescriptionProps>`
@@ -57,8 +56,7 @@ const Description = styled.div<DescriptionProps>`
 `;
 
 const Label = styled.label`
-    font-size: 13px;
-    font-weight: 400;
+    color: var(--vscode-editor-foreground);
 `;
 
 const ValueDisplay = styled.span`
@@ -214,7 +212,7 @@ export const Slider = React.forwardRef<HTMLInputElement, SliderProps>((props, re
             )}
             {description && (
                 <DescriptionRow>
-                    <Description sx={descriptionSx}>{description}</Description>
+                    <Description id={`${resolvedId}-description`} sx={descriptionSx}>{description}</Description>
                     {showValue && (
                         <ValueDisplay>{formatValue(currentValue)}</ValueDisplay>
                     )}
@@ -222,6 +220,7 @@ export const Slider = React.forwardRef<HTMLInputElement, SliderProps>((props, re
             )}
             <SliderTrack>
                 <StyledSlider
+                    {...rest}
                     ref={ref}
                     id={`${resolvedId}-slider`}
                     type="range"
@@ -231,7 +230,7 @@ export const Slider = React.forwardRef<HTMLInputElement, SliderProps>((props, re
                     value={currentValue}
                     onChange={handleChange}
                     percentage={percentage}
-                    {...rest}
+                    aria-describedby={description ? `${resolvedId}-description` : undefined}
                 />
             </SliderTrack>
             {showMarkers && (
