@@ -149,7 +149,7 @@ export function WorkflowTitleBar({ workflowId, onTry, onTryCurl, onConfigure, on
                         }}
                         onClick={onTryCurl}
                     >
-                        ▶ Try
+                        ▶ Try with curl
                     </TryButton>
                 )}
                 <TryButton
@@ -162,7 +162,7 @@ export function WorkflowTitleBar({ workflowId, onTry, onTryCurl, onConfigure, on
                     }}
                     onClick={onTry}
                 >
-                    🤖Try with Copilot
+                    ▶ Try with AI
                 </TryButton>
             </ButtonGroup>
         </TitleBar>

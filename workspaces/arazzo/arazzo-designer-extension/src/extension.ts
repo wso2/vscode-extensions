@@ -106,7 +106,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	});
 	context.subscriptions.push(mcpServerDisposable);
 
-	// Register the Run-workflow CodeLens provider (shows "▶ Try" when arazzo server is active)
+	// Register the Run-workflow CodeLens provider (shows "▶ Try with curl" when arazzo server is active)
 	const runCodeLensProvider = new RunWorkflowCodeLensProvider();
 	context.subscriptions.push(
 		vscode.languages.registerCodeLensProvider(
@@ -378,7 +378,7 @@ function initializeLanguageServer(context: vscode.ExtensionContext, runCodeLensP
 
 	context.subscriptions.push(designerCommand);
 
-	// Register "Try with Copilot" command — triggered by the "▶ Try with Copilot" Code Lens.
+	// Register "Try with AI" command — triggered by the "▶ Try with curl with AI" Code Lens.
 	// Ensures the arazzo server is running, then opens Copilot with a prompt
 	// to execute the specific workflow.
 	const tryAIWorkflowCommand = vscode.commands.registerCommand('arazzo.tryAIWorkflow', async (args?: any) => {
@@ -460,8 +460,8 @@ function initializeLanguageServer(context: vscode.ExtensionContext, runCodeLensP
 
 	context.subscriptions.push(tryAIWorkflowCommand);
 
-	// Register "Try Workflow" command — triggered by the "▶ Try" / "↺ Retry" Code Lens
-	// or the "▶ Try" button in the webview title bar.
+	// Register "Try Workflow" command — triggered by the "▶ Try with curl"
+	// or the "▶ Try with curl" button in the webview title bar.
 	// Mirrors arazzo.tryAIWorkflow: prompts to start/restart the server when needed.
 	const tryWorkflowCommand = vscode.commands.registerCommand('arazzo.tryWorkflow', async (args?: any) => {
 		const filePath = args?.uri ? vscode.Uri.parse(args.uri).fsPath : vscode.window.activeTextEditor?.document.uri.fsPath;

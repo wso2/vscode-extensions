@@ -279,7 +279,7 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
             ? `execute the workflow ${firstWorkflow}`
             : `list all workflows`;
 
-        // Combined status message: Server started + Try with Copilot invitation
+        // Combined status message: Server started + Try with AI invitation
         if (!suppressPrompt) {
             const action = await vscode.window.showInformationMessage(
                 `Arazzo server started. Running on ${serverUrl}.${configNote}${tlsNote} Try your workflows with GitHub Copilot.`,

@@ -20,7 +20,7 @@ import * as vscode from 'vscode';
 import { isMCPServerRunning, getMCPActiveFilePath } from './mcpServerRunner';
 
 /**
- * CodeLens provider that shows a "▶ Try with Copilot" lens above each workflow
+ * CodeLens provider that shows a "▶ Try with AI" lens above each workflow
  * definition in an Arazzo YAML file, but ONLY when the MCP server
  * is currently running.
  */
@@ -101,7 +101,7 @@ export class RunWorkflowCodeLensProvider implements vscode.CodeLensProvider {
                 const range = new vscode.Range(i, 0, i, line.length);
     
                 lenses.push(new vscode.CodeLens(range, {
-                    title: '▶ Try',
+                    title: '▶ Try with curl',
                     command: 'arazzo.tryWorkflow',
                     arguments: [{
                         workflowId,
@@ -110,7 +110,7 @@ export class RunWorkflowCodeLensProvider implements vscode.CodeLensProvider {
                 }));
 
                 lenses.push(new vscode.CodeLens(range, {
-                    title: '🤖Try with Copilot',
+                    title: '▶ Try with AI',
                     command: 'arazzo.tryAIWorkflow',
                     arguments: [{
                         workflowId,
