@@ -784,6 +784,82 @@
         {
           "command": "MI.importProjectFromCapp",
           "when": "false"
+        },
+        {
+          "command": "MI.openProject",
+          "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: MI')"
+        },
+        {
+          "command": "MI.importProjectFromZip",
+          "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: MI')"
+        },
+        {
+          "command": "MI.exportProjectAsZip",
+          "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: MI')"
+        },
+        {
+          "command": "MI.openWelcome",
+          "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: MI')"
+        },
+        {
+          "command": "MI.showOverview",
+          "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: MI')"
+        },
+        {
+          "command": "MI.openAiPanel",
+          "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: MI')"
+        },
+        {
+          "command": "MI.configureDefaultModelProvider",
+          "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: MI')"
+        },
+        {
+          "command": "MI.Open-runtime-service-view",
+          "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: MI')"
+        },
+        {
+          "command": "MI.project-explorer.add.artifact",
+          "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: MI')"
+        },
+        {
+          "command": "MI.project-explorer.refresh",
+          "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: MI')"
+        },
+        {
+          "command": "MI.project-explorer.create-project",
+          "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: MI')"
+        },
+        {
+          "command": "MI.project-explorer.open-project-overview",
+          "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: MI')"
+        },
+        {
+          "command": "MI.project-explorer.project-delete",
+          "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: MI')"
+        },
+        {
+          "command": "project-explorer.view",
+          "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: MI')"
+        },
+        {
+          "command": "MI.convert.to.consolidated",
+          "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: MI')"
+        },
+        {
+          "command": "MI.change.server",
+          "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: MI')"
+        },
+        {
+          "command": "MI.change.java",
+          "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: MI')"
+        },
+        {
+          "command": "MI.build-project",
+          "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: MI')"
+        },
+        {
+          "command": "MI.terminate-server",
+          "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: MI')"
         }
       ],
       "view/title": [
