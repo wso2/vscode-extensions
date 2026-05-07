@@ -720,22 +720,20 @@ function resolveArazzoReference(value: any, doc: any): any {
  * currently ENABLED, shows a warning notification with a Go to Settings
  * button that opens arazzo.disableTLSCertificationValidation directly.
  */
-function checkForTlsError(workflowId: string, port: number, inputs: Record<string, any>): void {
+function checkForTlsError(workflowId: string, port: number, _inputs: Record<string, any>): void {
 	// Nothing to do when TLS validation is already disabled.
 	if (vscode.workspace.getConfiguration('arazzo').get<boolean>('disableTLSCertificationValidation', false)) {
 		return;
 	}
 
-	const body = JSON.stringify({ inputs });
+	// Use GET /lastResult/{workflowId} to fetch the cached result of the run that
+	// just finished in the terminal.  This avoids re-executing the workflow a
+	// second time
 	const options: http.RequestOptions = {
 		hostname: 'localhost',
 		port,
-		path: `/run/${encodeURIComponent(workflowId)}`,
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-			'Content-Length': Buffer.byteLength(body),
-		},
+		path: `/lastResult/${encodeURIComponent(workflowId)}`,
+		method: 'GET',
 	};
 
 	const req = http.request(options, res => {
@@ -772,7 +770,6 @@ function checkForTlsError(workflowId: string, port: number, inputs: Record<strin
 		});
 	});
 	req.on('error', () => { /* ignore — terminal already shows the result */ });
-	req.write(body);
 	req.end();
 }
 

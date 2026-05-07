@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -23,10 +24,12 @@ import (
 
 // MCPServer wraps an Arazzo runner as an MCP server.
 type MCPServer struct {
-	Runner    *runner.ArazzoRunner
-	MCPServer *server.MCPServer
-	Port      int
-	Sink      telemetry.SpanEventSink
+	Runner      *runner.ArazzoRunner
+	MCPServer   *server.MCPServer
+	Port        int
+	Sink        telemetry.SpanEventSink
+	lastResults map[string]RunResponse // per-workflowId cache of the last run result
+	resultsMu   sync.RWMutex           // protects lastResults
 }
 
 // RunRequest is the JSON body for POST /run and POST /run/{workflowId}.
@@ -58,10 +61,11 @@ func NewMCPServer(arazzoFilePath string, port int, runtimeParams *models.Runtime
 	)
 
 	srv := &MCPServer{
-		Runner:    r,
-		MCPServer: mcpSrv,
-		Port:      port,
-		Sink:      sink,
+		Runner:      r,
+		MCPServer:   mcpSrv,
+		Port:        port,
+		Sink:        sink,
+		lastResults: make(map[string]RunResponse),
 	}
 
 	// Register each workflow as an MCP tool
@@ -85,6 +89,7 @@ func (s *MCPServer) Start() error {
 	mux.Handle("/mcp", streamableHTTPSrv)
 	mux.HandleFunc("/run", s.handleRun)
 	mux.HandleFunc("/run/", s.handleRun)
+	mux.HandleFunc("/lastResult/", s.handleLastResult)
 
 	httpSrv := &http.Server{
 		Addr:    addr,
@@ -455,6 +460,34 @@ func (s *MCPServer) handleRun(w http.ResponseWriter, r *http.Request) {
 		resp.Outputs = result.Outputs
 	}
 
+	// Cache the result so GET /lastResult/{workflowId} can return it without re-executing.
+	s.resultsMu.Lock()
+	s.lastResults[workflowID] = resp
+	s.resultsMu.Unlock()
+
+	writeRunJSON(w, http.StatusOK, resp)
+}
+
+// handleLastResult handles GET /lastResult/{workflowId} requests.
+// It returns the cached result of the most recent run for the given workflow
+// WITHOUT executing the workflow again.
+func (s *MCPServer) handleLastResult(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	workflowID := strings.TrimPrefix(r.URL.Path, "/lastResult/")
+	if workflowID == "" {
+		http.Error(w, "workflowId required", http.StatusBadRequest)
+		return
+	}
+	s.resultsMu.RLock()
+	resp, ok := s.lastResults[workflowID]
+	s.resultsMu.RUnlock()
+	if !ok {
+		http.Error(w, "no result found for workflow", http.StatusNotFound)
+		return
+	}
 	writeRunJSON(w, http.StatusOK, resp)
 }
 
