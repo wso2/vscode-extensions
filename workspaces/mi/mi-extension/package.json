@@ -500,7 +500,7 @@
         "category": "MI"
       },
       {
-        "command": "MI.project-explorer.show-mcp-server",
+        "command": "MI.show.mcp-server",
         "title": "Show MCP Server",
         "icon": "$(server)",
         "category": "MI"
