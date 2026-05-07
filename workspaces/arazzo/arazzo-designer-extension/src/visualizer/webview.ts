@@ -106,7 +106,7 @@ export class VisualizerWebview {
     private static createWebview(viewColumn: ViewColumn): vscode.WebviewPanel {
         const panel = vscode.window.createWebviewPanel(
             VisualizerWebview.viewType,
-            "Arazzo Designer",
+            "Arazzo Visualizer",
             viewColumn,
             {
                 enableScripts: true,
@@ -216,7 +216,7 @@ export class VisualizerWebview {
             <!-- Loading screen -->
             <div id="loading-screen">
                 <div class="loading-spinner"></div>
-                <div class="loading-text">Loading Arazzo Designer...</div>
+                <div class="loading-text">Loading Arazzo Visualizer...</div>
             </div>
             
             <div id="root">

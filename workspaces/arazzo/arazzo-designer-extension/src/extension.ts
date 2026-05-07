@@ -18,7 +18,9 @@
 
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+import * as http from 'http';
 import * as path from 'path';
+import * as yaml from 'js-yaml';
 import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from 'vscode-languageclient/node';
 import { StateMachine, openView } from './stateMachine';
 import { extension } from './Context';
@@ -27,11 +29,35 @@ import { activateVisualizer } from './visualizer/activate';
 import { activateMCPServer } from './mcp';
 import { RPCLayer } from './RPCLayer';
 import { VisualizerWebview } from './visualizer/webview';
-import { EVENT_TYPE, MACHINE_VIEW } from '@wso2/arazzo-designer-core';
-import { startMCPServer, disposeMCPServer, isMCPServerRunning, onMCPServerStateChange, getMCPActiveFilePath } from './mcp/mcpServerRunner';
+import { EVENT_TYPE, MACHINE_VIEW, openInputConfigPanel } from '@wso2/arazzo-designer-core';
+import { startMCPServer, stopMCPServer, disposeMCPServer, isMCPServerRunning, onMCPServerStateChange, getMCPActiveFilePath, initializeMCPServerRunner, getMCPServerPort } from './mcp/mcpServerRunner';
 import { RunWorkflowCodeLensProvider } from './mcp/runWorkflowCodeLens';
+import { registerArazzoCopilotTools } from './copilotTools';
 
 let languageClient: LanguageClient | undefined;
+
+const RUN_INPUTS_STATE_KEY = 'arazzo.runInputs.v1';
+
+type RunInputsStore = {
+	[fileUri: string]: {
+		[workflowId: string]: {
+			inputs: Record<string, any>;
+			updatedAt: number;
+		};
+	};
+};
+
+type WorkflowRunInputField = {
+	name: string;
+	type: string;
+	required: boolean;
+	defaultValue?: any;
+};
+
+type WorkflowRunInputs = {
+	inputs: Record<string, any>;
+	missingRequired: boolean;
+};
 
 export function getLanguageClient(): LanguageClient | undefined {
 	return languageClient;
@@ -49,7 +75,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.window.onDidChangeActiveTextEditor(editor => checkDocumentForOpenAPI(editor?.document))
 	);
 
-	RPCLayer.init();
+	RPCLayer.init(context);
 	activateHistory();
 	activateVisualizer(context);
 	StateMachine.initialize();
@@ -70,6 +96,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(showCodeDisposable);
 
 	// Register the Start Arazzo Server command
+	initializeMCPServerRunner(context);
 	let mcpServerDisposable = vscode.commands.registerCommand('arazzo.startMCPServer', async (args?: any) => {
 		let filePath: string | undefined;
 		if (args && args.uri) {
@@ -79,7 +106,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	});
 	context.subscriptions.push(mcpServerDisposable);
 
-	// Register the Run-workflow CodeLens provider (shows "▶ Try" when arazzo server is active)
+	// Register the Run-workflow CodeLens provider (shows "▶ Try with curl" when arazzo server is active)
 	const runCodeLensProvider = new RunWorkflowCodeLensProvider();
 	context.subscriptions.push(
 		vscode.languages.registerCodeLensProvider(
@@ -88,13 +115,35 @@ export async function activate(context: vscode.ExtensionContext) {
 		)
 	);
 
+	// Status bar item — visible whenever the Arazzo server is running.
+	// Clicking it stops the server. Starts hidden; shown by onMCPServerStateChange.
+	const serverStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+	serverStatusBar.command = 'arazzo.stopMCPServer';
+	serverStatusBar.text = '$(debug-stop) Arazzo Server';
+	serverStatusBar.tooltip = 'Arazzo server is running. Click to stop.';
+	serverStatusBar.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+	context.subscriptions.push(serverStatusBar);
+
+	// Register the Stop Arazzo Server command
+	context.subscriptions.push(
+		vscode.commands.registerCommand('arazzo.stopMCPServer', () => stopMCPServer())
+	);
+
 	// Refresh CodeLenses whenever the arazzo server starts or stops.
 	// Also reset the dirty flag so the lens reverts from "Rerun" to "Run".
 	onMCPServerStateChange(() => {
 		runCodeLensProvider.setFileDirty(false);
 		runCodeLensProvider.refresh();
 		// Notify webview that arazzo server state changed
-		RPCLayer.sendMCPStateChange({ isMCPRunning: isMCPServerRunning(), isFileDirty: false });
+		const running = isMCPServerRunning();
+		RPCLayer.sendMCPStateChange({ isMCPRunning: running, isFileDirty: false });
+		// Drive the status bar stop button and the editor-title-menu context.
+		if (running) {
+			serverStatusBar.show();
+		} else {
+			serverStatusBar.hide();
+		}
+		vscode.commands.executeCommand('setContext', 'arazzoServerRunning', running);
 	});
 
 	// When the active file is saved and the arazzo server is serving it, switch
@@ -111,19 +160,68 @@ export async function activate(context: vscode.ExtensionContext) {
 		})
 	);
 
-	// Register the Rerun-workflow command — triggered when the CodeLens shows
-	// "↺ Rerun" (i.e. the file was saved since the last server start).
-	// Restart the server (like the play button) then run the workflow (like the Run lens).
-	context.subscriptions.push(
-		vscode.commands.registerCommand('arazzo.rerunWorkflow', async (args?: any) => {
-			await vscode.commands.executeCommand('arazzo.startMCPServer', args);
-			await new Promise(resolve => setTimeout(resolve, 2000));
-			await vscode.commands.executeCommand('arazzo.runWorkflow', args);
-		})
-	);
-
 	// Initialize Arazzo Language Server for procode features
 	initializeLanguageServer(context, runCodeLensProvider);
+
+	// Watch for arazzo.disableTLSCertificationValidation changes.
+	// Guard flag prevents the revert config.update() from re-triggering this handler.
+	let revertingTlsSetting = false;
+	// Set to true by the Copilot TLS tool so the modal below is skipped when
+	// the tool is the one changing the setting (it handles the restart itself).
+	let suppressNextTlsSettingPrompt = false;
+	registerArazzoCopilotTools(context, () => { suppressNextTlsSettingPrompt = true; });
+	context.subscriptions.push(
+		vscode.workspace.onDidChangeConfiguration(async event => {
+			if (!event.affectsConfiguration('arazzo.disableTLSCertificationValidation')) {
+				return;
+			}
+			if (revertingTlsSetting) {
+				return;
+			}
+			if (suppressNextTlsSettingPrompt) {
+				suppressNextTlsSettingPrompt = false;
+				return;
+			}
+
+			const config = vscode.workspace.getConfiguration('arazzo');
+			const newValue = config.get<boolean>('disableTLSCertificationValidation', false);
+			const status = newValue ? 'disabled' : 'enabled';
+
+			if (!isMCPServerRunning()) {
+				vscode.window.showInformationMessage(
+					`TLS certificate validation ${newValue ? 'disabled' : 'enabled'}. This will take effect when the server starts.`
+				);
+				return;
+			}
+
+			// Server is running — show a modal popup with Restart / Cancel
+			const action = await vscode.window.showWarningMessage(
+				`TLS certificate validation ${newValue ? 'disabled' : 'enabled'}. Restart the server for this to take effect.`,
+				{ modal: true },
+				'Restart Server'
+			);
+
+			if (action === 'Restart Server') {
+				const activeFilePath = getMCPActiveFilePath();
+				await startMCPServer(context, activeFilePath, true);
+			} else {
+				// Revert — write the previous value back without re-triggering this handler.
+				// Use inspect() to determine the level where the value was actually set,
+				// so we don't create a workspace override when the user edited User settings.
+				revertingTlsSetting = true;
+				try {
+					const inspected = config.inspect<boolean>('disableTLSCertificationValidation');
+					const target = inspected?.workspaceValue !== undefined
+						? vscode.ConfigurationTarget.Workspace
+						: vscode.ConfigurationTarget.Global;
+					await config.update('disableTLSCertificationValidation', !newValue, target);
+				} finally {
+					revertingTlsSetting = false;
+				}
+				vscode.window.showInformationMessage('TLS setting change cancelled. Configuration not applied.');
+			}
+		})
+	);
 }
 
 function getLanguageServerBinaryName(): string {
@@ -246,7 +344,10 @@ function initializeLanguageServer(context: vscode.ExtensionContext, runCodeLensP
 
 		// Use the existing visualizer system
 		// Trigger the state machine to open the visualizer
-		StateMachine.sendEvent(EVENT_TYPE.OPEN_VIEW);
+		openView(EVENT_TYPE.OPEN_VIEW, {
+			view: MACHINE_VIEW.Overview,
+			documentUri: uri.toString(),
+		});
 	});
 
 	context.subscriptions.push(visualizeCommand);
@@ -280,10 +381,10 @@ function initializeLanguageServer(context: vscode.ExtensionContext, runCodeLensP
 
 	context.subscriptions.push(designerCommand);
 
-	// Register "Run Workflow" command — triggered by the Run Code Lens.
+	// Register "Try with AI" command — triggered by the "▶ Try with curl with AI" Code Lens.
 	// Ensures the arazzo server is running, then opens Copilot with a prompt
 	// to execute the specific workflow.
-	const runWorkflowCommand = vscode.commands.registerCommand('arazzo.runWorkflow', async (args?: any) => {
+	const tryAIWorkflowCommand = vscode.commands.registerCommand('arazzo.tryAIWorkflow', async (args?: any) => {
 		let filePath: string | undefined;
 		let workflowId: string | undefined;
 
@@ -323,6 +424,18 @@ function initializeLanguageServer(context: vscode.ExtensionContext, runCodeLensP
 		// or the file has been modified since the last server start (dirty).
 		const activeMCPFilePath = getMCPActiveFilePath();
 		if (!isMCPServerRunning() || activeMCPFilePath !== filePath || runCodeLensProvider.isFileDirty()) {
+			const serverMessage = runCodeLensProvider.isFileDirty()
+				? 'This file has changed since the Arazzo server was last started. Restart the server to run the workflow?'
+				: 'The Arazzo server is not currently running for this file. Start it to run the workflow?';
+			const answer = await vscode.window.showWarningMessage(
+				serverMessage,
+				{ modal: true },
+				'Yes'
+			);
+			if (answer !== 'Yes') {
+				vscode.window.showInformationMessage('Workflow execution cancelled.');
+				return;
+			}
 			// Pass suppressPrompt=true so startMCPServer does not show its own
 			// "Try Now" notification — this command will open Copilot itself
 			// with the correct workflow ID below.
@@ -348,7 +461,339 @@ function initializeLanguageServer(context: vscode.ExtensionContext, runCodeLensP
 		}
 	});
 
-	context.subscriptions.push(runWorkflowCommand);
+	context.subscriptions.push(tryAIWorkflowCommand);
+
+	// Register "Try Workflow" command — triggered by the "▶ Try with curl"
+	// or the "▶ Try with curl" button in the webview title bar.
+	// Mirrors arazzo.tryAIWorkflow: prompts to start/restart the server when needed.
+	const tryWorkflowCommand = vscode.commands.registerCommand('arazzo.tryWorkflow', async (args?: any) => {
+		const filePath = args?.uri ? vscode.Uri.parse(args.uri).fsPath : vscode.window.activeTextEditor?.document.uri.fsPath;
+		const workflowId: string | undefined = args?.workflowId;
+
+		if (!filePath || !workflowId) {
+			vscode.window.showWarningMessage('No Arazzo workflow found. Click the lens directly above a workflow definition.');
+			return;
+		}
+
+		// Open the visualizer for this workflow if it is not already showing it.
+		const ctx = StateMachine.context();
+		const alreadyOpen =
+			VisualizerWebview.workflowPanel !== undefined &&
+			ctx.view === MACHINE_VIEW.Workflow &&
+			ctx.identifier === workflowId &&
+			ctx.documentUri === (args?.uri ?? vscode.Uri.file(filePath).toString());
+		if (!alreadyOpen) {
+			await vscode.commands.executeCommand('arazzo.openDesigner', args);
+			await new Promise(resolve => setTimeout(resolve, 300));
+		}
+
+		// Start/restart the server when it is not running, serving a different file,
+		// or the file has been modified since the last server start.
+		const activeMCPFilePath = getMCPActiveFilePath();
+		if (!isMCPServerRunning() || activeMCPFilePath !== filePath || runCodeLensProvider.isFileDirty()) {
+			const serverMessage = runCodeLensProvider.isFileDirty()
+				? 'This file has changed since the Arazzo server was last started. Restart the server to run the workflow?'
+				: 'The Arazzo server is not currently running for this file. Start it to run the workflow?';
+			const answer = await vscode.window.showWarningMessage(
+				serverMessage,
+				{ modal: true },
+				'Yes'
+			);
+			if (answer !== 'Yes') {
+				vscode.window.showInformationMessage('Workflow execution cancelled.');
+				return;
+			}
+			await startMCPServer(context, filePath, true);
+			await new Promise(resolve => setTimeout(resolve, 2000));
+		}
+
+		const port = getMCPServerPort();
+		if (!port) {
+			vscode.window.showWarningMessage('Arazzo server failed to start. Please try again.');
+			return;
+		}
+
+		// Resolve inputs by always cross-referencing current file fields:
+		//  1. Explicit inputs passed by the webview (already validated against current fields)
+		//  2. Saved values from workspaceState keyed by the current field names
+		//  3. Declared defaults in the YAML schema
+		// This ensures both the webview Try button and the CodeLens produce
+		// identical curl commands — stale/renamed/removed fields are excluded.
+		const fileUriStr = args?.uri ?? vscode.Uri.file(filePath).toString();
+		const explicitInputs: Record<string, any> | undefined = args?.inputs;
+		const runInputs = buildRunInputsFromWorkspaceState(
+			workflowId, filePath, fileUriStr, context, explicitInputs
+		);
+
+		// If required inputs are still missing (no saved value and no default),
+		// open the Configure Inputs panel so the user can provide them.
+		if (runInputs.missingRequired) {
+			RPCLayer._messenger.sendNotification(
+				openInputConfigPanel,
+				{ type: 'webview', webviewType: VisualizerWebview.viewType },
+				{ workflowId }
+			);
+			return;
+		}
+
+		const runCommand = buildRunCommand(workflowId, port, runInputs.inputs);
+		const terminal = vscode.window.terminals.find(t => t.name === 'Arazzo') ?? vscode.window.createTerminal('Arazzo');
+		terminal.show(true); // preserve focus on the editor
+		
+		// If on Windows, pipe to Out-String to avoid truncation and then 
+		// convert from JSON for a clear property-list view.
+		let commandToExecute = runCommand;
+		if (process.platform === 'win32') {
+			commandToExecute = `${runCommand} | Format-List`;
+		}
+		
+		// Send a Ctrl+C (\u0003) to break anything currently running in the terminal
+		// before typing the new command.
+		terminal.sendText('\u0003', false);
+		terminal.sendText(commandToExecute, false /* do not press Enter */);
+
+		// After the user presses Enter, onDidEndTerminalShellExecution fires.
+		// We verify the finished command actually contains our port AND workflowId
+		// so we never react to stale completions (previous runs, Ctrl+C, etc.).
+		// The cast through `any` is required because @types/vscode is pinned to
+		// 1.81 while the engine requires 1.100 where this API exists.
+		const anyWindow = vscode.window as any;
+		if (typeof anyWindow.onDidEndTerminalShellExecution === 'function') {
+			let shellListener: { dispose(): void } | undefined;
+			let closeListener: vscode.Disposable | undefined;
+
+			shellListener = anyWindow.onDidEndTerminalShellExecution((event: any) => {
+				if (event.terminal !== terminal) { return; }
+				// Only act when the command that just finished is our workflow
+				// run command (identified by port and workflowId in the cmd line).
+				const cmd: string = event.execution?.commandLine?.value ?? '';
+				if (!cmd.includes(String(port)) || !cmd.includes(workflowId)) { return; }
+				shellListener?.dispose();
+				closeListener?.dispose();
+				checkForTlsError(workflowId, port, runInputs.inputs);
+			});
+
+			closeListener = vscode.window.onDidCloseTerminal(closed => {
+				if (closed === terminal) {
+					shellListener?.dispose();
+					closeListener?.dispose();
+				}
+			});
+		}
+	});
+
+	context.subscriptions.push(tryWorkflowCommand);
+}
+
+/**
+ * Builds the inputs object for a workflow run command by cross-referencing
+ * the current file's declared input fields (the source of truth) against:
+ *  1. explicitInputs — values already computed by the webview (highest priority)
+ *  2. workspaceState — values the user previously saved via the config panel
+ *  3. schema defaults — fallback when no other value is available
+ *
+ * Any field that no longer exists in the file is automatically excluded,
+ * so removed or renamed fields from a previous run never appear in the curl.
+ * Optional fields with no value are also excluded — they are only sent when
+ * a concrete value is available.
+ */
+function buildRunInputsFromWorkspaceState(
+	workflowId: string,
+	filePath: string,
+	fileUri: string,
+	context: vscode.ExtensionContext,
+	explicitInputs?: Record<string, any>,
+): WorkflowRunInputs {
+	const fields = extractWorkflowRunInputFields(workflowId, filePath);
+	const store = context.workspaceState.get<RunInputsStore>(RUN_INPUTS_STATE_KEY, {});
+	const savedInputs = store[fileUri]?.[workflowId]?.inputs ?? {};
+	const inputs: Record<string, any> = {};
+	let missingRequired = false;
+
+	for (const field of fields) {
+		// Priority 1: explicit value passed by the webview (already coerced + validated)
+		if (explicitInputs !== undefined && Object.prototype.hasOwnProperty.call(explicitInputs, field.name)) {
+			inputs[field.name] = explicitInputs[field.name];
+			continue;
+		}
+		// Priority 2: saved value in workspaceState
+		// Keys are stored as "name::type" so a field whose type was changed in the
+		// YAML automatically misses here rather than using a stale typed value.
+		const savedKey = `${field.name}::${field.type}`;
+		if (Object.prototype.hasOwnProperty.call(savedInputs, savedKey)) {
+			inputs[field.name] = savedInputs[savedKey];
+			continue;
+		}
+		// Priority 3: schema default
+		if (field.defaultValue !== undefined) {
+			inputs[field.name] = field.defaultValue;
+			continue;
+		}
+		// No value available — required fields without a value block the run.
+		if (field.required) {
+			missingRequired = true;
+		}
+		// Optional fields with no value are silently omitted from the curl body.
+	}
+
+	return { inputs, missingRequired };
+}
+
+function extractWorkflowRunInputFields(workflowId: string, filePath: string): WorkflowRunInputField[] {
+	try {
+		const content = fs.readFileSync(filePath, 'utf-8');
+		const doc = yaml.load(content) as any;
+		const workflows: any[] = doc?.workflows ?? [];
+		const wf = workflows.find((w: any) => w?.workflowId === workflowId);
+		if (!wf) { return []; }
+
+		const fields = new Map<string, WorkflowRunInputField>();
+		const inputsDef = resolveArazzoReference(wf.inputs, doc);
+		const required = new Set<string>(Array.isArray(inputsDef?.required) ? inputsDef.required : []);
+		const properties: Record<string, any> = inputsDef?.properties ?? {};
+
+		// Only fields declared in properties are real input fields.
+		// The required array only controls whether an existing property is
+		// mandatory — names in required that have no matching property are
+		// ignored (malformed schema) so they never appear in the curl body.
+		for (const [name, rawSchema] of Object.entries<any>(properties)) {
+			const schemaDef = resolveArazzoReference(rawSchema, doc);
+			fields.set(name, {
+				name,
+				type: typeof schemaDef?.type === 'string' ? schemaDef.type.toLowerCase() : 'string',
+				required: required.has(name) || schemaDef?.required === true,
+				defaultValue: schemaDef?.default,
+			});
+		}
+
+		const params: any[] = wf?.parameters ?? [];
+		for (const rawParam of params) {
+			const p = resolveArazzoReference(rawParam, doc);
+			const name: string = p?.name;
+			if (!name || fields.has(name)) { continue; }
+			const inVal: string = p?.in ?? '';
+			if (inVal !== '' && inVal !== 'inputs') { continue; }
+			fields.set(name, {
+				name,
+				type: typeof p?.schema?.type === 'string' ? p.schema.type.toLowerCase() : 'string',
+				required: p?.required === true,
+				defaultValue: p?.value,
+			});
+		}
+
+		return Array.from(fields.values());
+	} catch {
+		return [];
+	}
+}
+
+function resolveArazzoReference(value: any, doc: any): any {
+	const ref = value?.$ref ?? value?.reference;
+	if (typeof ref !== 'string') {
+		return value;
+	}
+
+	if (ref.startsWith('#/')) {
+		return ref
+			.slice(2)
+			.split('/')
+			.reduce((current: any, segment: string) => {
+				if (current === undefined || current === null) {
+					return undefined;
+				}
+				const key = segment.replace(/~1/g, '/').replace(/~0/g, '~');
+				return current[key];
+			}, doc) ?? value;
+	}
+
+	if (ref.startsWith('$components.')) {
+		return ref
+			.slice('$components.'.length)
+			.split('.')
+			.reduce((current: any, segment: string) => current?.[segment], doc?.components) ?? value;
+	}
+
+	return value;
+}
+
+/**
+ * Called programmatically after the terminal run command has completed.
+ * Makes a single background HTTP POST to /run/{workflowId}.  If the result
+ * is a failure caused by a TLS certificate error AND TLS validation is
+ * currently ENABLED, shows a warning notification with a Go to Settings
+ * button that opens arazzo.disableTLSCertificationValidation directly.
+ */
+function checkForTlsError(workflowId: string, port: number, _inputs: Record<string, any>): void {
+	// Nothing to do when TLS validation is already disabled.
+	if (vscode.workspace.getConfiguration('arazzo').get<boolean>('disableTLSCertificationValidation', false)) {
+		return;
+	}
+
+	// Use GET /lastResult/{workflowId} to fetch the cached result of the run that
+	// just finished in the terminal.  This avoids re-executing the workflow a
+	// second time
+	const options: http.RequestOptions = {
+		hostname: 'localhost',
+		port,
+		path: `/lastResult/${encodeURIComponent(workflowId)}`,
+		method: 'GET',
+	};
+
+	const req = http.request(options, res => {
+		let data = '';
+		res.on('data', (chunk: string) => { data += chunk; });
+		res.on('end', () => {
+			try {
+				const result = JSON.parse(data) as { status: string; error?: string };
+				if (result.status !== 'failed' || !result.error) { return; }
+				const lower = result.error.toLowerCase();
+				const isTls =
+					lower.includes('x509') ||
+					lower.includes('tls:') ||
+					lower.includes('certificate signed by unknown authority') ||
+					lower.includes('failed to verify certificate') ||
+					lower.includes('certificate is not trusted') ||
+					lower.includes('ssl');
+				if (!isTls) { return; }
+				vscode.window.showWarningMessage(
+					'Workflow failed due to a TLS certificate validation error. ' +
+					'Try disabling TLS validation in the Arazzo settings.',
+					'Go to Settings'
+				).then(selection => {
+					if (selection === 'Go to Settings') {
+						vscode.commands.executeCommand(
+							'workbench.action.openWorkspaceSettings',
+							'arazzo.disableTLSCertificationValidation'
+						);
+					}
+				});
+			} catch {
+				// Ignore JSON parse errors — the terminal output already shows the result.
+			}
+		});
+	});
+	req.on('error', () => { /* ignore — terminal already shows the result */ });
+	req.end();
+}
+
+/**
+ * Build a platform-appropriate HTTP request command for POST /run/{workflowId}.
+ * Uses Invoke-RestMethod on Windows and curl on Linux/macOS.
+ * inputsBody contains only the fields that exist in the current file and have
+ * an available value — stale/removed/renamed fields are never included.
+ */
+function buildRunCommand(workflowId: string, port: number, inputsBody: Record<string, any>): string {
+	const bodyJson = JSON.stringify({ inputs: inputsBody });
+	const url = `http://localhost:${port}/run/${workflowId}`;
+
+	if (process.platform === 'win32') {
+		// PowerShell: single-quote the body so double-quotes inside are literal.
+		return `Invoke-RestMethod -Method Post -Uri "${url}" -ContentType "application/json" -Body '${bodyJson}'`;
+	} else {
+		// bash/zsh: escape double-quotes inside the double-quoted -d argument.
+		const escapedBody = bodyJson.replace(/"/g, '\\"');
+		return `curl -X POST "${url}" -H "Content-Type: application/json" -d "${escapedBody}"`;
+	}
 }
 
 async function promptForFileIconTheme(context: vscode.ExtensionContext) {

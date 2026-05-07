@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
  *
@@ -56,4 +57,21 @@ export interface GetArazzoModelResponse {
 export interface RunWorkflowRequest {
     workflowId?: string;
     uri?: string;
+    mode?: 'ai' | 'curl';
+    inputs?: Record<string, any>;
+}
+
+export interface GetWorkflowRunInputsRequest {
+    uri: string;
+    workflowId: string;
+}
+
+export interface GetWorkflowRunInputsResponse {
+    inputs?: Record<string, any>;
+}
+
+export interface SaveWorkflowRunInputsRequest {
+    uri: string;
+    workflowId: string;
+    inputs: Record<string, any>;
 }

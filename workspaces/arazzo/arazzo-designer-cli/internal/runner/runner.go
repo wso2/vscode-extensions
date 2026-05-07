@@ -320,6 +320,7 @@ func (r *ArazzoRunner) ExecuteWorkflow(workflowID string, inputs map[string]inte
 					Outputs:     outputs,
 					StepOutputs: r.collectStepOutputs(state),
 					Inputs:      inputs,
+					Error:       result.Error,
 				}
 
 			case models.ActionTypeGoto:
@@ -416,15 +417,38 @@ func (r *ArazzoRunner) ExecuteWorkflow(workflowID string, inputs map[string]inte
 	// Resolve workflow outputs
 	outputs := r.resolveWorkflowOutputs(wf, state)
 
+	// Determine final status — if any step failed the workflow is an error
+	finalStatus := models.WorkflowStatusWorkflowComplete
+	var finalError string
+	for sid, ss := range state.StepsStatus {
+		if ss == models.StepStatusFailure {
+			finalStatus = models.WorkflowStatusError
+			if data, ok := state.StepsData[sid].(map[string]interface{}); ok {
+				if e, ok := data["error"].(string); ok && e != "" {
+					finalError = fmt.Sprintf("step '%s' failed: %s", sid, e)
+					break
+				}
+			}
+			if finalError == "" {
+				finalError = fmt.Sprintf("step '%s' failed", sid)
+			}
+		}
+	}
+
 	log.Printf("=== Workflow %s completed ===", workflowID)
-	endWorkflow(telemetry.SpanStatusOK, "", outputs)
+	if finalStatus == models.WorkflowStatusError {
+		endWorkflow(telemetry.SpanStatusError, finalError, outputs)
+	} else {
+		endWorkflow(telemetry.SpanStatusOK, "", outputs)
+	}
 
 	return &models.WorkflowExecutionResult{
-		Status:      models.WorkflowStatusWorkflowComplete,
+		Status:      finalStatus,
 		WorkflowID:  workflowID,
 		Outputs:     outputs,
 		StepOutputs: r.collectStepOutputs(state),
 		Inputs:      inputs,
+		Error:       finalError,
 	}
 }
 
@@ -553,7 +577,7 @@ func (r *ArazzoRunner) resolveWorkflowOutputs(wf map[string]interface{}, state *
 			outputs[name] = resolved
 			log.Printf("Workflow output %s: %v", name, resolved)
 		} else {
-			outputs[name] = exprStr
+			outputs[name] = "(not available)"
 			log.Printf("Workflow output %s: unresolved (expression: %s)", name, exprStr)
 		}
 	}

@@ -87,12 +87,13 @@ type WorkflowExecutionResult struct {
 
 // RuntimeParams holds runtime parameters for workflow execution.
 type RuntimeParams struct {
-	ServerVariables map[string]string    `json:"server_variables,omitempty"`
-	BearerToken     string               `json:"bearer_token,omitempty"`
-	APIKey          string               `json:"api_key,omitempty"`
-	APIKeyHeader    string               `json:"api_key_header,omitempty"`
-	AuthHeaders     map[string]string    `json:"auth_headers,omitempty"`
-	ServerConfig    *ServerConfiguration `json:"server_config,omitempty"`
+	ServerVariables        map[string]string    `json:"server_variables,omitempty"`
+	BearerToken            string               `json:"bearer_token,omitempty"`
+	APIKey                 string               `json:"api_key,omitempty"`
+	APIKeyHeader           string               `json:"api_key_header,omitempty"`
+	AuthHeaders            map[string]string    `json:"auth_headers,omitempty"`
+	ServerConfig           *ServerConfiguration `json:"server_config,omitempty"`
+	DisableTLSVerification bool                 `json:"disable_tls_verification,omitempty"`
 }
 
 // ServerVariable represents a server variable override with name and value.

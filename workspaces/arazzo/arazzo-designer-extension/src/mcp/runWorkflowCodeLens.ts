@@ -33,7 +33,7 @@ export class RunWorkflowCodeLensProvider implements vscode.CodeLensProvider {
 
     /**
      * Mark the active file as dirty (saved since last server start).
-     * The CodeLens title switches from "▶ Try with AI" to "↺ Retry with AI".
+     * Used by the try commands to show the correct restart-server warning message.
      */
     public setFileDirty(dirty: boolean): void {
         this._fileDirty = dirty;
@@ -99,15 +99,25 @@ export class RunWorkflowCodeLensProvider implements vscode.CodeLensProvider {
             if (match) {
                 const workflowId = match[1].trim().replace(/^['"]|['"]$/g, '');
                 const range = new vscode.Range(i, 0, i, line.length);
-
+    
                 lenses.push(new vscode.CodeLens(range, {
-                    title: this._fileDirty ? '↺ Retry with AI' : '▶ Try with AI',
-                    command: this._fileDirty ? 'arazzo.rerunWorkflow' : 'arazzo.runWorkflow',
+                    title: '▶ Try with curl',
+                    command: 'arazzo.tryWorkflow',
                     arguments: [{
                         workflowId,
                         uri: document.uri.toString()
                     }]
                 }));
+
+                lenses.push(new vscode.CodeLens(range, {
+                    title: '▶ Try with AI',
+                    command: 'arazzo.tryAIWorkflow',
+                    arguments: [{
+                        workflowId,
+                        uri: document.uri.toString()
+                    }]
+                }));
+
             }
         }
 

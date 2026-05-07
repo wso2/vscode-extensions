@@ -7,8 +7,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
+	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -20,10 +24,25 @@ import (
 
 // MCPServer wraps an Arazzo runner as an MCP server.
 type MCPServer struct {
-	Runner    *runner.ArazzoRunner
-	MCPServer *server.MCPServer
-	Port      int
-	Sink      telemetry.SpanEventSink
+	Runner      *runner.ArazzoRunner
+	MCPServer   *server.MCPServer
+	Port        int
+	Sink        telemetry.SpanEventSink
+	lastResults map[string]RunResponse // per-workflowId cache of the last run result
+	resultsMu   sync.RWMutex           // protects lastResults
+}
+
+// RunRequest is the JSON body for POST /run and POST /run/{workflowId}.
+type RunRequest struct {
+	WorkflowID string                 `json:"workflowId"`
+	Inputs     map[string]interface{} `json:"inputs"`
+}
+
+// RunResponse is the JSON response body from POST /run/{workflowId}.
+type RunResponse struct {
+	Status  string                 `json:"status"`
+	Outputs map[string]interface{} `json:"outputs,omitempty"`
+	Error   string                 `json:"error,omitempty"`
 }
 
 // NewMCPServer creates a new MCP server that exposes Arazzo workflows as tools.
@@ -42,10 +61,11 @@ func NewMCPServer(arazzoFilePath string, port int, runtimeParams *models.Runtime
 	)
 
 	srv := &MCPServer{
-		Runner:    r,
-		MCPServer: mcpSrv,
-		Port:      port,
-		Sink:      sink,
+		Runner:      r,
+		MCPServer:   mcpSrv,
+		Port:        port,
+		Sink:        sink,
+		lastResults: make(map[string]RunResponse),
 	}
 
 	// Register each workflow as an MCP tool
@@ -57,16 +77,28 @@ func NewMCPServer(arazzoFilePath string, port int, runtimeParams *models.Runtime
 	return srv, nil
 }
 
-// Start starts the MCP server on streamable HTTP.
+// Start starts the HTTP server with both /mcp (MCP protocol) and /run (direct execution) endpoints.
 func (s *MCPServer) Start() error {
 	addr := fmt.Sprintf(":%d", s.Port)
 
-	httpServer := server.NewStreamableHTTPServer(s.MCPServer,
+	streamableHTTPSrv := server.NewStreamableHTTPServer(s.MCPServer,
 		server.WithEndpointPath("/mcp"),
 	)
 
+	mux := http.NewServeMux()
+	mux.Handle("/mcp", streamableHTTPSrv)
+	mux.HandleFunc("/run", s.handleRun)
+	mux.HandleFunc("/run/", s.handleRun)
+	mux.HandleFunc("/lastResult/", s.handleLastResult)
+
+	httpSrv := &http.Server{
+		Addr:    addr,
+		Handler: mux,
+	}
+
 	log.Printf("MCP server listening on http://localhost%s/mcp", addr)
-	return httpServer.Start(addr)
+	log.Printf("Run endpoint available at http://localhost%s/run/{workflowId}", addr)
+	return httpSrv.ListenAndServe()
 }
 
 // registerWorkflowTools registers each Arazzo workflow as an MCP tool.
@@ -156,8 +188,13 @@ func (s *MCPServer) buildWorkflowTool(workflowID string, wf map[string]interface
 			paramOpts = append(paramOpts, mcp.Required())
 		}
 
-		// Infer type from default value or use string
-		toolOpts = append(toolOpts, mcp.WithString(name, paramOpts...))
+		// Use the correct MCP property type based on the schema type
+		schemaMap := toMap(p["schema"])
+		schemaType := ""
+		if schemaMap != nil {
+			schemaType, _ = schemaMap["type"].(string)
+		}
+		toolOpts = append(toolOpts, mcpPropertyForType(schemaType, name, paramOpts...))
 	}
 
 	// Add parameters from workflow "inputs" JSON Schema (Arazzo 1.0.0 style)
@@ -202,7 +239,9 @@ func (s *MCPServer) buildWorkflowTool(workflowID string, wf map[string]interface
 				}
 			}
 
-			toolOpts = append(toolOpts, mcp.WithString(propName, paramOpts...))
+			// Use the correct MCP property type based on the schema type
+			propType, _ := propDef["type"].(string)
+			toolOpts = append(toolOpts, mcpPropertyForType(propType, propName, paramOpts...))
 		}
 	}
 
@@ -221,6 +260,13 @@ func (s *MCPServer) executeWorkflowHandler(ctx context.Context, workflowID strin
 	}
 
 	log.Printf("Workflow inputs: %v", inputs)
+
+	// Validate inputs against the workflow schema (same logic as /run endpoint)
+	if wf := s.Runner.GetWorkflow(workflowID); wf != nil {
+		if errMsg := validateWorkflowInputs(wf, inputs); errMsg != "" {
+			return mcp.NewToolResultError(fmt.Sprintf("input validation failed: %s", errMsg)), nil
+		}
+	}
 
 	// Execute the workflow
 	result := s.Runner.ExecuteWorkflow(workflowID, inputs)
@@ -278,12 +324,34 @@ func (s *MCPServer) registerUtilityTools() {
 }
 
 // sanitizeToolName converts a workflow ID to a valid MCP tool name.
+// All characters that are not alphanumeric or underscores are replaced with "_".
 func sanitizeToolName(workflowID string) string {
-	// Replace characters that aren't valid in tool names
-	name := strings.ReplaceAll(workflowID, "-", "_")
-	name = strings.ReplaceAll(name, " ", "_")
-	name = strings.ReplaceAll(name, ".", "_")
-	return name
+	var b strings.Builder
+	for _, r := range workflowID {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' {
+			b.WriteRune(r)
+		} else {
+			b.WriteRune('_')
+		}
+	}
+	return b.String()
+}
+
+// mcpPropertyForType returns the correct mcp.ToolOption for the given JSON Schema type.
+// Falls back to mcp.WithString for unknown or empty types.
+func mcpPropertyForType(typStr string, name string, opts ...mcp.PropertyOption) mcp.ToolOption {
+	switch typStr {
+	case "number", "integer":
+		return mcp.WithNumber(name, opts...)
+	case "boolean":
+		return mcp.WithBoolean(name, opts...)
+	case "object":
+		return mcp.WithObject(name, opts...)
+	case "array":
+		return mcp.WithArray(name, opts...)
+	default:
+		return mcp.WithString(name, opts...)
+	}
 }
 
 // Helper functions (local to mcpserver package)
@@ -300,4 +368,304 @@ func toSlice(v interface{}) []interface{} {
 		return s
 	}
 	return nil
+}
+
+// handleRun handles POST /run and POST /run/{workflowId} requests,
+// executing the named workflow directly and returning a JSON response.
+func (s *MCPServer) handleRun(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract workflowId from URL path: /run/{workflowId}
+	workflowID := ""
+	if strings.HasPrefix(r.URL.Path, "/run/") {
+		workflowID = strings.TrimPrefix(r.URL.Path, "/run/")
+	}
+
+	// Limit request body to 1 MB to prevent memory exhaustion
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
+	// Parse JSON body for inputs (and optional body-level workflowId as fallback)
+	var req RunRequest
+	if r.Body != nil && r.Body != http.NoBody {
+		dec := json.NewDecoder(r.Body)
+		if err := dec.Decode(&req); err != nil && err != io.EOF {
+			writeRunJSON(w, http.StatusBadRequest, RunResponse{
+				Status: "failed",
+				Error:  "invalid JSON body",
+			})
+			return
+		}
+		// Reject bodies with trailing content after the first JSON value.
+		var extra json.RawMessage
+		if err := dec.Decode(&extra); err != io.EOF {
+			writeRunJSON(w, http.StatusBadRequest, RunResponse{
+				Status: "failed",
+				Error:  "invalid JSON body",
+			})
+			return
+		}
+	}
+
+	// Fall back to body workflowId when not present in URL path
+	if workflowID == "" {
+		workflowID = req.WorkflowID
+	}
+
+	if workflowID == "" {
+		writeRunJSON(w, http.StatusBadRequest, RunResponse{
+			Status: "failed",
+			Error:  "workflowId is required",
+		})
+		return
+	}
+
+	// Look up the workflow
+	wf := s.Runner.GetWorkflow(workflowID)
+	if wf == nil {
+		writeRunJSON(w, http.StatusBadRequest, RunResponse{
+			Status: "failed",
+			Error:  fmt.Sprintf("workflow '%s' not found", workflowID),
+		})
+		return
+	}
+
+	// Default missing inputs to an empty map
+	inputs := req.Inputs
+	if inputs == nil {
+		inputs = make(map[string]interface{})
+	}
+
+	// Validate inputs before execution
+	if errMsg := validateWorkflowInputs(wf, inputs); errMsg != "" {
+		writeRunJSON(w, http.StatusBadRequest, RunResponse{
+			Status: "failed",
+			Error:  errMsg,
+		})
+		return
+	}
+
+	// Execute
+	result := s.Runner.ExecuteWorkflow(workflowID, inputs)
+
+	resp := RunResponse{}
+	if result.Status == models.WorkflowStatusError {
+		resp.Status = "failed"
+		resp.Error = result.Error
+		resp.Outputs = result.Outputs
+	} else {
+		resp.Status = "success"
+		resp.Outputs = result.Outputs
+	}
+
+	// Cache the result so GET /lastResult/{workflowId} can return it without re-executing.
+	s.resultsMu.Lock()
+	s.lastResults[workflowID] = resp
+	s.resultsMu.Unlock()
+
+	writeRunJSON(w, http.StatusOK, resp)
+}
+
+// handleLastResult handles GET /lastResult/{workflowId} requests.
+// It returns the cached result of the most recent run for the given workflow
+// WITHOUT executing the workflow again.
+func (s *MCPServer) handleLastResult(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	workflowID := strings.TrimPrefix(r.URL.Path, "/lastResult/")
+	if workflowID == "" {
+		http.Error(w, "workflowId required", http.StatusBadRequest)
+		return
+	}
+	s.resultsMu.RLock()
+	resp, ok := s.lastResults[workflowID]
+	s.resultsMu.RUnlock()
+	if !ok {
+		http.Error(w, "no result found for workflow", http.StatusNotFound)
+		return
+	}
+	writeRunJSON(w, http.StatusOK, resp)
+}
+
+// validateWorkflowInputs checks that all required inputs are present and that
+// provided values match their declared JSON Schema types.
+// Returns an empty string on success, or a semicolon-separated list of all
+// validation errors on failure.
+func validateWorkflowInputs(wf map[string]interface{}, inputs map[string]interface{}) string {
+	var errs []string
+
+	// --- workflow-level parameters array ---
+	params := toSlice(wf["parameters"])
+	for _, pRaw := range params {
+		p := toMap(pRaw)
+		if p == nil {
+			continue
+		}
+		name, _ := p["name"].(string)
+		if name == "" {
+			continue
+		}
+		// Only validate parameters that feed workflow inputs
+		paramIn, _ := p["in"].(string)
+		if paramIn != "" && paramIn != "inputs" {
+			continue
+		}
+		if req, ok := p["required"].(bool); ok && req {
+			if _, exists := inputs[name]; !exists {
+				errs = append(errs, fmt.Sprintf("missing required input: %s", name))
+				continue // skip type check when value is absent
+			}
+		}
+		if schema := toMap(p["schema"]); schema != nil {
+			if typStr, ok := schema["type"].(string); ok {
+				if val, exists := inputs[name]; exists {
+					// Coerce if possible
+					if newVal, coerced := coerceValue(val, typStr); coerced {
+						val = newVal
+						inputs[name] = newVal
+					}
+					if errMsg := validateType(name, val, typStr); errMsg != "" {
+						errs = append(errs, errMsg)
+					}
+				}
+			}
+		}
+	}
+
+	// --- inputs JSON Schema (Arazzo 1.0.0 style) ---
+	inputsDef := toMap(wf["inputs"])
+	if inputsDef == nil {
+		return strings.Join(errs, "; ")
+	}
+
+	properties := toMap(inputsDef["properties"])
+	requiredList := toSlice(inputsDef["required"])
+	// Track which fields were already reported missing to avoid duplicate errors
+	// when a field appears in both required[] and has required:true on the property.
+	reportedMissing := make(map[string]bool)
+	for _, r := range requiredList {
+		if rs, ok := r.(string); ok {
+			if _, exists := inputs[rs]; !exists {
+				// Skip if the property has a default — the runner will apply it.
+				propDef := toMap(properties[rs])
+				if propDef != nil {
+					if _, hasDefault := propDef["default"]; hasDefault {
+						continue
+					}
+				}
+				reportedMissing[rs] = true
+				errs = append(errs, fmt.Sprintf("missing required input: %s", rs))
+			}
+		}
+	}
+
+	for propName, propDefRaw := range properties {
+		propDef := toMap(propDefRaw)
+		if propDef == nil {
+			continue
+		}
+		if req, ok := propDef["required"].(bool); ok && req {
+			if _, exists := inputs[propName]; !exists {
+				if !reportedMissing[propName] {
+					errs = append(errs, fmt.Sprintf("missing required input: %s", propName))
+				}
+				continue // skip type check when value is absent
+			}
+		}
+		if typStr, ok := propDef["type"].(string); ok {
+			if val, exists := inputs[propName]; exists {
+				// Coerce if possible
+				if newVal, coerced := coerceValue(val, typStr); coerced {
+					val = newVal
+					inputs[propName] = newVal
+				}
+				if errMsg := validateType(propName, val, typStr); errMsg != "" {
+					errs = append(errs, errMsg)
+				}
+			}
+		}
+	}
+
+	return strings.Join(errs, "; ")
+}
+
+// coerceValue attempts to convert val to the expected JSON Schema type.
+// Handles both directions: string→number/boolean and number/boolean→string.
+// Returns the coerced value and true if a conversion was performed,
+// or the original value and false if no conversion is needed or possible.
+func coerceValue(val interface{}, typStr string) (interface{}, bool) {
+	switch typStr {
+	case "string":
+		if _, ok := val.(string); !ok {
+			// Convert any primitive to its string representation (e.g. 1 → "1")
+			return fmt.Sprintf("%v", val), true
+		}
+	case "number", "integer":
+		if s, ok := val.(string); ok {
+			if f, err := strconv.ParseFloat(s, 64); err == nil {
+				return f, true
+			}
+		}
+	case "boolean":
+		if s, ok := val.(string); ok {
+			if b, err := strconv.ParseBool(s); err == nil {
+				return b, true
+			}
+		}
+	}
+	return val, false
+}
+
+// validateType verifies that val conforms to the given JSON Schema primitive type.
+// Returns an empty string if the type matches, or an error message otherwise.
+func validateType(name string, val interface{}, typStr string) string {
+	switch typStr {
+	case "string":
+		if _, ok := val.(string); !ok {
+			return fmt.Sprintf("input '%s' must be a string", name)
+		}
+	case "number":
+		switch val.(type) {
+		case float64, float32, int, int64:
+			// acceptable numeric representations
+		default:
+			return fmt.Sprintf("input '%s' must be a number", name)
+		}
+	case "integer":
+		switch v := val.(type) {
+		case float64:
+			if v != float64(int64(v)) {
+				return fmt.Sprintf("input '%s' must be an integer", name)
+			}
+		case int, int64:
+			// ok
+		default:
+			return fmt.Sprintf("input '%s' must be an integer", name)
+		}
+	case "boolean":
+		if _, ok := val.(bool); !ok {
+			return fmt.Sprintf("input '%s' must be a boolean", name)
+		}
+	case "object":
+		if _, ok := val.(map[string]interface{}); !ok {
+			return fmt.Sprintf("input '%s' must be an object", name)
+		}
+	case "array":
+		if _, ok := val.([]interface{}); !ok {
+			return fmt.Sprintf("input '%s' must be an array", name)
+		}
+	}
+	return ""
+}
+
+// writeRunJSON sets the Content-Type header, writes the HTTP status, and encodes
+// resp as JSON into w.
+func writeRunJSON(w http.ResponseWriter, status int, resp RunResponse) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(resp)
 }

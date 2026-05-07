@@ -4,6 +4,7 @@ package httpexec
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -22,11 +23,24 @@ type HTTPExecutor struct {
 	Sink   telemetry.SpanEventSink
 }
 
-// NewHTTPExecutor creates a new HTTPExecutor with default settings.
-func NewHTTPExecutor(sink telemetry.SpanEventSink) *HTTPExecutor {
+// NewHTTPExecutor creates a new HTTPExecutor.
+// When disableTLS is true, TLS certificate verification is skipped — use only
+// in development environments with self-signed or invalid certificates.
+func NewHTTPExecutor(sink telemetry.SpanEventSink, disableTLS bool) *HTTPExecutor {
+	var transport http.RoundTripper
+	if disableTLS {
+		// Clone the default transport to preserve proxy, pooling, and HTTP/2 settings.
+		//nolint:gosec // intentionally disabled per user configuration
+		cloned := http.DefaultTransport.(*http.Transport).Clone()
+		cloned.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //nolint:gosec
+		transport = cloned
+	} else {
+		transport = http.DefaultTransport
+	}
 	return &HTTPExecutor{
 		Client: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout:   30 * time.Second,
+			Transport: transport,
 		},
 		Sink: sink,
 	}

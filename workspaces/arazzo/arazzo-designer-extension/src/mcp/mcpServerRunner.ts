@@ -19,16 +19,21 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { ChildProcess, spawn } from 'child_process';
 import * as yaml from 'js-yaml';
 import { TracerServer } from './tracing';
-import { executeTraceServerTask } from './tracing/traceServerTask';
-
-let mcpServerProcess: ChildProcess | undefined;
-let mcpOutputChannel: vscode.OutputChannel | undefined;
+import { executeTraceServerTask, stopTraceServerTask } from './tracing/traceServerTask';
+import {
+    executeMCPServerTask,
+    stopMCPServerTask,
+    isMCPTaskRunning,
+    registerMCPTaskEndListener
+} from './mcpServerTask';
 
 /** The absolute path of the Arazzo file the current MCP server is serving. */
 let mcpActiveFilePath: string | undefined;
+
+/** The port the current MCP server is listening on. */
+let mcpServerPort: number | undefined;
 
 /**
  * Returns the file path of the Arazzo file currently being served by the MCP
@@ -36,6 +41,14 @@ let mcpActiveFilePath: string | undefined;
  */
 export function getMCPActiveFilePath(): string | undefined {
     return isMCPServerRunning() ? mcpActiveFilePath : undefined;
+}
+
+/**
+ * Returns the port the current MCP server is listening on,
+ * or undefined if the server is not running.
+ */
+export function getMCPServerPort(): number | undefined {
+    return isMCPServerRunning() ? mcpServerPort : undefined;
 }
 
 /** Callback invoked whenever the MCP server starts or stops. */
@@ -55,10 +68,10 @@ function notifyStateChange(): void {
 }
 
 /**
- * Returns true if the MCP server process is currently running.
+ * Returns true if the MCP server task is currently running.
  */
 export function isMCPServerRunning(): boolean {
-    return mcpServerProcess !== undefined && !mcpServerProcess.killed;
+    return isMCPTaskRunning();
 }
 
 /**
@@ -89,16 +102,6 @@ function getCliBinaryName(): string {
     }
 
     return `arazzo-designer-cli-${osPart}-${archPart}`;
-}
-
-/**
- * Get or create the output channel for MCP server logs.
- */
-function getOutputChannel(): vscode.OutputChannel {
-    if (!mcpOutputChannel) {
-        mcpOutputChannel = vscode.window.createOutputChannel('Arazzo Server');
-    }
-    return mcpOutputChannel;
 }
 
 /**
@@ -160,18 +163,11 @@ function getFirstWorkflowId(arazzoFilePath: string): string | undefined {
  * Spawns the Go binary, writes .vscode/mcp.json, and shows output.
  *
  * @param suppressPrompt - When true, the "Try Now" follow-up notification is
- *   suppressed. Pass true when the caller (e.g. arazzo.runWorkflow) will open
+ *   suppressed. Pass true when the caller (e.g. arazzo.tryAIWorkflow) will open
  *   Copilot itself, to avoid showing a duplicate/wrong-workflow prompt.
  */
 export async function startMCPServer(context: vscode.ExtensionContext, arazzoFilePath?: string, suppressPrompt = false): Promise<void> {
-    const output = getOutputChannel();
-
-    // Stop any existing server
-    if (mcpServerProcess) {
-        output.appendLine('Stopping previous arazzo server...');
-        mcpServerProcess.kill();
-        mcpServerProcess = undefined;
-    }
+    // (Any running task is terminated inside executeMCPServerTask before the new one starts)
 
     // Determine the Arazzo file to use
     if (!arazzoFilePath) {
@@ -243,75 +239,30 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
         mcpConfigPath = path.join(targetFolder.uri.fsPath, '.vscode', 'mcp.json');
         try {
             await writeMcpConfig(targetFolder.uri.fsPath, port);
-            output.appendLine(`Wrote .vscode/mcp.json with MCP server URL: http://localhost:${port}/mcp`);
-        } catch (e: any) {
-            output.appendLine(`Warning: Could not write .vscode/mcp.json: ${e.message}`);
+        } catch {
+            // Non-fatal — Copilot will still work if the user connects manually
         }
     }
-
-    // Start the server
-    output.appendLine(`Starting Arazzo server...`);
-    output.appendLine(`  Binary: ${binaryPath}`);
-    output.appendLine(`  File: ${arazzoFilePath}`);
-    output.appendLine(`  Port: ${port}`);
-    output.appendLine('');
-
-    const args = ['serve', '-f', arazzoFilePath, '-p', port.toString()];
 
     // Start tracer server via VS Code Task so the Go runner can post span events
     let tracerPort: number | undefined;
     try {
         tracerPort = await executeTraceServerTask();
-        args.push('-trace-endpoint', `http://127.0.0.1:${tracerPort}/span-events`);
-        output.appendLine(`  Tracer: http://127.0.0.1:${tracerPort}/span-events`);
-    } catch (e: any) {
-        output.appendLine(`Warning: Could not start tracer server: ${e.message}`);
+    } catch {
+        // Non-fatal — tracing is optional
     }
 
-    mcpServerProcess = spawn(binaryPath, args, {
-        cwd: path.dirname(arazzoFilePath)
-    });
+    // Launch the MCP server binary as a VS Code Task (mirrors the trace server)
+    const disableTls = vscode.workspace.getConfiguration('arazzo').get<boolean>('disableTLSCertificationValidation', false);
+    await executeMCPServerTask({ binaryPath, arazzoFilePath, port, tracerPort, disableTls });
 
-    // Record which file this server is serving
+    // Record which file this server is serving and the port it is on
     mcpActiveFilePath = arazzoFilePath;
-
-    // Keep a local reference so async callbacks can check whether they belong
-    // to the current process or a stale one that was already replaced.
-    const thisProcess = mcpServerProcess;
-
-    mcpServerProcess.stdout?.on('data', (data: Buffer) => {
-        output.append(data.toString());
-    });
-
-    mcpServerProcess.stderr?.on('data', (data: Buffer) => {
-        output.append(data.toString());
-    });
-
-    mcpServerProcess.on('error', (err: Error) => {
-        output.appendLine(`\narazzo server error: ${err.message}`);
-        vscode.window.showErrorMessage(`Failed to start arazzo server: ${err.message}`);
-        // Only clear if this is still the active process
-        if (mcpServerProcess === thisProcess) {
-            mcpServerProcess = undefined;
-            mcpActiveFilePath = undefined;
-            notifyStateChange();
-        }
-    });
-
-    mcpServerProcess.on('exit', (code: number | null) => {
-        output.appendLine(`\narazzo server exited with code: ${code}`);
-        // Only clear if this is still the active process — a newer spawn
-        // may have already replaced mcpServerProcess.
-        if (mcpServerProcess === thisProcess) {
-            mcpServerProcess = undefined;
-            mcpActiveFilePath = undefined;
-            notifyStateChange();
-        }
-    });
+    mcpServerPort = port;
 
     // Give the server a moment to start, then notify the user
     setTimeout(async () => {
-        if (!mcpServerProcess || mcpServerProcess.killed) {
+        if (!isMCPTaskRunning()) {
             return;
         }
 
@@ -320,6 +271,7 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
 
         const serverUrl = `http://localhost:${port}/mcp`;
         const configNote = mcpConfigPath ? ` Config added to mcp.json.` : '';
+        const tlsNote = disableTls ? ' TLS certificate validation disabled.' : '';
 
         // Get first workflow name for the "Try Now" prompt
         const firstWorkflow = getFirstWorkflowId(arazzoFilePath!);
@@ -330,7 +282,7 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
         // Combined status message: Server started + Try with AI invitation
         if (!suppressPrompt) {
             const action = await vscode.window.showInformationMessage(
-                `Arazzo server started. Running on ${serverUrl}.${configNote} Try your workflows with GitHub Copilot.`,
+                `Arazzo server started. Running on ${serverUrl}.${configNote}${tlsNote} Try your workflows with GitHub Copilot.`,
                 'Try Now'
             );
             if (action === 'Try Now') {
@@ -346,7 +298,7 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
         } else {
             // If suppressPrompt is true, still show the base status message
             vscode.window.showInformationMessage(
-                `Arazzo server started. Running on ${serverUrl}.${configNote}`
+                `Arazzo server started. Running on ${serverUrl}.${configNote}${tlsNote}`
             );
         }
     }, 1500);
@@ -354,17 +306,22 @@ export async function startMCPServer(context: vscode.ExtensionContext, arazzoFil
 
 /**
  * Stop the running MCP server if any.
+ * mcpActiveFilePath and notifyStateChange() are handled by the onDidEndTask
+ * listener registered in initializeMCPServerRunner().
  */
 export function stopMCPServer(): void {
-    if (mcpServerProcess) {
-        mcpServerProcess.kill();
-        mcpServerProcess = undefined;
-        mcpActiveFilePath = undefined;
-        const output = getOutputChannel();
-        output.appendLine('arazzo server stopped.');
-        notifyStateChange();
+    // Terminate the MCP server VS Code task (closes its pseudoterminal).
+    if (isMCPTaskRunning()) {
+        stopMCPServerTask();
     }
+    // Terminate the trace server VS Code task (its pseudoterminal's close()
+    // method will also call TracerServer.stop() for us).
+    stopTraceServerTask();
+    // Safety net: stop the in-process HTTP server in case the tracer was
+    // running without a task (e.g. already-running path in executeTraceServerTask).
     TracerServer.getInstance().stop();
+
+    vscode.window.showInformationMessage('Arazzo server stopped.');
 }
 
 /**
@@ -373,5 +330,17 @@ export function stopMCPServer(): void {
 export function disposeMCPServer(): void {
     stopMCPServer();
     TracerServer.getInstance().dispose();
-    mcpOutputChannel?.dispose();
+}
+
+/**
+ * Register the VS Code task-end listener that clears state whenever the MCP
+ * server task exits for any reason (normal, error, or terminate).
+ * Must be called once during extension activation, before any server starts.
+ */
+export function initializeMCPServerRunner(context: vscode.ExtensionContext): void {
+    registerMCPTaskEndListener(context, () => {
+        mcpActiveFilePath = undefined;
+        mcpServerPort = undefined;
+        notifyStateChange();
+    });
 }

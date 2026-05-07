@@ -43,9 +43,11 @@ const TitleName = styled.span`
     color: var(--vscode-foreground);
     font-family: var(--vscode-font-family);
     white-space: nowrap;
+    overflow: hidden;
     text-overflow: ellipsis;
     max-width: 100%;
     letter-spacing: 0.01em;
+    flex-shrink: 1;
 `;
 
 const TryButton = styled(Button)`
@@ -79,6 +81,13 @@ const HomeButton = styled(Button)`
     }
 `;
 
+const ButtonGroup = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+`;
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -86,10 +95,12 @@ const HomeButton = styled(Button)`
 interface WorkflowTitleBarProps {
     workflowId: string;
     onTry: () => void;
+    onTryCurl?: () => void;
+    onConfigure?: () => void;
     onHome?: () => void;
 }
 
-export function WorkflowTitleBar({ workflowId, onTry, onHome }: WorkflowTitleBarProps) {
+export function WorkflowTitleBar({ workflowId, onTry, onTryCurl, onConfigure, onHome }: WorkflowTitleBarProps) {
     return (
         <TitleBar>
             <TitleLeft>
@@ -110,18 +121,50 @@ export function WorkflowTitleBar({ workflowId, onTry, onHome }: WorkflowTitleBar
                 )}
                 <TitleName title={workflowId}>{workflowId}</TitleName>
             </TitleLeft>
-            <TryButton
-                appearance="secondary"
-                buttonSx={{
-                    backgroundColor: "transparent",
-                    color: "var(--vscode-foreground)",
-                    border: "none",
-                    boxShadow: "none",
-                }}
-                onClick={onTry}
-            >
-                ▶ Try with AI
-            </TryButton>
+            <ButtonGroup>
+                {onTryCurl && (
+                    <TryButton
+                        appearance="secondary"
+                        buttonSx={{
+                            backgroundColor: "transparent",
+                            color: "var(--vscode-foreground)",
+                            border: "none",
+                            boxShadow: "none",
+                        }}
+                        onClick={onTryCurl}
+                    >
+                        ▶ Try with curl
+                    </TryButton>
+                )}
+                <TryButton
+                    appearance="secondary"
+                    buttonSx={{
+                        backgroundColor: "transparent",
+                        color: "var(--vscode-foreground)",
+                        border: "none",
+                        boxShadow: "none",
+                    }}
+                    onClick={onTry}
+                >
+                    ▶ Try with AI
+                </TryButton>
+                {onConfigure && (
+                    <span title="Configure Inputs">
+                        <TryButton
+                            appearance="secondary"
+                            buttonSx={{
+                                backgroundColor: "transparent",
+                                color: "var(--vscode-foreground)",
+                                border: "none",
+                                boxShadow: "none",
+                            }}
+                            onClick={onConfigure}
+                        >
+                            <Codicon name="settings-gear" />
+                        </TryButton>
+                    </span>
+                )}
+            </ButtonGroup>
         </TitleBar>
     );
 }

@@ -24,6 +24,9 @@ import {
     GetArazzoModelRequest,
     GetArazzoModelResponse,
     RunWorkflowRequest,
+    GetWorkflowRunInputsRequest,
+    GetWorkflowRunInputsResponse,
+    SaveWorkflowRunInputsRequest,
 } from "./types";
 
 export interface VisualizerAPI {
@@ -35,4 +38,6 @@ export interface VisualizerAPI {
     goToSource: (params: GoToSourceRequest) => void;
     getArazzoModel: (params: GetArazzoModelRequest) => Promise<GetArazzoModelResponse>;
     runWorkflow: (params: RunWorkflowRequest) => void;
+    getWorkflowRunInputs: (params: GetWorkflowRunInputsRequest) => Promise<GetWorkflowRunInputsResponse>;
+    saveWorkflowRunInputs: (params: SaveWorkflowRunInputsRequest) => void;
 }

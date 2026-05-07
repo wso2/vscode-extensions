@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { WebviewView, WebviewPanel, window, QuickPickItem, commands } from 'vscode';
+import { WebviewView, WebviewPanel, window, QuickPickItem, commands, ExtensionContext } from 'vscode';
 import { Messenger } from 'vscode-messenger';
 import { StateMachine } from './stateMachine';
 import { COMMANDS } from './constants';
@@ -50,10 +50,10 @@ export class RPCLayer {
         return new RPCLayer(webViewPanel);
     }
 
-    static init() {
+    static init(context: ExtensionContext) {
         // ----- Main Webview RPC Methods
         RPCLayer._messenger.onRequest(getVisualizerState, () => getContext());
-        registerVisualizerRpcHandlers(RPCLayer._messenger);
+        registerVisualizerRpcHandlers(RPCLayer._messenger, context);
 
         // ----- Popup Views RPC Methods
         RPCLayer._messenger.onRequest(getPopupVisualizerState, () => getPopupContext());
