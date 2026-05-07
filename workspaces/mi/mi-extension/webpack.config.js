@@ -17,65 +17,14 @@
  * under the License.
  */
 
-/**
- * Webpack Configuration for MI VSCode Extension
- * 
- * ============================================================================
- * WASM/ONNX Runtime Bundling
- * ============================================================================
- * 
- * This extension uses @huggingface/transformers for semantic embeddings.
- * Architecture ensures NO CDN usage and NO external dependencies:
- * 
- * - WASM Backend: onnxruntime-web (via transformers.js)
- *   - WASM files bundled into dist/ by webpack
- *   - asyncWebAssembly experiment enabled for proper WASM handling
- *   - WASM cache stored locally at ~/.wso2-mi/copilot/models/.onnx-wasm-cache
- * 
- * - NO Native Dependencies:
- *   - ❌ onnxruntime-node (replaced by WASM backend)
- *   - ❌ better-sqlite3 (replaced by @orama/orama)
- *   - ✅ Pure JavaScript only
- * 
- * - Offline Capable:
- *   - allowRemoteModels = false
- *   - allowRemoteFrameworks = false
- *   - All model files pre-downloaded to ~/.wso2-mi/copilot/models/
- * 
- * ============================================================================
- */
-
 //@ts-check
 
 'use strict';
 
 const path = require('path');
-const fs = require('fs');
 const dotenv = require('dotenv');
 const webpack = require('webpack');
 const { createEnvDefinePlugin } = require('../../../common/scripts/env-webpack-helper');
-
-// Resolve the onnxruntime-web package root (nested under @huggingface/transformers
-// in the pnpm store). We need the absolute paths of its two runtime-loaded files
-// — the WASM JS wrapper and the WASM binary — so webpack can emit them into dist/
-// as static assets. At runtime, embedder.ts points `env.backends.onnx.wasm.wasmPaths`
-// at `file://.../dist/` so onnxruntime-web loads them directly, bypassing the
-// fetch → Blob → URL.createObjectURL → import(blob:...) path that fails under
-// Node's ESM loader (ERR_UNSUPPORTED_ESM_URL_SCHEME).
-const ortWebPkgRoot = (() => {
-  const huggingfaceMain = require.resolve('@huggingface/transformers');
-  let d = path.dirname(huggingfaceMain);
-  while (!fs.existsSync(path.join(d, 'package.json'))) d = path.dirname(d);
-  const ortWebMain = require.resolve('onnxruntime-web', { paths: [d] });
-  let r = path.dirname(ortWebMain);
-  while (!fs.existsSync(path.join(r, 'package.json'))) r = path.dirname(r);
-  return r;
-})();
-// Plain (non-JSEP) variant — onnxruntime-web/wasm's CPU backend loads
-// `ort-wasm-simd-threaded.mjs` / `.wasm` when no webgpu/jspi features are
-// requested. The `.jsep.*` variants only get used by the webgpu entry point.
-const ortWasmMjs = path.join(ortWebPkgRoot, 'dist', 'ort-wasm-simd-threaded.mjs');
-const ortWasmBin = path.join(ortWebPkgRoot, 'dist', 'ort-wasm-simd-threaded.wasm');
 
 const envPath = path.resolve(__dirname, '.env');
 const env = dotenv.config({ path: envPath }).parsed;
@@ -108,14 +57,7 @@ module.exports = {
   },
   externals: {
     vscode: 'commonjs vscode',
-    // Optional Node.js-only deps of @huggingface/transformers that we do NOT use
-    // (text-only feature-extraction pipeline). These are excluded via runtime
-    // `require(...)` that is caught by a try/catch in embedder.ts — webpack's
-    // module cache then returns an empty stub on subsequent requires.
-    // Note: `onnxruntime-node` is NOT externalised; it is aliased to
-    // `onnxruntime-web/wasm` in `resolve.alias` below so transformers picks
-    // the WASM backend. Externals matching short-circuits alias resolution,
-    // so an entry here would defeat the alias.
+    // Optional transformers.js deps unused by our text-only feature-extraction pipeline.
     'sharp': 'commonjs sharp',
     'canvas': 'commonjs canvas',
     'pdf-parse': 'commonjs pdf-parse',
@@ -123,13 +65,9 @@ module.exports = {
   resolve: {
     extensions: ['.ts', '.js'],
     alias: {
-      // Redirect transformers' onnxruntime-node import to WASM-only ORT build.
-      // This avoids webgpu/jspi bundle paths that rely on blob: module URLs in Node.
+      // Force transformers.js onto the WASM build of ORT. The .wasm/.mjs files
+      // themselves are downloaded from the org CDN at runtime, not bundled here.
       'onnxruntime-node$': 'onnxruntime-web/wasm',
-      // Synthetic aliases resolved in embedder.ts — trigger webpack to emit the
-      // onnxruntime-web WASM wrapper + binary into dist/ as static assets.
-      'ort-wasm-jsep-mjs$': ortWasmMjs,
-      'ort-wasm-jsep-wasm$': ortWasmBin,
       'zod/v3': 'zod',
       'zod/v4': 'zod'
     }
@@ -146,17 +84,8 @@ module.exports = {
         ]
       },
       {
-        // onnxruntime-web's WASM JS wrapper + binary: emit to dist/ with stable
-        // names so we can load them at runtime via a file:// URL. The wrapper
-        // must be treated as a static asset (not parsed as an ESM module) so
-        // that webpack doesn't try to inline it. Matches the plain and JSEP
-        // variants: plain is used by our CPU backend; JSEP is kept available
-        // in case onnxruntime-web's feature detection asks for it.
-        test: /ort-wasm-simd-threaded(\.jsep)?\.(mjs|wasm)$/,
-        type: 'asset/resource'
-      },
-      {
-        // Any other .wasm files follow the same emit-to-dist behaviour.
+        // Defensive: emit any stray .wasm to dist/. ORT's WASM is fetched from
+        // the org CDN at runtime, so nothing should match in normal builds.
         test: /\.wasm$/,
         type: 'asset/resource'
       }
@@ -192,8 +121,8 @@ module.exports = {
     { module: /@ts-morph[\/]common[\/]dist[\/]typescript\.js$/ },
     { module: /typescript[\/]lib[\/]typescript\.js$/ },
     { module: /vscode-languageserver-types[\/]lib[\/]umd[\/]main\.js$/ },
-    // @huggingface/transformers uses WebAssembly for ONNX runtime inference
-    // WASM files are bundled and handled correctly at runtime in Node.js/Electron
+    // @huggingface/transformers' ORT loader emits async/dynamic-import warnings;
+    // resolved at runtime once the WASM/MJS files are present in the cache dir.
     { module: /@huggingface[\/]transformers/ },
   ],
 };

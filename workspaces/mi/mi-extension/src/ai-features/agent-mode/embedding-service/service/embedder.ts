@@ -21,6 +21,7 @@ import type { FeatureExtractionPipeline, PreTrainedTokenizer } from '@huggingfac
 import * as path from 'path';
 import * as fs from 'fs';
 import { pathToFileURL, fileURLToPath } from 'url';
+import { ensureOnnxRuntimeReady } from './wasm-runtime-manager';
 
 // Shim fetch() to resolve local file paths (onnxruntime-web needs this)
 const fetchShimInstalled = Symbol.for('mi-embedding-worker.fetchShim');
@@ -70,6 +71,11 @@ export class Embedder {
       }
       console.log(`[Embedder] Model directory verified`);
 
+      // Ensure onnxruntime-web WASM/MJS files are downloaded from the org CDN.
+      // They are not bundled into the VSIX; they live in a user-local cache dir.
+      const wasmRuntimeDir = await ensureOnnxRuntimeReady();
+      console.log(`[Embedder] WASM runtime ready at: ${wasmRuntimeDir}`);
+
       // Pre-load 'sharp' to prevent issues in packaged env (transformers.js)
       try { require('sharp'); } catch { /* expected */ }
 
@@ -84,16 +90,6 @@ export class Embedder {
 
       console.log(`[Embedder] Transformers.js loaded successfully`);
 
-      // Trigger webpack to emit WASM binaries to dist/
-      /* eslint-disable @typescript-eslint/no-require-imports */
-      try {
-        require('ort-wasm-jsep-mjs');
-        require('ort-wasm-jsep-wasm');
-      } catch (e) {
-        console.warn(`[Embedder] WASM files may not be available: ${e instanceof Error ? e.message : String(e)}`);
-      }
-      /* eslint-enable @typescript-eslint/no-require-imports */
-
       // Configure model cache and disable remote models
       env.cacheDir = modelPath;
       env.localModelPath = modelPath;
@@ -101,8 +97,9 @@ export class Embedder {
 
       const onnxBackend = (env as any).backends?.onnx;
       if (onnxBackend?.wasm) {
-        // Configure WASM backend (single-threaded)
-        onnxBackend.wasm.wasmPaths = pathToFileURL(__dirname).href + '/';
+        // Point onnxruntime-web at the user-local cache where the CDN-downloaded
+        // WASM/MJS files were placed. Trailing slash is required by ORT's loader.
+        onnxBackend.wasm.wasmPaths = pathToFileURL(wasmRuntimeDir).href + '/';
         onnxBackend.wasm.proxy = false;
         onnxBackend.wasm.numThreads = 1;
       }
