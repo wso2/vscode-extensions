@@ -277,6 +277,12 @@ import {
     DriverDownloadResponse,
     DriverMavenCoordinatesRequest,
     DriverMavenCoordinatesResponse,
+    GetConnectorDependenciesRequest,
+    GetConnectorDependenciesResponse,
+    UpdateConnectorDependencyOverrideRequest,
+    ResetConnectorDependencyOverridesRequest,
+    UpdateConnectorFlagsRequest,
+    UpdateGlobalConnectorFlagsRequest,
 } from "./types";
 
 export interface MiDiagramAPI {
@@ -465,6 +471,11 @@ export interface MiDiagramAPI {
     getDriverMavenCoordinates: (params: DriverMavenCoordinatesRequest) => Promise<DriverMavenCoordinatesResponse>;
     canCreateConsolidatedProject: () => Promise<ProjectCreationStatusResponse>;
     createConsolidatedProjectFromWorkspace: (params: CreateProjectRequest) => Promise<CreateProjectResponse>;
+    getConnectorDependencies: (params: GetConnectorDependenciesRequest) => Promise<GetConnectorDependenciesResponse>;
+    updateConnectorDependencyOverride: (params: UpdateConnectorDependencyOverrideRequest) => Promise<boolean>;
+    resetConnectorDependencyOverrides: (params: ResetConnectorDependencyOverridesRequest) => Promise<boolean>;
+    updateConnectorFlags: (params: UpdateConnectorFlagsRequest) => Promise<boolean>;
+    updateGlobalConnectorFlags: (params: UpdateGlobalConnectorFlagsRequest) => Promise<boolean>;
 }
 
 // Re-export LS-only types (consumed by the extension's LS client; not part of MiDiagramAPI).

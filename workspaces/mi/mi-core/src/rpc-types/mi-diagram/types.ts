@@ -2389,9 +2389,8 @@ export interface GetStoredProceduresResponse {
 }
 
 export interface DriverDownloadRequest {
-    groupId: string;
-    artifactId: string;
-    version: string;
+    connectorName: string;
+    connectionType: string;
 }
 
 export interface DriverDownloadResponse {
@@ -2425,4 +2424,61 @@ export interface LoadDriverAndTestConnectionRequest {
 export interface ProjectCreationStatusResponse {
     canCreateConsolidatedProject: boolean;
     isConsolidatedProject: boolean;
+}
+
+export interface ConnectorEffectiveDependency {
+    connectionType?: string;
+    groupId?: string;
+    artifactId?: string;
+    defaultVersion?: string;
+    overriddenVersion?: string;
+    omit?: boolean;
+    isOverridden?: boolean;
+    isConnectionTypeActive?: boolean;
+    localPath?: string;
+}
+
+export interface ConnectorEffectiveData {
+    omit?: boolean;
+    omitAllDrivers?: boolean;
+    dependencies?: ConnectorEffectiveDependency[];
+}
+
+export interface GetConnectorDependenciesRequest {
+    connectorArtifactId?: string;
+}
+
+export interface GetConnectorDependenciesResponse {
+    omitAllDrivers?: boolean;
+    omitAllConnectors?: boolean;
+    dependencies?: ConnectorEffectiveDependency[];
+    allConnectors?: { [connectorArtifactId: string]: ConnectorEffectiveData };
+}
+
+export interface UpdateConnectorDependencyOverrideRequest {
+    connectorArtifactId: string;
+    connectionType?: string;
+    groupId?: string;
+    artifactId?: string;
+    version?: string;
+    omit?: boolean;
+    localPath?: string;
+}
+
+export interface ResetConnectorDependencyOverridesRequest {
+    connectorArtifactId: string;
+    connectionType?: string;
+    groupId?: string;
+    artifactId?: string;
+}
+
+export interface UpdateConnectorFlagsRequest {
+    connectorArtifactId: string;
+    omit?: boolean;
+    omitAllDrivers?: boolean;
+}
+
+export interface UpdateGlobalConnectorFlagsRequest {
+    omitAllDrivers?: boolean;
+    omitAllConnectors?: boolean;
 }

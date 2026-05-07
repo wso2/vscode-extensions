@@ -94,7 +94,13 @@ import {
     DriverDownloadRequest,
     DriverDownloadResponse,
     DriverMavenCoordinatesRequest,
-    DriverMavenCoordinatesResponse
+    DriverMavenCoordinatesResponse,
+    GetConnectorDependenciesRequest,
+    GetConnectorDependenciesResponse,
+    UpdateConnectorDependencyOverrideRequest,
+    ResetConnectorDependencyOverridesRequest,
+    UpdateConnectorFlagsRequest,
+    UpdateGlobalConnectorFlagsRequest,
 } from "@wso2/mi-core";
 import { readFileSync } from "fs";
 import { CancellationToken, FormattingOptions, Position, Uri, workspace } from "vscode";
@@ -554,5 +560,29 @@ export class ExtendedLanguageClient extends LanguageClient {
 
     async isDuplicateConnector(params: string): Promise<any> {
         return this.sendRequest("synapse/isDuplicateConnector", { connectorPath: params });
+    }
+
+    async getConnectorDependencies(params: GetConnectorDependenciesRequest): Promise<GetConnectorDependenciesResponse> {
+        return this.sendRequest("synapse/getConnectorDependencies", params);
+    }
+
+    async updateConnectorDependencyOverride(params: UpdateConnectorDependencyOverrideRequest): Promise<boolean> {
+        return this.sendRequest("synapse/updateConnectorDependencyOverride", params);
+    }
+
+    async resetConnectorDependencyOverrides(params: ResetConnectorDependencyOverridesRequest): Promise<boolean> {
+        return this.sendRequest("synapse/resetConnectorDependencyOverrides", params);
+    }
+
+    async updateConnectorFlags(params: UpdateConnectorFlagsRequest): Promise<boolean> {
+        return this.sendRequest("synapse/updateConnectorFlags", params);
+    }
+
+    async updateGlobalConnectorFlags(params: UpdateGlobalConnectorFlagsRequest): Promise<boolean> {
+        return this.sendRequest("synapse/updateGlobalConnectorFlags", params);
+    }
+
+    async initConnectorConfig(projectPath: string): Promise<void> {
+        return this.sendNotification("synapse/initConnectorConfig", { projectPath });
     }
 }
