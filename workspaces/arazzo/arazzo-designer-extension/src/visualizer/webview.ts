@@ -216,7 +216,7 @@ export class VisualizerWebview {
             <!-- Loading screen -->
             <div id="loading-screen">
                 <div class="loading-spinner"></div>
-                <div class="loading-text">Loading Arazzo Designer...</div>
+                <div class="loading-text">Loading Arazzo Visualizer...</div>
             </div>
             
             <div id="root">
