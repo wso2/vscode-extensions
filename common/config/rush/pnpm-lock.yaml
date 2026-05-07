@@ -16164,8 +16164,8 @@ packages:
     resolution: {integrity: sha512-eSmmWE5bZTK2Nou4g0AI3zZ9rswp7GRKoKXS1BLUkvPviOqs4YTN1djQIqrXy9k5gEtdLPy86JjRwsNM9tnDcA==}
     engines: {node: '>=0.10.0'}
 
-  hono@4.12.14:
-    resolution: {integrity: sha512-am5zfg3yu6sqn5yjKBNqhnTX7Cv+m00ox+7jbaKkrLMRJ4rAdldd1xPd/JzbBWspqaQv6RSTrgFN95EsfhC+7w==}
+  hono@4.12.16:
+    resolution: {integrity: sha512-jN0ZewiNAWSe5khM3EyCmBb250+b40wWbwNILNfEvq84VREWwOIkuUsFONk/3i3nqkz7Oe1PcpM2mwQEK2L9Kg==}
     engines: {node: '>=16.9.0'}
 
   hookified@1.15.1:
@@ -28404,9 +28404,9 @@ snapshots:
       react-dom: 18.2.0(react@18.2.0)
       use-sync-external-store: 1.6.0(react@18.2.0)
 
-  '@hono/node-server@1.19.13(hono@4.12.14)':
+  '@hono/node-server@1.19.13(hono@4.12.16)':
     dependencies:
-      hono: 4.12.14
+      hono: 4.12.16
 
   '@hookform/resolvers@2.8.0(react-hook-form@7.56.4(react@18.2.0))':
     dependencies:
@@ -29989,7 +29989,7 @@ snapshots:
 
   '@modelcontextprotocol/sdk@1.29.0':
     dependencies:
-      '@hono/node-server': 1.19.13(hono@4.12.14)
+      '@hono/node-server': 1.19.13(hono@4.12.16)
       ajv: 8.17.1
       ajv-formats: 3.0.1(ajv@8.17.1)
       content-type: 1.0.5
@@ -29999,7 +29999,7 @@ snapshots:
       eventsource-parser: 3.0.8
       express: 5.2.1
       express-rate-limit: 8.2.2(express@5.2.1)
-      hono: 4.12.14
+      hono: 4.12.16
       jose: 6.2.3
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
@@ -44940,7 +44940,7 @@ snapshots:
     dependencies:
       parse-passwd: 1.0.0
 
-  hono@4.12.14: {}
+  hono@4.12.16: {}
 
   hookified@1.15.1: {}
 
