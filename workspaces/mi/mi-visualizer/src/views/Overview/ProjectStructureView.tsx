@@ -266,9 +266,13 @@ const ProjectStructureView = (props: { projectStructure: any, workspaceDir: stri
 
     const goToMcpServerTools = (entry: any) => {
         const localEntryPath = entry.localEntry?.path ?? '';
-        const serverName = localEntryPath
-            ? localEntryPath.split('/').pop()?.replace('-mcp-config.xml', '') ?? entry.name
-            : entry.name;
+        if (!localEntryPath) {
+            return;
+        }
+
+        const filename = localEntryPath.split(/[/\\]/).pop() ?? '';
+        const serverName = filename.replace('-mcp-config.xml', '') || entry.name;
+
         rpcClient.getMiVisualizerRpcClient().openView({
             type: EVENT_TYPE.OPEN_VIEW,
             location: {
