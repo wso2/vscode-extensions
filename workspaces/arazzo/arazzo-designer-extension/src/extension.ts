@@ -344,7 +344,10 @@ function initializeLanguageServer(context: vscode.ExtensionContext, runCodeLensP
 
 		// Use the existing visualizer system
 		// Trigger the state machine to open the visualizer
-		StateMachine.sendEvent(EVENT_TYPE.OPEN_VIEW);
+		openView(EVENT_TYPE.OPEN_VIEW, {
+			view: MACHINE_VIEW.Overview,
+			documentUri: uri.toString(),
+		});
 	});
 
 	context.subscriptions.push(visualizeCommand);
