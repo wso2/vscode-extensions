@@ -1142,7 +1142,7 @@
                 },
                 {
                     "command": "ballerina.view.entityDiagram",
-                    "when": "isPersistModelActive && (`!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default'))"
+                    "when": "isPersistModelActive && (!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default'))"
                 },
                 {
                     "command": "ballerina.project.build",
