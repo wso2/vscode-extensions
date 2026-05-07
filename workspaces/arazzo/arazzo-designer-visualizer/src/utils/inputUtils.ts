@@ -136,6 +136,9 @@ export function buildInitialFieldValues(
             result[field.name] = stringifyInputValue(savedInputs[savedKey], field.type);
         } else if (field.defaultValue !== undefined) {
             result[field.name] = stringifyInputValue(field.defaultValue, field.type);
+        } else if (field.type === 'boolean') {
+            // Default booleans to false if no saved value or explicit default exists
+            result[field.name] = 'false';
         } else {
             result[field.name] = '';
         }
