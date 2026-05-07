@@ -472,13 +472,23 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                     .filter(s => s.id !== '');
                 setSequences(parsedSeqs);
 
+                // Helper function to derive inbound endpoint path from local entry path
+                const deriveInboundEndpointPath = (localEntryPath: string): string => {
+                    const dir = pathModule.dirname(localEntryPath);
+                    const filename = pathModule.basename(localEntryPath);
+                    const inboundDir = dir.replace(
+                        pathModule.sep === '\\' ? 'local-entries' : /local-entries/,
+                        'inbound-endpoints'
+                    );
+                    const inboundFilename = filename.replace('-mcp-config.xml', '-endpoint.xml');
+                    return pathModule.join(inboundDir, inboundFilename);
+                };
+
                 // Collect used ports from all inbound endpoints (exclude current server in edit mode)
                 const inboundEPs: Array<{ path: string }> =
                     projectStructure?.directoryMap?.src?.main?.wso2mi?.artifacts?.inboundEndpoints || [];
                 const currentInboundPath = isEditMode && editData?.localEntryPath
-                    ? editData.localEntryPath
-                        .replace('/local-entries/', '/inbound-endpoints/')
-                        .replace('-mcp-config.xml', '-endpoint.xml')
+                    ? deriveInboundEndpointPath(editData.localEntryPath)
                     : undefined;
                 const ports = await getUsedInboundPorts(
                     inboundEPs.map(ep => ep.path),
@@ -500,9 +510,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                     }
 
                     // Read port from inbound endpoint
-                    const inboundPath = editData.localEntryPath
-                        .replace('/local-entries/', '/inbound-endpoints/')
-                        .replace('-mcp-config.xml', '-endpoint.xml');
+                    const inboundPath = deriveInboundEndpointPath(editData.localEntryPath);
                     try {
                         const inboundResp = await rpcClient.getMiDiagramRpcClient().readFileContent({
                             filePath: inboundPath,
