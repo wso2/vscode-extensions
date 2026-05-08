@@ -2,7 +2,7 @@
   "name": "arazzo-visualizer",
   "displayName": "Arazzo Visualizer",
   "description": "An extension which gives a development environment for visualizing Arazzo Specification.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "wso2",
   "repository": {
     "type": "git",
@@ -203,7 +203,9 @@
         "modelDescription": "Use this when the user asks to disable TLS, enable TLS, skip certificate validation, or fix self-signed certificate errors for Arazzo workflow API calls. This updates the workspace setting arazzo.disableTLSCertificationValidation and restarts the running Arazzo server by default unless restartServer is false.",
         "inputSchema": {
           "type": "object",
-          "required": ["disable"],
+          "required": [
+            "disable"
+          ],
           "properties": {
             "disable": {
               "type": "boolean",
