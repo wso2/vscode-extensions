@@ -58,6 +58,8 @@ import {
     RunningServiceInfo,
     StopRunningServiceRequest,
     RunServiceRequest,
+    SelectContextFilesRequest,
+    Attachment,
 } from "./interfaces";
 import { RequestType, NotificationType } from "vscode-messenger-common";
 
@@ -121,3 +123,4 @@ export const stopRunningService: RequestType<StopRunningServiceRequest, boolean>
 export const runService: RequestType<RunServiceRequest, boolean> = { method: `${_preFix}/runService` };
 export const runningServicesChanged: NotificationType<RunningServiceInfo[]> = { method: `${_preFix}/runningServicesChanged` };
 export const getDefaultVertexCredsPath: RequestType<void, string> = { method: `${_preFix}/getDefaultVertexCredsPath` };
+export const selectContextFiles: RequestType<SelectContextFilesRequest, Attachment[]> = { method: `${_preFix}/selectContextFiles` };

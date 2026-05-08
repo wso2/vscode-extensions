@@ -56,6 +56,8 @@ import {
     RunningServiceInfo,
     StopRunningServiceRequest,
     RunServiceRequest,
+    SelectContextFilesRequest,
+    Attachment,
 } from "./interfaces";
 
 export interface AIPanelAPI {
@@ -140,4 +142,8 @@ export interface AIPanelAPI {
     // Vertex AI BYOK Helpers
     // ==================================
     getDefaultVertexCredsPath: () => Promise<string>;
+    // ==================================
+    // File Attachment via VS Code Dialog
+    // ==================================
+    selectContextFiles: (params: SelectContextFilesRequest) => Promise<Attachment[]>;
 }

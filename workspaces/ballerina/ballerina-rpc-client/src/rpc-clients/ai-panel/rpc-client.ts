@@ -117,6 +117,9 @@ import {
     RunServiceRequest,
     runService,
     getDefaultVertexCredsPath,
+    selectContextFiles,
+    SelectContextFilesRequest,
+    Attachment,
 } from "@wso2/ballerina-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -360,5 +363,9 @@ export class AiPanelRpcClient implements AIPanelAPI {
 
     getDefaultVertexCredsPath(): Promise<string> {
         return this._messenger.sendRequest(getDefaultVertexCredsPath, HOST_EXTENSION);
+    }
+
+    selectContextFiles(params: SelectContextFilesRequest): Promise<Attachment[]> {
+        return this._messenger.sendRequest(selectContextFiles, HOST_EXTENSION, params);
     }
 }
