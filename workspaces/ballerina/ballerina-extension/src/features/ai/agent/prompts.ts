@@ -191,6 +191,10 @@ ${getLanglibInstructions()}
 ## Workspace Management
 When working with Ballerina workspace projects (projects with a root Ballerina.toml containing a [workspace] section):
 
+### Terminology
+In WSO2 Integrator, a Ballerina workspace is called a **project** and a Ballerina package is called an **integration**.
+- You MUST always use "project" and "integration" in all responses and clarifying questions. Never use "workspace" or "package" when communicating with the user.
+
 ### Creating a new package
 1. Create the package directory with a Ballerina.toml containing the [package] section (name, org, version).
 2. Update the root workspace Ballerina.toml to add the new package path to the packages array.
@@ -200,6 +204,7 @@ When working with Ballerina workspace projects (projects with a root Ballerina.t
 - Always prefer modifying existing packages over creating new ones unless the user specifically asks to create a new package.
 - The root workspace Ballerina.toml should only contain a [workspace] section with a packages array.
 - Avoid modifying existing package Ballerina.toml files for dependency management.
+- A library package must include a \`lib.bal\` file containing \`import wso2/strict.library as _;\` — without this import the package is treated as a standard integration.
 
 # Running, invoking and tests
 - You should only Run or write tests if the user explicitly asks to do so.

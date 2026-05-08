@@ -29,10 +29,12 @@ module.exports = {
         if (deps['esbuild']) deps['esbuild'] = '0.25.12';
         if (deps['lodash']) deps['lodash'] = '4.18.0';
         if (deps['qs']) deps['qs'] = '6.14.2';
-        if (deps['hono']) deps['hono'] = '4.12.14';
+        if (deps['hono']) deps['hono'] = '4.12.16';
         if (deps['@hono/node-server']) deps['@hono/node-server'] = '1.19.13';
         if (deps['@tootallnate/once']) deps['@tootallnate/once'] = '3.0.1';
         if (deps['dompurify']) deps['dompurify'] = '3.4.0';
+        if (deps['axios']) deps['axios'] = '1.15.2';
+        if (deps['ip-address']) deps['ip-address'] = '10.1.1';
         if (deps['follow-redirects']) deps['follow-redirects'] = '1.16.0';
         if (deps['express-rate-limit']) deps['express-rate-limit'] = '8.2.2';
         if (deps['file-type']) deps['file-type'] = '21.3.2';
@@ -42,6 +44,8 @@ module.exports = {
         if (deps['handlebars']) deps['handlebars'] = '4.7.9';
         if (deps['tmp']) deps['tmp'] = '0.2.4';
         if (deps['undici']) deps['undici'] = '7.24.0';
+        if (deps['axios']) deps['axios'] = '1.15.2';
+        if (deps['ip-address']) deps['ip-address'] = '10.1.1';
         if (deps['protobufjs']) {
           const currentVersion = deps['protobufjs'];
           if (currentVersion.startsWith('^8') || currentVersion.startsWith('8')) {

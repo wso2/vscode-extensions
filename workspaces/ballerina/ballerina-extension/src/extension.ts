@@ -37,11 +37,12 @@ import { activate as activateBIFeatures } from './features/bi';
 import { activate as activateERDiagram } from './views/persist-layer-diagram';
 import { activateAiPanel } from './views/ai-panel';
 import { activateMigrationPanel } from './views/migration-panel';
-import { debug, handleResolveMissingDependencies, log } from './utils';
+import { debug, handleResolveMissingDependencies, isInDevant, log } from './utils';
 import { activateUriHandlers } from './utils/uri-handlers';
 import { StateMachine } from './stateMachine';
 import { activateSubscriptions } from './views/visualizer/activate';
 import { VisualizerWebview } from './views/visualizer/webview';
+import { AiPanelWebview } from './views/ai-panel/webview';
 import { extension } from './BalExtensionContext';
 import { ExtendedClientCapabilities } from '@wso2/ballerina-core';
 import { RPCLayer } from './RPCLayer';
@@ -132,6 +133,16 @@ export async function activate(context: ExtensionContext) {
     extension.context = context;
     // Init RPC Layer methods
     RPCLayer.init();
+
+    // Register serializers that dispose orphaned webview tabs restored by VS Code after a restart.
+    // Without this, previously open panels leave behind empty placeholder tabs on reload.
+    const disposeOnRestore: vscode.WebviewPanelSerializer = {
+        deserializeWebviewPanel: async (panel) => { panel.dispose(); }
+    };
+    context.subscriptions.push(
+        vscode.window.registerWebviewPanelSerializer(VisualizerWebview.viewType, disposeOnRestore),
+        vscode.window.registerWebviewPanelSerializer(AiPanelWebview.viewType, disposeOnRestore),
+    );
 
     // Wait for the ballerina extension to be ready
     await StateMachine.initialize();
@@ -239,8 +250,10 @@ export async function activateBallerina(): Promise<BallerinaExtension> {
         // Activate Tracing Feature
         activateTracing(ballerinaExtInstance);
 
-        // Activate ICP (Integration Control Plane)
-        activateICP(ballerinaExtInstance);
+        // Activate ICP (Integration Control Plane) — skip in Devant
+        if (!isInDevant()) {
+            activateICP(ballerinaExtInstance);
+        }
 
         langClient = <ExtendedLangClient>ballerinaExtInstance.langClient;
         // Register showTextDocument listener
@@ -305,7 +318,7 @@ export async function activateBallerina(): Promise<BallerinaExtension> {
 }
 
 async function updateCodeServerConfig() {
-    if (!('CLOUD_STS_TOKEN' in process.env)) {
+    if (!isInDevant()) {
         return;
     }
     log("Code server environment detected");
