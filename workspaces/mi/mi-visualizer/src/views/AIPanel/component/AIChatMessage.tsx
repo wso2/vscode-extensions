@@ -37,6 +37,7 @@ import FeedbackBar from "./FeedbackBar";
 import ToolCallSegment from "./ToolCallSegment";
 import TodoListSegment from "./TodoListSegment";
 import BashOutputSegment from "./BashOutputSegment";
+import TryItCard from "./TryItCard";
 import CompactSummarySegment from "./CompactSummarySegment";
 import ThinkingSegment from "./ThinkingSegment";
 
@@ -281,6 +282,7 @@ const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
             segment.isToolCall ||
             segment.isTodoList ||
             segment.isBashOutput ||
+            segment.isTryItCard ||
             segment.isCompactSummary ||
             segment.isFileChanges ||
             segment.isPlan ||
@@ -337,6 +339,8 @@ const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
                     console.error("Failed to parse bashoutput JSON:", e);
                     return null;
                 }
+            } else if (segment.isTryItCard) {
+                return <TryItCard key={i} text={segment.text} loading={segment.loading} />;
             } else if (segment.isCompactSummary) {
                 return <CompactSummarySegment key={i} text={segment.text} />;
             } else if (segment.isFileChanges) {

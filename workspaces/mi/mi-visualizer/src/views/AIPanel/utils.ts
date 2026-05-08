@@ -96,6 +96,7 @@ interface ContentSegment {
     isToolCall?: boolean;
     isTodoList?: boolean;
     isBashOutput?: boolean;
+    isTryItCard?: boolean;
     isCompactSummary?: boolean;
     isFileChanges?: boolean;
     isPlan?: boolean;
@@ -113,7 +114,7 @@ export function splitContent(content: string): ContentSegment[] {
     }
     const segments: ContentSegment[] = [];
     let match;
-    // Updated regex to include <toolcall>, <todolist>, <bashoutput>, <compact>, <filechanges>, <plan>, and <thinking> tags.
+    // Updated regex to include <toolcall>, <todolist>, <bashoutput>, <tryitcard>, <compact>, <filechanges>, <plan>, and <thinking> tags.
     // Code block regex matches any language (or no language) followed by a newline.
     // The closing ``` must start a line so nested backticks inside JSON strings
     // (e.g. tool outputs) don't prematurely close the block. For a non-empty body
@@ -121,7 +122,7 @@ export function splitContent(content: string): ContentSegment[] {
     // opening fence's \n already sits right before the closer, so we fall back
     // to a `(?<=\n)` lookbehind (which doesn't consume) — otherwise `\`\`\`\n\`\`\``
     // wouldn't match at all.
-    const regex = /```(\w*)\n([\s\S]*?)(?:\r?\n|(?<=\n))```(?=\r?\n|$)|<toolcall([^>]*)>([^<]*?)<\/toolcall>|<todolist>([\s\S]*?)<\/todolist>|<bashoutput(?:\s+[^>]*)?>([\s\S]*?)<\/bashoutput>|<compact>([\s\S]*?)<\/compact>|<filechanges>([\s\S]*?)<\/filechanges>|<plan>([\s\S]*?)<\/plan>|<thinking(\s+[^>]*)?>([\s\S]*?)<\/thinking>/g;
+    const regex = /```(\w*)\n([\s\S]*?)(?:\r?\n|(?<=\n))```(?=\r?\n|$)|<toolcall([^>]*)>([^<]*?)<\/toolcall>|<todolist>([\s\S]*?)<\/todolist>|<bashoutput(?:\s+[^>]*)?>([\s\S]*?)<\/bashoutput>|<compact>([\s\S]*?)<\/compact>|<filechanges>([\s\S]*?)<\/filechanges>|<plan>([\s\S]*?)<\/plan>|<thinking(\s+[^>]*)?>([\s\S]*?)<\/thinking>|<tryitcard(\s+[^>]*)?>([\s\S]*?)<\/tryitcard>/g;
     let start = 0;
 
     // Helper function to mark the last toolcall segment as complete
@@ -183,6 +184,12 @@ export function splitContent(content: string): ContentSegment[] {
             const thinkingAttrs = match[10] || '';
             const isLoading = /data-loading="true"/.test(thinkingAttrs);
             segments.push({ isThinking: true, loading: isLoading, text: match[11] });
+        } else if (match[13] !== undefined) {
+            // <tryitcard> block matched (match[12] = attrs only, match[13] = body)
+            updateLastToolCallSegmentLoading();
+            const tryItCardAttrs = match[12] || '';
+            const isLoading = /data-loading="true"/.test(tryItCardAttrs);
+            segments.push({ isTryItCard: true, loading: isLoading, text: match[13] });
         }
         start = regex.lastIndex;
     }

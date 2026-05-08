@@ -124,6 +124,7 @@ export const CREATE_DATA_MAPPER_TOOL_NAME = 'create_data_mapper';
 export const GENERATE_DATA_MAPPING_TOOL_NAME = 'generate_data_mapping';
 export const BUILD_AND_DEPLOY_TOOL_NAME = 'build_and_deploy';
 export const SERVER_MANAGEMENT_TOOL_NAME = 'server_management';
+export const HURL_TOOL_NAME = 'hurl';
 
 // Plan Mode Tool Names
 export const SUBAGENT_TOOL_NAME = 'create_subagent';
@@ -155,6 +156,7 @@ export const DEFERRED_TOOLS = new Set<string>([
     CREATE_DATA_MAPPER_TOOL_NAME,
     GENERATE_DATA_MAPPING_TOOL_NAME,
     SERVER_MANAGEMENT_TOOL_NAME,
+    HURL_TOOL_NAME,
     ENTER_PLAN_MODE_TOOL_NAME,
     EXIT_PLAN_MODE_TOOL_NAME,
     ASK_USER_TOOL_NAME,
@@ -439,3 +441,43 @@ export type TaskOutputExecuteFn = (args: {
     block?: boolean;
     timeout?: number;
 }) => Promise<TaskOutputResult>;
+
+// ============================================================================
+// Hurl Tool Types
+// ============================================================================
+export type HurlToolOutput = {
+    input: {
+        requests: Array<{
+            name: string;
+            method: string;
+            url: string;
+            headers: Array<{ key: string; value: string }>;
+            queryParameters: Array<{ key: string; value: string }>;
+            body?: string;
+            assertions?: string[];
+        }>;
+    };
+    output: {
+        status: string;
+        durationMs: number;
+        entries: Array<{
+            name: string;
+            method?: string;
+            url?: string;
+            statusCode?: number;
+            responseHeaders?: Array<{ name: string; value: string }>;
+            responseBody?: string;
+            status: string;
+            durationMs?: number;
+            assertions: Array<{
+                expression: string;
+                status: string;
+                expected?: string;
+                actual?: string;
+                message?: string;
+            }>;
+            errorMessage?: string;
+        }>;
+        warnings: string[];
+    };
+};

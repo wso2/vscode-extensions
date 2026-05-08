@@ -32,6 +32,7 @@ export const DEFERRED_TOOL_DESCRIPTIONS: Record<string, string> = {
     create_data_mapper: 'Create a new data mapper with input/output schemas',
     generate_data_mapping: 'Generate TypeScript field mappings for an existing data mapper',
     server_management: 'Query/control MI server artifacts using WSO2 MI management API (status, query, activate/deactivate, log levels)',
+    hurl: 'Execute Hurl scripts to send HTTP requests and inspect responses',
     enter_plan_mode: 'Enter planning phase for complex implementation tasks',
     exit_plan_mode: 'Request plan approval from user',
     ask_user_question: 'Ask user a clarification question with options',

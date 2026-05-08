@@ -20,7 +20,8 @@
     "onUri"
   ],
   "extensionDependencies": [
-    "wso2.wso2-integrator"
+    "wso2.wso2-integrator",
+    "wso2.hurl-client"
   ],
   "main": "./dist/extension.js",
   "contributes": {

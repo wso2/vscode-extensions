@@ -184,7 +184,7 @@ export function RuntimeServicePanel() {
         setServerRunStatus(newState);
     });
 
-    const onTryit = async (name: any) => {
+    const onTryit = async (name: any, url: any) => {
         const api_resource = await rpcClient.getMiDiagramRpcClient().getAvailableResources({
             documentIdentifier: undefined,
             resourceType: "api",
@@ -195,9 +195,10 @@ export function RuntimeServicePanel() {
         const aboslutePath = resource?.absolutePath;
 
         if (aboslutePath) {
-            const swaggerResponse = await rpcClient.getMiDiagramRpcClient().getOpenAPISpec({
+            await rpcClient.getMiDiagramRpcClient().openTryIt({
                 apiName: name,
                 apiPath: aboslutePath,
+                apiUrl: url,
                 isRuntimeService: true
             });
         }
@@ -236,7 +237,7 @@ export function RuntimeServicePanel() {
                                 </Details>
                                 <VSCodeButton
                                     appearance="primary"
-                                    onClick={() => onTryit(entry.name)} title={"Try service"} style={{ width: 'max-content', justifySelf: 'flex-end' }}
+                                    onClick={() => onTryit(entry.name, entry.url)} title={"Try service"} style={{ width: 'max-content', justifySelf: 'flex-end' }}
                                 >
                                     <ButtonWrapper>{"Try it"}</ButtonWrapper>
                                 </VSCodeButton>

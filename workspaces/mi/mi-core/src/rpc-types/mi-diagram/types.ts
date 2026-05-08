@@ -1849,6 +1849,10 @@ export interface SwaggerTypeRequest {
     isRuntimeService?: boolean;
 }
 
+export interface OpenTryItRequest extends SwaggerTypeRequest {
+    apiUrl: string;
+}
+
 export interface SwaggerFromAPIResponse {
     generatedSwagger: any;
 }

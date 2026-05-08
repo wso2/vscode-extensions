@@ -211,6 +211,7 @@ import {
     getMessageStore,
     getMetadataOfRegistryResource,
     getOpenAPISpec,
+    openTryIt,
     getProjectRoot,
     getProjectUuid,
     getRecipientEndpoint,
@@ -338,6 +339,7 @@ import {
     LoadDriverAndTestConnectionRequest,
     canCreateConsolidatedProject,
     createConsolidatedProjectFromWorkspace,
+    OpenTryItRequest,
     getConnectorDependencies,
     GetConnectorDependenciesRequest,
     updateConnectorDependencyOverride,
@@ -485,6 +487,7 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(checkOldProject, () => rpcManger.checkOldProject());
     messenger.onNotification(refreshAccessToken, () => rpcManger.refreshAccessToken());
     messenger.onRequest(getOpenAPISpec, (args: SwaggerTypeRequest) => rpcManger.getOpenAPISpec(args));
+    messenger.onNotification(openTryIt, (args: OpenTryItRequest) => rpcManger.openTryIt(args));
     messenger.onNotification(editOpenAPISpec, (args: SwaggerTypeRequest) => rpcManger.editOpenAPISpec(args));
     messenger.onRequest(compareSwaggerAndAPI, (args: SwaggerTypeRequest) => rpcManger.compareSwaggerAndAPI(args));
     messenger.onNotification(updateSwaggerFromAPI, (args: SwaggerTypeRequest) => rpcManger.updateSwaggerFromAPI(args));

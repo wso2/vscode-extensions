@@ -29,6 +29,7 @@ import Attachments from "./Attachments";
 
 // Tool name constant
 const SHELL_TOOL_NAMES = new Set(['shell', 'bash']);
+const HURL_TOOL_NAME = 'hurl';
 const EXIT_PLAN_MODE_TOOL_NAME = 'exit_plan_mode';
 
 function appendThinkingPlaceholder(content: string, thinkingId: string): string {
@@ -109,6 +110,22 @@ function upsertLoadingBashOutputTag(
     const loadingTag = `<bashoutput data-loading="true">${JSON.stringify(bashData)}</bashoutput>`;
     const bashPattern = /<bashoutput data-loading="true">[\s\S]*?<\/bashoutput>/g;
     const matches = [...content.matchAll(bashPattern)];
+
+    if (matches.length === 0) {
+        return content + `\n\n${loadingTag}`;
+    }
+
+    const fullMatch = matches[matches.length - 1][0];
+    const lastIndex = content.lastIndexOf(fullMatch);
+    const beforeMatch = content.substring(0, lastIndex);
+    const afterMatch = content.substring(lastIndex + fullMatch.length);
+    return beforeMatch + loadingTag + afterMatch;
+}
+
+function upsertLoadingTryItCardTag(content: string, message: string): string {
+    const loadingTag = `<tryitcard data-loading="true">${message}</tryitcard>`;
+    const tryItPattern = /<tryitcard data-loading="true">[\s\S]*?<\/tryitcard>/g;
+    const matches = [...content.matchAll(tryItPattern)];
 
     if (matches.length === 0) {
         return content + `\n\n${loadingTag}`;
@@ -603,6 +620,31 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                     const toolInfo = event.toolInput as { file_path?: string, file_paths?: string[], command?: string, description?: string };
                     const filePath = toolInfo?.file_path || toolInfo?.file_paths?.[0] || "";
 
+                    if (event.toolName === HURL_TOOL_NAME) {
+                        const tryItScenario = (event.toolInput as { tryItScenario?: string, hurlScript?: string } | undefined)?.tryItScenario;
+                        const hurlScript = (event.toolInput as { hurlScript?: string } | undefined)?.hurlScript;
+                        
+                        // Skip incomplete tool calls with empty toolInput
+                        if (!tryItScenario && !hurlScript) {
+                            break;
+                        }
+
+                        const loadingData = {
+                            scenario: tryItScenario || '',
+                            hurlScript: hurlScript || '',
+                            loading: true
+                        };
+                        const tryItMessage = tryItScenario
+                            ? `Running HTTP try-it: ${tryItScenario}...`
+                            : "Running HTTP try-it...";
+
+                        setToolStatus(tryItMessage);
+                        setMessages((prev) => updateLastMessage(prev, (c) =>
+                            upsertLoadingTryItCardTag(c, JSON.stringify(loadingData))
+                        ));
+                        break;
+                    }
+
                     // Handle bash tool specially - show loading bash component
                     if (event.toolName && SHELL_TOOL_NAMES.has(event.toolName)) {
                         const bashData = {
@@ -689,6 +731,57 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                         newMessages[lastIdx] = {
                             ...newMessages[lastIdx],
                             content: beforeMatch + completedBashTag + afterMatch,
+                        };
+                        return newMessages;
+                    }
+
+                    if (event.toolName === HURL_TOOL_NAME) {
+                        const tryItPattern = /<tryitcard data-loading="true">[\s\S]*?<\/tryitcard>/g;
+                        const tryItMatches = [...lastMessageContent.matchAll(tryItPattern)];
+
+                        // Extract scenario and hurlScript from the loading card if available
+                        let scenario = '';
+                        let hurlScript = '';
+                        if (tryItMatches.length > 0) {
+                            const lastMatch = tryItMatches[tryItMatches.length - 1];
+                            const fullMatch = lastMatch[0];
+                            const jsonMatch = fullMatch.match(/<tryitcard data-loading="true">([\s\S]*?)<\/tryitcard>/);
+                            if (jsonMatch && jsonMatch[1]) {
+                                try {
+                                    const loadingData = JSON.parse(jsonMatch[1]);
+                                    scenario = loadingData.scenario || '';
+                                    hurlScript = loadingData.hurlScript || '';
+                                } catch {
+                                    // Failed to parse, continue without scenario/script
+                                }
+                            }
+                        }
+
+                        // Build completed card with scenario and hurlScript preserved
+                        const completedData = {
+                            scenario,
+                            hurlScript,
+                            ...(typeof event.toolOutput === 'object' && event.toolOutput ? event.toolOutput : {})
+                        };
+                        const completedTryItTag = `<tryitcard>${JSON.stringify(completedData)}</tryitcard>`;
+
+                        if (tryItMatches.length > 0) {
+                            const lastMatch = tryItMatches[tryItMatches.length - 1];
+                            const fullMatch = lastMatch[0];
+                            const lastIndex = lastMessageContent.lastIndexOf(fullMatch);
+                            const beforeMatch = lastMessageContent.substring(0, lastIndex);
+                            const afterMatch = lastMessageContent.substring(lastIndex + fullMatch.length);
+
+                            newMessages[lastIdx] = {
+                                ...newMessages[lastIdx],
+                                content: beforeMatch + completedTryItTag + afterMatch,
+                            };
+                            return newMessages;
+                        }
+
+                        newMessages[lastIdx] = {
+                            ...newMessages[lastIdx],
+                            content: lastMessageContent + `\n\n${completedTryItTag}`,
                         };
                         return newMessages;
                     }

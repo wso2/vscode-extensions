@@ -22,6 +22,7 @@ import { generateId } from "../utils";
 // Tool name constants
 const TODO_WRITE_TOOL_NAME = 'todo_write';
 const SHELL_TOOL_NAMES = new Set(['shell', 'bash']);
+const HURL_TOOL_NAME = 'hurl';
 
 /**
  * Calculate overall status from todo items
@@ -205,6 +206,25 @@ export function convertEventsToMessages(
                     continue;
                 }
 
+                if (event.toolName === HURL_TOOL_NAME) {
+                    const input = (event.toolInput as { tryItScenario?: string, hurlScript?: string } | undefined);
+                    const tryItScenario = input?.tryItScenario;
+                    const hurlScript = input?.hurlScript;
+                    
+                    // Skip incomplete tool calls with empty toolInput
+                    if (!tryItScenario && !hurlScript) {
+                        continue;
+                    }
+
+                    const loadingData = {
+                        scenario: tryItScenario || '',
+                        hurlScript: hurlScript || '',
+                        loading: true
+                    };
+                    currentAssistantMessage.content += `\n\n<tryitcard data-loading="true">${JSON.stringify(loadingData)}</tryitcard>`;
+                    continue;
+                }
+
                 // Get loading action from event (for live streaming) or create generic message
                 const loadingAction = 'loadingAction' in event ? event.loadingAction : undefined;
                 const loadingMessage = loadingAction
@@ -280,6 +300,49 @@ export function convertEventsToMessages(
                                 // No loading tag found, append directly
                                 currentAssistantMessage.content += `\n\n${completedBashTag}`;
                             }
+                        }
+
+                        pendingToolCalls.delete(resultToolCallId);
+                        continue;
+                    }
+
+                    if (pendingToolCall.toolName === HURL_TOOL_NAME) {
+                        const tryItPattern = /<tryitcard data-loading="true">[\s\S]*?<\/tryitcard>/g;
+                        const tryItMatches = [...currentAssistantMessage.content.matchAll(tryItPattern)];
+
+                        // Extract scenario and hurlScript from the loading card if available
+                        let scenario = '';
+                        let hurlScript = '';
+                        if (tryItMatches.length > 0) {
+                            const lastMatch = tryItMatches[tryItMatches.length - 1];
+                            const fullMatch = lastMatch[0];
+                            const jsonMatch = fullMatch.match(/<tryitcard data-loading="true">([\s\S]*?)<\/tryitcard>/);
+                            if (jsonMatch && jsonMatch[1]) {
+                                try {
+                                    const loadingData = JSON.parse(jsonMatch[1]);
+                                    scenario = loadingData.scenario || '';
+                                    hurlScript = loadingData.hurlScript || '';
+                                } catch {
+                                    // Failed to parse, continue without scenario/script
+                                }
+                            }
+                        }
+
+                        // Build completed card
+                        const toolOutputData = event?.toolOutput;
+                        const completedData = {
+                            scenario,
+                            hurlScript,
+                            ...(typeof toolOutputData === 'object' && toolOutputData ? toolOutputData : {})
+                        };
+                        const completedTryItTag = `<tryitcard>${JSON.stringify(completedData)}</tryitcard>`;
+
+                        if (tryItMatches.length > 0) {
+                            const lastMatch = tryItMatches[tryItMatches.length - 1];
+                            const fullMatch = lastMatch[0];
+                            currentAssistantMessage.content = currentAssistantMessage.content.replace(fullMatch, completedTryItTag);
+                        } else {
+                            currentAssistantMessage.content += `\n\n${completedTryItTag}`;
                         }
 
                         pendingToolCalls.delete(resultToolCallId);

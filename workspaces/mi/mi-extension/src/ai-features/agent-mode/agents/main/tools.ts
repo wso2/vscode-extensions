@@ -96,6 +96,7 @@ import {
     createReadServerLogsTool,
     createReadServerLogsExecute,
 } from '../../tools/log_tools';
+import { createHurlTool } from '../../tools/hurl_tool';
 import {
     createDeepWikiTool,
     createDeepWikiExecute,
@@ -133,6 +134,7 @@ import {
     WEB_FETCH_TOOL_NAME,
     DEEPWIKI_ASK_QUESTION_TOOL_NAME,
     READ_SERVER_LOGS_TOOL_NAME,
+    HURL_TOOL_NAME,
     TOOL_LOAD_TOOL_NAME,
     ShellApprovalRuleStore,
     DEFERRED_TOOLS,
@@ -170,6 +172,7 @@ export {
     WEB_FETCH_TOOL_NAME,
     DEEPWIKI_ASK_QUESTION_TOOL_NAME,
     READ_SERVER_LOGS_TOOL_NAME,
+    HURL_TOOL_NAME,
     TOOL_LOAD_TOOL_NAME,
 };
 import { AgentEventHandler } from './agent';
@@ -718,6 +721,9 @@ export function createAgentTools(params: CreateToolsParams) {
         [READ_SERVER_LOGS_TOOL_NAME]: createReadServerLogsTool(
             getWrappedExecute(READ_SERVER_LOGS_TOOL_NAME, createReadServerLogsExecute(projectPath))
         ),
+
+        // HTTP Tool (1 tool)
+        [HURL_TOOL_NAME]: createHurlTool(),
 
         // Shell Tools (3 tools)
         [BASH_TOOL_NAME]: createBashTool(

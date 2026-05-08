@@ -280,6 +280,7 @@ import {
     getMessageStore,
     getMetadataOfRegistryResource,
     getOpenAPISpec,
+    openTryIt,
     getProjectRoot,
     getProjectUuid,
     getRecipientEndpoint,
@@ -471,6 +472,7 @@ import {
     canCreateConsolidatedProject,
     ProjectCreationStatusResponse,
     createConsolidatedProjectFromWorkspace,
+    OpenTryItRequest,
     GetConnectorDependenciesRequest,
     GetConnectorDependenciesResponse,
     UpdateConnectorDependencyOverrideRequest,
@@ -1015,6 +1017,10 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
 
     getOpenAPISpec(params: SwaggerTypeRequest): Promise<SwaggerFromAPIResponse> {
         return this._messenger.sendRequest(getOpenAPISpec, HOST_EXTENSION, params);
+    }
+
+    openTryIt(params: OpenTryItRequest): void {
+        return this._messenger.sendNotification(openTryIt, HOST_EXTENSION, params);
     }
 
     updateSwaggerFromAPI(params: SwaggerTypeRequest): void {

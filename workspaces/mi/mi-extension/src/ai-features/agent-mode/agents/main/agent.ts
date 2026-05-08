@@ -76,7 +76,7 @@ import { ChatHistoryManager, SessionContextBlocksState, TOOL_USE_INTERRUPTION_CO
 import { getToolAction } from '../../tool-action-mapper';
 import { AgentUndoCheckpointManager } from '../../undo/checkpoint-manager';
 import { getCopilotSessionDir } from '../../storage-paths';
-import { ShellApprovalRuleStore } from '../../tools/types';
+import { HURL_TOOL_NAME, ShellApprovalRuleStore } from '../../tools/types';
 import { WebToolsProvider } from '../../tools/web_tools';
 import {
     awaitWithTimeout,
@@ -1236,6 +1236,8 @@ export async function executeAgent(
                             repoName: toolInput?.repoName,
                             question: toolInput?.question,
                         };
+                    } else if (part.toolName === HURL_TOOL_NAME) {
+                        displayInput = toolInput
                     }
 
                     // Skip tool call UI for todo_write (handled by inline todo list)
@@ -1292,6 +1294,10 @@ export async function executeAgent(
                             toolResultEvent.bashStderr = result.stderr;
                             toolResultEvent.bashExitCode = result.exitCode;
                             toolResultEvent.bashRunning = !!result.taskId;
+                        }
+                        // Add full tool output for HURL tool (handled by custom UI component)
+                        else if (part.toolName === HURL_TOOL_NAME) {
+                            toolResultEvent.toolOutput = result;
                         }
 
                         // Send to visualizer with result action for display

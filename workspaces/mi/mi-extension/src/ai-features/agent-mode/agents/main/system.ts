@@ -40,6 +40,7 @@ import {
     DEEPWIKI_ASK_QUESTION_TOOL_NAME,
     READ_SERVER_LOGS_TOOL_NAME,
     TOOL_LOAD_TOOL_NAME,
+    HURL_TOOL_NAME,
 } from '../../tools/types';
 import { SYNAPSE_GUIDE } from '../../context/synapse_guide';
 import { SYNAPSE_GUIDE as SYNAPSE_GUIDE_OLD } from '../../context/synapse_guide_old';
@@ -214,7 +215,7 @@ The user's IDE selection (if any) is included in the conversation context and ma
 - Use ${SERVER_MANAGEMENT_TOOL_NAME} for status checks, run/stop control. Use action='query' to inspect deployed artifacts, action='control' to activate/deactivate, enable tracing, or set log levels.
 - If testing requires API keys/credentials or can't be done locally, explain this and ask the user to test manually. Do not attempt credential-dependent tests.
 - **Selective deployment**: To test specific artifacts when full build is slow/broken, rename unneeded XMLs with \`.disabled\` suffix, build and deploy, then always restore originals before ending — including on abort/error. Log renamed files if cleanup fails.
-- Test with ${BASH_TOOL_NAME} if possible. If server errors persist that you cannot fix, end the task and ask user to fix manually.
+- Use ${HURL_TOOL_NAME} to explore and interact with HTTP APIs by sending requests and observing responses. It is not intended for writing API test suites, assertions. If the tool cannot fulfill the request or lacks the needed capability, fall back to ${BASH_TOOL_NAME} with curl. If server errors persist that you cannot fix, end the task and ask user to fix manually.
 
 ## Clean up
 - Shutdown the server using ${SERVER_MANAGEMENT_TOOL_NAME} before ending the task.

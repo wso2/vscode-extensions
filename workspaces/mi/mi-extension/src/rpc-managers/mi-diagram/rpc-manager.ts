@@ -302,6 +302,7 @@ import {
     DriverDownloadResponse,
     DriverMavenCoordinatesRequest,
     DriverMavenCoordinatesResponse,
+    OpenTryItRequest,
     GetConnectorDependenciesRequest,
     GetConnectorDependenciesResponse,
     UpdateConnectorDependencyOverrideRequest,
@@ -368,6 +369,7 @@ import { parseStringPromise, Builder } from "xml2js";
 import { MILanguageClient } from "../../lang-client/activator";
 import { addWSO2AIConfigProperties } from "../../ai-features/configUtils";
 import { reorderModulesByBuildOrder, updatePomModules } from "../../debugger/pomResolver";
+import { buildHurlCellsFromOASSpec, setTryItFileRoot } from "../../util/tryItUtils";
 const AdmZip = require('adm-zip');
 
 const { XMLParser, XMLBuilder } = require("fast-xml-parser");
@@ -5806,6 +5808,38 @@ ${keyValuesXML}`;
         RPCLayer._messengers.get(this.projectUri)?.sendNotification(onSwaggerSpecReceived, { type: 'webview', webviewType: 'micro-integrator.runtime-services-panel' }, { generatedSwagger: generatedSwagger, port: port });
 
         return { generatedSwagger: generatedSwagger }; // TODO: refactor rpc function with void
+    }
+
+    async openTryIt(params: OpenTryItRequest): Promise<void> {
+        const TRYIT_REL_DIR = path.join('target', 'tryit');
+        const apiFileName = path.basename(params.apiPath, ".xml");
+        const swaggerPath = path.join(this.projectUri, SWAGGER_REL_DIR,
+            `${apiFileName}.yaml`);
+        const tryItPath = path.join(this.projectUri, TRYIT_REL_DIR,
+            `${apiFileName}.tryit.hurl`);
+        const langClient = await MILanguageClient.getInstance(this.projectUri);
+        let response;
+        if (params.isRuntimeService) {
+            const versionedUrl = await exposeVersionedServices(this.projectUri);
+            response = await langClient.swaggerFromAPI({ apiPath: params.apiPath, hostname: DebuggerConfig.getHost(), port: DebuggerConfig.getServerPort(), projectPath: versionedUrl ? this.projectUri : "", ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
+        } else {
+            response = await langClient.swaggerFromAPI({ apiPath: params.apiPath, ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
+        }
+        const generatedSwagger = response.swagger;
+        const parsedSwagger = parse(generatedSwagger!);
+        try {
+            const projectRoot = await this.getProjectRoot({ path: this.projectUri });
+            setTryItFileRoot(projectRoot.path);
+            const cells = buildHurlCellsFromOASSpec(parsedSwagger, params.apiUrl, params.apiName);
+            if (!cells || cells.length === 0) {
+                window.showErrorMessage("Failed to generate Notebook content from the API.");
+                return;
+            }
+            await vscode.commands.executeCommand('HurlClient.importHurlString', cells,{savePath: tryItPath, viewColumn: 'active'});
+        } catch (error) {
+            window.showErrorMessage("An error occurred while generating the Notebook content: " + error);
+            return;
+        }
     }
 
     async openDependencyPom(params: OpenDependencyPomRequest): Promise<void> {
