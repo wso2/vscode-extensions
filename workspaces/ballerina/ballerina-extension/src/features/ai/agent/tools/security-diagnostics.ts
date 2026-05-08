@@ -16,7 +16,6 @@
  * under the License.
  */
 
-import * as vscode from 'vscode';
 import { tool } from 'ai';
 import { z } from 'zod';
 import * as path from 'path';
@@ -24,52 +23,15 @@ import { promises as fs } from 'fs';
 import { DiagnosticEntry, ScanResponse } from '@wso2/ballerina-core';
 import { CopilotEventHandler } from "../../utils/events";
 import { ScannerRpcManager } from '../../../../rpc-managers/scanner/rpc-manager';
-import { isScannerEnabled, DEFAULT_SCAN_TIMEOUT_MS } from '../../../../features/scanner/scan-utils';
-
-type ScannerRuleSeverity = 'LOW' | 'MEDIUM' | 'HIGH';
-
-// RULE DEFINITIONS
-const SECURITY_RULES: [string, string, ScannerRuleSeverity][] = [
-// [        Rule ID        |       Hint Message    | Severity ]
-    ['ballerina:1',             "Handle errors explicitly using the `check` keyword or `json|error` return types instead of `checkpanic`.", 'MEDIUM'],
-    ['ballerina:2',             "Remove the unused function parameter or document it if intended for future use.", 'LOW'],
-    ['ballerina:3',             "Mark the public function as `isolated` to allow concurrent calls.", 'MEDIUM'],
-    ['ballerina:4',             "Mark the public class method as `isolated` inside the class definition.", 'MEDIUM'],
-    ['ballerina:5',             "Mark the public class as `isolated` to ensure concurrency safety.", 'MEDIUM'],
-    ['ballerina:6',             "Mark the public object type as `isolated`.", 'MEDIUM'],
-    ['ballerina:7',             "Remove the redundant condition that always evaluates to `true`.", 'LOW'],
-    ['ballerina:8',             "Remove the unreachable logic caused by a condition that always evaluates to `false`.", 'LOW'],
-    ['ballerina:9',             "Simplify logic that always evaluates to the same value (e.g., modulo 1).", 'LOW'],
-    ['ballerina:10',            "Remove the redundant self-assignment (e.g., `x = x`).", 'LOW'],
-    ['ballerina:11',            "Remove the unused private field or method from the class.", 'LOW'],
-    ['ballerina:12',            "Ensure the range expression counter moves in the correct direction (e.g., `0...9` instead of `9...0`).", 'LOW'],
-
-    ['ballerina/crypto:1',      "Use secure modes like AES-GCM or RSA-OAEP. Avoid ECB mode and PKCS1v1.5 padding.", 'HIGH'],
-    ['ballerina/crypto:2',      "Use Argon2id with sufficient memory/iterations or BCrypt (factor >= 10). Avoid MD5/SHA-1 for passwords.", 'HIGH'],
-    ['ballerina/crypto:3',      "Generate a unique, random Initialization Vector (IV) for every encryption operation. Do not reuse static IVs.", 'HIGH'],
-    ['ballerina/file:1',        "Avoid using global writable directories (like /tmp). Use dedicated sub-directories.", 'MEDIUM'],
-    ['ballerina/file:2',        "Validate and normalize file paths using `file:normalizePath` and `file:parentPath` to prevent directory traversal.", 'HIGH'],
-    ['ballerina/http:1',        "Explicitly define the HTTP method (resource function get/post/delete) instead of using `default`.", 'MEDIUM'],
-    ['ballerina/http:2',        "Restrict CORS `allowOrigins` to specific trusted domains instead of allowing all (`*`).", 'MEDIUM'],
-    ['ballerina/http:3',        "Validate and sanitize user input before using it in client URLs to prevent Server-Side Request Forgery.", 'HIGH'],
-    ['ballerina/http:4',        "Validate user input before using it in the `Location` header to prevent Open Redirect attacks.", 'HIGH'],
-    ['ballerina/io:1',          "Normalize paths (`file:normalizePath`) and check parent directories before performing file I/O.", 'HIGH'],
-    ['ballerina/log:1',         "Do not log configurable variables or sensitive data (passwords, secrets) in clear text.", 'MEDIUM'],
-    ['ballerina/os:1',          "Use an allow-list to sanitize arguments before passing user input to `os:exec`.", 'HIGH'],
-    ['ballerina/os:2',          "Validate input (e.g., alphanumeric check) before setting environment variables.", 'MEDIUM'],
-    ['ballerina/jwt:1',         "Use strong signing algorithms like `RS256`. Do not use `NONE`.", 'HIGH'],
-    ['ballerina/email:1',       "Enable `verifyHostName: true` in the secure socket configuration to prevent MITM attacks.", 'HIGH'],
-
-    ['ballerinax/mysql:1',      "Use parameterized queries (`sql:ParameterizedQuery`) to prevent SQL injection.", 'HIGH'],
-    ['scannertest/mysql:1',     "Use parameterized queries (`sql:ParameterizedQuery`) to prevent SQL injection.", 'HIGH'],
-];
+import { isScannerConfigEnabled, isScannerActive, DEFAULT_SCAN_TIMEOUT_MS } from '../../../../features/scanner/scan-utils';
+import { SECURITY_RULES } from '../../../../features/scanner/security-rules';
 
 // AGENT-SPECIFIC POLICY RULES
 // [        Rule ID        | Auto Fix Enabled | Agent Hint ]
 const AGENT_SECURITY_RULE_POLICIES: [string, boolean, string][] = [
-    ['ballerina/http:2',        true,       'Apply the fix using configurables (DO NOT HARDCODE values). Create configurable placeholders for allowed CORS origins and tell the user to set values via the WSO2 Integrator Configurable menu. DO NOT ASK the user for raw domain values in chat.'],
-    ['ballerina/jwt:1',         true,       'Apply the fix using configurables for JWT signing setup (algorithm, key source, and key material strategy). Create configurable placeholders and tell the user to set values via the WSO2 Integrator Configurable menu. Do not ask the user for key material or raw signing inputs in chat.'],
-    ['ballerinax/mysql:1',      true,       'Apply the fix using configurables for database credentials and secret handling. Create configurable placeholders and tell the user to set values via the WSO2 Integrator Configurable menu. Do not ask the user for raw passwords or secrets in chat.'],
+    ['ballerina/http:2',        false,       'Apply the fix using configurables (DO NOT HARDCODE values). Create configurable placeholders for allowed CORS origins and tell the user to set values via the WSO2 Integrator Configurable menu. DO NOT ASK the user for raw domain values in chat.'],
+    ['ballerina/jwt:1',         false,       'Apply the fix using configurables for JWT signing setup (algorithm, key source, and key material strategy). Create configurable placeholders and tell the user to set values via the WSO2 Integrator Configurable menu. Do not ask the user for key material or raw signing inputs in chat.'],
+    ['ballerinax/mysql:1',      false,       'Apply the fix using configurables for database credentials and secret handling. Create configurable placeholders and tell the user to set values via the WSO2 Integrator Configurable menu. Do not ask the user for raw passwords or secrets in chat.'],
 ];
 
 export const SECURITY_TOOL_NAME = "getSecurityVulnerabilities";
@@ -267,7 +229,7 @@ Use this tool when:
 Returns:
 - A list of active issues from the scanner for the target package.
     - Some diagnostics include policy fields such as autoFixEnabled, requiresExplicitUserInput, userInputHint and skipAutoFixReason.
-    - If requiresExplicitUserInput is true, do not auto-fix until the user provides the required data.
+    - STRICT RULE: If autoFixEnabled is false or requiresExplicitUserInput is true, DO NOT attempt to fix the issue automatically under any circumstances. You must wait for the user to explicitly ask you to fix it and provide any required values.
 `,
         inputSchema: SecurityInputSchema,
 
@@ -279,7 +241,7 @@ Returns:
 
             return runWithLock(async () => {
                 try {
-                    if (!isScannerEnabled()) {
+                    if (!isScannerConfigEnabled()) {
                     const disabledRes: DiagnosticsCheckResult = {
                         count: 0,
                         diagnostics: [],
@@ -365,7 +327,7 @@ Returns:
                         requiresExplicitUserInput: !autoFixEnabled,
                         userInputHint: policyHint,
                         skipAutoFixReason: !autoFixEnabled
-                            ? `Auto-fix is disabled for ${ruleId}. ${policyHint || 'Ask the user for required inputs as CONFIGURABLES (USING WSO2 Integrator UI ONLY, NOT THE CHAT) before fixing.'}`
+                            ? `STRICT RULE: Auto-fix is disabled for ${ruleId}. DO NOT fix this automatically. Only fix if the user explicitly asks you to. ${policyHint || 'Ask the user for required inputs as CONFIGURABLES (USING WSO2 Integrator UI ONLY, NOT THE CHAT) before fixing.'}`
                             : undefined,
                     });
                 }
@@ -409,7 +371,7 @@ Returns:
                 }
 
                 if (userInputRequiredCount > 0) {
-                    outputMessage += ` ${userInputRequiredCount} issue(s) require explicit user input before fixing. Ask the user for required values and avoid automatic fixes for those items.`;
+                    outputMessage += ` STRICT RULE: ${userInputRequiredCount} issue(s) have autoFixEnabled=false. DO NOT attempt to fix them automatically. Only fix them if the user EXPLICITLY asks you to fix them AND provides any required values.`;
                 }
 
                 const result: DiagnosticsCheckResult = {
@@ -452,7 +414,7 @@ Returns:
  * Add given prompt if the scanner is enabled
  */
 export function AddSecurityToolPrompt(prompt: string) {
-    if (!isScannerEnabled()) {
+    if (!isScannerActive()) {
         return "";
     } else {
         return prompt;

@@ -3,7 +3,7 @@ import * as path from 'path';
 import { extension } from '../../BalExtensionContext';
 import { getComposerWebViewOptions, getLibraryWebViewContent, WebViewOptions } from '../../utils/webview-utils';
 import { RPCLayer } from '../../RPCLayer';
-import { isScannerEnabled } from '../../features/scanner/scan-utils';
+import { isScannerConfigEnabled, isScannerVersionSupported, scannerState } from '../../features/scanner/scan-utils';
 
 
 export class ScannerWebview {
@@ -12,7 +12,10 @@ export class ScannerWebview {
     private _panel: vscode.WebviewPanel | undefined;
     private _disposables: vscode.Disposable[] = [];
 
-    private constructor() {
+    private _mode?: string;
+
+    private constructor(mode?: string) {
+        this._mode = mode;
         this._panel = ScannerWebview.createWebview();
         this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
         this._panel.webview.html = this.getWebviewContent(this._panel.webview);
@@ -21,21 +24,24 @@ export class ScannerWebview {
         RPCLayer.create(this._panel);
     }
 
-    public static show(): ScannerWebview {
+    public static show(mode?: string): ScannerWebview {
         const column = vscode.window.activeTextEditor ? vscode.ViewColumn.Beside : vscode.ViewColumn.One;
 
         if (ScannerWebview.currentPanel) {
-            if (ScannerWebview.currentPanel._panel) {
-                ScannerWebview.currentPanel._panel.webview.html = ScannerWebview.currentPanel.getWebviewContent(
-                    ScannerWebview.currentPanel._panel.webview
-                );
-            }
+            ScannerWebview.currentPanel._mode = mode;
+            ScannerWebview.currentPanel.update();
             ScannerWebview.currentPanel._panel?.reveal(column);
             return ScannerWebview.currentPanel;
         }
 
-        ScannerWebview.currentPanel = new ScannerWebview();
+        ScannerWebview.currentPanel = new ScannerWebview(mode);
         return ScannerWebview.currentPanel;
+    }
+
+    public update(): void {
+        if (this._panel) {
+            this._panel.webview.html = this.getWebviewContent(this._panel.webview);
+        }
     }
 
     private static createWebview(): vscode.WebviewPanel {
@@ -63,7 +69,9 @@ export class ScannerWebview {
     }
 
     private getWebviewContent(webView: vscode.Webview): string {
-        const scannerEnabled = isScannerEnabled();
+        const scannerEnabled = isScannerConfigEnabled();
+        const scannerVersionSupported = isScannerVersionSupported;
+        const currentScannerState = scannerState;
         const activeEditorUri = vscode.window.activeTextEditor?.document.uri;
         const activeWorkspaceFolder = activeEditorUri ? vscode.workspace.getWorkspaceFolder(activeEditorUri) : undefined;
         const fallbackWorkspaceFolder = vscode.workspace.workspaceFolders?.[0];
@@ -116,7 +124,10 @@ export class ScannerWebview {
             function loadedScript() {
                 function renderDiagrams() {
                     window.__SCANNER_ENABLED__ = ${scannerEnabled};
+                    window.__SCANNER_VERSION_SUPPORTED__ = ${scannerVersionSupported};
+                    window.__SCANNER_STATE__ = ${JSON.stringify(currentScannerState)};
                     window.__SCANNER_PROJECT_PATH__ = ${JSON.stringify(projectPath)};
+                    window.__SCANNER_DEPLOY_MODE__ = ${this._mode === 'deploy'};
                     visualizerWebview.renderWebview("scanner", document.getElementById("webview-container"));
                 }
                 renderDiagrams();

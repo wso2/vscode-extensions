@@ -31,10 +31,11 @@ import { NotificationType, RequestType } from "vscode-messenger-common";
 
 const _preFix = "scanner";
 export const revealSecurityIssue: RequestType<RevealSecurityIssueRequest, void> = { method: `${_preFix}/revealSecurityIssue` };
-export const excludeIssue: RequestType<ExcludeIssueRequest, void> = { method: `${_preFix}/excludeIssue` };
-export const disableRule: RequestType<DisableRuleRequest, void> = { method: `${_preFix}/disableRule` };
-export const includeIssue: RequestType<IncludeIssueRequest, void> = { method: `${_preFix}/includeIssue` };
-export const enableRule: RequestType<EnableRuleRequest, void> = { method: `${_preFix}/enableRule` };
+export const excludeIssue: RequestType<ExcludeIssueRequest, boolean> = { method: `${_preFix}/excludeIssue` };
+export const disableRule: RequestType<DisableRuleRequest, boolean> = { method: `${_preFix}/disableRule` };
+export const includeIssue: RequestType<IncludeIssueRequest, boolean> = { method: `${_preFix}/includeIssue` };
+export const enableRule: RequestType<EnableRuleRequest, boolean> = { method: `${_preFix}/enableRule` };
 export const fixIssueWithCopilot: RequestType<FixIssueRequest, void> = { method: `${_preFix}/fixIssueWithCopilot` };
 export const scanProject: RequestType<ScanRequest, ScanResponse> = { method: `${_preFix}/scanProject` };
+export const pullScannerTool: RequestType<void, boolean> = { method: `${_preFix}/pullScannerTool` };
 export const scannerContentChanged: NotificationType<ScannerContentChangedEvent> = { method: `${_preFix}/contentChanged` };

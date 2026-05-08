@@ -39,8 +39,18 @@ export const openAIWebview = (defaultprompt?: AIPanelPrompt) => {
         AiPanelWebview.currentPanel = new AiPanelWebview();
     } else {
         AiPanelWebview.currentPanel!.getWebview()?.reveal();
-        // Always notify the open webview to refresh prompt state.
-        notifyAiPromptUpdated();
+    }
+
+    if (defaultprompt) {
+        // The AI webview can still be mounting when the first prompt arrives,
+        // so refresh immediately and retry a few times while the prompt is pending.
+        [0, 150, 500].forEach((delay) => {
+            setTimeout(() => {
+                if (extension.aiChatDefaultPrompt) {
+                    notifyAiPromptUpdated();
+                }
+            }, delay);
+        });
     }
 };
 

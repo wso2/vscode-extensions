@@ -17,12 +17,73 @@
  */
 
 import * as vscode from 'vscode';
+import { exec } from 'child_process';
 import { BallerinaExtension } from 'src/core';
 import { scannerContentChanged } from '@wso2/ballerina-core';
-import { isScannerEnabled, getScannerOutputChannel } from './scan-utils';
+import { isScannerConfigEnabled, isScannerVersionSupported, setScannerVersionSupported, isScannerActive, getScannerOutputChannel, setScannerState, pullOrUpdateScannerTool } from './scan-utils';
+import type { ScannerToolState } from './scan-utils';
 import { ScannerWebview } from '../../views/scanner/webview';
 import { ScannerRpcManager } from '../../rpc-managers/scanner/rpc-manager';
 import { RPCLayer } from '../../RPCLayer';
+
+/**
+ * Checks if the scan tool version is greater than 0.11.0.
+ */
+function checkScanToolVersion(callback: (state: ScannerToolState) => void) {
+    exec('bal tool list', (error, stdout) => {
+        if (error) {
+            callback('NOT_FOUND');
+            return;
+        }
+
+        let foundScanner = false;
+
+        // Parse the stdout to find the 'scan' tool version.
+        const lines = stdout.split('\n');
+        for (const line of lines) {
+            if (line.includes('|scan')) {
+                foundScanner = true;
+                const parts = line.split('|').map(p => p.trim());
+                if (parts.length >= 3) {
+                    const versionStr = parts[2]; // The version is in the 3rd part
+                    // Simplified version check for > 0.11.0
+                    const match = versionStr.match(/^(\d+)\.(\d+)\.(\d+)/);
+                    if (match) {
+                        const major = parseInt(match[1], 10);
+                        const minor = parseInt(match[2], 10);
+                        const patch = parseInt(match[3], 10);
+
+                        // We check if version > 0.11.0
+                        if (major > 0 || (major === 0 && minor > 11) || (major === 0 && minor === 11 && patch > 0)) {
+                            callback('SUPPORTED');
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+
+        callback(foundScanner ? 'INCOMPATIBLE' : 'NOT_FOUND');
+    });
+}
+
+function getScannerToolInstallMessage(state: ScannerToolState): string {
+    return state === 'NOT_FOUND'
+        ? "The Ballerina Security Scanner tool is not installed. Pull it from Ballerina Central and restart VS Code to finish setup."
+        : "The Ballerina Security Scanner tool version is incompatible. Pull the latest scanner tool from Ballerina Central and restart VS Code to finish setup.";
+}
+
+async function promptScannerToolInstall(state: ScannerToolState): Promise<void> {
+    const action = await vscode.window.showInformationMessage(
+        getScannerToolInstallMessage(state),
+        'Pull Scanner Tool'
+    );
+
+    if (action === 'Pull Scanner Tool') {
+        await vscode.commands.executeCommand('ballerina.scanner.pullTool');
+    }
+}
+
 
 
 /**
@@ -49,20 +110,37 @@ export function activate(ballerinaExtInstance: BallerinaExtension): void {
     let scannerContentChangedDebounce: NodeJS.Timeout | undefined;
     const scannerRpcManager = new ScannerRpcManager();
 
-    const updateScannerEnabledContext = () => {
-        vscode.commands.executeCommand('setContext', 'ballerinaScannerEnabled', isScannerEnabled());
+    const updateScannerEnabledContext = async () => {
+        await vscode.commands.executeCommand('setContext', 'ballerinaScannerEnabled', isScannerConfigEnabled());
+
+        if (!isScannerConfigEnabled()) {
+            setScannerVersionSupported(false);
+            setScannerState('NOT_FOUND');
+            ScannerWebview.currentPanel?.update();
+            return;
+        }
+
+        checkScanToolVersion((state) => {
+            setScannerVersionSupported(state === 'SUPPORTED');
+            setScannerState(state);
+            ScannerWebview.currentPanel?.update();
+
+            if (state !== 'SUPPORTED') {
+                void promptScannerToolInstall(state);
+            }
+        });
     };
 
-    updateScannerEnabledContext();
+    void updateScannerEnabledContext();
 
     const scannerConfigWatcher = vscode.workspace.onDidChangeConfiguration((event) => {
         if (event.affectsConfiguration('ballerina.scanner.enable')) {
-            updateScannerEnabledContext();
+            void updateScannerEnabledContext();
         }
     });
 
     const scannerContentWatcher = vscode.workspace.onDidChangeTextDocument((event) => {
-        if (event.document.languageId !== 'ballerina' || !isScannerEnabled()) {
+        if (event.document.languageId !== 'ballerina' || !isScannerActive()) {
             return;
         }
 
@@ -76,7 +154,11 @@ export function activate(ballerinaExtInstance: BallerinaExtension): void {
                 { type: 'webview', webviewType: ScannerWebview.viewType },
                 { timestamp: Date.now(), reason: 'documentChanged' }
             );
-        }, 5000);
+        }, 1000);
+    });
+
+    const pullToolDisposable = vscode.commands.registerCommand('ballerina.scanner.pullTool', async () => {
+        await pullOrUpdateScannerTool();
     });
 
     const langClient = ballerinaExtInstance.langClient;
@@ -94,7 +176,7 @@ export function activate(ballerinaExtInstance: BallerinaExtension): void {
             return;
         }
 
-        if (!isScannerEnabled()) {
+        if (!isScannerConfigEnabled()) {
             const selection = await vscode.window.showInformationMessage(
                 "Ballerina Security Scanner is disabled for this workspace.",
                 "Enable Scanner"
@@ -102,14 +184,12 @@ export function activate(ballerinaExtInstance: BallerinaExtension): void {
             if (selection === "Enable Scanner") {
                 const config = vscode.workspace.getConfiguration('ballerina');
                 await config.update('scanner.enable', true, vscode.ConfigurationTarget.Workspace);
-                const reloadSelection = await vscode.window.showInformationMessage(
-                    "Scanner enabled. Please reload the window to activate features.",
-                    "Reload Window"
-                );
-                if (reloadSelection === "Reload Window") {
-                    vscode.commands.executeCommand('workbench.action.reloadWindow');
-                }
             }
+            return;
+        }
+
+        if (!isScannerVersionSupported) {
+            vscode.window.showErrorMessage("Ballerina Security Scanner requires the 'scan' tool version > 0.11.0. Please update your tool.");
             return;
         }
 
@@ -131,14 +211,13 @@ export function activate(ballerinaExtInstance: BallerinaExtension): void {
         outputChannel.appendLine(`[INFO] [SCAN] Completed: active=${result.activeIssues?.length ?? 0}, excluded=${result.excludedIssues?.length ?? 0}`);
     });
 
-
-
-    const showPanelDisposable = vscode.commands.registerCommand('ballerina.scanner.showPanel', () => {
-        ScannerWebview.show();
+    const showPanelDisposable = vscode.commands.registerCommand('ballerina.scanner.showPanel', (mode?: string) => {
+        ScannerWebview.show(mode);
     });
 
     ballerinaExtInstance.context.subscriptions.push(getScannerOutputChannel());
     ballerinaExtInstance.context.subscriptions.push(scanDisposable);
+    ballerinaExtInstance.context.subscriptions.push(pullToolDisposable);
     ballerinaExtInstance.context.subscriptions.push(showPanelDisposable);
     ballerinaExtInstance.context.subscriptions.push(scannerConfigWatcher);
     ballerinaExtInstance.context.subscriptions.push(scannerContentWatcher);

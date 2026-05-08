@@ -30,7 +30,8 @@ import {
     fixIssueWithCopilot,
     scanProject,
     includeIssue,
-    enableRule
+    enableRule,
+    pullScannerTool,
 } from "@wso2/ballerina-core";
 import { Messenger } from "vscode-messenger";
 import { ScannerRpcManager } from "./rpc-manager";
@@ -44,4 +45,5 @@ export function registerScannerRpcHandlers(messenger: Messenger) {
     messenger.onRequest(enableRule, (args: EnableRuleRequest) => rpcManager.enableRule(args));
     messenger.onRequest(fixIssueWithCopilot, (args: FixIssueRequest) => rpcManager.fixIssueWithCopilot(args));
     messenger.onRequest(scanProject, (args: ScanRequest) => rpcManager.scanProject(args));
+    messenger.onRequest(pullScannerTool, () => rpcManager.pullScannerTool());
 }

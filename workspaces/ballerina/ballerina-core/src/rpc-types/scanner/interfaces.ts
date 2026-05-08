@@ -37,9 +37,8 @@ export interface ScannerIssueContext {
     };
     ruleId?: string;
     message: string;
-    severity?: string;
     ruleKind?: "VULNERABILITY" | "CODE_SMELL" | string;
-    securitySeverity?: "LOW" | "MEDIUM" | "HIGH" | string;
+    severity?: "LOW" | "MEDIUM" | "HIGH" | string;
     filePath?: string;
     startLine?: number;
     startColumn?: number;
@@ -128,7 +127,6 @@ export interface FixIssueRequest {
  */
 export interface ScanRequest {
     projectPath: string;
-    is_silent?: boolean;
 }
 
 // ==== Responses ====

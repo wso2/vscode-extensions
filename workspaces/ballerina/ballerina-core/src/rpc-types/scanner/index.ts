@@ -36,22 +36,22 @@ export interface ScannerAPI {
     /**
      * Ignores a specific vulnerability instance.
      */
-    excludeIssue: (params: ExcludeIssueRequest) => Promise<void>;
+    excludeIssue: (params: ExcludeIssueRequest) => Promise<boolean>;
 
     /**
      * Globally excludes a rule ID.
      */
-    disableRule: (params: DisableRuleRequest) => Promise<void>;
+    disableRule: (params: DisableRuleRequest) => Promise<boolean>;
 
     /**
      * Removes a specific exclusion instance.
      */
-    includeIssue: (params: IncludeIssueRequest) => Promise<void>;
+    includeIssue: (params: IncludeIssueRequest) => Promise<boolean>;
 
     /**
      * Removes a globally excluded rule.
      */
-    enableRule: (params: EnableRuleRequest) => Promise<void>;
+    enableRule: (params: EnableRuleRequest) => Promise<boolean>;
 
     /**
      * Opens the AI Panel with a prompt to fix the specific issue.
@@ -62,4 +62,9 @@ export interface ScannerAPI {
      * Triggers the scan and returns the list of issues.
      */
     scanProject: (params: ScanRequest) => Promise<ScanResponse>;
+
+    /**
+     * Pulls the scanner tool from Ballerina Central.
+     */
+    pullScannerTool: () => Promise<boolean>;
 }

@@ -39,7 +39,10 @@ import {
     mapRawScanResponse,
     getScannerOutputChannel,
     withTimeout,
-    isScannerEnabled,
+    isScannerActive,
+    isScannerConfigEnabled,
+    isScannerVersionSupported,
+    pullOrUpdateScannerTool,
     DEFAULT_SCAN_TIMEOUT_MS,
 } from '../../features/scanner/scan-utils';
 import { openAIPanelWithPrompt } from "../../views/ai-panel/aiMachine";
@@ -60,14 +63,47 @@ const SCANNER_LS_METHODS = {
  */
 function getResponseError(response: BaseResponse | undefined | null): string | undefined {
     if (!response) { return 'No response received from Language Server.'; }
-    return response.errorMsg || response.error || undefined;
+
+    // Per BaseResponse contract, `success` is authoritative when present.
+    // If success === true, treat as no error. If success === false, show the LS-provided
+    // message if available (errorMsg or error), otherwise fall back to a generic message.
+    if (response.success === true) {
+        return undefined;
+    }
+
+    if (response.success === false) {
+        return response.errorMsg || response.error || 'Operation failed.';
+    }
+
+    // If `success` is not provided, fall back to explicit error fields.
+    if (response.errorMsg) { return response.errorMsg; }
+    if (response.error) { return response.error; }
+
+    return undefined;
 }
 
 /**
  * Returns true if the BaseResponse indicates an error.
  */
 function hasResponseError(response: BaseResponse | undefined | null): boolean {
-    return !response || !!response.errorMsg || !!response.error || response.success === false;
+    if (!response) { return true; }
+
+    // If `success` is explicitly provided, obey it.
+    if (response.success === true) { return false; }
+    if (response.success === false) { return true; }
+
+    // Otherwise, treat presence of error fields as an error.
+    return !!response.errorMsg || !!response.error;
+}
+
+function showResponseError(response: BaseResponse | undefined | null, fallbackMessage: string): boolean {
+    const errorMessage = getResponseError(response) || fallbackMessage;
+    if (!errorMessage) {
+        return false;
+    }
+
+    vscode.window.showErrorMessage(errorMessage);
+    return true;
 }
 
 export class ScannerRpcManager implements ScannerAPI {
@@ -108,7 +144,7 @@ export class ScannerRpcManager implements ScannerAPI {
      * @param params An object containing the issue information and file path.
      */
     async revealSecurityIssue(params: RevealSecurityIssueRequest): Promise<void> {
-        if (!isScannerEnabled()) {
+        if (!isScannerActive()) {
             return;
         }
 
@@ -213,13 +249,13 @@ export class ScannerRpcManager implements ScannerAPI {
      * 
      * @param params A structured object dictating which rule to ignore, what line it is on, and its location.
      */
-    async excludeIssue(params: ExcludeIssueRequest): Promise<void> {
-        if (!isScannerEnabled()) { return; }
+    async excludeIssue(params: ExcludeIssueRequest): Promise<boolean> {
+        if (!isScannerActive()) { return false; }
 
         const client = StateMachine.langClient();
         if (!client) {
             vscode.window.showErrorMessage("Ballerina Language Server is not ready. Unable to add exclusion.");
-            return;
+            return false;
         }
 
         try {
@@ -246,11 +282,15 @@ export class ScannerRpcManager implements ScannerAPI {
             );
 
             if (hasResponseError(response)) {
-                vscode.window.showErrorMessage(getResponseError(response) || "Failed to add exclusion.");
+                showResponseError(response, "Failed to add exclusion.");
+                return false;
             }
+
+            return true;
         } catch (error) {
             console.error("[Scanner] Failed to add exclusion:", error);
             vscode.window.showErrorMessage(`Failed to add exclusion: ${error instanceof Error ? error.message : String(error)}`);
+            return false;
         }
     }
 
@@ -260,13 +300,13 @@ export class ScannerRpcManager implements ScannerAPI {
      * 
      * @param params Defines the target rule ID and document URI for global deactivation.
      */
-    async disableRule(params: DisableRuleRequest): Promise<void> {
-        if (!isScannerEnabled()) { return; }
+    async disableRule(params: DisableRuleRequest): Promise<boolean> {
+        if (!isScannerActive()) { return false; }
 
         const client = StateMachine.langClient();
         if (!client) {
             vscode.window.showErrorMessage("Ballerina Language Server is not ready. Unable to add global exclusion.");
-            return;
+            return false;
         }
 
         try {
@@ -286,11 +326,15 @@ export class ScannerRpcManager implements ScannerAPI {
             );
 
             if (hasResponseError(response)) {
-                vscode.window.showErrorMessage(getResponseError(response) || "Failed to add global exclusion.");
+                showResponseError(response, "Failed to add global exclusion.");
+                return false;
             }
+
+            return true;
         } catch (error) {
             console.error("[Scanner] Failed to add global exclusion:", error);
             vscode.window.showErrorMessage(`Failed to add global exclusion: ${error instanceof Error ? error.message : String(error)}`);
+            return false;
         }
     }
 
@@ -300,13 +344,13 @@ export class ScannerRpcManager implements ScannerAPI {
      * 
      * @param params Expected to contain structural details like ruleId, lineHash, and symbol.
      */
-    async includeIssue(params: IncludeIssueRequest): Promise<void> {
-        if (!isScannerEnabled()) { return; }
+    async includeIssue(params: IncludeIssueRequest): Promise<boolean> {
+        if (!isScannerActive()) { return false; }
 
         const client = StateMachine.langClient();
         if (!client) {
             vscode.window.showErrorMessage("Ballerina Language Server is not ready. Unable to remove exclusion.");
-            return;
+            return false;
         }
 
         try {
@@ -314,12 +358,12 @@ export class ScannerRpcManager implements ScannerAPI {
             const documentUri = this.resolveDocumentUri(legacyParams);
             if (!documentUri) {
                 vscode.window.showErrorMessage("No document found to resolve project root for exclusion removal.");
-                return;
+                return false;
             }
 
             if (!params.symbol || !params.lineHash) {
                 vscode.window.showErrorMessage("Missing symbol or line hash. Unable to remove exclusion.");
-                return;
+                return false;
             }
 
             const response = await withTimeout(
@@ -334,11 +378,15 @@ export class ScannerRpcManager implements ScannerAPI {
             );
 
             if (hasResponseError(response)) {
-                vscode.window.showErrorMessage(getResponseError(response) || "Failed to remove exclusion.");
+                showResponseError(response, "Failed to remove exclusion.");
+                return false;
             }
+
+            return true;
         } catch (error) {
             console.error("[Scanner] Failed to remove exclusion:", error);
             vscode.window.showErrorMessage(`Failed to remove exclusion: ${error instanceof Error ? error.message : String(error)}`);
+            return false;
         }
     }
 
@@ -349,13 +397,13 @@ export class ScannerRpcManager implements ScannerAPI {
      * 
      * @param params Defines the target rule ID that must be enabled across the project.
      */
-    async enableRule(params: EnableRuleRequest): Promise<void> {
-        if (!isScannerEnabled()) { return; }
+    async enableRule(params: EnableRuleRequest): Promise<boolean> {
+        if (!isScannerActive()) { return false; }
 
         const client = StateMachine.langClient();
         if (!client) {
             vscode.window.showErrorMessage("Ballerina Language Server is not ready. Unable to remove global exclusion.");
-            return;
+            return false;
         }
 
         try {
@@ -363,7 +411,7 @@ export class ScannerRpcManager implements ScannerAPI {
             const documentUri = this.resolveDocumentUri(legacyParams);
             if (!documentUri) {
                 vscode.window.showErrorMessage("No document found to resolve project root for global exclusion removal.");
-                return;
+                return false;
             }
 
             const response = await withTimeout(
@@ -376,11 +424,15 @@ export class ScannerRpcManager implements ScannerAPI {
             );
 
             if (hasResponseError(response)) {
-                vscode.window.showErrorMessage(getResponseError(response) || "Failed to remove global exclusion.");
+                showResponseError(response, "Failed to remove global exclusion.");
+                return false;
             }
+
+            return true;
         } catch (error) {
             console.error("[Scanner] Failed to remove global exclusion:", error);
             vscode.window.showErrorMessage(`Failed to remove global exclusion: ${error instanceof Error ? error.message : String(error)}`);
+            return false;
         }
     }
 
@@ -391,7 +443,7 @@ export class ScannerRpcManager implements ScannerAPI {
      * @param params Expected to contain an array of complex file/rule-related findings.
      */
     async fixIssueWithCopilot(params: FixIssueRequest): Promise<void> {
-        if (!params.issues || params.issues.length === 0 || !isScannerEnabled()) {
+        if (!params.issues || params.issues.length === 0 || !isScannerActive()) {
             return;
         }
 
@@ -434,14 +486,23 @@ export class ScannerRpcManager implements ScannerAPI {
      * @param params Indicates target limits like document root URLs or project paths required to do the scan.
      * @returns A mapped object including both identified vulnerabilities and correctly labeled excluded issues.
      */
+    async pullScannerTool(): Promise<boolean> {
+        return await pullOrUpdateScannerTool();
+    }
+
     async scanProject(params: ScanRequest): Promise<ScanResponse> {
-        if (!isScannerEnabled()) {
-            return { activeIssues: [], excludedIssues: [], errorMsg: "Scanner is disabled via settings." };
+        if (!isScannerConfigEnabled()) {
+            return { success: false, activeIssues: [], excludedIssues: [], errorMsg: "Scanner is disabled via settings." };
+        }
+        if (!isScannerVersionSupported) {
+            const errorMsg = "Ballerina Security Scanner requires the 'scan' tool version > 0.11.0. Please update your tool by running 'bal tool pull scan'.";
+            vscode.window.showErrorMessage(errorMsg);
+            return { success: false, activeIssues: [], excludedIssues: [], errorMsg };
         }
         
         const client = StateMachine.langClient();
         if (!client) {
-            return { activeIssues: [], excludedIssues: [], errorMsg: "Language Client not ready." };
+            return { success: false, activeIssues: [], excludedIssues: [], errorMsg: "Language Client not ready." };
         }
 
         let uri: vscode.Uri | undefined;
@@ -460,7 +521,7 @@ export class ScannerRpcManager implements ScannerAPI {
 
         if (!uri) {
             getScannerOutputChannel().appendLine(`[ERROR] [SCAN] Could not determine project root.`);
-            return { activeIssues: [], excludedIssues: [], errorMsg: "Could not determine project root." };
+            return { success: false, activeIssues: [], excludedIssues: [], errorMsg: "Could not determine project root." };
         }
 
         getScannerOutputChannel().appendLine(`[INFO] [SCAN] Start: ${uri.fsPath}`);
@@ -479,7 +540,16 @@ export class ScannerRpcManager implements ScannerAPI {
             const lsError = getResponseError(rawResponse);
             if (lsError) {
                 getScannerOutputChannel().appendLine(`[ERROR] [SCAN] Failed: ${lsError}`);
+                // Show a visible VS Code notification for scan failures reported by the Language Server.
+                try {
+                    vscode.window.showErrorMessage(lsError);
+                } catch (e) {
+                    // swallow UI errors and continue returning the ScanResponse
+                    console.error("[Scanner] Failed to show error message:", e);
+                }
+
                 return {
+                    success: false,
                     activeIssues: [],
                     excludedIssues: [],
                     errorMsg: lsError,
@@ -493,6 +563,7 @@ export class ScannerRpcManager implements ScannerAPI {
                 const errorMsg = result.error || "Unknown scan error";
                 getScannerOutputChannel().appendLine(`[ERROR] [SCAN] Failed: ${errorMsg}`);
                 return {
+                    success: false,
                     activeIssues: [],
                     excludedIssues: [],
                     errorMsg: errorMsg,
@@ -509,6 +580,7 @@ export class ScannerRpcManager implements ScannerAPI {
             getScannerOutputChannel().appendLine(`[INFO] [SCAN] Completed: active=${result.activeIssues?.length ?? 0}, excluded=${enrichedExclusions.length}`);
 
             return {
+                success: true,
                 activeIssues: result.activeIssues,
                 excludedIssues: enrichedExclusions,
             };
@@ -518,6 +590,7 @@ export class ScannerRpcManager implements ScannerAPI {
             const timedOut = /timed out/i.test(errorMessage);
             getScannerOutputChannel().appendLine(`[ERROR] [SCAN] Exception: ${errorMessage}`);
             return {
+                success: false,
                 activeIssues: [],
                 excludedIssues: [],
                 errorMsg: errorMessage,

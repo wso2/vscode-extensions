@@ -18,14 +18,18 @@
 
 import React, { useState, useEffect } from "react";
 import styled from "@emotion/styled";
-import { keyframes } from "@emotion/react";
+import { keyframes, Global, css } from "@emotion/react";
 import { Typography, Button, Codicon, ThemeColors } from "@wso2/ui-toolkit";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { ScanResponse, ScannerExclusionContext, ScannerIssueContext, ProjectStructure } from "@wso2/ballerina-core";
+import { DownloadIcon } from "../../../components/DownloadIcon";
 
 declare global {
     interface Window {
         __SCANNER_ENABLED__?: boolean;
+        __SCANNER_VERSION_SUPPORTED__?: boolean;
+        __SCANNER_STATE__?: 'NOT_FOUND' | 'INCOMPATIBLE' | 'SUPPORTED';
+        __SCANNER_DEPLOY_MODE__?: boolean;
     }
 }
 
@@ -37,6 +41,57 @@ const scanSweep = keyframes`
     }
     100% {
         transform: translateX(320%);
+    }
+`;
+
+const LoadingContent = styled.div`
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    width: 100%;
+    text-align: center;
+    animation: fadeIn 1s ease-in-out;
+`;
+
+const LoadingTitle = styled.h1`
+    color: var(--vscode-foreground);
+    font-size: 1.5em;
+    font-weight: 400;
+    margin: 0;
+    margin-top: 1.5rem;
+    letter-spacing: -0.02em;
+    line-height: normal;
+`;
+
+const LoadingSubtitle = styled.p`
+    color: var(--vscode-descriptionForeground);
+    font-size: 13px;
+    margin: 0.5rem 0 2rem 0;
+    opacity: 0.8;
+`;
+
+const LoadingText = styled.div`
+    color: ${ThemeColors.PRIMARY};
+    font-size: 13px;
+    font-weight: 500;
+`;
+
+const globalStyles = css`
+    @keyframes fadeIn {
+        0% { opacity: 0; }
+        100% { opacity: 1; }
+    }
+    .loading-dots::after {
+        content: '';
+        animation: dots 1.5s infinite;
+    }
+    @keyframes dots {
+        0%, 20% { content: ''; }
+        40% { content: '.'; }
+        60% { content: '..'; }
+        80%, 100% { content: '...'; }
     }
 `;
 
@@ -186,6 +241,21 @@ const HeaderMetaText = styled.span`
     opacity: 0.9;
 `;
 
+const OutdatedBanner = styled.div`
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--vscode-editorWarning-foreground);
+    background: var(--vscode-inputValidation-warningBackground, var(--vscode-editorWidget-background));
+    color: var(--vscode-editorWarning-foreground);
+    font-size: 11px;
+    font-weight: 600;
+    max-width: fit-content;
+`;
+
 const SummaryPills = styled.div`
     display: flex;
     flex-wrap: wrap;
@@ -193,13 +263,26 @@ const SummaryPills = styled.div`
     margin-top: 12px;
 `;
 
-const Pill = styled.span<{ tone: "neutral" | "error" | "warning" | "info" }>`
+interface PillProps { tone: "neutral" | "error" | "warning" | "info"; active?: boolean; clickable?: boolean; }
+const Pill = styled.span<PillProps>`
     border-radius: 999px;
     padding: 3px 10px;
     font-size: 11px;
     font-weight: 600;
-    border: 1px solid var(--vscode-widget-border);
-    background: ${(p: { tone: "neutral" | "error" | "warning" | "info" }) =>
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: 1px solid ${(p: PillProps) =>
+        p.active
+            ? (p.tone === "error"
+                ? "var(--vscode-errorForeground)"
+                : p.tone === "warning"
+                    ? "var(--vscode-editorWarning-foreground)"
+                    : p.tone === "info"
+                        ? "var(--vscode-editorInfo-foreground)"
+                        : "var(--vscode-descriptionForeground)")
+            : "var(--vscode-widget-border)"};
+    background: ${(p: PillProps) =>
         p.tone === "error"
             ? "var(--vscode-inputValidation-errorBackground, var(--vscode-editorWidget-background))"
             : p.tone === "warning"
@@ -207,7 +290,7 @@ const Pill = styled.span<{ tone: "neutral" | "error" | "warning" | "info" }>`
                 : p.tone === "info"
                     ? "var(--vscode-inputValidation-infoBackground, var(--vscode-editorWidget-background))"
                     : "var(--vscode-editorWidget-background)"};
-    color: ${(p: { tone: "neutral" | "error" | "warning" | "info" }) =>
+    color: ${(p: PillProps) =>
         p.tone === "error"
             ? "var(--vscode-errorForeground)"
             : p.tone === "warning"
@@ -215,6 +298,14 @@ const Pill = styled.span<{ tone: "neutral" | "error" | "warning" | "info" }>`
                 : p.tone === "info"
                     ? "var(--vscode-editorInfo-foreground)"
                     : "var(--vscode-descriptionForeground)"};
+    ${(p: PillProps) => p.clickable ? `
+        cursor: pointer;
+        user-select: none;
+        transition: opacity 0.15s ease, border-color 0.15s ease;
+        &:hover { opacity: 0.85; }
+    ` : ''}
+    ${(p: PillProps) => p.active ? 'opacity: 1;' : ''}
+    ${(p: PillProps) => p.clickable && !p.active ? 'opacity: 0.6;' : ''}
 `;
 
 interface StatusBannerProps { status: "pass" | "fail"; }
@@ -416,6 +507,14 @@ const DisabledCard = styled.div`
     background: var(--vscode-editorWidget-background);
 `;
 
+const DisabledActions = styled.div`
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 14px;
+`;
+
 type ActiveIssue = ScannerIssueContext;
 type ExcludedIssue = ScannerExclusionContext;
 
@@ -426,7 +525,27 @@ type ProjectIssues = {
     excluded: ExcludedIssue[];
     rescannedAt: Date | null;
     loading: boolean;
+    errorMsg?: string;
 };
+
+const getAutoScanTickKey = (projectPath: string) => `ballerina.scanner.autoScanEnabled:${projectPath || "workspace"}`;
+
+const areSameIssue = (left: ActiveIssue, right: ActiveIssue): boolean =>
+    left.ruleId === right.ruleId &&
+    left.filePath === right.filePath &&
+    left.message === right.message &&
+    left.startLine === right.startLine &&
+    left.startColumn === right.startColumn &&
+    left.endLine === right.endLine &&
+    left.endColumn === right.endColumn &&
+    left.symbol === right.symbol &&
+    left.lineHash === right.lineHash;
+
+const toExcludedIssue = (issue: ActiveIssue, isGlobalExclusion?: boolean): ExcludedIssue => ({
+    ...issue,
+    IssueContext: issue,
+    isGlobalExclusion: isGlobalExclusion ?? (!issue.symbol || !issue.lineHash),
+} as unknown as ExcludedIssue);
 
 const ProjectAccordionContainer = styled.div<{ isExpanded: boolean }>`
     cursor: pointer;
@@ -486,14 +605,72 @@ const ScannerOverview = ({ projectPath: propProjectPath }: { projectPath?: strin
     const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
     const [scannedOnce, setScannedOnce] = useState(false);
     const [searchQuery, setSearchQuery] = useState<string>("");
+    const [pullFailed, setPullFailed] = useState<boolean>(false);
+    const [pullSuccess, setPullSuccess] = useState<boolean>(false);
+    const [severityFilter, setSeverityFilter] = useState<Set<"HIGH" | "MEDIUM" | "LOW">>(new Set());
+    const [scanError, setScanError] = useState<string | null>(null);
 
     const scannerEnabled =
         typeof window !== "undefined" ? Boolean(window.__SCANNER_ENABLED__) : true;
+    const scannerVersionSupported =
+        typeof window !== "undefined" ? Boolean(window.__SCANNER_VERSION_SUPPORTED__) : true;
+    const scannerState = typeof window !== "undefined" ? window.__SCANNER_STATE__ || 'SUPPORTED' : 'SUPPORTED';
+
+    const scannerRpcClient = rpcClient.getScannerRpcClient();
 
     const projectName = projectPath ? projectPath.split(/[\\/]/).pop() : "Project";
+    const [resultsOutdated, setResultsOutdated] = useState(false);
+
+    const addIssueToExcludedState = (issue: ActiveIssue, isGlobalExclusion?: boolean, contextProjectPath?: string) => {
+        if (isWorkspace) {
+            setIssuesByProject(prev => {
+                const next = { ...prev };
+                Object.entries(next).forEach(([key, projectIssues]) => {
+                    if (isGlobalExclusion) {
+                        // Global exclusion: only affect the specific package where the rule was excluded
+                        if (contextProjectPath && key !== contextProjectPath) return;
+                        const matchingActive = projectIssues.active.filter(item => item.ruleId === issue.ruleId);
+                        if (matchingActive.length > 0) {
+                            const newExcluded = matchingActive.map(item => toExcludedIssue(item, true));
+                            next[key] = {
+                                ...projectIssues,
+                                active: projectIssues.active.filter(item => item.ruleId !== issue.ruleId),
+                                excluded: [...newExcluded, ...projectIssues.excluded],
+                            };
+                        }
+                    } else {
+                        // Instance exclusion: move only the exact issue
+                        if (projectIssues.active.some(item => areSameIssue(item, issue))) {
+                            next[key] = {
+                                ...projectIssues,
+                                active: projectIssues.active.filter(item => !areSameIssue(item, issue)),
+                                excluded: [toExcludedIssue(issue, false), ...projectIssues.excluded],
+                            };
+                        }
+                    }
+                });
+                return next;
+            });
+            return;
+        }
+
+        if (isGlobalExclusion) {
+            // Global exclusion in single-package mode
+            setLocalIssues(prev => {
+                const matchingActive = prev.filter(item => item.ruleId === issue.ruleId);
+                const newExcluded = matchingActive.map(item => toExcludedIssue(item, true));
+                setExcludedIssues(prevExcl => [...newExcluded, ...prevExcl]);
+                return prev.filter(item => item.ruleId !== issue.ruleId);
+            });
+        } else {
+            setLocalIssues(prev => prev.filter(item => !areSameIssue(item, issue)));
+            setExcludedIssues(prev => [toExcludedIssue(issue, false), ...prev.filter(item => !areSameIssue(getExcludedIssueContext(item), issue))]);
+        }
+    };
 
     const rescanScan = async (isBgRescan = false) => {
         setIsScanning(true);
+        setScanError(null);
         try {
             const res = await rpcClient.getBIDiagramRpcClient().getProjectStructure();
             const workspaceMode = res.workspaceName !== undefined;
@@ -512,20 +689,30 @@ const ScannerOverview = ({ projectPath: propProjectPath }: { projectPath?: strin
                     setCurrentScanningLabel(`Scanning ${project.projectName || pPath.split(/[\\/]/).pop() || "project"}...`);
                     try {
                         const results = await rpcClient.getScannerRpcClient().scanProject({
-                            projectPath: pPath,
-                            is_silent: true,
+                            projectPath: pPath
                         });
                         const scanResult = results as ScanResponse | ActiveIssue[];
+                        const scanResponse = Array.isArray(scanResult) ? undefined : (scanResult as ScanResponse);
+                        const success = scanResponse ? (typeof scanResponse.success === 'boolean' ? scanResponse.success : true) : true;
+                        const errorMsg = scanResponse ? scanResponse.errorMsg : undefined;
+
+                        if (!success || errorMsg) {
+                            console.error(`Scan failed for project ${pPath}:`, errorMsg || 'unknown error');
+                            setCurrentScanningLabel("");
+                            setScanError(errorMsg || 'Scan failed due to an unknown error');
+                            break;
+                        }
+
                         const active: ActiveIssue[] = Array.isArray(scanResult) ? scanResult : (scanResult.activeIssues || []);
                         const excluded: ExcludedIssue[] = Array.isArray(scanResult) ? [] : (scanResult.excludedIssues || []);
-                        
+
                         if (isFirstScan && active.length > 0) {
                             initialExpandSet.add(pPath);
                         }
 
                         newIssuesByProject[pPath] = {
                             projectPath: pPath,
-                            projectName: project.projectName || pPath.split(/[\\/]/).pop() || "Project",
+                            projectName: project.projectName || pPath.split(/[\/]/).pop() || "Project",
                             active,
                             excluded,
                             rescannedAt: new Date(),
@@ -543,15 +730,29 @@ const ScannerOverview = ({ projectPath: propProjectPath }: { projectPath?: strin
                 setRescannedAt(new Date());
             } else {
                 const results = await rpcClient.getScannerRpcClient().scanProject({
-                    projectPath,
-                    is_silent: true,
+                    projectPath
                 });
                 const scanResult = results as ScanResponse | ActiveIssue[];
-                const active: ActiveIssue[] = Array.isArray(scanResult) ? scanResult : (scanResult.activeIssues || []);
-                const excluded: ExcludedIssue[] = Array.isArray(scanResult) ? [] : (scanResult.excludedIssues || []);
-                setLocalIssues(active);
-                setExcludedIssues(excluded);
-                setRescannedAt(new Date());
+                const scanResponse = Array.isArray(scanResult) ? undefined : (scanResult as ScanResponse);
+                const success = scanResponse ? (typeof scanResponse.success === 'boolean' ? scanResponse.success : true) : true;
+                const errorMsg = scanResponse ? scanResponse.errorMsg : undefined;
+
+                if (!success || errorMsg) {
+                    console.error(`Scan failed for project ${projectPath}:`, errorMsg || 'unknown error');
+                    setLocalIssues([]);
+                    setExcludedIssues([]);
+                    setRescannedAt(new Date());
+                    setResultsOutdated(false);
+                    setScanError(errorMsg || 'Scan failed due to an unknown error');
+                } else {
+                    const active: ActiveIssue[] = Array.isArray(scanResult) ? scanResult : (scanResult.activeIssues || []);
+                    const excluded: ExcludedIssue[] = Array.isArray(scanResult) ? [] : (scanResult.excludedIssues || []);
+                    setLocalIssues(active);
+                    setExcludedIssues(excluded);
+                    setRescannedAt(new Date());
+                    setResultsOutdated(false);
+                    setScanError(null);
+                }
             }
         } catch (error) {
             console.error("Failed to load scan results", error);
@@ -562,9 +763,10 @@ const ScannerOverview = ({ projectPath: propProjectPath }: { projectPath?: strin
     };
 
     useEffect(() => {
+        setResultsOutdated(false);
         rescanScan(false);
         rpcClient.getScannerRpcClient().onScannerContentChanged(() => {
-            rescanScan(true);
+            setResultsOutdated(true);
         });
     }, [projectPath]);
 
@@ -639,12 +841,15 @@ const ScannerOverview = ({ projectPath: propProjectPath }: { projectPath?: strin
 
     const handleIgnoreInstance = async (issue: ActiveIssue, contextProjectPath: string) => {
         try {
-            await rpcClient.getScannerRpcClient().excludeIssue({
+            const success = await rpcClient.getScannerRpcClient().excludeIssue({
                 ruleId: issue.ruleId,
                 filePath: getIssueAbsolutePath(issue.filePath || "", contextProjectPath),
                 issue,
             });
-            await rescanScan();
+
+            if (success) {
+                addIssueToExcludedState(issue, false);
+            }
         } catch (error) {
             console.error("Failed to ignore issue:", error);
         }
@@ -652,15 +857,40 @@ const ScannerOverview = ({ projectPath: propProjectPath }: { projectPath?: strin
 
     const handleExcludeRule = async (issue: ActiveIssue, contextProjectPath: string) => {
         try {
-            await rpcClient.getScannerRpcClient().disableRule({
+            const success = await rpcClient.getScannerRpcClient().disableRule({
                 ruleId: issue.ruleId,
                 filePath: getIssueAbsolutePath(issue.filePath || "", contextProjectPath),
             });
-            await rescanScan();
+
+            if (success) {
+                addIssueToExcludedState(issue, true, contextProjectPath);
+            }
         } catch (error) {
             console.error("Failed to exclude rule:", error);
         }
     };
+
+    const handlePullScannerTool = async () => {
+        try {
+            setPullFailed(false);
+            setPullSuccess(false);
+            const success = await (scannerRpcClient.pullScannerTool() as Promise<any>);
+            if (!success) {
+                setPullFailed(true);
+            } else {
+                setPullSuccess(true);
+            }
+        } catch (error) {
+            console.error("Failed to pull scanner tool:", error);
+            setPullFailed(true);
+        }
+    };
+
+    useEffect(() => {
+        if (scannerState === 'NOT_FOUND' || scannerState === 'INCOMPATIBLE') {
+            handlePullScannerTool();
+        }
+    }, [scannerState]);
 
     const getExcludedIssueContext = (excludedIssue: ExcludedIssue): ActiveIssue =>
         isScannerExclusionContext(excludedIssue) ? excludedIssue.IssueContext : excludedIssue;
@@ -715,11 +945,56 @@ const ScannerOverview = ({ projectPath: propProjectPath }: { projectPath?: strin
             const isGlobalExclusion = isExcludedIssueGlobal(issue, symbol, lineHash);
 
             if (isGlobalExclusion) {
-                await rpcClient.getScannerRpcClient().enableRule({
+                const success = await rpcClient.getScannerRpcClient().enableRule({
                     ruleId,
                     documentUri,
                 });
+
+                if (!success) {
+                    return;
+                }
+
+                // Global restore: move ALL excluded issues with the same ruleId back to active
+                if (isWorkspace) {
+                    setIssuesByProject(prev => {
+                        const next = { ...prev };
+                        Object.entries(next).forEach(([key, projectIssues]) => {
+                            // Only restore in the specific package where the restore was clicked
+                            if (key !== contextProjectPath) return;
+                            const matchingExcluded = projectIssues.excluded.filter(
+                                item => getExcludedRuleId(item) === ruleId && isExcludedIssueGlobal(item, getExcludedSymbol(item), getExcludedLineHash(item))
+                            );
+                            if (matchingExcluded.length > 0) {
+                                const restoredActive = matchingExcluded
+                                    .map(item => getExcludedIssueContext(item))
+                                    .filter(Boolean);
+                                next[key] = {
+                                    ...projectIssues,
+                                    active: [...restoredActive, ...projectIssues.active],
+                                    excluded: projectIssues.excluded.filter(
+                                        item => !(getExcludedRuleId(item) === ruleId && isExcludedIssueGlobal(item, getExcludedSymbol(item), getExcludedLineHash(item)))
+                                    ),
+                                };
+                            }
+                        });
+                        return next;
+                    });
+                } else {
+                    setExcludedIssues(prev => {
+                        const matchingExcluded = prev.filter(
+                            item => getExcludedRuleId(item) === ruleId && isExcludedIssueGlobal(item, getExcludedSymbol(item), getExcludedLineHash(item))
+                        );
+                        const restoredActive = matchingExcluded
+                            .map(item => getExcludedIssueContext(item))
+                            .filter(Boolean);
+                        setLocalIssues(prevActive => [...restoredActive, ...prevActive]);
+                        return prev.filter(
+                            item => !(getExcludedRuleId(item) === ruleId && isExcludedIssueGlobal(item, getExcludedSymbol(item), getExcludedLineHash(item)))
+                        );
+                    });
+                }
             } else {
+                // Local (instance) exclusion restore
                 if (!normalizedSymbol || !normalizedLineHash) {
                     console.error("Cannot remove local exclusion: missing symbol/lineHash in excluded issue payload", {
                         ruleId,
@@ -730,15 +1005,38 @@ const ScannerOverview = ({ projectPath: propProjectPath }: { projectPath?: strin
                     return;
                 }
 
-                await rpcClient.getScannerRpcClient().includeIssue({
+                const success = await rpcClient.getScannerRpcClient().includeIssue({
                     ruleId,
                     documentUri,
                     symbol: normalizedSymbol,
                     lineHash: normalizedLineHash,
                 });
-            }
 
-            await rescanScan();
+                if (!success) {
+                    return;
+                }
+
+                if (issueContext) {
+                    if (isWorkspace) {
+                        setIssuesByProject(prev => {
+                            const next = { ...prev };
+                            Object.entries(next).forEach(([key, projectIssues]) => {
+                                if (projectIssues.excluded.some(item => areSameIssue(getExcludedIssueContext(item), issueContext))) {
+                                    next[key] = {
+                                        ...projectIssues,
+                                        active: [issueContext, ...projectIssues.active.filter(item => !areSameIssue(item, issueContext))],
+                                        excluded: projectIssues.excluded.filter(item => !areSameIssue(getExcludedIssueContext(item), issueContext)),
+                                    };
+                                }
+                            });
+                            return next;
+                        });
+                    } else {
+                        setLocalIssues(prev => [issueContext, ...prev.filter(item => !areSameIssue(item, issueContext))]);
+                        setExcludedIssues(prev => prev.filter(item => !areSameIssue(getExcludedIssueContext(item), issueContext)));
+                    }
+                }
+            }
         } catch (error) {
             console.error("Failed to remove exclusion:", error);
         }
@@ -776,9 +1074,77 @@ const ScannerOverview = ({ projectPath: propProjectPath }: { projectPath?: strin
         );
     }
 
+    if (scannerState === 'NOT_FOUND') {
+        return (
+            <div style={{
+                backgroundColor: 'var(--vscode-editor-background)',
+                height: '100vh',
+                width: '100%',
+                display: 'flex',
+                fontFamily: 'var(--vscode-font-family)'
+            }}>
+                <Global styles={globalStyles} />
+                <LoadingContent>
+                    <DownloadIcon color={pullFailed ? "var(--vscode-errorForeground)" : (pullSuccess ? "var(--vscode-testing-iconPassed)" : "var(--vscode-progressBar-background)")} sx={{ width: '36px', height: '36px' }} />
+                    <LoadingTitle style={pullFailed ? { color: "var(--vscode-errorForeground)" } : (pullSuccess ? { color: "var(--vscode-testing-iconPassed)" } : {})}>
+                        {pullFailed ? "Scanner Tool Pull Failed" : (pullSuccess ? "Scanner Tool Pulled" : "Pulling Scanner Tool")}
+                    </LoadingTitle>
+                    <LoadingSubtitle>
+                        {pullFailed ? "Failed to pull the Ballerina Security Scanner tool. Please check logs." : (pullSuccess ? "Successfully pulled the scanner tool. Please click 'Restart VS Code' on the notification." : "Please wait while the Ballerina Security Scanner tool is being pulled.")}
+                    </LoadingSubtitle>
+                    {pullFailed ? (
+                        <div style={{ marginTop: '12px' }}>
+                            <Button appearance="secondary" onClick={() => handlePullScannerTool()}>
+                                <Codicon name="refresh" sx={{ marginRight: 6 }} /> Retry
+                            </Button>
+                        </div>
+                    ) : pullSuccess ? null : (
+                        <LoadingText>
+                            <span className="loading-dots">Downloading</span>
+                        </LoadingText>
+                    )}
+                </LoadingContent>
+            </div>
+        );
+    }
+
+    if (scannerState === 'INCOMPATIBLE') {
+        return (
+            <div style={{
+                backgroundColor: 'var(--vscode-editor-background)',
+                height: '100vh',
+                width: '100%',
+                display: 'flex',
+                fontFamily: 'var(--vscode-font-family)'
+            }}>
+                <Global styles={globalStyles} />
+                <LoadingContent>
+                    <DownloadIcon color={pullFailed ? "var(--vscode-errorForeground)" : (pullSuccess ? "var(--vscode-testing-iconPassed)" : "var(--vscode-progressBar-background)")} sx={{ width: '36px', height: '36px' }} />
+                    <LoadingTitle style={pullFailed ? { color: "var(--vscode-errorForeground)" } : (pullSuccess ? { color: "var(--vscode-testing-iconPassed)" } : {})}>
+                        {pullFailed ? "Scanner Tool Update Failed" : (pullSuccess ? "Scanner Tool Updated" : "Updating Scanner Tool")}
+                    </LoadingTitle>
+                    <LoadingSubtitle>
+                        {pullFailed ? "Failed to update the Ballerina Security Scanner tool. Please check logs." : (pullSuccess ? "Successfully updated the scanner tool. Please click 'Restart VS Code' on the notification." : "Please wait while the Ballerina Security Scanner tool is being updated to a compatible version.")}
+                    </LoadingSubtitle>
+                    {pullFailed ? (
+                        <div style={{ marginTop: '12px' }}>
+                            <Button appearance="secondary" onClick={() => handlePullScannerTool()}>
+                                <Codicon name="refresh" sx={{ marginRight: 6 }} /> Retry
+                            </Button>
+                        </div>
+                    ) : pullSuccess ? null : (
+                        <LoadingText>
+                            <span className="loading-dots">Downloading</span>
+                        </LoadingText>
+                    )}
+                </LoadingContent>
+            </div>
+        );
+    }
+
     const getRuleKind = (i: ActiveIssue) => String(i.ruleKind ?? i.rule?.ruleKind ?? "CODE_SMELL").trim().toUpperCase();
     const getRiskLevel = (i: ActiveIssue): "HIGH" | "MEDIUM" | "LOW" => {
-        const severity = String(i.securitySeverity ?? "MEDIUM").trim().toUpperCase();
+        const severity = String(i.severity ?? "MEDIUM").trim().toUpperCase();
         if (severity === "HIGH") {
             return "HIGH";
         }
@@ -813,17 +1179,47 @@ const ScannerOverview = ({ projectPath: propProjectPath }: { projectPath?: strin
         ? Object.values(issuesByProject).flatMap(p => p.excluded.map(ex => ({ issue: ex, projectPath: p.projectPath, projectName: p.projectName }))) 
         : excludedIssues.map(ex => ({ issue: ex, projectPath, projectName: projectName || "Project" }));
 
-    const vulnerabilities = sortBySeverity(allActiveIssues.filter((i: ActiveIssue) => isVulnerability(i)));
-    const codeSmells = sortBySeverity(allActiveIssues.filter((i: ActiveIssue) => !isVulnerability(i)));
+    // Severity filter helper
+    const passesSeverityFilter = (issue: ActiveIssue): boolean => {
+        if (severityFilter.size === 0) return true;
+        return severityFilter.has(getRiskLevel(issue));
+    };
+
+    const toggleSeverityFilter = (level: "HIGH" | "MEDIUM" | "LOW") => {
+        setSeverityFilter(prev => {
+            const next = new Set(prev);
+            if (next.has(level)) {
+                next.delete(level);
+            } else {
+                next.add(level);
+            }
+            return next;
+        });
+    };
+
+    const hasSeverityFilter = severityFilter.size > 0;
+
+    const filteredActiveIssues = allActiveIssues.filter(passesSeverityFilter);
+    const vulnerabilities = sortBySeverity(filteredActiveIssues.filter((i: ActiveIssue) => isVulnerability(i)));
+    const codeSmells = sortBySeverity(filteredActiveIssues.filter((i: ActiveIssue) => !isVulnerability(i)));
 
     const highCount = allActiveIssues.filter((i: ActiveIssue) => getRiskLevel(i) === "HIGH").length;
     const mediumCount = allActiveIssues.filter((i: ActiveIssue) => getRiskLevel(i) === "MEDIUM").length;
     const lowCount = allActiveIssues.filter((i: ActiveIssue) => getRiskLevel(i) === "LOW").length;
     const rescannedText = rescannedAt ? rescannedAt.toLocaleTimeString() : "-";
 
-    const panelSubtitle = "Review, fix, or exclude issues found by the scanner.";
+    const totalVulnerabilityCount = allActiveIssues.filter((i: ActiveIssue) => isVulnerability(i)).length;
+    const totalCodeSmellCount = allActiveIssues.filter((i: ActiveIssue) => !isVulnerability(i)).length;
 
-    const bannerSubtitle = "Resolve or exclude these issues before continuing.";
+    const isDeployMode = typeof window !== "undefined" ? Boolean(window.__SCANNER_DEPLOY_MODE__) : false;
+
+    const panelSubtitle = isDeployMode
+        ? "Fix or exclude these issues to continue deployment."
+        : "Review, fix, or exclude issues found by the scanner. It is recommended to fix them.";
+
+    const bannerSubtitle = isDeployMode
+        ? "Resolve or exclude these issues before continuing the deployment."
+        : "Resolve or exclude these issues to secure your codebase.";
 
     const excludedVulnerabilities = sortExcludedBySeverity(
         allExcludedIssuesWithContext.filter((i: ExcludedIssueWithContext) => isVulnerability(getExcludedIssueContext(i.issue)))
@@ -888,7 +1284,7 @@ const ScannerOverview = ({ projectPath: propProjectPath }: { projectPath?: strin
                         Auto-Fix
                     </ActionButton>
 
-                    <ActionButton
+{/*                     <ActionButton
                         appearance="secondary"
                         disabled={isScanning}
                         onClick={() => handleIgnoreInstance(issue, contextProjectPath)}
@@ -896,7 +1292,7 @@ const ScannerOverview = ({ projectPath: propProjectPath }: { projectPath?: strin
                     >
                         <Codicon name="eye-closed" sx={{ marginRight: 4, fontSize: "10px" }} />
                         Ignore
-                    </ActionButton>
+                    </ActionButton> */}
 
                     <ActionButton
                         appearance="secondary"
@@ -953,6 +1349,12 @@ const ScannerOverview = ({ projectPath: propProjectPath }: { projectPath?: strin
                                     </HeaderMetaText>
                                 )}
                             </HeaderMetaRow>
+                            {resultsOutdated && (
+                                <OutdatedBanner title="Scanner-relevant content changed since the last scan">
+                                    <Codicon name="warning" sx={{ fontSize: "11px" }} />
+                                    Results are outdated. Rescan to refresh.
+                                </OutdatedBanner>
+                            )}
                         </HeaderIdentity>
 
                         <HeaderActions>
@@ -985,13 +1387,52 @@ const ScannerOverview = ({ projectPath: propProjectPath }: { projectPath?: strin
                     </HeaderTop>
 
                     <SummaryPills>
-                        <Pill tone="error">High: {highCount}</Pill>
-                        <Pill tone="warning">Medium: {mediumCount}</Pill>
-                        <Pill tone="info">Low: {lowCount}</Pill>
+                        <Pill
+                            tone="error"
+                            clickable
+                            active={!hasSeverityFilter || severityFilter.has("HIGH")}
+                            onClick={() => toggleSeverityFilter("HIGH")}
+                        >
+                            High: {highCount}
+                            {severityFilter.has("HIGH") && <Codicon name="close" sx={{ fontSize: 10, marginLeft: 2 }} />}
+                        </Pill>
+                        <Pill
+                            tone="warning"
+                            clickable
+                            active={!hasSeverityFilter || severityFilter.has("MEDIUM")}
+                            onClick={() => toggleSeverityFilter("MEDIUM")}
+                        >
+                            Medium: {mediumCount}
+                            {severityFilter.has("MEDIUM") && <Codicon name="close" sx={{ fontSize: 10, marginLeft: 2 }} />}
+                        </Pill>
+                        <Pill
+                            tone="info"
+                            clickable
+                            active={!hasSeverityFilter || severityFilter.has("LOW")}
+                            onClick={() => toggleSeverityFilter("LOW")}
+                        >
+                            Low: {lowCount}
+                            {severityFilter.has("LOW") && <Codicon name="close" sx={{ fontSize: 10, marginLeft: 2 }} />}
+                        </Pill>
                     </SummaryPills>
                 </SectionHeader>
 
-                {isScanning && !scannedOnce ? null : allActiveIssues.length === 0 ? (
+                {isScanning && !scannedOnce ? null : (scanError) ? (
+                    <StatusBanner status="fail">
+                        <Codicon
+                            name="error"
+                            sx={{ fontSize: "24px", color: ThemeColors.ERROR, flexShrink: 0 }}
+                        />
+                        <div>
+                            <Typography variant="h2" sx={{ fontWeight: 700, fontSize: "1em", marginTop: 0, marginBottom: "4px", color: ThemeColors.ERROR }}>
+                                Scan Failed
+                            </Typography>
+                            <Typography variant="body2" sx={{ opacity: 0.85, fontSize: "12px", lineHeight: 1.4 }}>
+                                {scanError}
+                            </Typography>
+                        </div>
+                    </StatusBanner>
+                ) : allActiveIssues.length === 0 && (!isWorkspace || Object.values(issuesByProject).every(p => !p.errorMsg)) ? (
                     <StatusBanner status="pass">
                         <Codicon
                             name="pass-filled"
@@ -1014,12 +1455,16 @@ const ScannerOverview = ({ projectPath: propProjectPath }: { projectPath?: strin
                         />
                         <div>
                             <Typography variant="h2" sx={{ fontWeight: 700, marginTop: 0, fontSize: "1em", marginBottom: "4px", color: ThemeColors.ERROR }}>
-                                {vulnerabilities.length > 0 && `${vulnerabilities.length} ${vulnerabilities.length === 1 ? "Vulnerability" : "Vulnerabilities"}`}
-                                {vulnerabilities.length > 0 && codeSmells.length > 0 && ", "}
-                                {codeSmells.length > 0 && `${codeSmells.length} ${codeSmells.length === 1 ? "Code Smell" : "Code Smells"}`} Detected
+                                {totalVulnerabilityCount > 0 && `${totalVulnerabilityCount} ${totalVulnerabilityCount === 1 ? "Vulnerability" : "Vulnerabilities"}`}
+                                {totalVulnerabilityCount > 0 && totalCodeSmellCount > 0 && ", "}
+                                {totalCodeSmellCount > 0 && `${totalCodeSmellCount} ${totalCodeSmellCount === 1 ? "Code Smell" : "Code Smells"}`}
+                                {totalVulnerabilityCount === 0 && totalCodeSmellCount === 0 && isWorkspace && Object.values(issuesByProject).some(p => p.errorMsg) && "Scan Failed for Some Projects"}
+                                {(totalVulnerabilityCount > 0 || totalCodeSmellCount > 0) && " Detected"}
                             </Typography>
                             <Typography variant="body2" sx={{ opacity: 0.85, fontSize: "12px", lineHeight: 1.4 }}>
-                                {bannerSubtitle}
+                                {totalVulnerabilityCount === 0 && totalCodeSmellCount === 0 && isWorkspace && Object.values(issuesByProject).some(p => p.errorMsg)
+                                    ? "One or more projects failed to scan. Please check below for details."
+                                    : bannerSubtitle}
                             </Typography>
                         </div>
                     </StatusBanner>
@@ -1028,7 +1473,7 @@ const ScannerOverview = ({ projectPath: propProjectPath }: { projectPath?: strin
                 {isWorkspace ? (
                     <div style={{ marginTop: "16px" }}>
                         {Object.values(issuesByProject).map((projectIssues) => {
-                            const filteredActive = projectIssues.active.filter(i => matchesSearch(i, projectIssues.projectName));
+                            const filteredActive = projectIssues.active.filter(i => passesSeverityFilter(i) && matchesSearch(i, projectIssues.projectName));
                             const pActiveVulnerabilities = sortBySeverity(filteredActive.filter(isVulnerability));
                             const pActiveCodeSmells = sortBySeverity(filteredActive.filter(i => !isVulnerability(i)));
                             const isExpanded = expandedProjects.has(projectIssues.projectPath);
@@ -1044,12 +1489,24 @@ const ScannerOverview = ({ projectPath: propProjectPath }: { projectPath?: strin
                                         <Codicon name={isExpanded ? "chevron-down" : "chevron-right"} sx={{ color: 'var(--vscode-textLink-foreground)' }} />
                                         <Codicon name="folder" sx={{ color: 'inherit' }} />
                                         <h3>{projectIssues.projectName}</h3>
-                                        <Pill tone={pActiveVulnerabilities.length > 0 ? "error" : (pActiveCodeSmells.length > 0 ? "warning" : "neutral")}>
-                                            {totalIssues} {totalIssues === 1 ? "Issue" : "Issues"}
+                                        <Pill tone={projectIssues.errorMsg ? "error" : (pActiveVulnerabilities.length > 0 ? "error" : (pActiveCodeSmells.length > 0 ? "warning" : "neutral"))}>
+                                            {projectIssues.errorMsg ? "Failed" : `${totalIssues} ${totalIssues === 1 ? "Issue" : "Issues"}`}
                                         </Pill>
                                     </ProjectAccordionHeader>
                                     <ProjectAccordionBody isExpanded={isExpanded} onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-                                        {totalIssues === 0 ? (
+                                        {projectIssues.errorMsg ? (
+                                            <StatusBanner status="fail" style={{ margin: "8px 0" }}>
+                                                <Codicon name="error" sx={{ fontSize: "20px", color: ThemeColors.ERROR, flexShrink: 0 }} />
+                                                <div>
+                                                    <Typography variant="h2" sx={{ fontWeight: 600, fontSize: "13px", marginTop: 0, marginBottom: "4px", color: ThemeColors.ERROR }}>
+                                                        Scan Failed
+                                                    </Typography>
+                                                    <Typography variant="body2" sx={{ opacity: 0.85, fontSize: "12px", lineHeight: 1.4 }}>
+                                                        {projectIssues.errorMsg}
+                                                    </Typography>
+                                                </div>
+                                            </StatusBanner>
+                                        ) : totalIssues === 0 ? (
                                             <Typography variant="body2" sx={{ opacity: 0.7, fontStyle: "italic", margin: "8px 0" }}>No issues found in this project.</Typography>
                                         ) : (
                                             <>
@@ -1082,7 +1539,7 @@ const ScannerOverview = ({ projectPath: propProjectPath }: { projectPath?: strin
                     </div>
                 ) : (
                     <>
-                        {allActiveIssues.filter(i => matchesSearch(i, projectName || "")).length > 0 && vulnerabilities.filter(i => matchesSearch(i, projectName || "")).length > 0 && (
+                        {filteredActiveIssues.filter(i => matchesSearch(i, projectName || "")).length > 0 && vulnerabilities.filter(i => matchesSearch(i, projectName || "")).length > 0 && (
                             <>
                                 <SectionTitle variant="h3" sx={{ fontWeight: 600, fontSize: "13px", color: "var(--vscode-editor-foreground)" }}>
                                     <Codicon name="error" sx={{ color: ThemeColors.ERROR, fontSize: "14px" }} /> Vulnerabilities
@@ -1094,7 +1551,7 @@ const ScannerOverview = ({ projectPath: propProjectPath }: { projectPath?: strin
                             </>
                         )}
 
-                        {allActiveIssues.filter(i => matchesSearch(i, projectName || "")).length > 0 && codeSmells.filter(i => matchesSearch(i, projectName || "")).length > 0 && (
+                        {filteredActiveIssues.filter(i => matchesSearch(i, projectName || "")).length > 0 && codeSmells.filter(i => matchesSearch(i, projectName || "")).length > 0 && (
                             <>
                                 <SectionTitle variant="h3" sx={{ fontWeight: 600, fontSize: "13px", color: "var(--vscode-editor-foreground)" }}>
                                     <Codicon name="info" sx={{ color: "var(--vscode-editorInfo-foreground)", fontSize: "14px" }} /> Code Smells

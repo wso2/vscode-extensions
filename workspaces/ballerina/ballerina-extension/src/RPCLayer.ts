@@ -50,7 +50,6 @@ import { registerPlatformExtRpcHandlers } from './rpc-managers/platform-ext/rpc-
 import { MigrationPanelWebview } from './views/migration-panel/webview';
 import { registerScannerRpcHandlers } from './rpc-managers/scanner/rpc-handler';
 
-
 export class RPCLayer {
     static _messenger: Messenger = new Messenger();
 

@@ -42,6 +42,8 @@ import { TopNavigationBar } from "../../../components/TopNavigationBar";
 import { TitleBar } from "../../../components/TitleBar";
 import { PublishToCentralButton } from "./PublishToCentralButton";
 import { LibraryOverview } from "./LibraryOverview";
+import { usePreDeployScan } from "../ScannerOverview/usePreDeployScan";
+import { ScanBanner } from "../ScannerOverview/ScanBanner";
 
 const SpinnerContainer = styled.div`
     display: flex;
@@ -661,6 +663,7 @@ export function PackageOverview(props: PackageOverviewProps) {
     const [projectStructure, setProjectStructure] = useState<ProjectStructure>();
     const [isInProject, setIsInProject] = useState(false);
     const [isLibrary, setIsLibrary] = useState<boolean>(false);
+    const preDeploy = usePreDeployScan();
     const [isNPSupported, setIsNPSupported] = useState<boolean>(false);
     const fetchContext = useCallback(() => {
         rpcClient
@@ -782,6 +785,14 @@ export function PackageOverview(props: PackageOverviewProps) {
         await rpcClient.getBIDiagramRpcClient().deployProject({
             integrationTypes: deployableIntegrationTypes
         });
+    };
+
+    const handleDeployWithScan = async () => {
+        const projectName = projectStructure?.projectName || projectPath.split(/[\\/]/).pop() || "Project";
+        await preDeploy.triggerScanAndDeploy(
+            [{ projectPath, projectName }],
+            handleDeploy
+        );
     };
 
     const handleICP = (icpEnabled: boolean) => {
@@ -911,6 +922,14 @@ export function PackageOverview(props: PackageOverviewProps) {
         <>
             {isInProject && <TopNavigationBar projectPath={projectPath} />}
             <PageLayout>
+                <ScanBanner
+                    isScanning={preDeploy.isScanning}
+                    scanningLabel={preDeploy.scanningLabel}
+                    scanResult={preDeploy.scanResult}
+                    scanError={preDeploy.scanError}
+                    visible={preDeploy.bannerVisible}
+                    onDismiss={preDeploy.dismissBanner}
+                />
                 {isInProject ? (
                     <TitleBar
                         title={integrationTitle}
@@ -1036,12 +1055,12 @@ export function PackageOverview(props: PackageOverviewProps) {
                     {!isLibrary && (
                         <SidePanel>
                             {!isInDevant &&
-                                <>
-                                    <DeploymentOptions
-                                        handleDockerBuild={handleDockerBuild}
-                                        handleJarBuild={handleJarBuild}
-                                        handleDeploy={handleDeploy}
-                                        goToDevant={goToDevant}
+                        <>
+                            <DeploymentOptions
+                                handleDockerBuild={handleDockerBuild}
+                                handleJarBuild={handleJarBuild}
+                                handleDeploy={handleDeployWithScan}
+                                goToDevant={goToDevant}
                                         hasDeployableIntegration={deployableIntegrationTypes.length > 0}
                                     />
                                     <Divider sx={{ margin: "16px 0" }} />
@@ -1051,7 +1070,7 @@ export function PackageOverview(props: PackageOverviewProps) {
                             {isInDevant &&
                                 <DevantDashboard
                                     projectStructure={projectStructure}
-                                    handleDeploy={handleDeploy}
+                                    handleDeploy={handleDeployWithScan}
                                     goToDevant={goToDevant}
                                 />
                             }

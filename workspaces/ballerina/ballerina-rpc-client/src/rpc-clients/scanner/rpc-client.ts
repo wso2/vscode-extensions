@@ -32,6 +32,7 @@ import {
     enableRule,
     fixIssueWithCopilot,
     scanProject,
+    pullScannerTool,
     ScannerContentChangedEvent,
     scannerContentChanged,
     ScanResponse,
@@ -50,19 +51,19 @@ export class ScannerRpcClient implements ScannerAPI {
         return this._messenger.sendRequest(revealSecurityIssue, HOST_EXTENSION, params);
     }
 
-    excludeIssue(params: ExcludeIssueRequest): Promise<void> {
+    excludeIssue(params: ExcludeIssueRequest): Promise<boolean> {
         return this._messenger.sendRequest(excludeIssue, HOST_EXTENSION, params);
     }
 
-    disableRule(params: DisableRuleRequest): Promise<void> {
+    disableRule(params: DisableRuleRequest): Promise<boolean> {
         return this._messenger.sendRequest(disableRule, HOST_EXTENSION, params);
     }
 
-    includeIssue(params: IncludeIssueRequest): Promise<void> {
+    includeIssue(params: IncludeIssueRequest): Promise<boolean> {
         return this._messenger.sendRequest(includeIssue, HOST_EXTENSION, params);
     }
 
-    enableRule(params: EnableRuleRequest): Promise<void> {
+    enableRule(params: EnableRuleRequest): Promise<boolean> {
         return this._messenger.sendRequest(enableRule, HOST_EXTENSION, params);
     }
 
@@ -72,6 +73,10 @@ export class ScannerRpcClient implements ScannerAPI {
 
     scanProject(params: ScanRequest): Promise<ScanResponse> {
         return this._messenger.sendRequest(scanProject, HOST_EXTENSION, params);
+    }
+
+    pullScannerTool(): Promise<boolean> {
+        return this._messenger.sendRequest(pullScannerTool, HOST_EXTENSION);
     }
 
     onScannerContentChanged(callback: (event: ScannerContentChangedEvent) => void): void {

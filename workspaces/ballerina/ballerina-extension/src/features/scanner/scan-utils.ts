@@ -17,13 +17,22 @@
  */
 
 import * as vscode from 'vscode';
+import { exec } from 'child_process';
 import {
     ScannerIssueContext,
     ScannerExclusionContext,
     ScanResponse,
 } from '@wso2/ballerina-core';
+import { getRuleSeverity } from './security-rules';
 
-export const DEFAULT_SCAN_TIMEOUT_MS = 180000;
+export type ScannerToolState = 'NOT_FOUND' | 'INCOMPATIBLE' | 'SUPPORTED';
+
+/**
+ * Tracks whether the scanner tool version is supported in the current workspace.
+ */
+export let isScannerVersionSupported = false;
+
+export const DEFAULT_SCAN_TIMEOUT_MS = 120000;
 
 let outputChannel: vscode.OutputChannel | undefined;
 
@@ -34,14 +43,81 @@ export function getScannerOutputChannel(): vscode.OutputChannel {
     return outputChannel;
 }
 
-/**
- * Checks if the Scanner is enabled in the current workspace settings.
- */
-export function isScannerEnabled(): boolean {
+function runBalToolCommand(command: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+        exec(command, (error, _stdout, stderr) => {
+            if (error) {
+                const message = stderr?.trim() || error.message || 'Unknown error';
+                reject(new Error(message));
+                return;
+            }
+            if (stderr && stderr.trim()) {
+                reject(new Error(stderr.trim()));
+                return;
+            }
+            resolve();
+        });
+    });
+}
+
+export function setScannerVersionSupported(supported: boolean) {
+    isScannerVersionSupported = supported;
+}
+
+export let scannerState: ScannerToolState = 'NOT_FOUND';
+
+export function setScannerState(state: ScannerToolState) {
+    scannerState = state;
+}
+
+export function isScannerConfigEnabled(): boolean {
     const config = vscode.workspace.getConfiguration('ballerina');
 
     // Defaults to false if missing or misconfigured.
     return config.get<boolean>('scanner.enable', false) === true;
+}
+
+export function isScannerActive(): boolean {
+    return isScannerConfigEnabled() && isScannerVersionSupported;
+}
+
+export async function pullOrUpdateScannerTool(): Promise<boolean> {
+    const outputChannel = getScannerOutputChannel();
+    const isNotInstalled = scannerState === 'NOT_FOUND';
+    const command = isNotInstalled ? 'bal tool pull scan' : 'bal tool update scan';
+    const actionLabel = isNotInstalled ? 'Pulling' : 'Updating';
+    const completionLabel = isNotInstalled ? 'pulled' : 'updated';
+
+    outputChannel.appendLine(`[INFO] [SCAN] ${actionLabel} scanner tool with: ${command}`);
+
+    try {
+        await vscode.window.withProgress(
+            {
+                location: vscode.ProgressLocation.Notification,
+                title: `${actionLabel} scanner tool...`,
+                cancellable: false,
+            },
+            async () => {
+                await runBalToolCommand(command);
+            }
+        );
+
+        vscode.window.showInformationMessage(
+            `Scanner tool ${completionLabel}. Restart VS Code to complete the setup.`,
+            'Restart VS Code'
+        ).then((selection) => {
+            if (selection === 'Restart VS Code') {
+                vscode.commands.executeCommand('workbench.action.reloadWindow');
+            }
+        });
+
+        return true;
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        outputChannel.appendLine(`[ERROR] [SCAN] Scanner tool ${actionLabel.toLowerCase()} failed: ${message}`);
+        vscode.window.showErrorMessage(`Scanner tool ${actionLabel.toLowerCase()} failed: ${message}`);
+        return false;
+    }
 }
 
 export function normalizeRuleKind(ruleKind: unknown): 'VULNERABILITY' | 'CODE_SMELL' {
@@ -49,20 +125,22 @@ export function normalizeRuleKind(ruleKind: unknown): 'VULNERABILITY' | 'CODE_SM
     return normalized === 'VULNERABILITY' ? 'VULNERABILITY' : 'CODE_SMELL';
 }
 
-export function mapIssue(raw: any): ScannerIssueContext {
+export function mapIssue(raw: ScannerIssueContext): ScannerIssueContext {
     const startLine = raw?.startLine;
     const startColumn = raw?.startColumn;
     const endLine = raw?.endLine;
     const endColumn = raw?.endColumn;
     const resolvedRuleKind = normalizeRuleKind(raw?.ruleKind ?? raw?.rule?.ruleKind);
+    const ruleId = raw?.rule?.id || raw?.ruleId || '';
+    const severity = getRuleSeverity(ruleId);
 
     return {
         ...raw,
-        ruleId: raw?.rule?.id || raw?.ruleId || '',
+        ruleId,
         message: raw?.rule?.description || raw?.message || '',
-        severity: raw?.severity || 'WARNING',
+        severity: severity || 'LOW', // This need to come from the LS service
         ruleKind: resolvedRuleKind,
-        filePath: raw?.location?.filePath || raw?.location?.path || raw?.filePath || raw?.path || '',
+        filePath: raw?.location?.filePath || raw?.filePath || '',
         startLine,
         startColumn,
         endLine,
