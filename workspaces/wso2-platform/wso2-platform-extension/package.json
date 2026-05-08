@@ -240,7 +240,7 @@
     "package": "node ../../common-libs/scripts/package-vsix.js --baseImagesUrl https://github.com/wso2/choreo-vscode/raw/HEAD/",
     "copyVSIX": "copyfiles *.vsix ./vsix",
     "copyVSIXToRoot": "copyfiles -f ./vsix/* ../../..",
-    "postbuild": "pnpm run download-choreo-cli && pnpm run package && pnpm run copyVSIX",
+    "postbuild": "pnpm run package && pnpm run copyVSIX",
     "download-choreo-cli": "node scripts/download-choreo-cli.js"
   },
   "devDependencies": {
