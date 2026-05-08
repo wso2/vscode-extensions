@@ -150,6 +150,10 @@ export class VisualizerWebview {
         const scriptUri = getComposerJSFiles(extension.context, 'Visualizer', webview).map(jsFile =>
             '<script charset="UTF-8" src="' + jsFile + '"></script>').join('\n');
 
+        const loaderGifUri = webview.asWebviewUri(
+            Uri.file(path.join(extension.context.extensionPath, 'assets', 'loader.gif'))
+        ).toString();
+
         return /*html*/ `
         <!DOCTYPE html>
         <html lang="en">
@@ -188,13 +192,11 @@ export class VisualizerWebview {
                 pointer-events: none;
             }
 
-            .loading-spinner {
-                width: 50px;
-                height: 50px;
-                border: 4px solid var(--vscode-editor-foreground);
-                border-top-color: transparent;
-                border-radius: 50%;
-                animation: spin 1s linear infinite;
+            .loading-spinner-img {
+                width: 72px;
+                height: 72px;
+                object-fit: contain;
+                display: block;
             }
 
             .loading-text {
@@ -202,10 +204,6 @@ export class VisualizerWebview {
                 color: var(--vscode-editor-foreground);
                 font-family: var(--vscode-font-family);
                 font-size: 14px;
-            }
-
-            @keyframes spin {
-                to { transform: rotate(360deg); }
             }
           </style>
           ${scriptUri}
@@ -215,7 +213,7 @@ export class VisualizerWebview {
             
             <!-- Loading screen -->
             <div id="loading-screen">
-                <div class="loading-spinner"></div>
+                <img class="loading-spinner-img" src="${loaderGifUri}" alt="" />
                 <div class="loading-text">Loading Arazzo Visualizer...</div>
             </div>
             
