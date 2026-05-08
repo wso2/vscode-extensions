@@ -198,8 +198,11 @@ export async function executeBuildTask(projectUri: string, serverPath: string, s
         const orderedProjectList = DebuggerConfig.getProjectList().length > 1 ? 
                 await getBuildOrder(DebuggerConfig.getProjectList()) : DebuggerConfig.getProjectList();
         for (const project of orderedProjectList) {
-            await new Promise<void>(async (resolve, reject) => {
-                const buildCommand = getBuildCommand(project);
+            let buildOutput = '';
+
+            const runBuildProcess = (forceUpdate?: boolean): Promise<void> => new Promise<void>(async (resolve, reject) => {
+                buildOutput = '';
+                const buildCommand = getBuildCommand(project) + (forceUpdate ? ' -U' : '');
                 const envVariables = {
                     ...process.env,
                     ...setJavaHomeInEnvironmentAndPath(project)
@@ -213,7 +216,9 @@ export async function executeBuildTask(projectUri: string, serverPath: string, s
                 showServerOutputChannel();
 
                 buildProcess.stdout.on('data', (data) => {
-                    serverLog(data.toString('utf8'));
+                    const text = data.toString('utf8');
+                    buildOutput += text;
+                    serverLog(text);
                 });
 
                 if (shouldCopyTarget) {
@@ -227,7 +232,9 @@ export async function executeBuildTask(projectUri: string, serverPath: string, s
                 }
 
                 buildProcess.stderr.on('data', (data) => {
-                    serverLog(`Build error:\n${data.toString('utf8')}`);
+                    const text = data.toString('utf8');
+                    buildOutput += text;
+                    serverLog(`Build error:\n${text}`);
                 });
 
                 if (shouldCopyTarget) {
@@ -298,6 +305,18 @@ export async function executeBuildTask(projectUri: string, serverPath: string, s
                     });
                 }
             });
+
+            try {
+                await runBuildProcess(false);
+            } catch (err) {
+                if (buildOutput.includes('resolution will not be reattempted until the update interval') ||
+                    buildOutput.includes('updates are forced')) {
+                    serverLog('\nRe-running build with -U flag to force update snapshots/releases...\n');
+                    await runBuildProcess(true);
+                } else {
+                    throw err;
+                }
+            }
         }
         if (postBuildTask) {
             postBuildTask();
@@ -350,9 +369,57 @@ async function getCarFiles(targetDirectory) {
 let serverProcess: ChildProcess;
 const debugConsole = vscode.debug.activeDebugConsole;
 
+export function isCipherToolEnabled(serverPath: string): boolean {
+    const secretConfPath = path.join(serverPath, 'conf', 'security', 'secret-conf.properties');
+    if (!fs.existsSync(secretConfPath)) {
+        return false;
+    }
+    const lines = fs.readFileSync(secretConfPath, 'utf-8').split(/\r?\n/);
+    return lines.some(line => {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('#')) {
+            return false;
+        }
+        const [key, ...rest] = trimmed.split('=');
+        const value = rest.join('=').split('#')[0].trim();
+        return key.trim() === 'secVault.enabled' && value === 'true';
+    });
+}
+
+export async function promptAndWriteCipherToolPassword(serverPath: string): Promise<boolean> {
+    if (!isCipherToolEnabled(serverPath)) {
+        return true;
+    }
+    const password = await vscode.window.showInputBox({
+        title: 'Cipher Tool Decrypt Password',
+        prompt: 'Enter the decrypt password for the cipher tool',
+        password: true,
+        ignoreFocusOut: true,
+        placeHolder: 'Decrypt password',
+        validateInput: (value: string) => value.trim() === '' ? 'Password cannot be blank' : undefined
+    });
+    if (password === undefined) {
+        return false;
+    }
+    const passwordFileName = process.platform === 'win32' ? 'password-tmp.txt' : 'password-tmp';
+    try {
+        fs.writeFileSync(path.join(serverPath, passwordFileName), password, { encoding: 'utf8' });
+        return true;
+    } catch (err) {
+        vscode.window.showErrorMessage(`Failed to write cipher tool password file: ${(err as Error).message}`);
+        return false;
+    }
+}
+
 // Start the server
 export async function startServer(projectUri: string, serverPath: string, isDebug: boolean): Promise<void> {
     return new Promise<void>(async (resolve, reject) => {
+        const passwordWritten = await promptAndWriteCipherToolPassword(serverPath);
+        if (!passwordWritten) {
+            reject('Server startup cancelled: cipher tool decrypt password was not provided.');
+            return;
+        }
+
         if (DebuggerConfig.getProjectList().length > 0) {
             for (const project of DebuggerConfig.getProjectList()) {
                 const filePath = path.resolve(project, '.env');
