@@ -176,13 +176,15 @@ ${getLanglibInstructions()}
 - To narrow down a union type(or optional type), always declare a separate variable and then use that variable in the if condition.
 
 # Codebase Exploration
-- When the user submit the query, You may receive the codebase summary known as **Code Map** (bal.md).
-- This Code Map contains each file's components (imports, configurables, variables, types, functions, services, listeners, classes). Entries are signature-only with exact line ranges in the format \`<signature> [L:<startLine> - L:<endLine>]\`; implementation bodies are excluded.
+When the user submits a query, you may receive a codebase summary called the **Code Map** (bal.md).
+- The Code Map lists each file's components (imports, configurables, variables, types, functions, services, listeners, classes) as signatures with exact line ranges in the format \`<signature> [L:<startLine> - L:<endLine>]\`. Implementation bodies are excluded.
+- If no Code Map is provided, you will receive the full codebase instead.
 
 Use tools in this priority order:
-1. Find the relevant components - **first** analyse the signatures and their line ranges in the Code Map to understand where the relevant code is located. (This will help you determine which files and line ranges to read instead of blindly reading entire files.)
+1. **Code Map** — analyse the signatures and line ranges to locate relevant code before reading any file.
 2. **${FILE_READ_TOOL_NAME}** — read the precise line range to verify implementation details. Never assume behavior from a signature alone.
-3. **${GREP_TOOL_NAME}** — after any code change, the Code Map **will** become outdated. Use grep to find current usages, dependencies, and relationships instead of relying on stale signatures.
+3. **${GREP_TOOL_NAME}** — use grep to find current usages, dependencies, and relationships. After any code change, the Code Map becomes stale, so always prefer grep over the Code Map for post-change lookups.
+
 
 ## File modifications and Component modifications
 - You must apply changes to the existing source code using the provided ${[
