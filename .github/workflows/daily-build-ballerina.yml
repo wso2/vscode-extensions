@@ -323,6 +323,16 @@ jobs:
           skip-dirs: 'common/temp'
           ignore-unfixed: true
 
+      - name: Capture Trivy scan result
+        id: trivyStatus
+        run: |
+          if [ '${{ steps.trivy.outcome }}' = 'success' ]; then
+            echo "status=passed" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=failed" >> "$GITHUB_OUTPUT"
+            echo "::warning::Trivy scan found vulnerabilities — release will be blocked"
+          fi
+
       - name: Get VSIX file name
         id: vsix
         run: |
@@ -390,7 +400,7 @@ jobs:
             if [ '${{ steps.trivy.outcome }}' = "success" ]; then
               echo "Status: passed"
             else
-              echo "Status: failed (non-blocking)"
+              echo "Status: failed (release blocked)"
             fi
             echo ""
             if [ -s /tmp/trivy/trivy-results.txt ]; then
@@ -407,6 +417,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload VSIX artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ballerina-daily-vsix-${{ steps.slug.outputs.slug }}
@@ -430,9 +441,11 @@ jobs:
           productIntegratorBranch=${{ steps.config.outputs.productIntegratorBranch }}
           vscodeBranch=${{ matrix.vscodeBranch }}
           branchSlug=${{ steps.slug.outputs.slug }}
+          trivyStatus=${{ steps.trivyStatus.outputs.status }}
           EOF
 
       - name: Upload build metadata artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ballerina-daily-metadata-${{ steps.slug.outputs.slug }}
@@ -504,8 +517,26 @@ jobs:
             fi
           done
 
-      - name: Create release on wso2/ballerina-vscode
+      - name: Gate on Trivy scan
+        id: trivyGate
         if: steps.gate.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          trivyStatus="${{ steps.meta.outputs.trivyStatus }}"
+          if [ -z "$trivyStatus" ] || [ "$trivyStatus" = "failed" ]; then
+            if [ -z "$trivyStatus" ]; then
+              echo "::error::Trivy status missing in metadata for ${{ matrix.vscodeBranch }} — blocking release"
+            else
+              echo "::error::Trivy scan failed for ${{ matrix.vscodeBranch }} — blocking release"
+            fi
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 1
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create release on wso2/ballerina-vscode
+        if: steps.gate.outputs.skip != 'true' && steps.trivyGate.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.CHOREO_BOT_TOKEN }}
           NEW_VERSION: ${{ steps.meta.outputs.version }}
@@ -578,13 +609,13 @@ jobs:
       # metadata artifact alone isn't enough (Build can succeed while Release
       # fails, e.g. release creation or asset upload errors).
       - name: Mark release success
-        if: steps.gate.outputs.skip != 'true'
+        if: steps.gate.outputs.skip != 'true' && steps.trivyGate.outputs.skip != 'true'
         run: |
           mkdir -p release-ok
           echo "releaseId=required" > release-ok/release.env
 
       - name: Upload release success marker
-        if: steps.gate.outputs.skip != 'true'
+        if: steps.gate.outputs.skip != 'true' && steps.trivyGate.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ballerina-daily-release-ok-${{ steps.slug.outputs.slug }}
