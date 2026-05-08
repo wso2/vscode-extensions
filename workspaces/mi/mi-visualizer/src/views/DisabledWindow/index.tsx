@@ -21,6 +21,7 @@ import { AI_EVENT_TYPE } from '@wso2/mi-core';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
 
 import { AlertBox } from "../AlertBox/AlertBox";
+import { gitIssueUrl } from "../../constants";
 
 const Container = styled.div`
     display: flex;
@@ -60,7 +61,7 @@ const TroubleshootingList = styled.ol`
 
 export const DisabledMessage = (props: { showProjectHeader?: boolean }) => {
     const { rpcClient } = useVisualizerContext();
-    const issueUrl = "https://github.com/wso2/mi-vscode/issues";
+    const issueUrl = "https://github.com/wso2/product-integrator/issues";
     const Retry = () => {
         rpcClient.sendAIStateEvent(AI_EVENT_TYPE.RETRY);
     };

@@ -316,6 +316,8 @@ Most connectors (\`http\`, \`salesforce\`, \`db\`, \`kafka\`, \`jms\` etc.) expo
 \`\`\`xml
 <localEntry key="myHttpConnection">
   <http.init>
+    <connectionType>HTTP</connectionType>
+    <name>myHttpConnection</name>
     <baseUrl>https://api.example.com</baseUrl>
     <authType>None</authType>
     <timeoutDuration>5000</timeoutDuration>
@@ -328,6 +330,7 @@ Most connectors (\`http\`, \`salesforce\`, \`db\`, \`kafka\`, \`jms\` etc.) expo
   <relativePath>/v1/ping</relativePath>
 </http.get>
 \`\`\`
+\`<connectionType>\` is mandatory and must match the value returned by \`get_connector_info\` for the connection block (e.g. \`HTTP\`, \`HTTPS\`, \`AMAZONS3\`, \`IMAP\`). \`<name>\` must equal the \`<localEntry key="...">\`.
 
 ### Path layout
 \`src/main/wso2mi/artifacts/local-entries/<key>.xml\`. \`artifact.xml\` type \`synapse/local-entry\`.

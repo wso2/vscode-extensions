@@ -252,6 +252,7 @@ For namespace-aware XPath, declare namespaces on the mediator element:
 <filter xmlns:ns="http://services.samples"
         xpath="//ns:GetQuoteResponse/ns:return/ns:symbol">
     <then>...</then>
+    <else/>
 </filter>
 \`\`\`
 

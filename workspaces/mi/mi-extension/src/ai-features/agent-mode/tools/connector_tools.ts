@@ -239,7 +239,7 @@ function buildInitModeReminder(name: string, lsResult: LSConnectorResult): strin
     if (noInitializationNeeded) {
         body = `For this connector, no init is required. Call operations directly, no .init or localEntry required.`;
     } else if (connectionLocalEntryNeeded) {
-        body = `For this connector, localEntry init is required. Create a local entry with <${xmlPrefix}.init>, use configKey in operations (the key of the local entry).`;
+        body = `For this connector, localEntry init is required. Create a local entry with <${xmlPrefix}.init>, use configKey in operations (the key of the local entry). Inside <${xmlPrefix}.init>, always emit <connectionType> (value from the connection block's connectionType field, e.g. ${lsResult.connections[0]?.name || 'AMAZONS3'}) and <name> matching the localEntry key — never <connectionName>. Remaining children come from the connection's parameters list (details mode).`;
     } else {
         body = `For this connector, inline init is required. Call <${xmlPrefix}.init> before using any connector operation. No localEntry required.`;
     }
@@ -408,7 +408,24 @@ async function buildLSOperationDetails(
         });
     }
 
-    // Process requested connections — return full connection objects with parameters.
+    // Process requested connections — return XML-shaped connection objects.
+    //
+    // The LS surfaces two divergent schemas for the same `<*.init>` element:
+    //   - View A: `connections[].parameters` is the form schema (drives the
+    //     mi-diagram connection wizard). It uses the form-field id
+    //     `connectionName` for the connection-name field.
+    //   - View B: the hidden `init` operation is XSD-derived and uses the real
+    //     element name `name`, but is unreliable across connectors — e.g.
+    //     `http.init` exposes only `name` + `baseUrl` while View A's HTTP
+    //     connection has 20 params (auth, OAuth, retry, timeout, suspend).
+    //
+    // We surface View A's params (the only consistently complete source) with
+    // two boundary fixes that keep the agent honest about XML element names:
+    //   1. Rename the form-field id `connectionName` → `name` (the actual XML
+    //      element). Every UI-schema connection block declares this param.
+    //   2. Synthesize a top-level `connectionType` field equal to
+    //      `connections[].name`, so the agent emits `<connectionType>...</connectionType>`
+    //      (mandatory in the XML; not exposed by either View directly).
     for (const reqConn of requestedConnections) {
         ensureOperationNotAborted(mainAbortSignal, `reading connection '${name}.${reqConn}'`);
         const match = lsResult.connections.find(
@@ -421,12 +438,12 @@ async function buildLSOperationDetails(
         }
 
         selectedConnections.push({
-            name: match.name,
+            connectionType: match.name,
             displayName: match.displayName,
             description: match.description,
             uiSchemaPath: match.uiSchemaPath,
             parameters: match.parameters.map(p => ({
-                name: p.name,
+                name: p.name === 'connectionName' ? 'name' : p.name,
                 description: p.description,
                 required: p.required,
                 type: p.xsdType,
