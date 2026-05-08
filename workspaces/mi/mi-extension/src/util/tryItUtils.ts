@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import * as vscode from 'vscode';
+
 export interface HurlCell {
     kind: 'markdown' | 'hurl';
     content: string;
@@ -179,6 +181,42 @@ function generateSampleValue(schema: any, spec: any, seenRefs = new Set<string>(
     }
 }
 
+function sampleMultipartFilename(propName: string, schema: any): string {
+    if (schema?.format === 'binary') {
+        return `${propName}.bin`;
+    }
+    return `${propName}.txt`;
+}
+
+function buildMultipartBodyLines(schema: any, spec: any): string[] {
+    const lines: string[] = [];
+    const resolvedSchema = schema?.$ref ? resolveSchemaRef(schema.$ref, spec) : schema;
+    if (!resolvedSchema || resolvedSchema.type !== 'object' || !resolvedSchema.properties) {
+        return lines;
+    }
+
+    lines.push('[Multipart]');
+    for (const [propName, prop] of Object.entries<any>(resolvedSchema.properties)) {
+        const propSchema = prop?.$ref ? (resolveSchemaRef(prop.$ref, spec) || prop) : prop;
+        const value = generateSampleValue(propSchema, spec);
+
+        if (propSchema?.format === 'binary') {
+            const filename = sampleMultipartFilename(propName, propSchema);
+            const contentType = propSchema?.contentMediaType ? `; ${propSchema.contentMediaType}` : '';
+            lines.push(`${propName}: file,${filename}${contentType};`);
+            continue;
+        }
+
+        if (typeof value === 'object') {
+            lines.push(`${propName}: ${JSON.stringify(value)};`);
+        } else {
+            lines.push(`${propName}: ${value ?? ''};`);
+        }
+    }
+
+    return lines;
+}
+
 // ---------------------------------------------------------------------------
 // OAS path → hurl URL  (path params replaced with type-appropriate sample values)
 // ---------------------------------------------------------------------------
@@ -281,9 +319,9 @@ function buildHurlCell(method: string, oasPath: string, operation: any, baseUrl:
     const requestBody = operation.requestBody?.$ref
         ? (resolveSchemaRef(operation.requestBody.$ref, oasSpec) ?? operation.requestBody)
         : operation.requestBody;
-    const bodySchema = requestBody?.content?.['application/json']?.schema;
-    if (bodySchema) {
-        const resolved = bodySchema.$ref ? resolveSchemaRef(bodySchema.$ref, oasSpec) : bodySchema;
+    const jsonBodySchema = requestBody?.content?.['application/json']?.schema;
+    if (jsonBodySchema) {
+        const resolved = jsonBodySchema.$ref ? resolveSchemaRef(jsonBodySchema.$ref, oasSpec) : jsonBodySchema;
         if (resolved) {
             lines.push('Content-Type: application/json');
             lines.push('# Modify the JSON payload as needed');
@@ -297,6 +335,27 @@ function buildHurlCell(method: string, oasPath: string, operation: any, baseUrl:
             }
             lines.push('');
             lines.push(JSON.stringify(generateSampleValue(resolved, oasSpec), null, 2));
+        }
+    }
+
+    const multipartBodySchema = requestBody?.content?.['multipart/form-data']?.schema;
+    if (multipartBodySchema) {
+        const resolved = multipartBodySchema.$ref
+            ? resolveSchemaRef(multipartBodySchema.$ref, oasSpec)
+            : multipartBodySchema;
+        if (resolved) {
+            lines.push('Content-Type: multipart/form-data');
+            lines.push('# Modify the multipart form fields as needed');
+            const schemaDoc = generateSchemaDoc(resolved, 1, oasSpec);
+            if (schemaDoc.trim()) {
+                lines.push('#');
+                lines.push('# Expected schema:');
+                for (const line of schemaDoc.split('\n')) {
+                    lines.push(line ? `# ${line}` : '#');
+                }
+            }
+            lines.push('');
+            lines.push(...buildMultipartBodyLines(resolved, oasSpec));
         }
     }
 
@@ -364,4 +423,8 @@ export function buildHurlCellsFromOASSpec(
     }
 
     return cells;
+}
+
+export function setTryItFileRoot(root: string) {
+    vscode.workspace.getConfiguration('hurl-client').update('fileRoot', root, vscode.ConfigurationTarget.WorkspaceFolder);
 }

@@ -369,7 +369,7 @@ import { parseStringPromise, Builder } from "xml2js";
 import { MILanguageClient } from "../../lang-client/activator";
 import { addWSO2AIConfigProperties } from "../../ai-features/configUtils";
 import { reorderModulesByBuildOrder, updatePomModules } from "../../debugger/pomResolver";
-import { buildHurlCellsFromOASSpec } from "../../util/tryItUtils";
+import { buildHurlCellsFromOASSpec, setTryItFileRoot } from "../../util/tryItUtils";
 const AdmZip = require('adm-zip');
 
 const { XMLParser, XMLBuilder } = require("fast-xml-parser");
@@ -5828,6 +5828,8 @@ ${keyValuesXML}`;
         const generatedSwagger = response.swagger;
         const parsedSwagger = parse(generatedSwagger!);
         try {
+            const projectRoot = await this.getProjectRoot({ path: this.projectUri });
+            setTryItFileRoot(projectRoot.path);
             const cells = buildHurlCellsFromOASSpec(parsedSwagger, params.apiUrl, params.apiName);
             if (!cells || cells.length === 0) {
                 window.showErrorMessage("Failed to generate Notebook content from the API.");
