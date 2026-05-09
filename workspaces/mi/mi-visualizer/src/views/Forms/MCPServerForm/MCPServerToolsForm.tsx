@@ -35,6 +35,7 @@ import {
     convertToJsonSchema,
     generateToolsXml,
     getUsedInboundPorts,
+    MCP_INBOUND_LISTENER_CLASS,
     parsePortFromInboundEndpoint,
     parseToolsFromXML,
 } from './utils';
@@ -781,7 +782,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                     name: `${data.serverName}-endpoint`,
                     sequence: '',
                     onError: '',
-                    class: 'org.wso2.carbon.inbound.SSE.McpInboundListener',
+                    class: MCP_INBOUND_LISTENER_CLASS,
                 },
                 parameters: {
                     'inbound.mcp.port': data.port,

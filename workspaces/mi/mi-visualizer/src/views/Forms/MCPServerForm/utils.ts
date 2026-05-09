@@ -20,6 +20,8 @@ import * as pathModule from 'path';
 import * as yaml from 'yaml';
 import { APIOperation, APITool, UnifiedTool } from '@wso2/mi-core';
 
+export const MCP_INBOUND_LISTENER_CLASS = 'org.wso2.carbon.inbound.SSE.McpInboundListener';
+
 export function cleanPathForToolName(path: string): string {
     return path
         .replace(/[{}]/g, '')
