@@ -57,7 +57,7 @@ import { Overview } from './views/Overview';
 import { DatamapperForm } from './views/Forms/DatamapperForm';
 import { DataMapperMigrationForm } from './views/Forms/DataMapperMigrationForm';
 import { ImportArtfactForm } from './views/Forms/ImportArtifactForm';
-import { MCPServerWizard } from './views/Forms/MCPServerForm';
+import { MCPServerWizard } from './views/Forms/MCPServerForm/index';
 import { MCPServerToolsForm } from './views/Forms/MCPServerForm/MCPServerToolsForm';
 import { IdpConnectorSchemaGenerateForm }from './views/Forms/IDPConnectorForm/IdpConnectorSchemaGenerateForm';
 import { KubernetesConfigurationForm } from "./views/Forms/KubernetesConfigurationForm";
