@@ -94,9 +94,7 @@ import {
     getDeployPluginDetails,
     removeDeployPlugin,
     ReloadDependenciesRequest,
-    getDependencyStatusList,
-    getMcpToolSuggestion,
-    McpToolSuggestionRequest
+    getDependencyStatusList
 } from "@wso2/mi-core";
 import { Messenger } from "vscode-messenger";
 import { MiVisualizerRpcManager } from "./rpc-manager";
@@ -155,5 +153,4 @@ export function registerMiVisualizerRpcHandlers(messenger: Messenger, projectUri
     messenger.onRequest(getDeployPluginDetails, () => rpcManger.getDeployPluginDetails());
     messenger.onRequest(removeDeployPlugin, () => rpcManger.removeDeployPlugin());
     messenger.onRequest(updateAiDependencies, (args: UpdateAiDependenciesRequest) => rpcManger.updateAiDependencies(args));
-    messenger.onRequest(getMcpToolSuggestion, (args: McpToolSuggestionRequest) => rpcManger.getMcpToolSuggestion(args));
 }
