@@ -651,8 +651,8 @@ export async function activateProjectExplorer(treeviewId: string, context: Exten
 					const localEntryPath = (item as any)?.info?.localEntry?.path;
 					const inboundEndpointPath = (item as any)?.info?.inboundEndpoint?.path;
 
-					if (!localEntryPath) {
-						window.showErrorMessage('Could not determine local entry path for MCP server');
+					if (!localEntryPath || !inboundEndpointPath) {
+						window.showErrorMessage('Could not determine MCP server paths');
 						return;
 					}
 
