@@ -488,10 +488,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                 const deriveInboundEndpointPath = (localEntryPath: string): string => {
                     const dir = pathModule.dirname(localEntryPath);
                     const filename = pathModule.basename(localEntryPath);
-                    const inboundDir = dir.replace(
-                        pathModule.sep === '\\' ? 'local-entries' : /local-entries/,
-                        'inbound-endpoints'
-                    );
+                    const inboundDir = pathModule.join(pathModule.dirname(dir), 'inbound-endpoints');
                     const inboundFilename = filename.replace('-mcp-config.xml', '-endpoint.xml');
                     return pathModule.join(inboundDir, inboundFilename);
                 };
