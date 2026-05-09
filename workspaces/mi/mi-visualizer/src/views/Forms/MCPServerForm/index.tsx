@@ -209,10 +209,6 @@ export function MCPServerWizard({ path }: MCPServerWizardProps) {
                     ...mcpServers.filter(mcp => mcp.inboundEndpoint?.path).map(mcp => mcp.inboundEndpoint!.path)
                 ];
 
-                console.log('[MCPServerForm] Found inbound endpoints:', inboundEndpoints.length);
-                console.log('[MCPServerForm] Found MCP servers:', mcpServers.length);
-                console.log('[MCPServerForm] All endpoint paths to check:', allEndpointPaths);
-
                 const ports = await getUsedInboundPorts(
                     allEndpointPaths,
                     async (filePath) => {
@@ -220,7 +216,6 @@ export function MCPServerWizard({ path }: MCPServerWizardProps) {
                         return resp.fileContent ?? null;
                     }
                 );
-                console.log('[MCPServerForm] Discovered used ports:', Array.from(ports));
                 setUsedPorts(ports);
                 setPortDiscoveryLoading(false);
             } catch (err) {
@@ -244,12 +239,8 @@ export function MCPServerWizard({ path }: MCPServerWizardProps) {
     };
 
     const onSubmit = async (data: any) => {
-        console.log('[MCPServerForm] onSubmit called with data:', data);
-        console.log('[MCPServerForm] Current used ports:', Array.from(usedPorts));
-
         // Check if port is already in use
         if (usedPorts.has(Number(data.port))) {
-            console.log(`[MCPServerForm] Port ${data.port} is already in use!`);
             setError('port', { message: `Port ${data.port} is already in use by another inbound endpoint in this project` });
             return;
         }
