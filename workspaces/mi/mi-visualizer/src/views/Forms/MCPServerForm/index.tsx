@@ -25,7 +25,7 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import { MACHINE_VIEW, EVENT_TYPE } from '@wso2/mi-core';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
 import * as pathModule from 'path';
-import { getUsedInboundPorts } from './utils';
+import { getUsedInboundPorts, MCP_INBOUND_LISTENER_CLASS } from './utils';
 
 const CORS_ALLOW_ORIGIN_VALUE = '*';
 const CORS_ALLOW_METHODS_VALUE = 'GET, POST, OPTIONS';
@@ -272,7 +272,7 @@ export function MCPServerWizard({ path }: MCPServerWizardProps) {
                     name: `${data.serverName}-endpoint`,
                     sequence: '',
                     onError: '',
-                    class: 'org.wso2.carbon.inbound.SSE.McpInboundListener',
+                    class: MCP_INBOUND_LISTENER_CLASS,
                 },
                 parameters: {
                     'inbound.mcp.port': data.port,
