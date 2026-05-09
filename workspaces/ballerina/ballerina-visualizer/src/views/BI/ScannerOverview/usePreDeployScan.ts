@@ -85,11 +85,11 @@ export function usePreDeployScan(): UsePreDeployScanReturn {
             setScanResult(null);
             setScanError(null);
 
+            setIsScanning(true);
             let bannerDidShow = false;
             const bannerTimer = setTimeout(() => {
                 bannerDidShow = true;
                 setBannerVisible(true);
-                setIsScanning(true);
             }, 250);
 
             let totalHighCount = 0;
@@ -166,7 +166,14 @@ export function usePreDeployScan(): UsePreDeployScanReturn {
                 setBannerVisible(false);
                 setScanResult(null);
                 setScanError(null);
-                await onDeploy();
+                try {
+                    await onDeploy();
+                } catch (err) {
+                    setBannerVisible(false);
+                    setScanResult(null);
+                    setScanError(err instanceof Error ? err.message : String(err));
+                    throw err;
+                }
                 return;
             }
 
@@ -203,7 +210,14 @@ export function usePreDeployScan(): UsePreDeployScanReturn {
                     // Fast scan: ensure banner is hidden to prevent flicker of success state
                     setBannerVisible(false);
                 }
-                await onDeploy();
+                try {
+                    await onDeploy();
+                } catch (err) {
+                    setBannerVisible(false);
+                    setScanResult(null);
+                    setScanError(err instanceof Error ? err.message : String(err));
+                    throw err;
+                }
             }
         },
         [rpcClient]

@@ -29,7 +29,7 @@ import {
 
 export interface ScannerAPI {
     /**
-     * Opens the Bi diagram for a specific code block.
+     * Navigate to or reveal the security issue location in the editor for the given RevealSecurityIssueRequest.
      */
     revealSecurityIssue: (params: RevealSecurityIssueRequest) => Promise<void>;
 

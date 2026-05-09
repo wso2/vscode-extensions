@@ -842,12 +842,6 @@
                 "icon": "$(history)"
             },
             {
-                "command": "ballerina.scan.project",
-                "title": "Scan for Vulnerabilities",
-                "category": "Ballerina",
-                "icon": "$(shield)"
-            },
-            {
                 "command": "ballerina.scanner.showPanel",
                 "title": "Show Scanner Panel",
                 "category": "Ballerina",
@@ -1123,11 +1117,6 @@
                     "command": "ballerina.project.run",
                     "group": "Ballerina",
                     "when": "resourceLangId == ballerina"
-                },
-                {
-                    "command": "ballerina.scan.project",
-                    "group": "navigation",
-                    "when": "resourceScheme == file"
                 }
             ],
             "commandPalette": [

@@ -725,7 +725,7 @@ const ScannerOverview = ({ projectPath: propProjectPath }: { projectPath?: strin
 
                         newIssuesByProject[pPath] = {
                             projectPath: pPath,
-                            projectName: project.projectName || pPath.split(/[\/]/).pop() || "Project",
+                            projectName: project.projectName || pPath.split(/[\\/]/).pop() || "Project",
                             active,
                             excluded,
                             rescannedAt: new Date(),

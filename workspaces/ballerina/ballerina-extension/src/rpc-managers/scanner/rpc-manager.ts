@@ -559,17 +559,6 @@ export class ScannerRpcManager implements ScannerAPI {
 
             const result = mapRawScanResponse(rawResponse);
 
-            if (!result.success) {
-                const errorMsg = result.error || "Unknown scan error";
-                getScannerOutputChannel().appendLine(`[ERROR] [SCAN] Failed: ${errorMsg}`);
-                return {
-                    success: false,
-                    activeIssues: [],
-                    excludedIssues: [],
-                    errorMsg: errorMsg,
-                };
-            }
-
             // Enrich exclusions with isGlobalExclusion flag
             const enrichedExclusions: ScannerExclusionContext[] = result.excludedIssues.map(exclusion => {
                 const isGlobalExclusion = exclusion.isGlobalExclusion

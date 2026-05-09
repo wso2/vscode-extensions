@@ -179,19 +179,10 @@ export function mapExclusion(raw: any): ScannerExclusionContext {
 }
 
 export function mapRawScanResponse(response: ScanResponse | undefined): ScanResponse {
-    if (!response) {
-        return { success: false, activeIssues: [], excludedIssues: [], error: 'Invalid scan response' };
-    }
-
-    if (response.errorMsg) {
-        return { success: false, activeIssues: [], excludedIssues: [], error: response.errorMsg };
-    }
-
     const rawActiveIssues = response.activeIssues || [];
     const rawExcludedIssues = response.excludedIssues || [];
 
     return {
-        success: true,
         activeIssues: rawActiveIssues.map(mapIssue),
         excludedIssues: rawExcludedIssues.map(mapExclusion)
     };
