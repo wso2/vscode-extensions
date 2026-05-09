@@ -30,7 +30,10 @@ export type ScannerToolState = 'NOT_FOUND' | 'INCOMPATIBLE' | 'SUPPORTED';
 /**
  * Tracks whether the scanner tool version is supported in the current workspace.
  */
-export let isScannerVersionSupported = false;
+let _isScannerVersionSupported = false;
+export function isScannerVersionSupported(): boolean {
+    return _isScannerVersionSupported;
+}
 
 export const DEFAULT_SCAN_TIMEOUT_MS = 120000;
 
@@ -61,13 +64,16 @@ function runBalToolCommand(command: string): Promise<void> {
 }
 
 export function setScannerVersionSupported(supported: boolean) {
-    isScannerVersionSupported = supported;
+    _isScannerVersionSupported = supported;
 }
 
-export let scannerState: ScannerToolState = 'NOT_FOUND';
+let _scannerState: ScannerToolState = 'NOT_FOUND';
+export function scannerState(): ScannerToolState {
+    return _scannerState;
+}
 
 export function setScannerState(state: ScannerToolState) {
-    scannerState = state;
+    _scannerState = state;
 }
 
 export function isScannerConfigEnabled(): boolean {
@@ -78,12 +84,12 @@ export function isScannerConfigEnabled(): boolean {
 }
 
 export function isScannerActive(): boolean {
-    return isScannerConfigEnabled() && isScannerVersionSupported;
+    return isScannerConfigEnabled() && isScannerVersionSupported();
 }
 
 export async function pullOrUpdateScannerTool(): Promise<boolean> {
     const outputChannel = getScannerOutputChannel();
-    const isNotInstalled = scannerState === 'NOT_FOUND';
+    const isNotInstalled = scannerState() === 'NOT_FOUND';
     const command = isNotInstalled ? 'bal tool pull scan' : 'bal tool update scan';
     const actionLabel = isNotInstalled ? 'Pulling' : 'Updating';
     const completionLabel = isNotInstalled ? 'pulled' : 'updated';

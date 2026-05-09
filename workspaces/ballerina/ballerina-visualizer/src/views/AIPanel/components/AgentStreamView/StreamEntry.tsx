@@ -156,8 +156,8 @@ function getToolResultDisplay(toolName: string | undefined, toolOutput: any, hin
             return { label: count > 0 ? `Found ${count} error(s)` : "No issues found" };
         }
         case "getSecurityVulnerabilities": {
-            if (toolOutput?.success === false && toolOutput?.message) {
-                return { label: toolOutput.message };
+            if (toolOutput?.success === false) {
+                return { label: toolOutput?.message || "Security scan failed" };
             }
             const count = toolOutput?.count ?? 0;
             return { label: count > 0 ? `Found ${count} security issue(s)` : "No security issues found" };

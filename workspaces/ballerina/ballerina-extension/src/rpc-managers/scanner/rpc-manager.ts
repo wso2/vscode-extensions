@@ -313,7 +313,7 @@ export class ScannerRpcManager implements ScannerAPI {
             const documentUri = this.resolveDocumentUri(params as DisableRuleRequest & { filePath?: string });
             if (!documentUri) {
                 vscode.window.showErrorMessage("No document found to resolve project root for global exclusion.");
-                return;
+                return false;
             }
 
             const response = await withTimeout(
@@ -494,7 +494,7 @@ export class ScannerRpcManager implements ScannerAPI {
         if (!isScannerConfigEnabled()) {
             return { success: false, activeIssues: [], excludedIssues: [], errorMsg: "Scanner is disabled via settings." };
         }
-        if (!isScannerVersionSupported) {
+        if (!isScannerVersionSupported()) {
             const errorMsg = "Ballerina Security Scanner requires the 'scan' tool version > 0.11.0. Please update your tool by running 'bal tool pull scan'.";
             vscode.window.showErrorMessage(errorMsg);
             return { success: false, activeIssues: [], excludedIssues: [], errorMsg };

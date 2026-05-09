@@ -81,7 +81,7 @@ const HINT_BY_RULE_ID = new Map<string, string>(
  * Returns the security severity for a given rule ID.
  */
 export function getRuleSeverity(ruleId: string): ScannerRuleSeverity {
-    return SEVERITY_BY_RULE_ID.get(ruleId);
+    return SEVERITY_BY_RULE_ID.get(ruleId) ?? 'MEDIUM';
 }
 
 /**

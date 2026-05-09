@@ -528,8 +528,6 @@ type ProjectIssues = {
     errorMsg?: string;
 };
 
-const getAutoScanTickKey = (projectPath: string) => `ballerina.scanner.autoScanEnabled:${projectPath || "workspace"}`;
-
 const areSameIssue = (left: ActiveIssue, right: ActiveIssue): boolean =>
     left.ruleId === right.ruleId &&
     left.filePath === right.filePath &&
@@ -668,11 +666,12 @@ const ScannerOverview = ({ projectPath: propProjectPath }: { projectPath?: strin
         }
     };
 
-    const rescanScan = async (isBgRescan = false) => {
+    const rescanScan = async (isBgRescan = false, checkAborted?: () => boolean) => {
         setIsScanning(true);
         setScanError(null);
         try {
             const res = await rpcClient.getBIDiagramRpcClient().getProjectStructure();
+            if (checkAborted?.()) return;
             const workspaceMode = res.workspaceName !== undefined;
             setIsWorkspace(workspaceMode);
 
@@ -685,12 +684,14 @@ const ScannerOverview = ({ projectPath: propProjectPath }: { projectPath?: strin
 
                 const newIssuesByProject: Record<string, ProjectIssues> = { ...issuesByProject };
                 for (const project of res.projects) {
+                    if (checkAborted?.()) return;
                     const pPath = project.projectPath || "";
                     setCurrentScanningLabel(`Scanning ${project.projectName || pPath.split(/[\\/]/).pop() || "project"}...`);
                     try {
                         const results = await rpcClient.getScannerRpcClient().scanProject({
                             projectPath: pPath
                         });
+                        if (checkAborted?.()) return;
                         const scanResult = results as ScanResponse | ActiveIssue[];
                         const scanResponse = Array.isArray(scanResult) ? undefined : (scanResult as ScanResponse);
                         const success = scanResponse ? (typeof scanResponse.success === 'boolean' ? scanResponse.success : true) : true;
@@ -698,9 +699,21 @@ const ScannerOverview = ({ projectPath: propProjectPath }: { projectPath?: strin
 
                         if (!success || errorMsg) {
                             console.error(`Scan failed for project ${pPath}:`, errorMsg || 'unknown error');
-                            setCurrentScanningLabel("");
+                            newIssuesByProject[pPath] = {
+                                projectPath: pPath,
+                                projectName: project.projectName || pPath.split(/[\\/]/).pop() || "Project",
+                                active: [],
+                                excluded: [],
+                                rescannedAt: new Date(),
+                                loading: false,
+                                errorMsg: errorMsg || 'Scan failed due to an unknown error'
+                            };
+                            if (isFirstScan) {
+                                initialExpandSet.add(pPath);
+                            }
+                            setIssuesByProject({ ...newIssuesByProject });
                             setScanError(errorMsg || 'Scan failed due to an unknown error');
-                            break;
+                            continue;
                         }
 
                         const active: ActiveIssue[] = Array.isArray(scanResult) ? scanResult : (scanResult.activeIssues || []);
@@ -728,10 +741,12 @@ const ScannerOverview = ({ projectPath: propProjectPath }: { projectPath?: strin
                 }
                 setCurrentScanningLabel("");
                 setRescannedAt(new Date());
+                setResultsOutdated(false);
             } else {
                 const results = await rpcClient.getScannerRpcClient().scanProject({
                     projectPath
                 });
+                if (checkAborted?.()) return;
                 const scanResult = results as ScanResponse | ActiveIssue[];
                 const scanResponse = Array.isArray(scanResult) ? undefined : (scanResult as ScanResponse);
                 const success = scanResponse ? (typeof scanResponse.success === 'boolean' ? scanResponse.success : true) : true;
@@ -755,20 +770,37 @@ const ScannerOverview = ({ projectPath: propProjectPath }: { projectPath?: strin
                 }
             }
         } catch (error) {
+            if (checkAborted?.()) return;
             console.error("Failed to load scan results", error);
         } finally {
-            setIsScanning(false);
-            setCurrentScanningLabel("");
+            if (!checkAborted?.()) {
+                setIsScanning(false);
+                setCurrentScanningLabel("");
+            }
         }
     };
 
     useEffect(() => {
+        let isMounted = true;
         setResultsOutdated(false);
-        rescanScan(false);
-        rpcClient.getScannerRpcClient().onScannerContentChanged(() => {
+        rescanScan(false, () => !isMounted);
+        return () => {
+            isMounted = false;
+        };
+    }, [projectPath]);
+
+    useEffect(() => {
+        const disposable: any = rpcClient.getScannerRpcClient().onScannerContentChanged(() => {
             setResultsOutdated(true);
         });
-    }, [projectPath]);
+        return () => {
+            if (disposable && typeof disposable.dispose === 'function') {
+                disposable.dispose();
+            } else if (typeof disposable === 'function') {
+                (disposable as Function)();
+            }
+        };
+    }, []);
 
     const handleFixWithCopilot = (issue: ActiveIssue, ctxProjectName?: string) => {
         rpcClient.getScannerRpcClient().fixIssueWithCopilot({
@@ -817,6 +849,65 @@ const ScannerOverview = ({ projectPath: propProjectPath }: { projectPath?: strin
 
     const handleRescan = async () => {
         await rescanScan(true);
+    };
+
+    const handleRescanProject = async (targetProjectPath: string) => {
+        setIsScanning(true);
+        const projectName = issuesByProject[targetProjectPath]?.projectName || targetProjectPath.split(/[\\/]/).pop() || "Project";
+        setCurrentScanningLabel(`Scanning ${projectName}...`);
+
+        setIssuesByProject(prev => ({
+            ...prev,
+            [targetProjectPath]: { ...prev[targetProjectPath], loading: true, errorMsg: undefined }
+        }));
+        
+        try {
+            const results = await rpcClient.getScannerRpcClient().scanProject({
+                projectPath: targetProjectPath
+            });
+            
+            const scanResult = results as ScanResponse | ActiveIssue[];
+            const scanResponse = Array.isArray(scanResult) ? undefined : (scanResult as ScanResponse);
+            const success = scanResponse ? (typeof scanResponse.success === 'boolean' ? scanResponse.success : true) : true;
+            const errorMsg = scanResponse ? scanResponse.errorMsg : undefined;
+
+            if (!success || errorMsg) {
+                setIssuesByProject(prev => ({
+                    ...prev,
+                    [targetProjectPath]: {
+                        ...prev[targetProjectPath],
+                        active: [],
+                        excluded: [],
+                        rescannedAt: new Date(),
+                        loading: false,
+                        errorMsg: errorMsg || 'Scan failed due to an unknown error'
+                    }
+                }));
+            } else {
+                const active: ActiveIssue[] = Array.isArray(scanResult) ? scanResult : (scanResult.activeIssues || []);
+                const excluded: ExcludedIssue[] = Array.isArray(scanResult) ? [] : (scanResult.excludedIssues || []);
+                setIssuesByProject(prev => ({
+                    ...prev,
+                    [targetProjectPath]: {
+                        ...prev[targetProjectPath],
+                        active,
+                        excluded,
+                        rescannedAt: new Date(),
+                        loading: false,
+                        errorMsg: undefined
+                    }
+                }));
+            }
+        } catch (error) {
+            console.error(`Failed to rescan project ${targetProjectPath}`, error);
+            setIssuesByProject(prev => ({
+                ...prev,
+                [targetProjectPath]: { ...prev[targetProjectPath], loading: false, errorMsg: "Failed to load scan results" }
+            }));
+        } finally {
+            setIsScanning(false);
+            setCurrentScanningLabel("");
+        }
     };
 
     const getIssueAbsolutePath = (issueFilePath: string, contextProjectPath: string) => {
@@ -1340,7 +1431,7 @@ const ScannerOverview = ({ projectPath: propProjectPath }: { projectPath?: strin
                                     }}
                                 >
                                     <Codicon name={isScanning ? "sync~spin" : "refresh"} sx={{ marginRight: 6, fontSize: "10px" }} />
-                                    Rescan
+                                    {isWorkspace ? "Rescan Project" : "Rescan"}
                                 </ActionButton>
                                 {!isScanning && <HeaderMetaText>Last scan: {rescannedText}</HeaderMetaText>}
                                 {isScanning && currentScanningLabel && (
@@ -1492,6 +1583,19 @@ const ScannerOverview = ({ projectPath: propProjectPath }: { projectPath?: strin
                                         <Pill tone={projectIssues.errorMsg ? "error" : (pActiveVulnerabilities.length > 0 ? "error" : (pActiveCodeSmells.length > 0 ? "warning" : "neutral"))}>
                                             {projectIssues.errorMsg ? "Failed" : `${totalIssues} ${totalIssues === 1 ? "Issue" : "Issues"}`}
                                         </Pill>
+                                        <div title="Rescan project" onClick={(e) => e.stopPropagation()}>
+                                            <ActionButton
+                                                appearance="icon"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleRescanProject(projectIssues.projectPath);
+                                                }}
+                                                disabled={projectIssues.loading || isScanning}
+                                                buttonSx={{ padding: "4px" }}
+                                            >
+                                                <Codicon name={projectIssues.loading ? "sync~spin" : "refresh"} sx={{ fontSize: "14px", color: "var(--vscode-icon-foreground)" }} />
+                                            </ActionButton>
+                                        </div>
                                     </ProjectAccordionHeader>
                                     <ProjectAccordionBody isExpanded={isExpanded} onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                                         {projectIssues.errorMsg ? (

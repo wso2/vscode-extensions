@@ -70,8 +70,8 @@ export class ScannerWebview {
 
     private getWebviewContent(webView: vscode.Webview): string {
         const scannerEnabled = isScannerConfigEnabled();
-        const scannerVersionSupported = isScannerVersionSupported;
-        const currentScannerState = scannerState;
+        const scannerVersionSupported = isScannerVersionSupported();
+        const currentScannerState = scannerState();
         const activeEditorUri = vscode.window.activeTextEditor?.document.uri;
         const activeWorkspaceFolder = activeEditorUri ? vscode.workspace.getWorkspaceFolder(activeEditorUri) : undefined;
         const fallbackWorkspaceFolder = vscode.workspace.workspaceFolders?.[0];
@@ -120,13 +120,22 @@ export class ScannerWebview {
                 100%  {transform:scaleY(-1) rotate(-135deg)}
             }
         `;
+        const safeCurrentScannerState = JSON.stringify(currentScannerState)
+            .replace(/</g, '\\u003c')
+            .replace(/\u2028/g, '\\u2028')
+            .replace(/\u2029/g, '\\u2029');
+        const safeProjectPath = JSON.stringify(projectPath)
+            .replace(/</g, '\\u003c')
+            .replace(/\u2028/g, '\\u2028')
+            .replace(/\u2029/g, '\\u2029');
+
         const scripts = `
             function loadedScript() {
                 function renderDiagrams() {
                     window.__SCANNER_ENABLED__ = ${scannerEnabled};
                     window.__SCANNER_VERSION_SUPPORTED__ = ${scannerVersionSupported};
-                    window.__SCANNER_STATE__ = ${JSON.stringify(currentScannerState)};
-                    window.__SCANNER_PROJECT_PATH__ = ${JSON.stringify(projectPath)};
+                    window.__SCANNER_STATE__ = ${safeCurrentScannerState};
+                    window.__SCANNER_PROJECT_PATH__ = ${safeProjectPath};
                     window.__SCANNER_DEPLOY_MODE__ = ${this._mode === 'deploy'};
                     visualizerWebview.renderWebview("scanner", document.getElementById("webview-container"));
                 }

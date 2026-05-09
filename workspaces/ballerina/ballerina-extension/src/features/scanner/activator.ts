@@ -17,7 +17,7 @@
  */
 
 import * as vscode from 'vscode';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { BallerinaExtension } from 'src/core';
 import { scannerContentChanged } from '@wso2/ballerina-core';
 import { isScannerConfigEnabled, isScannerVersionSupported, setScannerVersionSupported, isScannerActive, getScannerOutputChannel, setScannerState, pullOrUpdateScannerTool } from './scan-utils';
@@ -30,8 +30,13 @@ import { RPCLayer } from '../../RPCLayer';
  * Checks if the scan tool version is greater than 0.11.0.
  */
 function checkScanToolVersion(callback: (state: ScannerToolState) => void) {
-    exec('bal tool list', (error, stdout) => {
+    execFile('bal', ['tool', 'list'], { timeout: 15000 }, (error, stdout) => {
         if (error) {
+            if (error.killed || (error as any).code === 'ETIMEDOUT') {
+                console.warn('[Scanner] bal tool list timed out');
+                callback('NOT_FOUND');
+                return;
+            }
             callback('NOT_FOUND');
             return;
         }
@@ -107,6 +112,12 @@ function resolveProjectRoot(uri?: vscode.Uri): vscode.Uri | undefined {
  * Activates the Ballerina Security Scanner feature.
  */
 export function activate(ballerinaExtInstance: BallerinaExtension): void {
+    const langClient = ballerinaExtInstance.langClient;
+    if (!langClient) {
+        vscode.window.showErrorMessage("Ballerina Language Server is not ready. Scanner disabled.");
+        return;
+    }
+
     let scannerContentChangedDebounce: NodeJS.Timeout | undefined;
     const scannerRpcManager = new ScannerRpcManager();
 
@@ -161,11 +172,7 @@ export function activate(ballerinaExtInstance: BallerinaExtension): void {
         await pullOrUpdateScannerTool();
     });
 
-    const langClient = ballerinaExtInstance.langClient;
-    if (!langClient) {
-        vscode.window.showErrorMessage("Ballerina Language Server is not ready. Scanner disabled.");
-        return;
-    }
+
 
     // Register Scan Command — delegates to the RPC manager (no direct LS calls here)
     const scanDisposable = vscode.commands.registerCommand('ballerina.scan.project', async (uri?: vscode.Uri) => {
@@ -188,7 +195,7 @@ export function activate(ballerinaExtInstance: BallerinaExtension): void {
             return;
         }
 
-        if (!isScannerVersionSupported) {
+        if (!isScannerVersionSupported()) {
             vscode.window.showErrorMessage("Ballerina Security Scanner requires the 'scan' tool version > 0.11.0. Please update your tool.");
             return;
         }
@@ -197,7 +204,15 @@ export function activate(ballerinaExtInstance: BallerinaExtension): void {
         outputChannel.appendLine(`[INFO] [SCAN] Start: ${projectRootUri.fsPath}`);
 
         // Delegate to the RPC manager — the single source of truth for LS calls
-        const result = await scannerRpcManager.scanProject({ projectPath: projectRootUri.fsPath });
+        let result;
+        try {
+            result = await scannerRpcManager.scanProject({ projectPath: projectRootUri.fsPath });
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            outputChannel.appendLine(`[ERROR] [SCAN] Failed: ${message}`);
+            vscode.window.showErrorMessage(`Security Scan Failed: ${message}`);
+            return;
+        }
 
         const scanError = result.errorMsg || result.error;
         if (scanError) {

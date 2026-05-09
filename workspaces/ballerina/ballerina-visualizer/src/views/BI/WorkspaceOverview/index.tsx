@@ -859,13 +859,11 @@ export function WorkspaceOverview() {
     };
 
     const handleDeployWithScan = async () => {
-        // Collect non-library projects for scanning
-        const scanTargets = (projectCollection?.projects ?? [])
-            .filter(p => !(p?.isLibrary ?? false))
-            .map(p => ({
-                projectPath: p.projectPath || "",
-                projectName: p.projectName || p.projectPath?.split(/[\\/]/).pop() || "Project"
-            }));
+        // Only scan the projects that actually need to be deployed
+        const scanTargets = undeployedProjectScopes.map(scope => ({
+            projectPath: scope.projectPath || "",
+            projectName: (scope as any).projectName || scope.projectTitle || scope.projectPath?.split(/[\\/]/).pop() || "Project"
+        }));
 
         await preDeploy.triggerScanAndDeploy(scanTargets, handleDeploy);
     };
