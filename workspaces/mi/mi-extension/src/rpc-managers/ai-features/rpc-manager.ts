@@ -44,6 +44,7 @@ import {
 } from "./utils";
 import { CopilotEventHandler } from "./event-handler";
 import { MiDiagramRpcManager } from "../mi-diagram/rpc-manager";
+import { MiVisualizerRpcManager } from "../mi-visualizer/rpc-manager";
 import { generateSuggestions as generateSuggestionsFromLLM } from "../../ai-features/copilot/suggestions/suggestions";
 import { fillIdpSchema } from '../../ai-features/copilot/idp/fill_schema';
 import { codeDiagnostics } from "../../ai-features/copilot/diagnostics/diagnostics";
@@ -51,15 +52,20 @@ import { getCopilotUsageApiUrl, getLoginMethod, getTavilyApiKey, setTavilyApiKey
 import { LoginMethod } from '@wso2/mi-core';
 import { logInfo, logWarn, logError, logDebug } from '../../ai-features/copilot/logger';
 import { MILanguageClient } from '../../lang-client/activator';
+import { getAnthropicClient, ANTHROPIC_HAIKU_4_5 } from "../../ai-features/connection";
+import { generateText } from "ai";
+import * as vscode from 'vscode';
 
 export class MIAIPanelRpcManager implements MIAIPanelAPI {
     private eventHandler: CopilotEventHandler;
     private currentController: AbortController | null = null;
     private miDiagramRpcManager: MiDiagramRpcManager;
+    private miVisualizerRpcManager: MiVisualizerRpcManager;
 
     constructor(private projectUri: string) {
         this.eventHandler = this.createEventHandler();
         this.miDiagramRpcManager = new MiDiagramRpcManager(this.projectUri);
+        this.miVisualizerRpcManager = new MiVisualizerRpcManager(this.projectUri);
     }
 
     /**
@@ -877,6 +883,51 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
         } catch (error) {
             logError('[autoFillForm] Error auto-filling form', error);
             throw new Error(`Failed to auto-fill form: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    }
+
+    /**
+     * Gets MCP tool suggestions using AI
+     */
+    async getMcpToolSuggestion(params: import('@wso2/mi-core').McpToolSuggestionRequest): Promise<import('@wso2/mi-core').McpToolSuggestionResponse> {
+        const { toolName, operationMethod, operationPath, operationSummary } = params;
+
+        const contextLines: string[] = [`Tool name: ${toolName}`];
+        if (operationMethod) contextLines.push(`HTTP method: ${operationMethod}`);
+        if (operationPath) contextLines.push(`HTTP path: ${operationPath}`);
+        if (operationSummary) contextLines.push(`Operation summary: ${operationSummary}`);
+        const context = contextLines.join('\n');
+
+        const prompt = `You are helping to configure an MCP (Model Context Protocol) tool for a WSO2 Micro Integrator project.
+
+Given the following tool context:
+${context}
+
+Generate:
+1. A clear, one-sentence description of what this tool does (suitable as the MCP tool description shown to an AI assistant).
+2. A JSON input schema using shorthand notation {"paramName": "type"} where type is one of: string, number, boolean, integer. Always infer typical parameters based on the tool name and context — for example, get_weather would have {"city": "string", "units": "string"}, create_order would have {"customerId": "string", "amount": "number"}.
+
+Respond ONLY with a JSON object in this exact format, no other text:
+{"description": "...", "inputSchema": {"param1": "type1", "param2": "type2"}}`;
+
+        try {
+            const model = await getAnthropicClient(ANTHROPIC_HAIKU_4_5);
+            const { text } = await generateText({
+                model: model,
+                prompt: prompt,
+                temperature: 0.3,
+                maxOutputTokens: 500,
+            });
+
+            const cleaned = text.trim().replace(/^```json\s*/i, '').replace(/```\s*$/, '');
+            const parsed = JSON.parse(cleaned);
+            return {
+                description: parsed.description || '',
+                inputSchema: JSON.stringify(parsed.inputSchema || {}),
+            };
+        } catch (error: any) {
+            vscode.window.showErrorMessage(`Fill With AI failed: ${error?.message ?? 'Unknown error'}`);
+            return { description: '', inputSchema: '{}' };
         }
     }
 }

@@ -97,9 +97,7 @@ import {
     ExecuteRemoteDeployParams,
     getRemoteDeployConfigs,
     ReloadDependenciesRequest,
-    getDependencyStatusList,
-    getMcpToolSuggestion,
-    McpToolSuggestionRequest
+    getDependencyStatusList
 } from "@wso2/mi-core";
 import { Messenger } from "vscode-messenger";
 import { MiVisualizerRpcManager } from "./rpc-manager";
@@ -160,5 +158,4 @@ export function registerMiVisualizerRpcHandlers(messenger: Messenger, projectUri
     messenger.onRequest(updateAiDependencies, (args: UpdateAiDependenciesRequest) => rpcManger.updateAiDependencies(args));
     messenger.onRequest(executeRemoteDeployWithParams, (args: ExecuteRemoteDeployParams) => rpcManger.executeRemoteDeployWithParams(args));
     messenger.onRequest(getRemoteDeployConfigs, () => rpcManger.getRemoteDeployConfigs());
-    messenger.onRequest(getMcpToolSuggestion, (args: McpToolSuggestionRequest) => rpcManger.getMcpToolSuggestion(args));
 }
