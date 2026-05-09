@@ -307,6 +307,12 @@ const ProjectStructureView = (props: { projectStructure: any, workspaceDir: stri
     const deleteMCPServer = (entry: any) => {
         const inboundPath = entry.inboundEndpoint?.path;
         const localEntryPath = entry.localEntry?.path;
+
+        const confirmed = window.confirm(`Are you sure you want to delete MCP Server "${entry.name}"? This action cannot be undone.`);
+        if (!confirmed) {
+            return;
+        }
+
         if (inboundPath) {
             rpcClient.getMiDiagramRpcClient().deleteArtifact({ path: inboundPath, enableUndo: false });
         }
