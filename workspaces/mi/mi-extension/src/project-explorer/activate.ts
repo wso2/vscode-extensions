@@ -37,6 +37,13 @@ import { webviews } from '../visualizer/webview';
 import { MILanguageClient } from '../lang-client/activator';
 import { updatePomModules } from '../debugger/pomResolver';
 
+interface MCPServerTreeItem extends TreeItem {
+	info?: {
+		localEntry?: { path: string };
+		inboundEndpoint?: { path: string };
+	};
+}
+
 let isProjectExplorerInitialized = false;
 export async function activateProjectExplorer(treeviewId: string, context: ExtensionContext, projectUri: string) {
 	if (isProjectExplorerInitialized) {
@@ -648,8 +655,9 @@ export async function activateProjectExplorer(treeviewId: string, context: Exten
 				}
 			case 'mcpServer':
 				{
-					const localEntryPath = (item as any)?.info?.localEntry?.path;
-					const inboundEndpointPath = (item as any)?.info?.inboundEndpoint?.path;
+					const mcpItem = item as MCPServerTreeItem;
+					const localEntryPath = mcpItem.info?.localEntry?.path;
+					const inboundEndpointPath = mcpItem.info?.inboundEndpoint?.path;
 
 					if (!localEntryPath || !inboundEndpointPath) {
 						window.showErrorMessage('Could not determine MCP server paths');
