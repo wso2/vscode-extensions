@@ -159,7 +159,7 @@ function getGroupCategory(toolNames: (string | undefined)[]): ToolCategory {
     if (hasDiagnostics && !hasFile && !hasLibrary) {
         return { running: "Checking for errors...", done: "No issues found" };
     }
-    if (hasSecurityDiagnostics && !hasFile) {
+    if (hasSecurityDiagnostics && !hasFile && !hasDiagnostics) {
         return { running: "Running security scan...", done: "Security scan completed" };
     }
     if (hasLibrarySearch && !hasLibraryFetch && !hasFile && !hasDiagnostics) {

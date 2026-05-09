@@ -17,7 +17,7 @@
  */
 
 import * as vscode from 'vscode';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import {
     ScannerIssueContext,
     ScannerExclusionContext,
@@ -46,9 +46,9 @@ export function getScannerOutputChannel(): vscode.OutputChannel {
     return outputChannel;
 }
 
-function runBalToolCommand(command: string): Promise<void> {
+function runBalToolCommand(executable: string, args: string[]): Promise<void> {
     return new Promise((resolve, reject) => {
-        exec(command, (error, _stdout, stderr) => {
+        execFile(executable, args, (error, _stdout, stderr) => {
             if (error) {
                 const message = stderr?.trim() || error.message || 'Unknown error';
                 reject(new Error(message));
@@ -90,11 +90,11 @@ export function isScannerActive(): boolean {
 export async function pullOrUpdateScannerTool(): Promise<boolean> {
     const outputChannel = getScannerOutputChannel();
     const isNotInstalled = scannerState() === 'NOT_FOUND';
-    const command = isNotInstalled ? 'bal tool pull scan' : 'bal tool update scan';
+    const args = isNotInstalled ? ['tool', 'pull', 'scan'] : ['tool', 'update', 'scan'];
     const actionLabel = isNotInstalled ? 'Pulling' : 'Updating';
     const completionLabel = isNotInstalled ? 'pulled' : 'updated';
 
-    outputChannel.appendLine(`[INFO] [SCAN] ${actionLabel} scanner tool with: ${command}`);
+    outputChannel.appendLine(`[INFO] [SCAN] ${actionLabel} scanner tool with: bal ${args.join(' ')}`);
 
     try {
         await vscode.window.withProgress(
@@ -104,7 +104,7 @@ export async function pullOrUpdateScannerTool(): Promise<boolean> {
                 cancellable: false,
             },
             async () => {
-                await runBalToolCommand(command);
+                await runBalToolCommand('bal', args);
             }
         );
 
@@ -179,12 +179,11 @@ export function mapExclusion(raw: any): ScannerExclusionContext {
 }
 
 export function mapRawScanResponse(response: ScanResponse | undefined): ScanResponse {
-    const rawActiveIssues = response.activeIssues || [];
-    const rawExcludedIssues = response.excludedIssues || [];
+    const { activeIssues = [], excludedIssues = [] } = response || {};
 
     return {
-        activeIssues: rawActiveIssues.map(mapIssue),
-        excludedIssues: rawExcludedIssues.map(mapExclusion)
+        activeIssues: activeIssues.map(mapIssue),
+        excludedIssues: excludedIssues.map(mapExclusion)
     };
 }
 
