@@ -152,6 +152,7 @@ import {
     CleanMcpToolNamesResponse,
     ConvertMcpJsonSchemaRequest,
     ConvertMcpJsonSchemaResponse,
+    PickMcpJsonFileResponse,
     GetMcpInboundListenerClassResponse,
     APITool,
     UnifiedTool,
@@ -6759,6 +6760,16 @@ ${keyValuesXML}`;
 
     async convertMcpJsonSchema(params: ConvertMcpJsonSchemaRequest): Promise<ConvertMcpJsonSchemaResponse> {
         return { schema: convertToJsonSchema(params.input) };
+    }
+
+    async pickMcpJsonFile(): Promise<PickMcpJsonFileResponse> {
+        const selection = await vscode.window.showOpenDialog({
+            canSelectMany: false,
+            openLabel: 'Import',
+            filters: { 'JSON Schema': ['json'] },
+        });
+        if (!selection || selection.length === 0) return { content: null };
+        return { content: fs.readFileSync(selection[0].fsPath, 'utf8') };
     }
 
     async getMcpInboundListenerClass(): Promise<GetMcpInboundListenerClassResponse> {

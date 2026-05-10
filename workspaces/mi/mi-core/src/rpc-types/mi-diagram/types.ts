@@ -2558,6 +2558,10 @@ export interface ConvertMcpJsonSchemaResponse {
     schema: string | null;
 }
 
+export interface PickMcpJsonFileResponse {
+    content: string | null;
+}
+
 export interface GetMcpInboundListenerClassResponse {
     className: string;
 }

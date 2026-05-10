@@ -147,6 +147,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [usedPorts, setUsedPorts] = useState<Set<number>>(new Set());
+    const [originalPort, setOriginalPort] = useState<number | null>(null);
     const [showAddAPIDialog, setShowAddAPIDialog] = useState(false);
     const [showAddSeqDialog, setShowAddSeqDialog] = useState(false);
     const [showCreateScratchDialog, setShowCreateScratchDialog] = useState(false);
@@ -255,7 +256,10 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                         inboundEndpointPath: inboundPath,
                     });
                     setTools(editDataResp.tools);
-                    if (editDataResp.port !== null) setValue('port', editDataResp.port);
+                    if (editDataResp.port !== null) {
+                        setValue('port', editDataResp.port);
+                        setOriginalPort(editDataResp.port);
+                    }
                     setCorsSettings(editDataResp.corsSettings);
                 } else if (isEditMode && editData?.tools) {
                     setTools(editData.tools.map(t => ({ ...t, kind: 'api' as const })));
@@ -450,7 +454,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
     // Submit
 
     const onSubmit = async (data: any) => {
-        if (usedPorts.has(Number(data.port))) {
+        if (usedPorts.has(Number(data.port)) && Number(data.port) !== originalPort) {
             setFieldError('port', { message: `Port ${data.port} is already in use by another inbound endpoint in this project` });
             return;
         }

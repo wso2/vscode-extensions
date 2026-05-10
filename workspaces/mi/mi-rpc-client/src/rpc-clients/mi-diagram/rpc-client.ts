@@ -503,6 +503,8 @@ import {
     convertMcpJsonSchema,
     ConvertMcpJsonSchemaRequest,
     ConvertMcpJsonSchemaResponse,
+    pickMcpJsonFile,
+    PickMcpJsonFileResponse,
     getMcpInboundListenerClass,
     GetMcpInboundListenerClassResponse,
 } from "@wso2/mi-core";
@@ -1320,6 +1322,10 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
 
     async convertMcpJsonSchema(params: ConvertMcpJsonSchemaRequest): Promise<ConvertMcpJsonSchemaResponse> {
         return this._messenger.sendRequest(convertMcpJsonSchema, HOST_EXTENSION, params);
+    }
+
+    async pickMcpJsonFile(): Promise<PickMcpJsonFileResponse> {
+        return this._messenger.sendRequest(pickMcpJsonFile, HOST_EXTENSION, undefined);
     }
 
     async getMcpInboundListenerClass(): Promise<GetMcpInboundListenerClassResponse> {

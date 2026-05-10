@@ -16,12 +16,13 @@
  * under the License.
  */
 
-import { ChangeEvent, useRef, useState } from 'react';
+import { useState } from 'react';
 import styled from '@emotion/styled';
 import { Button, Typography } from '@wso2/ui-toolkit';
 import { Sequence } from '@wso2/mi-core';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
 import { DialogOverlay, DialogContent, DialogField, DialogButtonGroup, CustomInput, SelectAllRow, FlexRow, FlexRowStart, CustomInputsContainer, ItemsList, ListItem, ListItemHeader, ItemCheckbox, SchemaTextarea, DialogTitle } from './dialogStyles';
+import { EMPTY_MCP_SCHEMA, INVALID_MCP_SCHEMA_MESSAGE } from '../../../constants';
 
 // Styled Components
 
@@ -50,7 +51,6 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
     const [schemaErrors, setSchemaErrors] = useState<Record<string, string>>({});
     const [aiDescLoadingIds, setAiDescLoadingIds] = useState<Set<string>>(new Set());
     const [aiSchemaLoadingIds, setAiSchemaLoadingIds] = useState<Set<string>>(new Set());
-    const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
     const handleFillDescription = async (seq: Sequence) => {
         setAiDescLoadingIds(prev => new Set(prev).add(seq.id));
@@ -106,7 +106,7 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
         }
         const { schema } = await rpcClient.getMiDiagramRpcClient().convertMcpJsonSchema({ input: value });
         if (schema === null) {
-            setSchemaErrors(prev => ({ ...prev, [id]: 'Invalid JSON. Use shorthand like {"amount": number, "name": string} or full JSON Schema.' }));
+            setSchemaErrors(prev => ({ ...prev, [id]: INVALID_MCP_SCHEMA_MESSAGE }));
             return false;
         }
         setSchemaErrors(prev => { const n = { ...prev }; delete n[id]; return n; });
@@ -118,19 +118,11 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
         validateSchema(id, value);
     };
 
-    const handleImportFile = (id: string) => { fileInputRefs.current[id]?.click(); };
-
-    const handleFileChange = (id: string, e: ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const content = event.target?.result as string;
-            setInputSchemas(prev => ({ ...prev, [id]: content }));
-            validateSchema(id, content);
-        };
-        reader.readAsText(file);
-        e.target.value = '';
+    const handleImportFile = async (id: string) => {
+        const { content } = await rpcClient.getMiDiagramRpcClient().pickMcpJsonFile();
+        if (content === null) return;
+        setInputSchemas(prev => ({ ...prev, [id]: content }));
+        validateSchema(id, content);
     };
 
     const handleConfirm = async () => {
@@ -145,18 +137,19 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
             setDescriptionErrors(missingDesc);
             return;
         }
-        const emptySchema = JSON.stringify({ type: 'object', properties: {}, additionalProperties: false });
         const ids = Array.from(selectedIds);
         const selected = await Promise.all(ids.map(async id => {
             const raw = inputSchemas[id]?.trim() || '';
-            const converted = raw
-                ? (await rpcClient.getMiDiagramRpcClient().convertMcpJsonSchema({ input: raw })).schema
-                : null;
+            let converted: string | null = null;
+            if (raw) {
+                const { schema } = await rpcClient.getMiDiagramRpcClient().convertMcpJsonSchema({ input: raw });
+                converted = schema;
+            }
             return {
                 sequenceId: id,
                 customName: customNames[id]?.trim() || id,
                 description: customDescriptions[id]!.trim(),
-                inputSchema: converted || emptySchema,
+                inputSchema: converted || EMPTY_MCP_SCHEMA,
             };
         }));
         onConfirm(selected);
@@ -265,13 +258,6 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
                                                 >
                                                     Import JSON
                                                 </Button>
-                                                <input
-                                                    ref={el => { fileInputRefs.current[seq.id] = el; }}
-                                                    type="file"
-                                                    accept=".json"
-                                                    style={{ display: 'none' }}
-                                                    onChange={e => handleFileChange(seq.id, e)}
-                                                />
                                             </SchemaRow>
                                             {schemaErrors[seq.id] && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)', fontSize: '11px' }}>{schemaErrors[seq.id]}</Typography>}
                                         </CustomInputsContainer>

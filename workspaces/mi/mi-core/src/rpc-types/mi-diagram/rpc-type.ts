@@ -239,6 +239,7 @@ import {
     CleanMcpToolNamesResponse,
     ConvertMcpJsonSchemaRequest,
     ConvertMcpJsonSchemaResponse,
+    PickMcpJsonFileResponse,
     GetMcpInboundListenerClassResponse,
     UpdateMediatorRequest,
     ExpressionCompletionsRequest,
@@ -508,4 +509,5 @@ export const buildMcpToolsXml: RequestType<BuildMcpToolsXmlRequest, BuildMcpTool
 export const updateMcpInboundEndpointCors: RequestType<UpdateMcpInboundEndpointCorsRequest, UpdateMcpInboundEndpointCorsResponse> = { method: `${_preFix}/updateMcpInboundEndpointCors` };
 export const cleanMcpToolNames: RequestType<CleanMcpToolNamesRequest, CleanMcpToolNamesResponse> = { method: `${_preFix}/cleanMcpToolNames` };
 export const convertMcpJsonSchema: RequestType<ConvertMcpJsonSchemaRequest, ConvertMcpJsonSchemaResponse> = { method: `${_preFix}/convertMcpJsonSchema` };
+export const pickMcpJsonFile: RequestType<void, PickMcpJsonFileResponse> = { method: `${_preFix}/pickMcpJsonFile` };
 export const getMcpInboundListenerClass: RequestType<void, GetMcpInboundListenerClassResponse> = { method: `${_preFix}/getMcpInboundListenerClass` };
