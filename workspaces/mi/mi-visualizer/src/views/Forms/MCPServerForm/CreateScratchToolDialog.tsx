@@ -18,165 +18,17 @@
 
 import { ChangeEvent, useRef, useState } from 'react';
 import styled from '@emotion/styled';
+import { Button, Typography } from '@wso2/ui-toolkit';
 import { convertToJsonSchema } from './utils';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
+import { DialogOverlay, DialogContent, DialogField, DialogButtonGroup, StdInput, SchemaTextarea, FlexRowStart, DialogTitle } from './dialogStyles';
 
-// Styled Components 
-
-const DialogOverlay = styled.div`
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-`;
-
-const DialogContent = styled.div`
-    background: var(--vscode-editor-background);
-    border: 1px solid var(--vscode-panel-border);
-    border-radius: 8px;
-    padding: 20px;
-    max-width: 520px;
-    width: 90%;
-    max-height: 80vh;
-    overflow-y: auto;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-`;
-
-const DialogTitle = styled.h3`
-    color: var(--vscode-editor-foreground);
-    margin: 0 0 16px 0;
-    font-size: 16px;
-    font-weight: 600;
-`;
-
-const DialogSubtitle = styled.p`
-    color: var(--vscode-descriptionForeground);
-    font-size: 12px;
-    margin: -8px 0 16px 0;
-    line-height: 1.5;
-`;
-
-const DialogField = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-bottom: 14px;
-`;
-
-const DialogLabel = styled.label`
-    color: var(--vscode-editor-foreground);
-    font-size: 12px;
-    font-weight: 500;
-`;
-
-const Input = styled.input`
-    background: var(--vscode-input-background);
-    color: var(--vscode-input-foreground);
-    border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
-    padding: 6px 8px;
-    border-radius: 3px;
-    font-size: 13px;
-    font-family: inherit;
-    width: 100%;
-    box-sizing: border-box;
-    &:focus { outline: none; border-color: var(--vscode-focusBorder); }
-`;
+// Styled Components
 
 const SchemaRow = styled.div`
     display: flex;
     align-items: flex-start;
     gap: 8px;
-`;
-
-const SchemaTextarea = styled.textarea`
-    flex: 1;
-    min-height: 80px;
-    padding: 6px 8px;
-    font-size: 12px;
-    font-family: var(--vscode-editor-font-family, monospace);
-    background: var(--vscode-input-background);
-    color: var(--vscode-input-foreground);
-    border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
-    border-radius: 3px;
-    resize: vertical;
-    box-sizing: border-box;
-    &:focus { outline: none; border-color: var(--vscode-focusBorder); }
-`;
-
-const SchemaImportBtn = styled.button`
-    padding: 4px 10px;
-    font-size: 12px;
-    white-space: nowrap;
-    border: 1px solid var(--vscode-button-secondaryBackground);
-    border-radius: 3px;
-    cursor: pointer;
-    background: var(--vscode-button-secondaryBackground);
-    color: var(--vscode-button-secondaryForeground);
-    &:hover { background: var(--vscode-button-secondaryHoverBackground); }
-`;
-
-const FillAIBtn = styled.button`
-    padding: 4px 10px;
-    font-size: 12px;
-    white-space: nowrap;
-    border: 1px solid var(--vscode-button-background);
-    border-radius: 3px;
-    cursor: pointer;
-    background: var(--vscode-button-background);
-    color: var(--vscode-button-foreground);
-    &:hover { background: var(--vscode-button-hoverBackground); }
-    &:disabled { opacity: 0.5; cursor: not-allowed; }
-`;
-
-const SchemaError = styled.span`
-    color: var(--vscode-inputValidation-errorForeground, var(--vscode-errorForeground));
-    font-size: 11px;
-`;
-
-const SequenceHint = styled.div`
-    font-size: 11px;
-    color: var(--vscode-descriptionForeground);
-    font-style: italic;
-    margin-top: 2px;
-`;
-
-const NameError = styled.span`
-    color: var(--vscode-inputValidation-errorForeground, var(--vscode-errorForeground));
-    font-size: 11px;
-`;
-
-const DialogButtonGroup = styled.div`
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    margin-top: 18px;
-    padding-top: 14px;
-    border-top: 1px solid var(--vscode-panel-border);
-`;
-
-const Btn = styled.button`
-    padding: 6px 14px;
-    font-size: 12px;
-    border: none;
-    border-radius: 3px;
-    cursor: pointer;
-    font-weight: 500;
-`;
-
-const CancelBtn = styled(Btn)`
-    background: var(--vscode-button-secondaryBackground);
-    color: var(--vscode-button-secondaryForeground);
-    &:hover { background: var(--vscode-button-secondaryHoverBackground); }
-`;
-
-const ConfirmBtn = styled(Btn)`
-    background: var(--vscode-button-background);
-    color: var(--vscode-button-foreground);
-    &:hover { background: var(--vscode-button-hoverBackground); }
-    &:disabled { opacity: 0.6; cursor: not-allowed; }
 `;
 
 // Component 
@@ -327,55 +179,55 @@ export function CreateScratchToolDialog({
         <DialogOverlay onClick={onCancel}>
             <DialogContent onClick={e => e.stopPropagation()}>
                 <DialogTitle>Create New Tool</DialogTitle>
-                <DialogSubtitle>
+                <Typography variant="body2" sx={{ color: 'var(--vscode-descriptionForeground)', marginBottom: '16px' }}>
                     A new sequence will be created automatically. You can implement the logic inside it after.
-                </DialogSubtitle>
+                </Typography>
 
                 <DialogField>
-                    <DialogLabel>Tool Name *</DialogLabel>
-                    <Input
+                    <Typography variant="subtitle2">Tool Name *</Typography>
+                    <StdInput
                         type="text"
                         placeholder="e.g., get_weather"
                         value={name}
                         onChange={e => handleNameChange(e.target.value)}
                     />
-                    {nameError && <NameError>{nameError}</NameError>}
+                    {nameError && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)' }}>{nameError}</Typography>}
                     {derivedSequenceName && !nameError && (
-                        <SequenceHint>A sequence named "{derivedSequenceName}" will be created.</SequenceHint>
+                        <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', fontStyle: 'italic' }}>A sequence named "{derivedSequenceName}" will be created.</Typography>
                     )}
                 </DialogField>
 
                 <DialogField>
-                    <DialogLabel>Description *</DialogLabel>
+                    <Typography variant="subtitle2">Description *</Typography>
                     <SchemaRow>
-                        <Input
+                        <StdInput
                             type="text"
                             placeholder="Describe what this tool does"
                             value={description}
                             onChange={e => { setDescription(e.target.value); if (e.target.value.trim()) setDescriptionError(''); }}
                             onBlur={() => { if (!description.trim()) setDescriptionError('Description is required.'); }}
                         />
-                        <FillAIBtn type="button" onClick={handleFillDescription} disabled={!name.trim() || aiDescLoading}>
+                        <Button appearance="secondary" onClick={handleFillDescription} disabled={!name.trim() || aiDescLoading} sx={{ padding: '4px 10px', fontSize: '12px', minWidth: 'auto' }}>
                             {aiDescLoading ? 'Filling...' : 'Fill With AI'}
-                        </FillAIBtn>
+                        </Button>
                     </SchemaRow>
-                    {descriptionError && <SchemaError>{descriptionError}</SchemaError>}
+                    {descriptionError && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)' }}>{descriptionError}</Typography>}
                 </DialogField>
 
                 <DialogField>
-                    <DialogLabel>Input Schema (JSON)</DialogLabel>
+                    <Typography variant="subtitle2">Input Schema (JSON)</Typography>
                     <SchemaRow>
                         <SchemaTextarea
                             placeholder='e.g. {"city": "string", "units": "string"}'
                             value={inputSchema}
                             onChange={e => handleSchemaChange(e.target.value)}
                         />
-                        <FillAIBtn type="button" onClick={handleFillSchema} disabled={!name.trim() || aiSchemaLoading}>
+                        <Button appearance="secondary" onClick={handleFillSchema} disabled={!name.trim() || aiSchemaLoading} sx={{ padding: '4px 10px', fontSize: '12px', minWidth: 'auto' }}>
                             {aiSchemaLoading ? 'Filling...' : 'Fill With AI'}
-                        </FillAIBtn>
-                        <SchemaImportBtn type="button" onClick={() => fileInputRef.current?.click()}>
+                        </Button>
+                        <Button appearance="secondary" onClick={() => fileInputRef.current?.click()} sx={{ padding: '4px 10px', fontSize: '12px', minWidth: 'auto' }}>
                             Import JSON
-                        </SchemaImportBtn>
+                        </Button>
                         <input
                             ref={fileInputRef}
                             type="file"
@@ -384,14 +236,14 @@ export function CreateScratchToolDialog({
                             onChange={handleFileChange}
                         />
                     </SchemaRow>
-                    {schemaError && <SchemaError>{schemaError}</SchemaError>}
+                    {schemaError && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)' }}>{schemaError}</Typography>}
                 </DialogField>
 
                 <DialogButtonGroup>
-                    <CancelBtn onClick={onCancel}>Cancel</CancelBtn>
-                    <ConfirmBtn onClick={handleConfirm} disabled={!name.trim() || !description.trim() || !!schemaError || !!nameError}>
+                    <Button appearance="secondary" onClick={onCancel}>Cancel</Button>
+                    <Button appearance="primary" onClick={handleConfirm} disabled={!name.trim() || !description.trim() || !!schemaError || !!nameError}>
                         Create Tool
-                    </ConfirmBtn>
+                    </Button>
                 </DialogButtonGroup>
             </DialogContent>
         </DialogOverlay>
