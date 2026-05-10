@@ -138,6 +138,23 @@ import {
     GetMediatorsResponse,
     McpToolsRequest,
     McpToolsResponse,
+    GetMcpUsedInboundPortsRequest,
+    GetMcpUsedInboundPortsResponse,
+    GetMcpServerProjectArtifactsRequest,
+    GetMcpServerProjectArtifactsResponse,
+    GetMcpServerEditDataRequest,
+    GetMcpServerEditDataResponse,
+    BuildMcpToolsXmlRequest,
+    BuildMcpToolsXmlResponse,
+    UpdateMcpInboundEndpointCorsRequest,
+    UpdateMcpInboundEndpointCorsResponse,
+    CleanMcpToolNamesRequest,
+    CleanMcpToolNamesResponse,
+    ConvertMcpJsonSchemaRequest,
+    ConvertMcpJsonSchemaResponse,
+    GetMcpInboundListenerClassResponse,
+    APITool,
+    UnifiedTool,
     GetMessageStoreRequest,
     GetMessageStoreResponse,
     GetProjectRootRequest,
@@ -368,6 +385,19 @@ import { parseStringPromise, Builder } from "xml2js";
 import { MILanguageClient } from "../../lang-client/activator";
 import { addWSO2AIConfigProperties } from "../../ai-features/configUtils";
 import { reorderModulesByBuildOrder, updatePomModules } from "../../debugger/pomResolver";
+import {
+    MCP_INBOUND_LISTENER_CLASS,
+    applyCorsParametersToInboundEndpointXml,
+    buildInputSchemasForAPITools,
+    cleanPathForToolName,
+    convertToJsonSchema,
+    generateToolsXml,
+    getUsedInboundPorts,
+    parseApisFromProjectStructure,
+    parseInboundEndpointConfig,
+    parseSequencesFromProjectStructure,
+    parseToolsFromXML,
+} from "../../util/mcp-server-utils";
 const AdmZip = require('adm-zip');
 
 const { XMLParser, XMLBuilder } = require("fast-xml-parser");
@@ -6649,6 +6679,90 @@ ${keyValuesXML}`;
             const res = await langClient.updateGlobalConnectorFlags(params);
             resolve(res);
         });
+    }
+
+    async getMcpUsedInboundPorts(params: GetMcpUsedInboundPortsRequest): Promise<GetMcpUsedInboundPortsResponse> {
+        const langClient = await MILanguageClient.getInstance(this.projectUri);
+        const projectStructure = await langClient.getProjectStructure(params.projectUri);
+        const artifacts: any = (projectStructure as any)?.directoryMap?.src?.main?.wso2mi?.artifacts;
+        const inboundEndpoints: Array<{ path: string }> = artifacts?.inboundEndpoints || [];
+        const mcpServers: Array<{ inboundEndpoint?: { path: string } }> = artifacts?.mcpServers || [];
+        const allEndpointPaths = [
+            ...inboundEndpoints.map(ep => ep.path),
+            ...mcpServers.filter(m => m.inboundEndpoint?.path).map(m => m.inboundEndpoint!.path),
+        ];
+        const ports = await getUsedInboundPorts(allEndpointPaths, params.excludePath);
+        return { ports };
+    }
+
+    async getMcpServerProjectArtifacts(params: GetMcpServerProjectArtifactsRequest): Promise<GetMcpServerProjectArtifactsResponse> {
+        const langClient = await MILanguageClient.getInstance(this.projectUri);
+        const projectStructure = await langClient.getProjectStructure(params.projectUri);
+        return {
+            apis: parseApisFromProjectStructure(projectStructure),
+            sequences: parseSequencesFromProjectStructure(projectStructure),
+        };
+    }
+
+    async getMcpServerEditData(params: GetMcpServerEditDataRequest): Promise<GetMcpServerEditDataResponse> {
+        const defaultCors = {
+            corsAllowOrigin: "*",
+            corsAllowMethods: "GET, POST, OPTIONS",
+            corsAllowHeaders: "Content-Type, Mcp-Session-Id",
+            corsExposeHeaders: "Mcp-Session-Id",
+            keepAliveInterval: 30000,
+        };
+        let tools: UnifiedTool[] = [];
+        if (params.localEntryPath && fs.existsSync(params.localEntryPath)) {
+            const content = fs.readFileSync(params.localEntryPath, "utf8");
+            tools = parseToolsFromXML(content);
+        }
+        let port: number | null = null;
+        let corsSettings = defaultCors;
+        if (params.inboundEndpointPath && fs.existsSync(params.inboundEndpointPath)) {
+            const content = fs.readFileSync(params.inboundEndpointPath, "utf8");
+            const cfg = parseInboundEndpointConfig(content);
+            port = cfg.port;
+            corsSettings = {
+                corsAllowOrigin: cfg.corsAllowOrigin,
+                corsAllowMethods: cfg.corsAllowMethods,
+                corsAllowHeaders: cfg.corsAllowHeaders,
+                corsExposeHeaders: cfg.corsExposeHeaders,
+                keepAliveInterval: cfg.keepAliveInterval,
+            };
+        }
+        return { tools, port, corsSettings };
+    }
+
+    async buildMcpToolsXml(params: BuildMcpToolsXmlRequest): Promise<BuildMcpToolsXmlResponse> {
+        const apiTools = params.tools.filter((t): t is APITool => t.kind === "api");
+        const apiDefDir = path.join(params.projectRoot, "src", "main", "wso2mi", "resources", "api-definitions");
+        const inputSchemas = await buildInputSchemasForAPITools(apiTools, apiDefDir);
+        return { xml: generateToolsXml(params.tools, inputSchemas) };
+    }
+
+    async updateMcpInboundEndpointCors(params: UpdateMcpInboundEndpointCorsRequest): Promise<UpdateMcpInboundEndpointCorsResponse> {
+        try {
+            if (!fs.existsSync(params.inboundEndpointPath)) return { success: false };
+            const original = fs.readFileSync(params.inboundEndpointPath, "utf8");
+            const updated = applyCorsParametersToInboundEndpointXml(original, params.corsSettings);
+            await replaceFullContentToFile(params.inboundEndpointPath, updated);
+            return { success: true };
+        } catch {
+            return { success: false };
+        }
+    }
+
+    async cleanMcpToolNames(params: CleanMcpToolNamesRequest): Promise<CleanMcpToolNamesResponse> {
+        return { names: params.paths.map(p => cleanPathForToolName(p)) };
+    }
+
+    async convertMcpJsonSchema(params: ConvertMcpJsonSchemaRequest): Promise<ConvertMcpJsonSchemaResponse> {
+        return { schema: convertToJsonSchema(params.input) };
+    }
+
+    async getMcpInboundListenerClass(): Promise<GetMcpInboundListenerClassResponse> {
+        return { className: MCP_INBOUND_LISTENER_CLASS };
     }
 }
 

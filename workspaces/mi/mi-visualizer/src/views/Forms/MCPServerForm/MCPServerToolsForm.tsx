@@ -28,16 +28,6 @@ import { View, ViewContent, ViewHeader } from '../../../components/View';
 import * as pathModule from 'path';
 
 import { API, APITool, Sequence, SequenceTool, UnifiedTool } from '@wso2/mi-core';
-import {
-    artifactParserConfig,
-    buildInputSchemasForAPITools,
-    cleanPathForToolName,
-    generateToolsXml,
-    getUsedInboundPorts,
-    MCP_INBOUND_LISTENER_CLASS,
-    parsePortFromInboundEndpoint,
-    parseToolsFromXML,
-} from './utils';
 import AddAPIToolDialog from './AddAPIToolDialog';
 import { AddSequenceToolDialog } from './AddSequenceToolDialog';
 import { CreateScratchToolDialog, ScratchToolData } from './CreateScratchToolDialog';
@@ -178,36 +168,9 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
     // Save CORS settings to inbound endpoint
     const saveCorsSettingsToEndpoint = async (inboundEndpointPath: string) => {
         try {
-            const resp = await rpcClient.getMiDiagramRpcClient().readFileContent({
-                filePath: inboundEndpointPath,
-            });
-            if (!resp.fileContent) return;
-
-            let xmlContent = resp.fileContent;
-
-            // Helper to update or create a parameter in XML string
-            const updateParamInXml = (xml: string, paramName: string, paramValue: string): string => {
-                const paramRegex = new RegExp(`<parameter name="${paramName}"[^>]*>[^<]*</parameter>`, 'g');
-                const newParam = `<parameter name="${paramName}">${paramValue}</parameter>`;
-
-                if (paramRegex.test(xml)) {
-                    return xml.replace(paramRegex, newParam);
-                } else {
-                    return xml.replace('</inboundEndpoint>', `    ${newParam}\n    </inboundEndpoint>`);
-                }
-            };
-
-            // Update all CORS parameters
-            xmlContent = updateParamInXml(xmlContent, 'inbound.cors.allow.origin', corsSettings.corsAllowOrigin);
-            xmlContent = updateParamInXml(xmlContent, 'inbound.cors.allow.methods', corsSettings.corsAllowMethods);
-            xmlContent = updateParamInXml(xmlContent, 'inbound.cors.allow.headers', corsSettings.corsAllowHeaders);
-            xmlContent = updateParamInXml(xmlContent, 'inbound.cors.expose.headers', corsSettings.corsExposeHeaders);
-            xmlContent = updateParamInXml(xmlContent, 'inbound.sse.keepalive.interval', String(corsSettings.keepAliveInterval));
-
-            // Open the file in the editor and write the updated content
-            await rpcClient.getMiDiagramRpcClient().openFile({ path: inboundEndpointPath });
-            await rpcClient.getMiDiagramRpcClient().writeContentToFile({
-                content: xmlContent.split('\n')
+            await rpcClient.getMiDiagramRpcClient().updateMcpInboundEndpointCors({
+                inboundEndpointPath,
+                corsSettings,
             });
         } catch (err) {
             console.error('Failed to save CORS settings:', err);
@@ -228,17 +191,15 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                 const projectRootResp = await rpcClient.getMiDiagramRpcClient().getProjectRoot({ path });
                 const projectDir = projectRootResp.path;
                 const localEntriesDir = pathModule.join(projectDir, 'src', 'main', 'wso2mi', 'artifacts', 'local-entries').toString();
-                const apiDefDir = pathModule.join(projectDir, 'src', 'main', 'wso2mi', 'resources', 'api-definitions').toString();
-                const apiTools = toolsToSave.filter((t): t is APITool => t.kind === 'api');
-                const inputSchemas = await buildInputSchemasForAPITools(apiTools, apiDefDir, async (filePath) => {
-                    const resp = await rpcClient.getMiDiagramRpcClient().readFileContent({ filePath });
-                    return resp.fileContent ?? null;
+                const { xml } = await rpcClient.getMiDiagramRpcClient().buildMcpToolsXml({
+                    projectRoot: projectDir,
+                    tools: toolsToSave,
                 });
                 await rpcClient.getMiDiagramRpcClient().createLocalEntry({
                     directory: localEntriesDir,
                     name: `${editData.serverName}-mcp-config`,
                     type: 'In-Line XML Entry',
-                    value: generateToolsXml(toolsToSave, inputSchemas),
+                    value: xml,
                     URL: '',
                     getContentOnly: false,
                 });
@@ -262,33 +223,9 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                     projectUri = projectUri.substring(0, artifactsIndex).replace(/\/src\/main\/wso2mi$/, '');
                 }
 
-                const projectStructure = await rpcClient.getMiVisualizerRpcClient().getProjectStructure({
-                    documentUri: projectUri,
-                });
-
-                // Parse APIs
-                const apiArtifacts = artifactParserConfig.apis.pathInStructure(projectStructure);
-                const parsedAPIs: API[] = apiArtifacts.map((art: Record<string, any>) => ({
-                    id: artifactParserConfig.apis.parseFields.id(art),
-                    name: artifactParserConfig.apis.parseFields.name(art),
-                    context: artifactParserConfig.apis.parseFields.context(art),
-                    version: artifactParserConfig.apis.parseFields.version(art),
-                    rawVersion: artifactParserConfig.apis.parseFields.rawVersion(art),
-                    xmlPath: artifactParserConfig.apis.parseFields.xmlPath(art),
-                    operations: artifactParserConfig.apis.parseOperations(art),
-                }));
+                const { apis: parsedAPIs, sequences: parsedSeqs } =
+                    await rpcClient.getMiDiagramRpcClient().getMcpServerProjectArtifacts({ projectUri });
                 setApis(parsedAPIs);
-
-                // Parse sequences
-                const seqArtifacts: any[] =
-                    projectStructure?.directoryMap?.src?.main?.wso2mi?.artifacts?.sequences || [];
-                const parsedSeqs: Sequence[] = seqArtifacts
-                    .map((art: any) => ({
-                        id: art.name || art.id || art.fileName || '',
-                        name: art.name || art.id || art.fileName || '',
-                        xmlPath: art.path || '',
-                    }))
-                    .filter(s => s.id !== '');
                 setSequences(parsedSeqs);
 
                 // Helper function to derive inbound endpoint path from local entry path
@@ -301,59 +238,25 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                 };
 
                 // Collect used ports from all inbound endpoints (exclude current server in edit mode)
-                const inboundEPs: Array<{ path: string }> =
-                    projectStructure?.directoryMap?.src?.main?.wso2mi?.artifacts?.inboundEndpoints || [];
                 const currentInboundPath = isEditMode && editData?.localEntryPath
                     ? deriveInboundEndpointPath(editData.localEntryPath)
                     : undefined;
-                const ports = await getUsedInboundPorts(
-                    inboundEPs.map(ep => ep.path),
-                    async (filePath) => {
-                        const resp = await rpcClient.getMiDiagramRpcClient().readFileContent({ filePath });
-                        return resp.fileContent ?? null;
-                    },
-                    currentInboundPath
-                );
-                setUsedPorts(ports);
+                const { ports } = await rpcClient.getMiDiagramRpcClient().getMcpUsedInboundPorts({
+                    projectUri,
+                    excludePath: currentInboundPath,
+                });
+                setUsedPorts(new Set(ports));
 
-                // Load existing tools from XML when editing
+                // Load existing tools, port, and CORS from artifacts when editing
                 if (isEditMode && editData?.localEntryPath) {
-                    const resp = await rpcClient.getMiDiagramRpcClient().readFileContent({
-                        filePath: editData.localEntryPath,
-                    });
-                    if (resp.fileContent) {
-                        setTools(parseToolsFromXML(resp.fileContent));
-                    }
-
-                    // Read port and CORS settings from inbound endpoint
                     const inboundPath = deriveInboundEndpointPath(editData.localEntryPath);
-                    try {
-                        const inboundResp = await rpcClient.getMiDiagramRpcClient().readFileContent({
-                            filePath: inboundPath,
-                        });
-                        if (inboundResp.fileContent) {
-                            const port = parsePortFromInboundEndpoint(inboundResp.fileContent);
-                            if (port !== null) setValue('port', port);
-
-                            // Load CORS settings from inbound endpoint
-                            const parser = new DOMParser();
-                            const xmlDoc = parser.parseFromString(inboundResp.fileContent, 'text/xml');
-                            const inboundEP = xmlDoc.documentElement;
-
-                            const getParamValue = (paramName: string): string | null => {
-                                const param = inboundEP.querySelector(`parameter[name="${paramName}"]`);
-                                return param?.textContent?.trim() || null;
-                            };
-
-                            setCorsSettings({
-                                corsAllowOrigin: getParamValue('inbound.cors.allow.origin') || '*',
-                                corsAllowMethods: getParamValue('inbound.cors.allow.methods') || 'GET, POST, OPTIONS',
-                                corsAllowHeaders: getParamValue('inbound.cors.allow.headers') || 'Content-Type, Mcp-Session-Id',
-                                corsExposeHeaders: getParamValue('inbound.cors.expose.headers') || 'Mcp-Session-Id',
-                                keepAliveInterval: parseInt(getParamValue('inbound.sse.keepalive.interval') || '30000', 10),
-                            });
-                        }
-                    } catch {}
+                    const editDataResp = await rpcClient.getMiDiagramRpcClient().getMcpServerEditData({
+                        localEntryPath: editData.localEntryPath,
+                        inboundEndpointPath: inboundPath,
+                    });
+                    setTools(editDataResp.tools);
+                    if (editDataResp.port !== null) setValue('port', editDataResp.port);
+                    setCorsSettings(editDataResp.corsSettings);
                 } else if (isEditMode && editData?.tools) {
                     setTools(editData.tools.map(t => ({ ...t, kind: 'api' as const })));
                 }
@@ -369,35 +272,42 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
 
     // Add API tools (From APIs path)
 
-    const confirmAddAPITools = (
+    const confirmAddAPITools = async (
         apiId: string,
         selectedOperations: Array<{ id: string; customName: string; description: string }>
     ) => {
         const api = apis.find(a => a.id === apiId);
         if (!api) return;
 
-        const newTools: APITool[] = selectedOperations
+        const matchedOps = selectedOperations
             .map(selectedOp => {
                 const operation = api.operations.find(o => o.id === selectedOp.id);
-                if (!operation) return null;
-                const defaultName = `${operation.method}_${cleanPathForToolName(operation.path)}`;
-                return {
-                    kind: 'api' as const,
-                    id: crypto.randomUUID(),
-                    name: selectedOp.customName.trim() || defaultName,
-                    description: selectedOp.description.trim(),
-                    apiId: api.id,
-                    apiName: api.name,
-                    apiVersion: api.version,
-                    apiRawVersion: api.rawVersion,
-                    apiXmlPath: api.xmlPath,
-                    operationId: operation.id,
-                    operationMethod: operation.method,
-                    operationPath: operation.path,
-                    operationSummary: operation.summary || '',
-                };
+                return operation ? { selectedOp, operation } : null;
             })
-            .filter((t): t is NonNullable<typeof t> => t !== null) as APITool[];
+            .filter((p): p is { selectedOp: typeof selectedOperations[number]; operation: typeof api.operations[number] } => p !== null);
+
+        const { names: cleanedPaths } = await rpcClient.getMiDiagramRpcClient().cleanMcpToolNames({
+            paths: matchedOps.map(p => p.operation.path),
+        });
+
+        const newTools: APITool[] = matchedOps.map(({ selectedOp, operation }, idx) => {
+            const defaultName = `${operation.method}_${cleanedPaths[idx]}`;
+            return {
+                kind: 'api' as const,
+                id: crypto.randomUUID(),
+                name: selectedOp.customName.trim() || defaultName,
+                description: selectedOp.description.trim(),
+                apiId: api.id,
+                apiName: api.name,
+                apiVersion: api.version,
+                apiRawVersion: api.rawVersion,
+                apiXmlPath: api.xmlPath,
+                operationId: operation.id,
+                operationMethod: operation.method,
+                operationPath: operation.path,
+                operationSummary: operation.summary || '',
+            };
+        });
 
         const updatedTools = [...tools, ...newTools];
         setTools(updatedTools);
@@ -552,17 +462,13 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
 
             const localEntriesDir = pathModule.join(projectDir, 'src', 'main', 'wso2mi', 'artifacts', 'local-entries').toString();
             const inboundEndpointsDir = pathModule.join(projectDir, 'src', 'main', 'wso2mi', 'artifacts', 'inbound-endpoints').toString();
-            const apiDefDir = pathModule.join(projectDir, 'src', 'main', 'wso2mi', 'resources', 'api-definitions').toString();
 
-            const apiTools = tools.filter((t): t is APITool => t.kind === 'api');
-            const inputSchemas = await buildInputSchemasForAPITools(
-                apiTools,
-                apiDefDir,
-                async (filePath) => {
-                    const resp = await rpcClient.getMiDiagramRpcClient().readFileContent({ filePath });
-                    return resp.fileContent ?? null;
-                }
-            );
+            const { xml } = await rpcClient.getMiDiagramRpcClient().buildMcpToolsXml({
+                projectRoot: projectDir,
+                tools,
+            });
+            const { className: inboundListenerClass } =
+                await rpcClient.getMiDiagramRpcClient().getMcpInboundListenerClass();
 
             const localEntryName = `${data.serverName}-mcp-config`;
 
@@ -570,7 +476,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                 directory: localEntriesDir,
                 name: localEntryName,
                 type: 'In-Line XML Entry',
-                value: generateToolsXml(tools, inputSchemas),
+                value: xml,
                 URL: '',
                 getContentOnly: false,
             });
@@ -581,7 +487,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                     name: `${data.serverName}-endpoint`,
                     sequence: '',
                     onError: '',
-                    class: MCP_INBOUND_LISTENER_CLASS,
+                    class: inboundListenerClass,
                 },
                 parameters: {
                     'inbound.mcp.port': data.port,

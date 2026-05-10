@@ -20,7 +20,7 @@ import { useState } from 'react';
 import styled from '@emotion/styled';
 import { TextField, Button, Typography } from '@wso2/ui-toolkit';
 import { UnifiedTool, SequenceTool } from '@wso2/mi-core';
-import { convertToJsonSchema } from './utils';
+import { useVisualizerContext } from '@wso2/mi-rpc-client';
 
 const ToolItem = styled.div`
     display: flex;
@@ -101,6 +101,7 @@ export function ToolsListComponent({
     onSave,
     onGoToSource,
 }: ToolsListProps) {
+    const { rpcClient } = useVisualizerContext();
     const [editingToolId, setEditingToolId] = useState<string | null>(null);
     const [editToolName, setEditToolName] = useState('');
     const [editToolDescription, setEditToolDescription] = useState('');
@@ -113,12 +114,14 @@ export function ToolsListComponent({
         setEditToolInputSchema(tool.kind === 'sequence' ? tool.inputSchema : '');
     };
 
-    const saveEdit = () => {
+    const saveEdit = async () => {
+        const normalizedSchema = editToolInputSchema.trim()
+            ? (await rpcClient.getMiDiagramRpcClient().convertMcpJsonSchema({ input: editToolInputSchema })).schema
+            : null;
         const updatedTools = tools.map(t => {
             if (t.id !== editingToolId) return t;
             const base = { ...t, name: editToolName.trim() || t.name, description: editToolDescription };
             if (t.kind === 'sequence') {
-                const normalizedSchema = editToolInputSchema.trim() ? convertToJsonSchema(editToolInputSchema) : null;
                 return { ...base, inputSchema: normalizedSchema || t.inputSchema };
             }
             return base;

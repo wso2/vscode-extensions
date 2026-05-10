@@ -19,7 +19,6 @@
 import { ChangeEvent, useRef, useState } from 'react';
 import styled from '@emotion/styled';
 import { Button, Typography } from '@wso2/ui-toolkit';
-import { convertToJsonSchema } from './utils';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
 import { DialogOverlay, DialogContent, DialogField, DialogButtonGroup, StdInput, SchemaTextarea, FlexRowStart, DialogTitle } from './dialogStyles';
 
@@ -127,9 +126,10 @@ export function CreateScratchToolDialog({
         ? name.trim().toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_{2,}/g, '_').replace(/^_+|_+$/, '') + '_tool'
         : '';
 
-    const validateSchema = (value: string): boolean => {
+    const validateSchema = async (value: string): Promise<boolean> => {
         if (!value.trim()) { setSchemaError(''); return true; }
-        if (convertToJsonSchema(value) === null) {
+        const { schema } = await rpcClient.getMiDiagramRpcClient().convertMcpJsonSchema({ input: value });
+        if (schema === null) {
             setSchemaError('Invalid JSON. Use shorthand like {"city": "string"} or full JSON Schema.');
             return false;
         }
@@ -155,17 +155,20 @@ export function CreateScratchToolDialog({
         e.target.value = '';
     };
 
-    const handleConfirm = () => {
+    const handleConfirm = async () => {
         if (!name.trim() || nameError || schemaError) return;
         if (!description.trim()) {
             setDescriptionError('Description is required.');
             return;
         }
         const emptySchema = JSON.stringify({ type: 'object', properties: {}, additionalProperties: false });
+        const converted = inputSchema.trim()
+            ? (await rpcClient.getMiDiagramRpcClient().convertMcpJsonSchema({ input: inputSchema })).schema
+            : null;
         onConfirm({
             name: name.trim(),
             description: description.trim(),
-            inputSchema: (inputSchema.trim() ? convertToJsonSchema(inputSchema) : null) || emptySchema,
+            inputSchema: converted || emptySchema,
         });
         setName('');
         setNameError('');

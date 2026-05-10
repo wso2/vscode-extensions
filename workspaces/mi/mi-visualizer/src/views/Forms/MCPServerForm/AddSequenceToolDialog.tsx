@@ -19,7 +19,6 @@
 import { ChangeEvent, useRef, useState } from 'react';
 import styled from '@emotion/styled';
 import { Button, Typography } from '@wso2/ui-toolkit';
-import { convertToJsonSchema } from './utils';
 import { Sequence } from '@wso2/mi-core';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
 import { DialogOverlay, DialogContent, DialogField, DialogButtonGroup, CustomInput, SelectAllRow, FlexRow, FlexRowStart, CustomInputsContainer, ItemsList, ListItem, ListItemHeader, ItemCheckbox, SchemaTextarea, DialogTitle } from './dialogStyles';
@@ -100,12 +99,13 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
         setSelectedIds(selectedIds.size === sequences.length ? new Set() : new Set(sequences.map(s => s.id)));
     };
 
-    const validateSchema = (id: string, value: string): boolean => {
+    const validateSchema = async (id: string, value: string): Promise<boolean> => {
         if (!value.trim()) {
             setSchemaErrors(prev => { const n = { ...prev }; delete n[id]; return n; });
             return true;
         }
-        if (convertToJsonSchema(value) === null) {
+        const { schema } = await rpcClient.getMiDiagramRpcClient().convertMcpJsonSchema({ input: value });
+        if (schema === null) {
             setSchemaErrors(prev => ({ ...prev, [id]: 'Invalid JSON. Use shorthand like {"amount": number, "name": string} or full JSON Schema.' }));
             return false;
         }
@@ -133,7 +133,7 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
         e.target.value = '';
     };
 
-    const handleConfirm = () => {
+    const handleConfirm = async () => {
         if (selectedIds.size === 0) return;
         const hasSchemaErrors = Array.from(selectedIds).some(id => schemaErrors[id]);
         if (hasSchemaErrors) return;
@@ -146,15 +146,19 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
             return;
         }
         const emptySchema = JSON.stringify({ type: 'object', properties: {}, additionalProperties: false });
-        const selected = Array.from(selectedIds).map(id => {
+        const ids = Array.from(selectedIds);
+        const selected = await Promise.all(ids.map(async id => {
             const raw = inputSchemas[id]?.trim() || '';
+            const converted = raw
+                ? (await rpcClient.getMiDiagramRpcClient().convertMcpJsonSchema({ input: raw })).schema
+                : null;
             return {
                 sequenceId: id,
                 customName: customNames[id]?.trim() || id,
                 description: customDescriptions[id]!.trim(),
-                inputSchema: (raw ? convertToJsonSchema(raw) : null) || emptySchema,
+                inputSchema: converted || emptySchema,
             };
-        });
+        }));
         onConfirm(selected);
         setSelectedIds(new Set());
         setCustomNames({});
