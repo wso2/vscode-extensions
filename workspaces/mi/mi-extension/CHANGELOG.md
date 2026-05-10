@@ -2,6 +2,28 @@
 
 All notable changes to the "micro-integrator" extension will be documented in this file.
 
+## [4.0.0]   
+
+### Improvements
+
+- Agent Memory Trim and Summarization Support   
+- Agent Mode in Integration Copilot   
+- New Vector Database Support   
+- Azure OpenAI Embeddings Support   
+- AWS Bedrock Login Support   
+- MCP Tool Support for Agents in AI Connector   
+- JDK 25 support   
+- Remote Debugging Support   
+- Unit Test Coverage Report Generation   
+- Consolidated Project Support   
+- Improvements to the Ballerina Module Generation Tool   
+- Newly Introduced Connectors - Database, RabbitMQ, Solace   
+- Import Project from CApp Support   
+- Support Connectors from Integration Project Dependencies   
+- Workspace Build and Run Support
+- Input and Output Mapping Generation Support for Data Services   
+- OpenTelemetry Span Filtering Support for Mediators   
+
 ## [3.2.0] - 2026-04-28
 
 ### New Features   
