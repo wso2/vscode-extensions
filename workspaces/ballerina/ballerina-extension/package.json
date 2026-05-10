@@ -1126,22 +1126,259 @@
                 },
                 {
                     "command": "ballerina.show.source",
-                    "when": "editorLangId != ballerina && !isBallerinaDiagram"
+                    "when": "editorLangId != ballerina && !isBallerinaDiagram && (!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default'))"
                 },
                 {
                     "command": "ballerina.showVisualizer",
-                    "when": "editorLangId == ballerina"
+                    "when": "editorLangId == ballerina && (!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default'))"
                 },
                 {
                     "command": "ballerina.source.debug",
-                    "when": "editorLangId != ballerina && !isBallerinaDiagram"
+                    "when": "ballerina && !isBallerinaDiagram && (!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default'))"
                 },
                 {
-                    "command": "ballerina.notebook.createNotebook"
+                    "command": "ballerina.notebook.createNotebook",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
                 },
                 {
                     "command": "ballerina.view.entityDiagram",
-                    "when": "isPersistModelActive"
+                    "when": "isPersistModelActive && (!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default'))"
+                },
+                {
+                    "command": "ballerina.project.build",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.project.pack",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.create.cloud",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.reset.bi",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.project.doc",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.project.add",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.newFileExplorerTree",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.newFolderExplorerTree",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.force.update.artifacts",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.project.run",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.project.run.config",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.pasteAsRecord",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.verifyDocs",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.configureWso2DefaultModelProvider",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.configureDefaultModelForNaturalFunctions",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.pasteXMLAsRecord",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.project.config.create",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.notebook.restartNotebook",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.notebook.openVariableView",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.notebook.openOutlineView",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.notebook.debug",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.notebook.refreshVariableView",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.tryIt",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.open.ai.panel",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.open.bi.welcome",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.open.bi.new",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "BI.project.run",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "BI.project.debug",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "BI.project-explorer.refresh",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "BI.test.add.function",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "BI.test.add.ai.evaluation",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "BI.view.typeDiagram",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "BI.project-explorer.add-connection",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "BI.project-explorer.add-custom-connector",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "BI.project-explorer.add-entry-point",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "BI.project-explorer.add-type",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "BI.project-explorer.view-type-diagram",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "BI.project-explorer.add-function",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "BI.project-explorer.add-configuration",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "BI.project-explorer.view-configuration",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "BI.project-explorer.add",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "BI.project-explorer.overview",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "BI.project-explorer.add-data-mapper",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "BI.project-explorer.add-natural-function",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "BI.toggle.trace.logs",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "BI.devant.push.cloud",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.icp.start",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.icp.stop",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.showTraceWindow",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.enableTracing",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.disableTracing",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.startTraceServer",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.clearTraces",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.toggleAgentFilter",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.createNewEvalset",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.createNewThread",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.deleteEvalset",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.deleteThread",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
+                },
+                {
+                    "command": "ballerina.openEvaluationHistory",
+                    "when": "!WI.isWiRuntime || (WI.isWiRuntime && config.integrator.selectedProfile == 'WSO2 Integrator: Default')"
                 }
             ]
         },
