@@ -38,7 +38,7 @@ const xmlParserOptions = {
     trimValues: true,
 };
 
-export const MCP_INBOUND_LISTENER_CLASS = "org.wso2.carbon.inbound.SSE.McpInboundListener";
+export const MCP_INBOUND_LISTENER_CLASS = "org.wso2.carbon.inbound.sse.McpInboundListener";
 
 export function cleanPathForToolName(pathStr: string): string {
     return pathStr
