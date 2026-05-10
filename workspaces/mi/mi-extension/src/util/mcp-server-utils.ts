@@ -40,6 +40,15 @@ const xmlParserOptions = {
 
 export const MCP_INBOUND_LISTENER_CLASS = "org.wso2.carbon.inbound.sse.McpInboundListener";
 
+function escapeXml(str: string): string {
+    return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&apos;");
+}
+
 export function cleanPathForToolName(pathStr: string): string {
     return pathStr
         .replace(/[{}]/g, "")
@@ -282,19 +291,19 @@ export function generateToolsXml(tools: UnifiedTool[], inputSchemas: Record<stri
             const description = tool.description || tool.operationSummary
                 || `${tool.operationMethod} ${tool.operationPath} - ${tool.apiName}`;
             toolsXml += `
-            <tool name="${tool.name}">
-                <api>${tool.apiName}</api>
-                <resource>${tool.operationPath}</resource>
-                <method>${tool.operationMethod}</method>
-                <description>${description}</description>
-                <inputSchema>${JSON.stringify(inputSchema)}</inputSchema>
+            <tool name="${escapeXml(tool.name)}">
+                <api>${escapeXml(tool.apiName)}</api>
+                <resource>${escapeXml(tool.operationPath)}</resource>
+                <method>${escapeXml(tool.operationMethod)}</method>
+                <description>${escapeXml(description)}</description>
+                <inputSchema><![CDATA[${JSON.stringify(inputSchema)}]]></inputSchema>
             </tool>`;
         } else {
             toolsXml += `
-            <tool name="${tool.name}">
-                <sequence>${tool.sequenceName}</sequence>
-                <description>${tool.description || tool.sequenceName}</description>
-                <inputSchema>${tool.inputSchema}</inputSchema>
+            <tool name="${escapeXml(tool.name)}">
+                <sequence>${escapeXml(tool.sequenceName)}</sequence>
+                <description>${escapeXml(tool.description || tool.sequenceName)}</description>
+                <inputSchema><![CDATA[${tool.inputSchema}]]></inputSchema>
             </tool>`;
         }
     });
