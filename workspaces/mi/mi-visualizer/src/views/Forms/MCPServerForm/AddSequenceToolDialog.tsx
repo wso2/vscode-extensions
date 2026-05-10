@@ -16,12 +16,13 @@
  * under the License.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import styled from '@emotion/styled';
 import { Button, Typography } from '@wso2/ui-toolkit';
+import { useForm } from 'react-hook-form';
 import { Sequence } from '@wso2/mi-core';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
-import { DialogOverlay, DialogContent, DialogField, DialogButtonGroup, CustomInput, SelectAllRow, FlexRow, FlexRowStart, CustomInputsContainer, ItemsList, ListItem, ListItemHeader, ItemCheckbox, SchemaTextarea, DialogTitle } from './dialogStyles';
+import { DialogOverlay, DialogContent, DialogField, DialogButtonGroup, CustomInput, SelectAllRow, FlexRow, CustomInputsContainer, ItemsList, ListItem, ListItemHeader, ItemCheckbox, SchemaTextarea, DialogTitle } from './dialogStyles';
 import { EMPTY_MCP_SCHEMA, INVALID_MCP_SCHEMA_MESSAGE } from '../../../constants';
 
 // Styled Components
@@ -41,46 +42,35 @@ export interface AddSequenceToolDialogProps {
     onCancel: () => void;
 }
 
+interface SequenceFormItem {
+    customName: string;
+    description: string;
+    inputSchema: string;
+}
+
+interface FormValues {
+    items: Record<string, SequenceFormItem>;
+}
+
 export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }: AddSequenceToolDialogProps) {
     const { rpcClient } = useVisualizerContext();
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-    const [customNames, setCustomNames] = useState<Record<string, string>>({});
-    const [customDescriptions, setCustomDescriptions] = useState<Record<string, string>>({});
-    const [descriptionErrors, setDescriptionErrors] = useState<Record<string, string>>({});
-    const [inputSchemas, setInputSchemas] = useState<Record<string, string>>({});
-    const [schemaErrors, setSchemaErrors] = useState<Record<string, string>>({});
     const [aiDescLoadingIds, setAiDescLoadingIds] = useState<Set<string>>(new Set());
     const [aiSchemaLoadingIds, setAiSchemaLoadingIds] = useState<Set<string>>(new Set());
 
-    const handleFillDescription = async (seq: Sequence) => {
-        setAiDescLoadingIds(prev => new Set(prev).add(seq.id));
-        try {
-            const result = await rpcClient.getMiVisualizerRpcClient().getMcpToolSuggestion({
-                toolName: customNames[seq.id]?.trim() || seq.name,
-            });
-            if (result.description) {
-                setCustomDescriptions(prev => ({ ...prev, [seq.id]: result.description }));
-                setDescriptionErrors(prev => { const n = { ...prev }; delete n[seq.id]; return n; });
-            }
-        } finally {
-            setAiDescLoadingIds(prev => { const n = new Set(prev); n.delete(seq.id); return n; });
-        }
-    };
+    const { register, handleSubmit, watch, getValues, setValue, setError, clearErrors, reset, formState: { errors } } = useForm<FormValues>({
+        defaultValues: { items: {} },
+        mode: 'onTouched',
+    });
 
-    const handleFillSchema = async (seq: Sequence) => {
-        setAiSchemaLoadingIds(prev => new Set(prev).add(seq.id));
-        try {
-            const result = await rpcClient.getMiVisualizerRpcClient().getMcpToolSuggestion({
-                toolName: customNames[seq.id]?.trim() || seq.name,
-            });
-            if (result.inputSchema) {
-                setInputSchemas(prev => ({ ...prev, [seq.id]: result.inputSchema }));
-                validateSchema(seq.id, result.inputSchema);
-            }
-        } finally {
-            setAiSchemaLoadingIds(prev => { const n = new Set(prev); n.delete(seq.id); return n; });
+    const items = watch('items') || {};
+
+    useEffect(() => {
+        if (!isOpen) {
+            reset({ items: {} });
+            setSelectedIds(new Set());
         }
-    };
+    }, [isOpen, reset]);
 
     if (!isOpen) return null;
 
@@ -88,7 +78,7 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
         const next = new Set(selectedIds);
         if (next.has(id)) {
             next.delete(id);
-            setDescriptionErrors(prev => { const n = { ...prev }; delete n[id]; return n; });
+            clearErrors(`items.${id}` as const);
         } else {
             next.add(id);
         }
@@ -101,45 +91,77 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
 
     const validateSchema = async (id: string, value: string): Promise<boolean> => {
         if (!value.trim()) {
-            setSchemaErrors(prev => { const n = { ...prev }; delete n[id]; return n; });
+            clearErrors(`items.${id}.inputSchema` as const);
             return true;
         }
         const { schema } = await rpcClient.getMiDiagramRpcClient().convertMcpJsonSchema({ input: value });
         if (schema === null) {
-            setSchemaErrors(prev => ({ ...prev, [id]: INVALID_MCP_SCHEMA_MESSAGE }));
+            setError(`items.${id}.inputSchema` as const, { message: INVALID_MCP_SCHEMA_MESSAGE });
             return false;
         }
-        setSchemaErrors(prev => { const n = { ...prev }; delete n[id]; return n; });
+        clearErrors(`items.${id}.inputSchema` as const);
         return true;
     };
 
-    const handleSchemaChange = (id: string, value: string) => {
-        setInputSchemas(prev => ({ ...prev, [id]: value }));
-        validateSchema(id, value);
+    const handleFillDescription = async (seq: Sequence) => {
+        setAiDescLoadingIds(prev => new Set(prev).add(seq.id));
+        try {
+            const customName = getValues(`items.${seq.id}.customName` as const);
+            const result = await rpcClient.getMiVisualizerRpcClient().getMcpToolSuggestion({
+                toolName: customName?.trim() || seq.name,
+            });
+            if (result.description) {
+                setValue(`items.${seq.id}.description` as const, result.description);
+                clearErrors(`items.${seq.id}.description` as const);
+            }
+        } finally {
+            setAiDescLoadingIds(prev => { const n = new Set(prev); n.delete(seq.id); return n; });
+        }
+    };
+
+    const handleFillSchema = async (seq: Sequence) => {
+        setAiSchemaLoadingIds(prev => new Set(prev).add(seq.id));
+        try {
+            const customName = getValues(`items.${seq.id}.customName` as const);
+            const result = await rpcClient.getMiVisualizerRpcClient().getMcpToolSuggestion({
+                toolName: customName?.trim() || seq.name,
+            });
+            if (result.inputSchema) {
+                setValue(`items.${seq.id}.inputSchema` as const, result.inputSchema);
+                validateSchema(seq.id, result.inputSchema);
+            }
+        } finally {
+            setAiSchemaLoadingIds(prev => { const n = new Set(prev); n.delete(seq.id); return n; });
+        }
     };
 
     const handleImportFile = async (id: string) => {
         const { content } = await rpcClient.getMiDiagramRpcClient().pickMcpJsonFile();
         if (content === null) return;
-        setInputSchemas(prev => ({ ...prev, [id]: content }));
+        setValue(`items.${id}.inputSchema` as const, content);
         validateSchema(id, content);
     };
 
-    const handleConfirm = async () => {
+    const onSubmit = async (data: FormValues) => {
         if (selectedIds.size === 0) return;
-        const hasSchemaErrors = Array.from(selectedIds).some(id => schemaErrors[id]);
-        if (hasSchemaErrors) return;
-        const missingDesc: Record<string, string> = {};
-        Array.from(selectedIds).forEach(id => {
-            if (!customDescriptions[id]?.trim()) missingDesc[id] = 'Description is required.';
-        });
-        if (Object.keys(missingDesc).length > 0) {
-            setDescriptionErrors(missingDesc);
-            return;
-        }
+
         const ids = Array.from(selectedIds);
+
+        let hasMissingDesc = false;
+        ids.forEach(id => {
+            if (!data.items?.[id]?.description?.trim()) {
+                setError(`items.${id}.description` as const, { message: 'Description is required.' });
+                hasMissingDesc = true;
+            }
+        });
+        if (hasMissingDesc) return;
+
+        const hasSchemaErrors = ids.some(id => errors.items?.[id]?.inputSchema);
+        if (hasSchemaErrors) return;
+
         const selected = await Promise.all(ids.map(async id => {
-            const raw = inputSchemas[id]?.trim() || '';
+            const item = data.items?.[id];
+            const raw = item?.inputSchema?.trim() || '';
             let converted: string | null = null;
             if (raw) {
                 const { schema } = await rpcClient.getMiDiagramRpcClient().convertMcpJsonSchema({ input: raw });
@@ -147,23 +169,20 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
             }
             return {
                 sequenceId: id,
-                customName: customNames[id]?.trim() || id,
-                description: customDescriptions[id]!.trim(),
+                customName: item?.customName?.trim() || id,
+                description: item!.description.trim(),
                 inputSchema: converted || EMPTY_MCP_SCHEMA,
             };
         }));
         onConfirm(selected);
+        reset({ items: {} });
         setSelectedIds(new Set());
-        setCustomNames({});
-        setCustomDescriptions({});
-        setDescriptionErrors({});
-        setInputSchemas({});
-        setSchemaErrors({});
     };
 
     const allSelected = sequences.length > 0 && selectedIds.size === sequences.length;
-    const hasSchemaErrors = Array.from(selectedIds).some(id => schemaErrors[id]);
-    const hasMissingDescriptions = Array.from(selectedIds).some(id => !customDescriptions[id]?.trim());
+    const selectedIdList = Array.from(selectedIds);
+    const hasSchemaErrors = selectedIdList.some(id => !!errors.items?.[id]?.inputSchema);
+    const hasMissingDescriptions = selectedIdList.some(id => !items[id]?.description?.trim());
 
     return (
         <DialogOverlay onClick={onCancel}>
@@ -187,7 +206,9 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
                                     <strong>Select All Sequences</strong>
                                 </label>
                             </SelectAllRow>
-                            {sequences.map(seq => (
+                            {sequences.map(seq => {
+                                const itemErrors = errors.items?.[seq.id];
+                                return (
                                 <ListItem key={seq.id}>
                                     <ListItemHeader onClick={() => toggleSequence(seq.id)}>
                                         <ItemCheckbox
@@ -206,8 +227,7 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
                                                 id={`name-${seq.id}`}
                                                 type="text"
                                                 placeholder={seq.name}
-                                                value={customNames[seq.id] || ''}
-                                                onChange={e => setCustomNames(prev => ({ ...prev, [seq.id]: e.target.value }))}
+                                                {...register(`items.${seq.id}.customName` as const)}
                                                 onClick={e => e.stopPropagation()}
                                             />
                                             <Typography variant="caption" sx={{ fontSize: '10px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>Description *</Typography>
@@ -216,13 +236,10 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
                                                     id={`desc-${seq.id}`}
                                                     type="text"
                                                     placeholder="Describe what this tool does"
-                                                    value={customDescriptions[seq.id] || ''}
-                                                    onChange={e => {
-                                                        const val = e.target.value;
-                                                        setCustomDescriptions(prev => ({ ...prev, [seq.id]: val }));
-                                                        if (val.trim()) setDescriptionErrors(prev => { const n = { ...prev }; delete n[seq.id]; return n; });
-                                                    }}
-                                                    onBlur={() => { if (!customDescriptions[seq.id]?.trim()) setDescriptionErrors(prev => ({ ...prev, [seq.id]: 'Description is required.' })); }}
+                                                    {...register(`items.${seq.id}.description` as const, {
+                                                        onChange: e => { if (e.target.value.trim()) clearErrors(`items.${seq.id}.description` as const); },
+                                                        onBlur: e => { if (!e.target.value.trim()) setError(`items.${seq.id}.description` as const, { message: 'Description is required.' }); },
+                                                    })}
                                                     onClick={e => e.stopPropagation()}
                                                 />
                                                 <Button
@@ -234,13 +251,14 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
                                                     {aiDescLoadingIds.has(seq.id) ? 'Filling...' : 'Fill With AI'}
                                                 </Button>
                                             </FlexRow>
-                                            {descriptionErrors[seq.id] && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)', fontSize: '11px' }}>{descriptionErrors[seq.id]}</Typography>}
+                                            {itemErrors?.description && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)', fontSize: '11px' }}>{String(itemErrors.description.message)}</Typography>}
                                             <Typography variant="caption" sx={{ fontSize: '10px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>Input Schema (JSON)</Typography>
                                             <SchemaRow>
                                                 <SchemaTextarea
                                                     placeholder='e.g. {"amount": number, "name": string}'
-                                                    value={inputSchemas[seq.id] || ''}
-                                                    onChange={e => handleSchemaChange(seq.id, e.target.value)}
+                                                    {...register(`items.${seq.id}.inputSchema` as const, {
+                                                        onChange: e => validateSchema(seq.id, e.target.value),
+                                                    })}
                                                     onClick={e => e.stopPropagation()}
                                                 />
                                                 <Button
@@ -259,11 +277,12 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
                                                     Import JSON
                                                 </Button>
                                             </SchemaRow>
-                                            {schemaErrors[seq.id] && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)', fontSize: '11px' }}>{schemaErrors[seq.id]}</Typography>}
+                                            {itemErrors?.inputSchema && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)', fontSize: '11px' }}>{String(itemErrors.inputSchema.message)}</Typography>}
                                         </CustomInputsContainer>
                                     )}
                                 </ListItem>
-                            ))}
+                                );
+                            })}
                         </ItemsList>
                     )}
                 </DialogField>
@@ -272,7 +291,7 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
                     {selectedIds.size > 0 && (
                         <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', alignSelf: 'center' }}>{selectedIds.size} sequence{selectedIds.size !== 1 ? 's' : ''} selected</Typography>
                     )}
-                    <Button appearance="primary" onClick={handleConfirm} disabled={selectedIds.size === 0 || hasSchemaErrors || hasMissingDescriptions}>
+                    <Button appearance="primary" onClick={handleSubmit(onSubmit)} disabled={selectedIds.size === 0 || hasSchemaErrors || hasMissingDescriptions}>
                         Add Selected ({selectedIds.size})
                     </Button>
                 </DialogButtonGroup>
