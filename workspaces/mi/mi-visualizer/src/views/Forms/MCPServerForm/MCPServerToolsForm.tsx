@@ -32,7 +32,6 @@ import {
     artifactParserConfig,
     buildInputSchemasForAPITools,
     cleanPathForToolName,
-    convertToJsonSchema,
     generateToolsXml,
     getUsedInboundPorts,
     MCP_INBOUND_LISTENER_CLASS,
@@ -42,6 +41,8 @@ import {
 import AddAPIToolDialog from './AddAPIToolDialog';
 import { AddSequenceToolDialog } from './AddSequenceToolDialog';
 import { CreateScratchToolDialog, ScratchToolData } from './CreateScratchToolDialog';
+import { ToolsListComponent } from './ToolsList';
+import { ToolTypeSelector } from './ToolTypeSelector';
 
 // Styled Components
 
@@ -63,73 +64,6 @@ const ToolsSectionHeader = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
-`;
-
-const ToolInfo = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    flex: 1;
-`;
-
-
-const ToolsList = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-top: 10px;
-`;
-
-const ToolItem = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px;
-    background: var(--vscode-editor-background);
-    border: 1px solid var(--vscode-panel-border);
-    border-radius: 3px;
-`;
-
-
-
-const InlineEditContainer = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    flex: 1;
-`;
-
-const InlineInput = styled.input`
-    background: var(--vscode-input-background);
-    color: var(--vscode-input-foreground);
-    border: 1px solid var(--vscode-input-border);
-    border-radius: 3px;
-    padding: 4px 6px;
-    font-size: 12px;
-    width: 100%;
-    box-sizing: border-box;
-    &:focus { outline: 1px solid var(--vscode-focusBorder); border-color: var(--vscode-focusBorder); }
-`;
-
-const InlineTextarea = styled.textarea`
-    background: var(--vscode-input-background);
-    color: var(--vscode-input-foreground);
-    border: 1px solid var(--vscode-input-border);
-    border-radius: 3px;
-    padding: 4px 6px;
-    font-size: 12px;
-    width: 100%;
-    box-sizing: border-box;
-    resize: vertical;
-    min-height: 48px;
-    font-family: inherit;
-    &:focus { outline: 1px solid var(--vscode-focusBorder); border-color: var(--vscode-focusBorder); }
-`;
-
-const InlineEditActions = styled.div`
-    display: flex;
-    gap: 6px;
-    justify-content: flex-end;
 `;
 
 const ErrorMessageContainer = styled.div`
@@ -163,38 +97,6 @@ const InfoRow = styled.div`
     display: flex;
     align-items: center;
     gap: 12px;
-`;
-
-// Tool Type Selection Page
-
-const ToolTypePage = styled.div`
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 24px;
-    width: 100%;
-    text-align: center;
-`;
-
-const ToolTypePageCards = styled.div`
-    display: flex;
-    gap: 20px;
-`;
-
-const ToolTypePageCard = styled.div`
-    flex: 1;
-    padding: 32px 24px;
-    border: 2px solid var(--vscode-panel-border);
-    border-radius: 10px;
-    cursor: pointer;
-    text-align: center;
-    transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
-    &:hover {
-        border-color: var(--vscode-focusBorder);
-        background: var(--vscode-list-hoverBackground);
-        transform: translateY(-2px);
-    }
 `;
 
 
@@ -260,10 +162,6 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
     const [showCreateScratchDialog, setShowCreateScratchDialog] = useState(false);
     const [showToolTypeSelector, setShowToolTypeSelector] = useState(false);
     const [selectedAPIForTool, setSelectedAPIForTool] = useState<string>('');
-    const [editingToolId, setEditingToolId] = useState<string | null>(null);
-    const [editToolName, setEditToolName] = useState('');
-    const [editToolDescription, setEditToolDescription] = useState('');
-    const [editToolInputSchema, setEditToolInputSchema] = useState('');
     const [corsSettings, setCorsSettings] = useState({
         corsAllowOrigin: '*',
         corsAllowMethods: 'GET, POST, OPTIONS',
@@ -638,31 +536,6 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
         saveToolsToLocalEntry(updatedTools);
     };
 
-    const startEditTool = (tool: UnifiedTool) => {
-        setEditingToolId(tool.id);
-        setEditToolName(tool.name);
-        setEditToolDescription(tool.description);
-        setEditToolInputSchema(tool.kind === 'sequence' ? tool.inputSchema : '');
-    };
-
-    const saveEditTool = () => {
-        const updatedTools = tools.map(t => {
-            if (t.id !== editingToolId) return t;
-            const base = { ...t, name: editToolName.trim() || t.name, description: editToolDescription };
-            if (t.kind === 'sequence') {
-                const normalizedSchema = editToolInputSchema.trim() ? convertToJsonSchema(editToolInputSchema) : null;
-                return { ...base, inputSchema: normalizedSchema || t.inputSchema };
-            }
-            return base;
-        });
-        setTools(updatedTools);
-        saveToolsToLocalEntry(updatedTools);
-        setEditingToolId(null);
-    };
-
-    const cancelEditTool = () => {
-        setEditingToolId(null);
-    };
 
     // Submit
 
@@ -754,59 +627,22 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
             />
             <ViewContent padding>
                 {showToolTypeSelector ? (
-                    <ToolTypePage>
-                        <div>
-                            <Typography variant="h2" sx={{ marginBottom: '8px' }}>Select Tool Type</Typography>
-                            <Typography variant="body2" sx={{ color: 'var(--vscode-descriptionForeground)' }}>
-                                Choose how you want to expose functionality as an MCP tool.
-                            </Typography>
-                        </div>
-
-                        <ToolTypePageCards>
-                            <ToolTypePageCard
-                                onClick={() => {
-                                    setShowToolTypeSelector(false);
-                                    setShowAddAPIDialog(true);
-                                    setSelectedAPIForTool('');
-                                }}
-                            >
-                                <Typography variant="h3" sx={{ fontWeight: 600, marginBottom: '8px' }}>From APIs</Typography>
-                                <Typography variant="body2" sx={{ fontSize: '13px', color: 'var(--vscode-descriptionForeground)', lineHeight: 1.5 }}>
-                                    Expose an API operation as a tool. Select from existing REST API
-                                    resources defined in this project.
-                                </Typography>
-                            </ToolTypePageCard>
-
-                            <ToolTypePageCard
-                                onClick={() => {
-                                    setShowToolTypeSelector(false);
-                                    setShowAddSeqDialog(true);
-                                }}
-                            >
-                                <Typography variant="h3" sx={{ fontWeight: 600, marginBottom: '8px' }}>From Sequences</Typography>
-                                <Typography variant="body2" sx={{ fontSize: '13px', color: 'var(--vscode-descriptionForeground)', lineHeight: 1.5 }}>
-                                    Expose a mediation sequence as a tool. Select from existing
-                                    sequences defined in this project.
-                                </Typography>
-                            </ToolTypePageCard>
-
-                            <ToolTypePageCard
-                                onClick={() => {
-                                    setShowToolTypeSelector(false);
-                                    setShowCreateScratchDialog(true);
-                                }}
-                            >
-                                <Typography variant="h3" sx={{ fontWeight: 600, marginBottom: '8px' }}>New Tool</Typography>
-                                <Typography variant="body2" sx={{ fontSize: '13px', color: 'var(--vscode-descriptionForeground)', lineHeight: 1.5 }}>
-                                    Create a tool from scratch.
-                                </Typography>
-                            </ToolTypePageCard>
-                        </ToolTypePageCards>
-
-                        <Button appearance="secondary" onClick={() => setShowToolTypeSelector(false)} sx={{ alignSelf: 'flex-start', padding: '6px 14px', fontSize: '13px' }}>
-                            ← Back
-                        </Button>
-                    </ToolTypePage>
+                    <ToolTypeSelector
+                        onSelectFromAPIs={() => {
+                            setShowToolTypeSelector(false);
+                            setShowAddAPIDialog(true);
+                            setSelectedAPIForTool('');
+                        }}
+                        onSelectFromSequences={() => {
+                            setShowToolTypeSelector(false);
+                            setShowAddSeqDialog(true);
+                        }}
+                        onSelectNewTool={() => {
+                            setShowToolTypeSelector(false);
+                            setShowCreateScratchDialog(true);
+                        }}
+                        onCancel={() => setShowToolTypeSelector(false)}
+                    />
                 ) : (
                     <Container>
                         <div>
@@ -940,80 +776,13 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                                 {tools.length === 0 ? (
                                     <Typography variant="body2" sx={{ color: 'var(--vscode-descriptionForeground)', textAlign: 'center', padding: '15px', fontSize: '12px' }}>No tools added yet. Use the buttons above to add API or sequence tools.</Typography>
                                 ) : (
-                                    <ToolsList>
-                                        {tools.map(tool => (
-                                            <ToolItem
-                                                key={tool.id}
-                                                style={editingToolId === tool.id ? { flexDirection: 'column', alignItems: 'stretch', gap: '8px' } : { cursor: 'pointer' }}
-                                                onClick={() => editingToolId !== tool.id && goToToolSource(tool)}
-                                                title={tool.kind === 'api' ? `Open API: ${tool.apiName}` : `Open sequence: ${tool.sequenceName}`}
-                                            >
-                                                {editingToolId === tool.id ? (
-                                                    <>
-                                                        <InlineEditContainer>
-                                                            <InlineInput
-                                                                value={editToolName}
-                                                                onChange={e => setEditToolName(e.target.value)}
-                                                                placeholder="Tool name"
-                                                                aria-label="Tool name"
-                                                            />
-                                                            <InlineTextarea
-                                                                value={editToolDescription}
-                                                                onChange={e => setEditToolDescription(e.target.value)}
-                                                                placeholder="Tool description"
-                                                                aria-label="Tool description"
-                                                            />
-                                                            {tool.kind === 'sequence' && (
-                                                                <InlineTextarea
-                                                                    value={editToolInputSchema}
-                                                                    onChange={e => setEditToolInputSchema(e.target.value)}
-                                                                    placeholder='Input schema (JSON), e.g. {"type":"object","properties":{}}'
-                                                                    aria-label="Input schema"
-                                                                    style={{ minHeight: '72px', fontFamily: 'monospace' }}
-                                                                />
-                                                            )}
-                                                        </InlineEditContainer>
-                                                        <InlineEditActions>
-                                                            <Button appearance="secondary" onClick={cancelEditTool} sx={{ padding: '4px 10px', fontSize: '11px', minWidth: 'auto' }}>Cancel</Button>
-                                                            <Button appearance="primary" onClick={saveEditTool} sx={{ padding: '4px 10px', fontSize: '11px', minWidth: 'auto' }}>Save</Button>
-                                                        </InlineEditActions>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <ToolInfo>
-                                                            <Typography variant="body2" sx={{ fontWeight: 600 }}>{tool.name}</Typography>
-                                                            {tool.description && (
-                                                                <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)' }}>{tool.description}</Typography>
-                                                            )}
-                                                        </ToolInfo>
-                                                        {tool.kind === 'api' ? (
-                                                            <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--vscode-descriptionForeground)' }}>
-                                                                {tool.operationMethod} {tool.operationPath} ({tool.apiName})
-                                                            </Typography>
-                                                        ) : (
-                                                            <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--vscode-descriptionForeground)' }}>
-                                                                SEQUENCE · {tool.sequenceName}
-                                                            </Typography>
-                                                        )}
-                                                        <Button
-                                                            appearance="secondary"
-                                                            onClick={(e: any) => { e.stopPropagation(); startEditTool(tool); }}
-                                                            sx={{ padding: '4px 8px', fontSize: '11px', minWidth: 'auto', marginRight: '4px' }}
-                                                        >
-                                                            Edit
-                                                        </Button>
-                                                        <Button
-                                                            appearance="secondary"
-                                                            onClick={(e: any) => { e.stopPropagation(); removeTool(tool.id); }}
-                                                            sx={{ padding: '4px 8px', fontSize: '11px', minWidth: 'auto' }}
-                                                        >
-                                                            ✕
-                                                        </Button>
-                                                    </>
-                                                )}
-                                            </ToolItem>
-                                        ))}
-                                    </ToolsList>
+                                    <ToolsListComponent
+                                        tools={tools}
+                                        onEdit={() => {}}
+                                        onRemove={removeTool}
+                                        onSave={saveToolsToLocalEntry}
+                                        onGoToSource={goToToolSource}
+                                    />
                                 )}
                             </FormSection>
 
