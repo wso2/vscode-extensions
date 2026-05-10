@@ -16,11 +16,12 @@
  * under the License.
  */
 
-import { ChangeEvent, useRef, useState } from 'react';
+import { useState } from 'react';
 import styled from '@emotion/styled';
 import { Button, Typography } from '@wso2/ui-toolkit';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
 import { DialogOverlay, DialogContent, DialogField, DialogButtonGroup, StdInput, SchemaTextarea, FlexRowStart, DialogTitle } from './dialogStyles';
+import { EMPTY_MCP_SCHEMA, INVALID_MCP_SCHEMA_MESSAGE } from '../../../constants';
 
 // Styled Components
 
@@ -62,7 +63,6 @@ export function CreateScratchToolDialog({
     const [schemaError, setSchemaError] = useState('');
     const [aiDescLoading, setAiDescLoading] = useState(false);
     const [aiSchemaLoading, setAiSchemaLoading] = useState(false);
-    const fileInputRef = useRef<HTMLInputElement | null>(null);
 
     const validateName = (value: string): boolean => {
         if (!value.trim()) {
@@ -130,7 +130,7 @@ export function CreateScratchToolDialog({
         if (!value.trim()) { setSchemaError(''); return true; }
         const { schema } = await rpcClient.getMiDiagramRpcClient().convertMcpJsonSchema({ input: value });
         if (schema === null) {
-            setSchemaError('Invalid JSON. Use shorthand like {"city": "string"} or full JSON Schema.');
+            setSchemaError(INVALID_MCP_SCHEMA_MESSAGE);
             return false;
         }
         setSchemaError('');
@@ -142,17 +142,11 @@ export function CreateScratchToolDialog({
         validateSchema(value);
     };
 
-    const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const content = event.target?.result as string;
-            setInputSchema(content);
-            validateSchema(content);
-        };
-        reader.readAsText(file);
-        e.target.value = '';
+    const handleImportFile = async () => {
+        const { content } = await rpcClient.getMiDiagramRpcClient().pickMcpJsonFile();
+        if (content === null) return;
+        setInputSchema(content);
+        validateSchema(content);
     };
 
     const handleConfirm = async () => {
@@ -161,14 +155,15 @@ export function CreateScratchToolDialog({
             setDescriptionError('Description is required.');
             return;
         }
-        const emptySchema = JSON.stringify({ type: 'object', properties: {}, additionalProperties: false });
-        const converted = inputSchema.trim()
-            ? (await rpcClient.getMiDiagramRpcClient().convertMcpJsonSchema({ input: inputSchema })).schema
-            : null;
+        let converted: string | null = null;
+        if (inputSchema.trim()) {
+            const { schema } = await rpcClient.getMiDiagramRpcClient().convertMcpJsonSchema({ input: inputSchema });
+            converted = schema;
+        }
         onConfirm({
             name: name.trim(),
             description: description.trim(),
-            inputSchema: converted || emptySchema,
+            inputSchema: converted || EMPTY_MCP_SCHEMA,
         });
         setName('');
         setNameError('');
@@ -228,16 +223,9 @@ export function CreateScratchToolDialog({
                         <Button appearance="secondary" onClick={handleFillSchema} disabled={!name.trim() || aiSchemaLoading} sx={{ padding: '4px 10px', fontSize: '12px', minWidth: 'auto' }}>
                             {aiSchemaLoading ? 'Filling...' : 'Fill With AI'}
                         </Button>
-                        <Button appearance="secondary" onClick={() => fileInputRef.current?.click()} sx={{ padding: '4px 10px', fontSize: '12px', minWidth: 'auto' }}>
+                        <Button appearance="secondary" onClick={handleImportFile} sx={{ padding: '4px 10px', fontSize: '12px', minWidth: 'auto' }}>
                             Import JSON
                         </Button>
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept=".json"
-                            style={{ display: 'none' }}
-                            onChange={handleFileChange}
-                        />
                     </SchemaRow>
                     {schemaError && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)' }}>{schemaError}</Typography>}
                 </DialogField>

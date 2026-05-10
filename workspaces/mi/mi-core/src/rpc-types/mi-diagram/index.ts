@@ -281,6 +281,7 @@ import {
     CleanMcpToolNamesResponse,
     ConvertMcpJsonSchemaRequest,
     ConvertMcpJsonSchemaResponse,
+    PickMcpJsonFileResponse,
     GetMcpInboundListenerClassResponse,
     GenerateMappingsParamsRequest,
     ProjectCreationStatusResponse,
@@ -498,6 +499,7 @@ export interface MiDiagramAPI {
     updateMcpInboundEndpointCors: (params: UpdateMcpInboundEndpointCorsRequest) => Promise<UpdateMcpInboundEndpointCorsResponse>;
     cleanMcpToolNames: (params: CleanMcpToolNamesRequest) => Promise<CleanMcpToolNamesResponse>;
     convertMcpJsonSchema: (params: ConvertMcpJsonSchemaRequest) => Promise<ConvertMcpJsonSchemaResponse>;
+    pickMcpJsonFile: () => Promise<PickMcpJsonFileResponse>;
     getMcpInboundListenerClass: () => Promise<GetMcpInboundListenerClassResponse>;
 }
 

@@ -362,6 +362,7 @@ import {
     CleanMcpToolNamesRequest,
     convertMcpJsonSchema,
     ConvertMcpJsonSchemaRequest,
+    pickMcpJsonFile,
     getMcpInboundListenerClass,
     // getBackendRootUrl - REMOVED: Backend URLs deprecated, all AI features use local LLM
 } from "@wso2/mi-core";
@@ -571,5 +572,6 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(updateMcpInboundEndpointCors, (args: UpdateMcpInboundEndpointCorsRequest) => rpcManger.updateMcpInboundEndpointCors(args));
     messenger.onRequest(cleanMcpToolNames, (args: CleanMcpToolNamesRequest) => rpcManger.cleanMcpToolNames(args));
     messenger.onRequest(convertMcpJsonSchema, (args: ConvertMcpJsonSchemaRequest) => rpcManger.convertMcpJsonSchema(args));
+    messenger.onRequest(pickMcpJsonFile, () => rpcManger.pickMcpJsonFile());
     messenger.onRequest(getMcpInboundListenerClass, () => rpcManger.getMcpInboundListenerClass());
 }
