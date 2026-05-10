@@ -21,3 +21,13 @@
 - add askills.md file to teach copilot to create arazzo files
 
 PS: when working on this project i had the wso2/arazzo-extension as origin and HimethW/(mybranch) as myfork remotes
+
+PS: to connect a mcp with vscode create .vscode/mcp.json and 
+{
+  "servers": {
+    "arazzo": {
+      "type": "http",
+      "url": "http://localhost:9900/mcp"
+    }
+  }
+}
