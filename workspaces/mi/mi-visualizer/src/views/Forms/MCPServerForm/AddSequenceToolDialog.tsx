@@ -18,234 +18,18 @@
 
 import { ChangeEvent, useRef, useState } from 'react';
 import styled from '@emotion/styled';
+import { Button, Typography } from '@wso2/ui-toolkit';
 import { convertToJsonSchema } from './utils';
 import { Sequence } from '@wso2/mi-core';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
+import { DialogOverlay, DialogContent, DialogField, DialogButtonGroup, CustomInput, SelectAllRow, FlexRow, FlexRowStart, CustomInputsContainer, ItemsList, ListItem, ListItemHeader, ItemCheckbox, SchemaTextarea, DialogTitle } from './dialogStyles';
 
 // Styled Components
-
-const DialogOverlay = styled.div`
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-`;
-
-const DialogContent = styled.div`
-    background: var(--vscode-editor-background);
-    border: 1px solid var(--vscode-panel-border);
-    border-radius: 8px;
-    padding: 20px;
-    max-width: 600px;
-    width: 90%;
-    max-height: 80vh;
-    overflow-y: auto;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-`;
-
-const DialogTitle = styled.h3`
-    color: var(--vscode-editor-foreground);
-    margin: 0 0 15px 0;
-    font-size: 16px;
-    font-weight: 600;
-`;
-
-const DialogField = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-bottom: 15px;
-`;
-
-const DialogLabel = styled.label`
-    color: var(--vscode-editor-foreground);
-    font-size: 12px;
-    font-weight: 500;
-`;
-
-const SequencesList = styled.div`
-    background: var(--vscode-input-background);
-    border: 1px solid var(--vscode-input-border);
-    border-radius: 3px;
-    max-height: 400px;
-    overflow-y: auto;
-    padding: 8px 0;
-`;
-
-const SequenceItem = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--vscode-panel-border);
-    &:last-child { border-bottom: none; }
-    &:hover { background: var(--vscode-list-hoverBackground); }
-`;
-
-const SequenceItemHeader = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    cursor: pointer;
-    user-select: none;
-`;
-
-const SequenceCheckbox = styled.input`
-    cursor: pointer;
-    accent-color: var(--vscode-focusBorder);
-    margin-top: 2px;
-`;
-
-const SequenceName = styled.span`
-    color: var(--vscode-editor-foreground);
-    font-family: monospace;
-    font-size: 12px;
-`;
-
-const SelectAllRow = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--vscode-panel-border);
-    background: var(--vscode-list-activeSelectionBackground);
-    cursor: pointer;
-    user-select: none;
-`;
-
-const SelectAllLabel = styled.label`
-    cursor: pointer;
-    margin-bottom: 0;
-    font-size: 12px;
-    color: var(--vscode-editor-foreground);
-`;
-
-const CustomInputsContainer = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    margin-left: 26px;
-`;
-
-const InputFieldLabel = styled.label`
-    font-size: 10px;
-    color: var(--vscode-descriptionForeground);
-    margin-top: 2px;
-`;
-
-const CustomInput = styled.input`
-    background: var(--vscode-editor-background);
-    color: var(--vscode-editor-foreground);
-    border: 1px solid var(--vscode-input-border);
-    padding: 4px 6px;
-    border-radius: 3px;
-    font-size: 11px;
-    font-family: inherit;
-    &:focus { outline: none; border-color: var(--vscode-focusBorder); }
-`;
 
 const SchemaRow = styled.div`
     display: flex;
     align-items: center;
     gap: 8px;
-`;
-
-const SchemaTextarea = styled.textarea`
-    width: 100%;
-    min-height: 80px;
-    padding: 6px 8px;
-    font-size: 12px;
-    font-family: var(--vscode-editor-font-family, monospace);
-    background: var(--vscode-input-background);
-    color: var(--vscode-input-foreground);
-    border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
-    border-radius: 3px;
-    resize: vertical;
-    box-sizing: border-box;
-    &:focus { outline: none; border-color: var(--vscode-focusBorder); }
-`;
-
-const SchemaImportBtn = styled.button`
-    padding: 4px 10px;
-    font-size: 12px;
-    white-space: nowrap;
-    border: 1px solid var(--vscode-button-secondaryBackground);
-    border-radius: 3px;
-    cursor: pointer;
-    background: var(--vscode-button-secondaryBackground);
-    color: var(--vscode-button-secondaryForeground);
-    &:hover { background: var(--vscode-button-secondaryHoverBackground); }
-`;
-
-const SchemaError = styled.span`
-    color: var(--vscode-inputValidation-errorForeground, var(--vscode-errorForeground));
-    font-size: 11px;
-`;
-
-const FillAIBtn = styled.button`
-    padding: 4px 10px;
-    font-size: 12px;
-    white-space: nowrap;
-    border: 1px solid var(--vscode-button-background);
-    border-radius: 3px;
-    cursor: pointer;
-    background: var(--vscode-button-background);
-    color: var(--vscode-button-foreground);
-    &:hover { background: var(--vscode-button-hoverBackground); }
-    &:disabled { opacity: 0.5; cursor: not-allowed; }
-`;
-
-const DescriptionRow = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 6px;
-`;
-
-const EmptyMessage = styled.div`
-    color: var(--vscode-descriptionForeground);
-    text-align: center;
-    padding: 15px;
-    font-size: 12px;
-`;
-
-const DialogButtonGroup = styled.div`
-    display: flex;
-    gap: 10px;
-    justify-content: space-between;
-    margin-top: 15px;
-    padding-top: 15px;
-    border-top: 1px solid var(--vscode-panel-border);
-`;
-
-const SelectionInfo = styled.span`
-    color: var(--vscode-descriptionForeground);
-    font-size: 12px;
-    align-self: center;
-`;
-
-const DialogBtn = styled.button`
-    padding: 6px 12px;
-    font-size: 12px;
-    border: none;
-    border-radius: 3px;
-    cursor: pointer;
-    font-weight: 500;
-`;
-
-const DialogCancelBtn = styled(DialogBtn)`
-    background: var(--vscode-button-secondaryBackground);
-    color: var(--vscode-button-secondaryForeground);
-    &:hover { background: var(--vscode-button-secondaryHoverBackground); }
-`;
-
-const DialogAddBtn = styled(DialogBtn)`
-    background: var(--vscode-button-background);
-    color: var(--vscode-button-foreground);
-    &:hover { background: var(--vscode-button-hoverBackground); }
-    &:disabled { opacity: 0.6; cursor: not-allowed; }
 `;
 
 // Component
@@ -389,38 +173,38 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
             <DialogContent onClick={e => e.stopPropagation()}>
                 <DialogTitle>Add Tools from Sequences</DialogTitle>
                 <DialogField>
-                    <DialogLabel>Select Sequences ({selectedIds.size} of {sequences.length})</DialogLabel>
+                    <Typography variant="subtitle2">Select Sequences ({selectedIds.size} of {sequences.length})</Typography>
                     {sequences.length === 0 ? (
-                        <EmptyMessage>No sequences found in the project</EmptyMessage>
+                        <Typography variant="body2" sx={{ color: 'var(--vscode-descriptionForeground)', textAlign: 'center', padding: '15px' }}>No sequences found in the project</Typography>
                     ) : (
-                        <SequencesList>
+                        <ItemsList>
                             <SelectAllRow onClick={handleSelectAll}>
-                                <SequenceCheckbox
+                                <ItemCheckbox
                                     type="checkbox"
                                     checked={allSelected}
                                     onChange={handleSelectAll}
                                     onClick={e => e.stopPropagation()}
                                     id="select-all-sequences"
                                 />
-                                <SelectAllLabel onClick={e => e.stopPropagation()} htmlFor="select-all-sequences">
+                                <label onClick={(e: any) => e.stopPropagation()} style={{ cursor: 'pointer', margin: 0, fontSize: '12px', fontWeight: 500, color: 'var(--vscode-editor-foreground)' }}>
                                     <strong>Select All Sequences</strong>
-                                </SelectAllLabel>
+                                </label>
                             </SelectAllRow>
                             {sequences.map(seq => (
-                                <SequenceItem key={seq.id}>
-                                    <SequenceItemHeader onClick={() => toggleSequence(seq.id)}>
-                                        <SequenceCheckbox
+                                <ListItem key={seq.id}>
+                                    <ListItemHeader onClick={() => toggleSequence(seq.id)}>
+                                        <ItemCheckbox
                                             type="checkbox"
                                             checked={selectedIds.has(seq.id)}
                                             onChange={() => toggleSequence(seq.id)}
                                             onClick={e => e.stopPropagation()}
                                             id={`seq-${seq.id}`}
                                         />
-                                        <SequenceName>{seq.name}</SequenceName>
-                                    </SequenceItemHeader>
+                                        <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '12px' }}>{seq.name}</Typography>
+                                    </ListItemHeader>
                                     {selectedIds.has(seq.id) && (
                                         <CustomInputsContainer>
-                                            <InputFieldLabel htmlFor={`name-${seq.id}`}>Tool name</InputFieldLabel>
+                                            <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', marginTop: '2px', fontSize: '10px' }}>Tool name</Typography>
                                             <CustomInput
                                                 id={`name-${seq.id}`}
                                                 type="text"
@@ -429,8 +213,8 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
                                                 onChange={e => setCustomNames(prev => ({ ...prev, [seq.id]: e.target.value }))}
                                                 onClick={e => e.stopPropagation()}
                                             />
-                                            <InputFieldLabel htmlFor={`desc-${seq.id}`}>Description *</InputFieldLabel>
-                                            <DescriptionRow>
+                                            <Typography variant="caption" sx={{ fontSize: '10px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>Description *</Typography>
+                                            <FlexRow>
                                                 <CustomInput
                                                     id={`desc-${seq.id}`}
                                                     type="text"
@@ -444,16 +228,17 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
                                                     onBlur={() => { if (!customDescriptions[seq.id]?.trim()) setDescriptionErrors(prev => ({ ...prev, [seq.id]: 'Description is required.' })); }}
                                                     onClick={e => e.stopPropagation()}
                                                 />
-                                                <FillAIBtn
-                                                    type="button"
+                                                <Button
+                                                    appearance="secondary"
                                                     disabled={aiDescLoadingIds.has(seq.id)}
-                                                    onClick={e => { e.stopPropagation(); handleFillDescription(seq); }}
+                                                    onClick={(e: any) => { e.stopPropagation(); handleFillDescription(seq); }}
+                                                    sx={{ padding: '4px 10px', fontSize: '12px', minWidth: 'auto' }}
                                                 >
                                                     {aiDescLoadingIds.has(seq.id) ? 'Filling...' : 'Fill With AI'}
-                                                </FillAIBtn>
-                                            </DescriptionRow>
-                                            {descriptionErrors[seq.id] && <SchemaError>{descriptionErrors[seq.id]}</SchemaError>}
-                                            <InputFieldLabel>Input Schema (JSON)</InputFieldLabel>
+                                                </Button>
+                                            </FlexRow>
+                                            {descriptionErrors[seq.id] && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)', fontSize: '11px' }}>{descriptionErrors[seq.id]}</Typography>}
+                                            <Typography variant="caption" sx={{ fontSize: '10px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>Input Schema (JSON)</Typography>
                                             <SchemaRow>
                                                 <SchemaTextarea
                                                     placeholder='e.g. {"amount": number, "name": string}'
@@ -461,19 +246,21 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
                                                     onChange={e => handleSchemaChange(seq.id, e.target.value)}
                                                     onClick={e => e.stopPropagation()}
                                                 />
-                                                <FillAIBtn
-                                                    type="button"
+                                                <Button
+                                                    appearance="secondary"
                                                     disabled={aiSchemaLoadingIds.has(seq.id)}
-                                                    onClick={e => { e.stopPropagation(); handleFillSchema(seq); }}
+                                                    onClick={(e: any) => { e.stopPropagation(); handleFillSchema(seq); }}
+                                                    sx={{ padding: '4px 10px', fontSize: '12px', minWidth: 'auto' }}
                                                 >
                                                     {aiSchemaLoadingIds.has(seq.id) ? 'Filling...' : 'Fill With AI'}
-                                                </FillAIBtn>
-                                                <SchemaImportBtn
-                                                    type="button"
-                                                    onClick={e => { e.stopPropagation(); handleImportFile(seq.id); }}
+                                                </Button>
+                                                <Button
+                                                    appearance="secondary"
+                                                    onClick={(e: any) => { e.stopPropagation(); handleImportFile(seq.id); }}
+                                                    sx={{ padding: '4px 10px', fontSize: '12px', minWidth: 'auto' }}
                                                 >
                                                     Import JSON
-                                                </SchemaImportBtn>
+                                                </Button>
                                                 <input
                                                     ref={el => { fileInputRefs.current[seq.id] = el; }}
                                                     type="file"
@@ -482,22 +269,22 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
                                                     onChange={e => handleFileChange(seq.id, e)}
                                                 />
                                             </SchemaRow>
-                                            {schemaErrors[seq.id] && <SchemaError>{schemaErrors[seq.id]}</SchemaError>}
+                                            {schemaErrors[seq.id] && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)', fontSize: '11px' }}>{schemaErrors[seq.id]}</Typography>}
                                         </CustomInputsContainer>
                                     )}
-                                </SequenceItem>
+                                </ListItem>
                             ))}
-                        </SequencesList>
+                        </ItemsList>
                     )}
                 </DialogField>
                 <DialogButtonGroup>
-                    <DialogCancelBtn onClick={onCancel}>Cancel</DialogCancelBtn>
+                    <Button appearance="secondary" onClick={onCancel}>Cancel</Button>
                     {selectedIds.size > 0 && (
-                        <SelectionInfo>{selectedIds.size} sequence{selectedIds.size !== 1 ? 's' : ''} selected</SelectionInfo>
+                        <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', alignSelf: 'center' }}>{selectedIds.size} sequence{selectedIds.size !== 1 ? 's' : ''} selected</Typography>
                     )}
-                    <DialogAddBtn onClick={handleConfirm} disabled={selectedIds.size === 0 || hasSchemaErrors || hasMissingDescriptions}>
+                    <Button appearance="primary" onClick={handleConfirm} disabled={selectedIds.size === 0 || hasSchemaErrors || hasMissingDescriptions}>
                         Add Selected ({selectedIds.size})
-                    </DialogAddBtn>
+                    </Button>
                 </DialogButtonGroup>
             </DialogContent>
         </DialogOverlay>

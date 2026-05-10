@@ -18,7 +18,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import styled from '@emotion/styled';
-import { TextField, Button } from '@wso2/ui-toolkit';
+import { TextField, Button, Typography } from '@wso2/ui-toolkit';
 import { useForm } from 'react-hook-form';
 import * as yup from 'yup';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -53,30 +53,10 @@ const Container = styled.div`
     max-width: 900px;
 `;
 
-const Title = styled.h2`
-    color: var(--vscode-editor-foreground);
-    margin: 0 0 10px 0;
-    font-size: 20px;
-    font-weight: 600;
-`;
-
-const Description = styled.p`
-    color: var(--vscode-descriptionForeground);
-    margin: 0 0 20px 0;
-    font-size: 13px;
-`;
-
 const FormSection = styled.div`
     display: flex;
     flex-direction: column;
     gap: 15px;
-`;
-
-const SectionLabel = styled.label`
-    color: var(--vscode-editor-foreground);
-    font-weight: 500;
-    font-size: 14px;
-    display: block;
 `;
 
 const ToolsSectionHeader = styled.div`
@@ -90,17 +70,6 @@ const ToolInfo = styled.div`
     flex-direction: column;
     gap: 2px;
     flex: 1;
-`;
-
-const ToolName = styled.span`
-    font-weight: 600;
-    font-size: 12px;
-    color: var(--vscode-editor-foreground);
-`;
-
-const ToolDescription = styled.span`
-    font-size: 11px;
-    color: var(--vscode-descriptionForeground);
 `;
 
 
@@ -121,34 +90,6 @@ const ToolItem = styled.div`
     border-radius: 3px;
 `;
 
-const ToolMeta = styled.span`
-    color: var(--vscode-descriptionForeground);
-    font-size: 11px;
-    font-family: monospace;
-`;
-
-const RemoveBtn = styled.button`
-    padding: 4px 8px;
-    font-size: 11px;
-    background: var(--vscode-button-secondaryBackground);
-    color: var(--vscode-button-secondaryForeground);
-    border: none;
-    border-radius: 3px;
-    cursor: pointer;
-    &:hover { background: var(--vscode-button-secondaryHoverBackground); }
-`;
-
-const EditBtn = styled.button`
-    padding: 4px 8px;
-    font-size: 11px;
-    background: var(--vscode-button-secondaryBackground);
-    color: var(--vscode-button-secondaryForeground);
-    border: none;
-    border-radius: 3px;
-    cursor: pointer;
-    margin-right: 4px;
-    &:hover { background: var(--vscode-button-secondaryHoverBackground); }
-`;
 
 
 const InlineEditContainer = styled.div`
@@ -191,36 +132,7 @@ const InlineEditActions = styled.div`
     justify-content: flex-end;
 `;
 
-const SaveBtn = styled.button`
-    padding: 4px 10px;
-    font-size: 11px;
-    background: var(--vscode-button-background);
-    color: var(--vscode-button-foreground);
-    border: none;
-    border-radius: 3px;
-    cursor: pointer;
-    &:hover { background: var(--vscode-button-hoverBackground); }
-`;
-
-const CancelEditBtn = styled.button`
-    padding: 4px 10px;
-    font-size: 11px;
-    background: var(--vscode-button-secondaryBackground);
-    color: var(--vscode-button-secondaryForeground);
-    border: none;
-    border-radius: 3px;
-    cursor: pointer;
-    &:hover { background: var(--vscode-button-secondaryHoverBackground); }
-`;
-
-const EmptyMessage = styled.div`
-    color: var(--vscode-descriptionForeground);
-    text-align: center;
-    padding: 15px;
-    font-size: 12px;
-`;
-
-const ErrorMessage = styled.div`
+const ErrorMessageContainer = styled.div`
     color: var(--vscode-inputValidation-errorBorder);
     padding: 10px;
     border: 1px solid var(--vscode-inputValidation-errorBorder);
@@ -234,19 +146,6 @@ const ButtonGroup = styled.div`
     gap: 10px;
     justify-content: flex-end;
     margin-top: 20px;
-`;
-
-const AddToolBtn = styled.button`
-    padding: 8px 16px;
-    font-size: 13px;
-    background: var(--vscode-button-background);
-    color: var(--vscode-button-foreground);
-    border: none;
-    border-radius: 3px;
-    cursor: pointer;
-    font-weight: 500;
-    &:hover { background: var(--vscode-button-hoverBackground); }
-    &:disabled { opacity: 0.5; cursor: not-allowed; }
 `;
 
 const InfoPanel = styled.div`
@@ -264,20 +163,6 @@ const InfoRow = styled.div`
     display: flex;
     align-items: center;
     gap: 12px;
-`;
-
-const InfoLabel = styled.span`
-    color: var(--vscode-descriptionForeground);
-    font-size: 13px;
-    font-weight: 500;
-    min-width: 80px;
-`;
-
-const InfoValue = styled.span`
-    color: var(--vscode-editor-foreground);
-    font-size: 13px;
-    font-weight: 600;
-    font-family: var(--vscode-editor-font-family, monospace);
 `;
 
 // Tool Type Selection Page
@@ -312,31 +197,6 @@ const ToolTypePageCard = styled.div`
     }
 `;
 
-const ToolTypePageCardTitle = styled.div`
-    font-weight: 600;
-    font-size: 16px;
-    color: var(--vscode-editor-foreground);
-    margin-bottom: 8px;
-`;
-
-const ToolTypePageCardDesc = styled.div`
-    font-size: 13px;
-    color: var(--vscode-descriptionForeground);
-    line-height: 1.5;
-`;
-
-const BackBtn = styled.button`
-    align-self: flex-start;
-    padding: 6px 14px;
-    font-size: 13px;
-    background: var(--vscode-button-secondaryBackground);
-    color: var(--vscode-button-secondaryForeground);
-    border: none;
-    border-radius: 3px;
-    cursor: pointer;
-    font-weight: 500;
-    &:hover { background: var(--vscode-button-secondaryHoverBackground); }
-`;
 
 // Form Schema
 
@@ -825,10 +685,10 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                 {showToolTypeSelector ? (
                     <ToolTypePage>
                         <div>
-                            <Title>Select Tool Type</Title>
-                            <Description>
+                            <Typography variant="h2" sx={{ marginBottom: '8px' }}>Select Tool Type</Typography>
+                            <Typography variant="body2" sx={{ color: 'var(--vscode-descriptionForeground)' }}>
                                 Choose how you want to expose functionality as an MCP tool.
-                            </Description>
+                            </Typography>
                         </div>
 
                         <ToolTypePageCards>
@@ -839,11 +699,11 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                                     setSelectedAPIForTool('');
                                 }}
                             >
-                                <ToolTypePageCardTitle>From APIs</ToolTypePageCardTitle>
-                                <ToolTypePageCardDesc>
+                                <Typography variant="h3" sx={{ fontWeight: 600, marginBottom: '8px' }}>From APIs</Typography>
+                                <Typography variant="body2" sx={{ fontSize: '13px', color: 'var(--vscode-descriptionForeground)', lineHeight: 1.5 }}>
                                     Expose an API operation as a tool. Select from existing REST API
                                     resources defined in this project.
-                                </ToolTypePageCardDesc>
+                                </Typography>
                             </ToolTypePageCard>
 
                             <ToolTypePageCard
@@ -852,11 +712,11 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                                     setShowAddSeqDialog(true);
                                 }}
                             >
-                                <ToolTypePageCardTitle>From Sequences</ToolTypePageCardTitle>
-                                <ToolTypePageCardDesc>
+                                <Typography variant="h3" sx={{ fontWeight: 600, marginBottom: '8px' }}>From Sequences</Typography>
+                                <Typography variant="body2" sx={{ fontSize: '13px', color: 'var(--vscode-descriptionForeground)', lineHeight: 1.5 }}>
                                     Expose a mediation sequence as a tool. Select from existing
                                     sequences defined in this project.
-                                </ToolTypePageCardDesc>
+                                </Typography>
                             </ToolTypePageCard>
 
                             <ToolTypePageCard
@@ -865,38 +725,38 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                                     setShowCreateScratchDialog(true);
                                 }}
                             >
-                                <ToolTypePageCardTitle>New Tool</ToolTypePageCardTitle>
-                                <ToolTypePageCardDesc>
+                                <Typography variant="h3" sx={{ fontWeight: 600, marginBottom: '8px' }}>New Tool</Typography>
+                                <Typography variant="body2" sx={{ fontSize: '13px', color: 'var(--vscode-descriptionForeground)', lineHeight: 1.5 }}>
                                     Create a tool from scratch.
-                                </ToolTypePageCardDesc>
+                                </Typography>
                             </ToolTypePageCard>
                         </ToolTypePageCards>
 
-                        <BackBtn onClick={() => setShowToolTypeSelector(false)}>
+                        <Button appearance="secondary" onClick={() => setShowToolTypeSelector(false)} sx={{ alignSelf: 'flex-start', padding: '6px 14px', fontSize: '13px' }}>
                             ← Back
-                        </BackBtn>
+                        </Button>
                     </ToolTypePage>
                 ) : (
                     <Container>
                         <div>
-                            <Description>
+                            <Typography variant="body2" sx={{ color: 'var(--vscode-descriptionForeground)' }}>
                                 {isEditMode
                                     ? 'Add or remove tools from this MCP server. Tools can be backed by API operations or sequences.'
                                     : 'Select API operations to expose as MCP tools.'}
-                            </Description>
+                            </Typography>
                         </div>
 
                         <form onSubmit={handleSubmit(onSubmit)}>
                             {isEditMode ? (
                                 <InfoPanel>
                                     <InfoRow>
-                                        <InfoLabel>Server Name</InfoLabel>
-                                        <InfoValue>{editData!.serverName}</InfoValue>
+                                        <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', fontSize: '13px', fontWeight: 500, minWidth: '80px' }}>Server Name</Typography>
+                                        <Typography variant="body2" sx={{ fontSize: '13px', fontWeight: 600, fontFamily: 'monospace' }}>{editData!.serverName}</Typography>
                                     </InfoRow>
                                     <InfoRow>
-                                        <InfoLabel>Port</InfoLabel>
+                                        <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', fontSize: '13px', fontWeight: 500, minWidth: '80px' }}>Port</Typography>
                                         {loading ? (
-                                            <InfoValue>...</InfoValue>
+                                            <Typography variant="body2" sx={{ fontSize: '13px', fontWeight: 600, fontFamily: 'monospace' }}>...</Typography>
                                         ) : (
                                             <div style={{ flex: 1 }}>
                                                 <TextField
@@ -904,9 +764,9 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                                                     {...register('port')}
                                                 />
                                                 {errors.port && (
-                                                    <ErrorMessage style={{ marginTop: '6px' }}>
+                                                    <ErrorMessageContainer style={{ marginTop: '6px' }}>
                                                         {String(errors.port?.message)}
-                                                    </ErrorMessage>
+                                                    </ErrorMessageContainer>
                                                 )}
                                             </div>
                                         )}
@@ -915,24 +775,24 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                             ) : (
                                 <>
                                     <FormSection>
-                                        <SectionLabel>Server Name</SectionLabel>
+                                        <Typography variant="subtitle2">Server Name</Typography>
                                         <TextField
                                             placeholder="e.g., my-mcp-server"
                                             {...register('serverName')}
                                         />
                                         {errors.serverName && (
-                                            <ErrorMessage>{String(errors.serverName?.message)}</ErrorMessage>
+                                            <ErrorMessageContainer>{String(errors.serverName?.message)}</ErrorMessageContainer>
                                         )}
                                     </FormSection>
 
                                     <FormSection>
-                                        <SectionLabel>Port</SectionLabel>
+                                        <Typography variant="subtitle2">Port</Typography>
                                         <TextField
                                             placeholder="e.g., 8300"
                                             {...register('port')}
                                         />
                                         {errors.port && (
-                                            <ErrorMessage>{String(errors.port?.message)}</ErrorMessage>
+                                            <ErrorMessageContainer>{String(errors.port?.message)}</ErrorMessageContainer>
                                         )}
                                     </FormSection>
                                 </>
@@ -940,18 +800,19 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
 
                             <FormSection>
                                 <ToolsSectionHeader>
-                                    <SectionLabel>Tools ({tools.length})</SectionLabel>
-                                    <AddToolBtn
-                                        type="button"
+                                    <Typography variant="subtitle2">Tools ({tools.length})</Typography>
+                                    <Button
+                                        appearance="primary"
                                         onClick={() => setShowToolTypeSelector(true)}
                                         disabled={loading}
+                                        sx={{ padding: '8px 16px', fontSize: '13px', fontWeight: 500 }}
                                     >
                                         + Add Tool
-                                    </AddToolBtn>
+                                    </Button>
                                 </ToolsSectionHeader>
 
                                 {tools.length === 0 ? (
-                                    <EmptyMessage>No tools added yet. Use the buttons above to add API or sequence tools.</EmptyMessage>
+                                    <Typography variant="body2" sx={{ color: 'var(--vscode-descriptionForeground)', textAlign: 'center', padding: '15px', fontSize: '12px' }}>No tools added yet. Use the buttons above to add API or sequence tools.</Typography>
                                 ) : (
                                     <ToolsList>
                                         {tools.map(tool => (
@@ -987,39 +848,41 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                                                             )}
                                                         </InlineEditContainer>
                                                         <InlineEditActions>
-                                                            <CancelEditBtn onClick={cancelEditTool}>Cancel</CancelEditBtn>
-                                                            <SaveBtn onClick={saveEditTool}>Save</SaveBtn>
+                                                            <Button appearance="secondary" onClick={cancelEditTool} sx={{ padding: '4px 10px', fontSize: '11px', minWidth: 'auto' }}>Cancel</Button>
+                                                            <Button appearance="primary" onClick={saveEditTool} sx={{ padding: '4px 10px', fontSize: '11px', minWidth: 'auto' }}>Save</Button>
                                                         </InlineEditActions>
                                                     </>
                                                 ) : (
                                                     <>
                                                         <ToolInfo>
-                                                            <ToolName>{tool.name}</ToolName>
+                                                            <Typography variant="body2" sx={{ fontWeight: 600 }}>{tool.name}</Typography>
                                                             {tool.description && (
-                                                                <ToolDescription>{tool.description}</ToolDescription>
+                                                                <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)' }}>{tool.description}</Typography>
                                                             )}
                                                         </ToolInfo>
                                                         {tool.kind === 'api' ? (
-                                                            <ToolMeta>
+                                                            <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--vscode-descriptionForeground)' }}>
                                                                 {tool.operationMethod} {tool.operationPath} ({tool.apiName})
-                                                            </ToolMeta>
+                                                            </Typography>
                                                         ) : (
-                                                            <ToolMeta>
+                                                            <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--vscode-descriptionForeground)' }}>
                                                                 SEQUENCE · {tool.sequenceName}
-                                                            </ToolMeta>
+                                                            </Typography>
                                                         )}
-                                                        <EditBtn
-                                                            onClick={e => { e.stopPropagation(); startEditTool(tool); }}
-                                                            aria-label={`Edit tool ${tool.name}`}
+                                                        <Button
+                                                            appearance="secondary"
+                                                            onClick={(e: any) => { e.stopPropagation(); startEditTool(tool); }}
+                                                            sx={{ padding: '4px 8px', fontSize: '11px', minWidth: 'auto', marginRight: '4px' }}
                                                         >
                                                             Edit
-                                                        </EditBtn>
-                                                        <RemoveBtn
-                                                            onClick={e => { e.stopPropagation(); removeTool(tool.id); }}
-                                                            aria-label={`Remove tool ${tool.name}`}
+                                                        </Button>
+                                                        <Button
+                                                            appearance="secondary"
+                                                            onClick={(e: any) => { e.stopPropagation(); removeTool(tool.id); }}
+                                                            sx={{ padding: '4px 8px', fontSize: '11px', minWidth: 'auto' }}
                                                         >
                                                             ✕
-                                                        </RemoveBtn>
+                                                        </Button>
                                                     </>
                                                 )}
                                             </ToolItem>
@@ -1028,7 +891,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                                 )}
                             </FormSection>
 
-                            {error && <ErrorMessage>{error}</ErrorMessage>}
+                            {error && <ErrorMessageContainer>{error}</ErrorMessageContainer>}
 
                             <ButtonGroup>
                                 <Button

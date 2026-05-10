@@ -41,32 +41,20 @@ const CORS_ALLOW_HEADERS_KEY = `${CORS_STORAGE_PREFIX}allow_headers`;
 const CORS_EXPOSE_HEADERS_KEY = `${CORS_STORAGE_PREFIX}expose_headers`;
 const SSE_KEEPALIVE_INTERVAL_KEY = `${CORS_STORAGE_PREFIX}keepalive_interval`;
 
-const ErrorMessage = styled.div`
-    color: var(--vscode-inputValidation-errorBorder);
-    padding: 10px;
-    border: 1px solid var(--vscode-inputValidation-errorBorder);
-    border-radius: 4px;
-    background: var(--vscode-inputValidation-errorBackground);
-    font-size: 12px;
-`;
-
-const AdvancedSection = styled.div`
-    margin-top: 20px;
-    padding: 15px;
-    border: 1px solid var(--vscode-editorGroup-border);
-    border-radius: 4px;
-    background: var(--vscode-editor-background);
-`;
-
-const SectionTitle = styled.h3`
-    margin: 0 0 15px 0;
+const SectionTitle = styled.button`
+    margin: 0;
+    padding: 0;
     font-size: 13px;
     font-weight: 600;
     color: var(--vscode-foreground);
+    background: none;
+    border: none;
     cursor: pointer;
     display: flex;
     align-items: center;
     user-select: none;
+    margin-bottom: 15px;
+    font-family: inherit;
 
     &:hover {
         color: var(--vscode-focusBorder);
@@ -320,7 +308,7 @@ export function MCPServerWizard({ path }: MCPServerWizardProps) {
                 {...register('port')}
                 errorMsg={errors.port ? String(errors.port.message) : undefined}
             />
-            <AdvancedSection>
+            <div style={{ marginTop: '20px', padding: '15px', border: '1px solid var(--vscode-editorGroup-border)', borderRadius: '4px', background: 'var(--vscode-editor-background)' }}>
                 <SectionTitle onClick={() => setShowAdvanced(!showAdvanced)}>
                     <ToggleIcon isExpanded={showAdvanced}>▶</ToggleIcon>
                     Advanced Options
@@ -359,9 +347,9 @@ export function MCPServerWizard({ path }: MCPServerWizardProps) {
                         />
                     </>
                 )}
-            </AdvancedSection>
-            {error && <ErrorMessage>{error}</ErrorMessage>}
-            {portDiscoveryError && <ErrorMessage>{portDiscoveryError}</ErrorMessage>}
+            </div>
+            {error && <div style={{ color: 'var(--vscode-inputValidation-errorBorder)', padding: '10px', border: '1px solid var(--vscode-inputValidation-errorBorder)', borderRadius: '4px', background: 'var(--vscode-inputValidation-errorBackground)', fontSize: '12px' }}>{error}</div>}
+            {portDiscoveryError && <div style={{ color: 'var(--vscode-inputValidation-errorBorder)', padding: '10px', border: '1px solid var(--vscode-inputValidation-errorBorder)', borderRadius: '4px', background: 'var(--vscode-inputValidation-errorBackground)', fontSize: '12px' }}>{portDiscoveryError}</div>}
             <FormActions>
                 <Button
                     appearance="primary"
