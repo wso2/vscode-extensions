@@ -1370,7 +1370,13 @@ Quick reference for finding every major piece of code:
 | `arazzo-designer-extension/src/Context.ts` | Global singleton holding ExtensionContext |
 | `arazzo-designer-extension/src/constants/index.ts` | Command IDs and context key names |
 | `arazzo-designer-extension/src/history/activator.ts` | Navigation history stack |
-| `arazzo-designer-extension/src/mcp/mcpServerRunner.ts` | MCP server lifecycle: spawn CLI binary, write mcp.json, user notifications |
+| `arazzo-designer-extension/src/mcp/mcpServerRunner.ts` | MCP server lifecycle orchestrator: start/stop flow, mcp.json updates, notifications |
+| `arazzo-designer-extension/src/mcp/mcpServerTask.ts` | VS Code Task + Pseudoterminal wrapper that spawns the Go MCP server binary |
+| `arazzo-designer-extension/src/mcp/runWorkflowCodeLens.ts` | "Try with curl" / "Try with AI" CodeLens provider shown while server is active |
+| `arazzo-designer-extension/src/mcp/mcpPlaygroundWebview.ts` | MCP Playground panel for initialize/tools/list/tools/call testing |
+| `arazzo-designer-extension/src/mcp/tracing/tracerServer.ts` | Local HTTP trace collector receiving span events from the Go runner |
+| `arazzo-designer-extension/src/mcp/tracing/traceServerTask.ts` | VS Code Task wrapper that starts/stops the local tracer server |
+| `arazzo-designer-extension/src/copilotTools.ts` | Registers Copilot LM tools for starting server and toggling TLS validation |
 | `arazzo-designer-extension/package.json` | Extension manifest (commands, menus, activation events) |
 
 ### Language Server (Go)
@@ -1409,6 +1415,8 @@ Quick reference for finding every major piece of code:
 | `arazzo-designer-visualizer/src/MainPanel.tsx` | View router (Overview vs Workflow) |
 | `arazzo-designer-visualizer/src/views/Overview/Overview.tsx` | Overview page component |
 | `arazzo-designer-visualizer/src/views/WorkflowView/WorkflowView.tsx` | Workflow graph component |
+| `arazzo-designer-visualizer/src/views/WorkflowView/WorkflowInputConfigPanel.tsx` | Configure Inputs panel UI shown when inputs are missing or edited |
+| `arazzo-designer-visualizer/src/utils/inputUtils.ts` | Input schema extraction, coercion, and validation helpers |
 
 ### RPC Client (TypeScript — Browser side)
 
@@ -1625,14 +1633,14 @@ This does **not** need to be copied anywhere — it is never referenced by the e
 
 
 ---
-MCP server implementation starts from here onwards
----
 
 ## 19. The MCP Server Runner — The Play Button
 
-**File**: `arazzo-designer-extension/src/mcp/mcpServerRunner.ts`
+**Files**:
+- `arazzo-designer-extension/src/mcp/mcpServerRunner.ts` — orchestrates server lifecycle, state, and user notifications
+- `arazzo-designer-extension/src/mcp/mcpServerTask.ts` — VS Code Task + Pseudoterminal that spawns the Go binary
 
-This section explains the play button (`$(play)` icon) in the editor title bar, how it starts the MCP server, and two subtle bugs that were found and fixed during development.
+This section explains the play button (▶ icon) in the editor title bar and how it starts the MCP server using a VS Code Task so that server output appears in the integrated terminal.
 
 ---
 
@@ -1657,39 +1665,40 @@ The `when: "isFileArazzo"` clause means it only appears when `checkDocumentForOp
 ```
 User clicks ▶ play button
     │
-    ├── 1. Get/create the "Arazzo MCP Server" output channel
-    │      output.show(true)  ← shows the output panel, preserveFocus=true
-    │
-    ├── 2. Kill any previously running MCP server
-    │      mcpServerProcess.kill()  ← sends SIGTERM to old Go binary
-    │
-    ├── 3. Determine the Arazzo file path
+    ├── 1. Determine the Arazzo file path
     │      From the command args, or the active editor
     │
-    ├── 4. Validate it's an Arazzo file
+    ├── 2. Validate it's an Arazzo file
     │      Check filename or content for `arazzo: X.X.X`
     │
-    ├── 5. Find the Go CLI binary
+    ├── 3. Find the Go CLI binary
     │      extensionPath/cli/arazzo-designer-cli.exe  (platform-specific name)
+    │      On macOS/Linux: chmod 755 the binary (VSIX may ship it non-executable)
     │
-    ├── 6. Pick a random port (18080–19079)
+    ├── 4. Pick a random port (18080–19079)
     │
-    ├── 7. Write .vscode/mcp.json automatically
-    │      Adds/updates the "arazzo" server entry with the URL
-    │      No user prompt — this happens every time
+    ├── 5. Write .vscode/mcp.json automatically
+    │      Adds/updates the "arazzo" server entry with {type:"http", url:...}
+    │      Written to the workspace folder that contains the Arazzo file
     │
-    ├── 8. Spawn the Go binary
-    │      arazzo-designer-cli serve -f <file> -p <port>
+    ├── 6. Start the Trace Server VS Code Task
+    │      executeTraceServerTask() — starts the HTTP span-event receiver
+    │      Returns the port the trace server is listening on
     │
-    ├── 9. Pipe stdout/stderr to the output channel
+    ├── 7. Start the MCP Server VS Code Task
+    │      executeMCPServerTask({ binaryPath, arazzoFilePath, port, tracerPort })
+    │      A VS Code Task with a Pseudoterminal spawns the Go binary:
+    │        arazzo-designer-cli serve -f <file> -p <port>
+    │                                  --trace-endpoint http://127.0.0.1:<tracerPort>/span-events
     │
-    └── 10. After 1.5 seconds:
+    └── 8. After 1.5 seconds (if task still running):
+            ├── Notify state change → CodeLens provider refreshes
             ├── Show info message:
-            │   "Arazzo MCP server started. Running on http://localhost:<port>/mcp.
+            │   "Arazzo server started. Running on http://localhost:<port>/mcp.
             │    Config added to mcp.json."
             │
-            └── Show follow-up message:
-                "Try your Arazzo workflows with GitHub Copilot." [Try Now]
+            └── Show follow-up:
+                "Try your workflows with GitHub Copilot." [Try Now]
                     │
                     └── If clicked → opens Copilot chat with pre-filled prompt:
                         "execute the workflow <first workflowId from the file>"
@@ -1698,9 +1707,42 @@ User clicks ▶ play button
 
 ---
 
-### 19.3 The `mcp.json` Configuration
+### 19.3 VS Code Task Architecture — Why Not a Raw Child Process?
 
-The `writeMcpConfig()` function creates or updates `.vscode/mcp.json` in the first workspace folder. This is the file VS Code reads to discover MCP servers for Copilot:
+Earlier versions of the extension spawned the Go binary directly using Node.js's `child_process.spawn()`. The current implementation uses a **VS Code Task** with a **Pseudoterminal** instead.
+
+| Concern | Raw ChildProcess | VS Code Task |
+|---------|-----------------|--------------|
+| Output visibility | Needed a separate output channel | Shown in Task terminal (Ctrl+`) |
+| Lifecycle tracking | Must track PID manually | VS Code tracks execution handles |
+| Stale-state bug | Race on restart via `on('exit')` | Fixed via `event.execution === currentExecution` |
+| Stop on restart | Manual `.kill()` | `currentExecution.terminate()` |
+
+**`mcpServerTask.ts` defines three things:**
+
+1. **`createMCPServerTask(params)`** — creates a VS Code `Task` with `CustomExecution`. The `CustomExecution` creates a `Pseudoterminal` that spawns the binary inside a managed terminal panel.
+
+2. **`MCPServerPseudoterminal`** — implements `vscode.Pseudoterminal`. Its `open()` method calls `spawn()` with the Go binary and pipes stdout/stderr to the terminal display. Its `close()` method kills the process. Ctrl+C in the terminal also works to stop it.
+
+3. **`registerMCPTaskEndListener(context, onEnd)`** — registers a VS Code `onDidEndTask` listener that clears `currentExecution` when the task exits for any reason. The comparison `event.execution === currentExecution` (not just the task type string) prevents a stale end event from a previous execution from incorrectly clearing a freshly-started replacement:
+
+```typescript
+vscode.tasks.onDidEndTask((event) => {
+    // Match on the execution object reference, not task definition type.
+    // This prevents a stale "end" event from a terminated old execution from
+    // incorrectly clearing (and stopping) a newly-launched replacement task.
+    if (currentExecution && event.execution === currentExecution) {
+        currentExecution = undefined;
+        onEnd();   // clears mcpActiveFilePath and notifies CodeLens provider
+    }
+});
+```
+
+---
+
+### 19.4 The `mcp.json` Configuration
+
+The `writeMcpConfig()` function creates or updates `.vscode/mcp.json` in the workspace folder that contains the Arazzo file. This is the file VS Code reads to discover MCP servers for Copilot:
 
 ```json
 {
@@ -1713,111 +1755,27 @@ The `writeMcpConfig()` function creates or updates `.vscode/mcp.json` in the fir
 }
 ```
 
+If the file already has other server entries, they are preserved — only the `"arazzo"` key is overwritten.
+
 The server key `"arazzo"` is what VS Code Copilot uses to namespace tool names. Every tool from this server will be prefixed `mcp_arazzo_` in the Copilot tool list (e.g., `mcp_arazzo_list_workflows`, `mcp_arazzo_ApplyForLoanAtCheckout`). This prefix is added by VS Code Copilot itself — it is not controlled by the extension or the Go binary.
 
 ---
 
-### 19.4 Process Lifecycle and Cleanup
+### 19.5 Process Lifecycle and Cleanup
 
-The module keeps a single `mcpServerProcess` variable pointing to the current `ChildProcess`. When the play button is clicked again:
-1. The old process is killed with `.kill()`
-2. A new process is spawned
-3. `mcp.json` is rewritten with the new port
+**Starting**: `startMCPServer()` calls `executeMCPServerTask()` which terminates any previous execution before starting a new one. This means clicking ▶ a second time harmlessly restarts the server.
 
-When the extension deactivates (VS Code closes), `disposeMCPServer()` is called from `deactivate()` in `extension.ts`, which kills the running server.
+**Stopping**: The `stopMCPServer()` function terminates both the MCP server task and the trace server task, then calls `TracerServer.getInstance().stop()` as a safety net. It is exposed as the `arazzo.stopMCPServer` command.
 
-**Important**: On Windows, orphaned `arazzo-designer-cli.exe` processes may survive if the Extension Development Host is restarted via F5 (the module variable resets to `undefined`, losing the process reference). To clean up:
+**Deactivation**: `disposeMCPServer()` is called from `deactivate()` in `extension.ts` when VS Code shuts down the extension. It stops both servers and disposes the TracerServer singleton.
 
-```powershell
-taskkill /F /IM arazzo-designer-cli.exe
-```
+**State tracking**: `mcpServerRunner.ts` keeps two module-level variables:
+- `mcpActiveFilePath` — the file the server is currently serving
+- `mcpServerPort` — the port the server is listening on
 
----
+These are set when the server starts and cleared by the `registerMCPTaskEndListener` callback when the task ends for any reason.
 
-### 19.5 Bugs Found and Fixed
-
-Two subtle bugs were discovered and fixed. Understanding them helps explain why the code is written the way it is.
-
-#### Bug 1 — Play Button Disappearing After Click
-
-**Symptom**: Click ▶ → server starts → ▶ button vanishes. Switch to another tab and back — button reappears.
-
-**Root Cause**: `output.show(true)` opens the output panel. Even with `preserveFocus=true`, VS Code fires the `onDidChangeActiveTextEditor` event with `editor = undefined` (the output panel is not a text editor). The old `checkDocumentForOpenAPI()` handler was:
-
-```typescript
-// OLD (buggy)
-if (!document) {
-    vscode.commands.executeCommand('setContext', 'isFileArazzo', undefined);  // ← clears the flag!
-    return;
-}
-```
-
-Clearing `isFileArazzo` hides the play button because its `when` clause is `"isFileArazzo"`. When the user clicks back to the YAML tab, the editor change event fires again with the real document, restoring the flag.
-
-**Fix**: Don't clear context keys when there's no document — just return. The keys will be re-evaluated when a real editor regains focus:
-
-```typescript
-// FIXED
-if (!document) {
-    // Keep existing context keys — they will be re-evaluated when a real editor regains focus.
-    return;
-}
-```
-
-#### Bug 2 — "Server Started" Message Not Showing on First Click
-
-**Symptom**: First click of ▶ → output log shows server started, but no info message appears. Second click → message appears correctly.
-
-**Root Cause**: A classic **async race condition** between the old process's `on('exit')` callback and the new process spawn.
-
-Timeline of events:
-
-```
-Click ▶ (first time, previous server is running)
-    │
-    ├── mcpServerProcess.kill()     ← send SIGTERM to old process
-    ├── mcpServerProcess = undefined ← immediate, synchronous
-    │
-    ├── [... validation, port selection, mcp.json write ...]
-    │
-    ├── mcpServerProcess = spawn(...)  ← NEW process assigned
-    │
-    │   [Old process finishes dying — on('exit') fires ASYNCHRONOUSLY]
-    │   │
-    │   └── mcpServerProcess = undefined  ← WIPES the NEW process reference!
-    │
-    ├── setTimeout fires after 1.5s
-    │   │
-    │   └── if (!mcpServerProcess) return  ← undefined, so NO MESSAGE
-    │
-    ▼
-    User sees nothing.
-```
-
-The old code:
-```typescript
-// OLD (buggy)
-mcpServerProcess.on('exit', (code) => {
-    mcpServerProcess = undefined;  // ← unconditionally clears the variable
-});
-```
-
-**Fix**: Guard the callback with a local reference so it only clears `mcpServerProcess` if it's still the same process:
-
-```typescript
-// FIXED
-const thisProcess = mcpServerProcess;  // capture reference at spawn time
-
-mcpServerProcess.on('exit', (code) => {
-    // Only clear if this is still the active process — a newer spawn
-    // may have already replaced mcpServerProcess.
-    if (mcpServerProcess === thisProcess) {
-        mcpServerProcess = undefined;
-    }
-});
-```
-
-The second click always worked because there was no prior `on('exit')` racing — the first click's process was the only one, and by the second click it had already exited and been cleaned up.
+**Platform note**: On macOS and Linux, the VSIX packaging may ship the Go binary without the executable bit set (a file permission flag). Before spawning, the extension calls `fs.chmodSync(binaryPath, 0o755)` to ensure the binary is executable. On Windows this is a no-op.
 
 ---
 
@@ -1837,3 +1795,782 @@ Additionally, two utility tools are always registered:
 - `get_workflow_details` — returns step/parameter/output info for a specific workflow
 
 These appear in Copilot as `mcp_arazzo_list_workflows` and `mcp_arazzo_get_workflow_details`.
+
+---
+
+## 20. Run Workflow CodeLens — "▶ Try with curl" and "▶ Try with AI"
+
+**File**: `arazzo-designer-extension/src/mcp/runWorkflowCodeLens.ts`
+
+Once the MCP server is running, a second set of Code Lenses appears directly above each `workflowId:` in the Arazzo file. These are different from the Go LSP's "Visualize" Code Lenses: they are provided by the **TypeScript extension**, not by the Go binary.
+
+---
+
+### 20.1 When Do They Appear?
+
+The `RunWorkflowCodeLensProvider.provideCodeLenses()` method returns lenses **only when**:
+1. The MCP server is running (`isMCPServerRunning()` returns `true`), AND
+2. The current document is the exact file the server is serving (`document.uri.fsPath === getMCPActiveFilePath()`).
+
+This is intentional: if you open a *different* Arazzo file while the server is running for another one, you do NOT see these lenses. That would be misleading — the running server only knows about its own file's workflows.
+
+---
+
+### 20.2 What Lenses Are Shown?
+
+For each workflow found by scanning for `- workflowId: <id>` lines, **two lenses** appear side by side:
+
+```
+  ▶ Try with curl   ▶ Try with AI         ← these lenses appear
+  - workflowId: place-order
+```
+
+| Lens | Command | What It Does |
+|------|---------|--------------| 
+| `▶ Try with curl` | `arazzo.tryWorkflow` | Builds a curl/Invoke-RestMethod command and places it in the terminal |
+| `▶ Try with AI` | `arazzo.tryAIWorkflow` | Starts the server (if not running), opens Copilot chat with a pre-filled prompt |
+
+The scanning logic is a simple line-by-line pass (not a full YAML parse). It finds the `workflows:` top-level key, then looks for `- workflowId: <id>` pattern lines within that block. It stops scanning when it hits another top-level key.
+
+---
+
+### 20.3 How the Provider Refreshes
+
+`RunWorkflowCodeLensProvider` exposes:
+- `_onDidChangeCodeLenses` — an `EventEmitter<void>` that VS Code watches
+- `refresh()` — fires the emitter, prompting VS Code to call `provideCodeLenses()` again
+
+When the server starts or stops, `mcpServerRunner.ts` fires the `onMCPServerStateChange` callback, which calls `provider.refresh()`. This removes the lenses when the server stops and adds them when it starts — without any user interaction.
+
+---
+
+### 20.4 The `isFileDirty` Flag
+
+The provider exposes `setFileDirty(dirty)` and `isFileDirty()`. When the Arazzo YAML is saved after the server last started, `extension.ts` calls `runCodeLensProvider.setFileDirty(true)`. The `arazzo.tryWorkflow` command checks this flag to decide whether to warn the user:
+
+```
+"The Arazzo file has been modified. The running server may be out of date.
+ Restart the server?"  [Yes]  [No]
+```
+
+Clicking "Yes" restarts the server before building the curl command, so the running server always matches the current file.
+
+---
+
+## 21. Configure Inputs Feature — End to End
+
+When a user clicks "▶ Try with curl" on a workflow that has required inputs, the extension needs to collect those values before it can build the curl command. This section traces the complete journey from clicking ▶ to the curl command appearing in the terminal.
+
+---
+
+### 21.1 Background: What Are Workflow Inputs?
+
+An Arazzo workflow can declare a JSON Schema under its `inputs:` key describing the values it needs to run:
+
+```yaml
+workflows:
+  - workflowId: place-order
+    inputs:
+      type: object
+      required: [quantity, username]
+      properties:
+        quantity:
+          type: integer
+          description: Number of items to order
+          default: 1
+        username:
+          type: string
+          description: Customer username
+```
+
+Before the curl command can be generated, the extension needs actual values for `quantity` and `username`. If no values are saved from a previous run, the user must be prompted.
+
+---
+
+### 21.2 Architecture: Two Processes, One Message Channel
+
+VS Code extensions run in two separate processes:
+
+1. **Extension Host** (Node.js): has filesystem access, runs the terminal, speaks VS Code APIs. This is where `extension.ts` and `rpc-manager.ts` run.
+
+2. **Webview** (sandboxed browser): renders the React diagram. Has NO direct filesystem access. Must communicate via message-passing.
+
+All messages between the two are defined in `arazzo-designer-core` and routed via `vscode-messenger`. Think of it like a walkie-talkie: one side sends a named message, the other side has registered a handler for that name.
+
+---
+
+### 21.3 The Key Files
+
+| File | Role |
+|------|------|
+| `arazzo-designer-core/.../types.ts` | Data contracts — `RunWorkflowRequest`, `GetWorkflowRunInputsRequest/Response`, `SaveWorkflowRunInputsRequest` |
+| `arazzo-designer-core/.../rpc-type.ts` | Channel names — `runWorkflow`, `getWorkflowRunInputs`, `saveWorkflowRunInputs`, `openInputConfigPanel` |
+| `arazzo-designer-core/.../index.ts` | `VisualizerAPI` interface — contract both sides must honour |
+| `arazzo-designer-rpc-client/.../rpc-client.ts` | Webview's walkie-talkie — thin wrappers that send messages to the Extension Host |
+| `arazzo-designer-rpc-client/src/RpcClient.ts` | Webview's top-level communication hub — creates Messenger, exposes subscription methods |
+| `...rpc-managers/visualizer/rpc-handler.ts` | Extension Host's registration desk — wires incoming messages to handler methods |
+| `...rpc-managers/visualizer/rpc-manager.ts` | Extension Host's implementation — reads/writes storage, dispatches `arazzo.tryWorkflow` |
+| `arazzo-designer-extension/src/extension.ts` | `arazzo.tryWorkflow` command — resolves inputs, builds curl, sends to terminal |
+| `arazzo-designer-visualizer/src/utils/inputUtils.ts` | Webview's field discovery and validation engine |
+
+Plus two React components: `WorkflowView.tsx` (state management) and `WorkflowInputConfigPanel.tsx` (the form UI).
+
+---
+
+### 21.4 RPC Message Types for Configure Inputs
+
+| Message | Type | Direction | Purpose |
+|---------|------|-----------|---------|
+| `runWorkflow` | Notification | Webview → Extension | "Run this workflow now (curl or AI mode)" |
+| `getWorkflowRunInputs` | Request | Webview → Extension | "What values did the user save last time?" |
+| `saveWorkflowRunInputs` | Notification | Webview → Extension | "Write these validated values to workspaceState" |
+| `openInputConfigPanel` | Notification | Extension → Webview | "Open the config panel for this workflow" (reverse direction!) |
+
+`openInputConfigPanel` is the only reverse-direction message in this feature. The Extension Host sends it to the webview when it detects missing required inputs (e.g., via the CodeLens path).
+
+---
+
+### 21.5 Persistent Storage
+
+Values are stored in VS Code's `workspaceState` under the key `arazzo.runInputs.v1`. The structure is:
+
+```typescript
+type RunInputsStore = {
+    [fileUri: string]: {        // "file:///C:/projects/api.arazzo.yaml"
+        [workflowId: string]: { // "place-order"
+            inputs: Record<string, any>;  // { quantity: 5, username: "alice" }
+            updatedAt: number;            // Unix timestamp
+        };
+    };
+};
+```
+
+This persists between VS Code sessions. The `v1` suffix means if the format ever changes, old data won't conflict.
+
+---
+
+### 21.6 Input Resolution Priority
+
+When `arazzo.tryWorkflow` runs, it calls `buildRunInputsFromWorkspaceState()`. For each field defined in the **current YAML** (fields are always read from disk, not from cache — the YAML is the source of truth):
+
+| Priority | Source | Condition |
+|---------|--------|-----------|
+| 1 | Explicit inputs from webview | Only set when user just clicked "Apply & Run" |
+| 2 | Saved inputs from workspaceState | Persisted from a previous run |
+| 3 | Schema `default:` value | Defined in the YAML properties |
+| 4 | Missing — if required: stop and prompt | if optional: silently omit from curl |
+
+Fields that exist in storage but no longer exist in the YAML are simply ignored — storage only provides *values*, never *fields*.
+
+---
+
+### 21.7 The curl Command
+
+`buildRunCommand()` generates the platform-appropriate HTTP command:
+
+**macOS/Linux:**
+```bash
+curl -X POST "http://localhost:18342/run/place-order" \
+     -H "Content-Type: application/json" \
+     -d "{\"inputs\":{\"quantity\":5,\"username\":\"alice\"}}"
+```
+
+**Windows (PowerShell):**
+```powershell
+Invoke-RestMethod -Method Post -Uri "http://localhost:18342/run/place-order" `
+                  -ContentType "application/json" -Body '{"inputs":{"quantity":5,"username":"alice"}}'
+```
+
+The command is placed in the terminal WITHOUT pressing Enter (`terminal.sendText(cmd, false)`). This lets the user review the command before running it. Before sending, `\u0003` (Ctrl+C) is sent to cancel any previously running command.
+
+The Go MCP server exposes a REST endpoint at `/run/{workflowId}` that accepts `POST` with `{ inputs: {...} }` in the body.
+
+---
+
+### 21.8 The Config Panel UI
+
+The Configure Inputs panel slides in from the right side of the Workflow graph (inside the webview). For each field:
+
+- **Label**: field name with a red `*` if required, type in parentheses if not string
+- **Description**: rendered below the label if the schema has a `description`
+- **Input widget** chosen by type:
+  - `boolean` → dropdown (true/false)
+  - `object` / `array` → multiline textarea
+  - all others → single-line text input
+- **Inline validation error** in red if the value is wrong type
+
+**The Apply button** changes label based on context:
+- `Apply` — save values, close panel
+- `Apply & Run` — save values, close panel, then immediately generate the curl command
+
+The panel shows a yellow notice banner when it was opened automatically because of missing required inputs, explaining exactly which fields are missing.
+
+---
+
+### 21.9 End-to-End Flow: First Click via CodeLens (No Saved Values)
+
+```
+User clicks "▶ Try with curl" CodeLens (first time)
+    │
+    ▼ arazzo.tryWorkflow fires in extension.ts
+    │
+    ├── Open Visualizer (if not open) + start MCP server (if not running)
+    ├── buildRunInputsFromWorkspaceState()
+    │   ├── Read YAML → fields: [quantity (required), username (required)]
+    │   ├── Read storage → empty (first time)
+    │   └── missingRequired = true
+    │
+    ├── RPCLayer sends openInputConfigPanel notification → webview
+    │
+    ▼ WorkflowView.tsx receives notification
+    │
+    ├── setPendingCurlAfterSave(true)
+    ├── setIsConfigPanelOpen(true)
+    │   → Config panel slides in with "Apply & Run" button
+    │
+    User types { quantity: 5, username: "alice" } → clicks "Apply & Run"
+    │
+    ▼ handleConfigApply() runs
+    │
+    ├── Validate: both values present and correct types ✓
+    ├── saveWorkflowRunInputs RPC → Extension Host writes to workspaceState
+    ├── Close panel
+    ├── handleTryCurlWorkflow() called again
+    │   ├── hasMissingRequiredInputs → false (fieldValues has both values)
+    │   ├── buildCoercedInputs → { quantity: 5, username: "alice" }
+    │   └── runWorkflow RPC → Extension Host (with inputs attached)
+    │
+    ▼ extension.ts arazzo.tryWorkflow fires again (with explicitInputs)
+    │
+    ├── buildRunInputsFromWorkspaceState(explicitInputs = { quantity: 5, username: "alice" })
+    │   → missingRequired = false
+    │
+    ├── buildRunCommand() → "curl -X POST ... -d '{"inputs":{...}}'"
+    └── terminal.sendText(command, false)   ← command appears in terminal!
+```
+
+---
+
+### 21.10 When the YAML Changes
+
+When the user renames or removes an input in the YAML and saves the file:
+
+1. VS Code fires `onDidSaveTextDocument`. The extension marks the file dirty.
+2. The Language Server detects the change. The visualizer fetches the updated model.
+3. `buildInputFields()` runs on the new definition — only the current fields exist.
+4. Saved values for fields that no longer exist are silently ignored.
+5. New required fields with no saved value → `hasMissingRequiredInputs = true` → config panel opens on next Try click.
+
+This design ensures the curl command **never contains stale field names** from storage.
+
+---
+
+## 22. Tracing Subsystem
+
+**Files**:
+- `arazzo-designer-extension/src/mcp/tracing/traceEvents.ts` — TypeScript types mirroring Go's TraceEvent struct
+- `arazzo-designer-extension/src/mcp/tracing/tracerServer.ts` — HTTP server receiving span events
+- `arazzo-designer-extension/src/mcp/tracing/traceServerTask.ts` — VS Code Task wrapping the trace server
+- `arazzo-designer-extension/src/mcp/tracing/constants.ts` — default port constant
+- `arazzo-designer-extension/src/mcp/tracing/index.ts` — barrel export
+
+---
+
+### 22.1 What Is Tracing?
+
+When the Go MCP server executes an Arazzo workflow, it fires **span events** — small JSON objects that record what happened and when. These follow the OpenTelemetry span structure:
+
+```typescript
+interface TraceEvent {
+    name: string;                  // e.g. "workflow:place-order" or "http:GET /pets"
+    context: { trace_id, span_id };
+    parent_id?: string;            // links to parent span (step's parent is workflow)
+    start_time: string;            // ISO-8601
+    end_time?: string;             // ISO-8601
+    status_code: 'STATUS_CODE_UNSET' | 'STATUS_CODE_OK' | 'STATUS_CODE_ERROR';
+    attributes: Record<string, string>;
+    lifecycle: 'start' | 'end';    // custom: streaming events, sent at both boundaries
+    arazzo_span_kind: 'workflow' | 'step' | 'http' | 'retry';
+    duration_ms?: number;
+}
+```
+
+The four span kinds map to the hierarchy of execution:
+- `workflow` — the top-level workflow run
+- `step` — a single step inside the workflow
+- `http` — the actual HTTP call made by the step
+- `retry` — a retry attempt (if the step has retries configured)
+
+For each span, a `lifecycle: 'start'` event fires first, then a `lifecycle: 'end'` event after completion. This lets consumers show real-time progress.
+
+---
+
+### 22.2 How Span Events Flow
+
+```
+Go MCP server (executing a workflow step)
+    │
+    │  POST http://127.0.0.1:<tracerPort>/span-events   (JSON body = TraceEvent)
+    │
+    ▼
+TracerServer (runs inside Extension Host — an http.Server on localhost only)
+    │
+    ├── stores event in this.events[]
+    ├── fires this._onEvent EventEmitter  ← future UI can subscribe to this
+    └── logs to "Arazzo Trace Server" output channel
+        e.g.: "▶ step:get-pet  ■ step:get-pet [200] (47ms)"
+```
+
+The `TracerServer` is a singleton (`TracerServer.getInstance()`). It listens on `127.0.0.1` only — never exposed to the network. CORS headers are set for potential future browser-based consumers.
+
+---
+
+### 22.3 The Trace Server Task
+
+Rather than starting the HTTP server directly in `startMCPServer()`, the trace server is wrapped in a VS Code Task (the same pattern as the MCP server task). `executeTraceServerTask()` creates a `TraceServerPseudoterminal` that calls `TracerServer.getInstance().start()` from inside VS Code's task framework.
+
+However, unlike the MCP server task, the trace server's pseudoterminal runs the HTTP server **inside the extension host process** — there is no separate child process. The VS Code Task is used purely for lifecycle management and UI consistency (the user can see the trace server is running in the Tasks panel).
+
+If the trace server is already running when `executeTraceServerTask()` is called, the existing port is returned immediately — no second server is started.
+
+---
+
+### 22.4 Dual Tracing: Local + OTLP
+
+The Go CLI supports two trace sink destinations simultaneously:
+
+| Flag | Purpose |
+|------|---------|
+| `--trace-endpoint` | Posts to the extension's local `TracerServer` (always used when spawned by the extension) |
+| `--otlp-endpoint` | Posts to an external OTLP/HTTP backend (e.g. Jaeger at `http://localhost:4318`, Honeycomb, etc.) |
+
+The extension always passes `--trace-endpoint` when it spawns the binary. Standalone CLI users can pass `--otlp-endpoint` to feed traces into Jaeger or any OTLP-compatible observability backend. Both flags may be used simultaneously — the Go side uses a `MultiSink` that fans out every event to all registered sinks.
+
+Example:
+```bash
+# Both local extension tracing AND Jaeger
+arazzo-designer-cli serve -f workflow.arazzo.yaml \
+    --trace-endpoint http://127.0.0.1:59600/span-events \
+    --otlp-endpoint http://localhost:4318
+```
+
+---
+
+## 23. MCP Playground Webview
+
+**File**: `arazzo-designer-extension/src/mcp/mcpPlaygroundWebview.ts`
+
+The MCP Playground is a built-in interactive UI for testing the running MCP server directly from VS Code, without needing a separate MCP client. You can:
+
+- **Connect** to the MCP server (performs the MCP `initialize` handshake)
+- **List tools** (calls `tools/list` to see all registered workflow tools)
+- **Call any tool** with custom arguments (calls `tools/call`)
+
+---
+
+### 23.1 How It Is Opened
+
+`openMcpPlayground(port)` creates a VS Code `WebviewPanel` beside the active editor. If the panel is already open, it is revealed and the URL is updated to the new port. The HTML loads the React bundle the same way as the Visualizer (via `getComposerJSFiles()`).
+
+---
+
+### 23.2 Communication Pattern — Direct postMessage (No RPC Layer)
+
+Unlike the Visualizer + RPC layer, the MCP Playground uses **direct `postMessage`** for webview-to-extension communication. There is no `vscode-messenger` layer — it uses VS Code's raw `webview.onDidReceiveMessage` and `panel.webview.postMessage` APIs.
+
+The webview sends command objects:
+```javascript
+{ command: 'connect',   url: 'http://localhost:18342/mcp' }
+{ command: 'listTools', url: '...' }
+{ command: 'callTool',  url: '...', toolName: 'place-order', args: { quantity: 5 } }
+```
+
+The extension host receives them and uses **axios** to make the actual HTTP calls to the MCP server. Results are posted back:
+```javascript
+{ command: 'connectResult',   success: true, serverInfo: {...} }
+{ command: 'listToolsResult', tools: [...] }
+{ command: 'callToolResult',  result: {...}, toolName: 'place-order' }
+```
+
+Why axios is in the Extension Host (not the webview)? Because the webview is sandboxed and cannot make arbitrary HTTP requests to localhost without CORS headers being set. The extension host (Node.js) has no such restriction.
+
+---
+
+### 23.3 MCP Protocol Handling
+
+The MCP Playground implements the full MCP client initialization handshake:
+
+1. POST `initialize` with `protocolVersion`, `capabilities`, `clientInfo`
+2. POST `notifications/initialized` (fire-and-forget)
+3. Capture the `Mcp-Session-Id` response header — required for subsequent requests
+
+The Go MCP server uses HTTP Streamable transport. Responses may be plain JSON-RPC or SSE (Server-Sent Events). The `mcpPost()` helper handles both: if the response body contains `event:` lines (SSE format), it extracts the last `data:` line and parses it as JSON.
+
+---
+
+## 24. Copilot Tools — AI-Native Server Control
+
+**File**: `arazzo-designer-extension/src/copilotTools.ts`
+
+The extension registers two **VS Code Language Model Tools** (`vscode.lm.registerTool` API). These allow GitHub Copilot to control the Arazzo server autonomously as part of its agentic workflows — without the user needing to click any buttons.
+
+---
+
+### 24.1 What Are Language Model Tools?
+
+VS Code Language Model Tools are functions that Copilot can decide to invoke on its own when relevant. Unlike MCP tools (which live in the running Go server), LM tools live inside the extension itself. Each tool has two methods:
+
+- `prepareInvocation(options)` — called first, returns a confirmation dialog message shown to the user
+- `invoke(options)` — called after user confirms, performs the actual action
+
+---
+
+### 24.2 `arazzo_start_server`
+
+This tool lets Copilot start the Arazzo server for a specific file.
+
+**Input**: `{ filePath?: string, fileUri?: string }` — provide either; if both omitted, uses the active editor.
+
+**What it does**:
+1. Resolves the file path from `filePath` or `fileUri`
+2. Calls `startMCPServer(context, filePath, suppressPrompt=true)` — `suppressPrompt=true` prevents the "Try Now" notification since Copilot is already handling the conversation
+3. Returns a result message confirming the server started and that `.vscode/mcp.json` was written
+
+**Example scenario**: Copilot is helping a user run a workflow. It realizes the server is not running. It automatically invokes `arazzo_start_server` with the file path, the user confirms in the confirmation dialog, and the server starts — all without leaving the Copilot chat.
+
+---
+
+### 24.3 `arazzo_set_tls_validation`
+
+This tool lets Copilot toggle TLS certificate validation for outbound API calls.
+
+**Input**: `{ disable: boolean, restartServer?: boolean }` (default: `restartServer = true`)
+
+**What it does**:
+1. Calls `suppressNextTLSChangePrompt()` — prevents the `onDidChangeConfiguration` handler from showing its own restart dialog (the tool handles the restart itself, avoiding a duplicate prompt)
+2. Updates the `arazzo.disableTLSCertificationValidation` workspace setting
+3. If `restartServer` is true and the server is currently running, restarts the server with the new setting
+
+**Example scenario**: A workflow calls an API with a self-signed certificate and fails. Copilot detects the TLS error in the response, automatically invokes `arazzo_set_tls_validation` with `{ disable: true }`, the user confirms, the server restarts with TLS verification off, and the workflow runs successfully.
+
+---
+
+### 24.4 Registration
+
+Both tools are registered during extension activation:
+
+```typescript
+// extension.ts
+registerArazzoCopilotTools(context, () => { suppressTLSChangePrompt = true; });
+```
+
+The `suppressNextTLSChangePrompt` callback is shared with the `onDidChangeConfiguration` handler so the two code paths don't fight over restart dialogs.
+
+If `vscode.lm.registerTool` does not exist (VS Code older than 1.100), the registration is silently skipped with no error — this is the `const lm = (vscode as any).lm; if (!lm?.registerTool) return;` guard at the top of the function.
+
+---
+
+## 25. Docker Packaging — `--docker` Flag
+
+**Files**:
+- `arazzo-designer-cli/cmd/main.go` — parses `--docker` and `-o` flags
+- `arazzo-designer-cli/internal/docker/builder.go` — implements `BuildImage()`
+
+The `--docker` flag lets you package the Arazzo MCP server into a **self-contained Docker image**. Instead of starting a server locally, the CLI assembles a Docker build context, cross-compiles a Linux binary, builds the image, and prints the `docker run` command. No server is started; the CLI exits after the image is built.
+
+---
+
+### 25.1 How to Use It
+
+```bash
+# Basic: package into a Docker image
+arazzo-designer-cli serve -f workflow.arazzo.yaml -p 8080 --docker
+
+# Keep the build artifacts for inspection
+arazzo-designer-cli serve -f workflow.arazzo.yaml -p 8080 --docker -o ./docker-output
+```
+
+---
+
+### 25.2 What `BuildImage()` Does — Step by Step
+
+```
+1. Verify Docker is available
+       docker info → fails fast before doing any compilation work
+
+2. Resolve + parse the Arazzo file
+       Finds all local (non-HTTP) source descriptions (OpenAPI specs)
+       so they can be bundled into the image
+
+3. Find the Go module root
+       Walks up from CWD looking for go.mod (needed to cross-compile)
+
+4. Resolve the build directory
+       -o given  → use that directory; never deleted after build
+       -o absent → create ~/.arazzo-cli/.tmp/docker-build-XXXXX/; deleted after build
+
+5. Cross-compile a CGO-free Linux binary
+       GOOS=linux GOARCH=<amd64 or arm64> CGO_ENABLED=0
+       go build -o <buildDir>/arazzo-designer-cli ./cmd/
+       (arm64 is chosen on Apple Silicon hosts so the image runs natively)
+
+6. Create workspace/ in the build context
+       Copy the Arazzo file → workspace/<filename>
+       Copy each local source description → workspace/<relative-path>
+       Reject any source path that would escape the Arazzo file's directory (path traversal guard)
+       Remove and recreate workspace/ first — prevents stale files from previous -o runs
+
+7. Write the Dockerfile
+       Uses ENTRYPOINT (not CMD) so required args are fixed in the image
+
+8. Build the Docker image
+       docker build -t <imageName> .
+
+9. Write run-command.txt (only if -o was specified)
+
+10. Print the success summary with docker run command, MCP URL, and artifact paths
+```
+
+---
+
+### 25.3 The Dockerfile — ENTRYPOINT vs CMD
+
+The generated Dockerfile uses `ENTRYPOINT` to bake the required arguments:
+
+```dockerfile
+FROM debian:bookworm-slim
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY arazzo-designer-cli /usr/local/bin/arazzo-designer-cli
+RUN chmod +x /usr/local/bin/arazzo-designer-cli
+COPY workspace/ /app/workspace/
+EXPOSE 8080
+ENTRYPOINT ["arazzo-designer-cli", "serve", "-f", "/app/workspace/workflow.arazzo.yaml", "-p", "8080"]
+```
+
+**Why ENTRYPOINT and not CMD?**
+
+- `ENTRYPOINT`: the fixed part that always runs. Arguments appended to `docker run <image> <extra-args>` are **appended** to the entry point. So the user can easily add `--bearer-token XYZ` without needing to repeat `-f` and `-p`.
+- `CMD`: the default command. `docker run <image> <extra-args>` **replaces** the CMD entirely — the user would have to repeat all required flags.
+
+Since `-f` and `-p` are required, baking them into `ENTRYPOINT` is the safe choice.
+
+The minimal Debian Slim base is used because it's small (around 75 MB) but includes `ca-certificates`, which is required for making HTTPS calls to APIs.
+
+---
+
+### 25.4 The `docker run` Command — What Gets Excluded
+
+`buildRunCommand()` constructs the suggested `docker run` command by scanning the CLI's original `os.Args` for extra flags. It deliberately **excludes**:
+
+- `--docker` — build-only flag, meaningless at container runtime
+- `-o` / `--output-dir` — build-only flag
+- `-f` / `-p` — already baked into the `ENTRYPOINT`
+
+It also replaces `localhost` and `127.0.0.1` with `host.docker.internal` in any remaining flags. This matters for flags like `--trace-endpoint http://localhost:59600/span-events`: inside a container, `localhost` refers to the container itself, not the host machine. `host.docker.internal` is Docker's special hostname that routes to the host.
+
+**Example output after a basic build:**
+```
+docker run --rm -p 8080:8080 workflow-arazzo-server
+```
+
+**Example with auth flags:**
+```
+docker run --rm -p 8080:8080 workflow-arazzo-server --bearer-token my-token
+```
+
+---
+
+### 25.5 Image Naming
+
+The image name is derived from the Arazzo document's `info.title`:
+
+```
+title: "Pet Store API"              → image: "pet-store-api-arazzo-server"
+title: "My Checkout Workflow"       → image: "my-checkout-workflow-arazzo-server"
+title: ""  OR  all special chars   → image: "arazzo-server"  (fallback)
+```
+
+The name is lowercased and all non-alphanumeric sequences replaced with `-`.
+
+---
+
+### 25.6 Path-Escape Validation for Source Descriptions
+
+When copying source description files (the OpenAPI specs referenced by the Arazzo file), `copyLocalSourceDescriptions()` validates that each resolved path stays **within** the Arazzo file's directory:
+
+```go
+if !strings.HasPrefix(dstFile, absDst+string(filepath.Separator)) {
+    return error "source description resolves outside the Arazzo file directory..."
+}
+```
+
+This prevents a malicious or accidental `url: "../../secrets.yaml"` from bundling files outside the intended project. If a source description references files outside the Arazzo file's directory, the user must move them next to (or beneath) the Arazzo file first.
+
+---
+
+## 26. Folder Input for the `-f` Flag
+
+**File**: `arazzo-designer-cli/cmd/main.go` — `resolveArazzoFilePath()` and `isArazzoFile()`
+
+The `-f` flag on `arazzo-designer-cli serve` now accepts either a direct path to an Arazzo file **or a path to a folder**. If a folder is given, the CLI automatically discovers the Arazzo file inside it.
+
+---
+
+### 26.1 How It Works
+
+```go
+func resolveArazzoFilePath(input string) (string, error) {
+    info, err := os.Stat(input)
+
+    if !info.IsDir() {
+        return input, nil   // Direct file path — use as-is
+    }
+
+    // Folder — scan for YAML/YML files containing the "arazzo" top-level key
+    var matches []string
+    for each .yaml / .yml file in the folder {
+        if isArazzoFile(candidate) {
+            matches = append(matches, candidate)
+        }
+    }
+
+    switch len(matches) {
+    case 0:  error "no Arazzo file found in folder"
+    case 1:  print "Auto-detected Arazzo file: <path>"; return matches[0]
+    default: error "multiple Arazzo files found — specify the exact file"
+    }
+}
+```
+
+`isArazzoFile()` reads the YAML file and checks for the existence of the top-level `arazzo` key using `gopkg.in/yaml.v3`. It is safe on any YAML file — it returns `false` if the key is absent and doesn't panic.
+
+---
+
+### 26.2 Why This Matters
+
+When using `--docker`, you often have a directory containing `workflow.arazzo.yaml` alongside multiple OpenAPI spec files. Instead of:
+
+```bash
+arazzo-designer-cli serve -f ./my-project/workflow.arazzo.yaml --docker
+```
+
+You can write:
+
+```bash
+arazzo-designer-cli serve -f ./my-project --docker
+```
+
+The CLI auto-detects `workflow.arazzo.yaml` inside `./my-project`. If there are two Arazzo files in the folder, the error message lists them and tells you to specify the exact one.
+
+This also enables patterns like passing a workspace folder path and letting the CLI discover what to serve — which aligns with how Docker users think (give me this project folder, figure out the rest).
+
+---
+
+## 27. Updated File Reference
+
+This section replaces Section 17 with the fully up-to-date list of all major files.
+
+### Extension (TypeScript — Node.js side)
+
+| File | Purpose |
+|------|---------|
+| `arazzo-designer-extension/src/extension.ts` | Main activation, LSP init, command registration, `arazzo.tryWorkflow` and `arazzo.tryAIWorkflow` |
+| `arazzo-designer-extension/src/stateMachine.ts` | XState state machine for navigation |
+| `arazzo-designer-extension/src/RPCLayer.ts` | RPC message handler setup |
+| `arazzo-designer-extension/src/visualizer/webview.ts` | WebviewPanel creation and HTML injection |
+| `arazzo-designer-extension/src/visualizer/activate.ts` | Registers the "Open API Designer" command |
+| `arazzo-designer-extension/src/rpc-managers/visualizer/rpc-handler.ts` | Registers all visualizer RPC handlers (including Configure Inputs) |
+| `arazzo-designer-extension/src/rpc-managers/visualizer/rpc-manager.ts` | Implements RPC methods: getArazzoModel, runWorkflow, getWorkflowRunInputs, saveWorkflowRunInputs |
+| `arazzo-designer-extension/src/Context.ts` | Global singleton holding ExtensionContext |
+| `arazzo-designer-extension/src/constants/index.ts` | Command IDs and context key names |
+| `arazzo-designer-extension/src/history/activator.ts` | Navigation history stack |
+| `arazzo-designer-extension/src/mcp/mcpServerRunner.ts` | MCP server lifecycle: orchestrates start/stop, writes mcp.json, user notifications |
+| `arazzo-designer-extension/src/mcp/mcpServerTask.ts` | VS Code Task + Pseudoterminal that spawns the Go binary |
+| `arazzo-designer-extension/src/mcp/runWorkflowCodeLens.ts` | "▶ Try with curl" and "▶ Try with AI" CodeLens provider |
+| `arazzo-designer-extension/src/mcp/mcpPlaygroundWebview.ts` | MCP Playground panel (connect, list tools, call tools) |
+| `arazzo-designer-extension/src/mcp/tracing/tracerServer.ts` | HTTP server receiving OpenTelemetry span events from Go runner |
+| `arazzo-designer-extension/src/mcp/tracing/traceServerTask.ts` | VS Code Task wrapping the TracerServer |
+| `arazzo-designer-extension/src/mcp/tracing/traceEvents.ts` | TypeScript types for span events (mirrors Go's TraceEvent struct) |
+| `arazzo-designer-extension/src/mcp/tracing/constants.ts` | Default trace server port constant |
+| `arazzo-designer-extension/src/copilotTools.ts` | `arazzo_start_server` and `arazzo_set_tls_validation` LM tools for Copilot |
+| `arazzo-designer-extension/package.json` | Extension manifest (commands, menus, activation events) |
+
+### CLI (Go)
+
+| File | Purpose |
+|------|---------|
+| `arazzo-designer-cli/cmd/main.go` | Entry point — `serve` command, flag parsing, `resolveArazzoFilePath()` for folder input |
+| `arazzo-designer-cli/internal/docker/builder.go` | `--docker` mode: cross-compile + Docker build context + image build |
+| `arazzo-designer-cli/internal/mcpserver/` | MCP HTTP server — workflow registration as MCP tools, `/run/{id}`, `/lastResult/{id}` endpoints |
+| `arazzo-designer-cli/internal/telemetry/` | Span event sinks: `HTTPSink`, `OTLPSink`, `MultiSink`, `NoopSink` |
+| `arazzo-designer-cli/internal/loader/` | Arazzo file parser (used by docker mode to discover local source descriptions) |
+| `arazzo-designer-cli/internal/models/` | Shared data models: ArazzoDoc, RuntimeParams |
+| `arazzo-designer-cli/test_runner/` | Dev-only binary for running workflows directly from the command line |
+
+### Language Server (Go)
+
+| File | Purpose |
+|------|---------|
+| `arazzo-designer-lsp/main.go` | Entry point, stdio JSON-RPC setup |
+| `arazzo-designer-lsp/server/server.go` | LSP handler dispatch (initialize, didOpen, etc.) |
+| `arazzo-designer-lsp/codelens/codelens.go` | "Visualize" Code Lens for each workflow |
+| `arazzo-designer-lsp/completion/completion.go` | Context-aware autocompletion |
+| `arazzo-designer-lsp/diagnostics/diagnostics.go` | Error checking and squiggly underlines |
+| `arazzo-designer-lsp/server/hover.go` | Hover info for operationId |
+| `arazzo-designer-lsp/server/definition.go` | Go-to-definition for operationId |
+| `arazzo-designer-lsp/parser/parser.go` | Arazzo YAML/JSON parser |
+| `arazzo-designer-lsp/parser/ast.go` | Arazzo document AST types |
+| `arazzo-designer-lsp/navigation/indexer.go` | OpenAPI operation indexing |
+| `arazzo-designer-lsp/navigation/discovery.go` | Find nearby OpenAPI files |
+| `arazzo-designer-lsp/navigation/parser.go` | Parse OpenAPI files for operations |
+
+### Shared Types (TypeScript)
+
+| File | Purpose |
+|------|---------|
+| `arazzo-designer-core/src/state-machine-types.ts` | MACHINE_VIEW, EVENT_TYPE, RPC message definitions |
+| `arazzo-designer-core/src/rpc-types/visualizer/types.ts` | All request/response interfaces (getArazzoModel, runWorkflow, configure inputs, etc.) |
+| `arazzo-designer-core/src/rpc-types/visualizer/rpc-type.ts` | RPC method name constants |
+| `arazzo-designer-core/src/rpc-types/visualizer/index.ts` | VisualizerAPI interface |
+
+### React Visualizer (TypeScript/React — Browser side)
+
+| File | Purpose |
+|------|---------|
+| `arazzo-designer-visualizer/src/index.tsx` | Entry point: `renderWebview()` |
+| `arazzo-designer-visualizer/src/Context.tsx` | React context provider with RpcClient |
+| `arazzo-designer-visualizer/src/Visualizer.tsx` | Root component, sends webviewReady, listens for state changes |
+| `arazzo-designer-visualizer/src/MainPanel.tsx` | View router (Overview vs Workflow) |
+| `arazzo-designer-visualizer/src/views/Overview/Overview.tsx` | Overview page component |
+| `arazzo-designer-visualizer/src/views/WorkflowView/WorkflowView.tsx` | Workflow graph + Configure Inputs state management |
+| `arazzo-designer-visualizer/src/views/WorkflowView/WorkflowInputConfigPanel.tsx` | Configure Inputs panel UI component |
+| `arazzo-designer-visualizer/src/utils/inputUtils.ts` | Field discovery, type coercion, validation (buildInputFields, coerceInputValue, hasMissingRequiredInputs) |
+
+### RPC Client (TypeScript — Browser side)
+
+| File | Purpose |
+|------|---------|
+| `arazzo-designer-rpc-client/src/RpcClient.ts` | General RPC client (Messenger setup, onOpenInputConfigPanel subscription) |
+| `arazzo-designer-rpc-client/src/rpc-clients/visualizer/rpc-client.ts` | Visualizer RPC methods (runWorkflow, getWorkflowRunInputs, saveWorkflowRunInputs, getArazzoModel) |
+
+---
+
+## Summary (Updated)
+
+The Arazzo Designer extension is a layered system with **three runtimes** and a standalone **Go CLI**:
+
+1. **Go Language Server** — does the heavy lifting: parsing Arazzo files, LSP (completions, validation, hover, go-to-definition), "Visualize" Code Lens
+2. **TypeScript Extension Host** (Node.js) — orchestrates everything: spawns the LSP and the MCP server CLI, manages the state machine, creates webviews, routes RPC messages, handles file watching, writes mcp.json, manages tracing
+3. **React App** (Browser webview) — renders the visual UI: Overview page, Workflow graph, Configure Inputs panel, MCP Playground
+4. **Go CLI Binary** (`arazzo-designer-cli`) — the MCP server: exposes Arazzo workflows as MCP tools over HTTP, supports OpenTelemetry tracing, can package itself into a Docker image
+
+Every user action follows a predictable path:
+
+**View a workflow →** VS Code command → State machine event → Webview panel opens → React boots → Fetches model via RPC → RPC goes to Extension → Extension asks LSP → LSP parses and returns → React renders
+
+**Run a workflow with curl →** CodeLens click → Server start check → Input resolution (YAML fields + stored values + defaults) → Missing required inputs? → Config panel → User fills in → Save to workspaceState → Generate curl command → Place in terminal
+
+**Run a workflow with AI →** CodeLens click → MCP server running? → mcp.json written → Copilot chat opened with pre-filled prompt → Copilot calls `mcp_arazzo_<workflowId>` MCP tool → Go server executes workflow → Span events flow to TracerServer → Execution result returned to Copilot
