@@ -16,11 +16,14 @@
  * under the License.
  */
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import styled from '@emotion/styled';
 import { Button, Typography } from '@wso2/ui-toolkit';
+import { useForm } from 'react-hook-form';
+import * as yup from 'yup';
+import { yupResolver } from '@hookform/resolvers/yup';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
-import { DialogOverlay, DialogContent, DialogField, DialogButtonGroup, StdInput, SchemaTextarea, FlexRowStart, DialogTitle } from './dialogStyles';
+import { DialogOverlay, DialogContent, DialogField, DialogButtonGroup, StdInput, SchemaTextarea, DialogTitle } from './dialogStyles';
 import { EMPTY_MCP_SCHEMA, INVALID_MCP_SCHEMA_MESSAGE } from '../../../constants';
 
 // Styled Components
@@ -31,7 +34,7 @@ const SchemaRow = styled.div`
     gap: 8px;
 `;
 
-// Component 
+// Component
 
 export interface ScratchToolData {
     name: string;
@@ -47,6 +50,18 @@ interface CreateScratchToolDialogProps {
     existingToolSequenceNames?: string[];
 }
 
+interface FormValues {
+    name: string;
+    description: string;
+    inputSchema: string;
+}
+
+const sanitizeToolName = (raw: string): string =>
+    raw.trim().toLowerCase()
+        .replace(/[^a-z0-9]/g, '_')
+        .replace(/_{2,}/g, '_')
+        .replace(/^_+|_+$/, '');
+
 export function CreateScratchToolDialog({
     isOpen,
     onConfirm,
@@ -55,64 +70,76 @@ export function CreateScratchToolDialog({
     existingToolSequenceNames = []
 }: CreateScratchToolDialogProps) {
     const { rpcClient } = useVisualizerContext();
-    const [name, setName] = useState('');
-    const [nameError, setNameError] = useState('');
-    const [description, setDescription] = useState('');
-    const [descriptionError, setDescriptionError] = useState('');
-    const [inputSchema, setInputSchema] = useState('');
-    const [schemaError, setSchemaError] = useState('');
     const [aiDescLoading, setAiDescLoading] = useState(false);
     const [aiSchemaLoading, setAiSchemaLoading] = useState(false);
 
-    const validateName = (value: string): boolean => {
+    const schema = useMemo(() => yup.object({
+        name: yup.string()
+            .required('Tool name is required')
+            .test('valid-sanitized', 'Tool name must contain alphanumeric characters.',
+                v => !!sanitizeToolName(v || ''))
+            .test('no-collision', function (v) {
+                const sequenceName = sanitizeToolName(v || '') + '_tool';
+                if (existingSequenceIds.includes(sequenceName) || existingToolSequenceNames.includes(sequenceName)) {
+                    return this.createError({ message: `A sequence named "${sequenceName}" already exists.` });
+                }
+                return true;
+            }),
+        description: yup.string().required('Description is required.'),
+        inputSchema: yup.string().default(''),
+    }), [existingSequenceIds, existingToolSequenceNames]);
+
+    const { register, handleSubmit, watch, setValue, setError, clearErrors, reset, formState: { errors } } = useForm<FormValues>({
+        resolver: yupResolver(schema) as any,
+        defaultValues: { name: '', description: '', inputSchema: '' },
+        mode: 'onTouched',
+    });
+
+    const name = watch('name');
+    const description = watch('description');
+
+    useEffect(() => {
+        if (!isOpen) reset();
+    }, [isOpen, reset]);
+
+    if (!isOpen) return null;
+
+    const derivedSequenceName = name?.trim() ? sanitizeToolName(name) + '_tool' : '';
+
+    const validateSchema = async (value: string): Promise<boolean> => {
         if (!value.trim()) {
-            setNameError('');
+            clearErrors('inputSchema');
             return true;
         }
-
-        const sanitized = value.trim().toLowerCase()
-            .replace(/[^a-z0-9]/g, '_')
-            .replace(/_{2,}/g, '_')
-            .replace(/^_+|_+$/, '');
-
-        if (!sanitized) {
-            setNameError('Tool name must contain alphanumeric characters.');
+        const { schema: converted } = await rpcClient.getMiDiagramRpcClient().convertMcpJsonSchema({ input: value });
+        if (converted === null) {
+            setError('inputSchema', { message: INVALID_MCP_SCHEMA_MESSAGE });
             return false;
         }
-
-        const sequenceName = sanitized + '_tool';
-        if (existingSequenceIds.includes(sequenceName) || existingToolSequenceNames.includes(sequenceName)) {
-            setNameError(`A sequence named "${sequenceName}" already exists.`);
-            return false;
-        }
-
-        setNameError('');
+        clearErrors('inputSchema');
         return true;
     };
 
-    const handleNameChange = (value: string) => {
-        setName(value);
-        validateName(value);
-    };
-
     const handleFillDescription = async () => {
-        if (!name.trim()) return;
+        if (!name?.trim()) return;
         setAiDescLoading(true);
         try {
             const result = await rpcClient.getMiVisualizerRpcClient().getMcpToolSuggestion({ toolName: name.trim() });
-            if (result.description) { setDescription(result.description); setDescriptionError(''); }
+            if (result.description) {
+                setValue('description', result.description, { shouldValidate: true });
+            }
         } finally {
             setAiDescLoading(false);
         }
     };
 
     const handleFillSchema = async () => {
-        if (!name.trim()) return;
+        if (!name?.trim()) return;
         setAiSchemaLoading(true);
         try {
             const result = await rpcClient.getMiVisualizerRpcClient().getMcpToolSuggestion({ toolName: name.trim() });
             if (result.inputSchema) {
-                setInputSchema(result.inputSchema);
+                setValue('inputSchema', result.inputSchema);
                 validateSchema(result.inputSchema);
             }
         } finally {
@@ -120,58 +147,32 @@ export function CreateScratchToolDialog({
         }
     };
 
-    if (!isOpen) return null;
-
-    const derivedSequenceName = name.trim()
-        ? name.trim().toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_{2,}/g, '_').replace(/^_+|_+$/, '') + '_tool'
-        : '';
-
-    const validateSchema = async (value: string): Promise<boolean> => {
-        if (!value.trim()) { setSchemaError(''); return true; }
-        const { schema } = await rpcClient.getMiDiagramRpcClient().convertMcpJsonSchema({ input: value });
-        if (schema === null) {
-            setSchemaError(INVALID_MCP_SCHEMA_MESSAGE);
-            return false;
-        }
-        setSchemaError('');
-        return true;
-    };
-
-    const handleSchemaChange = (value: string) => {
-        setInputSchema(value);
-        validateSchema(value);
-    };
-
     const handleImportFile = async () => {
         const { content } = await rpcClient.getMiDiagramRpcClient().pickMcpJsonFile();
         if (content === null) return;
-        setInputSchema(content);
+        setValue('inputSchema', content);
         validateSchema(content);
     };
 
-    const handleConfirm = async () => {
-        if (!name.trim() || nameError || schemaError) return;
-        if (!description.trim()) {
-            setDescriptionError('Description is required.');
-            return;
-        }
+    const onSubmit = async (data: FormValues) => {
         let converted: string | null = null;
-        if (inputSchema.trim()) {
-            const { schema } = await rpcClient.getMiDiagramRpcClient().convertMcpJsonSchema({ input: inputSchema });
-            converted = schema;
+        if (data.inputSchema.trim()) {
+            const result = await rpcClient.getMiDiagramRpcClient().convertMcpJsonSchema({ input: data.inputSchema });
+            if (result.schema === null) {
+                setError('inputSchema', { message: INVALID_MCP_SCHEMA_MESSAGE });
+                return;
+            }
+            converted = result.schema;
         }
         onConfirm({
-            name: name.trim(),
-            description: description.trim(),
+            name: data.name.trim(),
+            description: data.description.trim(),
             inputSchema: converted || EMPTY_MCP_SCHEMA,
         });
-        setName('');
-        setNameError('');
-        setDescription('');
-        setDescriptionError('');
-        setInputSchema('');
-        setSchemaError('');
+        reset();
     };
+
+    const submitDisabled = !name?.trim() || !description?.trim() || !!errors.name || !!errors.description || !!errors.inputSchema;
 
     return (
         <DialogOverlay onClick={onCancel}>
@@ -186,11 +187,10 @@ export function CreateScratchToolDialog({
                     <StdInput
                         type="text"
                         placeholder="e.g., get_weather"
-                        value={name}
-                        onChange={e => handleNameChange(e.target.value)}
+                        {...register('name')}
                     />
-                    {nameError && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)' }}>{nameError}</Typography>}
-                    {derivedSequenceName && !nameError && (
+                    {errors.name && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)' }}>{String(errors.name.message)}</Typography>}
+                    {derivedSequenceName && !errors.name && (
                         <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', fontStyle: 'italic' }}>A sequence named "{derivedSequenceName}" will be created.</Typography>
                     )}
                 </DialogField>
@@ -201,15 +201,13 @@ export function CreateScratchToolDialog({
                         <StdInput
                             type="text"
                             placeholder="Describe what this tool does"
-                            value={description}
-                            onChange={e => { setDescription(e.target.value); if (e.target.value.trim()) setDescriptionError(''); }}
-                            onBlur={() => { if (!description.trim()) setDescriptionError('Description is required.'); }}
+                            {...register('description')}
                         />
-                        <Button appearance="secondary" onClick={handleFillDescription} disabled={!name.trim() || aiDescLoading} sx={{ padding: '4px 10px', fontSize: '12px', minWidth: 'auto' }}>
+                        <Button appearance="secondary" onClick={handleFillDescription} disabled={!name?.trim() || aiDescLoading} sx={{ padding: '4px 10px', fontSize: '12px', minWidth: 'auto' }}>
                             {aiDescLoading ? 'Filling...' : 'Fill With AI'}
                         </Button>
                     </SchemaRow>
-                    {descriptionError && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)' }}>{descriptionError}</Typography>}
+                    {errors.description && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)' }}>{String(errors.description.message)}</Typography>}
                 </DialogField>
 
                 <DialogField>
@@ -217,22 +215,23 @@ export function CreateScratchToolDialog({
                     <SchemaRow>
                         <SchemaTextarea
                             placeholder='e.g. {"city": "string", "units": "string"}'
-                            value={inputSchema}
-                            onChange={e => handleSchemaChange(e.target.value)}
+                            {...register('inputSchema', {
+                                onChange: e => validateSchema(e.target.value),
+                            })}
                         />
-                        <Button appearance="secondary" onClick={handleFillSchema} disabled={!name.trim() || aiSchemaLoading} sx={{ padding: '4px 10px', fontSize: '12px', minWidth: 'auto' }}>
+                        <Button appearance="secondary" onClick={handleFillSchema} disabled={!name?.trim() || aiSchemaLoading} sx={{ padding: '4px 10px', fontSize: '12px', minWidth: 'auto' }}>
                             {aiSchemaLoading ? 'Filling...' : 'Fill With AI'}
                         </Button>
                         <Button appearance="secondary" onClick={handleImportFile} sx={{ padding: '4px 10px', fontSize: '12px', minWidth: 'auto' }}>
                             Import JSON
                         </Button>
                     </SchemaRow>
-                    {schemaError && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)' }}>{schemaError}</Typography>}
+                    {errors.inputSchema && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)' }}>{String(errors.inputSchema.message)}</Typography>}
                 </DialogField>
 
                 <DialogButtonGroup>
                     <Button appearance="secondary" onClick={onCancel}>Cancel</Button>
-                    <Button appearance="primary" onClick={handleConfirm} disabled={!name.trim() || !description.trim() || !!schemaError || !!nameError}>
+                    <Button appearance="primary" onClick={handleSubmit(onSubmit)} disabled={submitDisabled}>
                         Create Tool
                     </Button>
                 </DialogButtonGroup>

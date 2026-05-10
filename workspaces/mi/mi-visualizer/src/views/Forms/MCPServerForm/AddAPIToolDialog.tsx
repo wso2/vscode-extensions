@@ -16,9 +16,10 @@
  * under the License.
  */
 
-import React, { useState } from 'react';
+import { useEffect, useState } from 'react';
 import styled from '@emotion/styled';
 import { Button, Typography } from '@wso2/ui-toolkit';
+import { useForm } from 'react-hook-form';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
 import { DialogOverlay, DialogContent, DialogField, DialogButtonGroup, CustomInput, SelectAllRow, FlexRow, CustomInputsContainer, ItemsList, ListItem, ListItemHeader, ItemCheckbox, DialogTitle } from './dialogStyles';
 
@@ -44,6 +45,15 @@ interface AddAPIToolDialogProps {
     onAPIChange: (apiId: string) => void;
     onConfirmBulk: (apiId: string, selectedOperations: Array<{ id: string; customName: string; description: string }>) => void;
     onCancel: () => void;
+}
+
+interface OperationFormItem {
+    customName: string;
+    description: string;
+}
+
+interface FormValues {
+    items: Record<string, OperationFormItem>;
 }
 
 function getDefaultName(operation: APIOperation): string {
@@ -95,28 +105,21 @@ export function AddAPIToolDialog({
 }: AddAPIToolDialogProps) {
     const { rpcClient } = useVisualizerContext();
     const [selectedOperationIds, setSelectedOperationIds] = useState<Set<string>>(new Set());
-    const [customNames, setCustomNames] = useState<Record<string, string>>({});
-    const [customDescriptions, setCustomDescriptions] = useState<Record<string, string>>({});
-    const [descriptionErrors, setDescriptionErrors] = useState<Record<string, string>>({});
     const [aiLoadingIds, setAiLoadingIds] = useState<Set<string>>(new Set());
 
-    const handleFillWithAI = async (op: APIOperation) => {
-        setAiLoadingIds(prev => new Set(prev).add(op.id));
-        try {
-            const result = await rpcClient.getMiVisualizerRpcClient().getMcpToolSuggestion({
-                toolName: customNames[op.id] || getDefaultName(op),
-                operationMethod: op.method,
-                operationPath: op.path,
-                operationSummary: op.summary,
-            });
-            if (result.description) {
-                setCustomDescriptions(prev => ({ ...prev, [op.id]: result.description }));
-                setDescriptionErrors(prev => { const n = { ...prev }; delete n[op.id]; return n; });
-            }
-        } finally {
-            setAiLoadingIds(prev => { const n = new Set(prev); n.delete(op.id); return n; });
+    const { register, handleSubmit, watch, getValues, setValue, setError, clearErrors, reset, formState: { errors } } = useForm<FormValues>({
+        defaultValues: { items: {} },
+        mode: 'onTouched',
+    });
+
+    const items = watch('items') || {};
+
+    useEffect(() => {
+        if (!isOpen) {
+            reset({ items: {} });
+            setSelectedOperationIds(new Set());
         }
-    };
+    }, [isOpen, reset]);
 
     if (!isOpen) return null;
 
@@ -126,26 +129,11 @@ export function AddAPIToolDialog({
         const newSet = new Set(selectedOperationIds);
         if (newSet.has(operationId)) {
             newSet.delete(operationId);
-            setDescriptionErrors(prev => { const n = { ...prev }; delete n[operationId]; return n; });
+            clearErrors(`items.${operationId}` as const);
         } else {
             newSet.add(operationId);
         }
         setSelectedOperationIds(newSet);
-    };
-
-    const handleCustomNameChange = (operationId: string, name: string) => {
-        setCustomNames(prev => ({ ...prev, [operationId]: name }));
-    };
-
-    const handleCustomDescriptionChange = (operationId: string, description: string) => {
-        setCustomDescriptions(prev => ({ ...prev, [operationId]: description }));
-        if (description.trim()) setDescriptionErrors(prev => { const n = { ...prev }; delete n[operationId]; return n; });
-    };
-
-    const handleDescriptionBlur = (operationId: string) => {
-        if (!customDescriptions[operationId]?.trim()) {
-            setDescriptionErrors(prev => ({ ...prev, [operationId]: 'Description is required.' }));
-        }
     };
 
     const handleSelectAll = () => {
@@ -160,44 +148,62 @@ export function AddAPIToolDialog({
     const handleAPIChange = (apiId: string) => {
         onAPIChange(apiId);
         setSelectedOperationIds(new Set());
-        setCustomNames({});
-        setCustomDescriptions({});
-        setDescriptionErrors({});
+        reset({ items: {} });
     };
 
-    const handleConfirm = () => {
-        if (!selectedAPIForTool || selectedOperationIds.size === 0) return;
-        const missingDesc: Record<string, string> = {};
-        Array.from(selectedOperationIds).forEach(opId => {
-            if (!customDescriptions[opId]?.trim()) missingDesc[opId] = 'Description is required.';
-        });
-        if (Object.keys(missingDesc).length > 0) {
-            setDescriptionErrors(missingDesc);
-            return;
+    const handleFillWithAI = async (op: APIOperation) => {
+        setAiLoadingIds(prev => new Set(prev).add(op.id));
+        try {
+            const customName = getValues(`items.${op.id}.customName` as const);
+            const result = await rpcClient.getMiVisualizerRpcClient().getMcpToolSuggestion({
+                toolName: customName || getDefaultName(op),
+                operationMethod: op.method,
+                operationPath: op.path,
+                operationSummary: op.summary,
+            });
+            if (result.description) {
+                setValue(`items.${op.id}.description` as const, result.description);
+                clearErrors(`items.${op.id}.description` as const);
+            }
+        } finally {
+            setAiLoadingIds(prev => { const n = new Set(prev); n.delete(op.id); return n; });
         }
+    };
 
-        const selectedOperations = Array.from(selectedOperationIds).flatMap(opId => {
+    const onSubmit = (data: FormValues) => {
+        if (!selectedAPIForTool || selectedOperationIds.size === 0) return;
+
+        const opIds = Array.from(selectedOperationIds);
+        let hasMissingDesc = false;
+        opIds.forEach(opId => {
+            if (!data.items?.[opId]?.description?.trim()) {
+                setError(`items.${opId}.description` as const, { message: 'Description is required.' });
+                hasMissingDesc = true;
+            }
+        });
+        if (hasMissingDesc) return;
+
+        const selectedOperations = opIds.flatMap(opId => {
             const operation = selectedAPI?.operations.find((op: APIOperation) => op.id === opId);
             if (!operation) return [];
+            const item = data.items?.[opId];
             return [{
                 id: opId,
-                customName: customNames[opId] || getDefaultName(operation),
-                description: customDescriptions[opId]!.trim(),
+                customName: item?.customName || getDefaultName(operation),
+                description: item!.description.trim(),
             }];
         });
 
         onConfirmBulk(selectedAPIForTool, selectedOperations);
+        reset({ items: {} });
         setSelectedOperationIds(new Set());
-        setCustomNames({});
-        setCustomDescriptions({});
-        setDescriptionErrors({});
     };
 
     const allSelected = !!selectedAPI
         && selectedAPI.operations.length > 0
         && selectedOperationIds.size === selectedAPI.operations.length;
     const someSelected = selectedOperationIds.size > 0;
-    const hasMissingDescriptions = Array.from(selectedOperationIds).some(id => !customDescriptions[id]?.trim());
+    const hasMissingDescriptions = Array.from(selectedOperationIds).some(id => !items[id]?.description?.trim());
 
     return (
         <DialogOverlay onClick={onCancel}>
@@ -239,7 +245,9 @@ export function AddAPIToolDialog({
                                         <strong>Select All Operations</strong>
                                     </label>
                                 </SelectAllRow>
-                                {selectedAPI.operations.map((op: APIOperation) => (
+                                {selectedAPI.operations.map((op: APIOperation) => {
+                                    const itemErrors = errors.items?.[op.id];
+                                    return (
                                     <ListItem key={op.id}>
                                         <ListItemHeader onClick={() => handleOperationToggle(op.id)}>
                                             <ItemCheckbox
@@ -266,8 +274,7 @@ export function AddAPIToolDialog({
                                                     id={`name-${op.id}`}
                                                     type="text"
                                                     placeholder={getDefaultName(op)}
-                                                    value={customNames[op.id] || ''}
-                                                    onChange={(e) => handleCustomNameChange(op.id, e.target.value)}
+                                                    {...register(`items.${op.id}.customName` as const)}
                                                     onClick={(e) => e.stopPropagation()}
                                                 />
                                                 <Typography variant="caption" sx={{ fontSize: '10px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>Description *</Typography>
@@ -276,9 +283,10 @@ export function AddAPIToolDialog({
                                                         id={`desc-${op.id}`}
                                                         type="text"
                                                         placeholder={op.summary || 'Describe what this tool does'}
-                                                        value={customDescriptions[op.id] || ''}
-                                                        onChange={(e) => handleCustomDescriptionChange(op.id, e.target.value)}
-                                                        onBlur={() => handleDescriptionBlur(op.id)}
+                                                        {...register(`items.${op.id}.description` as const, {
+                                                            onChange: e => { if (e.target.value.trim()) clearErrors(`items.${op.id}.description` as const); },
+                                                            onBlur: e => { if (!e.target.value.trim()) setError(`items.${op.id}.description` as const, { message: 'Description is required.' }); },
+                                                        })}
                                                         onClick={(e) => e.stopPropagation()}
                                                     />
                                                     <Button
@@ -290,11 +298,12 @@ export function AddAPIToolDialog({
                                                         {aiLoadingIds.has(op.id) ? 'Filling...' : 'Fill With AI'}
                                                     </Button>
                                                 </FlexRow>
-                                                {descriptionErrors[op.id] && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)', fontSize: '11px' }}>{descriptionErrors[op.id]}</Typography>}
+                                                {itemErrors?.description && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)', fontSize: '11px' }}>{String(itemErrors.description.message)}</Typography>}
                                             </CustomInputsContainer>
                                         )}
                                     </ListItem>
-                                ))}
+                                    );
+                                })}
                             </ItemsList>
                         ) : (
                             <Typography variant="body2" sx={{ color: 'var(--vscode-descriptionForeground)', textAlign: 'center', padding: '20px' }}>No operations available in this API</Typography>
@@ -311,7 +320,7 @@ export function AddAPIToolDialog({
                     )}
                     <Button
                         appearance="primary"
-                        onClick={handleConfirm}
+                        onClick={handleSubmit(onSubmit)}
                         disabled={!selectedAPIForTool || !someSelected || hasMissingDescriptions}
                     >
                         Add Selected Tools ({selectedOperationIds.size})
