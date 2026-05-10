@@ -216,6 +216,7 @@ const schema = yup.object({
 export interface MCPServerEditData {
     serverName: string;
     localEntryPath?: string;
+    inboundEndpointPath?: string;
     tools?: Array<{
         id: string;
         name: string;
@@ -263,10 +264,57 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
     const [editToolName, setEditToolName] = useState('');
     const [editToolDescription, setEditToolDescription] = useState('');
     const [editToolInputSchema, setEditToolInputSchema] = useState('');
+    const [corsSettings, setCorsSettings] = useState({
+        corsAllowOrigin: '*',
+        corsAllowMethods: 'GET, POST, OPTIONS',
+        corsAllowHeaders: 'Content-Type, Mcp-Session-Id',
+        corsExposeHeaders: 'Mcp-Session-Id',
+        keepAliveInterval: 30000,
+    });
+    const [showCorsSettings, setShowCorsSettings] = useState(false);
 
     // Serialize saves to prevent out-of-order writes
     const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
     const pendingToolsRef = useRef<UnifiedTool[] | null>(null);
+
+    // Save CORS settings to inbound endpoint
+    const saveCorsSettingsToEndpoint = async (inboundEndpointPath: string) => {
+        try {
+            const resp = await rpcClient.getMiDiagramRpcClient().readFileContent({
+                filePath: inboundEndpointPath,
+            });
+            if (!resp.fileContent) return;
+
+            let xmlContent = resp.fileContent;
+
+            // Helper to update or create a parameter in XML string
+            const updateParamInXml = (xml: string, paramName: string, paramValue: string): string => {
+                const paramRegex = new RegExp(`<parameter name="${paramName}"[^>]*>[^<]*</parameter>`, 'g');
+                const newParam = `<parameter name="${paramName}">${paramValue}</parameter>`;
+
+                if (paramRegex.test(xml)) {
+                    return xml.replace(paramRegex, newParam);
+                } else {
+                    return xml.replace('</inboundEndpoint>', `    ${newParam}\n    </inboundEndpoint>`);
+                }
+            };
+
+            // Update all CORS parameters
+            xmlContent = updateParamInXml(xmlContent, 'inbound.cors.allow.origin', corsSettings.corsAllowOrigin);
+            xmlContent = updateParamInXml(xmlContent, 'inbound.cors.allow.methods', corsSettings.corsAllowMethods);
+            xmlContent = updateParamInXml(xmlContent, 'inbound.cors.allow.headers', corsSettings.corsAllowHeaders);
+            xmlContent = updateParamInXml(xmlContent, 'inbound.cors.expose.headers', corsSettings.corsExposeHeaders);
+            xmlContent = updateParamInXml(xmlContent, 'inbound.sse.keepalive.interval', String(corsSettings.keepAliveInterval));
+
+            // Open the file in the editor and write the updated content
+            await rpcClient.getMiDiagramRpcClient().openFile({ path: inboundEndpointPath });
+            await rpcClient.getMiDiagramRpcClient().writeContentToFile({
+                content: xmlContent.split('\n')
+            });
+        } catch (err) {
+            console.error('Failed to save CORS settings:', err);
+        }
+    };
 
     // Auto-save helpers (edit mode only)
 
@@ -379,7 +427,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                         setTools(parseToolsFromXML(resp.fileContent));
                     }
 
-                    // Read port from inbound endpoint
+                    // Read port and CORS settings from inbound endpoint
                     const inboundPath = deriveInboundEndpointPath(editData.localEntryPath);
                     try {
                         const inboundResp = await rpcClient.getMiDiagramRpcClient().readFileContent({
@@ -388,6 +436,24 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                         if (inboundResp.fileContent) {
                             const port = parsePortFromInboundEndpoint(inboundResp.fileContent);
                             if (port !== null) setValue('port', port);
+
+                            // Load CORS settings from inbound endpoint
+                            const parser = new DOMParser();
+                            const xmlDoc = parser.parseFromString(inboundResp.fileContent, 'text/xml');
+                            const inboundEP = xmlDoc.documentElement;
+
+                            const getParamValue = (paramName: string): string | null => {
+                                const param = inboundEP.querySelector(`parameter[name="${paramName}"]`);
+                                return param?.textContent?.trim() || null;
+                            };
+
+                            setCorsSettings({
+                                corsAllowOrigin: getParamValue('inbound.cors.allow.origin') || '*',
+                                corsAllowMethods: getParamValue('inbound.cors.allow.methods') || 'GET, POST, OPTIONS',
+                                corsAllowHeaders: getParamValue('inbound.cors.allow.headers') || 'Content-Type, Mcp-Session-Id',
+                                corsExposeHeaders: getParamValue('inbound.cors.expose.headers') || 'Mcp-Session-Id',
+                                keepAliveInterval: parseInt(getParamValue('inbound.sse.keepalive.interval') || '30000', 10),
+                            });
                         }
                     } catch {}
                 } else if (isEditMode && editData?.tools) {
@@ -650,6 +716,11 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                     'inbound.http.context': '/mcp',
                     'mcp.tools.localentry': localEntryName,
                     'inbound.behavior': 'listening',
+                    'inbound.cors.allow.origin': corsSettings.corsAllowOrigin,
+                    'inbound.cors.allow.methods': corsSettings.corsAllowMethods,
+                    'inbound.cors.allow.headers': corsSettings.corsAllowHeaders,
+                    'inbound.cors.expose.headers': corsSettings.corsExposeHeaders,
+                    'inbound.sse.keepalive.interval': corsSettings.keepAliveInterval,
                 },
             });
 
@@ -771,6 +842,61 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                                             </div>
                                         )}
                                     </InfoRow>
+                                    <InfoRow style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => setShowCorsSettings(!showCorsSettings)}>
+                                        <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', fontSize: '13px', fontWeight: 500 }}>
+                                            {showCorsSettings ? '▼' : '▶'} CORS Settings
+                                        </Typography>
+                                    </InfoRow>
+                                    {showCorsSettings && (
+                                        <div style={{ paddingLeft: '16px', borderLeft: '2px solid var(--vscode-panel-border)', marginLeft: '8px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                            <div>
+                                                <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Allow Origin</Typography>
+                                                <TextField
+                                                    placeholder="e.g., *"
+                                                    value={corsSettings.corsAllowOrigin}
+                                                    onChange={(e: any) => setCorsSettings({ ...corsSettings, corsAllowOrigin: e.target.value })}
+                                                    onBlur={() => saveCorsSettingsToEndpoint(editData?.inboundEndpointPath || '')}
+                                                />
+                                            </div>
+                                            <div>
+                                                <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Allow Methods</Typography>
+                                                <TextField
+                                                    placeholder="e.g., GET, POST, OPTIONS"
+                                                    value={corsSettings.corsAllowMethods}
+                                                    onChange={(e: any) => setCorsSettings({ ...corsSettings, corsAllowMethods: e.target.value })}
+                                                    onBlur={() => saveCorsSettingsToEndpoint(editData?.inboundEndpointPath || '')}
+                                                />
+                                            </div>
+                                            <div>
+                                                <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Allow Headers</Typography>
+                                                <TextField
+                                                    placeholder="e.g., Content-Type, Mcp-Session-Id"
+                                                    value={corsSettings.corsAllowHeaders}
+                                                    onChange={(e: any) => setCorsSettings({ ...corsSettings, corsAllowHeaders: e.target.value })}
+                                                    onBlur={() => saveCorsSettingsToEndpoint(editData?.inboundEndpointPath || '')}
+                                                />
+                                            </div>
+                                            <div>
+                                                <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Expose Headers</Typography>
+                                                <TextField
+                                                    placeholder="e.g., Mcp-Session-Id"
+                                                    value={corsSettings.corsExposeHeaders}
+                                                    onChange={(e: any) => setCorsSettings({ ...corsSettings, corsExposeHeaders: e.target.value })}
+                                                    onBlur={() => saveCorsSettingsToEndpoint(editData?.inboundEndpointPath || '')}
+                                                />
+                                            </div>
+                                            <div>
+                                                <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Keep-Alive Interval (ms)</Typography>
+                                                <TextField
+                                                    type="number"
+                                                    placeholder="e.g., 30000"
+                                                    value={corsSettings.keepAliveInterval}
+                                                    onChange={(e: any) => setCorsSettings({ ...corsSettings, keepAliveInterval: parseInt(e.target.value, 10) || 30000 })}
+                                                    onBlur={() => saveCorsSettingsToEndpoint(editData?.inboundEndpointPath || '')}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
                                 </InfoPanel>
                             ) : (
                                 <>
