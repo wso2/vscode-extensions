@@ -267,6 +267,21 @@ import {
     ConfigureKubernetesResponse,
     UpdateRegistryPropertyRequest,
     Property,
+    GetMcpUsedInboundPortsRequest,
+    GetMcpUsedInboundPortsResponse,
+    GetMcpServerProjectArtifactsRequest,
+    GetMcpServerProjectArtifactsResponse,
+    GetMcpServerEditDataRequest,
+    GetMcpServerEditDataResponse,
+    BuildMcpToolsXmlRequest,
+    BuildMcpToolsXmlResponse,
+    UpdateMcpInboundEndpointCorsRequest,
+    UpdateMcpInboundEndpointCorsResponse,
+    CleanMcpToolNamesRequest,
+    CleanMcpToolNamesResponse,
+    ConvertMcpJsonSchemaRequest,
+    ConvertMcpJsonSchemaResponse,
+    GetMcpInboundListenerClassResponse,
     GenerateMappingsParamsRequest,
     ProjectCreationStatusResponse,
     LoadDriverAndTestConnectionRequest,
@@ -476,6 +491,14 @@ export interface MiDiagramAPI {
     resetConnectorDependencyOverrides: (params: ResetConnectorDependencyOverridesRequest) => Promise<boolean>;
     updateConnectorFlags: (params: UpdateConnectorFlagsRequest) => Promise<boolean>;
     updateGlobalConnectorFlags: (params: UpdateGlobalConnectorFlagsRequest) => Promise<boolean>;
+    getMcpUsedInboundPorts: (params: GetMcpUsedInboundPortsRequest) => Promise<GetMcpUsedInboundPortsResponse>;
+    getMcpServerProjectArtifacts: (params: GetMcpServerProjectArtifactsRequest) => Promise<GetMcpServerProjectArtifactsResponse>;
+    getMcpServerEditData: (params: GetMcpServerEditDataRequest) => Promise<GetMcpServerEditDataResponse>;
+    buildMcpToolsXml: (params: BuildMcpToolsXmlRequest) => Promise<BuildMcpToolsXmlResponse>;
+    updateMcpInboundEndpointCors: (params: UpdateMcpInboundEndpointCorsRequest) => Promise<UpdateMcpInboundEndpointCorsResponse>;
+    cleanMcpToolNames: (params: CleanMcpToolNamesRequest) => Promise<CleanMcpToolNamesResponse>;
+    convertMcpJsonSchema: (params: ConvertMcpJsonSchemaRequest) => Promise<ConvertMcpJsonSchemaResponse>;
+    getMcpInboundListenerClass: () => Promise<GetMcpInboundListenerClassResponse>;
 }
 
 // Re-export LS-only types (consumed by the extension's LS client; not part of MiDiagramAPI).

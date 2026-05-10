@@ -225,6 +225,21 @@ import {
     GetMediatorResponse,
     McpToolsRequest,
     McpToolsResponse,
+    GetMcpUsedInboundPortsRequest,
+    GetMcpUsedInboundPortsResponse,
+    GetMcpServerProjectArtifactsRequest,
+    GetMcpServerProjectArtifactsResponse,
+    GetMcpServerEditDataRequest,
+    GetMcpServerEditDataResponse,
+    BuildMcpToolsXmlRequest,
+    BuildMcpToolsXmlResponse,
+    UpdateMcpInboundEndpointCorsRequest,
+    UpdateMcpInboundEndpointCorsResponse,
+    CleanMcpToolNamesRequest,
+    CleanMcpToolNamesResponse,
+    ConvertMcpJsonSchemaRequest,
+    ConvertMcpJsonSchemaResponse,
+    GetMcpInboundListenerClassResponse,
     UpdateMediatorRequest,
     ExpressionCompletionsRequest,
     ExpressionCompletionsResponse,
@@ -486,3 +501,11 @@ export const updateConnectorDependencyOverride: RequestType<UpdateConnectorDepen
 export const resetConnectorDependencyOverrides: RequestType<ResetConnectorDependencyOverridesRequest, boolean> = { method: `${_preFix}/resetConnectorDependencyOverrides` };
 export const updateConnectorFlags: RequestType<UpdateConnectorFlagsRequest, boolean> = { method: `${_preFix}/updateConnectorFlags` };
 export const updateGlobalConnectorFlags: RequestType<UpdateGlobalConnectorFlagsRequest, boolean> = { method: `${_preFix}/updateGlobalConnectorFlags` };
+export const getMcpUsedInboundPorts: RequestType<GetMcpUsedInboundPortsRequest, GetMcpUsedInboundPortsResponse> = { method: `${_preFix}/getMcpUsedInboundPorts` };
+export const getMcpServerProjectArtifacts: RequestType<GetMcpServerProjectArtifactsRequest, GetMcpServerProjectArtifactsResponse> = { method: `${_preFix}/getMcpServerProjectArtifacts` };
+export const getMcpServerEditData: RequestType<GetMcpServerEditDataRequest, GetMcpServerEditDataResponse> = { method: `${_preFix}/getMcpServerEditData` };
+export const buildMcpToolsXml: RequestType<BuildMcpToolsXmlRequest, BuildMcpToolsXmlResponse> = { method: `${_preFix}/buildMcpToolsXml` };
+export const updateMcpInboundEndpointCors: RequestType<UpdateMcpInboundEndpointCorsRequest, UpdateMcpInboundEndpointCorsResponse> = { method: `${_preFix}/updateMcpInboundEndpointCors` };
+export const cleanMcpToolNames: RequestType<CleanMcpToolNamesRequest, CleanMcpToolNamesResponse> = { method: `${_preFix}/cleanMcpToolNames` };
+export const convertMcpJsonSchema: RequestType<ConvertMcpJsonSchemaRequest, ConvertMcpJsonSchemaResponse> = { method: `${_preFix}/convertMcpJsonSchema` };
+export const getMcpInboundListenerClass: RequestType<void, GetMcpInboundListenerClassResponse> = { method: `${_preFix}/getMcpInboundListenerClass` };

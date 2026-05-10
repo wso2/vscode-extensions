@@ -25,7 +25,6 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import { MACHINE_VIEW, EVENT_TYPE } from '@wso2/mi-core';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
 import * as pathModule from 'path';
-import { getUsedInboundPorts, MCP_INBOUND_LISTENER_CLASS } from './utils';
 
 const CORS_ALLOW_ORIGIN_VALUE = '*';
 const CORS_ALLOW_METHODS_VALUE = 'GET, POST, OPTIONS';
@@ -127,30 +126,10 @@ export function MCPServerWizard({ path, editData }: MCPServerWizardProps) {
             setPortDiscoveryError(null);
             try {
                 const projectRootResp = await rpcClient.getMiDiagramRpcClient().getProjectRoot({ path });
-                const projectDir = projectRootResp.path;
-                const projectStructure = await rpcClient.getMiVisualizerRpcClient().getProjectStructure({
-                    documentUri: projectDir,
+                const { ports } = await rpcClient.getMiDiagramRpcClient().getMcpUsedInboundPorts({
+                    projectUri: projectRootResp.path,
                 });
-                const artifacts = projectStructure?.directoryMap?.src?.main?.wso2mi?.artifacts;
-                const inboundEndpoints: Array<{ path: string }> =
-                    artifacts?.inboundEndpoints || [];
-                const mcpServers: Array<{ inboundEndpoint?: { path: string } }> =
-                    (artifacts as any)?.mcpServers || [];
-
-                // Collect all inbound endpoint paths from both regular endpoints and MCP servers
-                const allEndpointPaths = [
-                    ...inboundEndpoints.map(ep => ep.path),
-                    ...mcpServers.filter(mcp => mcp.inboundEndpoint?.path).map(mcp => mcp.inboundEndpoint!.path)
-                ];
-
-                const ports = await getUsedInboundPorts(
-                    allEndpointPaths,
-                    async (filePath) => {
-                        const resp = await rpcClient.getMiDiagramRpcClient().readFileContent({ filePath });
-                        return resp.fileContent ?? null;
-                    }
-                );
-                setUsedPorts(ports);
+                setUsedPorts(new Set(ports));
                 setPortDiscoveryLoading(false);
             } catch (err) {
                 console.error('[MCPServerForm] Port discovery error:', err);
@@ -190,6 +169,8 @@ export function MCPServerWizard({ path, editData }: MCPServerWizardProps) {
 
             const localEntryName = `${data.serverName}-mcp-config`;
             const emptyXml = `\n        <mcptools>\n        </mcptools>`;
+            const { className: inboundListenerClass } =
+                await rpcClient.getMiDiagramRpcClient().getMcpInboundListenerClass();
 
             await rpcClient.getMiDiagramRpcClient().createLocalEntry({
                 directory: localEntriesDir,
@@ -206,7 +187,7 @@ export function MCPServerWizard({ path, editData }: MCPServerWizardProps) {
                     name: `${data.serverName}-endpoint`,
                     sequence: '',
                     onError: '',
-                    class: MCP_INBOUND_LISTENER_CLASS,
+                    class: inboundListenerClass,
                 },
                 parameters: {
                     'inbound.mcp.port': data.port,

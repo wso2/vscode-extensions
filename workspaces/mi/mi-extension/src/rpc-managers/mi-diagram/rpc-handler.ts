@@ -348,6 +348,21 @@ import {
     UpdateConnectorFlagsRequest,
     updateGlobalConnectorFlags,
     UpdateGlobalConnectorFlagsRequest,
+    getMcpUsedInboundPorts,
+    GetMcpUsedInboundPortsRequest,
+    getMcpServerProjectArtifacts,
+    GetMcpServerProjectArtifactsRequest,
+    getMcpServerEditData,
+    GetMcpServerEditDataRequest,
+    buildMcpToolsXml,
+    BuildMcpToolsXmlRequest,
+    updateMcpInboundEndpointCors,
+    UpdateMcpInboundEndpointCorsRequest,
+    cleanMcpToolNames,
+    CleanMcpToolNamesRequest,
+    convertMcpJsonSchema,
+    ConvertMcpJsonSchemaRequest,
+    getMcpInboundListenerClass,
     // getBackendRootUrl - REMOVED: Backend URLs deprecated, all AI features use local LLM
 } from "@wso2/mi-core";
 import { Messenger } from "vscode-messenger";
@@ -549,4 +564,12 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(resetConnectorDependencyOverrides, (args: ResetConnectorDependencyOverridesRequest) => rpcManger.resetConnectorDependencyOverrides(args));
     messenger.onRequest(updateConnectorFlags, (args: UpdateConnectorFlagsRequest) => rpcManger.updateConnectorFlags(args));
     messenger.onRequest(updateGlobalConnectorFlags, (args: UpdateGlobalConnectorFlagsRequest) => rpcManger.updateGlobalConnectorFlags(args));
+    messenger.onRequest(getMcpUsedInboundPorts, (args: GetMcpUsedInboundPortsRequest) => rpcManger.getMcpUsedInboundPorts(args));
+    messenger.onRequest(getMcpServerProjectArtifacts, (args: GetMcpServerProjectArtifactsRequest) => rpcManger.getMcpServerProjectArtifacts(args));
+    messenger.onRequest(getMcpServerEditData, (args: GetMcpServerEditDataRequest) => rpcManger.getMcpServerEditData(args));
+    messenger.onRequest(buildMcpToolsXml, (args: BuildMcpToolsXmlRequest) => rpcManger.buildMcpToolsXml(args));
+    messenger.onRequest(updateMcpInboundEndpointCors, (args: UpdateMcpInboundEndpointCorsRequest) => rpcManger.updateMcpInboundEndpointCors(args));
+    messenger.onRequest(cleanMcpToolNames, (args: CleanMcpToolNamesRequest) => rpcManger.cleanMcpToolNames(args));
+    messenger.onRequest(convertMcpJsonSchema, (args: ConvertMcpJsonSchemaRequest) => rpcManger.convertMcpJsonSchema(args));
+    messenger.onRequest(getMcpInboundListenerClass, () => rpcManger.getMcpInboundListenerClass());
 }
