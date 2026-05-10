@@ -45,3 +45,4 @@ export const ICP_PATH = "ballerina.icpPath";
 export const ICP_URL = "ballerina.icpUrl";
 export const ICP_USERNAME = "ballerina.icpUsername";
 export const ICP_PASSWORD = "ballerina.icpPassword";
+export const INITIAL_SCAFFOLD_PROMPT_KEY = "ballerina.scaffold.prompt";

@@ -45,6 +45,7 @@ import { buildProjectsStructure } from './utils/project-artifacts';
 import { runCommandWithOutput } from './utils/runCommand';
 import { buildOutputChannel } from './utils/logger';
 import { closeOrphanWebviewTabs } from './views/closeOrphanWebviewTabs';
+import { INITIAL_SCAFFOLD_PROMPT_KEY } from './core/preferences';
 
 export interface ProjectMetadata {
     readonly isBI: boolean;
@@ -67,7 +68,16 @@ interface MachineContext extends VisualizerLocation {
 export let history: History;
 export let undoRedoManager: IUndoRedoManager;
 let pendingProjectRootUpdateResolvers: Array<() => void> = [];
+// Session guard — covers the window before the persisted prompt is written.
 let scaffoldPromptTriggered = false;
+
+function isScaffoldPromptPersisted(currentPrompt: string): boolean {
+    const folderUri = workspace.workspaceFolders?.[0]?.uri;
+    const persisted = workspace
+        .getConfiguration(undefined, folderUri)
+        .get<string>(INITIAL_SCAFFOLD_PROMPT_KEY);
+    return persisted === currentPrompt;
+}
 
 const stateMachine = createMachine<MachineContext>(
     {
@@ -396,20 +406,25 @@ const stateMachine = createMachine<MachineContext>(
                     },
                     viewReady: {
                         entry: () => {
-                            if (!scaffoldPromptTriggered) {
-                                const scaffoldPrompt = process.env.INITIAL_SCAFFOLD_PROMPT;
-                                const scaffoldSteps = process.env.INITIAL_SCAFFOLD_STEPS;
-                                if (scaffoldPrompt && scaffoldSteps) {
-                                    scaffoldPromptTriggered = true;
-                                    openAIPanelWithPrompt({
-                                        type: 'text',
-                                        text: scaffoldPrompt,
-                                        planMode: true,
-                                        autoSubmit: true,
-                                        hiddenContext: scaffoldSteps
-                                    });
-                                }
+                            if (scaffoldPromptTriggered) {
+                                return;
                             }
+                            const scaffoldPrompt = process.env.INITIAL_SCAFFOLD_PROMPT;
+                            const scaffoldSteps = process.env.INITIAL_SCAFFOLD_STEPS;
+                            if (!scaffoldPrompt || !scaffoldSteps) {
+                                return;
+                            }
+                            if (isScaffoldPromptPersisted(scaffoldPrompt)) {
+                                return;
+                            }
+                            scaffoldPromptTriggered = true;
+                            openAIPanelWithPrompt({
+                                type: 'text',
+                                text: scaffoldPrompt,
+                                planMode: true,
+                                autoSubmit: true,
+                                hiddenContext: scaffoldSteps
+                            });
                         },
                         on: {
                             OPEN_VIEW: {
