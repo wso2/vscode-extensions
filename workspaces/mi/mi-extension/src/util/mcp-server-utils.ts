@@ -285,9 +285,16 @@ export function generateToolsXml(tools: UnifiedTool[], inputSchemas: Record<stri
         if (tool.kind === "api") {
             const derived = inputSchemas[tool.id];
             const isEmpty = !derived || (Object.keys((derived as any).properties ?? {}).length === 0 && !(derived as any).required);
-            const inputSchema = (!isEmpty ? derived : null)
-                ?? (tool.inputSchema ? JSON.parse(tool.inputSchema) : null)
-                ?? { type: "object", properties: {} };
+            let inputSchema: any = { type: "object", properties: {} };
+            if (!isEmpty && derived) {
+                inputSchema = derived;
+            } else if (tool.inputSchema) {
+                try {
+                    inputSchema = JSON.parse(tool.inputSchema);
+                } catch {
+                    inputSchema = { type: "object", properties: {} };
+                }
+            }
             const description = tool.description || tool.operationSummary
                 || `${tool.operationMethod} ${tool.operationPath} - ${tool.apiName}`;
             toolsXml += `
