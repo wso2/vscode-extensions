@@ -16,6 +16,7 @@
  * under the License.
  */
 export * from './components/DiagramNavigationWrapper/NavigationWrapperCanvasWidget';
+export * from './components/DiagramNavigationWrapper/CustomCanvasWidget';
 export * from './components/AutoComplete/AutoComplete';
 export * from './components/ProgressIndicator/ProgressIndicator';
 export { Stepper } from './components/Stepper/Stepper';
