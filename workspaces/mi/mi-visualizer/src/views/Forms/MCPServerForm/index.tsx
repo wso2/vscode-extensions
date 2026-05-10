@@ -33,14 +33,6 @@ const CORS_ALLOW_HEADERS_VALUE = 'Content-Type, Mcp-Session-Id';
 const CORS_EXPOSE_HEADERS_VALUE = 'Mcp-Session-Id';
 const SSE_KEEPALIVE_INTERVAL_MS = 30000;
 
-// localStorage keys for CORS settings
-const CORS_STORAGE_PREFIX = 'mcp_server_cors_';
-const CORS_ALLOW_ORIGIN_KEY = `${CORS_STORAGE_PREFIX}allow_origin`;
-const CORS_ALLOW_METHODS_KEY = `${CORS_STORAGE_PREFIX}allow_methods`;
-const CORS_ALLOW_HEADERS_KEY = `${CORS_STORAGE_PREFIX}allow_headers`;
-const CORS_EXPOSE_HEADERS_KEY = `${CORS_STORAGE_PREFIX}expose_headers`;
-const SSE_KEEPALIVE_INTERVAL_KEY = `${CORS_STORAGE_PREFIX}keepalive_interval`;
-
 const SectionTitle = styled.button`
     margin: 0;
     padding: 0;
@@ -68,44 +60,6 @@ const ToggleIcon = styled.span<{ isExpanded: boolean }>`
     transform: ${(props: { isExpanded: boolean }) => (props.isExpanded ? 'rotate(90deg)' : 'rotate(0deg)')};
 `;
 
-// Utility functions for localStorage
-const loadCorsSettingsFromStorage = () => {
-    try {
-        return {
-            corsAllowOrigin: localStorage.getItem(CORS_ALLOW_ORIGIN_KEY) || CORS_ALLOW_ORIGIN_VALUE,
-            corsAllowMethods: localStorage.getItem(CORS_ALLOW_METHODS_KEY) || CORS_ALLOW_METHODS_VALUE,
-            corsAllowHeaders: localStorage.getItem(CORS_ALLOW_HEADERS_KEY) || CORS_ALLOW_HEADERS_VALUE,
-            corsExposeHeaders: localStorage.getItem(CORS_EXPOSE_HEADERS_KEY) || CORS_EXPOSE_HEADERS_VALUE,
-            keepAliveInterval: Number(localStorage.getItem(SSE_KEEPALIVE_INTERVAL_KEY)) || SSE_KEEPALIVE_INTERVAL_MS,
-        };
-    } catch {
-        return {
-            corsAllowOrigin: CORS_ALLOW_ORIGIN_VALUE,
-            corsAllowMethods: CORS_ALLOW_METHODS_VALUE,
-            corsAllowHeaders: CORS_ALLOW_HEADERS_VALUE,
-            corsExposeHeaders: CORS_EXPOSE_HEADERS_VALUE,
-            keepAliveInterval: SSE_KEEPALIVE_INTERVAL_MS,
-        };
-    }
-};
-
-const saveCorsSettingsToStorage = (settings: {
-    corsAllowOrigin: string;
-    corsAllowMethods: string;
-    corsAllowHeaders: string;
-    corsExposeHeaders: string;
-    keepAliveInterval: number;
-}) => {
-    try {
-        localStorage.setItem(CORS_ALLOW_ORIGIN_KEY, settings.corsAllowOrigin);
-        localStorage.setItem(CORS_ALLOW_METHODS_KEY, settings.corsAllowMethods);
-        localStorage.setItem(CORS_ALLOW_HEADERS_KEY, settings.corsAllowHeaders);
-        localStorage.setItem(CORS_EXPOSE_HEADERS_KEY, settings.corsExposeHeaders);
-        localStorage.setItem(SSE_KEEPALIVE_INTERVAL_KEY, String(settings.keepAliveInterval));
-    } catch {
-        // Silently fail if localStorage is not available
-    }
-};
 
 const schema = yup.object({
     serverName: yup.string()
@@ -133,22 +87,30 @@ const schema = yup.object({
 export interface MCPServerWizardProps {
     path: string;
     forceCreate?: boolean;
+    editData?: {
+        serverName?: string;
+        port?: number;
+        corsAllowOrigin?: string;
+        corsAllowMethods?: string;
+        corsAllowHeaders?: string;
+        corsExposeHeaders?: string;
+        keepAliveInterval?: number;
+    };
 }
 
-export function MCPServerWizard({ path }: MCPServerWizardProps) {
+export function MCPServerWizard({ path, editData }: MCPServerWizardProps) {
     const { rpcClient } = useVisualizerContext();
-    const corsSettings = loadCorsSettingsFromStorage();
-    
+
     const { register, handleSubmit, formState: { errors }, watch, trigger, setError } = useForm({
         resolver: yupResolver(schema),
         defaultValues: {
-            serverName: '',
-            port: 8300,
-            corsAllowOrigin: corsSettings.corsAllowOrigin,
-            corsAllowMethods: corsSettings.corsAllowMethods,
-            corsAllowHeaders: corsSettings.corsAllowHeaders,
-            corsExposeHeaders: corsSettings.corsExposeHeaders,
-            keepAliveInterval: corsSettings.keepAliveInterval,
+            serverName: editData?.serverName || '',
+            port: editData?.port || 8300,
+            corsAllowOrigin: editData?.corsAllowOrigin || CORS_ALLOW_ORIGIN_VALUE,
+            corsAllowMethods: editData?.corsAllowMethods || CORS_ALLOW_METHODS_VALUE,
+            corsAllowHeaders: editData?.corsAllowHeaders || CORS_ALLOW_HEADERS_VALUE,
+            corsExposeHeaders: editData?.corsExposeHeaders || CORS_EXPOSE_HEADERS_VALUE,
+            keepAliveInterval: editData?.keepAliveInterval || SSE_KEEPALIVE_INTERVAL_MS,
         },
     });
     const [submitting, setSubmitting] = useState(false);
@@ -158,22 +120,6 @@ export function MCPServerWizard({ path }: MCPServerWizardProps) {
     const [portDiscoveryLoading, setPortDiscoveryLoading] = useState(true);
     const [portDiscoveryError, setPortDiscoveryError] = useState<string | null>(null);
 
-    // Watch CORS fields and save to localStorage when they change
-    const corsAllowOrigin = watch('corsAllowOrigin');
-    const corsAllowMethods = watch('corsAllowMethods');
-    const corsAllowHeaders = watch('corsAllowHeaders');
-    const corsExposeHeaders = watch('corsExposeHeaders');
-    const keepAliveInterval = watch('keepAliveInterval');
-
-    useEffect(() => {
-        saveCorsSettingsToStorage({
-            corsAllowOrigin,
-            corsAllowMethods,
-            corsAllowHeaders,
-            corsExposeHeaders,
-            keepAliveInterval,
-        });
-    }, [corsAllowOrigin, corsAllowMethods, corsAllowHeaders, corsExposeHeaders, keepAliveInterval]);
 
     useEffect(() => {
         const loadUsedPorts = async () => {
