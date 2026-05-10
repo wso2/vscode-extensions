@@ -21,8 +21,7 @@ import { AIPanelPrompt, EVENT_TYPE, MACHINE_VIEW, ProjectInfo, SHARED_COMMANDS }
 import { closeAIWebview, openAIWebview } from './aiMachine';
 import { BallerinaExtension } from '../../core';
 import { notifyAiWebview } from '../../RPCLayer';
-import { initExtractMemories, drainPendingExtraction, setMemorySettingsProvider } from '../../features/ai/memory/extractMemories';
-import { initAutoDream, setDreamSettingsProvider, setDreamCallbacks } from '../../features/ai/memory/autoDream';
+import { initAutoDream, setDreamSettingsProvider, setDreamCallbacks, setMemorySettingsProvider } from '../../features/ai/memory/autoDream';
 import { openView, StateMachine } from '../../stateMachine';
 import { MESSAGES } from '../../features/project/cmds/cmd-runner';
 import { VisualizerWebview } from '../visualizer/webview';
@@ -82,16 +81,14 @@ export function activateAiPanel(ballerinaExtInstance: BallerinaExtension) {
         },
     });
 
-    // Initialise background memory agents
-    initExtractMemories();
+    // Initialise background memory consolidation
     initAutoDream();
 
-    // Drain in-flight extractions and clear the dream-status timer on extension deactivation
+    // Clear the dream-status timer on extension deactivation
     ballerinaExtInstance.context.subscriptions.push({
         dispose: () => {
             clearTimeout(dreamHideTimeout);
             dreamHideTimeout = undefined;
-            drainPendingExtraction(30_000).catch(() => { /* best-effort */ });
         },
     });
 

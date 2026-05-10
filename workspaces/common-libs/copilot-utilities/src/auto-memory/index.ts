@@ -43,6 +43,8 @@ export {
     truncateEntrypointContent,
     ensureMemoryDirsExist,
     buildMemoryLines,
+    buildDreamSystemPrompt,
+    buildSaveMemoryDescription,
     loadMemoryPrompt,
     invalidateMemoryPromptCache,
 } from './memdir/memdir';

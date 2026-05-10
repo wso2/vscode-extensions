@@ -22,7 +22,7 @@ import {
     getGlobalMemoryDir,
     isAutoMemoryEnabled,
     ensureMemoryDirsExist,
-    buildMemoryLines,
+    buildDreamSystemPrompt,
     getLockPath,
     readLastConsolidatedAt,
     tryAcquireLock,
@@ -89,7 +89,29 @@ export function setDreamSettingsProvider(provider: DreamSettingsProvider): void 
 }
 
 function isDreamEnabled(): boolean {
-    return isAutoMemoryEnabled() && dreamSettingsProvider().autoDreamEnabled;
+    return isAutoMemoryEnabled()
+        && memorySettingsProvider().autoMemoryEnabled
+        && dreamSettingsProvider().autoDreamEnabled;
+}
+
+// ---------------------------------------------------------------------------
+// Memory-enabled gate (governs save_memory tool registration)
+// Moved here from extractMemories.ts so activate.ts has a single import point
+// ---------------------------------------------------------------------------
+
+/** Optional provider for VS Code autoMemory settings — injected from the extension layer. */
+export type MemorySettingsProvider = () => { autoMemoryEnabled: boolean };
+
+let memorySettingsProvider: MemorySettingsProvider = () => ({ autoMemoryEnabled: true });
+
+/** Registers the VS Code autoMemory settings provider. */
+export function setMemorySettingsProvider(provider: MemorySettingsProvider): void {
+    memorySettingsProvider = provider;
+}
+
+/** Returns true when both the env-var gate and the VS Code setting allow auto-memory. */
+export function isMemoryEnabled(): boolean {
+    return isAutoMemoryEnabled() && memorySettingsProvider().autoMemoryEnabled;
 }
 
 /**
@@ -160,11 +182,9 @@ async function runDream(
 
     try {
         ctx.onDreamStart?.();
-        // Sonnet 4: consolidation involves cross-file reasoning across multiple memory
-        // files — more demanding than single-turn extraction, uses Sonnet 4.
         const model   = await getAnthropicClient(ANTHROPIC_HAIKU);
         const tools   = createMemoryTools(globalDir, workspaceDir);
-        const system  = buildMemoryLines(globalDir, workspaceDir).join('\n');
+        const system  = buildDreamSystemPrompt(globalDir, workspaceDir);
         const prompt  = buildConsolidationPrompt(globalDir, workspaceDir, {
             newGenerationCount:    generationCount,
             lastWorkspaceDreamAt,
@@ -199,6 +219,62 @@ async function runDream(
         if (hasGlobalLock && globalPriorMtime !== null) {
             rollbackLock(globalLockPath, globalPriorMtime);
         }
+    }
+}
+
+/**
+ * Runs memory consolidation directly, bypassing the time/activity gates.
+ * Used by the consolidate_memories tool when the main agent explicitly requests it.
+ */
+export async function runConsolidation(ctx: Pick<DreamContext, 'workspacePath'>): Promise<void> {
+    const workspaceHash    = computeWorkspaceHash(resolveWorkspaceIdentity(ctx.workspacePath));
+    const workspaceDir     = getMemoryDir(workspaceHash);
+    const globalDir        = getGlobalMemoryDir();
+    const workspaceLockPath = getLockPath(workspaceDir);
+
+    ensureMemoryDirsExist(workspaceHash);
+    const workspacePriorMtime = tryAcquireLock(workspaceLockPath);
+    if (workspacePriorMtime === null) {
+        throw new Error('Consolidation already in progress — lock held by another process.');
+    }
+
+    const globalLockPath   = getLockPath(globalDir);
+    const globalPriorMtime = tryAcquireLock(globalLockPath);
+    const hasGlobalLock    = globalPriorMtime !== null;
+
+    const lastWorkspaceDreamAt = workspacePriorMtime;
+    const lastGlobalDreamAt    = hasGlobalLock
+        ? (globalPriorMtime ?? 0)
+        : readLastConsolidatedAt(globalLockPath);
+
+    try {
+        const model  = await getAnthropicClient(ANTHROPIC_HAIKU);
+        const tools  = createMemoryTools(globalDir, workspaceDir);
+        const system = buildDreamSystemPrompt(globalDir, workspaceDir);
+        const prompt = buildConsolidationPrompt(globalDir, workspaceDir, {
+            newGenerationCount: 0,
+            lastWorkspaceDreamAt,
+            lastGlobalDreamAt,
+            hasGlobalLock,
+        });
+
+        await generateText({
+            model,
+            system,
+            messages: [{ role: 'user', content: prompt }],
+            tools,
+            stopWhen: [stepCountIs(30)],
+        });
+
+        releaseLock(workspaceLockPath);
+        if (hasGlobalLock) { releaseLock(globalLockPath); }
+        invalidateMemoryPromptCache(workspaceHash);
+    } catch (e) {
+        rollbackLock(workspaceLockPath, workspacePriorMtime);
+        if (hasGlobalLock && globalPriorMtime !== null) {
+            rollbackLock(globalLockPath, globalPriorMtime);
+        }
+        throw e;
     }
 }
 

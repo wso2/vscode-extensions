@@ -24,8 +24,7 @@ import { getAnthropicClient, getProviderCacheControl, addCacheControlToMessages,
 import { populateHistoryForAgent, getErrorMessage } from '../utils/ai-utils';
 import { sendAgentDidOpenForFreshProjects } from '../utils/project/ls-schema-notifications';
 import { getSystemPromptWithMemory, getUserPrompt } from './prompts';
-import { executeExtractMemories } from '../memory/extractMemories';
-import { executeAutoDream } from '../memory/autoDream';
+import { executeAutoDream, isMemoryEnabled } from '../memory/autoDream';
 import { GenerationType } from '../utils/libs/libraries';
 import { createToolRegistry } from './tool-registry';
 import { getProjectSource, cleanupTempProject } from '../utils/project/temp-project';
@@ -101,19 +100,6 @@ function warnCompactionDisabledOnce(projectRootPath: string, eventHandler: (e: a
 
 function usesContentBasedCompactionDetection(loginMethod: LoginMethod): boolean {
     return loginMethod === LoginMethod.AWS_BEDROCK;
-}
-
-/** Extracts plain text from Vercel AI SDK message content (string or content-block array). */
-function extractTextContent(content: unknown): string {
-    if (typeof content === 'string') { return content; }
-    if (Array.isArray(content)) {
-        return (content as Array<{ type?: string; text?: string }>)
-            .filter(b => b.type === 'text' && typeof b.text === 'string')
-            .map(b => b.text as string)
-            .join('\n')
-            .trim();
-    }
-    return '';
 }
 
 /** Estimate character length of a message's content for proportional token breakdown. */
@@ -346,6 +332,7 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
                 runningServices: runningServicesManager,
                 webSearchEnabled: params.webSearchEnabled ?? false,
                 ctx: this.config.executionContext,
+                autoMemoryEnabled: isMemoryEnabled(),
             });
 
             // Accumulate tool call/result character counts across steps for breakdown estimation
@@ -478,6 +465,7 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
                                 isCompactionBlock = false;
                                 const summary = extractCompactionSummary(compactionContent);
                                 cleanedCompactionSummary = summary || compactionContent;
+                                streamContext.wasCompactionTurn = true;
                                 this.config.eventHandler({ type: 'compaction_end', summary: summary ?? undefined });
                                 // Reset context widget to near-zero after compaction
                                 this.config.eventHandler({
@@ -860,19 +848,9 @@ Generation stopped by user. The last in-progress task was not saved. Files have 
         // Emit UI events
         await this.emitReviewActions(context);
 
-        // Fire-and-forget memory agents — never block the response
+        // autoDream consolidation — skipped on compaction turns (no real user activity)
         const workspacePath = context.ctx.workspacePath || context.ctx.projectPath || '';
-        if (workspacePath) {
-            const userText = extractTextContent(context.userMessageContent);
-            const assistantText = assistantMessages
-                .filter(m => m.role === 'assistant')
-                .map(m => extractTextContent(m.content))
-                .join('\n')
-                .trim();
-
-            if (userText || assistantText) {
-                executeExtractMemories({ userMessage: userText, assistantMessage: assistantText, workspacePath });
-            }
+        if (workspacePath && !context.wasCompactionTurn) {
             executeAutoDream({ workspacePath });
         }
     }

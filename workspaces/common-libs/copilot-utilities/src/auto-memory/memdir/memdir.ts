@@ -14,16 +14,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { readFileSync, mkdirSync } from 'fs';
+import { readFileSync, mkdirSync, statSync } from 'fs';
 import { join } from 'path';
 import { getMemoryDir, getGlobalMemoryDir } from './paths';
 import {
     TYPES_SECTION,
     WHAT_NOT_TO_SAVE_SECTION,
-    MEMORY_FRONTMATTER_EXAMPLE,
     TRUSTING_RECALL_SECTION,
     WHEN_TO_ACCESS_SECTION,
 } from './memoryTypes';
+import { MEMORY_TYPE_DEFINITIONS } from './memoryTypeTaxonomy';
 
 export const ENTRYPOINT_NAME = 'MEMORY.md';
 export const MAX_ENTRYPOINT_LINES = 200;
@@ -110,49 +110,20 @@ function readEntrypoint(dir: string): string {
 
 /**
  * Builds the behavioral memory instructions included in every system prompt.
- * Explains the two-directory layout, type routing rules, and how-to-save.
+ * Keeps only what shapes general reasoning: directory layout, access guidance,
+ * and the actual MEMORY.md contents. Type taxonomy and save/delete instructions
+ * live in the save_memory tool description where they are contextually relevant.
  */
 export function buildMemoryLines(globalDir: string, workspaceDir: string): string[] {
-    const howToSave: string[] = [
-        '## How to save memories',
-        '',
-        'Saving a memory is a two-step process:',
-        '',
-        `**Step 1** — write the memory to its own file ` +
-        `(e.g., \`user_expertise.md\`, \`integration_shopify.md\`, \`codingstyle_error_handling.md\`) ` +
-        `using this frontmatter format:`,
-        '',
-        ...MEMORY_FRONTMATTER_EXAMPLE,
-        '',
-        `**Step 2** — add a pointer to that file in the correct \`${ENTRYPOINT_NAME}\`. ` +
-        `\`${ENTRYPOINT_NAME}\` is an index, not a memory — each entry should be one line ` +
-        `under ~150 characters: \`- [Title](file.md) — one-line hook\`.`,
-        '',
-        `- Global \`${ENTRYPOINT_NAME}\` lives in: \`${globalDir}\` — for user, history types`,
-        `- Workspace \`${ENTRYPOINT_NAME}\` lives in: \`${workspaceDir}\` — for codingstyle, integration, about, reference types`,
-        `- Lines after ${MAX_ENTRYPOINT_LINES} will be truncated — keep the index concise`,
-        '- Organize memory semantically by topic, not chronologically',
-        '- Update or remove memories that turn out to be wrong or outdated',
-        '- Do not write duplicate memories. Check both lists before creating a new file.',
-    ];
-
     return [
         '# auto memory',
         '',
-        'You have a persistent, file-based memory system across **two directories**:',
-        `- **Global memory** (\`${globalDir}\`): user, history types — applies to ALL projects`,
-        `- **Workspace memory** (\`${workspaceDir}\`): codingstyle, integration, about, reference types — this project only`,
+        'You have a persistent, file-based memory system across two directories:',
+        `- **Global** (\`${globalDir}\`): user, history types — applies to all projects`,
+        `- **Workspace** (\`${workspaceDir}\`): codingstyle, integration, about, reference types — this project only`,
         '',
-        '**ROUTING RULE**: user/history types → global directory. ' +
-        'codingstyle/integration/about/reference types → workspace directory.',
-        '',
-        'If the user explicitly asks you to remember something, save it immediately as whichever type fits best. ' +
-        'If they ask you to forget something, find and remove the relevant entry.',
-        '',
-        ...TYPES_SECTION,
-        ...WHAT_NOT_TO_SAVE_SECTION,
-        '',
-        ...howToSave,
+        'Use `save_memory` to persist information worth keeping. ' +
+        'Use `delete_memory` to remove stale or incorrect entries.',
         '',
         ...WHEN_TO_ACCESS_SECTION,
         '',
@@ -161,34 +132,96 @@ export function buildMemoryLines(globalDir: string, workspaceDir: string): strin
     ];
 }
 
+/**
+ * Builds the description string for the save_memory tool.
+ * Contains the full type taxonomy, routing rules, and what-not-to-save guidance
+ * so those instructions are collocated with the tool rather than the system prompt.
+ */
+export function buildSaveMemoryDescription(): string {
+    const typeLines = MEMORY_TYPE_DEFINITIONS.map(def =>
+        `- **${def.name}** (scope: "${def.scope}"): ${def.when_to_save}`
+    );
+
+    return [
+        'Save important information to long-term memory for this project.',
+        '',
+        '**ROUTING**: user/history → scope:"global" | codingstyle/integration/about/reference → scope:"workspace"',
+        '',
+        '**TYPES** — choose the type that best fits, then set scope to match:',
+        ...typeLines,
+        '',
+        ...WHAT_NOT_TO_SAVE_SECTION,
+        '',
+        'Only call when there is something genuinely new or changed. Do not call for routine exchanges.',
+    ].join('\n');
+}
+
+/**
+ * Builds the system prompt for the dream (consolidation) sub-agent.
+ * Unlike buildMemoryLines(), this omits save_memory/delete_memory instructions
+ * because the dream agent uses file I/O tools directly, not those tools.
+ */
+export function buildDreamSystemPrompt(globalDir: string, workspaceDir: string): string {
+    const lines = [
+        '# auto memory — consolidation agent',
+        '',
+        'You are consolidating a persistent, file-based memory system across **two directories**:',
+        `- **Global memory** (\`${globalDir}\`): user, history types — applies to ALL projects`,
+        `- **Workspace memory** (\`${workspaceDir}\`): codingstyle, integration, about, reference types — this project only`,
+        '',
+        '**ROUTING RULE**: user/history types → global directory. ' +
+        'codingstyle/integration/about/reference types → workspace directory.',
+        '',
+        ...TYPES_SECTION,
+        ...WHAT_NOT_TO_SAVE_SECTION,
+        '',
+        '## Your task',
+        '',
+        'Use the file I/O tools provided to read existing memory files and MEMORY.md indexes, ' +
+        'then consolidate, deduplicate, and merge them. ' +
+        'Write updated files back and keep each MEMORY.md index accurate.',
+        '',
+        ...TRUSTING_RECALL_SECTION,
+        '',
+    ];
+    return lines.join('\n');
+}
+
 // ---------------------------------------------------------------------------
-// Per-workspace prompt cache (5-second TTL)
-// Eliminates repeated readFileSync calls during multi-turn conversations.
-// The short TTL ensures newly saved memories surface within one turn cycle.
+// Per-workspace prompt cache (mtime-based)
+// Returns a cached string as long as neither MEMORY.md file has changed.
+// Two statSync calls per turn — far cheaper than reading file contents.
+// invalidateMemoryPromptCache() forces an immediate rebuild on the next call.
 // ---------------------------------------------------------------------------
 
-interface PromptCacheEntry { prompt: string; expiresAt: number; }
+interface PromptCacheEntry { prompt: string; globalMtime: number; workspaceMtime: number; }
 const promptCache = new Map<string, PromptCacheEntry>();
-const PROMPT_CACHE_TTL_MS = 5_000;
 
-/** Invalidate the cached prompt for a workspace hash (e.g. after memory files change). */
+function getIndexMtime(dir: string): number {
+    try { return statSync(join(dir, ENTRYPOINT_NAME)).mtimeMs; } catch { return 0; }
+}
+
+/** Invalidate the cached prompt for a workspace hash (e.g. after memory consolidation). */
 export function invalidateMemoryPromptCache(workspaceHash: string): void {
     promptCache.delete(workspaceHash);
 }
 
 /**
- * Loads and builds the full memory prompt section for injection into the
- * agent system prompt at session start.
- * Results are cached for 5 seconds per workspace hash to avoid a readFileSync
- * pair on every turn. Caller is responsible for ensuring memory directories
- * exist before calling (use ensureMemoryDirsExist once at init time).
+ * Loads and builds the full memory prompt section for injection into the agent system prompt.
+ * Cached per workspace hash: returns the same string until MEMORY.md mtime changes.
+ * Caller is responsible for ensuring memory directories exist (use ensureMemoryDirsExist).
  */
 export function loadMemoryPrompt(workspaceHash: string): string {
-    const cached = promptCache.get(workspaceHash);
-    if (cached && Date.now() < cached.expiresAt) { return cached.prompt; }
-
-    const globalDir = getGlobalMemoryDir();
+    const globalDir    = getGlobalMemoryDir();
     const workspaceDir = getMemoryDir(workspaceHash);
+
+    const gMtime = getIndexMtime(globalDir);
+    const wMtime = getIndexMtime(workspaceDir);
+
+    const cached = promptCache.get(workspaceHash);
+    if (cached && cached.globalMtime === gMtime && cached.workspaceMtime === wMtime) {
+        return cached.prompt;
+    }
 
     const lines = buildMemoryLines(globalDir, workspaceDir);
 
@@ -221,6 +254,6 @@ export function loadMemoryPrompt(workspaceHash: string): string {
     }
 
     const prompt = lines.join('\n');
-    promptCache.set(workspaceHash, { prompt, expiresAt: Date.now() + PROMPT_CACHE_TTL_MS });
+    promptCache.set(workspaceHash, { prompt, globalMtime: gMtime, workspaceMtime: wMtime });
     return prompt;
 }

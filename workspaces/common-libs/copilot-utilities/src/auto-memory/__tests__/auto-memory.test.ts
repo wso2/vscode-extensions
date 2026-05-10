@@ -20,7 +20,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
-import { truncateEntrypointContent, MAX_ENTRYPOINT_LINES } from '../memdir/memdir';
+import {
+    truncateEntrypointContent,
+    MAX_ENTRYPOINT_LINES,
+    buildMemoryLines,
+    buildDreamSystemPrompt,
+} from '../memdir/memdir';
 import { scanMemoryFiles, formatMemoryManifest, MemoryHeader } from '../memdir/memoryScan';
 import { tryAcquireLock, rollbackLock, releaseLock, readLastConsolidatedAt, getLockPath, countGenerationsSince } from '../services/autoDream/consolidationLock';
 
@@ -187,6 +192,33 @@ describe('formatMemoryManifest', () => {
         const manifest = formatMemoryManifest(files, []);
         assert.ok(!manifest.includes('[undefined]'));
         assert.ok(manifest.includes('misc.md: misc'));
+    });
+});
+
+// ---------------------------------------------------------------------------
+// prompt builders
+// ---------------------------------------------------------------------------
+
+describe('memory prompt builders', () => {
+    it('instructs the main agent to use save_memory and delete_memory tools', () => {
+        const prompt = buildMemoryLines('/tmp/global-memory', '/tmp/workspace-memory').join('\n');
+
+        assert.ok(prompt.includes('save_memory'));
+        assert.ok(prompt.includes('delete_memory'));
+        assert.ok(prompt.includes('ROUTING RULE'));
+        assert.ok(prompt.includes('/tmp/global-memory'));
+        assert.ok(prompt.includes('/tmp/workspace-memory'));
+    });
+
+    it('omits main-agent memory tools from the dream system prompt', () => {
+        const prompt = buildDreamSystemPrompt('/tmp/global-memory', '/tmp/workspace-memory');
+
+        assert.ok(prompt.includes('consolidation agent'));
+        assert.ok(prompt.includes('file I/O tools'));
+        assert.ok(prompt.includes('/tmp/global-memory'));
+        assert.ok(prompt.includes('/tmp/workspace-memory'));
+        assert.ok(!prompt.includes('save_memory'));
+        assert.ok(!prompt.includes('delete_memory'));
     });
 });
 
