@@ -780,7 +780,10 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                                         tools={tools}
                                         onEdit={() => {}}
                                         onRemove={removeTool}
-                                        onSave={saveToolsToLocalEntry}
+                                        onSave={(updatedTools) => {
+                                            setTools(updatedTools);
+                                            saveToolsToLocalEntry(updatedTools);
+                                        }}
                                         onGoToSource={goToToolSource}
                                     />
                                 )}
