@@ -1,9 +1,9 @@
-arazzo: "1.0.0"
+arazzo: 1.0.0
 info:
   title: Toolshop OperationPath Example
   summary: Demonstrates using operationPath with expressions and path-only pointers.
   description: This example shows how to use the Arazzo spec compliant operationPath syntax.
-  version: "1.0.0"
+  version: 1.0.0
 
 sourceDescriptions:
   - name: toolshopDescription
