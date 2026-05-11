@@ -166,7 +166,12 @@ func (of *OperationFinder) FindByHTTPPathAndMethod(httpPath, httpMethod string) 
 
 // FindByPath finds an operation by source URL and JSON pointer.
 // operationPath format: sourceURL#jsonPointer
+// sourceURL may be a bare name, a URL, or a braced expression like
+// "{$sourceDescriptions.petStoreDescription.url}".
 func (of *OperationFinder) FindByPath(sourceURL, jsonPointer string) *OperationInfo {
+	// Strip surrounding braces and resolve "$sourceDescriptions.NAME.url" to "NAME"
+	sourceURL = resolveSourceDescriptionRef(strings.Trim(sourceURL, "{}"))
+
 	// Find the source description
 	sourceName, sourceDesc := of.findSourceDescription(sourceURL)
 	if sourceDesc == nil {
@@ -175,6 +180,18 @@ func (of *OperationFinder) FindByPath(sourceURL, jsonPointer string) *OperationI
 	}
 
 	return of.parseOperationPointer(jsonPointer, sourceName, sourceDesc)
+}
+
+// resolveSourceDescriptionRef converts a "$sourceDescriptions.NAME.url" expression
+// (already stripped of surrounding braces) to just "NAME", which directly matches
+// the key in the SourceDescriptions map. Any other string is returned unchanged.
+func resolveSourceDescriptionRef(expr string) string {
+	const prefix = "$sourceDescriptions."
+	const suffix = ".url"
+	if strings.HasPrefix(expr, prefix) && strings.HasSuffix(expr, suffix) {
+		return expr[len(prefix) : len(expr)-len(suffix)]
+	}
+	return expr
 }
 
 // findSourceDescription finds a source description by URL or name.
@@ -215,6 +232,13 @@ func (of *OperationFinder) parseOperationPointer(jsonPointer, sourceName string,
 
 	// Approach 3: Special cases with path parameters
 	info = of.handleSpecialCases(jsonPointer, sourceName, sourceDesc)
+	if info != nil {
+		return info
+	}
+
+	// Approach 4: Path-only pointer (no HTTP method) — picks the first available method.
+	// Handles e.g. /paths/~1pet~1findByStatus without a trailing /get.
+	info = of.resolvePathOnly(jsonPointer, sourceName, sourceDesc)
 	if info != nil {
 		return info
 	}
@@ -421,6 +445,62 @@ func (of *OperationFinder) handleSpecialCases(jsonPointer, sourceName string, so
 					Operation: op,
 				}
 			}
+		}
+	}
+
+	return nil
+}
+
+// resolvePathOnly handles JSON pointers that reference a path item rather than a
+// specific operation, e.g. /paths/~1pet~1findByStatus (no HTTP method suffix).
+// It returns the first HTTP method found for the decoded path, in httpMethods order.
+func (of *OperationFinder) resolvePathOnly(jsonPointer, sourceName string, sourceDesc map[string]interface{}) *OperationInfo {
+	if !strings.HasPrefix(jsonPointer, "/paths/") {
+		return nil
+	}
+
+	// Everything after "/paths/" is the single encoded path token (e.g. ~1pet~1findByStatus).
+	encodedPath := strings.TrimPrefix(jsonPointer, "/paths/")
+	if encodedPath == "" {
+		return nil
+	}
+
+	// Decode JSON Pointer encoding: ~1 → /, ~0 → ~
+	httpPath := strings.ReplaceAll(encodedPath, "~1", "/")
+	httpPath = strings.ReplaceAll(httpPath, "~0", "~")
+	if !strings.HasPrefix(httpPath, "/") {
+		httpPath = "/" + httpPath
+	}
+
+	paths := toMap(sourceDesc["paths"])
+	if paths == nil {
+		return nil
+	}
+
+	pathItem := toMap(paths[httpPath])
+	if pathItem == nil {
+		return nil
+	}
+
+	baseURL, err := getBaseURL(sourceDesc)
+	if err != nil {
+		return nil
+	}
+
+	// Return the first HTTP method found for this path
+	for _, method := range httpMethods {
+		operation := toMap(pathItem[method])
+		if operation == nil {
+			continue
+		}
+		opID, _ := operation["operationId"].(string)
+		return &OperationInfo{
+			Source:      sourceName,
+			Path:        httpPath,
+			Method:      method,
+			URL:         baseURL + httpPath,
+			Operation:   operation,
+			OperationID: opID,
 		}
 	}
 

@@ -286,15 +286,14 @@ func (se *StepExecutor) findOperation(step map[string]interface{}) *OperationInf
 		return se.OperationFinder.FindByID(opID)
 	}
 
-	// Try operationPath (e.g. "{$sourceDescriptions.petstore.url}#/pets/{petId}")
+	// Try operationPath (e.g. "{$sourceDescriptions.petstore.url}#/paths/~1pets/get")
 	if opPath, ok := step["operationPath"].(string); ok && opPath != "" {
 		log.Printf("Looking up operation by path: %s", opPath)
 		// Parse the operationPath: "{sourceURL}#{jsonPointer}" or "sourceURL#jsonPointer"
+		// FindByPath handles brace-stripping and $sourceDescriptions expression resolution.
 		parts := strings.SplitN(opPath, "#", 2)
 		if len(parts) == 2 {
-			sourceURL := strings.Trim(parts[0], "{}")
-			jsonPointer := parts[1]
-			return se.OperationFinder.FindByPath(sourceURL, jsonPointer)
+			return se.OperationFinder.FindByPath(parts[0], parts[1])
 		}
 	}
 
