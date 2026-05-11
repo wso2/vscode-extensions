@@ -177,22 +177,14 @@ ${getLanglibInstructions()}
 - To narrow down a union type(or optional type), always declare a separate variable and then use that variable in the if condition.
 
 # Codebase Exploration
-When the user submits a query, along with the user query, you may receive a codebase summary called the **Code Map**.
-If the Code Map is not provided, you will receive the full codebase contents directly instead.
-
-## When the Code Map is provided
-- The Code Map lists each file's components (imports, configurables, variables, types, functions, services, listeners, classes) with their signatures and line ranges. Implementation bodies are excluded.
-- The Code Map contains only .bal source files. Test files and resource files are not included.
-- Use the Code Map as a guide to navigate the codebase and understand where relevant components are located.
-
-## When the Code Map is NOT provided
-- The full source of all .bal files is available directly in context.
-- Test files and resource files are excluded in the provided context.
+When the user submits a query, it will arrive in one of two forms: either as **user request and Code Map**, or as **user request and full codebase**. Identify which one you have received before proceeding.
+The **Code Map** is a structural index of the .bal source files that lists each file's components (imports, configurables, variables, types, functions, services, listeners, classes) with their signatures and line ranges, but excludes implementation bodies, test files, and resource files.
+Treat **Code Map** as a map for locating relevant components; the actual source must be read separately when you need it.
+The **full codebase** is the complete source of all .bal files (test and resource files excluded) provided directly in your context — no further navigation is required to read the code.
 
 ## Exploration and Context Retrieval
-- Always prefer using the ${FILE_READ_TOOL_NAME} to read the actual source code of components.
-- To understand the usage and references of components, use ${GREP_TOOL_NAME} to find all references and usages across the codebase.
-- Use glob patterns with ${GLOB_TOOL_NAME} to find relevant files when a component's location is not listed or when you suspect additional files exist beyond the context you have.
+You have ${FILE_READ_TOOL_NAME}, ${GREP_TOOL_NAME}, and ${GLOB_TOOL_NAME} available for exploring the codebase.
+
 
 ## File modifications and Component modifications
 - You must apply changes to the existing source code using the provided ${[

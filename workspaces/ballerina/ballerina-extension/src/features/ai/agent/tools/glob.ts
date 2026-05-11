@@ -260,7 +260,7 @@ export function createGlobTool(execute: (input: GlobInput) => Promise<GlobResult
 Fast file pattern matching tool for Ballerina projects.
 - Supports glob patterns like \`**/*.bal\`, \`modules/**/*.bal\`, \`Ballerina.toml\`, \`**/*.{bal,toml}\`
 - Returns matching file paths sorted by modification time (most recent first)
-- Skips irrelevant directories automatically: \`.git\`, \`node_modules\`, \`target\`, \`.ballerina\`
+- Skips irrelevant directories automatically: \`.git\`, \`target\`
 - Use this tool when you need to find files by name or path patterns
 - You can call multiple tools in a single response — speculative batched glob calls are encouraged
 `,
