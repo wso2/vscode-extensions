@@ -257,12 +257,11 @@ export function createGlobExecute(
 export function createGlobTool(execute: (input: GlobInput) => Promise<GlobResult>) {
     return tool({
         description: `
-Fast file pattern matching tool optimised for Ballerina projects.
-- Supports glob patterns like \`**/*.bal\`, \`src/**/*.ts\`, \`*.toml\`, \`**/*.{bal,toml}\`
+Fast file pattern matching tool for Ballerina projects.
+- Supports glob patterns like \`**/*.bal\`, \`modules/**/*.bal\`, \`Ballerina.toml\`, \`**/*.{bal,toml}\`
 - Returns matching file paths sorted by modification time (most recent first)
 - Skips irrelevant directories automatically: \`.git\`, \`node_modules\`, \`target\`, \`.ballerina\`
 - Use this tool when you need to find files by name or path patterns
-- Combine with the Grep tool to first locate files then search their contents
 - You can call multiple tools in a single response — speculative batched glob calls are encouraged
 `,
         inputSchema: z.object({

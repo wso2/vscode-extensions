@@ -23,6 +23,7 @@ import { CONNECTOR_GENERATOR_TOOL } from "./tools/connector-generator";
 import { CONFIG_COLLECTOR_TOOL } from "./tools/config-collector";
 import { CLARIFY_TOOL } from "./tools/clarify";
 import { GREP_TOOL_NAME } from "./tools/grep";
+import { GLOB_TOOL_NAME } from "./tools/glob";
 import { TEST_RUNNER_TOOL_NAME } from "./tools/test-runner";
 import { getLanglibInstructions } from "../utils/libs/langlibs";
 import { formatCodebaseStructure, formatCodeContext } from "./utils";
@@ -176,15 +177,22 @@ ${getLanglibInstructions()}
 - To narrow down a union type(or optional type), always declare a separate variable and then use that variable in the if condition.
 
 # Codebase Exploration
-When the user submits a query, you may receive a codebase summary called the **Code Map** (bal.md).
-- The Code Map lists each file's components (imports, configurables, variables, types, functions, services, listeners, classes) as signatures with exact line ranges in the format \`<signature> [L:<startLine> - L:<endLine>]\`. Implementation bodies are excluded.
-- If no Code Map is provided, you will receive the full codebase instead.
+When the user submits a query, along with the user query, you may receive a codebase summary called the **Code Map**.
+If the Code Map is not provided, you will receive the full codebase contents directly instead.
 
-Use tools in this priority order:
-1. **Code Map** — analyse the signatures and line ranges to locate relevant code before reading any file.
-2. **${FILE_READ_TOOL_NAME}** — read the precise line range to verify implementation details. Never assume behavior from a signature alone.
-3. **${GREP_TOOL_NAME}** — use grep to find current usages, dependencies, and relationships. After any code change, the Code Map becomes stale, so always prefer grep over the Code Map for post-change lookups.
+## When the Code Map is provided
+- The Code Map lists each file's components (imports, configurables, variables, types, functions, services, listeners, classes) with their signatures and line ranges. Implementation bodies are excluded.
+- The Code Map contains only .bal source files. Test files and resource files are not included.
+- Use the Code Map as a guide to navigate the codebase and understand where relevant components are located.
 
+## When the Code Map is NOT provided
+- The full source of all .bal files is available directly in context.
+- Test files and resource files are excluded in the provided context.
+
+## Exploration and Context Retrieval
+- Always prefer using the ${FILE_READ_TOOL_NAME} to read the actual source code of components.
+- To understand the usage and references of components, use ${GREP_TOOL_NAME} to find all references and usages across the codebase.
+- Use glob patterns with ${GLOB_TOOL_NAME} to find relevant files when a component's location is not listed or when you suspect additional files exist beyond the context you have.
 
 ## File modifications and Component modifications
 - You must apply changes to the existing source code using the provided ${[
