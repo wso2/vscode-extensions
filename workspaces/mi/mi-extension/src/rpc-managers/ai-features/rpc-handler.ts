@@ -25,6 +25,8 @@ import {
     GenerateSuggestionsRequest,
     GenerateCodeRequest,
     hasAnthropicApiKey,
+    getTavilyApiKey,
+    setTavilyApiKey,
     isMiCopilotLoggedIn,
     fetchUsage,
     generateUnitTest,
@@ -51,6 +53,8 @@ export function registerMIAiPanelRpcHandlers(messenger: MessengerAPI, projectUri
     messenger.onRequest(generateCode, (request: GenerateCodeRequest) => rpcManager.generateCode(request));
     messenger.onRequest(abortCodeGeneration, () => rpcManager.abortCodeGeneration());
     messenger.onRequest(hasAnthropicApiKey, () => rpcManager.hasAnthropicApiKey());
+    messenger.onRequest(getTavilyApiKey, () => rpcManager.getTavilyApiKey());
+    messenger.onRequest(setTavilyApiKey, (request: { apiKey: string }) => rpcManager.setTavilyApiKey(request));
     messenger.onRequest(isMiCopilotLoggedIn, () => rpcManager.isMiCopilotLoggedIn());
     messenger.onRequest(fetchUsage, () => rpcManager.fetchUsage());
 

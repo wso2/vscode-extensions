@@ -48,7 +48,7 @@ export default function createTests() {
                 console.log('Starting to create a new project from sample');
                 await page.executePaletteCommand("MI: Create New Project");
                 const welcomePage = new Welcome(page);
-                await welcomePage.init();
+                await welcomePage.init("Welcome to MI");
                 console.log('Creating new project from sample');
                 await welcomePage.createNewProjectFromSample('Hello World ServiceA simple', newProjectPath);
                 // Wait for project to be fully loaded in explorer

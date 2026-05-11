@@ -16,12 +16,14 @@
  * under the License.
  */
 
-import { SemanticVersion, PackageTomlValues, SCOPE, WorkspaceTomlValues, ProjectInfo } from '@wso2/ballerina-core';
+import { SemanticVersion, PackageTomlValues, SCOPE, WorkspaceTomlValues, ProjectInfo, vscode } from '@wso2/ballerina-core';
 import { BallerinaExtension } from '../core';
 import { WorkspaceConfiguration, workspace, Uri, RelativePattern, extensions } from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from '@iarna/toml';
+import { StateMachine } from '../stateMachine';
+import { uriCache } from '../extension';
 
 export enum VERSION {
     BETA = 'beta',
@@ -228,44 +230,65 @@ export function checkIsBI(uri: Uri): boolean {
     }
     return false; // Return false if isBI is not set
 }
+export function isRemoteFileSystem(uri: Uri): boolean {
+    return uri.scheme !== 'file';
+}
 
 export function isInWI(): boolean {
     return !!extensions.getExtension(WI_EXTENSION_ID);
 }
 
 export async function checkIsBallerinaPackage(uri: Uri): Promise<boolean> {
-    const ballerinaTomlPath = path.join(uri.fsPath, 'Ballerina.toml');
-
-    // First check if the file exists
-    if (!fs.existsSync(ballerinaTomlPath)) {
-        return false;
-    }
-
     try {
-        const tomlValues = await getProjectTomlValues(uri.fsPath);
+        const ballerinaTomlUri = Uri.joinPath(uri, 'Ballerina.toml');
+        
+        // Check if the file exists
+        try {   
+            await workspace.fs.stat(ballerinaTomlUri);
+        } catch (error) {
+            return false;
+        }
+
+        // For remote URIs, get the cached local path
+        const localPath = uri.scheme === 'file' ? uri.fsPath : uriCache?.getLocalPath(uri);
+        if (!localPath) {
+            console.error(`No cached local path found for remote URI: ${uri.toString()}`);
+            return false;
+        }
+        
+        const tomlValues = await getProjectTomlValues(localPath);
         return tomlValues?.package !== undefined;
     } catch (error) {
         // If there's an error reading the file, it's not a valid Ballerina project
-        console.error(`Error reading package Ballerina.toml: ${error}`);
+        console.error(`Error checking if Ballerina package: ${error}`);
         return false;
     }
 }
 
 
 export async function checkIsBallerinaWorkspace(uri: Uri): Promise<boolean> {
-    const ballerinaTomlPath = path.join(uri.fsPath, 'Ballerina.toml');
-
-    // First check if the file exists
-    if (!fs.existsSync(ballerinaTomlPath)) {
-        return false;
-    }
-
     try {
-        const tomlValues = await getWorkspaceTomlValues(uri.fsPath);
+        const ballerinaTomlUri = Uri.joinPath(uri, 'Ballerina.toml');
+        
+        // Check if the file exists
+        try {
+            await workspace.fs.stat(ballerinaTomlUri);
+        } catch (error) {
+            return false;
+        }
+
+        // For remote URIs, get the cached local path
+        const localPath = uri.scheme === 'file' ? uri.fsPath : uriCache?.getLocalPath(uri);
+        if (!localPath) {
+            console.error(`No cached local path found for remote URI: ${uri.toString()}`);
+            return false;
+        }
+        
+        const tomlValues = await getWorkspaceTomlValues(localPath);
         return tomlValues?.workspace !== undefined && tomlValues.workspace?.packages !== undefined;
     } catch (error) {
         // If there's an error reading the file, it's not a valid Ballerina workspace
-        console.error(`Error reading workspace Ballerina.toml: ${error}`);
+        console.error(`Error checking if Ballerina workspace: ${error}`);
         return false;
     }
 }
@@ -310,19 +333,22 @@ export async function getBallerinaPackages(uri: Uri): Promise<string[]> {
     }
 }
 
-export function getOrgPackageName(projectPath: string): { orgName: string, packageName: string } {
+export async function getOrgPackageName(projectPath: string): Promise<{ orgName: string; packageName: string; }> {
     const ballerinaTomlPath = path.join(projectPath, 'Ballerina.toml');
-
+    
+    // Always use file:// for local paths (including cached remote projects)
+    const ballerinaTomlUri = Uri.file(ballerinaTomlPath);
+    
     // Regular expressions for Ballerina.toml parsing
     const ORG_REGEX = /\[package\][\s\S]*?org\s*=\s*["']([^"']*)["']/;
     const NAME_REGEX = /\[package\][\s\S]*?name\s*=\s*["']([^"']*)["']/;
 
-    if (!fs.existsSync(ballerinaTomlPath)) {
+    if (!workspace.fs.stat(ballerinaTomlUri)) {
         return { orgName: '', packageName: '' };
     }
 
     try {
-        const tomlContent = fs.readFileSync(ballerinaTomlPath, 'utf8');
+        const tomlContent = await workspace.fs.readFile(ballerinaTomlUri).then((data) => Buffer.from(data).toString('utf-8'));
 
         // Extract org name and package name
         const orgName = tomlContent.match(ORG_REGEX)?.[1] || '';
@@ -337,8 +363,12 @@ export function getOrgPackageName(projectPath: string): { orgName: string, packa
 
 export async function getProjectTomlValues(projectPath: string): Promise<Partial<PackageTomlValues> | undefined> {
     const ballerinaTomlPath = path.join(projectPath, 'Ballerina.toml');
-    if (fs.existsSync(ballerinaTomlPath)) {
-        const tomlContent = await fs.promises.readFile(ballerinaTomlPath, 'utf-8');
+    
+    // Always use file:// for local paths (including cached remote projects)
+    const ballerinaTomlUri = Uri.file(ballerinaTomlPath);
+
+    if (workspace.fs.stat(ballerinaTomlUri)) {
+        const tomlContent = await workspace.fs.readFile(ballerinaTomlUri).then((data) => Buffer.from(data).toString('utf-8'));
         try {
             return parse(tomlContent) as Partial<PackageTomlValues>;
         } catch (error) {
@@ -347,6 +377,7 @@ export async function getProjectTomlValues(projectPath: string): Promise<Partial
         }
     }
 }
+
 
 export async function getWorkspaceTomlValues(workspacePath: string): Promise<Partial<WorkspaceTomlValues> | undefined> {
     const ballerinaTomlPath = path.join(workspacePath, 'Ballerina.toml');

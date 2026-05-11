@@ -34,7 +34,7 @@ import { Flow, NodeModel, FlowNode, Branch, LineRange, NodePosition, ToolData, D
 import { NodeFactoryVisitor } from "../visitors/NodeFactoryVisitor";
 import { NodeLinkModel } from "./NodeLink";
 import { OverlayLayerModel } from "./OverlayLayer";
-import { DiagramContextProvider, DiagramContextState, DiagramPromptOptions, ExpressionContextProps } from "./DiagramContext";
+import { AddNodeAnchor,DiagramContextProvider, DiagramContextState, DiagramPromptOptions, ExpressionContextProps } from "./DiagramContext";
 import { SizingVisitor } from "../visitors/SizingVisitor";
 import { PositionVisitor } from "../visitors/PositionVisitor";
 import { InitVisitor } from "../visitors/InitVisitor";
@@ -45,10 +45,16 @@ import { CurrentBreakpointsResponse as BreakpointInfo, JoinProjectPathRequest, J
 import { BreakpointVisitor } from "../visitors/BreakpointVisitor";
 import { BaseNodeModel } from "./nodes/BaseNode";
 import { PopupOverlay } from "./PopupOverlay";
+import { RemoteCursors } from "./RemoteCursors";
 
 export interface DiagramProps {
     model: Flow;
-    onAddNode?: (parent: FlowNode | Branch, target: LineRange) => void;
+    onAddNode?: (
+        parent: FlowNode | Branch,
+        target: LineRange,
+        clickedNodeId?: string,
+        anchor?: AddNodeAnchor
+    ) => void;
     onAddNodePrompt?: (parent: FlowNode | Branch, target: LineRange, prompt: string, options?: DiagramPromptOptions) => void;
     onDeleteNode?: (node: FlowNode) => void;
     onAddComment?: (comment: string, target: LineRange) => void;
@@ -96,7 +102,14 @@ export interface DiagramProps {
         onClickOverlay: () => void;
     }
     isUserAuthenticated?: boolean;
+    currentUserId?: string;
     expressionContext?: ExpressionContextProps;
+    // Collaborative cursor tracking
+    remoteCursors?: Map<string, any>;
+    onCursorMove?: (x: number, y: number, nodeId?: string) => void;
+    nodeLocks?: Record<string, any>;
+    isCollaborationActive?: boolean;
+    isPositionLocked?: (parent: FlowNode | Branch, target: LineRange) => boolean;
     entrypointContext?: {
         serviceName?: string;
         functionName?: string;
@@ -128,6 +141,11 @@ export function Diagram(props: DiagramProps) {
         overlay,
         isUserAuthenticated,
         expressionContext,
+        remoteCursors,
+        onCursorMove,
+        nodeLocks,
+        isCollaborationActive,
+        isPositionLocked,
         entrypointContext,
     } = props;
 
@@ -310,6 +328,7 @@ export function Diagram(props: DiagramProps) {
 
     const context: DiagramContextState = {
         flow: model,
+        diagramEngine,
         componentPanel: {
             visible: showComponentPanel,
             show: handleShowComponentPanel,
@@ -337,6 +356,7 @@ export function Diagram(props: DiagramProps) {
         project: project,
         readOnly: onAddNode === undefined || onDeleteNode === undefined || onNodeSelect === undefined || readOnly,
         isUserAuthenticated: isUserAuthenticated,
+        currentUserId: props.currentUserId,
         nodeComments: nodeComments,
         expressionContext: expressionContext || {
             completions: [],
@@ -344,6 +364,11 @@ export function Diagram(props: DiagramProps) {
             retrieveCompletions: () => Promise.resolve(),
             getHelperPane: undefined,
         },
+        remoteCursors: remoteCursors,
+        onCursorMove: onCursorMove,
+        nodeLocks: nodeLocks,
+        isCollaborationActive: isCollaborationActive,
+        isPositionLocked: isPositionLocked,
         entrypointContext,
     };
 
@@ -375,6 +400,7 @@ export function Diagram(props: DiagramProps) {
                             diagramEngine={diagramEngine}
                             focusedNode={getActiveBreakpointNode(diagramModel.getNodes() as NodeModel[])}
                         />
+                        <RemoteCursors />
                     </DiagramCanvas>
                 </DiagramContextProvider>
             )}

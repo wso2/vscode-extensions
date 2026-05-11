@@ -29,7 +29,7 @@ import { ProjectInformation } from "./ProjectInformation";
 import { ERROR_MESSAGES } from "@wso2/mi-diagram/lib/resources/constants";
 import { DeploymentOptions } from "./DeploymentStatus";
 import { useQuery } from "@tanstack/react-query";
-import { IOpenInConsoleCmdParams, CommandIds as PlatformExtCommandIds } from "@wso2/wso2-platform-core";
+import { IOpenInConsoleCmdParams, WICommandIds as PlatformExtCommandIds } from "@wso2/wso2-platform-core";
 import ProjectStructureView from "./ProjectStructureView";
 import { COMMANDS } from "../../constants";
 

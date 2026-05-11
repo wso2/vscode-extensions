@@ -62,6 +62,7 @@ import {
     isTemplateType,
     DropdownType,
     isDropDownType,
+    NodeLock,
 } from "@wso2/ballerina-core";
 import {
     HelperPaneVariableInfo,
@@ -1091,4 +1092,51 @@ export function getSubPanelWidth(subPanel: SubPanel) {
         default:
             return undefined;
     }
+}
+
+// ==================================
+// Node Lock Management
+// ==================================
+
+/**
+ * Updates the flow model with lock information from the server
+ * @param flowModel The current flow model
+ * @param locks Record of node locks by node ID
+ * @returns Updated flow model with lock information
+ */
+export function updateNodeLocks(flowModel: Flow, locks: Record<string, NodeLock>): Flow {
+    const updatedModel = cloneDeep(flowModel);
+    
+    const updateNodesRecursively = (nodes: FlowNode[]) => {
+        nodes.forEach(node => {
+            // Update lock status
+            if (locks[node.id]) {
+                node.locked = locks[node.id];
+            } else {
+                delete node.locked;
+            }
+            
+            // Recursively update branches
+            if (node.branches) {
+                node.branches.forEach(branch => {
+                    if (branch.children) {
+                        updateNodesRecursively(branch.children);
+                    }
+                });
+            }
+        });
+    };
+    
+    updateNodesRecursively(updatedModel.nodes);
+    return updatedModel;
+}
+
+/**
+ * Checks if a node is locked by another user
+ * @param node The node to check
+ * @param currentUserId The current user's ID
+ * @returns true if node is locked by another user
+ */
+export function isNodeLockedByOther(node: FlowNode, currentUserId: string): boolean {
+    return !!node.locked && node.locked.userId !== currentUserId;
 }

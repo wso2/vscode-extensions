@@ -16,14 +16,13 @@
  * under the License.
  */
 
-import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { parseStringPromise } from 'xml2js';
 import { logDebug, logError, logInfo, logWarn } from '../../copilot/logger';
 
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 const STORE_FETCH_TIMEOUT_MS = 5000;
 const DEFAULT_RUNTIME_VERSION = process.env.MI_RUNTIME_VERSION || '4.6.0';
 const SAFE_RUNTIME_VERSION_SEGMENT_PATTERN = /^[A-Za-z0-9._-]+$/;
@@ -32,36 +31,44 @@ export type ConnectorStoreItemType = 'connector' | 'inbound';
 export type ConnectorStoreSource = 'fresh-cache' | 'stale-cache' | 'store' | 'local-db';
 export type ConnectorStoreStatus = 'healthy' | 'degraded';
 
+const FULL_ARTIFACT_ID_PATTERN = /^(mi-(connector|module|inbound)|esb-connector)-/i;
+
+/**
+ * True when the id looks like a fully-qualified Maven artifact id
+ * (e.g. "mi-inbound-file"). Exact-match lookups are required for these —
+ * stripped matching would unify "mi-inbound-file" and "mi-connector-file".
+ */
+export function isFullArtifactId(identifier: string): boolean {
+    return FULL_ARTIFACT_ID_PATTERN.test(identifier);
+}
+
+export interface ConnectorStoreItem {
+    connectorName: string;
+    description: string;
+    connectorType: string;
+    mavenGroupId: string;
+    mavenArtifactId: string;
+    repoName: string;
+    version: { tagName: string };
+    connections?: any[];
+}
+
 interface CatalogCacheFile {
     fetchedAt: string;
     runtimeVersion: string;
     type: ConnectorStoreItemType;
-    data: CatalogItem[];
-}
-
-interface DefinitionCacheFile {
-    fetchedAt: string;
-    runtimeVersion: string;
-    type: ConnectorStoreItemType;
-    name: string;
-    data: any;
+    data: ConnectorStoreItem[];
 }
 
 interface CatalogLoadResult {
-    items: CatalogItem[];
+    items: ConnectorStoreItem[];
     source: ConnectorStoreSource;
     warnings: string[];
 }
 
-export interface CatalogItem {
-    connectorName: string;
-    description: string;
-    connectorType: string;
-}
-
 export interface ConnectorStoreCatalog {
-    connectors: CatalogItem[];
-    inbounds: CatalogItem[];
+    connectors: ConnectorStoreItem[];
+    inbounds: ConnectorStoreItem[];
     storeStatus: ConnectorStoreStatus;
     warnings: string[];
     runtimeVersionUsed: string;
@@ -71,18 +78,9 @@ export interface ConnectorStoreCatalog {
     };
 }
 
-export interface ConnectorDefinitionLookupResult {
-    definitionsByName: Record<string, any>;
-    missingNames: string[];
-    fallbackUsedNames: string[];
-    storeFailureNames: string[];
-    warnings: string[];
-    runtimeVersionUsed: string;
-}
-
-interface CacheReadResult {
-    fresh?: any;
-    stale?: any;
+export interface ConnectorStoreLookupResult {
+    item: ConnectorStoreItem | null;
+    source: ConnectorStoreSource;
 }
 
 const CACHE_ROOT_DIR = path.join(os.homedir(), '.wso2-mi', 'copilot', 'cache');
@@ -92,7 +90,6 @@ function normalizeName(value: unknown): string {
     if (typeof value !== 'string') {
         return '';
     }
-
     return value.trim().toLowerCase();
 }
 
@@ -100,7 +97,6 @@ function stripConnectorPrefix(value: unknown): string {
     if (typeof value !== 'string') {
         return '';
     }
-
     return value.replace(/^mi-(connector|module|inbound)-/i, '');
 }
 
@@ -137,16 +133,7 @@ function getRuntimeVersionUsed(runtimeVersion: string | null): string {
     if (runtimeVersion === null) {
         return DEFAULT_RUNTIME_VERSION;
     }
-
     return sanitizeRuntimeVersionSegment(runtimeVersion);
-}
-
-function sanitizeFileNameSegment(value: string): string {
-    return value
-        .replace(/[^a-zA-Z0-9._-]/g, '-')
-        .replace(/-+/g, '-')
-        .replace(/^-|-$/g, '')
-        .slice(0, 96) || 'item';
 }
 
 function buildItemDirectory(itemType: ConnectorStoreItemType, runtimeVersion: string): string {
@@ -158,48 +145,6 @@ function buildCatalogFilePath(itemType: ConnectorStoreItemType, runtimeVersion: 
     return path.join(buildItemDirectory(itemType, runtimeVersion), CATALOG_FILE_NAME);
 }
 
-function buildDefinitionFilePath(itemType: ConnectorStoreItemType, runtimeVersion: string, name: string): string {
-    const normalized = normalizeName(name);
-    const displayPart = sanitizeFileNameSegment(normalized);
-    const hash = crypto.createHash('sha256').update(normalized).digest('hex').slice(0, 12);
-    const fileName = `${displayPart}-${hash}.json`;
-    return path.join(buildItemDirectory(itemType, runtimeVersion), fileName);
-}
-
-function toRequestAliases(name: string): string[] {
-    const aliases = new Set<string>();
-    const normalized = normalizeName(name);
-    if (normalized.length > 0) {
-        aliases.add(normalized);
-    }
-
-    const stripped = normalizeName(stripConnectorPrefix(name));
-    if (stripped.length > 0) {
-        aliases.add(stripped);
-    }
-
-    return Array.from(aliases);
-}
-
-function getDefinitionAliases(definition: any): string[] {
-    const aliases = new Set<string>();
-    const connectorName = normalizeName(definition?.connectorName);
-    const artifactId = normalizeName(definition?.mavenArtifactId);
-    const strippedArtifact = normalizeName(stripConnectorPrefix(definition?.mavenArtifactId));
-
-    if (connectorName.length > 0) {
-        aliases.add(connectorName);
-    }
-    if (artifactId.length > 0) {
-        aliases.add(artifactId);
-    }
-    if (strippedArtifact.length > 0) {
-        aliases.add(strippedArtifact);
-    }
-
-    return Array.from(aliases);
-}
-
 function dedupeWarnings(warnings: string[]): string[] {
     return Array.from(new Set(warnings.filter((warning) => warning.trim().length > 0)));
 }
@@ -209,31 +154,36 @@ function isEntryFresh(fetchedAt: string): boolean {
     if (Number.isNaN(fetchedAtMs)) {
         return false;
     }
-
     return Date.now() - fetchedAtMs < CACHE_TTL_MS;
 }
 
-function toCatalogItem(raw: any): CatalogItem | null {
-    const connectorName = typeof raw?.connector_name === 'string'
-        ? raw.connector_name
-        : (typeof raw?.connectorName === 'string' ? raw.connectorName : '');
-    if (connectorName.trim().length === 0) {
+// ============================================================================
+// Store Item Mapping
+// ============================================================================
+
+function toConnectorStoreItem(raw: any, itemType: ConnectorStoreItemType): ConnectorStoreItem | null {
+    const connectorName = typeof raw?.connectorName === 'string' ? raw.connectorName.trim() : '';
+    if (connectorName.length === 0) {
         return null;
     }
 
-    const description = typeof raw?.description === 'string' ? raw.description : '';
-    const connectorType = typeof raw?.connector_type === 'string'
-        ? raw.connector_type
-        : (typeof raw?.connectorType === 'string' ? raw.connectorType : '');
-
     return {
         connectorName,
-        description,
-        connectorType,
+        description: typeof raw?.description === 'string' ? raw.description : '',
+        connectorType: typeof raw?.connectorType === 'string'
+            ? raw.connectorType
+            : (itemType === 'connector' ? 'Connector' : 'Inbound'),
+        mavenGroupId: typeof raw?.mavenGroupId === 'string' ? raw.mavenGroupId : '',
+        mavenArtifactId: typeof raw?.mavenArtifactId === 'string' ? raw.mavenArtifactId : '',
+        repoName: typeof raw?.repoName === 'string' ? raw.repoName : '',
+        version: {
+            tagName: typeof raw?.version?.tagName === 'string' ? raw.version.tagName : '',
+        },
+        connections: Array.isArray(raw?.version?.connections) ? raw.version.connections : undefined,
     };
 }
 
-function toCatalogFallbackItems(fallbackItems: any[], itemType: ConnectorStoreItemType): CatalogItem[] {
+function toFallbackStoreItems(fallbackItems: any[], itemType: ConnectorStoreItemType): ConnectorStoreItem[] {
     return fallbackItems
         .map((item) => {
             const connectorName = typeof item?.connectorName === 'string' ? item.connectorName : '';
@@ -247,35 +197,20 @@ function toCatalogFallbackItems(fallbackItems: any[], itemType: ConnectorStoreIt
                 connectorType: typeof item?.connectorType === 'string'
                     ? item.connectorType
                     : (itemType === 'connector' ? 'Connector' : 'Inbound'),
-            } as CatalogItem;
+                mavenGroupId: typeof item?.mavenGroupId === 'string' ? item.mavenGroupId : '',
+                mavenArtifactId: typeof item?.mavenArtifactId === 'string' ? item.mavenArtifactId : '',
+                repoName: typeof item?.repoName === 'string' ? item.repoName : '',
+                version: {
+                    tagName: typeof item?.version?.tagName === 'string' ? item.version.tagName : '',
+                },
+            } as ConnectorStoreItem;
         })
-        .filter((item): item is CatalogItem => item !== null);
+        .filter((item): item is ConnectorStoreItem => item !== null);
 }
 
-function matchesDefinition(definition: any, requestedName: string): boolean {
-    const normalizedRequested = normalizeName(requestedName);
-    if (normalizedRequested.length === 0) {
-        return false;
-    }
-
-    const connectorName = normalizeName(definition?.connectorName);
-    const artifactId = normalizeName(definition?.mavenArtifactId);
-    const strippedArtifact = normalizeName(stripConnectorPrefix(definition?.mavenArtifactId));
-
-    return normalizedRequested === connectorName
-        || normalizedRequested === artifactId
-        || normalizedRequested === strippedArtifact;
-}
-
-function findFallbackDefinition(requestedName: string, fallbackItems: any[]): any | null {
-    for (const item of fallbackItems) {
-        if (matchesDefinition(item, requestedName)) {
-            return item;
-        }
-    }
-
-    return null;
-}
+// ============================================================================
+// Cache I/O
+// ============================================================================
 
 async function readJsonFile<T>(filePath: string): Promise<T | null> {
     try {
@@ -302,23 +237,6 @@ async function readCatalogCache(filePath: string): Promise<CatalogCacheFile | nu
     ) {
         return parsed;
     }
-
-    return null;
-}
-
-async function readDefinitionCache(filePath: string): Promise<DefinitionCacheFile | null> {
-    const parsed = await readJsonFile<DefinitionCacheFile>(filePath);
-    if (
-        parsed
-        && typeof parsed.fetchedAt === 'string'
-        && typeof parsed.runtimeVersion === 'string'
-        && (parsed.type === 'connector' || parsed.type === 'inbound')
-        && typeof parsed.name === 'string'
-        && Object.prototype.hasOwnProperty.call(parsed, 'data')
-    ) {
-        return parsed;
-    }
-
     return null;
 }
 
@@ -326,7 +244,7 @@ async function writeCatalogCache(
     filePath: string,
     itemType: ConnectorStoreItemType,
     runtimeVersion: string,
-    data: CatalogItem[]
+    data: ConnectorStoreItem[]
 ): Promise<void> {
     const content: CatalogCacheFile = {
         fetchedAt: new Date().toISOString(),
@@ -337,104 +255,82 @@ async function writeCatalogCache(
     await writeJsonFile(filePath, content);
 }
 
-async function writeDefinitionCaches(
-    itemType: ConnectorStoreItemType,
-    runtimeVersion: string,
-    definition: any,
-    aliases: string[]
-): Promise<void> {
-    const uniqueAliases = new Set<string>(aliases.map((alias) => normalizeName(alias)).filter((alias) => alias.length > 0));
-    for (const alias of uniqueAliases) {
-        const filePath = buildDefinitionFilePath(itemType, runtimeVersion, alias);
-        const content: DefinitionCacheFile = {
-            fetchedAt: new Date().toISOString(),
-            runtimeVersion,
-            type: itemType,
-            name: alias,
-            data: definition,
-        };
-        await writeJsonFile(filePath, content);
-    }
+// ============================================================================
+// Store API
+// ============================================================================
+
+function getConnectorCatalogUrl(runtimeVersion: string): string {
+    return (process.env.MI_CONNECTOR_STORE_BACKEND ?? '').replace('${version}', runtimeVersion);
 }
 
-function getSummaryUrl(itemType: ConnectorStoreItemType): string {
-    const template = process.env.MI_CONNECTOR_STORE_BACKEND_SUMMARIES ?? '';
-    const typeValue = itemType === 'connector' ? 'Connector' : 'Inbound';
-    return template.replace('${type}', typeValue);
+function getInboundCatalogUrl(runtimeVersion: string): string {
+    return (process.env.MI_CONNECTOR_STORE_BACKEND_INBOUND_ENDPOINTS ?? '').replace('${version}', runtimeVersion);
 }
 
-function getDetailsUrl(): string {
-    return process.env.MI_CONNECTOR_STORE_BACKEND_DETAILS_FILTER
-        || process.env.MI_CONNECTOR_STORE_BACKEND_DETAILS
-        || '';
-}
-
-async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+async function fetchWithTimeout(
+    url: string,
+    init: RequestInit,
+    externalSignal?: AbortSignal
+): Promise<Response> {
     const controller = new AbortController();
     const timeoutHandle = setTimeout(() => controller.abort(), STORE_FETCH_TIMEOUT_MS);
+    const onExternalAbort = () => controller.abort();
+    if (externalSignal) {
+        if (externalSignal.aborted) {
+            controller.abort();
+        } else {
+            externalSignal.addEventListener('abort', onExternalAbort, { once: true });
+        }
+    }
     try {
         return await fetch(url, { ...init, signal: controller.signal });
     } finally {
         clearTimeout(timeoutHandle);
+        externalSignal?.removeEventListener('abort', onExternalAbort);
     }
 }
 
-async function fetchCatalogFromStore(itemType: ConnectorStoreItemType): Promise<CatalogItem[]> {
-    const summaryUrl = getSummaryUrl(itemType);
-    const response = await fetchWithTimeout(summaryUrl, { method: 'GET' });
+async function fetchCatalogFromStore(itemType: ConnectorStoreItemType, runtimeVersion: string): Promise<ConnectorStoreItem[]> {
+    const url = itemType === 'connector'
+        ? getConnectorCatalogUrl(runtimeVersion)
+        : getInboundCatalogUrl(runtimeVersion);
+
+    if (!url) {
+        throw new Error(`No URL configured for ${itemType} catalog`);
+    }
+
+    const response = await fetchWithTimeout(url, { method: 'GET' });
     if (!response.ok) {
         throw new Error(`HTTP ${response.status} ${response.statusText}`);
     }
 
     const payload = await response.json();
     if (!Array.isArray(payload)) {
-        throw new Error('Connector summary response is not an array');
+        throw new Error('Connector store response is not an array');
     }
 
     return payload
-        .map((item) => toCatalogItem(item))
-        .filter((item): item is CatalogItem => item !== null);
+        .map((item) => toConnectorStoreItem(item, itemType))
+        .filter((item): item is ConnectorStoreItem => item !== null);
 }
 
-async function fetchDefinitionsFromStore(names: string[], runtimeVersion: string): Promise<any[]> {
-    const detailsUrl = getDetailsUrl();
-    const response = await fetchWithTimeout(detailsUrl, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            connectorNames: names,
-            runtimeVersion,
-            product: 'MI',
-            latest: true,
-        }),
-    });
-
-    if (!response.ok) {
-        throw new Error(`HTTP ${response.status} ${response.statusText}`);
-    }
-
-    const payload = await response.json();
-    if (!Array.isArray(payload)) {
-        throw new Error('Connector details response is not an array');
-    }
-
-    return payload;
-}
+// ============================================================================
+// Catalog Loading (with cache + fallback chain)
+// ============================================================================
 
 async function loadCatalog(
     itemType: ConnectorStoreItemType,
     runtimeVersion: string,
-    fallbackItems: any[]
+    fallbackItems: any[],
+    forceRefresh: boolean = false
 ): Promise<CatalogLoadResult> {
     const cachePath = buildCatalogFilePath(itemType, runtimeVersion);
     const cached = await readCatalogCache(cachePath);
     const label = itemType === 'connector' ? 'connectors' : 'inbound endpoints';
     const warnings: string[] = [];
 
-    if (cached && isEntryFresh(cached.fetchedAt)) {
-        logDebug(`[ConnectorStoreCache] Using fresh ${label} summary cache (${cachePath})`);
+    if (!forceRefresh && cached && isEntryFresh(cached.fetchedAt)) {
+        logDebug(`[ConnectorStoreCache] Using fresh ${label} cache (${cachePath})`);
         return {
             items: cached.data,
             source: 'fresh-cache',
@@ -443,9 +339,9 @@ async function loadCatalog(
     }
 
     try {
-        const fetchedItems = await fetchCatalogFromStore(itemType);
+        const fetchedItems = await fetchCatalogFromStore(itemType, runtimeVersion);
         await writeCatalogCache(cachePath, itemType, runtimeVersion, fetchedItems);
-        logDebug(`[ConnectorStoreCache] Refreshed ${label} summary cache with ${fetchedItems.length} item(s)`);
+        logDebug(`[ConnectorStoreCache] Refreshed ${label} cache with ${fetchedItems.length} item(s)`);
         return {
             items: fetchedItems,
             source: 'store',
@@ -453,16 +349,16 @@ async function loadCatalog(
         };
     } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') {
-            logError(`[ConnectorStoreCache] Timed out fetching ${label} summaries after ${STORE_FETCH_TIMEOUT_MS}ms`, error);
+            logError(`[ConnectorStoreCache] Timed out fetching ${label} after ${STORE_FETCH_TIMEOUT_MS}ms`, error);
         } else {
-            logError(`[ConnectorStoreCache] Failed to fetch ${label} summaries from connector store`, error);
+            logError(`[ConnectorStoreCache] Failed to fetch ${label} from connector store`, error);
         }
 
-        const warning = `[ConnectorStoreCache] Connector store summaries unavailable for ${label}.`;
+        const warning = `[ConnectorStoreCache] Connector store unavailable for ${label}.`;
         warnings.push(warning);
 
         if (cached && Array.isArray(cached.data) && cached.data.length > 0) {
-            logWarn(`[ConnectorStoreCache] Using stale ${label} summary cache due to store failure.`);
+            logWarn(`[ConnectorStoreCache] Using stale ${label} cache due to store failure.`);
             warnings.push(`[ConnectorStoreCache] Using stale cached ${label}.`);
             return {
                 items: cached.data,
@@ -471,7 +367,7 @@ async function loadCatalog(
             };
         }
 
-        const fallbackCatalog = toCatalogFallbackItems(fallbackItems, itemType);
+        const fallbackCatalog = toFallbackStoreItems(fallbackItems, itemType);
         logWarn(`[ConnectorStoreCache] Falling back to local ${label} list (${fallbackCatalog.length} item(s)).`);
         warnings.push(`[ConnectorStoreCache] Using local fallback ${label}.`);
         return {
@@ -482,161 +378,37 @@ async function loadCatalog(
     }
 }
 
-async function readDefinitionCacheForName(
-    itemType: ConnectorStoreItemType,
-    runtimeVersion: string,
-    requestedName: string
-): Promise<CacheReadResult> {
-    const aliases = toRequestAliases(requestedName);
-    let freshestStale: { fetchedAtMs: number; data: any } | null = null;
+// ============================================================================
+// Name Matching
+// ============================================================================
 
-    for (const alias of aliases) {
-        const filePath = buildDefinitionFilePath(itemType, runtimeVersion, alias);
-        const cached = await readDefinitionCache(filePath);
-        if (!cached) {
-            continue;
-        }
-
-        if (isEntryFresh(cached.fetchedAt)) {
-            return { fresh: cached.data };
-        }
-
-        const fetchedAtMs = Date.parse(cached.fetchedAt);
-        const staleScore = Number.isNaN(fetchedAtMs) ? 0 : fetchedAtMs;
-        if (!freshestStale || staleScore > freshestStale.fetchedAtMs) {
-            freshestStale = {
-                fetchedAtMs: staleScore,
-                data: cached.data,
-            };
-        }
+function matchesStoreItem(item: ConnectorStoreItem, name: string): boolean {
+    const normalized = normalizeName(name);
+    if (normalized.length === 0) {
+        return false;
     }
 
-    if (freshestStale) {
-        return { stale: freshestStale.data };
+    const itemName = normalizeName(item.connectorName);
+    const itemArtifact = normalizeName(item.mavenArtifactId);
+
+    if (isFullArtifactId(normalized)) {
+        return normalized === itemArtifact;
     }
 
-    return {};
+    // Bare identifier ("file", "File") — fall back to loose matching so legacy
+    // callers that pass display names or un-prefixed ids still resolve.
+    const stripped = normalizeName(stripConnectorPrefix(name));
+    const itemArtifactStripped = normalizeName(stripConnectorPrefix(item.mavenArtifactId));
+    return normalized === itemName
+        || normalized === itemArtifact
+        || normalized === itemArtifactStripped
+        || stripped === itemName
+        || stripped === itemArtifact;
 }
 
-async function resolveDefinitions(
-    projectPath: string,
-    itemType: ConnectorStoreItemType,
-    names: string[],
-    fallbackItems: any[]
-): Promise<ConnectorDefinitionLookupResult> {
-    const trimmedNames = names.map((name) => name.trim()).filter((name) => name.length > 0);
-    const requestedNames = Array.from(new Set(trimmedNames));
-    const detectedRuntimeVersion = await getRuntimeVersionFromPom(projectPath);
-    const runtimeVersionUsed = getRuntimeVersionUsed(detectedRuntimeVersion);
-
-    const definitionsByName: Record<string, any> = {};
-    const missingNames: string[] = [];
-    const fallbackUsedNames: string[] = [];
-    const storeFailureNames: string[] = [];
-    const warnings: string[] = [];
-    const staleByName: Record<string, any> = {};
-    const namesToFetch: string[] = [];
-
-    for (const name of requestedNames) {
-        const cached = await readDefinitionCacheForName(itemType, runtimeVersionUsed, name);
-        if (cached.fresh) {
-            definitionsByName[name] = cached.fresh;
-            continue;
-        }
-
-        if (cached.stale) {
-            staleByName[name] = cached.stale;
-        }
-
-        namesToFetch.push(name);
-    }
-
-    if (namesToFetch.length === 0) {
-        return {
-            definitionsByName,
-            missingNames,
-            fallbackUsedNames,
-            storeFailureNames,
-            warnings,
-            runtimeVersionUsed,
-        };
-    }
-
-    const label = itemType === 'connector' ? 'connector' : 'inbound endpoint';
-    let fetchedDefinitions: any[] = [];
-    let storeFailed = false;
-    try {
-        fetchedDefinitions = await fetchDefinitionsFromStore(namesToFetch, runtimeVersionUsed);
-    } catch (error) {
-        storeFailed = true;
-        if (error instanceof Error && error.name === 'AbortError') {
-            logError(`[ConnectorStoreCache] Timed out fetching ${label} details after ${STORE_FETCH_TIMEOUT_MS}ms`, error);
-        } else {
-            logError(`[ConnectorStoreCache] Failed to fetch ${label} details from connector store`, error);
-        }
-        warnings.push(`[ConnectorStoreCache] Connector store details unavailable for ${label} lookups.`);
-    }
-
-    if (storeFailed) {
-        for (const name of namesToFetch) {
-            if (staleByName[name]) {
-                definitionsByName[name] = staleByName[name];
-                warnings.push(`[ConnectorStoreCache] Using stale cached ${label} definition for '${name}'.`);
-                continue;
-            }
-
-            const fallbackDefinition = findFallbackDefinition(name, fallbackItems);
-            if (fallbackDefinition) {
-                definitionsByName[name] = fallbackDefinition;
-                fallbackUsedNames.push(name);
-                storeFailureNames.push(name);
-                const aliases = [...toRequestAliases(name), ...getDefinitionAliases(fallbackDefinition)];
-                await writeDefinitionCaches(itemType, runtimeVersionUsed, fallbackDefinition, aliases);
-                continue;
-            }
-
-            missingNames.push(name);
-            storeFailureNames.push(name);
-        }
-    } else {
-        for (const name of namesToFetch) {
-            const fromStore = fetchedDefinitions.find((definition) => matchesDefinition(definition, name));
-            if (fromStore) {
-                definitionsByName[name] = fromStore;
-                const aliases = [...toRequestAliases(name), ...getDefinitionAliases(fromStore)];
-                await writeDefinitionCaches(itemType, runtimeVersionUsed, fromStore, aliases);
-                continue;
-            }
-
-            const fallbackDefinition = findFallbackDefinition(name, fallbackItems);
-            if (fallbackDefinition) {
-                definitionsByName[name] = fallbackDefinition;
-                fallbackUsedNames.push(name);
-                warnings.push(`[ConnectorStoreCache] '${name}' was not returned by connector store. Using local fallback definition.`);
-                const aliases = [...toRequestAliases(name), ...getDefinitionAliases(fallbackDefinition)];
-                await writeDefinitionCaches(itemType, runtimeVersionUsed, fallbackDefinition, aliases);
-                continue;
-            }
-
-            if (staleByName[name]) {
-                definitionsByName[name] = staleByName[name];
-                warnings.push(`[ConnectorStoreCache] '${name}' was not returned by connector store. Using stale cached definition.`);
-                continue;
-            }
-
-            missingNames.push(name);
-        }
-    }
-
-    return {
-        definitionsByName,
-        missingNames,
-        fallbackUsedNames,
-        storeFailureNames,
-        warnings: dedupeWarnings(warnings),
-        runtimeVersionUsed,
-    };
-}
+// ============================================================================
+// Public API
+// ============================================================================
 
 export async function getRuntimeVersionFromPom(projectPath: string): Promise<string | null> {
     const pomPath = path.join(projectPath, 'pom.xml');
@@ -659,37 +431,23 @@ export async function getRuntimeVersionFromPom(projectPath: string): Promise<str
     }
 }
 
-export async function getConnectorDefinitions(
-    projectPath: string,
-    connectorNames: string[],
-    fallbackConnectors: any[]
-): Promise<ConnectorDefinitionLookupResult> {
-    return resolveDefinitions(projectPath, 'connector', connectorNames, fallbackConnectors);
-}
-
-export async function getInboundDefinitions(
-    projectPath: string,
-    inboundNames: string[],
-    fallbackInbounds: any[]
-): Promise<ConnectorDefinitionLookupResult> {
-    return resolveDefinitions(projectPath, 'inbound', inboundNames, fallbackInbounds);
-}
-
 export async function getConnectorStoreCatalog(
     projectPath: string,
     fallbackConnectors: any[],
-    fallbackInbounds: any[]
+    fallbackInbounds: any[],
+    options: { forceRefresh?: boolean } = {}
 ): Promise<ConnectorStoreCatalog> {
     const runtimeVersion = await getRuntimeVersionFromPom(projectPath);
     const runtimeVersionUsed = getRuntimeVersionUsed(runtimeVersion);
+    const forceRefresh = options.forceRefresh === true;
 
     if (runtimeVersion === null) {
         logInfo(`[ConnectorStoreCache] Runtime version unavailable. Defaulting connector store runtime to ${DEFAULT_RUNTIME_VERSION}.`);
     }
 
     const [connectorResult, inboundResult] = await Promise.all([
-        loadCatalog('connector', runtimeVersionUsed, fallbackConnectors),
-        loadCatalog('inbound', runtimeVersionUsed, fallbackInbounds),
+        loadCatalog('connector', runtimeVersionUsed, fallbackConnectors, forceRefresh),
+        loadCatalog('inbound', runtimeVersionUsed, fallbackInbounds, forceRefresh),
     ]);
 
     const warnings = dedupeWarnings([...connectorResult.warnings, ...inboundResult.warnings]);
@@ -709,4 +467,90 @@ export async function getConnectorStoreCatalog(
             inbounds: inboundResult.source,
         },
     };
+}
+
+/**
+ * Look up a single connector/inbound by name from the cached store data.
+ * Fallback chain: fresh cache → store API → stale cache → static DB.
+ */
+export async function lookupConnectorFromCache(
+    projectPath: string,
+    name: string,
+    fallbackConnectors: any[],
+    fallbackInbounds: any[]
+): Promise<ConnectorStoreLookupResult> {
+    const runtimeVersion = await getRuntimeVersionFromPom(projectPath);
+    const runtimeVersionUsed = getRuntimeVersionUsed(runtimeVersion);
+
+    // 1. Check fresh cache for both types
+    for (const itemType of ['connector', 'inbound'] as ConnectorStoreItemType[]) {
+        const cachePath = buildCatalogFilePath(itemType, runtimeVersionUsed);
+        const cached = await readCatalogCache(cachePath);
+        if (cached && isEntryFresh(cached.fetchedAt)) {
+            const found = cached.data.find(item => matchesStoreItem(item, name));
+            if (found) {
+                return { item: found, source: 'fresh-cache' };
+            }
+        }
+    }
+
+    // 2. Cache miss or stale — fetch both types in parallel from store (with
+    //    per-type stale-cache fallback on failure). We scan the full result
+    //    set for a match after both settle; connectors and inbounds don't
+    //    share names in practice, so the extra work is negligible.
+    const types: ConnectorStoreItemType[] = ['connector', 'inbound'];
+    const fetchResults = await Promise.all(types.map(async (itemType) => {
+        const cachePath = buildCatalogFilePath(itemType, runtimeVersionUsed);
+        try {
+            const fetched = await fetchCatalogFromStore(itemType, runtimeVersionUsed);
+            await writeCatalogCache(cachePath, itemType, runtimeVersionUsed, fetched);
+            return { data: fetched, source: 'store' as ConnectorStoreSource };
+        } catch (err) {
+            const errMsg = err instanceof Error ? err.message : String(err);
+            logWarn(`[ConnectorStoreCache] Falling back to stale ${itemType} cache at ${cachePath} after store fetch failure: ${errMsg}`);
+            const cached = await readCatalogCache(cachePath);
+            return { data: cached?.data ?? [], source: 'stale-cache' as ConnectorStoreSource };
+        }
+    }));
+
+    for (const { data, source } of fetchResults) {
+        const found = data.find(item => matchesStoreItem(item, name));
+        if (found) {
+            return { item: found, source };
+        }
+    }
+
+    // 3. Final fallback: static DB. Check connectors and inbounds separately
+    //    so the correct itemType is threaded into toFallbackStoreItems (which
+    //    controls connectorType defaulting).
+    const matchesFallback = (item: any): boolean => {
+        const normalizedInput = normalizeName(name);
+        const fullId = isFullArtifactId(normalizedInput);
+        const itemArtifact = normalizeName(item?.mavenArtifactId);
+        if (fullId) {
+            return normalizedInput === itemArtifact;
+        }
+        const itemName = normalizeName(item?.connectorName);
+        const itemArtifactStripped = normalizeName(stripConnectorPrefix(item?.mavenArtifactId));
+        const stripped = normalizeName(stripConnectorPrefix(name));
+        return normalizedInput === itemName
+            || normalizedInput === itemArtifact
+            || normalizedInput === itemArtifactStripped
+            || stripped === itemName
+            || stripped === itemArtifact;
+    };
+
+    const connectorMatch = fallbackConnectors.find(matchesFallback);
+    if (connectorMatch) {
+        const mapped = toFallbackStoreItems([connectorMatch], 'connector')[0] ?? null;
+        return { item: mapped, source: 'local-db' };
+    }
+
+    const inboundMatch = fallbackInbounds.find(matchesFallback);
+    if (inboundMatch) {
+        const mapped = toFallbackStoreItems([inboundMatch], 'inbound')[0] ?? null;
+        return { item: mapped, source: 'local-db' };
+    }
+
+    return { item: null, source: 'local-db' };
 }

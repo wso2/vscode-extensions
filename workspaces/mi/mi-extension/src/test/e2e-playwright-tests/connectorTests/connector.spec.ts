@@ -81,7 +81,7 @@ export default function createTests() {
         // diagram
         const diagram = new Diagram(page.page, 'Resource');
         await diagram.init();
-        await diagram.downloadConnectorThroughModulesList('File', 0, '4.0.44');
+        await diagram.downloadConnectorThroughModulesList('File', 0, '6.0.2');
       });
 
       await test.step('Add downloaded connector operation to resource', async () => {
@@ -90,7 +90,7 @@ export default function createTests() {
         const diagram = new Diagram(page.page, 'Resource');
         await diagram.init();
 
-        await diagram.addConnectorOperation('File', 'createDirectory');
+        await diagram.addConnectorOperation('File', 'Create Directory', 'Create Directory');
 
         // create connection through connector form
         console.log('Create connection through connector operation form');
@@ -177,6 +177,7 @@ export default function createTests() {
         // diagram
         const diagram = new Diagram(page.page, 'Resource');
         await diagram.init();
+        console.log('Deleting connector from diagram');
         await diagram.deleteConnector('CSV');
         console.log('Deleting connector completed');
       });

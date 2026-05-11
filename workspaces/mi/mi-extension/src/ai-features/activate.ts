@@ -32,9 +32,7 @@ import {
     SUCCESS_MESSAGE
 } from './configUtils';
 import { initializeLangfuse, shutdownLangfuse } from './agent-mode/langfuse-setup';
-
-// Dev flag - set to true to enable Langfuse observability
-const ENABLE_LANGFUSE = false;
+import { ENABLE_LANGFUSE } from './agent-mode/agents/main/agent';
 
 export function activateAiPanel(context: vscode.ExtensionContext) {
     // Initialize Langfuse OpenTelemetry tracing (dev mode only)

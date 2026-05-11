@@ -32,12 +32,10 @@ import {
     ApplyCodeSegmentWithCheckpointRequest,
     UserQuestionResponse,
     PlanApprovalResponse,
-    CompactConversationRequest,
     listSessions,
     switchSession,
     createNewSession,
     deleteSession,
-    compactConversation,
     searchMentionablePaths,
     getAgentRunStatus,
     ListSessionsRequest,
@@ -92,11 +90,6 @@ export function registerMIAgentPanelRpcHandlers(messenger: MessengerAPI, project
     messenger.onRequest(switchSession, (request: SwitchSessionRequest) => rpcManager.switchSession(request));
     messenger.onRequest(createNewSession, (request: CreateNewSessionRequest) => rpcManager.createNewSession(request));
     messenger.onRequest(deleteSession, (request: DeleteSessionRequest) => rpcManager.deleteSession(request));
-
-    // ==================================
-    // Compact Functions
-    // ==================================
-    messenger.onRequest(compactConversation, (request: CompactConversationRequest) => rpcManager.compactConversation(request));
 
     // ==================================
     // Mention Search Functions

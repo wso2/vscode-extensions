@@ -28,6 +28,10 @@ import {
     ProjectStructureResponse,
     GetAvailableConnectorRequest,
     GetAvailableConnectorResponse,
+    GetConnectorInfoRequest,
+    GetConnectorInfoResponse,
+    GetInboundInfoRequest,
+    GetInboundInfoResponse,
     UpdateConnectorRequest,
     GetConnectorConnectionsRequest,
     GetConnectorConnectionsResponse,
@@ -90,7 +94,13 @@ import {
     DriverDownloadRequest,
     DriverDownloadResponse,
     DriverMavenCoordinatesRequest,
-    DriverMavenCoordinatesResponse
+    DriverMavenCoordinatesResponse,
+    GetConnectorDependenciesRequest,
+    GetConnectorDependenciesResponse,
+    UpdateConnectorDependencyOverrideRequest,
+    ResetConnectorDependencyOverridesRequest,
+    UpdateConnectorFlagsRequest,
+    UpdateGlobalConnectorFlagsRequest,
 } from "@wso2/mi-core";
 import { readFileSync } from "fs";
 import { CancellationToken, FormattingOptions, Position, Uri, workspace } from "vscode";
@@ -166,6 +176,20 @@ export interface RangeFormatParams {
 export interface ArtifactType {
     artifactType: string;
     artifactFolder: string;
+}
+
+export interface ConflictingDependency {
+    groupId: string;
+    artifactId: string;
+    version: string;
+    conflictingArtifacts: string[];
+    conflictingConnectors: string[];
+}
+
+export interface LoadDependentResourcesResponse {
+    status: 'SUCCESS' | 'NO_DEPS_FOUND' | 'ERROR' | 'CONFLICT';
+    message: string;
+    conflictingDependencies?: ConflictingDependency[];
 }
 
 export class ExtendedLanguageClient extends LanguageClient {
@@ -281,6 +305,18 @@ export class ExtendedLanguageClient extends LanguageClient {
         return this.sendRequest("textDocument/rangeFormatting", req)
     }
 
+    // Returns a full connector object on success, or a plain string error message on failure.
+    // Single-call replacement for the old resolveConnector + availableConnectors two-step.
+    async getConnectorInfo(req: GetConnectorInfoRequest): Promise<GetConnectorInfoResponse> {
+        return this.sendRequest("synapse/getConnectorInfo", req);
+    }
+
+    // Accepts either { id } for bundled inbounds or Maven coords for downloadable ones.
+    // Returns an InboundEndpointInfo on success, or a plain string error message on failure.
+    async getInboundInfo(req: GetInboundInfoRequest): Promise<GetInboundInfoResponse> {
+        return this.sendRequest("synapse/getInboundInfo", req);
+    }
+
     async getAvailableConnectors(req: GetAvailableConnectorRequest): Promise<GetAvailableConnectorResponse> {
         return this.sendRequest("synapse/availableConnectors", { documentIdentifier: { uri: Uri.file(req.documentUri).toString() }, "connectorName": req.connectorName });
     }
@@ -385,7 +421,7 @@ export class ExtendedLanguageClient extends LanguageClient {
         return this.sendRequest('synapse/refetchIntegrationProjectDependencies');
     }
 
-    async loadDependentCAppResources(): Promise<string> {
+    async loadDependentCAppResources(): Promise<LoadDependentResourcesResponse> {
         return this.sendRequest('synapse/loadDependentResources');
     }
 
@@ -520,5 +556,33 @@ export class ExtendedLanguageClient extends LanguageClient {
 
     async getDriverMavenCoordinates(params: DriverMavenCoordinatesRequest): Promise<DriverMavenCoordinatesResponse> {
         return this.sendRequest("synapse/getDriverMavenCoordinates", params);
+    }
+
+    async isDuplicateConnector(params: string): Promise<any> {
+        return this.sendRequest("synapse/isDuplicateConnector", { connectorPath: params });
+    }
+
+    async getConnectorDependencies(params: GetConnectorDependenciesRequest): Promise<GetConnectorDependenciesResponse> {
+        return this.sendRequest("synapse/getConnectorDependencies", params);
+    }
+
+    async updateConnectorDependencyOverride(params: UpdateConnectorDependencyOverrideRequest): Promise<boolean> {
+        return this.sendRequest("synapse/updateConnectorDependencyOverride", params);
+    }
+
+    async resetConnectorDependencyOverrides(params: ResetConnectorDependencyOverridesRequest): Promise<boolean> {
+        return this.sendRequest("synapse/resetConnectorDependencyOverrides", params);
+    }
+
+    async updateConnectorFlags(params: UpdateConnectorFlagsRequest): Promise<boolean> {
+        return this.sendRequest("synapse/updateConnectorFlags", params);
+    }
+
+    async updateGlobalConnectorFlags(params: UpdateGlobalConnectorFlagsRequest): Promise<boolean> {
+        return this.sendRequest("synapse/updateGlobalConnectorFlags", params);
+    }
+
+    async initConnectorConfig(projectPath: string): Promise<void> {
+        return this.sendNotification("synapse/initConnectorConfig", { projectPath });
     }
 }

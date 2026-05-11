@@ -39,7 +39,8 @@ import {
     NODE_TEXT_COLOR,
     NODE_WIDTH,
 } from "../../../resources/constants";
-import { Button, Item, Menu, MenuItem } from "@wso2/ui-toolkit";
+import { Button, Item, Menu, MenuItem, Popover, ThemeColors, Tooltip } from "@wso2/ui-toolkit";
+import { NodeLockBadge } from "../NodeLockBadge";
 import { MoreVertIcon } from "../../../resources";
 import { FlowNode } from "../../../utils/types";
 import NodeIcon from "../../NodeIcon";
@@ -49,6 +50,7 @@ import { DiagnosticsPopUp } from "../../DiagnosticsPopUp";
 import { getNodeTitle, nodeHasError } from "../../../utils/node";
 import { BreakpointMenu } from "../../BreakNodeMenu/BreakNodeMenu";
 import { NodeMetadata } from "@wso2/ballerina-core";
+import { size } from "lodash";
 
 export namespace NodeStyles {
     export const Node = styled.div<{ readOnly: boolean }>`
@@ -67,6 +69,7 @@ export namespace NodeStyles {
         isSelected?: boolean;
     };
     export const Box = styled.div<NodeStyleProp>`
+        position: relative;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
@@ -211,6 +214,7 @@ export namespace NodeStyles {
             width: 12px;
         }
     `;
+
 }
 
 interface ApiCallNodeWidgetProps {
@@ -223,10 +227,12 @@ export interface NodeWidgetProps extends Omit<ApiCallNodeWidgetProps, "children"
 
 export function ApiCallNodeWidget(props: ApiCallNodeWidgetProps) {
     const { model, engine, onClick } = props;
-    const { onNodeSelect, onConnectionSelect, goToSource, onDeleteNode, removeBreakpoint, addBreakpoint, readOnly, selectedNodeId } =
+    const { onNodeSelect, onConnectionSelect, goToSource, onDeleteNode, removeBreakpoint, addBreakpoint, readOnly, selectedNodeId, currentUserId, setMenuOpenNodeId } =
         useDiagramContext();
 
     const isSelected = selectedNodeId === model.node.id;
+    const isLocked = model.node.locked && model.node.locked.userId !== currentUserId;
+    const isLockedBySelf = model.node.locked && model.node.locked.userId === currentUserId;
 
     const [isBoxHovered, setIsBoxHovered] = useState(false);
     const [isCircleHovered, setIsCircleHovered] = useState(false);
@@ -282,6 +288,10 @@ export function ApiCallNodeWidget(props: ApiCallNodeWidgetProps) {
         if (readOnly) {
             return;
         }
+        // Prevent interaction with locked nodes
+        if (isLocked) {
+            return;
+        }
         if (event.metaKey) {
             onGoToSource();
         } else {
@@ -315,6 +325,7 @@ export function ApiCallNodeWidget(props: ApiCallNodeWidgetProps) {
     const deleteNode = () => {
         onDeleteNode && onDeleteNode(model.node);
         setMenuPos(null);
+        setMenuOpenNodeId?.(undefined);
     };
 
     const handleOnMenuClick = (event: React.MouseEvent<HTMLElement | SVGSVGElement>) => {
@@ -323,6 +334,7 @@ export function ApiCallNodeWidget(props: ApiCallNodeWidgetProps) {
         }
         const target = menuButtonElement || (event.currentTarget as HTMLElement);
         setMenuPos(getMenuPos(target));
+        setMenuOpenNodeId?.(model.node.id);
     };
 
     const handleOnContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -334,6 +346,7 @@ export function ApiCallNodeWidget(props: ApiCallNodeWidgetProps) {
     const handleOnMenuClose = () => {
         setMenuPos(null);
         setIsBoxHovered(false);
+        setMenuOpenNodeId?.(undefined);
     };
 
     const onAddBreakpoint = () => {
@@ -364,18 +377,23 @@ export function ApiCallNodeWidget(props: ApiCallNodeWidgetProps) {
         disabled || readOnly ? NODE_TEXT_COLOR : isBoxHovered ? NODE_BORDER_SELECTED_COLOR : NODE_TEXT_COLOR;
 
     return (
-        <NodeStyles.Node readOnly={readOnly}>
+        <NodeStyles.Node readOnly={readOnly || isLocked}>
             <NodeStyles.Box
                 disabled={disabled}
-                hovered={isBoxHovered}
+                hovered={isBoxHovered && !isLocked}
                 hasError={hasError}
-                readOnly={readOnly}
+                readOnly={readOnly || isLocked}
                 isActiveBreakpoint={isActiveBreakpoint}
                 isSelected={isSelected}
                 onMouseEnter={() => setIsBoxHovered(true)}
                 onMouseLeave={() => setIsBoxHovered(false)}
-                onContextMenu={!readOnly ? handleOnContextMenu : undefined}
+                onContextMenu={!readOnly && !isLocked ? handleOnContextMenu : undefined}
+                style={{
+                    opacity: isLocked ? 0.6 : 1,
+                    cursor: isLocked ? 'not-allowed' : readOnly ? 'default' : 'pointer'
+                }}
             >
+                <NodeLockBadge lock={model.node.locked} currentUserId={currentUserId} />
                 {hasBreakpoint && (
                     <div
                         style={{

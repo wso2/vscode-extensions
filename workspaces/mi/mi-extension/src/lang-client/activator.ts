@@ -41,7 +41,8 @@ import {
 } from 'vscode-languageclient';
 import { ServerOptions } from "vscode-languageclient/node";
 import { DidChangeConfigurationNotification } from 'vscode-languageserver-protocol';
-import { ErrorType } from '@wso2/mi-core';
+import { ErrorType, Platform } from '@wso2/mi-core';
+import { getPlatform } from '../RPCLayer';
 import { activateTagClosing, AutoCloseResult } from './tagClosing';
 import { ExtendedLanguageClient } from './ExtendedLanguageClient';
 import { GoToDefinitionProvider } from './DefinitionProvider';
@@ -52,7 +53,7 @@ import { log } from '../util/logger';
 import { getJavaHomeFromConfig, getProjectSetupDetails, isMISetup, isJavaSetup } from '../util/onboardingUtils';
 import { SELECTED_SERVER_PATH } from '../debugger/constants';
 import { extension } from '../MIExtensionContext';
-import { extractCAppDependenciesAsProjects } from '../visualizer/activate';
+import { loadCAppResources } from '../visualizer/activate';
 import vscode from "vscode";
 const exec = util.promisify(require('child_process').exec);
 
@@ -234,7 +235,7 @@ export class MILanguageClient {
                     this.updateErrors(ERRORS.INCOMPATIBLE_JDK);
                     throw new Error(errorMessage);
                 }
-                let executable: string = path.join(JAVA_HOME, 'bin', 'java');
+                let executable: string = path.join(JAVA_HOME, 'bin', getPlatform() === Platform.WINDOWS ? 'java.exe' : 'java');
                 let schemaPath = extension.context.asAbsolutePath(path.join("synapse-schemas", "synapse_config.xsd"));
                 let langServerCP = extension.context.asAbsolutePath(path.join('ls', '*'));
 
@@ -330,8 +331,8 @@ export class MILanguageClient {
                 this.languageClient = new ExtendedLanguageClient('synapseXML', 'Synapse Language Server', this.projectUri,
                     serverOptions, clientOptions);
                 await this.languageClient.start();
-                await extractCAppDependenciesAsProjects(this.projectUri);
-                await this.languageClient?.loadDependentCAppResources();
+                await this.languageClient?.updateConnectorDependencies();
+                await loadCAppResources(this.projectUri, this.languageClient!);
 
                 //Setup autoCloseTags
                 let tagProvider: (document: TextDocument, position: Position) => Thenable<AutoCloseResult> = (document: TextDocument, position: Position) => {

@@ -19,16 +19,32 @@
 // ============================================================================
 // Dev Feature Flags
 // ============================================================================
-const ENABLE_LANGFUSE = false; // Set to false to disable Langfuse tracing
-const ENABLE_DEVTOOLS = false; // Set to true to enable AI SDK DevTools (local development only!)
+export const ENABLE_LANGFUSE = false; // Set to false to disable Langfuse tracing
+export const ENABLE_DEVTOOLS = false; // Set to true to enable AI SDK DevTools (local development only!)
+export const ENABLE_NATIVE_COMPACTION = true; // Set to true to enable Anthropic native server-side compaction (auto-summarizes when context grows large)
+
+// Native compaction trigger threshold in tokens.
+// When input tokens exceed this value, the API auto-compacts the conversation.
+// Must be at least 50,000. Default Anthropic value is 150,000.
+const NATIVE_COMPACTION_TRIGGER_TOKENS = 200000;
 
 import { ModelMessage, streamText, stepCountIs, UserModelMessage, SystemModelMessage, wrapLanguageModel } from 'ai';
 import { AnthropicProviderOptions } from '@ai-sdk/anthropic';
-import { getAnthropicClient, getAnthropicClientForCustomModel, AnthropicModel, resolveMainModelId } from '../../../connection';
+import { getAnthropicClient, getAnthropicClientForCustomModel, getAnthropicProvider, AnthropicModel, resolveMainModelId } from '../../../connection';
+import { getLoginMethod, getTavilyApiKey } from '../../../auth';
 import { getSystemPrompt } from '../main/system';
-import { getUserPrompt, UserPromptParams } from './prompt';
+import {
+    BlockInjectionStatus,
+    BlockInjectionStatuses,
+    computeSessionContextBlockHashes,
+    getUserPrompt,
+    SessionContextBlockHashes,
+    UserPromptContentBlock,
+    UserPromptParams,
+} from './prompt';
 import { addCacheControlToMessages } from '../../../cache-utils';
 import { buildMessageContent } from '../../attachment-utils';
+import { COMPACT_SYSTEM_REMINDER_AUTO_TRIGGERED } from '../compact/prompt';
 
 import {
     PendingQuestion,
@@ -53,13 +69,15 @@ import {
     KILL_TASK_TOOL_NAME,
     WEB_SEARCH_TOOL_NAME,
     WEB_FETCH_TOOL_NAME,
+    DEEPWIKI_ASK_QUESTION_TOOL_NAME,
 } from './tools';
 import { logInfo, logError, logDebug } from '../../../copilot/logger';
-import { ChatHistoryManager, TOOL_USE_INTERRUPTION_CONTEXT } from '../../chat-history-manager';
+import { ChatHistoryManager, SessionContextBlocksState, TOOL_USE_INTERRUPTION_CONTEXT } from '../../chat-history-manager';
 import { getToolAction } from '../../tool-action-mapper';
 import { AgentUndoCheckpointManager } from '../../undo/checkpoint-manager';
 import { getCopilotSessionDir } from '../../storage-paths';
 import { ShellApprovalRuleStore } from '../../tools/types';
+import { WebToolsProvider } from '../../tools/web_tools';
 import {
     awaitWithTimeout,
     createProxyTerminatedError,
@@ -75,10 +93,21 @@ import {
 } from '../../stream_guard';
 
 // Import types from mi-core (shared with visualizer)
-import { AgentEvent, AgentEventType, FileObject, ImageObject, AgentMode, ModelSettings } from '@wso2/mi-core';
+import { AgentEvent, AgentEventType, FileObject, ImageObject, AgentMode, LoginMethod, ModelSettings } from '@wso2/mi-core';
 
 // Re-export types for other modules that import from agent.ts
 export type { AgentEvent, AgentEventType };
+
+const AGENT_EXECUTION_CONFIG = {
+    // Upper bound for tool/model iterations in a single streamText run.
+    maxSteps: 50,
+    // Prevents very large single responses while allowing continuation.
+    maxOutputTokens: 15000,
+    // Stream watchdog defaults are centralized here for easy tuning.
+    streamIdleTimeoutMs: DEFAULT_STREAM_IDLE_TIMEOUT_MS,
+    streamTotalTimeoutMs: DEFAULT_STREAM_TOTAL_TIMEOUT_MS,
+    finalResponseWaitTimeoutMs: DEFAULT_FINAL_RESPONSE_WAIT_TIMEOUT_MS,
+} as const;
 
 /**
  * Event handler function type
@@ -101,8 +130,6 @@ export interface AgentRequest {
     images?: ImageObject[];
     /** Enable Claude thinking mode (reasoning blocks) */
     thinking?: boolean;
-    /** Skip per-call web approval prompts when true */
-    webAccessPreapproved?: boolean;
     /** Path to the MI project */
     projectPath: string;
     /** Map of file path to content for relevant existing code (optional, for future use) */
@@ -146,6 +173,251 @@ export interface AgentResult {
 }
 
 type ContinuationReason = 'max_output_tokens' | 'max_tool_calls';
+type AgentExecutionErrorKind =
+    | 'tool_interruption'
+    | 'user_abort'
+    | 'timeout'
+    | 'proxy_terminated'
+    | 'model_error'
+    | 'unknown';
+
+interface ClassifiedAgentExecutionError {
+    kind: AgentExecutionErrorKind;
+    rawMessage: string;
+}
+
+interface NormalizedToolResultForUi {
+    success: boolean;
+    message?: string;
+    stdout?: string;
+    stderr?: string;
+    exitCode?: number | null;
+    taskId?: string;
+    [key: string]: unknown;
+}
+
+/**
+ * Compare a per-block tracking value against its persisted predecessor and
+ * decide what to render. `omit`: same as last turn — skip rendering.
+ * `first-injection`: never injected before (or full re-prime needed) — render
+ * without notice. `re-injection`: value drifted — render with a
+ * "[context updated]" notice. `cleared`: was injected before but is now
+ * absent (e.g. payloads removed by the user) — render an explicit removal
+ * notice and clear the persisted hash so future injections start fresh.
+ */
+function decideBlockStatus(
+    current: string | undefined,
+    previous: string | undefined,
+    forceFirstInjection: boolean,
+): BlockInjectionStatus {
+    if (current === undefined) {
+        // Was injected on a prior turn but absent now — emit a removal notice
+        // so the model doesn't keep referencing the stale prior-turn block.
+        // First-message / post-compaction wipes prior context, so 'omit' there.
+        if (previous !== undefined && !forceFirstInjection) {
+            return 'cleared';
+        }
+        return 'omit';
+    }
+    if (forceFirstInjection || previous === undefined) {
+        return 'first-injection';
+    }
+    return previous === current ? 'omit' : 're-injection';
+}
+
+/**
+ * Merge the current per-block hashes into the persisted state, but only for
+ * blocks we're about to inject this turn. Returns `undefined` when no block
+ * needs persisting (avoids a no-op metadata write).
+ */
+function buildUpdatedBlocksState(
+    previous: SessionContextBlocksState,
+    current: SessionContextBlockHashes,
+    statuses: BlockInjectionStatuses,
+): SessionContextBlocksState | undefined {
+    const updated: SessionContextBlocksState = { ...previous };
+    let touched = false;
+    // 'cleared' wipes the persisted hash so the next non-empty injection
+    // counts as 'first-injection' rather than 're-injection'. In practice
+    // only payloads can be cleared (other blocks always have a current hash),
+    // but applying uniformly keeps the semantics consistent.
+    const apply = <K extends keyof SessionContextBlocksState>(
+        key: K,
+        status: BlockInjectionStatus,
+        nextHash: SessionContextBlocksState[K] | undefined,
+    ): void => {
+        if (status === 'cleared') {
+            updated[key] = undefined as SessionContextBlocksState[K];
+            touched = true;
+        } else if (status !== 'omit') {
+            updated[key] = nextHash as SessionContextBlocksState[K];
+            touched = true;
+        }
+    };
+    apply('env', statuses.env, current.env);
+    apply('connectors', statuses.connectors, current.connectors);
+    apply('webAvailability', statuses.webAvailability, current.webAvailability);
+    apply('modePolicy', statuses.modePolicy, current.modePolicy);
+    apply('payloads', statuses.payloads, current.payloads);
+    return touched ? updated : undefined;
+}
+
+function logBlockInjectionDrift(
+    statuses: BlockInjectionStatuses,
+    previous: SessionContextBlocksState,
+    current: SessionContextBlockHashes,
+): void {
+    const driftedBlocks: string[] = [];
+    const note = (
+        name: string,
+        status: BlockInjectionStatus,
+        prev: string | undefined,
+        next: string | undefined,
+    ): void => {
+        if (status === 're-injection') {
+            driftedBlocks.push(`${name}(${prev}→${next})`);
+        } else if (status === 'cleared') {
+            driftedBlocks.push(`${name}(${prev}→cleared)`);
+        }
+    };
+    note('env', statuses.env, previous.env, current.env);
+    note('connectors', statuses.connectors, previous.connectors, current.connectors);
+    note('webAvailability', statuses.webAvailability, previous.webAvailability, current.webAvailability);
+    note('mode', statuses.modePolicy, previous.modePolicy, current.modePolicy);
+    note('payloads', statuses.payloads, previous.payloads, current.payloads);
+    if (driftedBlocks.length > 0) {
+        logInfo(`[Agent] Session-context drift — re-injecting: ${driftedBlocks.join(', ')}`);
+    }
+}
+
+const TOOL_INTERRUPTION_ERROR_CODE = 'AGENT_TOOL_INTERRUPTION';
+const MODEL_ERROR_PATTERN = /model.*not found|invalid.*model|unknown model|could not resolve model|model.*deprecated|model.*not available|model.*does not exist|model.*decommissioned/i;
+
+function getStructuredErrorCode(error: unknown): string | undefined {
+    if (!error || typeof error !== 'object') {
+        return undefined;
+    }
+
+    const code = (error as { code?: unknown }).code;
+    if (typeof code === 'string' || typeof code === 'number') {
+        return String(code);
+    }
+
+    return undefined;
+}
+
+function getStructuredErrorName(error: unknown): string | undefined {
+    if (error instanceof Error) {
+        return error.name;
+    }
+
+    if (!error || typeof error !== 'object') {
+        return undefined;
+    }
+
+    const name = (error as { name?: unknown }).name;
+    return typeof name === 'string' ? name : undefined;
+}
+
+export function isToolInterruptionAbortError(error: unknown): boolean {
+    if (!error) {
+        return false;
+    }
+
+    const code = getStructuredErrorCode(error);
+    if (code === TOOL_INTERRUPTION_ERROR_CODE) {
+        return true;
+    }
+
+    const name = getStructuredErrorName(error);
+    if (name === 'ToolInterruptionError') {
+        return true;
+    }
+
+    return getErrorMessage(error).includes(TOOL_USE_INTERRUPTION_CONTEXT);
+}
+
+function isLikelyModelError(error: unknown, errorMsg: string): boolean {
+    if (MODEL_ERROR_PATTERN.test(errorMsg)) {
+        return true;
+    }
+
+    const status = (error as { status?: unknown } | undefined)?.status;
+    return (
+        status === 400 && /model/i.test(errorMsg)
+    ) || (
+        status === 404 && /model/i.test(errorMsg)
+    );
+}
+
+function classifyAgentExecutionError(params: {
+    error: unknown;
+    abortReason: unknown;
+    userAbortRequested: boolean;
+    requestAbortSignalAborted: boolean;
+}): ClassifiedAgentExecutionError {
+    const rawMessage = getErrorMessage(params.error);
+    const abortReasonMessage = getErrorMessage(params.abortReason);
+
+    if (isStreamTimeoutError(params.error) || isStreamTimeoutError(params.abortReason)) {
+        return { kind: 'timeout', rawMessage };
+    }
+
+    if (isProxyTerminatedStreamError(rawMessage) || isProxyTerminatedStreamError(abortReasonMessage)) {
+        return { kind: 'proxy_terminated', rawMessage };
+    }
+
+    if (isToolInterruptionAbortError(params.error) || isToolInterruptionAbortError(params.abortReason)) {
+        return { kind: 'tool_interruption', rawMessage };
+    }
+
+    if (params.userAbortRequested || params.requestAbortSignalAborted) {
+        return { kind: 'user_abort', rawMessage };
+    }
+
+    if (isLikelyModelError(params.error, rawMessage)) {
+        return { kind: 'model_error', rawMessage };
+    }
+
+    return { kind: 'unknown', rawMessage };
+}
+
+function tryParseJson(str: string): Record<string, unknown> {
+    try {
+        const parsed = JSON.parse(str);
+        return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? parsed : {};
+    } catch {
+        return {};
+    }
+}
+
+function normalizeToolResultForUi(toolName: string, result: unknown): NormalizedToolResultForUi {
+    if (!result || typeof result !== 'object') {
+        logError(`[Agent] Tool '${toolName}' returned non-object result`, result);
+        return {
+            success: false,
+            message: `Tool '${toolName}' returned an invalid result shape.`,
+        };
+    }
+
+    const record = result as Record<string, unknown>;
+
+    // Provider-managed tools (tool_search, memory) return non-standard shapes
+    // (e.g. { type: "json", value: [...] }) without a 'success' field.
+    // Treat these as successful unless they contain an explicit error.
+    if (typeof record.success !== 'boolean') {
+        const hasError = typeof record.error === 'string' || record.type === 'error';
+        return {
+            ...record,
+            success: !hasError,
+        };
+    }
+
+    return {
+        ...record,
+        success: record.success,
+    };
+}
 
 function normalizeFinishReason(finishPart: unknown): string | undefined {
     const part = finishPart as Record<string, unknown> | undefined;
@@ -191,6 +463,25 @@ function getContinuationReasonFromFinish(finishReason?: string): ContinuationRea
     return undefined;
 }
 
+/**
+ * Strip <analysis> COT from compaction blocks in a messages array.
+ * Replaces the raw compaction content (analysis + summary) with just the cleaned summary.
+ * Mutates the messages in-place and returns the same array.
+ */
+function stripAnalysisFromCompactionBlocks(messages: any[], cleanedSummary: string): any[] {
+    for (const msg of messages) {
+        if (msg.role !== 'assistant' || !Array.isArray(msg.content)) {
+            continue;
+        }
+        for (const block of msg.content) {
+            if (block.type === 'compaction' && typeof block.content === 'string') {
+                block.content = cleanedSummary;
+            }
+        }
+    }
+    return messages;
+}
+
 // ============================================================================
 // Agent Core
 // ============================================================================
@@ -211,7 +502,7 @@ export async function executeAgent(
     let streamWatchdog: StreamWatchdog | undefined;
     let pauseIdleTimeout = false;
     let touchStreamActivity: () => void = () => undefined;
-    let finalResponseWaitTimeoutMs = DEFAULT_FINAL_RESPONSE_WAIT_TIMEOUT_MS;
+    let finalResponseWaitTimeoutMs = AGENT_EXECUTION_CONFIG.finalResponseWaitTimeoutMs;
 
     const emitEvent = (event: AgentEvent) => {
         const eventType = (event as { type?: string })?.type;
@@ -237,6 +528,20 @@ export async function executeAgent(
     // Session directory for output files (build.txt, run.txt)
     const sessionDir = getCopilotSessionDir(request.projectPath, sessionId);
 
+    // Declared outside the try so the catch path can also flush open thinking
+    // blocks (errors / aborts mid-stream would otherwise leave the UI's
+    // <thinking data-loading="true"> spinner stuck forever).
+    const reasoningById = new Map<string, string>();
+    const flushOpenThinkingBlocks = (): void => {
+        if (reasoningById.size === 0) {
+            return;
+        }
+        for (const id of reasoningById.keys()) {
+            emitEvent({ type: 'thinking_end', thinkingId: id });
+        }
+        reasoningById.clear();
+    };
+
     try {
         logInfo(`[Agent] Starting agent execution for project: ${request.projectPath}`);
 
@@ -249,29 +554,101 @@ export async function executeAgent(
 
         const runtimeVersion = await getRuntimeVersionFromPom(request.projectPath);
         logInfo(`[Agent] Runtime version detected: ${runtimeVersion ?? 'unknown'}`);
+        const systemPromptSelection = getSystemPrompt(runtimeVersion);
 
         // System message (cache control will be added dynamically by prepareStep)
-        // Adding a cache block here because tools + system would be same for all users who use our proxy
+        // Adding a cache block here because tools + system would be same for all users who use our proxy.
+        // 1h TTL: system prompt is stable per-session; via proxy it's cross-user-warm (shared org),
+        // and for own-key users it survives idle/thinking gaps >5m. Cache write costs 2× base (vs 1.25× for 5m).
         const systemMessage: SystemModelMessage = {
             role: 'system',
-            content: getSystemPrompt(runtimeVersion),
+            content: systemPromptSelection.prompt,
             providerOptions: {
                 anthropic: {
-                    cacheControl: { type: 'ephemeral' }
+                    cacheControl: { type: 'ephemeral', ttl: '1h' }
                 }
             }
         } as SystemModelMessage;
 
-        // Build user prompt
+        // Resolve the web-tool provider once for this turn.
+        // - Anthropic/Proxy paths get Anthropic's first-party server tools registered
+        //   directly on the main streamText call (no wrapper, no extra LLM round-trip).
+        // - Bedrock + Tavily key gets the Tavily-backed local tool.
+        // - Bedrock + no key omits the tools and relies on the `web_search_unavailable`
+        //   system reminder to steer the model away.
+        const loginMethod = await getLoginMethod();
+        const isBedrock = loginMethod === LoginMethod.AWS_BEDROCK;
+        const tavilyKey = isBedrock ? (await getTavilyApiKey()) : null;
+        const webSearchUnavailable = isBedrock && !tavilyKey;
+        const webToolsProvider: WebToolsProvider =
+            isBedrock ? (tavilyKey ? 'tavily-local' : 'none') : 'anthropic-server';
+        const anthropicProviderForWebTools =
+            webToolsProvider === 'anthropic-server' ? await getAnthropicProvider() : undefined;
+
+        // Per-block re-injection decision. For each tracked block (env, connectors,
+        // web availability, mode policy, payloads) compute a current hash, compare
+        // to the value persisted on session metadata, and decide:
+        //   - 'omit'            : block is unchanged, skip rendering it
+        //   - 'first-injection' : never injected before (or full re-prime needed),
+        //                         render without a "[context updated]" notice
+        //   - 're-injection'    : value drifted, render with a notice so the model
+        //                         knows something changed
+        // First message and post-compaction force first-injection on every block —
+        // model has lost prior context so we re-prime everything without notices.
+        const isFirstMessage = chatHistory.length === 0;
+        const isPostCompaction = chatHistory.length > 0
+            && (chatHistory[0] as any)?._compactSynthetic === true;
+        const forceFirstInjection = isFirstMessage || isPostCompaction;
+
+        const sessionContextResult = await computeSessionContextBlockHashes({
+            projectPath: request.projectPath,
+            runtimeVersion,
+            webSearchUnavailable,
+            loginMethod,
+            mode: request.mode || 'edit',
+        });
+        const currentBlockHashes = sessionContextResult.hashes;
+        const sessionMetadata = request.chatHistoryManager
+            ? await request.chatHistoryManager.loadMetadata()
+            : null;
+        const previousBlocks = sessionMetadata?.sessionContextBlocks ?? {};
+
+        const blockStatuses: BlockInjectionStatuses = {
+            env: decideBlockStatus(currentBlockHashes.env, previousBlocks.env, forceFirstInjection),
+            connectors: decideBlockStatus(currentBlockHashes.connectors, previousBlocks.connectors, forceFirstInjection),
+            webAvailability: decideBlockStatus(currentBlockHashes.webAvailability, previousBlocks.webAvailability, forceFirstInjection),
+            modePolicy: decideBlockStatus(currentBlockHashes.modePolicy, previousBlocks.modePolicy, forceFirstInjection),
+            payloads: decideBlockStatus(currentBlockHashes.payloads, previousBlocks.payloads, forceFirstInjection),
+        };
+        const previousMode = previousBlocks.modePolicy as AgentMode | undefined;
+
+        // Persist the new hashes for any block we're about to inject. Eagerly:
+        // a crash between persist and the request reaching the model means the
+        // next turn skips injection — same failure mode as the original
+        // first-message-only behavior, so no regression vs prior behavior.
+        const updatedBlocks = buildUpdatedBlocksState(previousBlocks, currentBlockHashes, blockStatuses);
+        if (updatedBlocks && request.chatHistoryManager) {
+            await request.chatHistoryManager.updateMetadata({ sessionContextBlocks: updatedBlocks });
+            logBlockInjectionDrift(blockStatuses, previousBlocks, currentBlockHashes);
+        }
+
+        // Build user prompt — pass the pre-built sessionContextResult so
+        // getUserPrompt skips the second pass of pom.xml read, .git/HEAD read,
+        // and connector-store catalog lookup.
         const userPromptParams: UserPromptParams = {
             query: request.query,
             mode: request.mode || 'edit',
             projectPath: request.projectPath,
             sessionId,
             runtimeVersion,
-            // Note: existingFiles and currentlyOpenedFile are fetched internally by getUserPrompt
+            runtimeVersionDetected: systemPromptSelection.runtimeVersionDetected,
+            webSearchUnavailable,
+            loginMethod,
+            blockStatuses,
+            previousMode,
+            precomputedContext: sessionContextResult,
         };
-        const userMessageContent = await getUserPrompt(userPromptParams);
+        const userPromptBlocks = await getUserPrompt(userPromptParams);
 
         const hasFiles = request.files && request.files.length > 0;
         const hasImages = request.images && request.images.length > 0;
@@ -280,15 +657,14 @@ export async function executeAgent(
             logInfo(`[Agent] Including ${request.files?.length || 0} files and ${request.images?.length || 0} images in user message`);
         }
 
-        // Build user message (multimodal when attachments are present)
+        // Build user message content blocks.
+        // Attachments (files/images) are prepended, then prompt blocks follow
+        // (ordered stable → volatile, user query last).
         const userMessage: UserModelMessage = {
             role: 'user',
             content: (hasFiles || hasImages)
-                ? buildMessageContent(userMessageContent, request.files, request.images)
-                : [{
-                    type: 'text',
-                    text: userMessageContent,
-                }]
+                ? buildMessageContent(userPromptBlocks, request.files, request.images)
+                : userPromptBlocks
         } as UserModelMessage;
 
         // Build messages array
@@ -323,9 +699,9 @@ export async function executeAgent(
         // Setup stream watchdog and timeout controls (fixed constants)
         // Created before tools so that subagents and background tasks inherit
         // the effective abort signal (user abort + stream timeouts).
-        const idleTimeoutMs = DEFAULT_STREAM_IDLE_TIMEOUT_MS;
-        const totalTimeoutMs = DEFAULT_STREAM_TOTAL_TIMEOUT_MS;
-        finalResponseWaitTimeoutMs = DEFAULT_FINAL_RESPONSE_WAIT_TIMEOUT_MS;
+        const idleTimeoutMs = AGENT_EXECUTION_CONFIG.streamIdleTimeoutMs;
+        const totalTimeoutMs = AGENT_EXECUTION_CONFIG.streamTotalTimeoutMs;
+        finalResponseWaitTimeoutMs = AGENT_EXECUTION_CONFIG.finalResponseWaitTimeoutMs;
         streamWatchdog = createStreamWatchdog({
             requestAbortSignal: request.abortSignal,
             idleTimeoutMs,
@@ -353,12 +729,16 @@ export async function executeAgent(
             pendingQuestions,
             pendingApprovals,
             getAnthropicClient,
-            webAccessPreapproved: request.webAccessPreapproved === true,
+            webToolsProvider,
+            anthropicProvider: anthropicProviderForWebTools,
+            tavilyApiKey: tavilyKey || undefined,
             shellApprovalRuleStore: request.shellApprovalRuleStore,
             undoCheckpointManager: request.undoCheckpointManager,
             abortSignal: streamWatchdog.abortSignal,
             modelSettings: request.modelSettings,
         });
+
+        const finalTools: any = tools;
 
         // Track step number for logging
         let currentStepNumber = 0;
@@ -374,34 +754,100 @@ export async function executeAgent(
         // process.cwd() at module load time. Dynamic import ensures it sees the correct path.
         if (ENABLE_DEVTOOLS) {
             const originalCwd = process.cwd();
+            const nodeEnvKey = 'NODE_ENV';
+            const envVars = process.env as Record<string, string | undefined>;
+            const originalNodeEnv = envVars[nodeEnvKey];
             process.chdir(request.projectPath);
+            envVars[nodeEnvKey] = 'development'; // DevTools throws in production
             const { devToolsMiddleware } = await import('@ai-sdk/devtools');
             model = wrapLanguageModel({
                 model,
-                // Cast to any to handle potential version mismatch between AI SDK and DevTools
                 middleware: devToolsMiddleware() as any,
             });
-            process.chdir(originalCwd);  // Restore immediately after middleware creation
+            envVars[nodeEnvKey] = originalNodeEnv;
+            process.chdir(originalCwd);
         }
 
-        // Simple prepareStep: just mark the last message for caching
-        // This tells Anthropic to cache everything up to the last message
+        // prepareStep runs before each API call.
+        // 1. Fixes tool_use inputs cleared by context management (must be valid dicts)
+        // 2. Strips <analysis> COT from native compaction blocks (saves tokens on subsequent steps)
+        // 3. Marks the last message for prompt caching
         const prepareStep = ({ messages }: { messages: any[] }) => {
+            // Fix tool_use/tool-call blocks whose input is not a valid dictionary.
+            // The API requires tool_use.input to be an object, but inputs can be
+            // strings/null after context management clearing, or for MCP/provider-executed
+            // tools where the SDK stores input as JSON.stringify(part.input).
+            // Handles AI SDK format (tool-call + args/input) and raw API format (tool_use + input).
+            for (const msg of messages) {
+                if (msg.role === 'assistant' && Array.isArray(msg.content)) {
+                    for (const part of msg.content) {
+                        if (part.type === 'tool_use' && (typeof part.input !== 'object' || part.input === null || Array.isArray(part.input))) {
+                            part.input = typeof part.input === 'string' ? tryParseJson(part.input) : {};
+                        }
+                        if (part.type === 'tool-call') {
+                            if (typeof part.args !== 'object' || part.args === null || Array.isArray(part.args)) {
+                                part.args = typeof part.args === 'string' ? tryParseJson(part.args) : {};
+                            }
+                            // MCP/provider-executed tools store input as JSON string
+                            if (typeof part.input === 'string') {
+                                part.input = tryParseJson(part.input);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Strip analysis from compaction blocks before sending to API
+            if (cleanedCompactionSummary) {
+                stripAnalysisFromCompactionBlocks(messages, cleanedCompactionSummary);
+            }
             return {
                 messages: addCacheControlToMessages({ messages, model })
             };
         };
 
         // Configure Anthropic provider options.
-        // When thinking is enabled, keep reasoning in model messages for JSONL replay.
+        // - `adaptive` lets the model decide whether to think per step.
+        // - `effort: 'low'` biases adaptive toward skipping for simple steps.
+        // - `display: 'summarized'` is required on Opus 4.7 (default changed to
+        //   'omitted' there) to actually surface reasoning text to the UI;
+        //   harmless on Sonnet which already defaults to summarized.
         const anthropicOptions: AnthropicProviderOptions = request.thinking
-        // NOTE: Current pinned @ai-sdk/anthropic types support enabled/disabled thinking.
-        // Adaptive thinking can be enabled once the SDK is upgraded in this repo.
-        ? { thinking: { type: 'adaptive' }, effort: 'low' }
-        : {};
+            ? { thinking: { type: 'adaptive', display: 'summarized' } as any, effort: 'low' }
+            : {};
 
-    const requestHeaders = request.thinking
-        ? { 'anthropic-beta': 'interleaved-thinking-2025-05-14' }
+        // Native server-side compaction: Anthropic auto-summarizes the conversation
+        // when input tokens exceed the trigger threshold. The compaction block is
+        // emitted inline in the stream and on subsequent requests the API drops all
+        // messages before the compaction block automatically.
+        if (ENABLE_NATIVE_COMPACTION) {
+            (anthropicOptions as any).contextManagement = {
+                edits: [{
+                    type: 'compact_20260112',
+                    trigger: {
+                        type: 'input_tokens',
+                        value: NATIVE_COMPACTION_TRIGGER_TOKENS,
+                    },
+                    // Reuse the same detailed compaction prompt as our custom Compact agent.
+                    // The prompt instructs the model to output <analysis>...</analysis> then
+                    // <summary>...</summary>. We extract only the <summary> content in
+                    // flushNativeCompaction().
+                    instructions: COMPACT_SYSTEM_REMINDER_AUTO_TRIGGERED,
+                }],
+            };
+        }
+
+        // Bedrock InvokeModel rejects `defer_loading` on `type: "custom"` tools unless the
+        // tool-search beta is set (the SDK auto-adds it only when a server-side tool_search
+        // tool is in the tools array, which we don't use). On direct Anthropic the header is
+        // a no-op for custom-tool defer_loading, so we add it unconditionally on Bedrock.
+        const betaHeaders = [
+            ...(request.thinking ? ['interleaved-thinking-2025-05-14'] : []),
+            ...(ENABLE_NATIVE_COMPACTION ? ['compact-2026-01-12'] : []),
+            ...(isBedrock ? ['tool-search-tool-2025-10-19'] : []),
+        ];
+    const requestHeaders = betaHeaders.length > 0
+        ? { 'anthropic-beta': betaHeaders.join(',') }
         : undefined;
         cleanupStreamLifecycle = () => {
             streamWatchdog?.cleanup();
@@ -409,15 +855,17 @@ export async function executeAgent(
 
         const streamConfig: any = {
             model,
-            maxOutputTokens: 15000,
+            maxOutputTokens: AGENT_EXECUTION_CONFIG.maxOutputTokens,
             temperature: request.thinking ? undefined : 0,
             messages: allMessages,
-            stopWhen: stepCountIs(50),
-            tools,
+            stopWhen: stepCountIs(AGENT_EXECUTION_CONFIG.maxSteps),
+            tools: finalTools,
             abortSignal: streamWatchdog.abortSignal,
             headers: requestHeaders,
             providerOptions: {
-                anthropic: anthropicOptions,
+                anthropic: {
+                    ...anthropicOptions,
+                },
             },
             prepareStep,
             onAbort: () => {
@@ -449,9 +897,10 @@ export async function executeAgent(
                         `Input: ${inputTokens} | Cache Read: ${cachedInputTokens} | ` +
                         `Output: ${outputTokens} | Cache ratio: ${inputTokens > 0 ? (cachedInputTokens / (inputTokens + cachedInputTokens) * 100).toFixed(1) : '0'}%`);
 
-                    // Emit usage event to UI
-                    const totalInputTokens = inputTokens + cachedInputTokens;
-                    emitEvent({ type: 'usage', totalInputTokens });
+                    // Emit usage event to UI.
+                    // AI SDK v6: step.usage.inputTokens is the total (noCache + cacheRead + cacheWrite).
+                    // Do NOT add cachedInputTokens — it's a deprecated alias for cacheReadTokens and would double-count.
+                    emitEvent({ type: 'usage', totalInputTokens: inputTokens });
                 }
 
                 // Save only unsaved messages from this step
@@ -460,10 +909,14 @@ export async function executeAgent(
                     try {
                         const unsavedMessages = step.response.messages.slice(savedMessageCount);
 
+                        // Strip <analysis> COT from any compaction blocks before persisting to JSONL.
+                        // This ensures reloaded sessions don't waste tokens on analysis text.
+                        if (cleanedCompactionSummary) {
+                            stripAnalysisFromCompactionBlocks(unsavedMessages, cleanedCompactionSummary);
+                        }
+
                         if (unsavedMessages.length > 0) {
-                            const totalInputTokens = step.usage
-                                ? (step.usage.inputTokens || 0) + (step.usage.cachedInputTokens || 0)
-                                : undefined;
+                            const totalInputTokens = step.usage?.inputTokens;
                             await request.chatHistoryManager.saveMessages(
                                 unsavedMessages,
                                 totalInputTokens !== undefined
@@ -513,8 +966,78 @@ export async function executeAgent(
         const toolInputMap = new Map<string, any>();
         // Track tool calls that already emitted a pre-input loading state.
         const preloadedToolCallIds = new Set<string>();
-        // Track reasoning text by block ID and emit complete thinking blocks on end.
-        const reasoningById = new Map<string, string>();
+        // (reasoningById + flushOpenThinkingBlocks declared above the try so
+        // catch / unexpected-end paths can flush too.)
+        // Track whether the current text block is a native compaction summary.
+        let isCompactionBlock = false;
+        let compactionContent = '';
+        // Stores the cleaned summary (analysis stripped) from the most recent native compaction.
+        // Used by prepareStep and onStepFinish to patch compaction blocks before sending/saving.
+        let cleanedCompactionSummary: string | null = null;
+
+        /**
+         * Flush accumulated native compaction content: save to JSONL and emit UI event.
+         * Called when the compaction text block ends (next text-start or finish).
+         */
+        const flushNativeCompaction = async () => {
+            if (!isCompactionBlock || !compactionContent) {
+                isCompactionBlock = false;
+                compactionContent = '';
+                return;
+            }
+
+            logInfo(`[Agent] Native compaction complete (${compactionContent.length} chars raw)`);
+
+            // Extract <summary> content from the compaction output.
+            // The prompt instructs the model to output <analysis>...</analysis> (thinking)
+            // followed by <summary>...</summary> (the actual summary). We only persist
+            // the summary, matching the custom Compact agent's extraction logic.
+            const extractedSummary = compactionContent.match(/<summary>(.*?)<\/summary>/s)?.[1]?.trim();
+            const continuationPrefix = 'This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. \n ';
+            const summaryBody = extractedSummary || compactionContent.trim();
+            const summary = continuationPrefix + summaryBody;
+
+            // Store cleaned summary for prepareStep and onStepFinish to patch compaction blocks
+            cleanedCompactionSummary = summary;
+
+            if (extractedSummary) {
+                logInfo(`[Agent] Extracted <summary> from native compaction (${extractedSummary.length} chars)`);
+            } else {
+                logInfo('[Agent] No <summary> tags found in native compaction — using raw content');
+            }
+
+            // Persist as compact_summary in JSONL (same format as custom compact agent).
+            // This allows getMessages() / getLastUsage() to treat it as a checkpoint.
+            if (request.chatHistoryManager) {
+                try {
+                    await request.chatHistoryManager.saveSummaryMessage(summary);
+                    logInfo('[Agent] Native compaction summary saved to JSONL');
+                } catch (error) {
+                    logError('[Agent] Failed to save native compaction summary', error);
+                }
+            }
+
+            // Complete the "Compacting conversation..." loading indicator
+            emitEvent({
+                type: 'tool_result',
+                toolName: 'compact_conversation',
+                toolOutput: { success: true },
+                completedAction: 'compacted conversation',
+            });
+
+            // Emit compact event so the frontend shows the summary in UI
+            emitEvent({
+                type: 'compact',
+                summary,
+                content: summary,
+            });
+
+            // Reset usage to 0 in UI (compaction resets the context window)
+            emitEvent({ type: 'usage', totalInputTokens: 0 });
+
+            isCompactionBlock = false;
+            compactionContent = '';
+        };
 
         // Process stream
         for await (const part of fullStream) {
@@ -528,6 +1051,13 @@ export async function executeAgent(
 
             switch (part.type) {
                 case 'text-delta': {
+                    // If this is a native compaction block, accumulate the summary
+                    // instead of emitting as regular content.
+                    if (isCompactionBlock) {
+                        compactionContent += part.text;
+                        break;
+                    }
+
                     // Accumulate content for later recording as complete message
                     accumulatedContent += part.text;
 
@@ -610,6 +1140,11 @@ export async function executeAgent(
                 }
 
                 case 'tool-call': {
+                    // Provider-managed tools (e.g. tool_search) may emit tool-call
+                    // chunks without toolName. Skip UI handling for these.
+                    if (!part.toolName) {
+                        break;
+                    }
                     const toolInput = part.input as any;
                     logDebug(`[Agent] Tool call: ${part.toolName}`);
 
@@ -634,10 +1169,12 @@ export async function executeAgent(
                         displayInput = { file_path: toolInput?.file_path };
                     } else if (part.toolName === CONNECTOR_TOOL_NAME) {
                         displayInput = {
-                            name: toolInput?.name,
-                            include_full_descriptions: toolInput?.include_full_descriptions,
+                            mode: toolInput?.mode,
+                            artifact_id: toolInput?.artifact_id,
                             operation_names: toolInput?.operation_names,
                             connection_names: toolInput?.connection_names,
+                            parameter_names: toolInput?.parameter_names,
+                            version: toolInput?.version,
                         };
                     } else if (part.toolName === CONTEXT_TOOL_NAME) {
                         displayInput = {
@@ -646,8 +1183,9 @@ export async function executeAgent(
                     } else if (part.toolName === MANAGE_CONNECTOR_TOOL_NAME) {
                         displayInput = {
                             operation: toolInput?.operation,
-                            connector_names: toolInput?.connector_names,
-                            inbound_endpoint_names: toolInput?.inbound_endpoint_names,
+                            connector_artifact_ids: toolInput?.connector_artifact_ids,
+                            inbound_artifact_ids: toolInput?.inbound_artifact_ids,
+                            versions: toolInput?.versions,
                         };
                     } else if (part.toolName === VALIDATE_CODE_TOOL_NAME) {
                         displayInput = {
@@ -693,6 +1231,11 @@ export async function executeAgent(
                             allowed_domains: toolInput?.allowed_domains,
                             blocked_domains: toolInput?.blocked_domains,
                         };
+                    } else if (part.toolName === DEEPWIKI_ASK_QUESTION_TOOL_NAME) {
+                        displayInput = {
+                            repoName: toolInput?.repoName,
+                            question: toolInput?.question,
+                        };
                     }
 
                     // Skip tool call UI for todo_write (handled by inline todo list)
@@ -708,8 +1251,14 @@ export async function executeAgent(
                 }
 
                 case 'tool-result': {
-                    const result = part.output as any;
-                    logDebug(`[Agent] Tool result: ${part.toolName}, success: ${result?.success}`);
+                    // Provider-managed tools (e.g. tool_search) may emit tool-result
+                    // chunks without toolName. Skip UI handling for these.
+                    if (!part.toolName) {
+                        isExecutingTool = false;
+                        break;
+                    }
+                    const result = normalizeToolResultForUi(part.toolName, part.output);
+                    logDebug(`[Agent] Tool result: ${part.toolName}, success: ${result.success}`);
 
                     // Tool execution complete
                     isExecutingTool = false;
@@ -721,7 +1270,7 @@ export async function executeAgent(
                     const toolActions = getToolAction(part.toolName, result, toolInput);
 
                     // Use completed or failed action based on tool result
-                    const resultAction = result?.success === false
+                    const resultAction = result.success === false
                         ? toolActions?.failed
                         : toolActions?.completed;
 
@@ -731,7 +1280,7 @@ export async function executeAgent(
                         const toolResultEvent: any = {
                             type: 'tool_result',
                             toolName: part.toolName,
-                            toolOutput: { success: result?.success },
+                            toolOutput: { success: result.success },
                             completedAction: resultAction,
                         };
 
@@ -739,10 +1288,10 @@ export async function executeAgent(
                         if (part.toolName === BASH_TOOL_NAME) {
                             toolResultEvent.bashCommand = toolInput?.command;
                             toolResultEvent.bashDescription = toolInput?.description;
-                            toolResultEvent.bashStdout = result?.stdout || result?.message;
-                            toolResultEvent.bashStderr = result?.stderr;
-                            toolResultEvent.bashExitCode = result?.exitCode;
-                            toolResultEvent.bashRunning = !!result?.taskId;
+                            toolResultEvent.bashStdout = result.stdout || result.message;
+                            toolResultEvent.bashStderr = result.stderr;
+                            toolResultEvent.bashExitCode = result.exitCode;
+                            toolResultEvent.bashRunning = !!result.taskId;
                         }
 
                         // Send to visualizer with result action for display
@@ -758,6 +1307,10 @@ export async function executeAgent(
                     cleanupStreamLifecycle?.();
                     const errorMsg = getErrorMessage(part.error);
                     logError(`[Agent] Stream error: ${errorMsg}`);
+                    // Structured diagnostics only — getErrorDiagnostics whitelists/truncates
+                    // the safe provider fields. A raw JSON dump would re-introduce the leak
+                    // surface (requestBodyValues, unsanitized headers, etc.) at any log level.
+                    logError(`[Agent] Stream error diagnostics: ${getErrorDiagnostics(part.error)}`);
                     emitEvent({
                         type: 'error',
                         error: errorMsg,
@@ -770,6 +1323,31 @@ export async function executeAgent(
                 }
 
                 case 'text-start': {
+                    // Check if this is a native compaction block.
+                    // The AI SDK surfaces compaction via providerMetadata on text-start events.
+                    const isCompaction = (part as any).providerMetadata?.anthropic?.type === 'compaction';
+                    if (isCompaction) {
+                        isCompactionBlock = true;
+                        compactionContent = '';
+                        logInfo('[Agent] Native compaction block started — accumulating summary');
+
+                        // Show "Compacting conversation..." loading indicator in UI
+                        // (matches the custom auto-compact path in rpc-manager)
+                        emitEvent({
+                            type: 'tool_call',
+                            toolName: 'compact_conversation',
+                            loadingAction: 'compacting conversation',
+                            toolInput: {},
+                        });
+                        break;
+                    }
+
+                    // If the previous block was a compaction, flush it now
+                    // (the compaction block is complete, and this is the start of the real response).
+                    if (isCompactionBlock) {
+                        await flushNativeCompaction();
+                    }
+
                     // Add newline for formatting
                     emitEvent({
                         type: 'content_block',
@@ -779,6 +1357,13 @@ export async function executeAgent(
                 }
 
                 case 'finish': {
+                    // Flush any pending native compaction before finishing
+                    if (isCompactionBlock) {
+                        await flushNativeCompaction();
+                    }
+
+                    // Close any reasoning blocks Anthropic didn't end explicitly.
+                    flushOpenThinkingBlocks();
                     cleanupStreamLifecycle?.();
                     logInfo(`[Agent] Execution finished. Modified files: ${modifiedFiles.length}`);
                     const finishReason = normalizeFinishReason(part);
@@ -811,6 +1396,7 @@ export async function executeAgent(
         }
 
         // Stream completed without finish event (shouldn't happen normally)
+        flushOpenThinkingBlocks();
         cleanupStreamLifecycle?.();
         // Capture partial messages if available, but do not block forever waiting for response.
         try {
@@ -834,9 +1420,16 @@ export async function executeAgent(
         };
 
     } catch (error: any) {
+        flushOpenThinkingBlocks();
         cleanupStreamLifecycle?.();
-        const errorMsg = getErrorMessage(error);
         const abortReason = streamWatchdog?.getAbortReason();
+        const classifiedError = classifyAgentExecutionError({
+            error,
+            abortReason,
+            userAbortRequested: streamWatchdog?.isUserAbortRequested() || false,
+            requestAbortSignalAborted: request.abortSignal?.aborted || false,
+        });
+        const errorMsg = classifiedError.rawMessage;
 
         // Try to capture partial model messages even on error
         try {
@@ -848,104 +1441,95 @@ export async function executeAgent(
             logDebug(`[Agent] Skipped capturing final model messages after error: ${getErrorMessage(captureError)}`);
         }
 
-        // Check if aborted - be thorough about detecting abort scenarios
-        // The abort could come from various sources with different error types
-        const isToolInterruptionAbort = errorMsg.includes(TOOL_USE_INTERRUPTION_CONTEXT);
-        const isUserInitiatedAbort = (streamWatchdog?.isUserAbortRequested() || false) || request.abortSignal?.aborted || isToolInterruptionAbort;
-        const isTimeoutAbort = isStreamTimeoutError(error) || isStreamTimeoutError(abortReason);
-        const isProxyTerminated = isProxyTerminatedStreamError(errorMsg) || isProxyTerminatedStreamError(getErrorMessage(abortReason));
-        const isAborted =
-            !isTimeoutAbort &&
-            !isProxyTerminated &&
-            isUserInitiatedAbort;
+        switch (classifiedError.kind) {
+            case 'tool_interruption':
+            case 'user_abort': {
+                logInfo(
+                    `[Agent] Execution aborted by user (kind: ${classifiedError.kind}, isExecutingTool: ${isExecutingTool})`
+                );
 
-        if (isAborted) {
-            logInfo(`[Agent] Execution aborted by user (isExecutingTool: ${isExecutingTool})`);
-
-            // Save interruption message to chat history (Claude Code pattern)
-            // This helps LLM understand in next session that previous request was interrupted
-            if (request.chatHistoryManager) {
-                try {
-                    await request.chatHistoryManager.saveInterruptionMessage(isExecutingTool);
-                    logInfo('[Agent] Saved interruption message to chat history');
-                } catch (saveError) {
-                    logError('[Agent] Failed to save interruption message', saveError);
+                // Save interruption message to chat history (Claude Code pattern)
+                // This helps LLM understand in next session that previous request was interrupted
+                if (request.chatHistoryManager) {
+                    try {
+                        await request.chatHistoryManager.saveInterruptionMessage(isExecutingTool);
+                        logInfo('[Agent] Saved interruption message to chat history');
+                    } catch (saveError) {
+                        logError('[Agent] Failed to save interruption message', saveError);
+                    }
                 }
+
+                emitEvent({ type: 'abort' });
+                return {
+                    success: false,
+                    modifiedFiles,
+                    error: 'Aborted by user',
+                    modelMessages: finalModelMessages,
+                };
             }
 
-            emitEvent({ type: 'abort' });
-            return {
-                success: false,
-                modifiedFiles,
-                error: 'Aborted by user',
-                modelMessages: finalModelMessages,
-            };
+            case 'timeout': {
+                const timeoutMessage = 'Agent request timed out while waiting for the model proxy response. Please retry.';
+                logError(`[Agent] Execution timeout: ${errorMsg}`);
+                emitEvent({
+                    type: 'error',
+                    error: timeoutMessage,
+                });
+                return {
+                    success: false,
+                    modifiedFiles,
+                    error: timeoutMessage,
+                    modelMessages: finalModelMessages,
+                };
+            }
+
+            case 'proxy_terminated': {
+                const proxyTerminatedMessage = 'Agent stream was terminated by the proxy/network before completion. Please retry. If this keeps happening, increase proxy stream timeout limits.';
+                logError(`[Agent] Proxy/network terminated stream: ${errorMsg}`, error);
+                logDebug(`[Agent] Proxy/network termination diagnostics: error=${getErrorDiagnostics(error)} abortReason=${getErrorDiagnostics(abortReason)}`);
+                emitEvent({
+                    type: 'error',
+                    error: proxyTerminatedMessage,
+                });
+                return {
+                    success: false,
+                    modifiedFiles,
+                    error: proxyTerminatedMessage,
+                    modelMessages: finalModelMessages,
+                };
+            }
+
+            case 'model_error': {
+                const isCustomModel = !!request.modelSettings?.mainModelCustomId;
+                const modelErrorMessage = isCustomModel
+                    ? `Invalid model ID '${request.modelSettings!.mainModelCustomId}'. Check your model settings and try again.`
+                    : `The model used by this extension may be outdated or unavailable. Please update the WSO2 MI Extension to the latest version to get updated model support. (Error: ${errorMsg})`;
+                logError(`[Agent] Model error (custom=${isCustomModel}): ${errorMsg}`, error);
+                emitEvent({ type: 'error', error: modelErrorMessage });
+                return {
+                    success: false,
+                    modifiedFiles,
+                    error: modelErrorMessage,
+                    modelMessages: finalModelMessages,
+                };
+            }
+
+            case 'unknown':
+            default:
+                logError(`[Agent] Execution error: ${errorMsg}`, error);
+                logDebug(`[Agent] Execution error diagnostics: error=${getErrorDiagnostics(error)} abortReason=${getErrorDiagnostics(abortReason)}`);
+
+                emitEvent({
+                    type: 'error',
+                    error: errorMsg,
+                });
+                return {
+                    success: false,
+                    modifiedFiles,
+                    error: errorMsg,
+                    modelMessages: finalModelMessages,
+                };
         }
-
-        if (isTimeoutAbort) {
-            const timeoutMessage = 'Agent request timed out while waiting for the model proxy response. Please retry.';
-            logError(`[Agent] Execution timeout: ${errorMsg}`);
-            emitEvent({
-                type: 'error',
-                error: timeoutMessage,
-            });
-            return {
-                success: false,
-                modifiedFiles,
-                error: timeoutMessage,
-                modelMessages: finalModelMessages,
-            };
-        }
-
-        if (isProxyTerminated) {
-            const proxyTerminatedMessage = 'Agent stream was terminated by the proxy/network before completion. Please retry. If this keeps happening, increase proxy stream timeout limits.';
-            logError(`[Agent] Proxy/network terminated stream: ${errorMsg}`, error);
-            logDebug(`[Agent] Proxy/network termination diagnostics: error=${getErrorDiagnostics(error)} abortReason=${getErrorDiagnostics(abortReason)}`);
-            emitEvent({
-                type: 'error',
-                error: proxyTerminatedMessage,
-            });
-            return {
-                success: false,
-                modifiedFiles,
-                error: proxyTerminatedMessage,
-                modelMessages: finalModelMessages,
-            };
-        }
-
-        // Check for model-related errors (invalid model ID, model not found, deprecated)
-        const isModelError = /model.*not found|invalid.*model|unknown model|could not resolve model|model.*deprecated|model.*not available|model.*does not exist|model.*decommissioned/i.test(errorMsg)
-            || (error?.status === 400 && /model/i.test(errorMsg))
-            || (error?.status === 404 && /model/i.test(errorMsg));
-
-        if (isModelError) {
-            const isCustomModel = !!request.modelSettings?.mainModelCustomId;
-            const modelErrorMessage = isCustomModel
-                ? `Invalid model ID '${request.modelSettings!.mainModelCustomId}'. Check your model settings and try again.`
-                : `The model used by this extension may be outdated or unavailable. Please update the WSO2 MI Extension to the latest version to get updated model support. (Error: ${errorMsg})`;
-            logError(`[Agent] Model error (custom=${isCustomModel}): ${errorMsg}`, error);
-            emitEvent({ type: 'error', error: modelErrorMessage });
-            return {
-                success: false,
-                modifiedFiles,
-                error: modelErrorMessage,
-                modelMessages: finalModelMessages,
-            };
-        }
-
-        logError(`[Agent] Execution error: ${errorMsg}`, error);
-        logDebug(`[Agent] Execution error diagnostics: error=${getErrorDiagnostics(error)} abortReason=${getErrorDiagnostics(abortReason)}`);
-
-        emitEvent({
-            type: 'error',
-            error: errorMsg,
-        });
-        return {
-            success: false,
-            modifiedFiles,
-            error: errorMsg,
-            modelMessages: finalModelMessages,
-        };
     }
 }
 

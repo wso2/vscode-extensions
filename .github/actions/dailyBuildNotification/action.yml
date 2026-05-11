@@ -1,4 +1,5 @@
 name: 'Upload vsix to artifacts and notify'
+description: 'Uploads the built VSIX as a workflow artifact and posts a Google Chat daily-build notification with a download link.'
 inputs:
   title:
     description: 'Relase name'
@@ -9,6 +10,10 @@ inputs:
   chatAPI:
     description: 'Google chat API'
     required: true
+  prUrl:
+    description: 'Optional product-integrator pull request URL'
+    required: false
+    default: ''
 
 runs:
   using: "composite"
@@ -18,8 +23,8 @@ runs:
       id: vsix
       run: |
         file=$(ls ${{ inputs.fileName }}-[0-9]*.[0-9]*.[0-9]*.vsix)
-        fileName=${file##*-}
-        version=${fileName%.*}
+        base=${file%.vsix}
+        version=${base#${{ inputs.fileName }}-}
         extension=${{ inputs.fileName }}
         extensionName="$(echo "$extension" | sed 's/.*/\u&/')"
         echo "vsixName=$file" >> $GITHUB_OUTPUT
@@ -36,12 +41,35 @@ runs:
     - name: "Release Notification"
       shell: bash
       run: |
+          pr_widget=''
+          if [ -n "${{ inputs.prUrl }}" ]; then
+            pr_widget=$(cat << EOF
+                      ,
+                      {
+                      "keyValue": {
+                          "topLabel": "Product Integrator PR",
+                          "content": "${{ inputs.prUrl }}",
+                          "button": {
+                          "textButton": {
+                              "text": "View PR",
+                              "onClick": {
+                              "openLink": {
+                                  "url": "${{ inputs.prUrl }}"
+                              }
+                              }
+                          }
+                          }
+                      }
+                      }
+          EOF
+          )
+          fi
           body=$(cat << EOF
           {
           "cards": [
               { 
               "header": {
-                  "title": "Daily Build",
+                  "title": "Daily Build"
               },
               "sections": [
                   {
@@ -68,6 +96,7 @@ runs:
                           }
                       }
                       }
+                      ${pr_widget}
                   ]
                   }
               ]

@@ -158,14 +158,27 @@ export function activate(context: vscode.ExtensionContext): void {
                     const preparedFileName = sanitizeFileName(options?.fileName, `TryIt`);
                     const untitledUri = vscode.Uri.from({
                         scheme: 'untitled',
-                        path: `${preparedFileName}-${token}.hurl`
+                        path: `${preparedFileName}.hurl`
                     });
+                    // if the same filename is open, replace its content
+                    const existingDoc = vscode.workspace.notebookDocuments.find(doc => doc.uri.toString() === untitledUri.toString());
+                    const dirtyEdit = new vscode.WorkspaceEdit();
+                    if (existingDoc) {
+                        // Replace all cells so re-importing into the same untitled URI refreshes the content.
+                        const fullRange = new vscode.NotebookRange(0, existingDoc.cellCount);
+                        dirtyEdit.set(existingDoc.uri, [
+                            vscode.NotebookEdit.replaceCells(fullRange, notebookData.cells),
+                            vscode.NotebookEdit.updateNotebookMetadata({ generated: true })
+                        ]);
+                        await vscode.workspace.applyEdit(dirtyEdit);
+                        await vscode.window.showNotebookDocument(existingDoc, { viewColumn });
+                        return;
+                    }
                     doc = await vscode.workspace.openNotebookDocument(untitledUri);
 
                     // Mark the notebook dirty immediately so VS Code prompts to save on close even
                     // if the user makes no edits.  Notebook metadata is not written by serializeNotebook
                     // so this has no effect on the saved .hurl file content.
-                    const dirtyEdit = new vscode.WorkspaceEdit();
                     dirtyEdit.set(doc.uri, [vscode.NotebookEdit.updateNotebookMetadata({ generated: true })]);
                     await vscode.workspace.applyEdit(dirtyEdit);
                 } else {

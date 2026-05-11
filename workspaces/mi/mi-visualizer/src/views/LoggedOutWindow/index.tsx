@@ -169,10 +169,10 @@ export const SignInToCopilotMessage = (props: { showProjectHeader?: boolean }) =
             <BottomSpacer />
             <FooterContent>
                 <LegalNotice />
-                <StyledButton onClick={signInToMIAI}>Login to WSO2 Integrator Copilot</StyledButton>
+                <StyledButton onClick={signInToMIAI}>Login with WSO2</StyledButton>
                 <Divider>or</Divider>
-                <TextButton onClick={handleAnthropicKeyClick}>Enter your Anthropic API key</TextButton>
-                <TextButton onClick={handleAwsBedrockClick}>Enter your AWS Bedrock credentials</TextButton>
+                <TextButton onClick={handleAnthropicKeyClick}>Login with your Anthropic API key</TextButton>
+                <TextButton onClick={handleAwsBedrockClick}>Login with AWS Bedrock</TextButton>
             </FooterContent>
         </PanelWrapper>
     );

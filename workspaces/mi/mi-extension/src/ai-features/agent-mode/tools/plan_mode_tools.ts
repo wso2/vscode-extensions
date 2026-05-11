@@ -35,7 +35,7 @@ import {
     TODO_WRITE_TOOL_NAME,
     FILE_WRITE_TOOL_NAME,
 } from './types';
-import { PLAN_MODE_SHARED_GUIDELINES } from '../agents/main/mode';
+
 import { logInfo, logDebug, logError } from '../../copilot/logger';
 import { AgentEvent, PlanApprovalKind, PlanApprovalRequestedEvent } from '@wso2/mi-core';
 import { getCopilotSessionDir } from '../storage-paths';
@@ -143,21 +143,9 @@ function createPlanModeSystemReminder(planInfo: {
     exists: boolean;
     relativePath: string;
 }): string {
-    return [
-        'Plan mode is active. You MUST NOT make any edits except to the plan file mentioned below.',
-        'Write operations are disabled except for file_write/file_edit on the assigned plan file.',
-        '',
-        '## Plan File Info:',
-        planInfo.exists
-            ? `A plan file already exists at ${planInfo.relativePath}. You can read it and make incremental edits using the file_edit tool. If that is an old plan write a new plan to the file.`
-            : `Your plan file is: ${planInfo.relativePath}. Create this file using file_write to write your plan.`,
-        '',
-        'You should build your plan incrementally by writing to or editing this file.',
-        'This is the ONLY file you are allowed to edit during plan mode.',
-        '',
-        `IMPORTANT: Always present your plan in simple summary format in chat window to the user with no code details because we are in a low code environment before using ${EXIT_PLAN_MODE_TOOL_NAME} tool.`,
-        `Then when your plan is ready for user approval, call ${EXIT_PLAN_MODE_TOOL_NAME} tool.`,
-    ].join('\n');
+    return planInfo.exists
+        ? `Plan file: ${planInfo.relativePath} (exists — read it first, then edit incrementally or replace if stale).`
+        : `Plan file: ${planInfo.relativePath} (does not exist yet — create it with file_write).`;
 }
 
 export async function initializePlanModeSession(
@@ -561,22 +549,9 @@ export function createEnterPlanModeExecute(
                 type: 'plan_mode_entered',
             } as any);
 
-            // Build the response with <system-reminder> containing plan file info
-            const baseMessage = `Entered plan mode. You should now focus on exploration and implementation planning before implementation.
-
-            ${PLAN_MODE_SHARED_GUIDELINES}
-
-            Remember: DO NOT write or edit project files yet. This is a planning phase.`;
-
-            // Inject <system-reminder> with concrete plan-file instructions.
-            const systemReminder = `
-            <system-reminder>
-            ${planReminder}
-            </system-reminder>`;
-
             return {
                 success: true,
-                message: baseMessage + systemReminder
+                message: `Entered plan mode. ${planReminder}\nFollow the plan mode workflow in your guidelines.`
             };
         } catch (error: any) {
             logError('[EnterPlanMode] Failed to enter plan mode', error);

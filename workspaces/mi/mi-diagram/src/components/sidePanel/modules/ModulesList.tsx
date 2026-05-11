@@ -67,7 +67,8 @@ export function Modules(props: ModuleProps) {
     const [searchedModules, setSearchedModules] = React.useState<[]>(undefined);
     const [searchValue, setSearchValue] = React.useState<string>('');
     const [isFetchingModules, setIsFetchingModules] = React.useState<Boolean>(false);
-    const [selectedVersion, setSelectedVersion] = React.useState([]);
+    const [selectedVersion, setSelectedVersion] = React.useState<Record<string, string>>({});
+    const [projectJavaVersion, setProjectJavaVersion] = React.useState<number | null>(null);
 
     useEffect(() => {
         fetchModules();
@@ -94,6 +95,10 @@ export function Modules(props: ModuleProps) {
     const fetchModules = async () => {
         try {
             setIsFetchingModules(true);
+            const miVersionResponse = await rpcClient.getMiDiagramRpcClient().getMIVersionFromPom();
+            if (miVersionResponse.javaVersion) {
+                setProjectJavaVersion(parseInt(miVersionResponse.javaVersion, 10));
+            }
             if (navigator.onLine) {
                 const response = await rpcClient.getMiDiagramRpcClient().getStoreConnectorJSON();
                 const data = response.connectors;
@@ -152,8 +157,7 @@ export function Modules(props: ModuleProps) {
     };
 
     const setVersion = async (connectorName: any, version: string) => {
-        selectedVersion[connectorName] = version;
-        setSelectedVersion(selectedVersion);
+        setSelectedVersion(prev => ({ ...prev, [connectorName]: version }));
     }
 
     const getFilteredStoreModules = (modules: any[]) => {
@@ -195,19 +199,26 @@ export function Modules(props: ModuleProps) {
                 {filteredModules.length === 0 ? (
                     <h3 style={{ textAlign: "center", paddingTop: "30px" }}>No more modules available</h3>
                 ) : (
-                    filteredModules.map(([key, values]: [string, any]) => (
-                        <div key={key}>
-                            <ButtonGroup
-                                key={key}
-                                title={FirstCharToUpperCase(values.connectorName)}
-                                isCollapsed={true}
-                                iconUri={values.iconUrl}
-                                onDownload={() => downloadModule(values)}
-                                disableGrid={true} >
-                                <OperationsList connector={values} allowVersionChange={true} setVersionForDownload={setVersion} />
-                            </ButtonGroup >
-                        </div >
-                    )))
+                    filteredModules.map(([key, values]: [string, any]) => {
+                        const effectiveVersion = selectedVersion[values.connectorName] ?? values.version.tagName;
+                        const jdkMatch = effectiveVersion.match(/[-_]jdk(\d+)/i);
+                        const requiredJavaVersion = jdkMatch ? parseInt(jdkMatch[1], 10) : null;
+                        const showJavaWarning = requiredJavaVersion !== null && projectJavaVersion !== null && projectJavaVersion < requiredJavaVersion;
+                        return (
+                            <div key={key}>
+                                <ButtonGroup
+                                    key={key}
+                                    title={FirstCharToUpperCase(values.connectorName)}
+                                    isCollapsed={true}
+                                    iconUri={values.iconUrl}
+                                    onDownload={() => downloadModule(values)}
+                                    disableGrid={true}
+                                    warningMessage={showJavaWarning ? `This version requires Java ${requiredJavaVersion} or higher.` : undefined}>
+                                    <OperationsList connector={values} allowVersionChange={true} setVersionForDownload={setVersion} />
+                                </ButtonGroup>
+                            </div>
+                        );
+                    }))
                 }
             </>
     }

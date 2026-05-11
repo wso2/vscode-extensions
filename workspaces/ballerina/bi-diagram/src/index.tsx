@@ -18,6 +18,8 @@
 import type {} from "@emotion/styled";
 export { Diagram } from "./components/Diagram";
 export { MemoizedDiagram } from "./components/Diagram";
+export { RemoteCursors } from "./components/RemoteCursors";
+
 
 // components
 export { NodeIcon } from "./components/NodeIcon";

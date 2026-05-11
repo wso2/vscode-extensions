@@ -136,6 +136,7 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
     const sidePanelContext = React.useContext(SidePanelContext);
     const { rpcClient, setIsLoading: setDiagramLoading } = useVisualizerContext();
     const hasDiagnotics = node.hasDiagnotics();
+    const hasErrors = node.hasErrors();
     const hasBreakpoint = node.hasBreakpoint();
     const isActiveBreakpoint = node.isActiveBreakpoint();
     const connectorNode = ((node.stNode as Tool).mediator ?? node.stNode) as Connector;
@@ -318,7 +319,7 @@ export function ConnectorNodeWidget(props: ConnectorNodeWidgetProps) {
             <Tooltip content={!isPopoverOpen && tooltip ? <TooltipEl /> : ""} position={'bottom'} containerPosition={'absolute'}>
                 <S.Node
                     selected={node.isSelected()}
-                    hasError={hasDiagnotics}
+                    hasError={hasErrors}
                     hovered={isHovered || isActiveBreakpoint}
                     isActiveBreakpoint={isActiveBreakpoint}
                     onMouseEnter={() => setIsHovered(true)}

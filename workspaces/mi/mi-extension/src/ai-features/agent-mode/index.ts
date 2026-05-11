@@ -34,7 +34,9 @@ export {
 
 export {
     getUserPrompt,
+    splitPromptIntoBlocks,
     type UserPromptParams,
+    type UserPromptContentBlock,
 } from './agents/main/prompt';
 
 // Tools

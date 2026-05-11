@@ -16,9 +16,8 @@
  * under the License.
  */
 
-import React, { useState } from "react";
-import { FlexRow, Question } from "../styles";
-import { Icon } from "@wso2/ui-toolkit";
+import React from "react";
+import { Codicon } from "@wso2/ui-toolkit";
 
 interface SuggestionsListProps {
     questionMessages: string[];
@@ -26,56 +25,38 @@ interface SuggestionsListProps {
 }
 
 const SuggestionsList: React.FC<SuggestionsListProps> = ({ questionMessages, handleQuestionClick }) => {
-    const isDarkMode = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-
-    const getThemeColor = (lightColor: string, darkColor: string) => {
-        return isDarkMode ? `var(--vscode-${darkColor})` : `var(--vscode-${lightColor})`;
-    };
+    if (questionMessages.length === 0) {
+        return (
+            <div className="flex items-center gap-1.5 px-1 py-2" style={{ color: "var(--vscode-descriptionForeground)", fontSize: "12px" }}>
+                <Codicon name="sparkle" />
+                <span>Loading suggestions...</span>
+            </div>
+        );
+    }
 
     return (
-        <div style={{ transition: "opacity 0.3s ease-in-out" }}>
-            {questionMessages.length === 0 ? (
-                <Question
+        <div className="flex flex-wrap gap-2">
+            {[questionMessages[questionMessages.length - 1]].map((message, index) => (
+                <button
+                    key={index}
+                    onClick={() => handleQuestionClick(message)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-all cursor-pointer"
                     style={{
-                        color: getThemeColor("textLink.foreground", "textLink.activeForeground"),
-                        opacity: questionMessages.length === 0 ? 1 : 0,
+                        border: "1px solid var(--vscode-panel-border)",
+                        backgroundColor: "var(--vscode-editor-background)",
+                        color: "var(--vscode-foreground)",
+                    }}
+                    onMouseEnter={(e) => {
+                        (e.currentTarget as HTMLElement).style.backgroundColor = "var(--vscode-list-hoverBackground)";
+                    }}
+                    onMouseLeave={(e) => {
+                        (e.currentTarget as HTMLElement).style.backgroundColor = "var(--vscode-editor-background)";
                     }}
                 >
-                    <Icon
-                        name="wand-magic-sparkles-solid"
-                        sx={`marginRight:5px; color: ${getThemeColor(
-                            "textLink.foreground",
-                            "textLink.activeForeground"
-                        )}`}
-                    />
-                    &nbsp;
-                    <div>Loading suggestions ...</div>
-                </Question>
-            ) : (
-                [questionMessages[questionMessages.length - 1]].map((message, index) => (
-                    <Question
-                        key={index}
-                        style={{
-                            opacity: questionMessages.length > 0 ? 1 : 0,
-                        }}
-                    >
-                        <a
-                            href="#"
-                            onClick={(e) => {
-                                e.preventDefault();
-                                handleQuestionClick(message);
-                            }}
-                            style={{ textDecoration: "none" }}
-                        >
-                            <FlexRow>
-                                <Icon name="wand-magic-sparkles-solid" sx="marginRight:5px" />
-                                &nbsp;
-                                <div>{message.replace(/^\d+\.\s/, "")}</div>
-                            </FlexRow>
-                        </a>
-                    </Question>
-                ))
-            )}
+                    <Codicon name="arrow-right" />
+                    <span>{message.replace(/^\d+\.\s/, "")}</span>
+                </button>
+            ))}
         </div>
     );
 };

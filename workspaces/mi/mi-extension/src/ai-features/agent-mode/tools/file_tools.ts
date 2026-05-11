@@ -19,13 +19,12 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
-import * as glob from 'glob';
 import * as vscode from 'vscode';
 
 import {
     ValidationResult,
-    FileEditHunk,
     ToolResult,
     VALID_FILE_EXTENSIONS,
     VALID_SPECIAL_FILE_NAMES,
@@ -44,7 +43,17 @@ import { logDebug, logError } from '../../copilot/logger';
 import { validateXmlFile, formatValidationMessage } from './validation-utils';
 import { AgentUndoCheckpointManager } from '../undo/checkpoint-manager';
 import { getCopilotProjectsRootDir } from '../storage-paths';
-import { applyStructuredFilePatch } from './file_edit_patch';
+import {
+    runRipgrepGuarded,
+    parseRgJsonMatches,
+    parseRgFiles,
+    parseRgCountOutput,
+    validateRgTypeName,
+    RG_EXCLUDED_DIRS,
+    RG_EXCLUDED_SENSITIVE_GLOBS,
+} from './ripgrep_runner';
+import { isSensitiveTokenName } from './shell_sandbox';
+import { stripAnsiAndControl } from '../../utils/sanitize-text';
 
 // ============================================================================
 // Validation Functions
@@ -53,40 +62,12 @@ import { applyStructuredFilePatch } from './file_edit_patch';
 const READ_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp'] as const;
 const READ_PDF_EXTENSION = '.pdf';
 const PDF_MAX_PAGES_PER_REQUEST = 5;
+// Pattern/glob length bounds are enforced by the grep tool's Zod schema; the
+// constants are kept here so the schema's `describe` text remains in sync.
 const MAX_GREP_PATTERN_LENGTH = 512;
 const MAX_GREP_GLOB_LENGTH = 256;
-const MAX_GREP_SEARCH_DEPTH = 12;
+const MAX_GREP_MATCH_LINE_LENGTH = 500;
 const POST_WRITE_VALIDATION_DELAY_MS = 500;
-
-const GREP_TYPE_EXTENSION_MAP: Record<string, string[]> = {
-    js: ['.js', '.mjs', '.cjs'],
-    ts: ['.ts', '.tsx', '.mts', '.cts'],
-    jsx: ['.jsx', '.tsx'],
-    json: ['.json'],
-    xml: ['.xml', '.xsd', '.xsl', '.xslt'],
-    csv: ['.csv'],
-    yaml: ['.yaml', '.yml'],
-    yml: ['.yaml', '.yml'],
-    java: ['.java'],
-    go: ['.go'],
-    py: ['.py'],
-    sh: ['.sh', '.bash'],
-    md: ['.md', '.mdx'],
-    sql: ['.sql'],
-    css: ['.css', '.scss', '.sass', '.less'],
-    html: ['.html', '.htm'],
-    proto: ['.proto'],
-    properties: ['.properties'],
-    toml: ['.toml'],
-    ini: ['.ini'],
-    gradle: ['.gradle'],
-    swift: ['.swift'],
-    kotlin: ['.kt', '.kts'],
-    rust: ['.rs'],
-    ruby: ['.rb'],
-    php: ['.php'],
-    dockerfile: ['.dockerfile'],
-};
 
 const IMAGE_MEDIA_TYPE_BY_EXTENSION: Record<string, string> = {
     '.png': 'image/png',
@@ -199,133 +180,32 @@ function isPathWithin(basePath: string, targetPath: string): boolean {
 }
 
 function resolveFullPath(projectPath: string, filePath: string): string {
-    return path.isAbsolute(filePath) ? path.resolve(filePath) : path.resolve(projectPath, filePath);
+    const expanded = /^~(?:[\\/]|$)/.test(filePath)
+        ? path.join(os.homedir(), filePath.slice(1))
+        : filePath;
+    return path.isAbsolute(expanded) ? path.resolve(expanded) : path.resolve(projectPath, expanded);
 }
 
 function isCopilotGlobalPath(fullPath: string): boolean {
     return isPathWithin(getCopilotProjectsRootDir(), fullPath);
 }
 
-function escapeRegexCharacters(value: string): string {
-    return value.replace(/[|\\{}()[\]^$+*?.]/g, '\\$&');
-}
-
 function delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function compileGrepPattern(pattern: string, caseInsensitive: boolean): { regex?: RegExp; error?: string } {
-    if (!pattern || pattern.length > MAX_GREP_PATTERN_LENGTH) {
-        return {
-            error: `Pattern length must be between 1 and ${MAX_GREP_PATTERN_LENGTH} characters.`,
-        };
-    }
-
-    try {
-        return {
-            regex: new RegExp(pattern, caseInsensitive ? 'gi' : 'g'),
-        };
-    } catch (error) {
-        return {
-            error: `Invalid regex pattern: ${error instanceof Error ? error.message : String(error)}`,
-        };
-    }
-}
-
-function compileGlobPattern(globPattern?: string, caseInsensitive?: boolean): { regex?: RegExp; error?: string } {
-    if (!globPattern) {
-        return {};
-    }
-
-    if (globPattern.length > MAX_GREP_GLOB_LENGTH) {
-        return {
-            error: `Glob length must be at most ${MAX_GREP_GLOB_LENGTH} characters.`,
-        };
-    }
-
-    if (/[\r\n\0]/.test(globPattern)) {
-        return {
-            error: 'Glob contains invalid control characters.',
-        };
-    }
-
-    try {
-        let hasInvalidBraceGroup = false;
-        const escapedGlob = escapeRegexCharacters(globPattern).replace(/\\\{([^{}]+)\\\}/g, (_match, group) => {
-            const options = group
-                .split(',')
-                .map((option: string) => option.trim())
-                .filter((option: string) => option.length > 0);
-
-            if (options.length === 0 || options.length > 20) {
-                hasInvalidBraceGroup = true;
-                return '';
-            }
-
-            return `(${options.map((option: string) => escapeRegexCharacters(option)).join('|')})`;
-        });
-
-        if (hasInvalidBraceGroup) {
-            return {
-                error: 'Glob contains an invalid brace group.',
-            };
-        }
-
-        const regexBody = escapedGlob
-            .replace(/\\\*/g, '.*')
-            .replace(/\\\?/g, '.');
-        return {
-            regex: new RegExp(`^${regexBody}$`, caseInsensitive ? 'i' : undefined),
-        };
-    } catch (error) {
-        return {
-            error: `Invalid glob pattern: ${error instanceof Error ? error.message : String(error)}`,
-        };
-    }
-}
-
-function parseGrepFileType(fileType?: string): { value?: string; error?: string } {
-    if (!fileType) {
-        return {};
-    }
-
-    const normalizedType = fileType.trim().toLowerCase();
-    if (!normalizedType) {
-        return {};
-    }
-
-    if (normalizedType.length > 32 || !/^[a-z0-9_+-]+$/.test(normalizedType)) {
-        return {
-            error: 'Invalid file type filter. Use an alphanumeric rg type (e.g., "ts", "js", "java").',
-        };
-    }
-
-    return { value: normalizedType };
-}
-
-function matchesRequestedFileType(fileName: string, requestedType?: string): boolean {
-    if (!requestedType) {
-        return true;
-    }
-
-    const lowerName = fileName.toLowerCase();
-    const extension = path.extname(lowerName);
-    if (!extension) {
-        return lowerName === requestedType;
-    }
-
-    const mappedExtensions = GREP_TYPE_EXTENSION_MAP[requestedType];
-    if (mappedExtensions) {
-        return mappedExtensions.includes(extension);
-    }
-
-    return extension === `.${requestedType}`;
-}
-
 /**
  * Validates path security rules that apply to all file tools.
+ *
+ * By default, paths must resolve inside the project or the copilot global dir.
+ * Pass `allowOutsideProject: true` for read-only callers (read/grep/glob) where
+ * reading arbitrary filesystem locations is acceptable; writes/edits must stay strict.
  */
-function validateFilePathSecurity(projectPath: string, filePath: string): ValidationResult {
+function validateFilePathSecurity(
+    projectPath: string,
+    filePath: string,
+    options: { allowOutsideProject?: boolean } = {}
+): ValidationResult {
     if (!filePath || typeof filePath !== 'string') {
         return {
             valid: false,
@@ -341,8 +221,17 @@ function validateFilePathSecurity(projectPath: string, filePath: string): Valida
         };
     }
 
-    // Security: prevent home shorthand and traversal in relative paths
-    if (/^~(?:[\\/]|$)/.test(normalizedPath) || (!path.isAbsolute(normalizedPath) && normalizedPath.includes('..'))) {
+    const allowOutside = options.allowOutsideProject === true;
+
+    // Security: prevent home shorthand (strict mode only) and traversal in relative paths.
+    // Read-only mode allows `~/...` expansion via resolveFullPath.
+    if (!allowOutside && /^~(?:[\\/]|$)/.test(normalizedPath)) {
+        return {
+            valid: false,
+            error: 'File path contains invalid traversal segments (.., leading ~).'
+        };
+    }
+    if (!path.isAbsolute(normalizedPath) && !/^~(?:[\\/]|$)/.test(normalizedPath) && normalizedPath.includes('..')) {
         return {
             valid: false,
             error: 'File path contains invalid traversal segments (.., leading ~).'
@@ -350,14 +239,89 @@ function validateFilePathSecurity(projectPath: string, filePath: string): Valida
     }
 
     const fullPath = resolveFullPath(projectPath, normalizedPath);
-    if (isPathWithin(projectPath, fullPath) || isCopilotGlobalPath(fullPath)) {
-        return { valid: true };
+
+    // Sensitive-path denylist applies even when `allowOutsideProject` is set —
+    // parity with the shell sandbox so read/grep/glob can't exfiltrate SSH
+    // keys, AWS credentials, `.env` files, shell rc files, etc. via a
+    // prompt-injected instruction.
+    if (isSensitiveTokenName(fullPath)) {
+        return {
+            valid: false,
+            error: 'Access to sensitive credential paths (SSH keys, cloud credentials, .env files, shell rc files) is not allowed.'
+        };
     }
 
-    return {
-        valid: false,
-        error: 'File path must be within the project or ~/.wso2-mi/copilot/projects.'
-    };
+    // Realpath-based denylist runs for BOTH read and write modes — otherwise a
+    // symlink in an `allowOutside` read would exfiltrate credentials while the
+    // lexical check above passes. The containment check (isPathWithin /
+    // isCopilotGlobalPath) is still restricted to write/strict mode because
+    // reads may legitimately traverse outside the project tree.
+    //
+    // For writes (fullPath doesn't exist yet), walk up to the nearest existing
+    // parent and realpath *that*. Otherwise writes through a symlinked parent
+    // (e.g. `project/link/new.xml`) bypass containment entirely.
+    let realTargetForChecks: string | undefined;
+    try {
+        if (fs.existsSync(fullPath)) {
+            realTargetForChecks = fs.realpathSync(fullPath);
+        } else {
+            let probe = path.dirname(fullPath);
+            const seenRoot = path.parse(probe).root;
+            while (!fs.existsSync(probe)) {
+                const parent = path.dirname(probe);
+                if (parent === probe || probe === seenRoot) {
+                    break;
+                }
+                probe = parent;
+            }
+            if (fs.existsSync(probe)) {
+                const realParent = fs.realpathSync(probe);
+                const rel = path.relative(probe, fullPath);
+                realTargetForChecks = path.resolve(realParent, rel);
+            }
+        }
+        if (realTargetForChecks && isSensitiveTokenName(realTargetForChecks)) {
+            return {
+                valid: false,
+                error: 'Access to sensitive credential paths (SSH keys, cloud credentials, .env files, shell rc files) is not allowed.'
+            };
+        }
+    } catch {
+        return {
+            valid: false,
+            error: 'File path could not be resolved (broken symlink or permission error).'
+        };
+    }
+
+    if (!allowOutside) {
+        if (!isPathWithin(projectPath, fullPath) && !isCopilotGlobalPath(fullPath)) {
+            return {
+                valid: false,
+                error: 'File path must be within the project or ~/.wso2-mi/copilot/projects.'
+            };
+        }
+
+        // Symlink protection: re-check containment against the realpath we
+        // already resolved above (avoids a second fs.realpathSync call).
+        if (realTargetForChecks !== undefined) {
+            try {
+                const realProject = fs.realpathSync(projectPath);
+                if (!isPathWithin(realProject, realTargetForChecks) && !isCopilotGlobalPath(realTargetForChecks)) {
+                    return {
+                        valid: false,
+                        error: 'File path resolves via symlink to a location outside the project.'
+                    };
+                }
+            } catch {
+                return {
+                    valid: false,
+                    error: 'File path could not be resolved (broken symlink or permission error).'
+                };
+            }
+        }
+    }
+
+    return { valid: true };
 }
 
 /**
@@ -369,10 +333,11 @@ function validateTextFilePath(projectPath: string, filePath: string): Validation
         return securityValidation;
     }
 
+    // Reject non-text files (images, PDFs, binaries) to prevent corrupt overwrites
     if (!isTextAllowedFilePath(filePath)) {
         return {
             valid: false,
-            error: `File must use an allowed file type: ${getAllowedFileTypesDescription()}`
+            error: `Cannot write/edit binary or non-text file '${filePath}'. Allowed text file types: ${getAllowedFileTypesDescription()}`
         };
     }
 
@@ -381,9 +346,12 @@ function validateTextFilePath(projectPath: string, filePath: string): Validation
 
 /**
  * Validates file paths for read operations (text + multimodal).
+ *
+ * Reads are allowed outside the project — convenient for inspecting logs,
+ * connector JARs, or other files the agent needs to reason about.
  */
 function validateReadableFilePath(projectPath: string, filePath: string): ValidationResult {
-    const securityValidation = validateFilePathSecurity(projectPath, filePath);
+    const securityValidation = validateFilePathSecurity(projectPath, filePath, { allowOutsideProject: true });
     if (!securityValidation.valid) {
         return securityValidation;
     }
@@ -695,7 +663,8 @@ function trackModifiedFile(modifiedFiles: string[] | undefined, filePath: string
 export function createWriteExecute(
     projectPath: string,
     modifiedFiles?: string[],
-    undoCheckpointManager?: AgentUndoCheckpointManager
+    undoCheckpointManager?: AgentUndoCheckpointManager,
+    readFiles?: Set<string>
 ): WriteExecuteFn {
     return async (args: { file_path: string; content: string }): Promise<ToolResult> => {
         const { file_path, content } = args;
@@ -724,7 +693,7 @@ export function createWriteExecute(
 
         const fullPath = resolveFullPath(projectPath, file_path);
 
-        // Check if file exists with non-empty content
+        // Check if file exists — allow overwrites but require Read first
         const fileExists = fs.existsSync(fullPath);
         if (fileExists) {
             let existingContent = '';
@@ -739,12 +708,19 @@ export function createWriteExecute(
                 };
             }
             if (existingContent.trim().length > 0) {
-                console.error(`[FileWriteTool] File already exists with content: ${file_path}`);
-                return {
-                    success: false,
-                    message: `File '${file_path}' already exists with content. Use ${FILE_EDIT_TOOL_NAME} to modify it instead.`,
-                    error: `Error: ${ErrorMessages.FILE_ALREADY_EXISTS}`
-                };
+                // Read-before-write guard: require the file to have been read first
+                const wasRead = readFiles?.has(file_path) || readFiles?.has(fullPath);
+                const isAgentCreated = modifiedFiles?.includes(file_path)
+                    || modifiedFiles?.includes(fullPath);
+                if (!wasRead && !isAgentCreated) {
+                    console.error(`[FileWriteTool] Overwrite blocked — file not read first: ${file_path}`);
+                    return {
+                        success: false,
+                        message: `File '${file_path}' already exists. You must use ${FILE_READ_TOOL_NAME} to read it before overwriting. Prefer ${FILE_EDIT_TOOL_NAME} for modifying existing files — it only sends the diff.`,
+                        error: `Error: ${ErrorMessages.FILE_ALREADY_EXISTS}`
+                    };
+                }
+                console.log(`[FileWriteTool] Overwriting existing file: ${file_path}`);
             }
         }
 
@@ -798,15 +774,15 @@ export function createWriteExecute(
 
         // Give language services a brief moment to settle before automatic validation.
         await delay(POST_WRITE_VALIDATION_DELAY_MS);
-        // Automatically validate the file and get structured diagnostics
-        const validation = await validateXmlFile(fullPath, projectPath, false);
+        // Automatically validate the file and get structured diagnostics (include code actions for agent)
+        const validation = await validateXmlFile(fullPath, projectPath, true);
 
         console.log(`[FileWriteTool] Successfully ${action} and synced file: ${file_path} with ${lineCount} lines`);
 
         // Build result with structured validation data
         const result: ToolResult = {
             success: true,
-            message: `Successfully ${action} file '${file_path}' with ${lineCount} line(s).${validation ? formatValidationMessage(validation) : ''}`
+            message: `Successfully ${action} file '${file_path}' with ${lineCount} line(s).${validation ? formatValidationMessage(validation, 15) : ''}`
         };
 
         if (validation) {
@@ -820,7 +796,7 @@ export function createWriteExecute(
 /**
  * Creates the execute function for file_read tool
  */
-export function createReadExecute(projectPath: string): ReadExecuteFn {
+export function createReadExecute(projectPath: string, readFiles?: Set<string>): ReadExecuteFn {
     return async (args: { file_path: string; offset?: number; limit?: number; pages?: string }): Promise<ToolResult> => {
         const { file_path, offset, limit, pages } = args;
         logDebug(`[FileReadTool] Reading ${file_path}, offset: ${offset}, limit: ${limit}, pages: ${pages}`);
@@ -857,6 +833,11 @@ export function createReadExecute(projectPath: string): ReadExecuteFn {
                 error: `Error: ${ErrorMessages.INVALID_READ_OPTIONS}`
             };
         }
+
+        // Track that this file has been read (used by write tool's read-before-write guard)
+        // Placed after existence check and option validation so failed reads are not tracked.
+        readFiles?.add(file_path);
+        readFiles?.add(fullPath);
 
         const fileKind = getReadFileKind(file_path);
         if (fileKind === 'image') {
@@ -898,15 +879,27 @@ export function createReadExecute(projectPath: string): ReadExecuteFn {
             }
         }
 
-        // Read file content
-        const content = fs.readFileSync(fullPath, 'utf-8');
+        // Read file content. Strip ANSI escapes / stray control bytes — common
+        // in captured Maven/Gradle/npm build logs. The Copilot proxy rejects
+        // tool-result strings containing raw 0x00-0x1F bytes with
+        // `unexpected control character in string`.
+        const rawContent = fs.readFileSync(fullPath, 'utf-8');
+        const content = stripAnsiAndControl(rawContent);
 
-        // Handle empty file
-        if (content.trim().length === 0) {
+        // Handle empty file — distinguish truly empty from "sanitized to empty"
+        // so the user knows the file actually contained ANSI/control bytes.
+        if (rawContent.trim().length === 0) {
             logDebug(`[FileReadTool] File is empty: ${file_path}`);
             return {
                 success: true,
                 message: `File '${file_path}' is empty.`,
+            };
+        }
+        if (content.trim().length === 0) {
+            logDebug(`[FileReadTool] File contained only ANSI/control characters after sanitization: ${file_path}`);
+            return {
+                success: true,
+                message: `File '${file_path}' contained only ANSI escape sequences or control characters; no readable text after sanitization.`,
             };
         }
 
@@ -967,10 +960,12 @@ export function createEditExecute(
 ): EditExecuteFn {
     return async (args: {
         file_path: string;
-        hunks: FileEditHunk[];
+        old_string: string;
+        new_string: string;
+        replace_all?: boolean;
     }): Promise<ToolResult> => {
-        const { file_path, hunks } = args;
-        logDebug(`[FileEditTool] Editing ${file_path}, hunks: ${hunks?.length ?? 0}`);
+        const { file_path, old_string, new_string, replace_all = false } = args;
+        logDebug(`[FileEditTool] Editing ${file_path}, replace_all: ${replace_all}`);
 
         // Validate file path
         const pathValidation = validateFilePath(projectPath, file_path);
@@ -983,11 +978,18 @@ export function createEditExecute(
             };
         }
 
-        if (!Array.isArray(hunks) || hunks.length === 0) {
-            logError(`[FileEditTool] No hunks provided for file: ${file_path}`);
+        if (!old_string) {
             return {
                 success: false,
-                message: 'No hunks were provided. Provide at least one patch hunk.',
+                message: 'old_string cannot be empty.',
+                error: `Error: ${ErrorMessages.NO_EDITS}`
+            };
+        }
+
+        if (old_string === new_string) {
+            return {
+                success: false,
+                message: 'new_string must be different from old_string.',
                 error: `Error: ${ErrorMessages.NO_EDITS}`
             };
         }
@@ -1004,22 +1006,40 @@ export function createEditExecute(
             };
         }
 
-        // Read file content
-        const content = fs.readFileSync(fullPath, 'utf-8');
+        // Read file content and normalize CRLF → LF so old_string from the LLM (always LF) matches
+        const rawContent = fs.readFileSync(fullPath, 'utf-8');
+        const hasCRLF = rawContent.includes('\r\n');
+        const content = hasCRLF ? rawContent.replace(/\r\n/g, '\n') : rawContent;
 
-        const patchResult = applyStructuredFilePatch(content, hunks);
-        if (!patchResult.success) {
-            const errorCode = ErrorMessages[patchResult.code as keyof typeof ErrorMessages] ?? patchResult.code;
-            logError(`[FileEditTool] Failed to apply hunk patch for: ${file_path}. ${patchResult.message}`);
+        if (!content.includes(old_string)) {
             return {
                 success: false,
-                message: patchResult.message,
-                error: `Error: ${errorCode}`,
+                message: `old_string not found in '${file_path}'. Make sure it matches exactly, including whitespace and indentation.`,
+                error: `Error: ${ErrorMessages.HUNK_NOT_FOUND}`
+            };
+        }
+
+        // Count occurrences
+        const occurrences = content.split(old_string).length - 1;
+
+        if (occurrences > 1 && !replace_all) {
+            return {
+                success: false,
+                message: `old_string found ${occurrences} times in '${file_path}'. Provide a larger string with more surrounding context to make it unique, or set replace_all=true to replace all occurrences.`,
+                error: `Error: ${ErrorMessages.HUNK_AMBIGUOUS}`
             };
         }
 
         await undoCheckpointManager?.captureBeforeChange(file_path);
-        const newContent = patchResult.newContent;
+
+        let newContent = replace_all
+            ? content.split(old_string).join(new_string)
+            : content.replace(old_string, new_string);
+
+        // Restore original CRLF line endings if the file had them
+        if (hasCRLF) {
+            newContent = newContent.replace(/\n/g, '\r\n');
+        }
 
         // Use WorkspaceEdit for LSP synchronization
         const uri = vscode.Uri.file(fullPath);
@@ -1050,19 +1070,16 @@ export function createEditExecute(
         // Track modified file
         trackModifiedFile(modifiedFiles, file_path);
 
-        const appliedHunkCount = patchResult.appliedHunks;
-
         // Give language services a brief moment to settle before automatic validation.
         await delay(POST_WRITE_VALIDATION_DELAY_MS);
-        // Automatically validate the file and get structured diagnostics
-        const validation = await validateXmlFile(fullPath, projectPath, false);
+        const validation = await validateXmlFile(fullPath, projectPath, true);
 
-        logDebug(`[FileEditTool] Successfully applied ${appliedHunkCount} hunk(s) and synced file: ${file_path}`);
+        const replacedCount = replace_all ? occurrences : 1;
+        logDebug(`[FileEditTool] Successfully replaced ${replacedCount} occurrence(s) in: ${file_path}`);
 
-        // Build result with structured validation data
         const result: ToolResult = {
             success: true,
-            message: `Successfully applied ${appliedHunkCount} hunk(s) in '${file_path}'.${validation ? formatValidationMessage(validation) : ''}`
+            message: `Replaced ${replacedCount} occurrence(s) in '${file_path}'.${validation ? formatValidationMessage(validation, 15) : ''}`
         };
 
         if (validation) {
@@ -1082,247 +1099,231 @@ export function createGrepExecute(projectPath: string): GrepExecuteFn {
         path?: string;
         glob?: string;
         type?: string;
-        output_mode?: 'content' | 'files_with_matches';
+        output_mode?: 'content' | 'files_with_matches' | 'count';
         '-i'?: boolean;
+        '-A'?: number;
+        '-B'?: number;
+        '-C'?: number;
+        multiline?: boolean;
         head_limit?: number;
     }): Promise<ToolResult> => {
         const {
             pattern,
             path: searchPath = '.',
-            glob,
+            glob: globFilter,
             type: fileType,
-            output_mode = 'content',
+            output_mode = 'files_with_matches',
             '-i': caseInsensitive = false,
-            head_limit = 100
+            '-A': afterLines,
+            '-B': beforeLines,
+            '-C': contextLines,
+            multiline = false,
+            head_limit = 100,
         } = args;
 
-        logDebug(`[GrepTool] Searching for pattern '${pattern}' in ${searchPath}`);
+        logDebug(`[GrepTool] Searching for pattern '${pattern}' in ${searchPath} (mode=${output_mode})`);
 
-        const compiledPattern = compileGrepPattern(pattern, caseInsensitive);
-        if (!compiledPattern.regex) {
+        // Glob control-character guard (Zod enforces length, but not control chars).
+        if (globFilter && /[\r\n\0]/.test(globFilter)) {
             return {
                 success: false,
-                message: compiledPattern.error || 'Invalid regex pattern.',
-                error: 'Error: Invalid regex pattern',
-            };
-        }
-
-        const compiledGlob = compileGlobPattern(glob, caseInsensitive);
-        if (glob && !compiledGlob.regex) {
-            return {
-                success: false,
-                message: compiledGlob.error || 'Invalid glob pattern.',
+                message: 'Glob contains invalid control characters.',
                 error: 'Error: Invalid glob pattern',
             };
         }
 
-        const parsedFileType = parseGrepFileType(fileType);
-        if (fileType && !parsedFileType.value) {
+        // Format-validate the user-supplied --type for argv safety. The actual
+        // type name is passed straight to rg; rg rejects unknown types itself.
+        let typeArgs: string[] = [];
+        if (fileType) {
+            const validated = validateRgTypeName(fileType);
+            if ('error' in validated) {
+                return {
+                    success: false,
+                    message: validated.error,
+                    error: 'Error: Invalid file type filter',
+                };
+            }
+            if (validated.value) {
+                typeArgs = ['--type', validated.value];
+            }
+        }
+
+        const pathValidation = validateFilePathSecurity(projectPath, searchPath, { allowOutsideProject: true });
+        if (!pathValidation.valid) {
             return {
                 success: false,
-                message: parsedFileType.error || 'Invalid file type filter.',
-                error: 'Error: Invalid file type filter',
+                message: pathValidation.error!,
+                error: `Error: ${ErrorMessages.INVALID_FILE_PATH}`,
             };
         }
 
-        try {
-            const results: Array<{file: string; line: number; content: string}> = [];
-            const filesWithMatches: Set<string> = new Set();
-            const regex = compiledPattern.regex;
-            const globRegex = compiledGlob.regex;
+        const fullSearchPath = resolveFullPath(projectPath, searchPath);
 
-            const pathValidation = validateFilePathSecurity(projectPath, searchPath);
-            if (!pathValidation.valid) {
-                return {
-                    success: false,
-                    message: pathValidation.error!,
-                    error: `Error: ${ErrorMessages.INVALID_FILE_PATH}`
-                };
-            }
-
-            const fullSearchPath = resolveFullPath(projectPath, searchPath);
-
-            if (!fs.existsSync(fullSearchPath)) {
-                return {
-                    success: false,
-                    message: `Path '${searchPath}' does not exist.`,
-                    error: 'Error: Path not found'
-                };
-            }
-
-            // Recursive function to search through directories
-            const searchInDirectory = (dirPath: string, currentDepth: number) => {
-                if (currentDepth > MAX_GREP_SEARCH_DEPTH) {
-                    return;
-                }
-
-                if (output_mode === 'content' && results.length >= head_limit) return;
-                if (output_mode === 'files_with_matches' && filesWithMatches.size >= head_limit) return;
-
-                const entries = fs.readdirSync(dirPath, { withFileTypes: true });
-
-                for (const entry of entries) {
-                    if (output_mode === 'content' && results.length >= head_limit) break;
-                    if (output_mode === 'files_with_matches' && filesWithMatches.size >= head_limit) break;
-
-                    const fullPath = path.join(dirPath, entry.name);
-
-                    if (entry.isSymbolicLink()) {
-                        continue;
-                    }
-
-                    if (entry.isDirectory()) {
-                        // Skip common directories
-                        if (entry.name === 'node_modules' || entry.name === '.git' ||
-                            entry.name === 'target' || entry.name === 'build') {
-                            continue;
-                        }
-                        searchInDirectory(fullPath, currentDepth + 1);
-                    } else if (entry.isFile()) {
-                        // Check glob pattern if specified
-                        if (globRegex && !globRegex.test(entry.name)) {
-                            continue;
-                        }
-
-                        if (!isTextAllowedFilePath(entry.name)) {
-                            continue;
-                        }
-
-                        if (!matchesRequestedFileType(entry.name, parsedFileType.value)) {
-                            continue;
-                        }
-
-                        // Search in file
-                        try {
-                            const content = fs.readFileSync(fullPath, 'utf-8');
-                            const lines = content.split('\n');
-
-                            for (let i = 0; i < lines.length; i++) {
-                                if (regex.test(lines[i])) {
-                                    const relativePath = path.relative(projectPath, fullPath);
-
-                                    if (output_mode === 'files_with_matches') {
-                                        filesWithMatches.add(relativePath);
-                                        break; // Only need one match per file
-                                    } else {
-                                        if (results.length >= head_limit) break;
-                                        results.push({
-                                            file: relativePath,
-                                            line: i + 1,
-                                            content: lines[i].trim()
-                                        });
-                                    }
-                                }
-                                // Reset regex lastIndex for global regex
-                                regex.lastIndex = 0;
-                            }
-                        } catch (error) {
-                            // Skip files that can't be read
-                            logError(`[GrepTool] Error reading file ${fullPath}:`, error);
-                        }
-                    }
-                }
+        if (!fs.existsSync(fullSearchPath)) {
+            return {
+                success: false,
+                message: `Path '${searchPath}' does not exist.`,
+                error: 'Error: Path not found',
             };
+        }
 
-            // Start search
-            const stats = fs.statSync(fullSearchPath);
-            if (stats.isDirectory()) {
-                searchInDirectory(fullSearchPath, 0);
-            } else if (stats.isFile()) {
-                if (!isTextAllowedFilePath(path.basename(fullSearchPath))) {
-                    return {
-                        success: true,
-                        message: `No matches found for pattern '${pattern}' in ${searchPath}.`
-                    };
-                }
-
-                if (!matchesRequestedFileType(path.basename(fullSearchPath), parsedFileType.value)) {
-                    return {
-                        success: true,
-                        message: `No matches found for pattern '${pattern}' in ${searchPath}.`
-                    };
-                }
-
-                // Search in single file
-                const content = fs.readFileSync(fullSearchPath, 'utf-8');
-                const lines = content.split('\n');
-
-                for (let i = 0; i < lines.length; i++) {
-                    if (regex.test(lines[i])) {
-                        const relativePath = path.relative(projectPath, fullSearchPath);
-
-                        if (output_mode === 'files_with_matches') {
-                            filesWithMatches.add(relativePath);
-                            break; // Only need one match per file
-                        } else {
-                            if (results.length >= head_limit) break;
-                            results.push({
-                                file: relativePath,
-                                line: i + 1,
-                                content: lines[i].trim()
-                            });
-                        }
-                    }
-                    regex.lastIndex = 0;
-                }
-            }
-
-            // Build response message based on output mode
-            if (output_mode === 'files_with_matches') {
-                if (filesWithMatches.size === 0) {
-                    return {
-                        success: true,
-                        message: `No matches found for pattern '${pattern}' in ${searchPath}.`
-                    };
-                }
-
-                let message = `Found ${filesWithMatches.size} file(s) with matches for pattern '${pattern}':\n\n`;
-                for (const file of filesWithMatches) {
-                    message += `${file}\n`;
-                }
-
-                if (filesWithMatches.size >= head_limit) {
-                    message += `\n(Limited to ${head_limit} files. Use head_limit parameter to see more.)`;
-                }
-
-                logDebug(`[GrepTool] Found ${filesWithMatches.size} files with matches`);
-                return {
-                    success: true,
-                    message: message.trim()
-                };
+        // Build the rg argument list. Match glob's ignore semantics (--no-ignore
+        // + --no-ignore-vcs) so grep results don't silently skip files the glob
+        // tool would return — e.g. target/, build/, and anything else covered
+        // by a project .gitignore. RG_EXCLUDED_DIRS / RG_EXCLUDED_SENSITIVE_GLOBS
+        // below are the single source of truth for what grep hides.
+        const rgArgs: string[] = ['--no-follow', '--no-ignore', '--no-ignore-vcs'];
+        if (output_mode === 'files_with_matches') {
+            rgArgs.push('-l');
+        } else if (output_mode === 'count') {
+            // --with-filename forces `file:count` output even when rg is run
+            // against a single file; parseRgCountOutput needs the `file:` prefix
+            // on every line, otherwise single-file searches silently drop the
+            // result (lastIndexOf(':') is negative on a bare number).
+            rgArgs.push('-c', '--with-filename');
+        } else {
+            // content mode — use --json for structured parsing of matches + context events
+            rgArgs.push('--json');
+        }
+        if (caseInsensitive) {
+            rgArgs.push('-i');
+        }
+        if (multiline) {
+            rgArgs.push('-U', '--multiline-dotall');
+        }
+        // Context flags only meaningful in content mode. -C overrides -A/-B if set.
+        if (output_mode === 'content') {
+            if (typeof contextLines === 'number' && contextLines > 0) {
+                rgArgs.push('-C', String(contextLines));
             } else {
-                // output_mode === 'content'
-                if (results.length === 0) {
-                    return {
-                        success: true,
-                        message: `No matches found for pattern '${pattern}' in ${searchPath}.`
-                    };
+                if (typeof afterLines === 'number' && afterLines > 0) {
+                    rgArgs.push('-A', String(afterLines));
                 }
-
-                let message = `Found ${results.length} match(es) for pattern '${pattern}':\n\n`;
-                for (const result of results) {
-                    message += `${result.file}:${result.line}: ${result.content}\n`;
+                if (typeof beforeLines === 'number' && beforeLines > 0) {
+                    rgArgs.push('-B', String(beforeLines));
                 }
+            }
+        }
+        rgArgs.push(...typeArgs);
+        if (globFilter) {
+            rgArgs.push('--glob', globFilter);
+        }
+        for (const dir of RG_EXCLUDED_DIRS) {
+            rgArgs.push('--glob', `!${dir}`);
+        }
+        for (const pat of RG_EXCLUDED_SENSITIVE_GLOBS) {
+            rgArgs.push('--glob', `!${pat}`);
+        }
+        // Positional separator prevents a pattern starting with `-` from being parsed as a flag.
+        rgArgs.push('--', pattern, fullSearchPath);
 
-                if (results.length >= head_limit) {
-                    message += `\n(Limited to ${head_limit} results. Use head_limit parameter to see more.)`;
-                }
+        const guarded = await runRipgrepGuarded(rgArgs, projectPath, 'GrepTool');
+        if (guarded.failure) {
+            return guarded.failure;
+        }
+        const rgResult = guarded.result;
 
-                console.log(`[GrepTool] Found ${results.length} matches`);
+        // head_limit: 0 means unlimited; positive means cap.
+        const limit = head_limit > 0 ? head_limit : Number.POSITIVE_INFINITY;
+        const truncationNote = rgResult.truncated
+            ? '\n\n(Note: rg output was truncated at 16 MB. Results are partial — narrow your search.)'
+            : '';
+
+        if (output_mode === 'files_with_matches') {
+            const rawFiles = parseRgFiles(rgResult.stdout);
+            const wasCapped = rawFiles.length > limit;
+            const filesWithMatches = rawFiles
+                .slice(0, limit)
+                .map(absPath => path.relative(projectPath, absPath));
+
+            if (filesWithMatches.length === 0) {
                 return {
                     success: true,
-                    message: message.trim()
+                    message: `No matches found for pattern '${pattern}' in ${searchPath}.${truncationNote}`,
                 };
             }
 
-        } catch (error) {
-            console.error(`[GrepTool] Error during search:`, error);
+            let message = `Found ${filesWithMatches.length} file(s) with matches for pattern '${pattern}':\n\n`;
+            for (const file of filesWithMatches) {
+                message += `${file}\n`;
+            }
+            if (wasCapped) {
+                message += `\n(Limited to ${head_limit} files. Use head_limit parameter to see more.)`;
+            }
+            message += truncationNote;
+
+            logDebug(`[GrepTool] Found ${filesWithMatches.length} files with matches`);
             return {
-                success: false,
-                message: `Error searching for pattern: ${error instanceof Error ? error.message : String(error)}`,
-                error: `Error: Search failed`
+                success: true,
+                message: message.trim(),
             };
         }
+
+        if (output_mode === 'count') {
+            const rawCounts = parseRgCountOutput(rgResult.stdout);
+            const wasCapped = rawCounts.length > limit;
+            const counts = rawCounts
+                .slice(0, limit)
+                .map(c => ({ file: path.relative(projectPath, c.file), count: c.count }));
+
+            if (counts.length === 0) {
+                return {
+                    success: true,
+                    message: `No matches found for pattern '${pattern}' in ${searchPath}.${truncationNote}`,
+                };
+            }
+
+            let message = `Found matches in ${counts.length} file(s) for pattern '${pattern}':\n\n`;
+            for (const c of counts) {
+                message += `${c.file}:${c.count}\n`;
+            }
+            if (wasCapped) {
+                message += `\n(Limited to ${head_limit} files. Use head_limit parameter to see more.)`;
+            }
+            message += truncationNote;
+
+            logDebug(`[GrepTool] Counted matches in ${counts.length} files`);
+            return {
+                success: true,
+                message: message.trim(),
+            };
+        }
+
+        // content mode — entries can be matches or context lines
+        const allEntries = parseRgJsonMatches(rgResult.stdout);
+        const wasCapped = allEntries.length > limit;
+        const entries = allEntries.slice(0, limit);
+
+        if (entries.length === 0) {
+            return {
+                success: true,
+                message: `No matches found for pattern '${pattern}' in ${searchPath}.${truncationNote}`,
+            };
+        }
+
+        const matchCount = entries.filter(e => e.kind === 'match').length;
+        let message = `Found ${matchCount} match(es) for pattern '${pattern}':\n\n`;
+        for (const entry of entries) {
+            const relFile = path.relative(projectPath, entry.file);
+            const trimmedLine = entry.content.trim();
+            const displayLine = trimmedLine.length > MAX_GREP_MATCH_LINE_LENGTH
+                ? trimmedLine.substring(0, MAX_GREP_MATCH_LINE_LENGTH) + '… [truncated]'
+                : trimmedLine;
+            // Standard grep convention: `:` separator for matches, `-` for context lines.
+            const sep = entry.kind === 'match' ? ':' : '-';
+            message += `${relFile}${sep}${entry.line}${sep} ${displayLine}\n`;
+        }
+        if (wasCapped) {
+            message += `\n(Limited to ${head_limit} lines. Use head_limit parameter to see more.)`;
+        }
+        message += truncationNote;
+
+        logDebug(`[GrepTool] Returned ${entries.length} content lines (${matchCount} matches)`);
+        return {
+            success: true,
+            message: message.trim(),
+        };
     };
 }
 
@@ -1336,74 +1337,102 @@ export function createGlobExecute(projectPath: string): GlobExecuteFn {
     }): Promise<ToolResult> => {
         const { pattern, path: searchPath = '.' } = args;
 
-        console.log(`[GlobTool] Searching for pattern '${pattern}' in ${searchPath}`);
+        logDebug(`[GlobTool] Searching for pattern '${pattern}' in ${searchPath}`);
 
-        try {
-            const pathValidation = validateFilePathSecurity(projectPath, searchPath);
-            if (!pathValidation.valid) {
-                return {
-                    success: false,
-                    message: pathValidation.error!,
-                    error: `Error: ${ErrorMessages.INVALID_FILE_PATH}`
-                };
-            }
-
-            const fullSearchPath = resolveFullPath(projectPath, searchPath);
-
-            if (!fs.existsSync(fullSearchPath)) {
-                return {
-                    success: false,
-                    message: `Path '${searchPath}' does not exist.`,
-                    error: 'Error: Path not found'
-                };
-            }
-
-            // Convert glob pattern to work from search path
-            const globPattern = path.join(fullSearchPath, pattern);
-
-            // Use glob.sync() to find matching files (like Ballerina extension)
-            const rawMatches: string[] = glob.sync(globPattern, { nodir: true });
-            const matches: string[] = rawMatches
-                .map((match) => path.resolve(match))
-                .filter((resolvedMatch) => isPathWithin(fullSearchPath, resolvedMatch));
-
-            // Get file stats and sort by modification time (most recent first)
-            const filesWithStats = matches.map(file => ({
-                file,
-                mtime: fs.statSync(file).mtime.getTime()
-            }));
-
-            filesWithStats.sort((a, b) => b.mtime - a.mtime);
-
-            // Convert to relative paths
-            const relativePaths = filesWithStats.map(f => path.relative(projectPath, f.file));
-
-            if (relativePaths.length === 0) {
-                return {
-                    success: true,
-                    message: `No files found matching pattern '${pattern}' in ${searchPath}.`
-                };
-            }
-
-            let message = `Found ${relativePaths.length} file(s) matching pattern '${pattern}':\n\n`;
-            for (const filePath of relativePaths) {
-                message += `${filePath}\n`;
-            }
-
-            console.log(`[GlobTool] Found ${relativePaths.length} files`);
-            return {
-                success: true,
-                message: message.trim()
-            };
-
-        } catch (error) {
-            console.error(`[GlobTool] Error during search:`, error);
+        // Glob control-character guard.
+        if (/[\r\n\0]/.test(pattern)) {
             return {
                 success: false,
-                message: `Error searching for pattern: ${error instanceof Error ? error.message : String(error)}`,
-                error: `Error: Search failed`
+                message: 'Glob contains invalid control characters.',
+                error: 'Error: Invalid glob pattern',
             };
         }
+
+        const pathValidation = validateFilePathSecurity(projectPath, searchPath, { allowOutsideProject: true });
+        if (!pathValidation.valid) {
+            return {
+                success: false,
+                message: pathValidation.error!,
+                error: `Error: ${ErrorMessages.INVALID_FILE_PATH}`,
+            };
+        }
+
+        const fullSearchPath = resolveFullPath(projectPath, searchPath);
+
+        if (!fs.existsSync(fullSearchPath)) {
+            return {
+                success: false,
+                message: `Path '${searchPath}' does not exist.`,
+                error: 'Error: Path not found',
+            };
+        }
+
+        // rg --files lists every file under the search path; --glob filters the listing.
+        // --no-ignore makes results independent of whether the project has a .gitignore.
+        // We do NOT pass --hidden because dotfiles are usually noise here.
+        // target/ and build/ are intentionally NOT excluded — see createGrepExecute for rationale.
+        const rgArgs: string[] = [
+            '--files',
+            '--no-follow',
+            '--no-ignore',
+            '--glob', pattern,
+        ];
+        for (const dir of RG_EXCLUDED_DIRS) {
+            rgArgs.push('--glob', `!${dir}`);
+        }
+        for (const pat of RG_EXCLUDED_SENSITIVE_GLOBS) {
+            rgArgs.push('--glob', `!${pat}`);
+        }
+        rgArgs.push(fullSearchPath);
+
+        const guarded = await runRipgrepGuarded(rgArgs, projectPath, 'GlobTool');
+        if (guarded.failure) {
+            return guarded.failure;
+        }
+        const rgResult = guarded.result;
+
+        // Resolve to absolute paths so isPathWithin and stat behave deterministically,
+        // then containment-filter as defense in depth against any path-escape edge cases.
+        const matches = parseRgFiles(rgResult.stdout)
+            .map(p => path.isAbsolute(p) ? path.resolve(p) : path.resolve(projectPath, p))
+            .filter(absPath => isPathWithin(fullSearchPath, absPath));
+
+        // Stat in parallel — large monorepo glob results can be hundreds of files.
+        // A file that vanished between rg listing and stat is silently dropped.
+        const statResults = await Promise.all(matches.map(async (file) => {
+            try {
+                const stat = await fs.promises.stat(file);
+                return { file, mtime: stat.mtime.getTime() };
+            } catch {
+                return null;
+            }
+        }));
+        const filesWithStats = statResults.filter((s): s is { file: string; mtime: number } => s !== null);
+        filesWithStats.sort((a, b) => b.mtime - a.mtime);
+
+        const relativePaths = filesWithStats.map(f => path.relative(projectPath, f.file));
+        const truncationNote = rgResult.truncated
+            ? '\n\n(Note: rg output was truncated at 16 MB. Results are partial — narrow your pattern.)'
+            : '';
+
+        if (relativePaths.length === 0) {
+            return {
+                success: true,
+                message: `No files found matching pattern '${pattern}' in ${searchPath}.${truncationNote}`,
+            };
+        }
+
+        let message = `Found ${relativePaths.length} file(s) matching pattern '${pattern}':\n\n`;
+        for (const filePath of relativePaths) {
+            message += `${filePath}\n`;
+        }
+        message += truncationNote;
+
+        logDebug(`[GlobTool] Found ${relativePaths.length} files`);
+        return {
+            success: true,
+            message: message.trim(),
+        };
     };
 }
 
@@ -1424,10 +1453,11 @@ const writeInputSchema = z.object({
 export function createWriteTool(execute: WriteExecuteFn) {
     // Type assertion to avoid TypeScript deep instantiation issues with Zod
     return (tool as any)({
-        description: `Creates a new file. Will NOT overwrite existing files with content - use ${FILE_EDIT_TOOL_NAME} for that.
-            Parent directories are created automatically. Allowed file types: ${getAllowedFileTypesDescription()}.
+        description: `Writes a file to the filesystem. Creates new files or overwrites existing ones.
+            If the file already exists, you MUST use ${FILE_READ_TOOL_NAME} first — this tool will fail if you haven't read it.
+            Prefer ${FILE_EDIT_TOOL_NAME} for modifying existing files — it only sends the diff. Use this tool for new files or complete rewrites.
+            Parent directories are created automatically.
             XML files are automatically validated after writing (results included in response).
-            LemMinx may reports "Premature end of file". This is a known false positive when LemMinx is not synchronized with the file system. Ignore it and verify by building the project instead if needed.
             Do NOT create documentation files unless explicitly requested.`,
         inputSchema: writeInputSchema,
         execute
@@ -1449,9 +1479,10 @@ export function createReadTool(execute: ReadExecuteFn, projectPath: string) {
     // Type assertion to avoid TypeScript deep instantiation issues with Zod
     return (tool as any)({
         description: `Reads a file from the project.
-            Text files return line-numbered content (supports offset/limit).
+            Text files return line-numbered content (supports offset/limit). When you already know which part of the file you need, only read that part.
             Image files (.png, .jpg, .jpeg, .gif, .webp) are provided for multimodal analysis.
-            PDFs can be read with pages ("N" or "N-M"). For PDFs over ${PDF_MAX_PAGES_PER_REQUEST} pages, pages is required. Maximum ${PDF_MAX_PAGES_PER_REQUEST} pages per request.`,
+            PDFs can be read with pages ("N" or "N-M"). For PDFs over ${PDF_MAX_PAGES_PER_REQUEST} pages, pages is required. Maximum ${PDF_MAX_PAGES_PER_REQUEST} pages per request.
+            You can call this tool multiple times in parallel — speculatively read multiple potentially useful files at once rather than one at a time.`,
         inputSchema: readInputSchema,
         execute,
         toModelOutput: async ({ input, output }: { input: { file_path?: string; pages?: string }; output: unknown }) => {
@@ -1466,25 +1497,20 @@ export function createReadTool(execute: ReadExecuteFn, projectPath: string) {
 
 const editInputSchema = z.object({
     file_path: z.string().describe(`The file path to edit. Use a path relative to the project root, or an absolute path under ~/.wso2-mi/copilot/projects for copilot session artifacts.`),
-    hunks: z.array(z.object({
-        old_text: z.string().describe(`Exact text block to replace (non-empty). Matching ignores trailing whitespace and line ending style.`),
-        new_text: z.string().describe(`Replacement text block. Use empty string to delete matched content.`),
-        context_before: z.string().optional().describe(`Optional stable text immediately before old_text to disambiguate repeated matches.`),
-        context_after: z.string().optional().describe(`Optional stable text immediately after old_text to disambiguate repeated matches.`),
-        line_hint: z.number().int().positive().optional().describe(`Optional 1-based approximate start line for old_text. Used only as a tie-breaker.`),
-    })).min(1).describe(`One or more patch hunks for this file. Hunks must not overlap.`)
+    old_string: z.string().describe(`The exact text to replace. Must match exactly (including whitespace and indentation). Must be unique in the file unless replace_all is true.`),
+    new_string: z.string().describe(`The replacement text. Must be different from old_string. Use empty string to delete the matched text.`),
+    replace_all: z.boolean().default(false).describe(`Replace all occurrences of old_string. Default false. Use for renaming variables or changing repeated patterns across the file.`),
 });
 
 export function createEditTool(execute: EditExecuteFn) {
     // Type assertion to avoid TypeScript deep instantiation issues with Zod
     return (tool as any)({
-        description: `Apply structured patch hunks to an existing file (single file per call).
-            Use minimal old_text blocks with stable context_before/context_after for repeated sections.
-            Use line_hint only for disambiguation when multiple matches remain.
-            Matching is strict but normalizes line endings and ignores trailing whitespace.
-            Cannot create new files - use ${FILE_WRITE_TOOL_NAME} for that.
-            XML files are automatically validated after editing (results included in response).
-            LemMinx may reports "Premature end of file". This is a known false positive when LemMinx is not synchronized with the file system. Ignore it and verify by building the project instead if needed.`,
+        description: `Performs exact string replacements in an existing file.
+            The edit will FAIL if old_string is not unique in the file — provide a larger string with more surrounding context to make it unique, or use replace_all to change every instance.
+            Use replace_all for renaming variables or replacing repeated strings across the file.
+            For multiple edits: call this tool in parallel for different files; call sequentially for the same file.
+            Cannot create new files — use ${FILE_WRITE_TOOL_NAME} for that.
+            XML files are automatically validated after editing (results included in response).`,
         inputSchema: editInputSchema,
         execute
     });
@@ -1495,21 +1521,33 @@ export function createEditTool(execute: EditExecuteFn) {
  */
 
 const grepInputSchema = z.object({
-    pattern: z.string().min(1).max(MAX_GREP_PATTERN_LENGTH).describe(`The regular expression pattern to search for in file contents (max ${MAX_GREP_PATTERN_LENGTH} characters)`),
+    pattern: z.string().min(1).max(MAX_GREP_PATTERN_LENGTH).describe(`The regular expression pattern to search for in file contents`),
     path: z.string().optional().describe(`File or directory to search in (rg PATH). Defaults to current working directory.`),
-    glob: z.string().max(MAX_GREP_GLOB_LENGTH).optional().describe(`Glob pattern to filter files (e.g. "*.js", "*.{ts,tsx}") - maps to rg --glob (max ${MAX_GREP_GLOB_LENGTH} characters)`),
-    type: z.string().optional().describe(`File type to search (rg --type). Common types: js, py, rust, go, java, etc. More efficient than include for standard file types.`),
-    output_mode: z.enum(['content', 'files_with_matches']).optional().describe(`Output mode: "content" shows matching lines (supports -A/-B/-C context, -n line numbers, head_limit), "files_with_matches" shows only file paths (supports head_limit). Defaults to "content".`),
-    '-i': z.boolean().optional().describe(`Case insensitive search`),
-    head_limit: z.number().optional().describe(`Limit the number of results (default: 100)`)
+    glob: z.string().max(MAX_GREP_GLOB_LENGTH).optional().describe(`Glob pattern to filter files (e.g. "*.js", "*.{ts,tsx}") - maps to rg --glob`),
+    type: z.string().optional().describe(`File type to search (rg --type). Run \`rg --type-list\` for the full list of supported types. Common: js, ts, py, rust, go, java, xml.`),
+    output_mode: z.enum(['content', 'files_with_matches', 'count']).optional().describe(`Output mode: "content" shows matching lines (supports -A/-B/-C context, head_limit), "files_with_matches" shows file paths (default), "count" shows match counts per file.`),
+    '-i': z.boolean().optional().describe(`Case insensitive search (rg -i)`),
+    '-A': z.number().int().min(0).max(50).optional().describe(`Number of lines to show after each match (rg -A). Requires output_mode: "content", ignored otherwise.`),
+    '-B': z.number().int().min(0).max(50).optional().describe(`Number of lines to show before each match (rg -B). Requires output_mode: "content", ignored otherwise.`),
+    '-C': z.number().int().min(0).max(50).optional().describe(`Number of lines to show before and after each match (rg -C). Requires output_mode: "content", ignored otherwise.`),
+    multiline: z.boolean().optional().describe(`Enable multiline mode where . matches newlines and patterns can span lines (rg -U --multiline-dotall). Default: false.`),
+    head_limit: z.number().int().min(0).optional().describe(`Limit output to first N lines/entries, equivalent to "| head -N". Works across all output modes: content (limits output lines), files_with_matches (limits file paths), count (limits count entries). Defaults to 100. Pass 0 for unlimited (use sparingly — large result sets waste context).`),
 });
 
 export function createGrepTool(execute: GrepExecuteFn) {
     // Type assertion to avoid TypeScript deep instantiation issues with Zod
     return (tool as any)({
-        description: `Search for regex patterns in project files. Supports glob filtering.
-            Output modes: "content" (matching lines, default) or "files_with_matches" (file paths only).
-            Skips node_modules, .git, target, build. Limited to allowed file types: ${getAllowedFileTypesDescription()}.`,
+        description: `A powerful search tool built on ripgrep.
+
+Usage:
+- ALWAYS use this tool for search tasks. NEVER invoke \`grep\` or \`rg\` via the shell tool. This tool has been optimized for correct permissions, sandboxing, and output handling.
+- Supports full regex syntax (e.g., "log.*Error", "function\\s+\\w+")
+- Filter files with the \`glob\` parameter (e.g., "*.xml", "**/*.{xml,yaml}") or the \`type\` parameter (e.g., "xml", "ts", "java"). Run \`rg --type-list\` mentally to recall supported types.
+- Output modes: "content" shows matching lines (verbose — use sparingly), "files_with_matches" shows only file paths (default), "count" shows match counts per file.
+- Pattern syntax: Uses ripgrep, not POSIX grep. Literal braces need escaping (e.g. \`interface\\{\\}\` to find \`interface{}\`).
+- Multiline matching: By default patterns match within a single line only. For cross-line patterns like \`<sequence>[\\s\\S]*?</sequence>\`, set \`multiline: true\`.
+- Skips node_modules, .git, .devtools. Binary files (.car, .class, .jar, etc.) are auto-detected and skipped.
+- target/ and build/ ARE searchable so you can inspect deployed synapse-config under target/<artifact>/synapse-config/ and built artifacts.`,
         inputSchema: grepInputSchema,
         execute
     });
@@ -1527,7 +1565,8 @@ const globInputSchema = z.object({
 export function createGlobTool(execute: GlobExecuteFn) {
     // Type assertion to avoid TypeScript deep instantiation issues with Zod
     return (tool as any)({
-        description: `Find files by glob pattern (e.g., "**/*.xml"). Returns paths sorted by modification time (most recent first).`,
+        description: `Find files by glob pattern (e.g., "**/*.xml") using ripgrep. Returns paths sorted by modification time (most recent first).
+            Skips node_modules, .git, .devtools. target/ and build/ are searchable so you can locate built artifacts and deployed synapse-config files.`,
         inputSchema: globInputSchema,
         execute
     });

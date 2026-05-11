@@ -182,9 +182,6 @@ export const CustomDriverConfig: React.FC<DriverConfigProps> = ({
             </table>
 
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-              <Button appearance="primary" onClick={onSave}>
-                <SpacedCodicon name="save" iconSx={{ fontSize: '15px', marginRight: '10px' }} /> Save
-              </Button>
               <Button appearance="secondary" onClick={onClear} disabled={!config.groupId}>
                 <SpacedCodicon name="trash" iconSx={{ fontSize: '15px', color: "red", marginRight: '10px' }} /> Delete
               </Button>
@@ -264,7 +261,7 @@ export const MavenDriverConfig: React.FC<DriverConfigProps> = ({
 
         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
           <Button appearance="primary" onClick={onSave}>
-            <SpacedCodicon name="save" iconSx={{ fontSize: '15px', marginRight: '10px' }} /> Save
+            <SpacedCodicon name="check" iconSx={{ fontSize: '15px', marginRight: '10px' }} /> Resolve
           </Button>
           <Button appearance="secondary" onClick={onClear}>
             <SpacedCodicon name="clear-all" iconSx={{ fontSize: '15px', color: "red", marginRight: '10px' }} /> Clear

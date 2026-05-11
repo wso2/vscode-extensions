@@ -39,6 +39,7 @@ import { DebuggerConfig } from '../../../debugger/config';
 import { getServerPathFromConfig } from '../../../util/onboardingUtils';
 import { serverLog, showServerOutputChannel } from '../../../util/serverLogger';
 import { MILanguageClient } from '../../../lang-client/activator';
+import { ensureOperationNotAborted } from './abort-utils';
 import treeKill = require('tree-kill');
 
 export {
@@ -217,12 +218,6 @@ function resolveServerPath(projectPath: string): { serverPath?: string; errorRes
     return { serverPath };
 }
 
-function ensureOperationNotAborted(mainAbortSignal: AbortSignal | undefined, context: string): void {
-    if (mainAbortSignal?.aborted) {
-        throw new Error(`AbortError: Operation aborted by user while ${context}`);
-    }
-}
-
 function getCarArtifacts(projectPath: string): { targetDir: string; carFiles: string[] } {
     const targetDir = path.join(projectPath, 'target');
     if (!fs.existsSync(targetDir)) {
@@ -256,7 +251,11 @@ function copyCarArtifactsToRuntime(targetDir: string, carFiles: string[], server
     };
 }
 
-async function runBuildCommand(projectPath: string, sessionDir: string): Promise<BuildCommandResult> {
+async function runBuildCommand(
+    projectPath: string,
+    sessionDir: string,
+    mainAbortSignal?: AbortSignal
+): Promise<BuildCommandResult> {
     // Show output channel to user
     showServerOutputChannel();
     serverLog('\n========================================\n');
@@ -275,7 +274,7 @@ async function runBuildCommand(projectPath: string, sessionDir: string): Promise
     };
 
     // Execute build
-    const buildExecution = await new Promise<{ success: boolean; output: string; error?: string }>((resolve) => {
+    const buildExecution = await new Promise<{ success: boolean; output: string; error?: string; aborted?: boolean }>((resolve) => {
         let stdout = '';
         let stderr = '';
 
@@ -284,6 +283,27 @@ async function runBuildCommand(projectPath: string, sessionDir: string): Promise
             cwd: projectPath,
             env: envVariables
         });
+
+        // Tree-kill the maven process if the main agent is aborted mid-build.
+        // Same pattern as shell/foreground bash_tools and startServer.
+        let aborted = false;
+        let removeAbortListener: (() => void) | undefined;
+        const onMainAbort = () => {
+            if (!aborted && buildProcess.pid) {
+                aborted = true;
+                logInfo('[BuildAndDeployTool] Main agent aborted, killing build process tree');
+                serverLog('\n[Interrupted by user — killing build process]\n');
+                treeKill(buildProcess.pid, 'SIGKILL');
+            }
+        };
+        if (mainAbortSignal) {
+            if (mainAbortSignal.aborted) {
+                onMainAbort();
+            } else {
+                mainAbortSignal.addEventListener('abort', onMainAbort, { once: true });
+                removeAbortListener = () => mainAbortSignal.removeEventListener('abort', onMainAbort);
+            }
+        }
 
         buildProcess.stdout?.on('data', (data) => {
             const text = data.toString('utf8');
@@ -298,6 +318,11 @@ async function runBuildCommand(projectPath: string, sessionDir: string): Promise
         });
 
         buildProcess.on('close', (code) => {
+            removeAbortListener?.();
+            if (aborted) {
+                resolve({ success: false, output: stdout, error: 'Build aborted by user', aborted: true });
+                return;
+            }
             if (code === 0) {
                 resolve({ success: true, output: stdout });
             } else {
@@ -306,6 +331,7 @@ async function runBuildCommand(projectPath: string, sessionDir: string): Promise
         });
 
         buildProcess.on('error', (error) => {
+            removeAbortListener?.();
             resolve({ success: false, output: stdout, error: error.message });
         });
     });
@@ -315,6 +341,22 @@ async function runBuildCommand(projectPath: string, sessionDir: string): Promise
     const { targetDir, carFiles } = getCarArtifacts(projectPath);
 
     if (!buildExecution.success) {
+        if (buildExecution.aborted) {
+            logInfo('[BuildAndDeployTool] Build aborted by user');
+            serverLog('\n========================================\n');
+            serverLog('  BUILD ABORTED\n');
+            serverLog('========================================\n');
+            return {
+                result: {
+                    success: false,
+                    message: `Build aborted by user. Partial output saved to: ${buildOutputFile}`,
+                    error: 'Build aborted by user'
+                },
+                carFiles,
+                targetDir,
+                buildOutputFile,
+            };
+        }
         logError(`[BuildAndDeployTool] Build failed: ${buildExecution.error}`);
         serverLog('\n========================================\n');
         serverLog('  BUILD FAILED\n');
@@ -370,7 +412,7 @@ export function createBuildAndDeployExecute(
         try {
             if (mode === 'build') {
                 ensureOperationNotAborted(mainAbortSignal, 'starting build');
-                const buildResult = await runBuildCommand(projectPath, sessionDir);
+                const buildResult = await runBuildCommand(projectPath, sessionDir, mainAbortSignal);
                 return buildResult.result;
             }
 
@@ -434,7 +476,7 @@ export function createBuildAndDeployExecute(
             }
 
             ensureOperationNotAborted(mainAbortSignal, 'building project');
-            const buildResult = await runBuildCommand(projectPath, sessionDir);
+            const buildResult = await runBuildCommand(projectPath, sessionDir, mainAbortSignal);
             if (!buildResult.result.success) {
                 return buildResult.result;
             }

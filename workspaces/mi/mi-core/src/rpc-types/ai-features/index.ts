@@ -66,6 +66,12 @@ export interface MIAIPanelAPI {
     hasAnthropicApiKey: () => Promise<boolean | undefined>
 
     // ==================================
+    // Tavily API Key (Bedrock-only web search/fetch BYOK)
+    // ==================================
+    getTavilyApiKey: () => Promise<string | undefined>
+    setTavilyApiKey: (request: { apiKey: string }) => Promise<{ success: boolean; error?: string }>
+
+    // ==================================
     // MI Copilot Login Status
     // ==================================
     isMiCopilotLoggedIn: () => Promise<boolean>
@@ -108,6 +114,8 @@ export {
     abortCodeGeneration,
     codeGenerationEvent,
     hasAnthropicApiKey,
+    getTavilyApiKey,
+    setTavilyApiKey,
     isMiCopilotLoggedIn,
     fetchUsage,
     generateUnitTest,

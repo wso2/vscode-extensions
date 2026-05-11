@@ -41,6 +41,7 @@ import { addCheckExpressionErrors } from "../../../rpc-managers/ai-panel/repair-
 import { BiDiagramRpcManager, getBallerinaFiles } from "../../../rpc-managers/bi-diagram/rpc-manager";
 import { updateSourceCode } from "../../../utils/source-utils";
 import { StateMachine } from "../../../stateMachine";
+import { RPCLayer } from "../../../RPCLayer";
 import { getHasStopped, setHasStopped } from "../../../rpc-managers/data-mapper/utils";
 import { commands, Uri, window } from "vscode";
 import { CLOSE_AI_PANEL_COMMAND } from "../constants";
@@ -1055,7 +1056,7 @@ export async function generateContextTypesCore(
         // Initialize generation process
         eventHandler({ type: "start" });
 
-        const biDiagramRpcManager = new BiDiagramRpcManager();
+        const biDiagramRpcManager = new BiDiagramRpcManager(RPCLayer._messenger);
         const projectComponents = await biDiagramRpcManager.getProjectComponents();
         eventHandler({ type: "content_block", content: "\n\nAnalyzing your provided data to generate Ballerina record types.\n\n" });
         const generatingTypesId = `generating-types_${Date.now()}`;

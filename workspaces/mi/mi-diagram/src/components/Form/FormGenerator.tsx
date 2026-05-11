@@ -66,8 +66,8 @@ import { McpToolsSelection } from './MCPtoolsSelection/McpToolsSelection';
 
 import { DynamicFieldsHandler } from './DynamicFields/DynamicFieldsHandler';
 import { GenericRadioGroup } from '../Form/RadioButtonGroup/GenericRadioGroup';
-import { DriverConfig, DRIVER_OPTIONS, DefaultDriverConfig, CustomDriverConfig, MavenDriverConfig } from './DBConnector/DriverConfiguration';
 import { getValue } from './Keylookup/utils';
+import { ConnectorEffectiveDependency } from '@wso2/mi-core';
 // Constants
 const XML_VALUE = 'xml';
 
@@ -113,6 +113,7 @@ export interface FormGeneratorProps {
     getValues: any;
     skipGeneralHeading?: boolean;
     connectionName?: string;
+    connectorArtifactId?: string;
     connections?: string[];
     ignoreFields?: string[];
     disableFields?: string[];
@@ -250,6 +251,7 @@ export function FormGenerator(props: FormGeneratorProps) {
         disableFields,
         range,
         connectionName,
+        connectorArtifactId: connectorArtifactIdProp,
         parameters,
         setComboValues
     } = props;
@@ -277,9 +279,7 @@ export function FormGenerator(props: FormGeneratorProps) {
     const [showFillWithAI, setShowFillWithAI] = useState<boolean>(false);
     const selectedConnection = useWatch({ control, name: 'configKey' });
     const selectedMcpTools = useWatch({ control, name: 'mcpToolsSelection' });
-    const [isProcessing, setIsProcessing] = useState<boolean>(false);
     const [customErrors, setCustomErrors] = useState<Record<string, string | null>>({});
-    const [driverError, setDriverError] = useState("");
     const dynamicFieldsHandler = useRef<DynamicFieldsHandler>(null);
     const [dynamicFields, setDynamicFields] = useState<Record<string, DynamicFieldGroup>>({});
     const setCustomError = (fieldName: string, message: string | null) => {
@@ -288,47 +288,32 @@ export function FormGenerator(props: FormGeneratorProps) {
             [fieldName]: message
         }));
     };
-    const [driverConfig, setDriverConfig] = useState<DriverConfig>({
-        type: 'default',
-        groupId: '',
-        artifactId: '',
-        version: '',
-        driverPath: ''
-    });
-    const [, setIsDriverConfigLoading] = useState(true);
+    const [effectiveDriverDep, setEffectiveDriverDep] = useState<ConnectorEffectiveDependency | null>(null);
 
     useEffect(() => {
-        const initializeDriverConfig = () => {
-            setIsDriverConfigLoading(true);
-
+        let cancelled = false;
+        const loadEffectiveDriver = async () => {
+            const cn = connectorArtifactIdProp ?? formData?.connectorName ?? connectorName?.replace(/\s/g, '');
+            const ct = connectionName;
+            if (!cn || !ct) return;
             try {
-                const paramValues = parameters?.paramValues || [];
-                const getParamValue = (key: string) => paramValues.find((p: any) => p.key === key)?.value;
-
-                const formValues = getValues();
-
-                const groupId = formValues.groupId || getParamValue('groupId') || '';
-                const artifactId = formValues.artifactId || getParamValue('artifactId') || '';
-                const version = formValues.version || getParamValue('version') || '';
-                const driverPath = formValues.driverPath || getParamValue('driverPath') || '';
-
-                let type: DriverConfig['type'] = 'default';
-                if (driverPath) {
-                    type = 'custom';
-                } else if (groupId || artifactId || version) {
-                    type = 'maven';
-                }
-
-                setDriverConfig({ type, groupId, artifactId, version, driverPath });
-            } catch (error) {
-                console.error('Failed to initialize driver config:', error);
-            } finally {
-                setIsDriverConfigLoading(false);
+                const resp = await rpcClient.getMiDiagramRpcClient().getConnectorDependencies({
+                    connectorArtifactId: cn,
+                });
+                if (cancelled) return;
+                const dep = resp?.dependencies?.find(
+                    d => d.connectionType?.toLowerCase() === ct.toLowerCase()
+                );
+                setEffectiveDriverDep(dep ?? null);
+            } catch {
+                // non-DB connector or deps not available — silently ignore
             }
         };
+        loadEffectiveDriver();
+        return () => { cancelled = true; };
+    }, [connectorArtifactIdProp, formData?.connectorName, connectorName, connectionName]);
 
-        initializeDriverConfig();
-    }, [parameters, getValues]);
+
 
     useEffect(() => {
         if (generatedFormDetails) {
@@ -487,215 +472,6 @@ export function FormGenerator(props: FormGeneratorProps) {
         }
     };
 
-    const handleDriverDirSelection = async () => {
-        setIsProcessing(true);
-        const projectDirectory = await rpcClient.getMiDiagramRpcClient().askDriverPath();
-        props.setValue("driverPath", projectDirectory.path);
-        return projectDirectory.path;
-    };
-
-    const handleDriverTypeChange = async (driverType: string, element: Element) => {
-        const option = DRIVER_OPTIONS.find(opt => opt.label === driverType);
-        if (!option) return;
-
-        setDriverConfig(prev => ({ ...prev, type: option.configType }));
-        setDriverError(null);
-
-        if (option.configType === 'default') {
-            handleClearDriver();
-            await loadDefaultDriverDetails();
-        } else {
-            // For custom driver, check if we already have parameters
-            const paramValues = parameters?.paramValues || [];
-            const getParamValue = (key: string) => paramValues.find((p: any) => p.key === key)?.value;
-
-            const existingGroupId = getParamValue('groupId');
-            const existingArtifactId = getParamValue('artifactId');
-            const existingVersion = getParamValue('version');
-            const existingDriverPath = getParamValue('driverPath');
-            if (option.configType === 'custom') {
-                if (existingGroupId && existingArtifactId && existingVersion && existingDriverPath) {
-                    setDriverConfig(prev => ({
-                        ...prev,
-                        groupId: existingGroupId,
-                        artifactId: existingArtifactId,
-                        version: existingVersion,
-                        driverPath: existingDriverPath
-                    }));
-                }
-            } else {
-                if (existingGroupId && existingArtifactId && existingVersion) {
-                    setDriverConfig(prev => ({
-                        ...prev,
-                        groupId: existingGroupId,
-                        artifactId: existingArtifactId,
-                        version: existingVersion,
-                        driverPath: null
-                    }));
-                } else if (existingDriverPath) {
-                    setValue("driverPath", null);
-                }
-            }
-            saveDriverConfig();
-        }
-    };
-
-    const loadDefaultDriverDetails = async () => {
-        try {
-            const driverDetails = await rpcClient.getMiDiagramRpcClient().getDriverMavenCoordinates({
-                filePath: "",
-                connectionType: formData?.connectionName,
-                connectorName: formData?.connectorName ?? connectorName.replace(/\s/g, '')
-            });
-
-            setDriverConfig(prev => ({
-                ...prev,
-                groupId: driverDetails.groupId,
-                artifactId: driverDetails.artifactId,
-                version: driverDetails.version
-            }));
-        } catch (error) {
-            console.error('Failed to load default driver details:', error);
-        }
-    };
-
-    const saveDriverConfig = async () => {
-        try {
-            // Validate required fields based on driver type
-            if (driverConfig.type === 'maven' &&
-                (!driverConfig.groupId || !driverConfig.artifactId || !driverConfig.version)) {
-                setDriverError("All Maven coordinates are required");
-                return;
-            }
-            //check if valid coordinates
-            if (driverConfig.type === 'maven') {
-                const validDriver = await rpcClient.getMiDiagramRpcClient().downloadDriverForConnector({
-                    groupId: driverConfig.groupId,
-                    artifactId: driverConfig.artifactId,
-                    version: driverConfig.version
-                });
-                if (!validDriver) {
-                    setDriverError("Invalid Maven coordinates. Please check the values.");
-                    return;
-                }
-                if (getValue("driverPath")) {
-                    setValue("driverPath", null);
-                }
-            }
-
-            // Save to form values
-            setValue("groupId", driverConfig.groupId);
-            setValue("artifactId", driverConfig.artifactId);
-            setValue("version", driverConfig.version);
-            if (driverConfig.type === 'custom') {
-                setValue("driverPath", driverConfig.driverPath);
-            }
-
-
-            setDriverError(null);
-        } catch (error) {
-            console.error('Failed to save driver config:', error);
-            setDriverError("Failed to save driver configuration");
-        }
-    };
-
-    const handleClearDriver = () => {
-        setDriverConfig(prev => ({
-            ...prev,
-            groupId: '',
-            artifactId: '',
-            version: '',
-            driverPath: ''
-        }));
-        setDriverError(null);
-
-        // Also clear form values
-        setValue("groupId", null);
-        setValue("artifactId", null);
-        setValue("version", null);
-        setValue("driverPath", null);
-    };
-
-    const handleSelectLocation = async () => {
-        try {
-            const driveDir = await handleDriverDirSelection();
-            if (!driveDir) return;
-
-            // Clear any previous errors
-            setDriverError(null);
-
-            const driverDetails = await rpcClient.getMiDiagramRpcClient().getDriverMavenCoordinates({
-                filePath: driveDir,
-                connectionType: formData?.connectionName,
-                connectorName: formData?.connectorName ?? connectorName.replace(/\s/g, '')
-            });
-
-            if (driverDetails.found) {
-                setDriverConfig(prev => ({
-                    ...prev,
-                    groupId: driverDetails.groupId,
-                    artifactId: driverDetails.artifactId,
-                    version: driverDetails.version,
-                    driverPath: driveDir
-                }));
-            } else {
-                setDriverConfig(prev => ({
-                    ...prev,
-                    driverPath: '',
-                    groupId: '',
-                    artifactId: '',
-                    version: ''
-                }));
-                setDriverError("Unable to fetch maven coordinates for the selected driver. Please provide the maven coordinates manually using \"Add Maven Dependency\" option.");
-            }
-        } catch (error) {
-            console.error('Failed to select driver location:', error);
-            setDriverError("Failed to select driver location");
-        } finally {
-            setIsProcessing(false);
-        }
-    };
-
-    const renderDriverConfiguration = (selectedValue: string) => {
-        const option = DRIVER_OPTIONS.find(opt => opt.label === selectedValue);
-        if (!option) return null;
-
-        switch (option.configType) {
-            case 'default':
-                return (
-                    <DefaultDriverConfig
-                        config={driverConfig}
-                        isReadOnly={true}
-                        onConfigChange={setDriverConfig}
-                        onSave={saveDriverConfig}
-                    />
-                );
-            case 'custom':
-                return (
-                    <CustomDriverConfig
-                        config={driverConfig}
-                        onConfigChange={setDriverConfig}
-                        onSave={saveDriverConfig}
-                        onClear={handleClearDriver}
-                        onSelectLocation={handleSelectLocation}
-                        error={driverError}
-                        isLoading={isProcessing}
-                    />
-                );
-            case 'maven':
-                return (
-                    <MavenDriverConfig
-                        config={driverConfig}
-                        onConfigChange={setDriverConfig}
-                        onSave={saveDriverConfig}
-                        onClear={handleClearDriver}
-                        error={driverError}
-                    />
-                );
-            default:
-                return null;
-        }
-    };
 
     function getDefaultValues(elements: any[]) {
         const defaultValues: Record<string, any> = {};
@@ -1621,26 +1397,46 @@ export function FormGenerator(props: FormGeneratorProps) {
                 );
             case 'radio':
                 if (element.name === 'driverSelectOption') {
+                    const isOmitted = effectiveDriverDep?.omit === true;
+                    const isLocalJar = !!effectiveDriverDep?.localPath;
+                    const isOverridden = !!effectiveDriverDep?.overriddenVersion || isLocalJar;
+                    const artifactLabel = effectiveDriverDep?.artifactId ?? '—';
+                    const versionLabel = isLocalJar
+                        ? effectiveDriverDep.localPath.split(/[\\/]/).pop()
+                        : (effectiveDriverDep?.overriddenVersion ?? effectiveDriverDep?.defaultVersion ?? '—');
+                    const driverLabel = isLocalJar
+                        ? versionLabel
+                        : `${artifactLabel} : ${versionLabel}`;
+                    if (isOmitted) {
+                        return (
+                            <div style={{ padding: '8px 10px', borderRadius: '4px', background: 'var(--vscode-inputValidation-errorBackground)', fontSize: '12px', color: 'var(--vscode-inputValidation-errorForeground)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Codicon name="circle-slash" />
+                                <span><strong>Driver omitted</strong> — this driver JAR will not be packed in the CAR file.</span>
+                                <Tooltip
+                                    content="To re-enable the driver, go to Project Overview > Manage Connector Dependencies."
+                                    position="right"
+                                >
+                                    <Icon name="question" isCodicon iconSx={{ fontSize: '14px' }} sx={{ marginLeft: 'auto', cursor: 'help', opacity: 0.7 }} />
+                                </Tooltip>
+                            </div>
+                        );
+                    }
                     return (
-                        <>
-                            <GenericRadioGroup
-                                name={name}
-                                label={element.displayName}
-                                options={element.comboValues.map((val: string) => ({
-                                    value: val,
-                                    label: val
-                                }))}
-                                value={field.value}
-                                helpTip={element.helpTip}
-                                onChange={(value) => {
-                                    field.onChange(value);
-                                    handleDriverTypeChange(value, element);
-                                }}
-                                required={true}
-                            />
-
-                            {renderDriverConfiguration(field.value)}
-                        </>
+                        <div style={{ padding: '8px 10px', borderRadius: '4px', background: 'var(--vscode-editor-background)', fontSize: '12px', color: 'var(--vscode-descriptionForeground)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Codicon name={isLocalJar ? 'folder' : 'package'} />
+                            <span><strong>Driver: </strong>{driverLabel}</span>
+                            {isOverridden && (
+                                <span style={{ fontSize: '11px', padding: '1px 5px', borderRadius: '3px', background: 'var(--vscode-charts-blue)', color: 'var(--vscode-badge-foreground)' }}>
+                                    {isLocalJar ? 'local JAR' : 'overridden'}
+                                </span>
+                            )}
+                            <Tooltip
+                                content="To change the driver version or use a local JAR, go to Project Overview > Manage Connector Dependencies."
+                                position="right"
+                            >
+                                <Icon name="question" isCodicon iconSx={{ fontSize: '14px' }} sx={{ marginLeft: 'auto', cursor: 'help', opacity: 0.7 }} />
+                            </Tooltip>
+                        </div>
                     );
                 }
                 // For generic radio inputs

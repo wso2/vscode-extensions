@@ -82,6 +82,7 @@ export class VSBrowser {
         let defaultSettings = {
             "workbench.editor.enablePreview": false,
             "workbench.startupEditor": "none",
+            "workbench.welcomePage.experimentalOnboarding": false,
             "window.titleBarStyle": "custom",
             "window.commandCenter": false,
             "window.dialogStyle": "custom",

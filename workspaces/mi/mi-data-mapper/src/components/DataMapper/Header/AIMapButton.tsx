@@ -17,8 +17,7 @@
  */
 import React, { useEffect, useState } from "react";
 import styled from "@emotion/styled";
-import { Button } from "@wso2/ui-toolkit";
-import { Codicon } from "@wso2/ui-toolkit";
+import { Button, Icon } from "@wso2/ui-toolkit";
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
 
 interface AIMapButtonProps {
@@ -123,7 +122,7 @@ const AIMapButton: React.FC<AIMapButtonProps> = ({ onClick, isLoading, disabled 
         isLoading={isLoading}
       >
         <div style={{ display: "flex", alignItems: "center" }}>
-          <Codicon name="wand" />
+          <Icon name="bi-ai-chat" />
           <span style={{ marginLeft: "3px" }}>Map</span>
         </div>
       </StyledButton>

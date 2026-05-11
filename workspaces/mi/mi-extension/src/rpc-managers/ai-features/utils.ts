@@ -207,6 +207,7 @@ export async function fetchCodeGenerationsWithRetry(
         question: userQuestion,
         files: files.length > 0 ? files : undefined,
         images: images.length > 0 ? images : undefined,
+        projectPath: projectUri,
     });
 
     // Convert chat history to the format expected by generateSynapse

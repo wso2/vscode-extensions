@@ -18,6 +18,7 @@
 
 import { ExtensionContext, commands, window, Location, Uri, TextEditor, extensions, workspace } from 'vscode';
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { BallerinaExtension } from './core';
 import { activate as activateBBE } from './views/bbe';
 import {
@@ -43,7 +44,13 @@ import { StateMachine } from './stateMachine';
 import { activateSubscriptions } from './views/visualizer/activate';
 import { VisualizerWebview } from './views/visualizer/webview';
 import { extension } from './BalExtensionContext';
-import { ExtendedClientCapabilities } from '@wso2/ballerina-core';
+import { 
+    ExtendedClientCapabilities, 
+    onOctUpdateTextSelection, 
+    onOctRerenderPresence,
+    CollaborationTextSelection,
+    CollaborationPresenceData
+} from '@wso2/ballerina-core';
 import { RPCLayer } from './RPCLayer';
 import { activateAIFeatures } from './features/ai/activator';
 import { runningServicesManager } from './features/ai/agent/tools/running-service-manager';
@@ -51,11 +58,72 @@ import { activateTryItCommand } from './features/tryit/activator';
 import { activate as activateNPFeatures } from './features/natural-programming/activator';
 import { activateAgentChatPanel } from './views/agent-chat/activate';
 import { activateTracing } from './features/tracing';
+import { UriCache } from './utils/remote-fs/uri-cache';
+import { RemoteDiagnosticsBridge } from './utils/remote-fs/diagnostics-bridge';
+import { registerGlobalHelpers } from './features/collaboration/oct-helper';
+import { buildProjectsStructure } from './utils/project-artifacts';
 import { activateICP } from './features/icp';
 import { onWizardChatNotify, setWizardProjectRoot, runWizardMigrationEnhancement, abortMigrationAgent, openMigratedProject, isAIAuthenticated, signInForAI } from './features/ai/migration/orchestrator';
 
 let langClient: ExtendedLangClient;
 export let isPluginStartup = true;
+export let uriCache: UriCache;
+const remoteFileVersions = new Map<string, number>();
+let remoteDiagnosticsBridge: RemoteDiagnosticsBridge;
+
+
+const collaborationState: {
+    latestSelectionState?: CollaborationTextSelection;
+    latestPresenceData?: CollaborationPresenceData;
+} = {};
+
+/**
+ * Update collaboration state from REMOTE peers
+ * Called by OCT integration when remote peer sends cursor/selection updates
+ */
+export function updateCollaborationState(
+    selection?: CollaborationTextSelection, 
+    presence?: CollaborationPresenceData
+) {
+    if (selection) {
+        collaborationState.latestSelectionState = selection;
+        debug(`[Collaboration] Updated selection state: ${JSON.stringify(selection)}`);
+    }
+    if (presence) {
+        collaborationState.latestPresenceData = presence;
+        debug(`[Collaboration] Updated presence data: ${JSON.stringify(presence)}`);
+    }
+}
+
+/**
+ * Broadcast selection update to webviews
+ * Called by OCT integration when remote peer updates their selection
+ */
+export function broadcastSelectionToWebviews() {
+    if (collaborationState.latestSelectionState && VisualizerWebview.currentPanel) {
+        RPCLayer._messenger.sendNotification(
+            onOctUpdateTextSelection, 
+            { type: 'webview', webviewType: VisualizerWebview.viewType }, 
+            collaborationState.latestSelectionState
+        );
+        debug(`[OCT] Broadcasting selection state to webview: ${JSON.stringify(collaborationState.latestSelectionState)}`);
+    }
+}
+
+/**
+ * Broadcast presence update to webviews
+ * Called by OCT integration when remote peer updates their presence
+ */
+export function broadcastPresenceToWebviews() {
+    if (collaborationState.latestPresenceData && VisualizerWebview.currentPanel) {
+        RPCLayer._messenger.sendNotification(
+            onOctRerenderPresence, 
+            { type: 'webview', webviewType: VisualizerWebview.viewType }, 
+            collaborationState.latestPresenceData
+        );
+        debug(`[OCT] Broadcasting presence data to webview: ${JSON.stringify(collaborationState.latestPresenceData)}`);
+    }
+}
 
 /**
  * Utility class to expose Ballerina extension state to other extensions
@@ -127,11 +195,234 @@ function onBeforeInit(langClient: ExtendedLangClient) {
 
 export async function activate(context: ExtensionContext) {
     extension.context = context;
+    
+    uriCache = UriCache.getInstance();
+    debug('Initialized URI cache for non-file schemes');
+
+    remoteDiagnosticsBridge = new RemoteDiagnosticsBridge(uriCache);
+    context.subscriptions.push(remoteDiagnosticsBridge.start());
+    
+    // Watch for changes in remote workspaces and update cache
+    const workspaceFolders = workspace.workspaceFolders;
+    if (workspaceFolders) {
+        for (const folder of workspaceFolders) {
+            if (folder.uri.scheme !== 'file') {
+                debug(`[FileSync] Setting up watcher for remote workspace: ${folder.uri.scheme}`);
+                const watcher = workspace.createFileSystemWatcher(
+                    new vscode.RelativePattern(folder, '**/*.{bal,toml}')
+                );
+                
+                watcher.onDidChange(async (uri) => {
+                    try {
+                        debug(`[FileSync] Remote file changed: ${uri.toString()}`);
+                        const localPath = await uriCache.cacheRemoteFile(uri);
+                        
+                        // Notify language server using the cached local path
+                        const content = await workspace.fs.readFile(uri);
+                        const textContent = Buffer.from(content).toString('utf-8');
+                        const localFileUri = Uri.file(localPath).toString();
+                        
+                        // Tell LS the file changed using the cached path
+                        const langClient = extension.ballerinaExtInstance?.langClient;
+                        if (langClient) {
+                            const nextVersion = (remoteFileVersions.get(localFileUri) ?? 0) + 1;
+                            remoteFileVersions.set(localFileUri, nextVersion);
+                            langClient.didChange({
+                                textDocument: { uri: localFileUri, version: nextVersion },
+                                contentChanges: [{ text: textContent }]
+                            });
+                        }
+                        remoteDiagnosticsBridge.syncForLocalPath(localPath);
+                        await new Promise((resolve) => setTimeout(resolve, 150));
+                        // Trigger webview update whenever this file matches the current context.
+                        const smContext = StateMachine.context();
+                        const changedRemoteUri = uri.toString();
+                        const changedLocalPath = localPath;
+                        const contextDocumentPath = smContext.documentUri;
+                        const contextProjectPath = smContext.projectPath;
+
+                        const isMatchingDocument = !!contextDocumentPath && (
+                            contextDocumentPath === changedLocalPath ||
+                            contextDocumentPath === changedRemoteUri ||
+                            uriCache.isSamePath(changedLocalPath, contextDocumentPath) ||
+                            uriCache.isSamePath(changedRemoteUri, contextDocumentPath)
+                        );
+
+                        let isWithinContextProject = false;
+                        if (contextProjectPath) {
+                            isWithinContextProject =
+                                changedLocalPath.startsWith(contextProjectPath) ||
+                                changedRemoteUri.startsWith(contextProjectPath);
+
+                            if (!isWithinContextProject && contextProjectPath.includes('://')) {
+                                try {
+                                    const cachedProjectPath = uriCache.getLocalPath(Uri.parse(contextProjectPath));
+                                    isWithinContextProject = changedLocalPath.startsWith(cachedProjectPath);
+                                } catch {
+                                    // Ignore parse failures and keep existing checks.
+                                }
+                            }
+
+                            if (!isWithinContextProject) {
+                                const remoteProjectUri = uriCache.getRemoteUri(contextProjectPath);
+                                if (remoteProjectUri) {
+                                    isWithinContextProject = changedRemoteUri.startsWith(remoteProjectUri.toString());
+                                }
+                            }
+                        }
+
+                        const shouldRefreshWebview = isMatchingDocument || isWithinContextProject;
+
+                        if (shouldRefreshWebview) {
+                            debug(`[FileSync] Match found! Refreshing project structure and triggering webview update`);
+                            const projectInfo = smContext.projectInfo;
+                            const lsClient = extension.ballerinaExtInstance?.langClient;
+                            const { updateView, undoRedoManager } = await import('./stateMachine');
+
+                            if (projectInfo && lsClient) {
+                                try {
+                                    await buildProjectsStructure(projectInfo, lsClient, false);
+                                } catch (e) {
+                                    console.error('[FileSync] Failed to refresh project structure:', e);
+                                }
+                            }
+                            await new Promise((resolve) => setTimeout(resolve, 250));
+                            if (projectInfo && lsClient) {
+                                try {
+                                    await buildProjectsStructure(projectInfo, lsClient, true);
+                                } catch (e) {
+                                    console.error('[FileSync] Retry failed to refresh project structure:', e);
+                                }
+                            }
+                            if (!undoRedoManager?.isBatchInProgress()) {
+                                updateView(false);
+                            }
+                        } else {
+                            debug(`[FileSync] No match found, skipping webview update`);
+                        }
+                    } catch (error) {
+                        console.error(`[FileSync] Failed to sync changed file: ${error}`);
+                    }
+                });
+                watcher.onDidCreate(async (uri) => {
+                    try {
+                        debug(`[FileSync] Remote file created: ${uri.toString()}`);
+                        const localPath = await uriCache.cacheRemoteFile(uri);
+                        const localFileUri = Uri.file(localPath).toString();
+
+                        const langClient = extension.ballerinaExtInstance?.langClient;
+                        if (langClient) {
+                            const content = await workspace.fs.readFile(uri);
+                            const textContent = Buffer.from(content).toString('utf-8');
+                            const languageId = localPath.endsWith('.toml') ? 'toml' : 'ballerina';
+                            remoteFileVersions.set(localFileUri, 1);
+                            langClient.didOpen({
+                                textDocument: { uri: localFileUri, languageId, version: 1, text: textContent },
+                            });
+                        }
+                        remoteDiagnosticsBridge.syncForLocalPath(localPath);
+                        await new Promise((resolve) => setTimeout(resolve, 150));
+                        const smContext = StateMachine.context();
+                        const projectInfo = smContext.projectInfo;
+                        const lsClient = extension.ballerinaExtInstance?.langClient;
+                        const { updateView, undoRedoManager } = await import('./stateMachine');
+                        if (projectInfo && lsClient) {
+                            try {
+                                await buildProjectsStructure(projectInfo, lsClient, false);
+                            } catch (e) {
+                                console.error('[FileSync] Failed to refresh project structure on create:', e);
+                            }
+                        }
+                        await new Promise((resolve) => setTimeout(resolve, 250));
+                        if (projectInfo && lsClient) {
+                            try {
+                                await buildProjectsStructure(projectInfo, lsClient, true);
+                            } catch (e) {
+                                console.error('[FileSync] Retry failed to refresh project structure on create:', e);
+                            }
+                        }
+                        if (!undoRedoManager?.isBatchInProgress()) {
+                            updateView(false);
+                        }
+                    } catch (error) {
+                        console.error(`[FileSync] Failed to cache new file: ${error}`);
+                    }
+                });
+
+                watcher.onDidDelete(async (uri) => {
+                    try {
+                        debug(`[FileSync] Remote file deleted: ${uri.toString()}`);
+                        const localPath = uriCache.getLocalPath(uri);
+                        const localFileUri = Uri.file(localPath).toString();
+
+                        const langClient = extension.ballerinaExtInstance?.langClient;
+                        if (langClient) {
+                            langClient.didClose({ textDocument: { uri: localFileUri } });
+                            remoteFileVersions.delete(localFileUri);
+                        }
+
+                        remoteDiagnosticsBridge.clearForRemoteUri(uri);
+                        remoteDiagnosticsBridge.clearForLocalPath(localPath);
+
+                        const fs = await import('fs');
+                        if (fs.existsSync(localPath)) {
+                            await fs.promises.unlink(localPath);
+                        }
+
+                        // Refresh project structure so LS re-analyses without the deleted file.
+                        const smContext = StateMachine.context();
+                        const projectInfo = smContext.projectInfo;
+                        const lsClient = extension.ballerinaExtInstance?.langClient;
+                        const { updateView, undoRedoManager } = await import('./stateMachine');
+                        if (projectInfo && lsClient) {
+                            try {
+                                await buildProjectsStructure(projectInfo, lsClient, false);
+                            } catch (e) {
+                                console.error('[FileSync] Failed to refresh project structure on delete:', e);
+                            }
+                        }
+                        await new Promise((resolve) => setTimeout(resolve, 250));
+                        if (projectInfo && lsClient) {
+                            try {
+                                await buildProjectsStructure(projectInfo, lsClient, true);
+                            } catch (e) {
+                                console.error('[FileSync] Retry failed to refresh project structure on delete:', e);
+                            }
+                        }
+                        if (!undoRedoManager?.isBatchInProgress()) {
+                            updateView(false);
+                        }
+                    } catch (error) {
+                        console.error(`[FileSync] Failed to remove cached file: ${error}`);
+                    }
+                });
+                
+                context.subscriptions.push(watcher);
+            }
+        }
+    }
+    
     // Init RPC Layer methods
     RPCLayer.init();
 
+    // Store latest collaboration state from webview (module-level for export)
+    collaborationState.latestSelectionState = undefined;
+    collaborationState.latestPresenceData = undefined;
+
+    // Initialize OCT integration (must happen after RPCLayer is initialized)
+    const { initializeOctIntegration } = await import('./rpc-managers/collaboration/rpc-handler');
+    await initializeOctIntegration();
+
     // Wait for the ballerina extension to be ready
     await StateMachine.initialize();
+
+    // Register OCT debugging helpers (accessible via DevTools console)
+    // This helps debug collaborative locking and OCT integration issues
+    if (process.env.VSCODE_DEBUG_MODE || context.extensionMode === vscode.ExtensionMode.Development) {
+        debug('Registering OCT debug helpers');
+        registerGlobalHelpers();
+    }
+
 
     // Then return the ballerina extension context
     return {
@@ -139,6 +430,7 @@ export async function activate(context: ExtensionContext) {
         projectPath: StateMachine.context().projectPath,
         VisualizerWebview,
         BallerinaExtensionState,
+        uriCache,
         migration: {
             setWizardProjectRoot,
             wizardEnhancementReady: runWizardMigrationEnhancement,
@@ -170,7 +462,7 @@ export async function activateBallerina(): Promise<BallerinaExtension> {
     // Activate Subscription Commands
     debug('Activating subscription commands.');
     activateSubscriptions();
-    debug('Starting ballerina extension initialization.');
+debug('Starting ballerina extension initialization.');
     await ballerinaExtInstance.init(onBeforeInit).then(() => {
         debug('Ballerina extension activated successfully.');
         // <------------ CORE FUNCTIONS ----------->

@@ -22,7 +22,7 @@ import { getNodeIdFromModel } from "../../utils/node";
 import { NodePortModel } from "../NodePort/NodePortModel";
 import { Colors, DATA_SERVICE_NODES, NodeTypes } from "../../resources/constants";
 import { RpcClient } from '@wso2/mi-rpc-client';
-import { Diagnostic } from "vscode-languageserver-types";
+import { Diagnostic, DiagnosticSeverity } from "vscode-languageserver-types";
 import SidePanelContext from "../sidePanel/SidePanelContexProvider";
 import styled, { StyledComponent } from "@emotion/styled";
 import { Button } from "@wso2/ui-toolkit";
@@ -216,6 +216,10 @@ export class BaseNodeModel extends NodeModel {
 
     hasDiagnotics(): boolean {
         return this.stNode.diagnostics !== undefined && this.stNode.diagnostics.length > 0;
+    }
+
+    hasErrors(): boolean {
+        return this.stNode.diagnostics?.some(d => d.severity === DiagnosticSeverity.Error) ?? false;
     }
 
     getDiagnostics(): Diagnostic[] {

@@ -38,7 +38,9 @@ import {
     CONTAINER_PADDING,
     DRAFT_NODE_BORDER_WIDTH,
 } from "../../../resources/constants";
-import { Button, Item, Menu, MenuItem } from "@wso2/ui-toolkit";
+import { Button, Item, Menu, MenuItem} from "@wso2/ui-toolkit";
+import { NodeLockBadge } from "../NodeLockBadge";
+
 import { FlowNode } from "../../../utils/types";
 import { useDiagramContext } from "../../DiagramContext";
 import { MoreVertIcon } from "../../../resources";
@@ -139,6 +141,7 @@ export namespace NodeStyles {
         isSelected?: boolean;
     };
     export const Box = styled.div<NodeStyleProp>`
+        position: relative;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
@@ -200,7 +203,8 @@ export interface NodeWidgetProps extends Omit<WhileNodeWidgetProps, "children"> 
 
 export function WhileNodeWidget(props: WhileNodeWidgetProps) {
     const { model, engine, onClick } = props;
-    const { onNodeSelect, goToSource, onDeleteNode, addBreakpoint, removeBreakpoint, readOnly, selectedNodeId } = useDiagramContext();
+    const { onNodeSelect, goToSource, onDeleteNode, addBreakpoint, removeBreakpoint, readOnly, selectedNodeId, currentUserId, setMenuOpenNodeId } = useDiagramContext();
+    const isLocked = Boolean(model.node.locked && model.node.locked.userId !== currentUserId);
 
     const isSelected = selectedNodeId === model.node.id;
 
@@ -248,7 +252,7 @@ export function WhileNodeWidget(props: WhileNodeWidgetProps) {
     const isEditable = model.node.codedata.node !== "LOCK";
 
     const handleOnClick = (event: React.MouseEvent<HTMLDivElement>) => {
-        if (readOnly) {
+        if (readOnly || isLocked) {
             return;
         }
         if (event.metaKey) {
@@ -272,6 +276,7 @@ export function WhileNodeWidget(props: WhileNodeWidgetProps) {
     const deleteNode = () => {
         onDeleteNode && onDeleteNode(model.node);
         setMenuPos(null);
+        setMenuOpenNodeId?.(undefined);
     };
 
     const onAddBreakpoint = () => {
@@ -285,15 +290,19 @@ export function WhileNodeWidget(props: WhileNodeWidgetProps) {
     };
 
     const handleOnMenuClick = (event: React.MouseEvent<HTMLElement | SVGSVGElement>) => {
-        if (readOnly) {
+        if (readOnly || isLocked) {
             return;
         }
         const target = menuButtonElement || (event.currentTarget as HTMLElement);
         setMenuPos(getMenuPos(target));
+        setMenuOpenNodeId?.(model.node.id);
     };
 
     const handleOnContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
         event.preventDefault();
+        if (isLocked) {
+            return;
+        }
         const target = menuButtonElement || event.currentTarget;
         setMenuPos(getMenuPos(target as HTMLElement));
     };
@@ -301,6 +310,7 @@ export function WhileNodeWidget(props: WhileNodeWidgetProps) {
     const handleOnMenuClose = () => {
         setMenuPos(null);
         setIsHovered(false);
+        setMenuOpenNodeId?.(undefined);
     };
 
     const menuItems: Item[] = [
@@ -358,7 +368,7 @@ export function WhileNodeWidget(props: WhileNodeWidgetProps) {
                         onClick={isEditable ? handleOnClick : undefined}
                         onMouseEnter={() => setIsHovered(true)}
                         onMouseLeave={() => setIsHovered(false)}
-                        onContextMenu={!readOnly ? handleOnContextMenu : undefined}
+                        onContextMenu={!readOnly && !isLocked ? handleOnContextMenu : undefined}
                         selected={model.isSelected()}
                         hovered={isEditable && isHovered}
                         hasError={hasError}
@@ -366,7 +376,12 @@ export function WhileNodeWidget(props: WhileNodeWidgetProps) {
                         isActiveBreakpoint={isActiveBreakpoint}
                         disabled={disabled}
                         isSelected={isSelected}
+                        style={{
+                            opacity: isLocked ? 0.6 : 1,
+                            cursor: isLocked ? 'not-allowed' : readOnly ? 'default' : 'pointer',
+                        }}
                     >
+                        <NodeLockBadge lock={model.node.locked} currentUserId={currentUserId} />
                         {hasBreakpoint && (
                             <div
                                 style={{

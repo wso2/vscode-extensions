@@ -27,6 +27,8 @@ import {
     AbortCodeGenerationResponse,
     abortCodeGeneration,
     hasAnthropicApiKey,
+    getTavilyApiKey,
+    setTavilyApiKey,
     isMiCopilotLoggedIn,
     fetchUsage,
     GenerateUnitTestRequest,
@@ -78,6 +80,17 @@ export class MiAiPanelRpcClient implements MIAIPanelAPI {
     // ==================================
     hasAnthropicApiKey(): Promise<boolean | undefined> {
         return this._messenger.sendRequest(hasAnthropicApiKey, HOST_EXTENSION);
+    }
+
+    // ==================================
+    // Tavily API Key (Bedrock-only BYOK)
+    // ==================================
+    getTavilyApiKey(): Promise<string | undefined> {
+        return this._messenger.sendRequest(getTavilyApiKey, HOST_EXTENSION);
+    }
+
+    setTavilyApiKey(request: { apiKey: string }): Promise<{ success: boolean; error?: string }> {
+        return this._messenger.sendRequest(setTavilyApiKey, HOST_EXTENSION, request);
     }
 
     // ==================================

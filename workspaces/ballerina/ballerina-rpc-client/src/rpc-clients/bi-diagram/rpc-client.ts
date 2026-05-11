@@ -18,6 +18,8 @@
  * THIS FILE INCLUDES AUTO GENERATED CODE
  */
 import {
+    AcquireNodeLockRequest,
+    AcquireNodeLockResponse,
     AIChatRequest,
     AddFieldRequest,
     InlineAgentChatRequest,
@@ -51,6 +53,10 @@ import {
     BISourceCodeRequest,
     BreakpointRequest,
     BuildMode,
+    GetNodeLocksRequest,
+    GetNodeLocksResponse,
+    ReleaseNodeLockRequest,
+    ReleaseNodeLockResponse,
     ClassFieldModifierRequest,
     ComponentRequest,
     ConfigVariableRequest,
@@ -142,6 +148,7 @@ import {
     addClassField,
     addFunction,
     addProjectToWorkspace,
+    acquireNodeLock,
     buildProject,
     createComponent,
     createGraphqlClassType,
@@ -185,6 +192,7 @@ import {
     getFunctionNode,
     getSuggestedProjectDefaults,
     getModuleNodes,
+    getNodeLocks,
     getNodeTemplate,
     getOpenApiGeneratedModules,
     getProjectComponents,
@@ -198,6 +206,7 @@ import {
     getSignatureHelp,
     getSimpleTypeOfExpression,
     getSourceCode,
+    getSystemUsername,
     getType,
     getTypeFromJson,
     getTypes,
@@ -210,6 +219,7 @@ import {
     startInlineAgentChat,
     cleanupAgentChatServices,
     openReadme,
+    releaseNodeLock,
     removeBreakpointFromSource,
     renameIdentifier,
     runProject,
@@ -223,6 +233,7 @@ import {
     updateServiceClass,
     updateType,
     updateTypes,
+    isCollaborationActive,
     validateProjectPath,
     verifyTypeDelete,
     WorkspaceDevantMetadata
@@ -583,6 +594,26 @@ export class BiDiagramRpcClient implements BIDiagramAPI {
 
     getExpressionTokens(params: ExpressionTokensRequest): Promise<number[]> {
         return this._messenger.sendRequest(getExpressionTokens, HOST_EXTENSION, params);
+    }
+
+    acquireNodeLock(params: AcquireNodeLockRequest): Promise<AcquireNodeLockResponse> {
+        return this._messenger.sendRequest(acquireNodeLock, HOST_EXTENSION, params);
+    }
+
+    releaseNodeLock(params: ReleaseNodeLockRequest): Promise<ReleaseNodeLockResponse> {
+        return this._messenger.sendRequest(releaseNodeLock, HOST_EXTENSION, params);
+    }
+
+    getNodeLocks(params: GetNodeLocksRequest): Promise<GetNodeLocksResponse> {
+        return this._messenger.sendRequest(getNodeLocks, HOST_EXTENSION, params);
+    }
+
+    getSystemUsername(): Promise<string> {
+        return this._messenger.sendRequest(getSystemUsername, HOST_EXTENSION);
+    }
+
+    isCollaborationActive(): Promise<{ isActive: boolean }> {
+        return this._messenger.sendRequest(isCollaborationActive, HOST_EXTENSION);
     }
 
     updateProjectTitle(params: UpdateProjectTitleRequest): Promise<void> {

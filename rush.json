@@ -528,6 +528,14 @@
       "versionPolicyName": "ballerina-extension"
     },
     {
+      "packageName": "open-collaboration-protocol",
+      "projectFolder": "workspaces/oct/open-collaboration-protocol"
+    },
+    {
+      "packageName": "open-collaboration-yjs",
+      "projectFolder": "workspaces/oct/open-collaboration-yjs"
+    },
+    {
       "packageName": "ballerina",
       "projectFolder": "workspaces/ballerina/ballerina-extension",
       "versionPolicyName": "ballerina-extension"

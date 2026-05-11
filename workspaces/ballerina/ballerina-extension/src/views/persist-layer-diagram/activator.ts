@@ -114,6 +114,6 @@ export async function checkIsPersistModelFile(fileUri: Uri): Promise<boolean> {
     const directoryPath = dirname(fileUri.fsPath);
     const parentDirectoryPath = dirname(directoryPath);
     const directoryName = basename(directoryPath);
-    const isBallerinaPackage = await checkIsBallerinaPackage(Uri.parse(parentDirectoryPath));
+    const isBallerinaPackage = await checkIsBallerinaPackage(fileUri.with({ path: parentDirectoryPath }));
     return directoryName === 'persist' && isBallerinaPackage;
 }

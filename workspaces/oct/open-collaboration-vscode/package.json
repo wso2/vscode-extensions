@@ -1,0 +1,334 @@
+{
+  "name": "open-collaboration-tools",
+  "displayName": "Open Collaboration Tools",
+  "version": "0.3.4",
+  "license": "MIT",
+  "description": "Connect with others and live-share your code in real-time collaboration sessions",
+  "publisher": "typefox",
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "collaboration",
+    "share",
+    "live-share",
+    "real-time",
+    "team",
+    "co-edit",
+    "pair-programming"
+  ],
+  "icon": "data/oct-logo.png",
+  "galleryBanner": {
+    "color": "#CBC9E8",
+    "theme": "light"
+  },
+  "homepage": "https://www.open-collab.tools/",
+  "bugs": {
+    "url": "https://github.com/eclipse-oct/open-collaboration-tools/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eclipse-oct/open-collaboration-tools",
+    "directory": "packages/open-collaboration-vscode"
+  },
+  "author": {
+    "name": "TypeFox",
+    "url": "https://www.typefox.io"
+  },
+  "main": "./dist/extension.js",
+  "browser": "./dist/extension.web.js",
+  "l10n": "./l10n",
+  "engines": {
+    "vscode": "^1.73.0",
+    "node": ">=20.10.0",
+    "npm": ">=10.2.3"
+  },
+  "activationEvents": [
+    "onStartupFinished",
+    "onUri:oct"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    }
+  },
+  "contributes": {
+    "resourceLabelFormatters": [
+      {
+        "scheme": "oct",
+        "formatting": {
+          "label": "${path}",
+          "separator": "/",
+          "workspaceSuffix": "Open Collaboration Tools"
+        }
+      }
+    ],
+    "configuration": {
+      "title": "Open Collaboration Tools",
+      "properties": {
+        "oct.serverUrl": {
+          "type": "string",
+          "default": "https://api.open-collab.tools/",
+          "description": "%oct.serverUrl%"
+        },
+        "oct.alwaysAskToOverrideServerUrl": {
+          "type": "boolean",
+          "default": true,
+          "description": "%oct.alwaysAskToOverrideServerUrl%"
+        },
+        "oct.webClientUrl": {
+          "type": "string",
+          "default": "https://www.open-collab.tools/playground/?room=${roomId}",
+          "description": "%oct.webClientUrl%"
+        },
+        "oct.joinAcceptMode": {
+          "type": "string",
+          "enum": [
+            "prompt",
+            "allowlist",
+            "auto"
+          ],
+          "default": "prompt",
+          "markdownDescription": "%oct.joinAcceptMode%",
+          "enumItemLabels": [
+            "%oct.joinAcceptMode.prompt%",
+            "%oct.joinAcceptMode.allowlist%",
+            "%oct.joinAcceptMode.auto%"
+          ],
+          "markdownEnumDescriptions": [
+            "%oct.joinAcceptMode.prompt.description%",
+            "%oct.joinAcceptMode.allowlist.description%",
+            "%oct.joinAcceptMode.auto.description%"
+          ]
+        },
+        "oct.joinAllowlist": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "markdownDescription": "%oct.joinAllowlist%"
+        },
+        "oct.files.exclude": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "**/.env"
+          ],
+          "markdownDescription": "%oct.files.exclude%"
+        }
+      }
+    },
+    "viewsContainers": {
+      "secondarySidebar": [
+        {
+          "id": "oct_chat_container",
+          "icon": "comment-discussion",
+          "title": "OCT Chat"
+        }
+      ]
+    },
+    "views": {
+      "explorer": [
+        {
+          "id": "oct.roomView",
+          "icon": "data/oct-view-icon.svg",
+          "name": "%oct.roomView%",
+          "when": "oct.connection"
+        }
+      ],
+      "oct_chat_container": [
+        {
+          "type": "webview",
+          "id": "oct.chatView",
+          "name": "%oct.chatView%",
+          "icon": "comment-discussion",
+          "when": "oct.connection"
+        }
+      ]
+    },
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "oct.followPeer",
+          "when": "oct.connection"
+        },
+        {
+          "command": "oct.stopFollowPeer",
+          "when": "oct.connection && oct.following"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "oct.followPeer",
+          "when": "viewItem == peer",
+          "group": "inline"
+        },
+        {
+          "command": "oct.stopFollowPeer",
+          "when": "viewItem == followedPeer",
+          "group": "inline"
+        },
+        {
+          "command": "oct.acceptJoin",
+          "when": "viewItem == pendingPeer",
+          "group": "inline"
+        },
+        {
+          "command": "oct.rejectJoin",
+          "when": "viewItem == pendingPeer",
+          "group": "inline"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "oct.dev.fuzzing",
+        "title": "Run Fuzzing Test",
+        "category": "Open Collaboration Tools Developer",
+        "enablement": "oct.dev"
+      },
+      {
+        "command": "oct.acceptJoin",
+        "title": "%oct.acceptJoin%",
+        "icon": "$(check)"
+      },
+      {
+        "command": "oct.rejectJoin",
+        "title": "%oct.rejectJoin%",
+        "icon": "$(x)"
+      },
+      {
+        "command": "oct.followPeer",
+        "title": "%oct.followPeer%",
+        "category": "Open Collaboration Tools",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "oct.stopFollowPeer",
+        "title": "%oct.stopFollowPeer%",
+        "category": "Open Collaboration Tools",
+        "icon": "$(eye-closed)"
+      },
+      {
+        "command": "oct.closeConnection",
+        "title": "%oct.closeConnection%",
+        "category": "Open Collaboration Tools",
+        "icon": "$(close)",
+        "enablement": "oct.connection"
+      },
+      {
+        "command": "oct.joinRoom",
+        "title": "%oct.joinRoom%",
+        "category": "Open Collaboration Tools",
+        "icon": "$(vm-connect)",
+        "enablement": "!oct.connection"
+      },
+      {
+        "command": "oct.createRoom",
+        "title": "%oct.createRoom%",
+        "category": "Open Collaboration Tools",
+        "icon": "$(vm-connect)",
+        "enablement": "workbenchState != empty && !oct.connection"
+      },
+      {
+        "command": "oct.signOut",
+        "title": "%oct.signOut%",
+        "category": "Open Collaboration Tools",
+        "icon": "$(sign-out)"
+      }
+    ],
+    "colors": [
+      {
+        "id": "oct.user.yellow",
+        "description": "%oct.user.color%",
+        "defaults": {
+          "dark": "#fcb900",
+          "light": "#fcb900"
+        }
+      },
+      {
+        "id": "oct.user.green",
+        "description": "%oct.user.color%",
+        "defaults": {
+          "dark": "#107c10",
+          "light": "#107c10"
+        }
+      },
+      {
+        "id": "oct.user.magenta",
+        "description": "%oct.user.color%",
+        "defaults": {
+          "dark": "#b4009e",
+          "light": "#b4009e"
+        }
+      },
+      {
+        "id": "oct.user.lightGreen",
+        "description": "%oct.user.color%",
+        "defaults": {
+          "dark": "#bad80a",
+          "light": "#bad80a"
+        }
+      },
+      {
+        "id": "oct.user.lightOrange",
+        "description": "%oct.user.color%",
+        "defaults": {
+          "dark": "#ff8c00",
+          "light": "#ff8c00"
+        }
+      },
+      {
+        "id": "oct.user.lightMagenta",
+        "description": "%oct.user.color%",
+        "defaults": {
+          "dark": "#e3008c",
+          "light": "#e3008c"
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run check-types && tsx ./scripts/esbuild.js --production",
+    "package": "vsce package --no-dependencies",
+    "build": "npm run check-types && tsx ./scripts/esbuild.js",
+    "watch": "tsx ./scripts/esbuild.js --watch",
+    "check-types": "tsc --noEmit",
+    "l10n-export": "vscode-l10n-dev export --outDir ./l10n ./src",
+    "l10n-pseudo": "vscode-l10n-dev generate-pseudo -o ./l10n/ ./l10n/bundle.l10n.json ./package.nls.json",
+    "l10n-translate": "tsx ./scripts/translate.ts"
+  },
+  "dependencies": {
+    "async-mutex": "~0.5.0",
+    "baukasten-ui": "^0.2.6",
+    "inversify": "~6.2.2",
+    "lodash": "~4.17.21",
+    "minimatch": "^10.1.1",
+    "nanoid": "~5.1.5",
+    "node-fetch": "~3.3.2",
+    "open-collaboration-protocol": "0.3.1",
+    "open-collaboration-yjs": "0.3.1",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-icons": "^5.6.0",
+    "reflect-metadata": "~0.2.2",
+    "vscode-messenger": "^0.6.0",
+    "vscode-messenger-webview": "^0.6.0"
+  },
+  "devDependencies": {
+    "@types/node-fetch": "~2.6.12",
+    "@types/react": "^19.2.10",
+    "@types/react-dom": "^19.2.3",
+    "@types/vscode": "^1.73.0",
+    "@vscode/l10n-dev": "~0.0.35",
+    "@vscode/vsce": "^3.0.0",
+    "deepl-node": "~1.17.3"
+  },
+  "volta": {
+    "node": "22.14.0",
+    "npm": "10.9.2"
+  }
+}

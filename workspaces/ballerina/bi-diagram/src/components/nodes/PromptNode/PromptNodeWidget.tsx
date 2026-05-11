@@ -40,7 +40,8 @@ import {
     PROMPT_NODE_HEIGHT,
     PROMPT_NODE_WIDTH,
 } from "../../../resources/constants";
-import { Button, Icon, Item, getAIModuleIcon, DefaultLlmIcon } from "@wso2/ui-toolkit";
+import { Button, Icon, Item, ThemeColors, getAIModuleIcon, DefaultLlmIcon } from "@wso2/ui-toolkit";
+import { NodeLockBadge } from "../NodeLockBadge";
 import { NPPromptEditor } from "../../editors/NPPromptEditor";
 import { InputMode } from "@wso2/ballerina-side-panel";
 import NodeIcon from "../../NodeIcon";
@@ -60,6 +61,7 @@ export namespace NodeStyles {
         isSelected?: boolean;
     };
     export const Node = styled.div<NodeStyleProp>`
+        position: relative;
         display: flex;
         flex-direction: column;
         justify-content: flex-start;
@@ -237,7 +239,9 @@ export function PromptNodeWidget(props: PromptNodeWidgetProps) {
         expressionContext,
         aiNodes,
         selectedNodeId,
+        currentUserId,
     } = useDiagramContext();
+    const isLocked = Boolean(model.node.locked && model.node.locked.userId !== currentUserId);
 
     const npFunctionNode = useMemo(
         () => flow.nodes.find(node => node.codedata?.node === "NP_FUNCTION"),
@@ -270,6 +274,9 @@ export function PromptNodeWidget(props: PromptNodeWidgetProps) {
     const nodeModelIconUrl = (model.node.metadata?.data as NodeMetadata)?.model?.path || (nodeMetadata as any)?.iconUrl;
 
     const handleOnClick = async (event: React.MouseEvent<HTMLDivElement>) => {
+        if (isLocked) {
+            return;
+        }
         if (event.metaKey) {
             // Handle action when cmd key is pressed
             onGoToSource();
@@ -327,6 +334,9 @@ export function PromptNodeWidget(props: PromptNodeWidgetProps) {
     };
 
     const toggleEditable = () => {
+        if (isLocked) {
+            return;
+        }
         if (editable) {
             // Reset to original value when canceling
             const prompt = model.node.properties?.['prompt']?.value as string;
@@ -425,7 +435,12 @@ export function PromptNodeWidget(props: PromptNodeWidgetProps) {
                 isSelected={isSelected}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
+                style={{
+                    opacity: isLocked ? 0.6 : 1,
+                    cursor: isLocked ? 'not-allowed' : 'default',
+                }}
             >
+                <NodeLockBadge lock={model.node.locked} currentUserId={currentUserId} />
                 {hasBreakpoint && (
                     <div
                         style={{

@@ -269,6 +269,8 @@ export class VisualizerRpcManager implements VisualizerAPI {
             const parentIdentifier = StateMachine.context().parentIdentifier;
 
             // Find the correct artifact by currentIdentifier (id)
+            const currentDocumentUri = StateMachine.context().documentUri;
+            const currentStartLine = StateMachine.context().position?.startLine;
             let currentArtifact = undefined;
             for (const artifact of params.artifacts) {
                 if (currentType && currentType.codedata.node === "CLASS" && currentType.name === artifact.name) {
@@ -294,6 +296,24 @@ export class VisualizerRpcManager implements VisualizerAPI {
                     );
                     if (resource) {
                         currentArtifact = resource;
+                    }
+                }
+            }
+
+            // Fallback: match by documentUri + startLine when identifier is not set (e.g. diagram
+            // opened by clicking in source editor). startLine of the enclosing function never changes
+            // on node deletion — only the function body shrinks — so this match is always correct.
+            if (!currentArtifact && currentDocumentUri !== undefined && currentStartLine !== undefined) {
+                for (const artifact of params.artifacts) {
+                    if (artifact.path === currentDocumentUri && artifact.position?.startLine === currentStartLine) {
+                        currentArtifact = artifact;
+                        break;
+                    }
+                    if (artifact.resources) {
+                        const resource = artifact.resources.find(
+                            r => r.path === currentDocumentUri && r.position?.startLine === currentStartLine
+                        );
+                        if (resource) { currentArtifact = resource; break; }
                     }
                 }
             }

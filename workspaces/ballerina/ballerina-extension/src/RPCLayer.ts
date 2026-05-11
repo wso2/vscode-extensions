@@ -46,6 +46,7 @@ import { registerAgentChatRpcHandlers } from './rpc-managers/agent-chat/rpc-hand
 import { activeAgentChanged } from '@wso2/ballerina-core';
 import { ArtifactsUpdated, ArtifactNotificationHandler } from './utils/project-artifacts-handler';
 import { registerMigrateIntegrationRpcHandlers } from './rpc-managers/migrate-integration/rpc-handler';
+import { registerCollaborationRpcHandlers } from './rpc-managers/collaboration/rpc-handler';
 import { registerPlatformExtRpcHandlers } from './rpc-managers/platform-ext/rpc-handler';
 import { MigrationPanelWebview } from './views/migration-panel/webview';
 
@@ -112,6 +113,9 @@ export class RPCLayer {
 
         // ----- Register Integration Migration RPC Methods
         registerMigrateIntegrationRpcHandlers(RPCLayer._messenger);
+
+        // ----- Register Collaboration RPC Methods
+        registerCollaborationRpcHandlers(RPCLayer._messenger);
 
         // ----- Artifact Updated Common Notification
         RPCLayer._messenger.onRequest(onArtifactUpdatedRequest, (artifactData: ArtifactData) => {
@@ -190,8 +194,15 @@ function isMigrationPanel(webview: WebviewPanel | WebviewView): boolean {
     return 'reveal' in webview && webview.title === "Migration Assistant";
 }
 
+let _notifyCurrentWebviewTimer: ReturnType<typeof setTimeout> | undefined;
 export function notifyCurrentWebview() {
-    RPCLayer._messenger.sendNotification(projectContentUpdated, { type: 'webview', webviewType: VisualizerWebview.viewType }, true);
+    if (_notifyCurrentWebviewTimer !== undefined) {
+        clearTimeout(_notifyCurrentWebviewTimer);
+    }
+    _notifyCurrentWebviewTimer = setTimeout(() => {
+        _notifyCurrentWebviewTimer = undefined;
+        RPCLayer._messenger.sendNotification(projectContentUpdated, { type: 'webview', webviewType: VisualizerWebview.viewType }, true);
+    }, 50);
 }
 
 export function notifyAiWebview() {

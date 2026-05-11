@@ -21,20 +21,9 @@ import { createPortal } from "react-dom";
 import styled from "@emotion/styled";
 import { DiagramEngine, PortWidget } from "@projectstorm/react-diagrams-core";
 import { IfNodeModel } from "./IfNodeModel";
-import {
-    IF_NODE_WIDTH,
-    NODE_BG_BREAKPOINT_COLOR,
-    NODE_BG_COLOR,
-    NODE_BG_HOVER_COLOR,
-    NODE_BORDER_COLOR,
-    NODE_BORDER_ERROR_COLOR,
-    NODE_BORDER_SELECTED_COLOR,
-    NODE_BORDER_WIDTH,
-    NODE_HEIGHT,
-    NODE_TEXT_COLOR,
-    NODE_WIDTH,
-} from "../../../resources/constants";
-import { Button, Item, Menu, MenuItem } from "@wso2/ui-toolkit";
+import { IF_NODE_WIDTH, NODE_BG_BREAKPOINT_COLOR, NODE_BG_COLOR, NODE_BG_HOVER_COLOR, NODE_BORDER_COLOR, NODE_BORDER_ERROR_COLOR, NODE_BORDER_SELECTED_COLOR, NODE_BORDER_WIDTH, NODE_HEIGHT, NODE_TEXT_COLOR, NODE_WIDTH } from "../../../resources/constants";
+import { Button, Item, Menu, MenuItem, Popover, ThemeColors, Tooltip } from "@wso2/ui-toolkit";
+import { NodeLockBadge } from "../NodeLockBadge";
 import { FlowNode } from "../../../utils/types";
 import { useDiagramContext } from "../../DiagramContext";
 import { MoreVertIcon } from "../../../resources";
@@ -134,6 +123,7 @@ export namespace NodeStyles {
     `;
 
     export const Column = styled.div`
+        position: relative;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
@@ -143,6 +133,7 @@ export namespace NodeStyles {
     export const Hr = styled.hr`
         width: 100%;
     `;
+
 }
 
 interface IfNodeWidgetProps {
@@ -155,7 +146,7 @@ export interface NodeWidgetProps extends Omit<IfNodeWidgetProps, "children"> {}
 
 export function IfNodeWidget(props: IfNodeWidgetProps) {
     const { model, engine, onClick } = props;
-    const { onNodeSelect, goToSource, onDeleteNode, addBreakpoint, removeBreakpoint, readOnly, selectedNodeId, nodeComments } =
+    const { onNodeSelect, goToSource, onDeleteNode, addBreakpoint, removeBreakpoint, readOnly, selectedNodeId, currentUserId, setMenuOpenNodeId, nodeComments } =
         useDiagramContext();
 
     const noteComment = nodeComments?.get(model.node.id);
@@ -193,7 +184,7 @@ export function IfNodeWidget(props: IfNodeWidgetProps) {
     }, [isMenuOpen]);
     const hasBreakpoint = model.hasBreakpoint();
     const isActiveBreakpoint = model.isActiveBreakpoint();
-
+    const isLocked = Boolean(model.node.locked && model.node.locked.userId !== currentUserId);
     useEffect(() => {
         if (model.node.suggested) {
             model.setAroundLinksDisabled(model.node.suggested === true);
@@ -201,7 +192,7 @@ export function IfNodeWidget(props: IfNodeWidgetProps) {
     }, [model.node.suggested]);
 
     const handleOnClick = (event: React.MouseEvent<HTMLDivElement>) => {
-        if (readOnly) {
+        if (readOnly || isLocked) {
             return;
         }
         if (event.metaKey) {
@@ -225,18 +216,23 @@ export function IfNodeWidget(props: IfNodeWidgetProps) {
     const deleteNode = () => {
         onDeleteNode && onDeleteNode(model.node);
         setMenuPos(null);
+        setMenuOpenNodeId?.(undefined);
     };
 
     const handleOnMenuClick = (event: React.MouseEvent<HTMLElement | SVGSVGElement>) => {
-        if (readOnly) {
+        if (readOnly || isLocked) {
             return;
         }
         const target = menuButtonElement || (event.currentTarget as HTMLElement);
         setMenuPos(getMenuPos(target));
+        setMenuOpenNodeId?.(model.node.id);
     };
 
     const handleOnContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
         event.preventDefault();
+        if (readOnly || isLocked) {
+            return;
+        }
         const target = menuButtonElement || event.currentTarget;
         setMenuPos(getMenuPos(target as HTMLElement));
     };
@@ -244,6 +240,7 @@ export function IfNodeWidget(props: IfNodeWidgetProps) {
     const handleOnMenuClose = () => {
         setMenuPos(null);
         setIsHovered(false);
+        setMenuOpenNodeId?.(undefined);
     };
 
     const onAddBreakpoint = () => {
@@ -273,10 +270,14 @@ export function IfNodeWidget(props: IfNodeWidgetProps) {
         <NodeStyles.Node
             disabled={disabled}
             hovered={isHovered}
-            readOnly={readOnly}
+            readOnly={readOnly || isLocked}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => { setIsHovered(false); setIsNoteActive(false); }}
-            onContextMenu={!readOnly ? handleOnContextMenu : undefined}
+            onContextMenu={!readOnly && !isLocked ? handleOnContextMenu : undefined}
+            style={{
+                opacity: isLocked ? 0.6 : 1,
+                cursor: isLocked ? "not-allowed" : readOnly ? "default" : "pointer",
+            }}
         >
             <NodeStyles.Row>
                 <NodeStyles.Column onClick={handleOnClick}>
@@ -293,6 +294,7 @@ export function IfNodeWidget(props: IfNodeWidgetProps) {
                             }}
                         />
                     )}
+                    <NodeLockBadge lock={model.node.locked} currentUserId={currentUserId} />
                     <NodeStyles.TopPortWidget port={model.getPort("in")!} engine={engine} />
                     <svg
                         width={IF_NODE_WIDTH}
@@ -355,7 +357,7 @@ export function IfNodeWidget(props: IfNodeWidgetProps) {
                 )}
                 <NodeStyles.StyledButton
                     ref={setMenuButtonElement}
-                    buttonSx={readOnly ? { cursor: "not-allowed" } : {}}
+                    buttonSx={readOnly || isLocked  ? { cursor: "not-allowed" } : {}}
                     appearance="icon"
                     onClick={handleOnMenuClick}
                 >

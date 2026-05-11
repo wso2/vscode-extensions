@@ -64,6 +64,14 @@ import {
     SYNAPSE_REGISTRY_RESOURCE_GUIDE_SECTIONS,
 } from '../context/synapse-core/synapse_registry_resource_guide';
 import {
+    SYNAPSE_ARTIFACT_REFERENCE_FULL,
+    SYNAPSE_ARTIFACT_REFERENCE_SECTIONS,
+} from '../context/synapse-core/synapse_artifact_reference';
+import {
+    SYNAPSE_ASYNC_REFERENCE_FULL,
+    SYNAPSE_ASYNC_REFERENCE_SECTIONS,
+} from '../context/synapse-core/synapse_async_reference';
+import {
     SYNAPSE_HTTP_CONNECTOR_GUIDE_FULL,
     SYNAPSE_HTTP_CONNECTOR_GUIDE_SECTIONS,
 } from '../context/synapse-core/synapse_http_connector_guide';
@@ -71,6 +79,10 @@ import {
     UNIT_TEST_REFERENCE_FULL,
     UNIT_TEST_REFERENCE_SECTIONS,
 } from '../context/unit-tests/unit_test_reference';
+import {
+    DATA_MAPPER_REFERENCE_FULL,
+    DATA_MAPPER_REFERENCE_SECTIONS,
+} from '../context/data_mapper_reference';
 import { logDebug, logWarn } from '../../copilot/logger';
 import { ContextExecuteFn, ToolResult } from './types';
 import { getRuntimeVersionFromPom } from './connector_store_cache';
@@ -132,9 +144,23 @@ const CONTEXT_REFERENCES: ContextDefinition[] = [
     },
     {
         name: 'synapse-mediator-reference',
-        description: 'Deep reference for mediator attributes, semantics, and validated behavior patterns.',
+        description: 'Deep reference for mediator attributes, semantics, and validated behavior patterns. Includes script mediator (GraalJS payload/variable access), forEach V2 (MessageContext isolation and aggregation attributes), variable mediator type="JSON" coercion, cache mediator paired request/response, call/send/loopback semantics, and the consolidated fault handling hierarchy with ERROR_* property lifecycle.',
         content: SYNAPSE_MEDIATOR_REFERENCE_FULL,
         sections: SYNAPSE_MEDIATOR_REFERENCE_SECTIONS,
+    },
+    {
+        name: 'synapse-artifact-reference',
+        description: 'Artifact-level reference: REST APIs (<api>/<resource> attributes, versioning, CORS handlers), proxy services (legacy SOAP shape), inbound endpoints (protocol list, parameter schemas for HTTP/JMS/File, coordination semantics), scheduled tasks (MessageInjector, simple/cron triggers), and local entries (inline, URI-referenced, connection-init forms).',
+        content: SYNAPSE_ARTIFACT_REFERENCE_FULL,
+        sections: SYNAPSE_ARTIFACT_REFERENCE_SECTIONS,
+        aliases: ['synapse_artifact_reference', 'artifact-reference'],
+    },
+    {
+        name: 'synapse-async-reference',
+        description: 'Async processing reference: message stores (InMemory/JMS/RabbitMQ/JDBC fully-qualified class names and parameters), message processors (Sampling vs ScheduledMessageForwarding), the <store> mediator (which TERMINATES mediation), and the dead-letter-queue pattern with a paired forwarder + DLQ store.',
+        content: SYNAPSE_ASYNC_REFERENCE_FULL,
+        sections: SYNAPSE_ASYNC_REFERENCE_SECTIONS,
+        aliases: ['synapse_async_reference', 'message-stores', 'message-processors'],
     },
     {
         name: 'synapse-payload-patterns',
@@ -156,14 +182,14 @@ const CONTEXT_REFERENCES: ContextDefinition[] = [
     },
     {
         name: 'http-connector-guide',
-        description: 'HTTP connector deep reference: error response handling (nonErrorHttpStatusCodes, fault sequences, HTTP_SC branching), authentication patterns (Basic, Bearer, OAuth2 client credentials), transport properties, payload types (JSON/XML/TEXT), chunking/Content-Length control, and responseVariable pattern.',
+        description: 'HTTP connector deep reference: error response handling (nonErrorHttpStatusCodes, fault sequences, HTTP_SC branching), transport-level faults (connection refused / timeout — require timeoutDuration + onError fault handler), authentication patterns (Basic, Bearer, OAuth2 client credentials), transport properties, payload types (JSON/XML/TEXT), chunking/Content-Length control, and responseVariable pattern.',
         content: SYNAPSE_HTTP_CONNECTOR_GUIDE_FULL,
         sections: SYNAPSE_HTTP_CONNECTOR_GUIDE_SECTIONS,
         aliases: ['http_connector_guide', 'http-error-handling'],
     },
     {
         name: 'registry-resource-guide',
-        description: 'Registry resource management: artifact.xml format, naming conventions, media types, registry paths (gov:/conf:), access patterns from Synapse configs, resource properties, and common patterns (JSON, XSLT, scripts, WSDL).',
+        description: 'Registry resource management: artifact.xml format, naming conventions, media types, registry paths (gov:/conf:), access patterns from Synapse configs, resource properties, common patterns (JSON, XSLT, scripts, WSDL), config.properties registration as a config/property artifact for ${configs.*} access, and secure vault (wso2:vault-lookup alias syntax) for encrypted secret resolution.',
         content: SYNAPSE_REGISTRY_RESOURCE_GUIDE_FULL,
         sections: SYNAPSE_REGISTRY_RESOURCE_GUIDE_SECTIONS,
         aliases: ['registry_resource_guide', 'registry-resources'],
@@ -174,6 +200,14 @@ const CONTEXT_REFERENCES: ContextDefinition[] = [
         content: UNIT_TEST_REFERENCE_FULL,
         sections: UNIT_TEST_REFERENCE_SECTIONS,
         aliases: ['unit_test_reference', 'unit-test-guide'],
+    },
+    {
+        name: 'data-mapper-reference',
+        description: 'TypeScript data mapper reference: .ts file skeleton, dmUtils helper API (sum/average/max/min/concat/toNumber/etc with signatures), the TS2556 dynamic-array spread pitfall (use array.reduce(...), never dmUtils.sum(...arr)), array handling patterns, and tool-routing guidance (prefer create_data_mapper / generate_data_mapping over hand-written mappings). Load before editing existing .ts mapping files. Requires MI runtime 4.4.0+.',
+        content: DATA_MAPPER_REFERENCE_FULL,
+        sections: DATA_MAPPER_REFERENCE_SECTIONS,
+        minRuntimeVersion: RUNTIME_VERSION_440,
+        aliases: ['data_mapper_reference', 'datamapper-reference', 'dmutils-reference'],
     },
 ];
 
@@ -344,7 +378,7 @@ export function createContextTool(execute: ContextExecuteFn) {
         description: `Loads deep reference context on demand to avoid prompt bloat.
             Use context_name in the form "topic" or "topic:section".
             Example: "synapse-expression-spec:type_coercion".
-            Note: AI connector context requires MI runtime 4.4.0 or newer.`,
+            Note: Some contexts are runtime-gated and require the MI runtime version specified by their minRuntimeVersion (e.g., MI runtime ${RUNTIME_VERSION_440} or newer).`,
         inputSchema: contextInputSchema,
         execute,
     });

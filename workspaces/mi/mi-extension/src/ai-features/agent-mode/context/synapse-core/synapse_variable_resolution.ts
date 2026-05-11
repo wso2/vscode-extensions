@@ -120,7 +120,18 @@ When a variable holds a Map (common with connector outputs):
 ### Variable errors
 - Undefined variable → throws "Variable {name} is not defined"
 - JSONPath on XML variable → throws "Could not evaluate JSONPath expression on non-JSON variable value"
-- Key not found in Map → throws "Could not find key: {key} in the variable"`,
+- Key not found in Map → throws "Could not find key: {key} in the variable"
+
+### Converting a JSON *string* variable to a JSON-typed variable
+If a variable stores a JSON **string** (e.g. set via a script mediator's \`mc.setVariable\`, or populated from a TEXT response),
+\`<variable name="x" type="JSON" expression="\${vars.myStr}"/>\` fails with:
+\`result does not match the expected data type 'JSON'\`
+
+Wrap the source in \`array(...)\` or \`object(...)\` so the runtime parses the string first:
+\`\`\`xml
+<variable name="arr" type="JSON" expression="\${array(vars.myJsonStr)}"/>   <!-- for JSON arrays -->
+<variable name="obj" type="JSON" expression="\${object(vars.myJsonStr)}"/>  <!-- for JSON objects -->
+\`\`\``,
 
 headers: `## Header Access
 

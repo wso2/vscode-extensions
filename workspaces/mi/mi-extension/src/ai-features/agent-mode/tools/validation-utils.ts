@@ -17,6 +17,7 @@
  */
 
 import * as fs from 'fs';
+import * as vscode from 'vscode';
 import { Uri } from 'vscode';
 import { MILanguageClient } from '../../../lang-client/activator';
 import { logDebug, logError } from '../../copilot/logger';
@@ -25,6 +26,81 @@ import { ValidationDiagnostics, DiagnosticInfo } from './types';
 // ============================================================================
 // Shared Validation Utilities
 // ============================================================================
+
+/**
+ * Post-processes LSP diagnostic messages for AI agent consumption.
+ * The LS output is shared with other services (design view, UI) so we keep it unchanged there
+ * and condense it here for the agent — groups connector operations by prefix, truncates long
+ * lists, and strips trailing namespace noise.
+ */
+function postProcessDiagnosticMessage(message: string): string {
+    let result = message;
+
+    // Strip Synapse namespace URIs from error messages (e.g., {"http://ws.apache.org/ns/synapse":log} → 'log')
+    result = result.replace(/\{"http:\/\/ws\.apache\.org\/ns\/synapse":([^}]+)\}/g, "'$1'");
+
+    // Strip trailing "Error indicated by:\n {namespace}\nwith code:" noise
+    result = result.replace(
+        /\n*Error indicated by:\s*\n\s*\{[^}]*\}\s*\nwith code:\s*$/s,
+        ''
+    );
+
+    // Process "One of the following is expected:" lists (the main source of oversized messages)
+    const expectedMatch = result.match(
+        /([\s\S]*?One of the following is expected:\n)([\s\S]*)/
+    );
+    if (!expectedMatch) {
+        return result.trim();
+    }
+
+    const preamble = expectedMatch[1];
+    const listSection = expectedMatch[2];
+
+    const bulletRegex = /^\s*-\s+(.+)$/gm;
+    const items: string[] = [];
+    let m;
+    while ((m = bulletRegex.exec(listSection)) !== null) {
+        items.push(m[1].trim());
+    }
+
+    if (items.length === 0) {
+        return result.trim();
+    }
+
+    // Separate connector operations (contain ".") from core mediators
+    const coreItems: string[] = [];
+    const connectorOps: Map<string, string[]> = new Map();
+
+    for (const item of items) {
+        const dotIdx = item.indexOf('.');
+        if (dotIdx > 0) {
+            const prefix = item.substring(0, dotIdx);
+            if (!connectorOps.has(prefix)) {
+                connectorOps.set(prefix, []);
+            }
+            connectorOps.get(prefix)!.push(item);
+        } else {
+            coreItems.push(item);
+        }
+    }
+
+    const MAX_CORE_ITEMS = 15;
+    const condensed: string[] = [];
+
+    const shownCore = coreItems.slice(0, MAX_CORE_ITEMS);
+    for (const item of shownCore) {
+        condensed.push(` - ${item}`);
+    }
+    if (coreItems.length > MAX_CORE_ITEMS) {
+        condensed.push(`   ... and ${coreItems.length - MAX_CORE_ITEMS} more core mediators`);
+    }
+
+    for (const [prefix, ops] of connectorOps) {
+        condensed.push(` - ${prefix}.* (${ops.length} operations)`);
+    }
+
+    return (preamble + condensed.join('\n')).trim();
+}
 
 /**
  * Validates a single XML file and returns structured diagnostic information
@@ -57,10 +133,13 @@ export async function validateXmlFile(
             return null;
         }
 
+        // Read file content once (reused for expression validation below)
+        const fileContent = fs.readFileSync(absolutePath, 'utf8');
+
         // Get diagnostics from language server
         const diagnosticsResponse = await langClient.getCodeDiagnostics({
             fileName: absolutePath,
-            code: fs.readFileSync(absolutePath, 'utf8')
+            code: fileContent
         });
 
         const lspDiagnostics = diagnosticsResponse.diagnostics || [];
@@ -71,23 +150,50 @@ export async function validateXmlFile(
                 const diagnostic: DiagnosticInfo = {
                     severity: d.severity === 1 ? 'error' as const : d.severity === 2 ? 'warning' as const : 'info' as const,
                     line: (d.range?.start?.line || 0) + 1, // Convert 0-indexed LSP line to 1-indexed
-                    message: d.message
+                    message: postProcessDiagnosticMessage(d.message),
+                    code: d.code ? String(d.code) : undefined,
                 };
 
                 // Optionally fetch code actions (LSP quick fixes)
+                // Use VSCode's published diagnostics (from LS's publishDiagnostics) for the context,
+                // since code actions require diagnostics that match the LS's internal state.
+                // The codeDiagnostic RPC diagnostics don't match — they come from a different code path.
                 if (includeCodeActions) {
                     try {
-                        const codeActions = await langClient.getCodeActions({
-                            textDocument: { uri: Uri.file(absolutePath).toString() },
-                            range: d.range,
-                            context: {
-                                diagnostics: [d],
-                                only: ['quickfix']
-                            }
-                        });
+                        const docUri = Uri.file(absolutePath);
+                        const vsDiagnostics = vscode.languages.getDiagnostics(docUri);
+                        // Find the matching VS Code diagnostic by line and code
+                        const matchingVsDiag = vsDiagnostics.find(vd =>
+                            vd.range.start.line === (d.range?.start?.line ?? -1) &&
+                            String(vd.code) === String(d.code)
+                        );
 
-                        if (codeActions && codeActions.length > 0) {
-                            diagnostic.codeActions = codeActions.map((action: any) => action.title);
+                        if (matchingVsDiag) {
+                            const codeActions = await langClient.getCodeActions({
+                                textDocument: { uri: docUri.toString() },
+                                range: {
+                                    start: { line: matchingVsDiag.range.start.line, character: matchingVsDiag.range.start.character },
+                                    end: { line: matchingVsDiag.range.end.line, character: matchingVsDiag.range.end.character }
+                                },
+                                context: {
+                                    diagnostics: [{
+                                        range: {
+                                            start: { line: matchingVsDiag.range.start.line, character: matchingVsDiag.range.start.character },
+                                            end: { line: matchingVsDiag.range.end.line, character: matchingVsDiag.range.end.character }
+                                        },
+                                        message: matchingVsDiag.message,
+                                        severity: matchingVsDiag.severity === vscode.DiagnosticSeverity.Error ? 1
+                                            : matchingVsDiag.severity === vscode.DiagnosticSeverity.Warning ? 2 : 3,
+                                        code: typeof matchingVsDiag.code === 'object' ? String(matchingVsDiag.code.value) : String(matchingVsDiag.code),
+                                        source: matchingVsDiag.source,
+                                    }],
+                                    only: ['quickfix']
+                                }
+                            });
+
+                            if (codeActions && codeActions.length > 0) {
+                                diagnostic.codeActions = codeActions.map((action: any) => action.title);
+                            }
                         }
                     } catch (error) {
                         logDebug(`[ValidationUtils] Failed to get code actions: ${error}`);
@@ -142,7 +248,7 @@ export function formatValidationMessage(
         message += `\n✗ ${validation.errorCount} error(s):`;
 
         errors.slice(0, maxIssuesPerSeverity).forEach((d) => {
-            message += `\n  • Line ${d.line}: ${d.message}`;
+            message += `\n  • Line ${d.line}:${d.code ? ` [${d.code}]` : ''} ${d.message}`;
 
             // Show available code actions/fixes if present
             if (d.codeActions && d.codeActions.length > 0) {
@@ -164,7 +270,7 @@ export function formatValidationMessage(
         message += `\n⚠ ${validation.warningCount} warning(s):`;
 
         warnings.slice(0, maxIssuesPerSeverity).forEach((d) => {
-            message += `\n  • Line ${d.line}: ${d.message}`;
+            message += `\n  • Line ${d.line}:${d.code ? ` [${d.code}]` : ''} ${d.message}`;
 
             // Show available code actions/fixes if present
             if (d.codeActions && d.codeActions.length > 0) {

@@ -400,39 +400,10 @@ Validates XML payloads against XSD schemas.
 | \`<on-fail>\` | YES | Must contain at least one mediator. Executes when validation fails |
 `,
 
-'for-each': `## ForEach Mediator (v2 — Collection-Based)
-
-Iterates over a collection (JSON array or XML nodeset) and executes a sequence for each element.
-
-### XML Schema
-\`\`\`xml
-<foreach collection="\${payload.items}" [parallel-execution="true|false"]
-         [counter-variable="i"] [result-type="JSON|XML"]
-         [result-target="body|variable"] [result-variable="varName"]
-         [result-enclosing-element="rootElement"]>
-  <sequence>
-    <!-- mediators to execute per element -->
-  </sequence>
-</foreach>
-\`\`\`
-
-### Key Attributes
-| Attribute | Required | Default | Notes |
-|-----------|----------|---------|-------|
-| \`collection\` | YES | -- | Synapse expression evaluating to array/nodeset |
-| \`parallel-execution\` | No | \`false\` | Whether iterations run in parallel |
-| \`counter-variable\` | No | -- | Variable name for iteration index (0-based) |
-| \`result-type\` | No | -- | \`JSON\` or \`XML\` — aggregated result format |
-| \`result-target\` | No | -- | \`body\` or \`variable\` — where aggregated result goes |
-| \`result-variable\` | Conditional | -- | Required when \`result-target="variable"\` |
-| \`result-enclosing-element\` | Conditional | -- | Required when \`result-type="XML"\` |
-
-### Key Behaviors
-- During iteration, \`\${payload}\` refers to the **current array element**, not the original payload
-- Original payload is restored after forEach completes
-- Sequences inside forEach **cannot contain call, send, or callout mediators**
-- Counter variable is accessible as \`\${vars.i}\` (if \`counter-variable="i"\`)
-`,
+// NOTE: the old `for-each` section (with result-type / result-target / result-variable
+// attributes) has been removed because it conflicts with the current `foreach` section
+// below, which documents the verified attribute names (result-content-type /
+// target-variable). See the `foreach` entry for the authoritative reference.
 
 scatter_gather: `## Scatter-Gather Mediator
 
@@ -548,6 +519,346 @@ Invokes a sequence template with parameters.
 Inside templates, parameters are accessed via \`\${params.functionParams.paramName}\`.
 `,
 
+script: `## Script Mediator — Deep Reference (GraalJS)
+
+The Script mediator runs inline code against the message context. The **GraalVM JS** engine (\`language="js"\`) is the default and ships with the runtime; the Nashorn engine is not bundled. Groovy (\`language="groovy"\`) and Ruby (\`language="rb"\`) are also supported, but **only when their optional runtime jars are present** on the MI classpath — drop \`groovy-all-2.4.4.jar\` or \`jruby-complete-*.jar\` (both are OSGi bundles) into \`<MI_HOME>/dropins\` to enable them. Stick with \`language="js"\` unless there's a specific reason to pull in another runtime.
+
+### MI 4.5+ class-access sandbox
+GraalJS scripts run under a class-access policy. On MI 4.5+ access to \`java.lang\`, \`java.io\`, \`java.nio\`, and \`java.net\` is **blocked by default** — \`java.lang.Thread.sleep(ms)\`, \`java.lang.System.currentTimeMillis()\`, and similar calls will throw \`SynapseException\` unless the policy is adjusted via \`deployment.toml\`:
+
+\`\`\`toml
+[synapse_properties]
+'limit_java_class_access_in_scripts.enable' = true
+'limit_java_class_access_in_scripts.list_type' = "BLOCK_LIST"   # or "ALLOW_LIST"
+'limit_java_class_access_in_scripts.class_prefixes' = "java.lang,java.io,java.nio,java.net"
+\`\`\`
+
+A parallel \`limit_java_native_object_access_in_scripts.*\` set of keys restricts native object/method access. Prefer mediator-level patterns (e.g. the Iterate mediator for delays between retries) and avoid direct Java calls from scripts unless the deployment has been configured to permit them.
+
+### XML Schema
+\`\`\`xml
+<!-- Inline script -->
+<script language="js"><![CDATA[
+  // script body
+]]></script>
+
+<!-- External script from registry -->
+<script language="js" key="gov:/mi-resources/scripts/validate.js" function="main"/>
+\`\`\`
+
+### \`mc\` (MessageContext) API — payload & variables
+GraalJS exposes Synapse types as **proxy objects**, not as JSON strings. Do NOT round-trip through \`JSON.parse\`/\`JSON.stringify\` unless you explicitly need a plain JS value.
+
+| Call | Returns | Correct Usage |
+|------|---------|---------------|
+| \`mc.getPayloadJSON()\` | GraalJS proxy wrapping the JSON payload | \`var obj = mc.getPayloadJSON(); var id = obj.id;\` |
+| \`mc.setPayloadJSON(value)\` | — | Pass a **plain JS object**: \`mc.setPayloadJSON({ id: "x", status: "ok" })\` |
+| \`mc.getPayloadXML()\` | XML element (OMElement) | \`var xml = mc.getPayloadXML(); /* DOM-like access */\` |
+| \`mc.setPayloadXML(xml)\` | — | Pass an OMElement or XML literal |
+| \`mc.getProperty(name)\` | Java object (String, Integer, etc.) | Call \`.toString()\` before \`JSON.parse\` |
+| \`mc.setProperty(name, value)\` | — | Stored as Java String unless value is a supported type |
+| \`mc.getVariable(name)\` | Java String/Integer/... or proxy object | \`JSON.parse(mc.getVariable("myJsonStr").toString())\` if stored as STRING |
+| \`mc.setVariable(name, value)\` | — | Stores as Java String for primitives; to use as JSON later, caller must re-parse |
+| \`mc.getEnvelope()\` / \`mc.setEnvelope(env)\` | SOAP envelope | — |
+
+### Critical pitfalls
+- **Do NOT** call \`JSON.parse(mc.getPayloadJSON())\` — the result is already a JS-accessible proxy, not a string.
+- **Do NOT** call \`mc.setPayloadJSON(JSON.stringify(result))\` — pass the object directly.
+- \`mc.getVariable(name)\` returns a **Java String/Integer/etc.** Call \`.toString()\` before \`JSON.parse()\` when the variable stored a JSON string.
+- \`mc.setVariable(name, jsObj)\` stores primitives as **Java String**. To consume later as JSON, the downstream reader must \`JSON.parse\` the string (or use the variable mediator with \`type="JSON"\` and \`object(...)\`/\`array(...)\` — see the \`other\` section).
+- GraalJS proxy objects (returned by \`getPayloadJSON\`, or by \`getVariable\` for a JSON-typed variable) may not serialize cleanly with \`JSON.stringify\`. If you hit proxy serialization issues, round-trip through a plain object first: \`JSON.parse(JSON.stringify(proxy))\`.
+- \`responseVariable\` values produced by the HTTP connector are **Java \`LinkedHashMap\`** instances. From JS use \`.get("attributes")\`, \`.get("payload")\`, \`.get("headers")\` — dot notation does **not** work on Java maps.
+- \`java.lang.Thread.sleep(ms)\` and other \`java.lang\` calls are **blocked by default on MI 4.5+** (see "MI 4.5+ class-access sandbox" above). Prefer mediator-level patterns; only call into Java if the deployment explicitly allows the package via \`deployment.toml\`.
+
+### Validated patterns
+\`\`\`xml
+<!-- Read a field, mutate, write back as plain object -->
+<script language="js"><![CDATA[
+  var p = mc.getPayloadJSON();        // proxy
+  p.total = (p.items || []).length;   // direct access
+  mc.setPayloadJSON(p);                // pass object, not string
+]]></script>
+
+<!-- Parse a JSON string stored in a variable -->
+<script language="js"><![CDATA[
+  var raw = mc.getVariable("rawJsonStr");   // Java String
+  var obj = JSON.parse(raw.toString());     // .toString() first
+  mc.setProperty("ORDER_ID", obj.orderId);
+]]></script>
+
+<!-- Consume HTTP connector responseVariable (LinkedHashMap) -->
+<script language="js"><![CDATA[
+  var resp = mc.getVariable("userResp");          // Java LinkedHashMap
+  var status = resp.get("attributes").get("statusCode");
+  var body = resp.get("payload");                  // proxy for payload
+  mc.setPayloadJSON({ status: status, user: body });
+]]></script>
+\`\`\`
+
+### Anti-patterns (common failure modes)
+\`\`\`xml
+<!-- WRONG: getPayloadJSON is NOT a string -->
+<script language="js"><![CDATA[
+  var obj = JSON.parse(mc.getPayloadJSON());   // TypeError / garbled data
+]]></script>
+
+<!-- WRONG: setPayloadJSON expects an object, not a string -->
+<script language="js"><![CDATA[
+  mc.setPayloadJSON(JSON.stringify(result));   // payload becomes a quoted string
+]]></script>
+
+<!-- WRONG: dot access on Java LinkedHashMap -->
+<script language="js"><![CDATA[
+  var body = mc.getVariable("userResp").payload;  // undefined — use .get("payload")
+]]></script>
+\`\`\``,
+
+foreach: `## ForEach Mediator (V2) — Deep Reference
+
+ForEach V2 iterates over a JSON array or XML nodes. **Both the parallel and sequential modes clone the \`MessageContext\` per iteration** — iteration-local mutations do NOT propagate to the parent context or to other iterations.
+
+### XML Schema
+\`\`\`xml
+<foreach
+    collection="\${payload.items}"
+    parallel-execution="false|true"
+    [counter-variable="i"]
+    update-original="true|false"
+    [result-content-type="JSON|XML"]
+    [target-variable="aggregatedVar"]>
+  <sequence>
+    <!-- mediators operating on each iteration's local payload -->
+  </sequence>
+</foreach>
+\`\`\`
+
+Sequential vs parallel execution is controlled entirely by \`parallel-execution\` (default \`true\` = parallel). Set \`parallel-execution="false"\` only when you need ordered iteration or \`counter-variable\` semantics. There is no separate \`sequential\` attribute; don't emit one.
+
+### MessageContext isolation (critical)
+- Variables set via \`<variable>\` mediator or \`mc.setVariable(...)\` **inside an iteration do NOT persist** to the next iteration (sequential) or to the parent context (parallel).
+- Parent-scope variables are visible read-only from iterations (via the cloned context), but writes are discarded on iteration exit.
+- The **only** supported way to surface iteration results to the parent context is the aggregation attributes (\`update-original="false"\` + \`target-variable=...\`).
+
+### Aggregation (verified attribute names)
+| Attribute | Purpose |
+|-----------|---------|
+| \`update-original="false"\` | Do NOT rewrite the original collection in-place; aggregate into a separate variable instead. |
+| \`result-content-type="JSON"\` | Type of the aggregated result. (Use \`"XML"\` for XML payloads.) **Not** \`result-type\`. |
+| \`target-variable="myVar"\` | Name of the variable on the **parent** context that receives the aggregated array. **Not** \`result-variable\` or \`variableName\`. |
+
+Each iteration's **final payload** (the payload at the end of the iteration's sequence) is appended to the target variable as the next element.
+
+### Parallel vs sequential constraints
+- \`parallel-execution="true"\` disallows \`counter-variable\` — the counter only has a well-defined value in sequential mode.
+- Parallel iterations run on separate threads against separate cloned contexts; shared in-memory JS objects across iterations are NOT safe.
+
+### Validated patterns
+\`\`\`xml
+<!-- Aggregate transformed items back into a parent variable -->
+<foreach collection="\${payload.orders}"
+         parallel-execution="false"
+         update-original="false"
+         result-content-type="JSON"
+         target-variable="enrichedOrders">
+  <sequence>
+    <!-- iteration-local payload is one order -->
+    <payloadFactory media-type="json">
+      <format>{"id": "\${payload.id}", "total": \${payload.qty * payload.price}}</format>
+    </payloadFactory>
+    <!-- this payload becomes one element of vars.enrichedOrders -->
+  </sequence>
+</foreach>
+
+<!-- After the foreach -->
+<log category="INFO">
+  <message>Aggregated: \${vars.enrichedOrders}</message>
+</log>
+\`\`\`
+
+### Anti-patterns
+\`\`\`xml
+<!-- WRONG: trying to accumulate via a variable inside the iteration -->
+<foreach collection="\${payload.items}" parallel-execution="false" update-original="true">
+  <sequence>
+    <!-- set inside iteration — discarded on iteration exit -->
+    <variable name="acc" type="JSON" expression="\${array(concat(vars.acc, payload))}"/>
+  </sequence>
+</foreach>
+<!-- vars.acc is unchanged in the parent context -->
+
+<!-- WRONG: counter-variable with parallel execution -->
+<foreach collection="\${payload.items}" parallel-execution="true" counter-variable="i">
+  <!-- runtime rejects this combination -->
+</foreach>
+
+<!-- WRONG: misnamed aggregation attributes -->
+<foreach collection="\${payload.items}"
+         update-original="false"
+         result-type="JSON"          <!-- should be result-content-type -->
+         result-variable="out">       <!-- should be target-variable -->
+  <sequence>...</sequence>
+</foreach>
+\`\`\``,
+
+cache: `## Cache Mediator — Deep Reference
+
+Response caching for outbound calls. Paired request/response: one \`<cache>\` in-flight (no \`collector\`) caches the lookup and short-circuits on hit; a second \`<cache collector="true"/>\` on the response path stores it.
+
+### Attributes (root \`<cache>\`)
+| Attribute | Values | Notes |
+|-----------|--------|-------|
+| \`id\` | string | Cache identifier — must match across paired request/response mediators |
+| \`timeout\` | seconds | TTL for a cached entry |
+| \`collector\` | \`true\` \\| \`false\` | \`false\` (default) = request-path (check cache, maybe short-circuit). \`true\` = response-path (store in cache) |
+| \`maxMessageSize\` | bytes | Responses above this size are not cached |
+| \`scope\` | \`per-host\` \\| \`per-mediator\` | Cache-key scope |
+| \`hashGenerator\` | FQCN | Defaults to \`org.wso2.caching.digest.DOMHASHGenerator\` |
+
+### Child elements
+- \`<implementation type="memory" maxSize="N"/>\` — LRU cache of up to N entries.
+- \`<onCacheHit [sequence="..."]>...</onCacheHit>\` — inline mediators OR \`sequence="name"\`. Run on hit instead of backend call. Typically ends with \`<respond/>\`.
+- \`<protocol type="HTTP">\`
+  - \`<methods>GET POST</methods>\` — methods eligible for caching
+  - \`<headersToExcludeInHash>Date</headersToExcludeInHash>\` — request headers ignored when computing the hash. List only volatile headers (Date, X-Request-Id) here; **never** identity headers (Authorization, Cookie, X-User-*) or responses will collide across users.
+  - \`<responseCodes>2\\d\\d</responseCodes>\` — regex of response codes to cache
+  - \`<enableCacheControl>true</enableCacheControl>\` — honor \`Cache-Control: no-cache/max-age\`
+  - \`<includeAgeHeader>true</includeAgeHeader>\` — add \`Age\` header on cached responses
+  - \`<hashGenerator>org.wso2.caching.digest.DOMHASHGenerator</hashGenerator>\`
+
+### Paired request/response pattern
+\`\`\`xml
+<resource methods="GET" uri-template="/products/{id}">
+  <inSequence>
+    <!-- Request-path cache: short-circuits on hit -->
+    <cache id="productCache" timeout="60" maxMessageSize="10000" collector="false">
+      <onCacheHit>
+        <respond/>
+      </onCacheHit>
+      <protocol type="HTTP">
+        <methods>GET</methods>
+        <!-- Only exclude volatile headers (Date). Identity headers (Authorization,
+             Cookie, X-User-*) MUST stay in the hash so per-user responses don't
+             collide in the cache. -->
+        <headersToExcludeInHash>Date</headersToExcludeInHash>
+        <responseCodes>2\\d\\d</responseCodes>
+      </protocol>
+    </cache>
+
+    <http.get configKey="ProductsConn">
+      <relativePath>/products/\${params.pathParams.id}</relativePath>
+    </http.get>
+
+    <!-- Response-path cache: same id, collector=true -->
+    <cache id="productCache" collector="true"/>
+    <respond/>
+  </inSequence>
+</resource>
+\`\`\`
+
+### Pitfalls
+- The two \`<cache>\` mediators **must share \`id\`** and appear on the same flow (before and after the backend call).
+- \`collector="true"\` has no other attributes — don't repeat \`timeout\`/\`maxMessageSize\` there.
+- Caching personalized responses: identity headers (Authorization, Cookie, X-User-*, X-Tenant-*, etc.) must be **included** in the hash so per-user bodies don't collide. \`headersToExcludeInHash\` should list only volatile headers like \`Date\` — never auth/session headers.`,
+
+call_send_loopback: `## \`<call>\` vs \`<send>\` vs \`<loopback/>\` — Flow Semantics
+
+### \`<send>\` — one-way dispatch (default for async integrations)
+\`\`\`xml
+<send>
+  <endpoint key="BackendEP"/>
+</send>
+\`\`\`
+- Fire-and-forget at the mediator level. When the endpoint is 2-way (most HTTP), the response flows into the **outSequence** of the enclosing API \`<resource>\` / \`<proxy>\` \`<target>\`. Inside a sequence with no out-sequence wiring, the response is effectively dropped.
+- \`<send/>\` (no endpoint child) — sends to the endpoint implied by \`To\` header / WS-Addressing. Used in out-sequences to forward the response back to the client.
+- **Send terminates sequence execution**: mediators placed after \`<send>\` in the same sequence are NOT processed. Responses for 2-way endpoints still flow into the enclosing API/proxy/resource \`outSequence\` as described above.
+
+### \`<call [blocking="false"]>\` — synchronous request/reply
+\`\`\`xml
+<call>
+  <endpoint key="BackendEP"/>
+</call>
+<!-- After <call>: payload is the response body -->
+\`\`\`
+- Mediators after \`<call>\` see the backend response as \`\${payload}\` (or nothing if the endpoint is one-way).
+- \`blocking="true"\` switches to a blocking IO path — required only for legacy transports. Only when \`blocking="true"\` is \`initAxis2ClientOptions="false"\` meaningful (it suppresses re-initialization of the Axis2 client options for the blocking call). Do NOT set \`initAxis2ClientOptions\` on a non-blocking \`<call>\`; it has no effect there.
+- Connector operations (\`http.get\`, etc.) are internally \`<call>\`-shaped; after the connector the response is in \`\${payload}\` or \`\${vars.<responseVariable>}\`.
+
+### \`<loopback/>\` — proxy-only out-sequence transition
+- **Inside a proxy service**: moves from \`inSequence\` to \`outSequence\` without sending anything. The current message becomes the response.
+- **Inside an API resource**: runs but is effectively a no-op for dispatch; the out-sequence of the resource is chosen automatically after \`<call>\` or \`<send>\` completes.
+- Not needed in modern API flows — use \`<respond/>\` to send the current payload back.
+
+### \`<respond/>\` — send current message back to client
+- Terminates mediation for the current flow.
+- Uses the current payload, the current \`HTTP_SC\` (axis2), and the current transport headers.
+- Works identically in APIs, proxies, and inbound-driven sequences (where the "client" is the inbound connector).
+
+### Decision matrix
+| Goal | Mediator |
+|------|----------|
+| Synchronous backend call, need the response | \`<call>\` (or connector operation) |
+| Fire message at backend, don't care about reply | \`<send>\` + one-way endpoint |
+| Forward the response back to the API caller | \`<respond/>\` (or an empty \`<send/>\` inside a proxy out-sequence) |
+| Return early from proxy inSequence with the current payload | \`<loopback/>\` + outSequence that contains \`<send/>\` |`,
+
+fault_handling: `## Fault Handling — Hierarchy and \`ERROR_*\` Lifecycle
+
+### Fault-handler resolution order (first match wins)
+1. The enclosing resource/proxy's \`faultSequence\` attribute or inline \`<faultSequence>\`
+2. The enclosing named \`<sequence onError="...">\` attribute
+3. The endpoint's \`onFailure\` or inline fault handler
+4. The Synapse \`_main\` fault sequence (\`fault\`)
+5. Uncaught → logged and dropped
+
+\`<inboundEndpoint>\` uses \`onError="..."\` in place of \`faultSequence\`.
+
+### \`ERROR_*\` properties (synapse scope)
+Set by the runtime when a fault is raised. Read them inside a fault sequence:
+
+| Property | Contents |
+|----------|----------|
+| \`ERROR_CODE\` | Numeric error code (e.g. \`101504\` transport timeout, \`303001\` timeout on call, \`9000101\` connector op fault) |
+| \`ERROR_MESSAGE\` | Short human-readable error |
+| \`ERROR_DETAIL\` | Extended details |
+| \`ERROR_EXCEPTION\` | Exception class name + stack when available |
+
+Access:
+\`\`\`xml
+<log level="custom" category="ERROR">
+  <property name="CODE" expression="\${props.synapse.ERROR_CODE}"/>
+  <property name="MSG"  expression="\${props.synapse.ERROR_MESSAGE}"/>
+  <property name="EX"   expression="\${props.synapse.ERROR_EXCEPTION}"/>
+</log>
+\`\`\`
+Legacy XPath form: \`get-property('ERROR_MESSAGE')\`.
+
+### Fault sequence template
+\`\`\`xml
+<sequence name="BackendFault">
+  <log level="custom" category="ERROR">
+    <property name="FAULT" expression="\${props.synapse.ERROR_MESSAGE}"/>
+  </log>
+  <!-- Shape a deterministic response. <args> only accepts XPath/JSONPath,
+       so embed the Synapse v2 expression directly in <format> instead. -->
+  <property name="HTTP_SC" value="502" scope="axis2" type="STRING"/>
+  <payloadFactory media-type="json">
+    <format>{"error": "upstream_error", "detail": "\${props.synapse.ERROR_MESSAGE}"}</format>
+  </payloadFactory>
+  <!-- Clear error state so downstream work doesn't re-trigger -->
+  <property name="ERROR_CODE" action="remove" scope="default"/>
+  <property name="ERROR_MESSAGE" action="remove" scope="default"/>
+  <!-- Terminate with a deliberate response -->
+  <respond/>
+</sequence>
+\`\`\`
+
+### Key rules
+- A fault sequence must end with \`<respond/>\`, \`<drop/>\`, \`<send/>\` (one-way), or \`<loopback/>\`. Otherwise the fault can bubble back up to \`_main\` and result in a second fault.
+- \`<send>\` / \`<call>\` inside a fault sequence is risky — if that call itself faults, you get a fault loop. Prefer logging + \`<respond/>\` unless you have a well-tested alerting endpoint.
+- After \`<drop/>\` inside a fault sequence, the client sees a default 202 Accepted unless you set \`HTTP_SC\` first — usually not what you want for a client-facing fault.
+- \`ERROR_*\` properties are not automatically cleared across mediation boundaries. If a subsequent \`<call>\` starts a new flow, the previous error properties are still readable — explicitly \`<property ... action="remove"/>\` them if that matters.
+- Setting \`nonErrorHttpStatusCodes\` on the HTTP connector short-circuits fault-handler invocation for listed HTTP status codes (see http-connector-guide:error_handling). Transport-level faults bypass it.`,
+
 other: `## Other Mediators — Quick Reference
 
 ### Drop
@@ -581,9 +892,9 @@ Throws a custom error that triggers the fault sequence.
 \`\`\`
 
 ### Store
-Stores a message in a message store for later processing.
+Stores the current message in a named message store for asynchronous processing. **Terminates mediation** — mediators after \`<store>\` do not run. \`<respond/>\` must precede it if you want a synchronous client reply. See synapse-async-reference:store_mediator.
 \`\`\`xml
-<store messageStore="MyMessageStore"/>
+<store messageStore="OrdersJMS"/>
 \`\`\`
 
 ### Variable
@@ -594,6 +905,18 @@ Sets a typed variable in the message context.
 <variable name="myBool" type="BOOLEAN" expression="\${payload.count > 0}"/>
 \`\`\`
 Variable types: \`STRING\`, \`INTEGER\`, \`BOOLEAN\`, \`DOUBLE\`, \`LONG\`, \`FLOAT\`, \`SHORT\`, \`JSON\`, \`XML\`, \`OM\`.
+
+**type="JSON" from a String variable** — If a variable already holds a JSON *string* (for example one set via \`mc.setVariable\` in a script mediator, or populated from a TEXT response), assigning it directly with \`type="JSON"\` fails with:
+\`result does not match the expected data type 'JSON'\`
+
+Wrap the source with \`array(...)\` or \`object(...)\` to parse the string into a JSON-typed value:
+\`\`\`xml
+<!-- vars.myJsonStr is the JSON string "[1,2,3]" -->
+<variable name="myArr" type="JSON" expression="\${array(vars.myJsonStr)}"/>
+
+<!-- vars.myJsonStr is the JSON string '{"a":1}' -->
+<variable name="myObj" type="JSON" expression="\${object(vars.myJsonStr)}"/>
+\`\`\`
 
 ### Log
 Logs message details. Does not modify the payload.

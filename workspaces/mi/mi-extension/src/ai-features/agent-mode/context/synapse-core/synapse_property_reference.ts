@@ -78,7 +78,51 @@ HTTP headers are NOT properties — they are accessed via the \`headers\` scope:
 | Content-Type, Authorization, SOAPAction | transport headers | Use header mediator, not property |
 
 ### Critical Rule
-**There is NO \`trp\` scope** in Synapse expressions. Use \`headers["X"]\` to access transport headers, NOT \`props.trp.X\`.`,
+**There is NO \`trp\` scope** in Synapse expressions. Use \`headers["X"]\` to access transport headers, NOT \`props.trp.X\`.
+
+### \`<variable>\` does NOT support \`scope\`
+The \`<variable>\` mediator has no \`scope\` attribute — it writes to Synapse variables only. For axis2/transport/synapse-scope properties (\`HTTP_SC\`, \`messageType\`, \`ContentType\`, \`OUT_ONLY\`, \`REST_URL_POSTFIX\`, etc.), use the \`<property>\` mediator instead. The validator rejects \`scope\` on \`<variable>\`.
+\`\`\`xml
+<!-- WRONG: <variable> has no scope attribute -->
+<variable name="HTTP_SC" type="INTEGER" value="200" action="set" scope="axis2"/>
+
+<!-- CORRECT: use <property> for scoped/transport values -->
+<property name="HTTP_SC" value="200" scope="axis2"/>
+\`\`\`
+
+### Setting Outbound HTTP Request Headers
+The \`<variable>\` mediator **cannot** set outbound HTTP headers — it writes to Synapse variables only. Two working options:
+
+1. **Connector \`<headers>\` parameter** (preferred for HTTP connector ops):
+   \`\`\`xml
+   <http.get configKey="BackendConn">
+     <relativePath>/api</relativePath>
+     <headers>[["X-Request-Id", "\${vars.requestId}"], ["X-Tenant", "\${vars.tenant}"]]</headers>
+   </http.get>
+   \`\`\`
+2. **Property mediator, \`scope="transport"\`** (for \`<send>\`/\`<call>\` or legacy endpoints):
+   \`\`\`xml
+   <property name="X-Request-Id" value="\${vars.requestId}" scope="transport" type="STRING"/>
+   <property name="X-Tenant"     value="\${vars.tenant}"     scope="transport" type="STRING"/>
+   <send><endpoint key="BackendEP"/></send>
+   \`\`\`
+
+\`<property scope="transport"/>\` persists into the \`TRANSPORT_HEADERS\` map on the outgoing message. \`scope="default"\` / \`scope="axis2"\` do NOT become HTTP headers.
+
+### \`REST_URL_POSTFIX\` (axis2) — control the URL suffix on pass-through routing
+When a resource forwards to a backend, the incoming URI postfix (\`/orders/{id}?expand=items\`) is appended to the target endpoint URL by default. Two common needs:
+
+- **Strip the postfix entirely** (send only to the endpoint's base URL):
+  \`\`\`xml
+  <property name="REST_URL_POSTFIX" scope="axis2" value="" type="STRING"/>
+  \`\`\`
+- **Rewrite the postfix** before the call (use pure Synapse v2 interpolation; do NOT mix \`fn:concat\` with \`\${...}\`):
+  \`\`\`xml
+  <property name="REST_URL_POSTFIX" scope="axis2"
+            expression="\${'/v2/' + params.pathParams.id}" type="STRING"/>
+  \`\`\`
+
+Not setting this when the backend path differs from the inbound API path is a common cause of "404 with a weird URL" from the backend.`,
 
 http_response: `## HTTP Response Control Properties
 

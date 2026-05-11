@@ -125,17 +125,6 @@ const deleteSession: RequestType<DeleteSessionRequest, DeleteSessionResponse> = 
     method: `${_prefix}/deleteSession`
 };
 
-// Compact RPC method
-export interface CompactConversationRequest {
-    modelSettings?: ModelSettings;
-}
-
-export interface CompactConversationResponse {
-    success: boolean;
-    summary?: string;
-    error?: string;
-}
-
 export type MentionablePathType = 'file' | 'folder';
 
 export interface MentionablePathItem {
@@ -165,10 +154,6 @@ export interface GetAgentRunStatusResponse {
     mode?: AgentMode;
 }
 
-const compactConversation: RequestType<CompactConversationRequest, CompactConversationResponse> = {
-    method: `${_prefix}/compactConversation`
-};
-
 const searchMentionablePaths: RequestType<SearchMentionablePathsRequest, SearchMentionablePathsResponse> = {
     method: `${_prefix}/searchMentionablePaths`
 };
@@ -177,7 +162,7 @@ const getAgentRunStatus: RequestType<GetAgentRunStatusRequest, GetAgentRunStatus
     method: `${_prefix}/getAgentRunStatus`
 };
 
-// Re-export model settings types from @wso2/mi-core
+// Re-export types from @wso2/mi-core
 export type { MainModelPreset, SubModelPreset, ModelSettings };
 
 export class MiAgentPanelRpcClient implements MIAgentPanelAPI {
@@ -238,13 +223,6 @@ export class MiAgentPanelRpcClient implements MIAgentPanelAPI {
 
     deleteSession(request: DeleteSessionRequest): Promise<DeleteSessionResponse> {
         return this._messenger.sendRequest(deleteSession, HOST_EXTENSION, request);
-    }
-
-    // ==================================
-    // Compact Functions
-    // ==================================
-    compactConversation(request: CompactConversationRequest): Promise<CompactConversationResponse> {
-        return this._messenger.sendRequest(compactConversation, HOST_EXTENSION, request);
     }
 
     searchMentionablePaths(request: SearchMentionablePathsRequest): Promise<SearchMentionablePathsResponse> {

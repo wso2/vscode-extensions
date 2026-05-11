@@ -158,10 +158,16 @@ async function selectBallerinaProjectForDebugging(workspaceFolder?: WorkspaceFol
 async function getCurrentProjectRoot(): Promise<string> {
     const currentFilePath = tryGetCurrentBallerinaFile();
     const contextProjectRoot = StateMachine.context()?.projectPath;
+    const contextWorkspaceRoot = StateMachine.context()?.workspacePath;
 
     // Use state machine context only when not in a regular text editor (e.g., within a webview)
     if (contextProjectRoot && !currentFilePath) {
         return contextProjectRoot;
+    }
+
+    // In workspace overview flows projectPath can be empty while workspacePath is available
+    if (contextWorkspaceRoot && !currentFilePath) {
+        return contextWorkspaceRoot;
     }
 
     // Resolve project root from the currently open Ballerina file

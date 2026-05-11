@@ -24,14 +24,17 @@ import { MILanguageClient } from '../../../lang-client/activator';
 import { DependencyDetails } from '@wso2/mi-core';
 import { logDebug, logError } from '../../copilot/logger';
 import { AgentUndoCheckpointManager } from '../undo/checkpoint-manager';
+import { lookupConnectorFromCache } from './connector_store_cache';
+import { ensureOperationNotAborted, isOperationAbortedError } from './abort-utils';
 import { CONNECTOR_DB } from '../context/connectors/connector_db';
 import { INBOUND_DB } from '../context/connectors/inbound_db';
 import {
-    getConnectorDefinitions,
-    getInboundDefinitions,
-    ConnectorDefinitionLookupResult,
-    getRuntimeVersionFromPom,
-} from './connector_store_cache';
+    resolveTargetVersion,
+    describeVersionSource,
+    VersionResolutionError,
+    ResolvedVersion,
+} from './connector_version';
+import { classifyIdentifier } from './connector_tools';
 
 // ============================================================================
 // Execute Function Types
@@ -39,8 +42,9 @@ import {
 
 export type ManageConnectorExecuteFn = (args: {
     operation: 'add' | 'remove';
-    connector_names?: string[];
-    inbound_endpoint_names?: string[];
+    connector_artifact_ids?: string[];
+    inbound_artifact_ids?: string[];
+    versions?: Record<string, string>;
 }) => Promise<ToolResult>;
 
 interface ProcessItemResult {
@@ -48,9 +52,68 @@ interface ProcessItemResult {
     type: 'connector' | 'inbound';
     success: boolean;
     alreadyAdded?: boolean;
-    usedFallback?: boolean;
-    storeFailure?: boolean;
     error?: string;
+    versionUsed?: string;
+    versionSource?: string;
+}
+
+/**
+ * Look up a per-item version override from the user-supplied map. The map is
+ * keyed by the Maven artifact id the agent passed in (e.g. "mi-connector-redis"
+ * or "mi-inbound-amazonsqs"), but we accept case-insensitive lookups too — the
+ * agent isn't always consistent about casing.
+ */
+function pickVersionOverride(
+    versions: Record<string, string> | undefined,
+    itemId: string
+): string | undefined {
+    if (!versions) {
+        return undefined;
+    }
+    if (Object.prototype.hasOwnProperty.call(versions, itemId)) {
+        return versions[itemId];
+    }
+    const lower = itemId.trim().toLowerCase();
+    for (const key of Object.keys(versions)) {
+        if (key.trim().toLowerCase() === lower) {
+            return versions[key];
+        }
+    }
+    return undefined;
+}
+
+/**
+ * Resolve a version string for the remove path. The underlying RPC ignores
+ * the version (it matches pom entries by groupId + artifact only), but the
+ * DependencyDetails shape still requires a string. This helper tries, in
+ * order: an explicit override, the pom-declared version, the latest from
+ * the store cache, and finally an empty placeholder. It never throws —
+ * a remove must not fail just because version metadata is stale/offline.
+ */
+async function resolveRemoveVersion(
+    projectPath: string,
+    target: { name: string; groupId: string; artifactId: string; latestVersion: string },
+    versionOverride: string | undefined
+): Promise<ResolvedVersion> {
+    const override = typeof versionOverride === 'string' ? versionOverride.trim() : '';
+    // Explicit override wins, whether it's a concrete version or 'pom'/'latest'.
+    if (override.length > 0) {
+        try {
+            return await resolveTargetVersion(projectPath, target, versionOverride, 'latest');
+        } catch {
+            // Fall through to best-effort resolution below.
+        }
+    }
+    // Best-effort: try 'pom' first so we pass what's actually declared.
+    try {
+        return await resolveTargetVersion(projectPath, target, 'pom', 'latest');
+    } catch {
+        // Not declared in pom — continue.
+    }
+    if (target.latestVersion) {
+        return { version: target.latestVersion, source: 'latest' };
+    }
+    return { version: '', source: 'override' };
 }
 
 interface ConnectorDefinition {
@@ -82,106 +145,96 @@ interface ExistingDependencies {
  */
 export function createManageConnectorExecute(
     projectPath: string,
-    undoCheckpointManager?: AgentUndoCheckpointManager
+    undoCheckpointManager?: AgentUndoCheckpointManager,
+    mainAbortSignal?: AbortSignal
 ): ManageConnectorExecuteFn {
-    return async (args: { operation: 'add' | 'remove'; connector_names?: string[]; inbound_endpoint_names?: string[] }): Promise<ToolResult> => {
-        const { operation, connector_names = [], inbound_endpoint_names = [] } = args;
+    return async (args: {
+        operation: 'add' | 'remove';
+        connector_artifact_ids?: string[];
+        inbound_artifact_ids?: string[];
+        versions?: Record<string, string>;
+    }): Promise<ToolResult> => {
+        const { operation, connector_artifact_ids = [], inbound_artifact_ids = [], versions } = args;
         const isAdd = operation === 'add';
         const toolName = isAdd ? 'ManageConnector[add]' : 'ManageConnector[remove]';
 
         // Validate that at least one array has items
-        if (connector_names.length === 0 && inbound_endpoint_names.length === 0) {
+        if (connector_artifact_ids.length === 0 && inbound_artifact_ids.length === 0) {
             return {
                 success: false,
-                message: 'At least one connector or inbound endpoint name must be provided.',
-                error: 'Error: No connector or inbound endpoint names provided'
+                message: 'At least one artifact id must be provided via connector_artifact_ids or inbound_artifact_ids.',
+                error: 'Error: No artifact ids provided'
             };
         }
 
-        logDebug(`[${toolName}] ${isAdd ? 'Adding' : 'Removing'} connectors: [${connector_names.join(', ')}], inbound endpoints: [${inbound_endpoint_names.join(', ')}]`);
+        logDebug(`[${toolName}] ${isAdd ? 'Adding' : 'Removing'} connectors: [${connector_artifact_ids.join(', ')}], inbounds: [${inbound_artifact_ids.join(', ')}]`);
 
         try {
+            ensureOperationNotAborted(mainAbortSignal, 'starting connector operation');
             const miVisualizerRpcManager = new MiVisualizerRpcManager(projectPath);
             await undoCheckpointManager?.captureBeforeChange('pom.xml');
-
-            // Get MI runtime version from pom.xml
-            const runtimeVersion = await getRuntimeVersionFromPom(projectPath);
-            logDebug(`[${toolName}] Runtime version: ${runtimeVersion}`);
 
             // For add operation, get existing dependencies to check for duplicates
             let existingDependencies: ExistingDependencies = { connectorDependencies: [], otherDependencies: [] };
             if (isAdd) {
+                ensureOperationNotAborted(mainAbortSignal, 'loading existing dependencies');
                 const langClient = await MILanguageClient.getInstance(projectPath);
                 const projectDetails = await langClient.getProjectDetails();
                 existingDependencies = projectDetails.dependencies || { connectorDependencies: [], otherDependencies: [] };
                 logDebug(`[${toolName}] Existing connector dependencies: ${existingDependencies.connectorDependencies?.length || 0}`);
             }
 
-            const emptyLookup: ConnectorDefinitionLookupResult = {
-                definitionsByName: {},
-                missingNames: [],
-                fallbackUsedNames: [],
-                storeFailureNames: [],
-                warnings: [],
-                runtimeVersionUsed: runtimeVersion || 'unknown',
-            };
-
             const results: ProcessItemResult[] = [];
-            const [connectorLookup, inboundLookup] = await Promise.all([
-                connector_names.length > 0
-                    ? getConnectorDefinitions(projectPath, connector_names, CONNECTOR_DB)
-                    : Promise.resolve(emptyLookup),
-                inbound_endpoint_names.length > 0
-                    ? getInboundDefinitions(projectPath, inbound_endpoint_names, INBOUND_DB)
-                    : Promise.resolve(emptyLookup),
-            ]);
+            const allIds: Array<{ id: string; type: 'connector' | 'inbound' }> = [
+                ...connector_artifact_ids.map((id: string) => ({ id, type: 'connector' as const })),
+                ...inbound_artifact_ids.map((id: string) => ({ id, type: 'inbound' as const })),
+            ];
 
-            if (connectorLookup.warnings.length > 0 || inboundLookup.warnings.length > 0) {
-                logDebug(`[${toolName}] Connector lookup warnings: ${[...connectorLookup.warnings, ...inboundLookup.warnings].join(' | ')}`);
-            }
-
-            // Process connectors if any
-            if (connector_names.length > 0) {
-                for (const connectorName of connector_names) {
-                    const result = await processItem(
-                        connectorName,
-                        'connector',
-                        connectorLookup.definitionsByName[connectorName] ?? null,
-                        connectorLookup.fallbackUsedNames.includes(connectorName),
-                        connectorLookup.storeFailureNames.includes(connectorName),
-                        existingDependencies,
-                        miVisualizerRpcManager,
-                        isAdd,
-                        operation,
-                        toolName
-                    );
-                    results.push(result);
+            for (const { id: itemId, type: itemType } of allIds) {
+                ensureOperationNotAborted(mainAbortSignal, `processing ${itemType} ${itemId}`);
+                // Reject bundled inbound ids early regardless of which bucket
+                // the agent placed them in. They can't be added to pom.xml, and
+                // sliding one into `connector_artifact_ids` shouldn't bypass
+                // this guard.
+                if (classifyIdentifier(itemId) === 'bundled-inbound') {
+                    results.push({
+                        name: itemId,
+                        type: itemType,
+                        success: false,
+                        error: `'${itemId}' is a bundled inbound endpoint shipped with the MI runtime — no need to add it to pom.xml. Use get_connector_info({artifact_id: "${itemId}"}) to read its parameters directly.`,
+                    });
+                    continue;
                 }
-            }
 
-            // Process inbound endpoints if any
-            if (inbound_endpoint_names.length > 0) {
-                for (const inboundName of inbound_endpoint_names) {
-                    const result = await processItem(
-                        inboundName,
-                        'inbound',
-                        inboundLookup.definitionsByName[inboundName] ?? null,
-                        inboundLookup.fallbackUsedNames.includes(inboundName),
-                        inboundLookup.storeFailureNames.includes(inboundName),
-                        existingDependencies,
-                        miVisualizerRpcManager,
-                        isAdd,
-                        operation,
-                        toolName
-                    );
-                    results.push(result);
-                }
+                const { item: storeItem } = await lookupConnectorFromCache(
+                    projectPath,
+                    itemId,
+                    CONNECTOR_DB,
+                    INBOUND_DB
+                );
+                const dbEntry = storeItem ?? null;
+                const versionOverride = pickVersionOverride(versions, itemId);
+                const result = await processItem(
+                    projectPath,
+                    itemId,
+                    itemType,
+                    dbEntry,
+                    existingDependencies,
+                    miVisualizerRpcManager,
+                    isAdd,
+                    operation,
+                    toolName,
+                    versionOverride,
+                    mainAbortSignal
+                );
+                results.push(result);
             }
 
             logDebug(`[${toolName}] Results: ${JSON.stringify(results)}`);
 
             // Update connector dependencies (refresh connector list)
             try {
+                ensureOperationNotAborted(mainAbortSignal, 'refreshing connector dependencies');
                 await miVisualizerRpcManager.updateConnectorDependencies();
                 logDebug(`[${toolName}] Connector dependencies updated`);
             } catch (updateError) {
@@ -190,6 +243,7 @@ export function createManageConnectorExecute(
 
             // Reload dependencies after operation
             try {
+                ensureOperationNotAborted(mainAbortSignal, 'reloading dependencies');
                 await miVisualizerRpcManager.reloadDependencies();
                 logDebug(`[${toolName}] Dependencies reloaded successfully`);
             } catch (error) {
@@ -199,18 +253,14 @@ export function createManageConnectorExecute(
             // Build response message
             const successful = results.filter(r => r.success);
             const failed = results.filter(r => !r.success);
-            const fallbackUsed = results.filter(r => r.success && r.usedFallback);
-            const storeFailed = results.filter((r) => !r.success && r.storeFailure);
 
             let message = '';
 
-            if (fallbackUsed.length > 0) {
-                message += `Used local fallback definitions for ${fallbackUsed.length} item(s):\n`;
-                fallbackUsed.forEach(r => {
-                    message += `  - ${r.name} (${r.type})\n`;
-                });
-                message += '\n';
-            }
+            const formatItemLine = (r: ProcessItemResult, suffix?: string): string => {
+                const versionPart = r.versionSource ? `, ${r.versionSource}` : '';
+                const suffixPart = suffix ? `, ${suffix}` : '';
+                return `  - ${r.name} (${r.type}${versionPart}${suffixPart})\n`;
+            };
 
             if (isAdd) {
                 const alreadyAdded = results.filter(r => r.success && r.alreadyAdded);
@@ -219,7 +269,7 @@ export function createManageConnectorExecute(
                 if (newlyAdded.length > 0) {
                     message += `Successfully added ${newlyAdded.length} item(s):\n`;
                     newlyAdded.forEach(r => {
-                        message += `  - ${r.name} (${r.type})\n`;
+                        message += formatItemLine(r);
                     });
                 }
 
@@ -227,7 +277,7 @@ export function createManageConnectorExecute(
                     if (message) message += '\n';
                     message += `${alreadyAdded.length} item(s) already present in project:\n`;
                     alreadyAdded.forEach(r => {
-                        message += `  - ${r.name} (${r.type}, already added)\n`;
+                        message += formatItemLine(r, 'already added');
                     });
                 }
 
@@ -236,11 +286,11 @@ export function createManageConnectorExecute(
                 if (successful.length > 0) {
                     message += `Successfully removed ${successful.length} item(s):\n`;
                     successful.forEach(r => {
-                        message += `  - ${r.name} (${r.type})\n`;
+                        message += formatItemLine(r);
                     });
                 }
 
-                logDebug(`[${toolName}] Removed ${successful.length}/${connector_names.length + inbound_endpoint_names.length} items`);
+                logDebug(`[${toolName}] Removed ${successful.length}/${allIds.length} items`);
             }
 
             if (failed.length > 0) {
@@ -251,16 +301,17 @@ export function createManageConnectorExecute(
                 });
             }
 
-            if (storeFailed.length > 0) {
-                message += `\nConnector store outage impacted ${storeFailed.length} item(s). `;
-                message += `Those items were not in cache or fallback data.`;
-            }
-
             return {
                 success: successful.length > 0,
                 message: message.trim()
             };
         } catch (error) {
+            // User-initiated aborts must propagate. Wrapping them in a regular
+            // tool failure result would hide the cancel from the agent loop
+            // and allow it to "recover" after the user already hit stop.
+            if (isOperationAbortedError(error)) {
+                throw error;
+            }
             logError(`[${toolName}] Error ${isAdd ? 'adding' : 'removing'} items: ${error instanceof Error ? error.message : String(error)}`);
             return {
                 success: false,
@@ -275,33 +326,32 @@ export function createManageConnectorExecute(
  * Helper function to process a single connector or inbound endpoint
  */
 async function processItem(
+    projectPath: string,
     itemName: string,
     itemType: 'connector' | 'inbound',
-    resolvedItem: ConnectorDefinition | null,
-    usedFallback: boolean,
-    storeFailure: boolean,
+    dbEntry: ConnectorDefinition | null,
     existingDependencies: ExistingDependencies,
     miVisualizerRpcManager: MiVisualizerRpcManager,
     isAdd: boolean,
     operation: 'add' | 'remove',
-    toolName: string
+    toolName: string,
+    versionOverride: string | undefined,
+    mainAbortSignal: AbortSignal | undefined
 ): Promise<ProcessItemResult> {
     try {
-        if (!resolvedItem) {
+        ensureOperationNotAborted(mainAbortSignal, `processing ${itemType} ${itemName}`);
+        if (!dbEntry) {
             return {
                 name: itemName,
                 type: itemType,
                 success: false,
-                storeFailure,
-                error: storeFailure
-                    ? `${itemType === 'connector' ? 'Connector' : 'Inbound endpoint'} is unavailable because connector store is unavailable and no cache/fallback definition exists`
-                    : `${itemType === 'connector' ? 'Connector' : 'Inbound endpoint'} not found in connector store or fallback`
+                error: `${itemType === 'connector' ? 'Connector' : 'Inbound endpoint'} '${itemName}' not found`
             };
         }
 
-        const mavenGroupId = typeof resolvedItem?.mavenGroupId === 'string' ? resolvedItem.mavenGroupId.trim() : '';
-        const mavenArtifactId = typeof resolvedItem?.mavenArtifactId === 'string' ? resolvedItem.mavenArtifactId.trim() : '';
-        const versionTag = typeof resolvedItem?.version?.tagName === 'string' ? resolvedItem.version.tagName.trim() : '';
+        const mavenGroupId = typeof dbEntry.mavenGroupId === 'string' ? dbEntry.mavenGroupId.trim() : '';
+        const mavenArtifactId = typeof dbEntry.mavenArtifactId === 'string' ? dbEntry.mavenArtifactId.trim() : '';
+        const latestVersion = typeof dbEntry.version?.tagName === 'string' ? dbEntry.version.tagName.trim() : '';
 
         if (!mavenGroupId || !mavenArtifactId) {
             return {
@@ -312,13 +362,44 @@ async function processItem(
             };
         }
 
-        if (!versionTag) {
-            return {
-                name: itemName,
-                type: itemType,
-                success: false,
-                error: `${itemType === 'connector' ? 'Connector' : 'Inbound endpoint'} definition is missing a valid version tag`
-            };
+        // Resolve target version.
+        //
+        // For 'add', default strategy is "latest" — pom-version isn't meaningful
+        // because "install the version that's already installed" is a no-op.
+        //
+        // For 'remove', the underlying updateAiDependencies RPC matches only on
+        // groupId + artifact and ignores the version. We still need *some* string
+        // because DependencyDetails requires one, but we must not fail the remove
+        // just because the store/cache has no latestVersion (offline, new runtime
+        // version without a catalog, etc.). Try 'pom' first as a best-effort, then
+        // fall back to latestVersion, then to an empty placeholder.
+        ensureOperationNotAborted(mainAbortSignal, `resolving version for ${itemName}`);
+        let resolved: ResolvedVersion;
+        try {
+            if (isAdd) {
+                resolved = await resolveTargetVersion(
+                    projectPath,
+                    { name: itemName, groupId: mavenGroupId, artifactId: mavenArtifactId, latestVersion },
+                    versionOverride,
+                    'latest'
+                );
+            } else {
+                resolved = await resolveRemoveVersion(
+                    projectPath,
+                    { name: itemName, groupId: mavenGroupId, artifactId: mavenArtifactId, latestVersion },
+                    versionOverride
+                );
+            }
+        } catch (err) {
+            if (err instanceof VersionResolutionError) {
+                return {
+                    name: itemName,
+                    type: itemType,
+                    success: false,
+                    error: err.message,
+                };
+            }
+            throw err;
         }
 
         // For add operation, check if item is already in pom.xml
@@ -336,7 +417,8 @@ async function processItem(
                     type: itemType,
                     success: true,
                     alreadyAdded: true,
-                    usedFallback
+                    versionUsed: resolved.version,
+                    versionSource: describeVersionSource(resolved),
                 };
             }
         }
@@ -345,12 +427,13 @@ async function processItem(
         const dependencies: DependencyDetails[] = [{
             groupId: mavenGroupId,
             artifact: mavenArtifactId,
-            version: versionTag,
+            version: resolved.version,
             type: "zip"
         }];
 
-        logDebug(`[${toolName}] ${isAdd ? 'Adding' : 'Removing'} ${itemType}: ${itemName} (${mavenArtifactId}:${versionTag})`);
+        logDebug(`[${toolName}] ${isAdd ? 'Adding' : 'Removing'} ${itemType}: ${itemName} (${mavenArtifactId}:${resolved.version}, source: ${resolved.source})`);
 
+        ensureOperationNotAborted(mainAbortSignal, `updating pom.xml for ${itemName}`);
         // Update pom.xml
         const response = await miVisualizerRpcManager.updateAiDependencies({
             dependencies,
@@ -358,7 +441,13 @@ async function processItem(
         });
 
         if (response) {
-            return { name: itemName, type: itemType, success: true, usedFallback };
+            return {
+                name: itemName,
+                type: itemType,
+                success: true,
+                versionUsed: resolved.version,
+                versionSource: describeVersionSource(resolved),
+            };
         } else {
             return {
                 name: itemName,
@@ -368,6 +457,12 @@ async function processItem(
             };
         }
     } catch (error) {
+        // Never swallow user-initiated aborts — let them propagate so the
+        // overall tool call terminates instead of silently marking the item
+        // as failed.
+        if (isOperationAbortedError(error)) {
+            throw error;
+        }
         return {
             name: itemName,
             type: itemType,
@@ -385,23 +480,28 @@ async function processItem(
 const manageConnectorInputSchema = z.object({
     operation: z.enum(['add', 'remove'])
         .describe('Operation to perform: "add" to add items, "remove" to remove them'),
-    connector_names: z.array(z.string())
+    connector_artifact_ids: z.array(z.string())
         .optional()
-        .describe('Array of connector names (e.g., ["AI", "Salesforce", "Gmail"])'),
-    inbound_endpoint_names: z.array(z.string())
+        .describe('Maven artifact ids of connectors (e.g. ["mi-connector-gmail", "mi-connector-salesforce"]). NOT display names — use the ids from <AVAILABLE_CONNECTOR_ARTIFACT_IDS>.'),
+    inbound_artifact_ids: z.array(z.string())
         .optional()
-        .describe('Array of inbound endpoint names (e.g., ["KAFKA", "RabbitMQ", "JMS"])'),
+        .describe('Maven artifact ids of downloadable inbound endpoints (e.g. ["mi-inbound-amazonsqs", "mi-inbound-kafka"]). Bundled inbound ids like "http"/"jms" are rejected — those are shipped with the runtime and do not need to be added to pom.xml.'),
+    versions: z.record(z.string(), z.string())
+        .optional()
+        .describe('Optional per-item version override map keyed by artifact id. Each value is either a concrete version string (e.g. "3.1.6") or the literal "latest". Items not present default to "latest" (the latest version from the store cache). Example: { "mi-connector-redis": "3.1.6", "mi-connector-gmail": "latest" }. Lookup is case-insensitive.'),
 });
 
 /**
- * Creates the manage_connector tool (unified add/remove for connectors and inbound endpoints)
+ * Creates the add_or_remove_connector tool (unified add/remove for connectors and inbound endpoints).
  */
 export function createManageConnectorTool(execute: ManageConnectorExecuteFn) {
     return tool({
-        description: `Add or remove MI connector and inbound endpoint dependencies in pom.xml.
-            Use 'add' when Synapse configs reference connector operations or inbound endpoints.
-            Names must match <AVAILABLE_CONNECTORS> or <AVAILABLE_INBOUND_ENDPOINTS>.
-            Can handle both connectors and inbound endpoints in a single call. Dependencies auto-reload after changes.`,
+        description: `Add or remove MI connector / downloadable-inbound dependencies in pom.xml by Maven artifact id.
+            Use 'add' when Synapse configs reference connector operations or inbound endpoints that are not yet in pom.xml.
+            Artifact ids must come from <AVAILABLE_CONNECTOR_ARTIFACT_IDS> or <AVAILABLE_INBOUND_ARTIFACT_IDS>. Bundled inbound ids (<AVAILABLE_BUNDLED_INBOUND_IDS>) are runtime-shipped and will be rejected by this tool — use them directly with get_connector_info instead.
+            Defaults to the LATEST version from the store cache. Pin specific versions per item via the versions map, e.g. { "mi-connector-redis": "3.1.6" } — a single call can mix latest and pinned versions across items.
+            The response reports which version was used and its source (latest from store / explicit override).
+            Dependencies auto-reload after changes.`,
         inputSchema: manageConnectorInputSchema,
         execute
     });

@@ -17,7 +17,7 @@
  */
 
 import * as vscode from 'vscode';
-import { commands, Uri, window, workspace } from 'vscode';
+import { Position, Range, WorkspaceEdit, commands, Uri, window, workspace } from 'vscode';
 import { getStateMachine, navigate, openView, refreshUI } from '../stateMachine';
 import { COMMANDS, LAST_EXPORTED_ZIP_PATH, REFRESH_ENABLED_DOCUMENTS, SWAGGER_LANG_ID, SWAGGER_REL_DIR } from '../constants';
 import { EVENT_TYPE, MACHINE_VIEW, onDocumentSave } from '@wso2/mi-core';
@@ -33,10 +33,11 @@ import { VisualizerWebview, webviews } from './webview';
 import * as fs from 'fs';
 import { AiPanelWebview } from '../ai-features/webview';
 import { MiDiagramRpcManager } from '../rpc-managers/mi-diagram/rpc-manager';
-import { log } from '../util/logger';
+import { log, outputChannel } from '../util/logger';
 import { CACHED_FOLDER, INTEGRATION_PROJECT_DEPENDENCIES_DIR, isConsolidatedProject } from '../util/onboardingUtils';
-import { extractZip, getHash, zipProjectFolder } from '../util/fileOperations';
+import { extractZip, formatAndSavePomDocument, getHash, zipProjectFolder } from '../util/fileOperations';
 import { MILanguageClient } from '../lang-client/activator';
+import { ConflictingDependency } from '../lang-client/ExtendedLanguageClient';
 import { askForProject } from '../util/workspace';
 
 export function activateVisualizer(context: vscode.ExtensionContext, firstProject: string) {
@@ -153,7 +154,12 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                             directory: path.dirname(args.path),
                             name: path.basename(args.path),
                             open: args.open ?? false,
-                            miVersion: args.miVersion ?? "4.6.0"
+                            miVersion: args.miVersion ?? "4.6.0",
+                            isConsolidatedProject: args.isConsolidatedProject ?? false,
+                            subProjects: args.subProjects ?? [],
+                            groupID: args.groupId ?? "com.microintegrator.projects",
+                            artifactID: args.artifactId ?? args.name,
+                            version: args.version ?? "1.0.0"
                         }
                     );
                     await createSettingsFile(args);
@@ -423,8 +429,7 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                     statusBarItem.text = '$(sync) Updating dependencies...';
                     statusBarItem.show();
                     await langClient?.updateConnectorDependencies();
-                    await extractCAppDependenciesAsProjects(projectUri);
-                    await langClient?.loadDependentCAppResources();
+                    await loadCAppResources(projectUri!, langClient);
                     statusBarItem.hide();
                 }
             }
@@ -613,6 +618,106 @@ export async function extractCAppDependenciesAsProjects(projectUri: string | und
         }
     } catch (error: any) {
         vscode.window.showErrorMessage(`Failed to load integration project dependencies: ${error.message}`);
+    }
+}
+
+async function removePomEntries(projectUri: string, pomValues: { range: any; value: string }[]): Promise<void> {
+    const pomPath = path.join(projectUri, 'pom.xml');
+    if (!fs.existsSync(pomPath)) {
+        throw new Error("pom.xml not found");
+    }
+
+    const edit = new WorkspaceEdit();
+    for (const pomValue of pomValues) {
+        const range = new Range(
+            new Position(pomValue.range.start.line - 1, pomValue.range.start.character - 1),
+            new Position(pomValue.range.end.line - 1, pomValue.range.end.character - 1)
+        );
+        edit.replace(Uri.file(pomPath), range, pomValue.value);
+    }
+
+    if (!await workspace.applyEdit(edit)) {
+        throw new Error("Failed to apply edits to pom.xml");
+    }
+
+    const document = await workspace.openTextDocument(pomPath);
+    await document.save();
+    await formatAndSavePomDocument(pomPath);
+
+    if (getStateMachine(projectUri).context().view === MACHINE_VIEW.Overview) {
+        refreshUI(projectUri);
+    }
+}
+
+async function handleConflictingCAppArtifacts(
+    projectUri: string,
+    langClient: Awaited<ReturnType<typeof MILanguageClient.getInstance>>,
+    conflictingDeps: ConflictingDependency[]
+): Promise<void> {
+    if (conflictingDeps.length === 0) {
+        return;
+    }
+
+    const depList = conflictingDeps
+        .map(cd => {
+            const dep = `${cd.groupId}:${cd.artifactId}:${cd.version}`;
+            const allConflicting = [...cd.conflictingArtifacts, ...cd.conflictingConnectors];
+            const conflictingList = allConflicting.length > 0
+                ? `\n  ${allConflicting.join(', ')}`
+                : '';
+            return `${dep}${conflictingList}`;
+        })
+        .join('\n\n');
+
+    const header = "Conflicting artifacts were identified with the current project or other dependent projects. They will be removed from pom.xml if available.";
+    const fullMessage = `${header}\n\n${depList}`;
+
+    outputChannel.appendLine("[Conflicting CApp Artifacts] " + fullMessage);
+
+    const MAX_LENGTH = 500;
+    const displayMessage = fullMessage.length > MAX_LENGTH
+        ? fullMessage.substring(0, MAX_LENGTH) + '\n\n...(truncated, see "WSO2 Integrator: MI" output channel for full details)'
+        : fullMessage;
+
+    await window.showWarningMessage(displayMessage, { modal: true });
+
+    const projectDetails = await langClient.getProjectDetails();
+    const existingDependencies = projectDetails.dependencies || {};
+    const allExistingDeps = [
+        ...(existingDependencies.connectorDependencies || []),
+        ...(existingDependencies.integrationProjectDependencies || []),
+        ...(existingDependencies.otherDependencies || [])
+    ];
+
+    // Note: local dependency model uses `artifact` for the artifact ID field,
+    // while the server response uses `artifactId` — these map to the same concept.
+    const dependenciesToRemove = conflictingDeps
+        .flatMap(cd => allExistingDeps.filter((dep: any) =>
+            dep.groupId === cd.groupId &&
+            dep.artifact === cd.artifactId &&
+            dep.version === cd.version
+        ))
+        .filter((dep): dep is NonNullable<typeof dep> => dep !== undefined && dep.range !== undefined);
+
+    if (dependenciesToRemove.length > 0) {
+        await removePomEntries(projectUri, dependenciesToRemove.map((dep: any) => ({ range: dep.range, value: '' })));
+    }
+}
+
+export async function loadCAppResources(
+    projectUri: string,
+    langClient: Awaited<ReturnType<typeof MILanguageClient.getInstance>>
+): Promise<void> {
+    try {
+        await extractCAppDependenciesAsProjects(projectUri);
+        const response = await langClient.loadDependentCAppResources();
+        if (response.status === 'CONFLICT') {
+            await handleConflictingCAppArtifacts(projectUri, langClient, response.conflictingDependencies ?? []);
+        } else if (response.status === 'ERROR') {
+            vscode.window.showErrorMessage(`Failed to load dependent CApp resources: ${response.message}`);
+        }
+    } catch (error) {
+        console.error("Failed to load CApp resources:", error);
     }
 }
 

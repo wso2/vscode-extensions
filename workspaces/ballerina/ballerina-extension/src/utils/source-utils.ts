@@ -27,6 +27,7 @@ import { existsSync, writeFileSync, mkdirSync } from 'fs';
 import * as path from 'path';
 import { notifyCurrentWebview } from '../RPCLayer';
 import { applyBallerinaTomlEdit } from '../rpc-managers/bi-diagram/utils';
+import { uriCache } from '../extension';
 
 /** True while any migration AI enhancement is actively running. */
 let _migrationEnhancementActive = false;
@@ -142,11 +143,15 @@ export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCode
             // <-------- Using simply the text edits to update the source code -------->
             const workspaceEdit = new vscode.WorkspaceEdit();
             for (const [fileUriString, request] of Object.entries(modificationRequests)) {
+                // Check if this is a cached path with a remote URI
+                const remoteUri = uriCache?.getRemoteUri(request.filePath);
+                // Use remote URI if available, else use local file URI
+                const targetUri = remoteUri || Uri.file(request.filePath);
+                
                 for (const modification of request.modifications) {
-                    const fileUri = Uri.file(request.filePath);
                     const source = modification.config.STATEMENT;
                     workspaceEdit.replace(
-                        fileUri,
+                        targetUri,
                         new vscode.Range(
                             new vscode.Position(modification.startLine, modification.startColumn),
                             new vscode.Position(modification.endLine, modification.endColumn)
@@ -155,9 +160,26 @@ export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCode
                     );
                 }
             }
-            // Set up a listener to consume the LS notification triggered by the raw edit,
-            // so the final subscriber only sees the notification from the formatted edit.
-            // Capture IDs of newly added artifacts so we can re-apply isNew on the formatted edit notification.
+            // Apply all changes at once
+            await workspace.applyEdit(workspaceEdit);
+            for (const [fileUriString, request] of Object.entries(modificationRequests)) {
+                const remoteUri = uriCache?.getRemoteUri(request.filePath);
+
+                if (remoteUri) {
+                    const doc = workspace.textDocuments.find((doc) => doc.uri.toString() === remoteUri.toString());
+                    if (doc && doc.uri.scheme === 'file') {
+                        await doc.save();
+                    }
+                }
+            }
+
+            // Subscribe AFTER applyEdit so that only the notification fired by this specific
+            // edit can resolve rawEditNotification. Subscribing before applyEdit allows any
+            // in-flight ArtifactsUpdated from a concurrent background operation (e.g. an
+            // ongoing cleanAndValidateProject) to resolve the promise early, which would cause
+            // the format step to run against the pre-edit LS state and effectively revert the change.
+            // LS notifications arrive via the async event loop — subscribing synchronously after
+            // await applyEdit guarantees we are registered before the LS response arrives.
             const handler = ArtifactNotificationHandler.getInstance();
             let newArtifactIds: Set<string> | undefined;
             const rawEditNotification = new Promise<void>((resolve) => {
@@ -174,15 +196,17 @@ export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCode
                 timeoutId = setTimeout(() => { unsub(); resolve(); }, 10000);
             });
 
-            // Apply all changes at once
-            await workspace.applyEdit(workspaceEdit);
-
             await rawEditNotification;
 
             // <-------- Format the document after applying all changes using the native formatting API-------->
             const formattedWorkspaceEdit = new vscode.WorkspaceEdit();
             for (const [fileUriString, request] of Object.entries(modificationRequests)) {
-                const fileUri = Uri.file(request.filePath);
+                // Use the same target URI as the first edit — remote URI if available, else local.
+                // Applying the formatting edit to the local cache while the first edit targeted the
+                // remote OCT document would leave the OCT document dirty with unformatted content,
+                // causing a concurrent-write version conflict ("content is newer") on auto-save.
+                const remoteUri = uriCache?.getRemoteUri(request.filePath);
+                const targetUri = remoteUri || Uri.file(request.filePath);
                 const formattedSources: { newText: string, range: { start: { line: number, character: number }, end: { line: number, character: number } } }[] = await StateMachine.langClient().sendRequest("textDocument/formatting", {
                     textDocument: { uri: fileUriString },
                     options: {
@@ -193,7 +217,7 @@ export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCode
                 for (const formattedSource of formattedSources) {
                     // Replace the entire document content with the formatted text to avoid duplication
                     formattedWorkspaceEdit.replace(
-                        fileUri,
+                        targetUri,
                         new vscode.Range(
                             new vscode.Position(0, 0),
                             new vscode.Position(Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER)
@@ -201,7 +225,7 @@ export async function updateSourceCode(updateSourceCodeRequest: UpdateSourceCode
                         formattedSource.newText
                     );
                     if (!skipUndoRedoStack) {
-                        undoRedoManager?.addFileToBatch(fileUri.fsPath, formattedSource.newText, formattedSource.newText);
+                        undoRedoManager?.addFileToBatch(request.filePath, formattedSource.newText, formattedSource.newText);
                     }
                 }
             }
@@ -304,6 +328,13 @@ function checkAndNotifyWebview(
     if ((selectedArtifact?.type === "TYPE " || newArtifact?.type === "TYPE") && stateContext !== MACHINE_VIEW.TypeDiagram) {
         return;
     } else if (!isChangeFromHelperPane) {
+        // Skip notification for deletion (skipPayloadCheck=true). The webview's handleOnDeleteNode
+        // calls debouncedGetFlowModel() after updateArtifactLocation updates context.position —
+        // a premature notifyCurrentWebview here would fire getFlowModel with a stale endLine
+        // (before position is refreshed) and cause a failed/incorrect diagram update.
+        if (request.skipPayloadCheck) {
+            return;
+        }
         notifyCurrentWebview();
     }
 }

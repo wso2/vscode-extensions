@@ -29,6 +29,7 @@
     "preserveSymlinks": true,
     "noImplicitReturns": false,
     "noImplicitAny": true,
+    "types": ["vscode-webview", "react", "react-dom"],
     "typeRoots": [
       "node_modules/@types"
     ],

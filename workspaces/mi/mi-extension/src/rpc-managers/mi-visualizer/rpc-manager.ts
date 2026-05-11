@@ -79,7 +79,7 @@ import { extension } from "../../MIExtensionContext";
 import { DebuggerConfig } from "../../debugger/config";
 import { history } from "../../history";
 import { getStateMachine, navigate, openView, refreshUI } from "../../stateMachine";
-import { goToSource, handleOpenFile, appendContent, selectFolderDialog } from "../../util/fileOperations";
+import { formatAndSavePomDocument, goToSource, handleOpenFile, appendContent, selectFolderDialog } from "../../util/fileOperations";
 import { openPopupView } from "../../stateMachinePopup";
 import { SwaggerServer } from "../../swagger/server";
 import { log, outputChannel } from "../../util/logger";
@@ -90,7 +90,7 @@ import { copy } from 'fs-extra';
 const fs = require('fs');
 import { TextEdit } from "vscode-languageclient";
 import { downloadJavaFromMI, downloadMI, getProjectSetupDetails, getSupportedMIVersionsHigherThan, setPathsInWorkSpace, updateRuntimeVersionsInPom, getMIVersionFromPom, isConsolidatedProject } from '../../util/onboardingUtils';
-import { extractCAppDependenciesAsProjects } from "../../visualizer/activate";
+import { extractCAppDependenciesAsProjects, loadCAppResources } from "../../visualizer/activate";
 import { findMultiModuleProjectsInWorkspaceDir } from "../../util/migrationUtils";
 import { MILanguageClient } from "../../lang-client/activator";
 import { reorderModulesByBuildOrder } from "../../debugger/pomResolver";
@@ -206,23 +206,6 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
     }
 
     /**
-     * Extracts CApp dependencies as projects and loads dependent CApp resources.
-     *
-     * @param langClient - The language client instance.
-     */
-    private async _loadCAppResources(langClient: Awaited<ReturnType<typeof MILanguageClient.getInstance>>): Promise<void> {
-        try {
-            await extractCAppDependenciesAsProjects(this.projectUri);
-            const loadResult = await langClient?.loadDependentCAppResources();
-            if (loadResult.startsWith("DUPLICATE ARTIFACTS")) {
-                await window.showWarningMessage(loadResult, { modal: true });
-            }
-        } catch (error) {
-            console.error("Failed to load CApp resources:", error);
-        }
-    }
-
-    /**
      * Reloads the dependencies for the current integration project.
      *
      * @param params - An object containing the parameters for reloading dependencies.
@@ -335,7 +318,7 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
                 }
             }
 
-            await this._loadCAppResources(langClient);
+            await loadCAppResources(this.projectUri, langClient);
             const parentDir = path.dirname(this.projectUri)
             if (isConsolidatedProject(parentDir) && params?.isProjectDependenciesUpdated) {
                 await reorderModulesByBuildOrder(path.join(parentDir, 'pom.xml'));
@@ -455,7 +438,7 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
     async refetchIntegrationProjectDependencies(): Promise<string> {
         const langClient = await MILanguageClient.getInstance(this.projectUri);
         const res = await langClient.refetchIntegrationProjectDependencies();
-        await this._loadCAppResources(langClient);
+        await loadCAppResources(this.projectUri, langClient);
         return res;
     }
 
@@ -873,31 +856,16 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
 
             edit.replace(Uri.file(pomPath), range, content);
         }
-        const success = await workspace.applyEdit(edit);
-        // Make sure to save the document after applying the edits
-        if (success) {
-            const document = await workspace.openTextDocument(pomPath);
-            await document.save();
-            // Format the pom content
-            const editorConfig = workspace.getConfiguration('editor');
-            let formattingOptions = {
-                    tabSize: editorConfig.get("tabSize") ?? 4,
-                    insertSpaces: editorConfig.get("insertSpaces") ?? false,
-                    trimTrailingWhitespace: editorConfig.get("trimTrailingWhitespace") ?? false
-                };
-            const edits = await vscode.commands.executeCommand<vscode.TextEdit[]>("vscode.executeFormatDocumentProvider",
-                            vscode.Uri.file(pomPath), formattingOptions);
-            if (edits && edits.length > 0) {
-                const edit = new vscode.WorkspaceEdit();
-                edit.set(vscode.Uri.file(pomPath), edits);
-                await vscode.workspace.applyEdit(edit);
-                await vscode.workspace.openTextDocument(pomPath).then(doc => doc.save());
-            }
-            if (getStateMachine(this.projectUri).context().view === MACHINE_VIEW.Overview) {
-                refreshUI(this.projectUri);
-            }
-        } else {
+        if (!await workspace.applyEdit(edit)) {
             throw new Error("Failed to apply edits to pom.xml");
+        }
+
+        const document = await workspace.openTextDocument(pomPath);
+        await document.save();
+        await formatAndSavePomDocument(pomPath);
+
+        if (getStateMachine(this.projectUri).context().view === MACHINE_VIEW.Overview) {
+            refreshUI(this.projectUri);
         }
     }
 

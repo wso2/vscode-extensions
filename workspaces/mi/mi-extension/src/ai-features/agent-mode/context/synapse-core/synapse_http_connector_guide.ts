@@ -167,11 +167,145 @@ When the fault sequence **is** triggered (4xx/5xx without \`nonErrorHttpStatusCo
     </log>
   </else>
 </filter>
-\`\`\``,
+\`\`\`
 
-authentication: `## Authentication Patterns
+### Transport-Level Faults (connection refused, timeout, DNS)
+\`nonErrorHttpStatusCodes\` only suppresses **HTTP-level** 4xx/5xx faults — it does **not** prevent **transport-level** faults (TCP connection refused, TCP timeout, DNS lookup failure, TLS handshake error) from propagating.
 
-The HTTP connector does **not** have built-in authentication mechanisms. Authentication must be configured in the Synapse mediation flow using headers.
+\`faultsAsHttp200=true\` also does **not** prevent transport faults from bubbling up out of the enclosing sequence.
+
+To handle transport errors gracefully you need two things:
+1. **Fail fast with an explicit timeout** on the local entry connection — without it, a dead backend will block the thread for the OS TCP timeout (typically 20–120s) and the whole request will hang.
+2. **Catch the fault** with an \`onError\` fault-handler sequence on the enclosing sequence/API resource.
+
+\`\`\`xml
+<!-- Local entry with connection-level timeout -->
+<localEntry key="myConnection">
+  <http.init>
+    <baseUrl>https://backend.example.com</baseUrl>
+    <timeoutDuration>5000</timeoutDuration>      <!-- ms: fail after 5s -->
+    <timeoutAction>Fault</timeoutAction>          <!-- raise fault instead of hanging -->
+  </http.init>
+</localEntry>
+
+<!-- Attach a fault sequence to catch transport errors -->
+<sequence name="BackendCallSequence" onError="BackendFaultSequence">
+  <http.post configKey="myConnection">
+    <relativePath>/api/resource</relativePath>
+    <requestBodyType>JSON</requestBodyType>
+    <requestBodyJson>\${payload}</requestBodyJson>
+    <nonErrorHttpStatusCodes>400,404,409,422</nonErrorHttpStatusCodes>
+  </http.post>
+</sequence>
+
+<sequence name="BackendFaultSequence">
+  <!-- Transport-level faults land here regardless of nonErrorHttpStatusCodes -->
+  <log level="custom">
+    <property name="FAULT_CODE" expression="get-property('ERROR_CODE')"/>
+    <property name="FAULT_MESSAGE" expression="get-property('ERROR_MESSAGE')"/>
+  </log>
+  <payloadFactory media-type="json">
+    <format>{"error": "backend_unavailable", "detail": "$1"}</format>
+    <args>
+      <arg expression="get-property('ERROR_MESSAGE')" evaluator="xml"/>
+    </args>
+  </payloadFactory>
+  <property name="HTTP_SC" scope="axis2" value="503"/>
+  <respond/>
+</sequence>
+\`\`\`
+
+**Recommended baseline for any outbound HTTP call:**
+- \`timeoutDuration\` set to a realistic upper bound (e.g. 5000 ms) on the local entry.
+- \`timeoutAction="Fault"\` so timeouts surface as catchable faults rather than silent hangs.
+- An \`onError\` sequence on the enclosing sequence/API resource that produces a deterministic response to the client.`,
+
+connection_config: `## \`<http.init>\` — Connection Configuration (Native Auth)
+
+Create one \`<localEntry key="...">\` per backend. The local entry wraps \`<http.init>\` and becomes the \`configKey\` for every \`http.get\`/\`http.post\`/etc. call. The init element is the preferred place to declare auth — the connector handles token fetching, refresh, and caching for you.
+
+### Core parameters
+| Parameter | Required | Notes |
+|-----------|----------|-------|
+| \`baseUrl\` | yes | e.g. \`https://api.example.com\`. Operation \`relativePath\` is resolved against it |
+| \`authType\` | no (default \`None\`) | \`None\` \\| \`Basic\` \\| \`OAuth\` |
+| \`timeoutDuration\` | no | ms; fail-fast on hanging backends. Pair with \`timeoutAction\` |
+| \`timeoutAction\` | no | \`Fault\` (recommended) \\| \`Discard\` |
+| \`suspendErrorCodes\`, \`suspendInitialDuration\`, \`suspendMaximumDuration\`, \`suspendProgressionFactor\` | no | Endpoint-level circuit breaker |
+| \`retryErrorCodes\`, \`retryCount\`, \`retryDelay\` | no | Transport-level retry |
+
+### Basic auth
+\`\`\`xml
+<localEntry key="BackendConn">
+  <http.init>
+    <baseUrl>https://api.example.com</baseUrl>
+    <authType>Basic</authType>
+    <basicCredentialsUsername>{wso2:vault-lookup('backend.user')}</basicCredentialsUsername>
+    <basicCredentialsPassword>{wso2:vault-lookup('backend.password')}</basicCredentialsPassword>
+    <timeoutDuration>5000</timeoutDuration>
+    <timeoutAction>Fault</timeoutAction>
+  </http.init>
+</localEntry>
+\`\`\`
+
+### OAuth2 — Client Credentials
+\`\`\`xml
+<localEntry key="BackendConn">
+  <http.init>
+    <baseUrl>https://api.example.com</baseUrl>
+    <authType>OAuth</authType>
+    <oauthGrantType>CLIENT_CREDENTIALS</oauthGrantType>
+    <oauthClientId>{wso2:vault-lookup('backend.clientId')}</oauthClientId>
+    <oauthClientSecret>{wso2:vault-lookup('backend.clientSecret')}</oauthClientSecret>
+    <oauthTokenEndpoint>https://auth.example.com/oauth2/token</oauthTokenEndpoint>
+    <oauthScope>read write</oauthScope>
+    <oauthAdditionalProperties>audience=api.example.com</oauthAdditionalProperties>
+    <timeoutDuration>5000</timeoutDuration>
+    <timeoutAction>Fault</timeoutAction>
+  </http.init>
+</localEntry>
+\`\`\`
+
+### OAuth2 — Password (Resource Owner)
+\`\`\`xml
+<http.init>
+  <baseUrl>https://api.example.com</baseUrl>
+  <authType>OAuth</authType>
+  <oauthGrantType>PASSWORD</oauthGrantType>
+  <oauthClientId>...</oauthClientId>
+  <oauthClientSecret>...</oauthClientSecret>
+  <oauthTokenEndpoint>https://auth.example.com/oauth2/token</oauthTokenEndpoint>
+  <oauthUsername>{wso2:vault-lookup('api.username')}</oauthUsername>
+  <oauthPassword>{wso2:vault-lookup('api.password')}</oauthPassword>
+  <oauthScope>read</oauthScope>
+</http.init>
+\`\`\`
+
+### OAuth2 — Authorization Code / Refresh Token
+Use when you already have a long-lived refresh token (interactive authorization happens outside MI):
+\`\`\`xml
+<http.init>
+  <baseUrl>https://api.example.com</baseUrl>
+  <authType>OAuth</authType>
+  <oauthGrantType>AUTHORIZATION_CODE</oauthGrantType>
+  <oauthClientId>...</oauthClientId>
+  <oauthClientSecret>...</oauthClientSecret>
+  <oauthTokenEndpoint>https://auth.example.com/oauth2/token</oauthTokenEndpoint>
+  <oauthRefreshToken>{wso2:vault-lookup('api.refreshToken')}</oauthRefreshToken>
+</http.init>
+\`\`\`
+
+### Token caching & refresh
+The connector caches the bearer token per connection. When the token expires or the backend returns 401, the connector transparently re-acquires using the configured grant and retries the original request once. You should NOT manually \`<http.post>\` to the token endpoint and stash the token in a property — that bypasses the connector's cache, retry, and concurrency controls.
+
+### Key rules
+- Wrap secrets with \`{wso2:vault-lookup('alias')}\` (see registry-resource-guide:secure_vault). Do not check raw client secrets into the repo.
+- One connection per local entry — do not nest multiple \`<http.init>\` elements.
+- \`\${vars.*}\` references inside \`<http.init>\` fields resolve at deploy-time, not per-request. For rotating credentials that change per-request, fall back to the manual header pattern in \`authentication\`.`,
+
+authentication: `## Authentication Patterns (Legacy / Per-Request Overrides)
+
+**Prefer \`<http.init>\` native auth** (see connection_config above) — it handles token caching, refresh, and concurrency. Use the patterns below only when you need per-request credentials that can't be baked into a connection, or when maintaining legacy configs.
 
 ### Basic Authentication
 \`\`\`xml
