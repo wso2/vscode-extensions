@@ -40,11 +40,7 @@ Create a new Ballerina extension E2E test for this scenario:
 - <describe how to run or verify the integration>
 - <describe the expected final result>
 
-Create scenario.md if it does not exist.
-Use the authoring harness first.
-Do not use generated Emotion/class selectors.
-Add data-testid selectors where the product UI needs stable selectors.
-Promote the proven flow into e2e-playwright-tests and run the targeted npm run e2e-test command.
+Use "<test name>" as the promoted test name.
 ```
 
 ## Prompt: Existing Scenario File
@@ -55,9 +51,7 @@ Use the ballerina-e2e-writer skill.
 Implement the E2E scenario described in:
 workspaces/ballerina/ballerina-extension/e2e-test/e2e-authoring/scenarios/<scenario-name>/scenario.md
 
-Use the authoring harness first, then promote the passing flow into e2e-playwright-tests.
-Avoid generated class selectors. Add data-testid selectors if needed.
-Verify with npm run e2e-test -- --grep "<test name>".
+Use "<test name>" as the promoted test name.
 ```
 
 ## Example Prompt
@@ -78,9 +72,7 @@ Create a new E2E test for an HTTP upload flow:
 - run the integration
 - call the endpoint and verify the JSON response
 
-Create scenario.md and authoring steps if needed.
-Promote the proven flow into e2e-playwright-tests.
-Run npm run e2e-test -- --grep "HTTP Upload".
+Use "HTTP Upload" as the promoted test name.
 ```
 
 ## Useful Commands

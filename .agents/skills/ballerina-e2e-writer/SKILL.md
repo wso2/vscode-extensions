@@ -12,17 +12,19 @@ For user-facing instructions and prompt examples, see `USER_GUIDE.md` in this sk
 ## Workflow
 
 1. Read the requested scenario and existing tests in `e2e-test/e2e-playwright-tests`.
-2. Ensure the Ballerina VSIX exists locally. If it is missing, ask the user to run:
+2. Ensure the Ballerina VSIX exists locally. Check for a file matching `ballerina-*.vsix` in the workspace root (e.g., `ballerina-5.11.0.vsix`). If none is found, ask the user to run:
 
    ```bash
    rush build -t ballerina
    ```
 
-3. Create or update an authoring scenario under:
+3. Create `scenario.md` under the authoring scenario directory before writing any step files:
 
    ```text
-   e2e-test/e2e-authoring/scenarios/<scenario-name>/
+   e2e-test/e2e-authoring/scenarios/<scenario-name>/scenario.md
    ```
+
+   If the user only described the scenario in the prompt, derive the steps and write `scenario.md` now. If the user provided a `scenario.md` path, read it first.
 
 4. Write small step files in `steps/*.step.js`. Keep each step focused and rerunnable.
    For diagram flows, steps must build the flow through the product UI:
@@ -34,19 +36,27 @@ For user-facing instructions and prompt examples, see `USER_GUIDE.md` in this sk
    ```
 
 6. If a selector is unstable, add a stable `data-testid` in the relevant `workspaces/ballerina/*/src` UI package. Do not use dynamic/generated class names as selectors, including Emotion class names.
-   If product source was changed for a new `data-testid`, rebuild the VSIX before rerunning E2E:
+   After adding any `data-testid` — even a single attribute in one file — always rebuild the VSIX before rerunning steps:
 
    ```bash
    rush build -t ballerina
    ```
 
-7. Once the step flow is proven, promote the same UI flow into `e2e-test/e2e-playwright-tests`.
+7. Once the step flow is proven, promote the same UI flow into a new spec file. Place the spec in the subdirectory that best matches the integration category, following the existing layout:
+
+   ```text
+   e2e-test/e2e-playwright-tests/<category>/<scenario-name>.spec.ts
+   ```
+
+   Existing categories: `api-integration`, `file-integration`, `other-artifacts`, `diagram`, `configuration`, `type-editor`. Check the subdirectories and pick the closest match.
 8. Register the promoted spec in `e2e-test/e2e-playwright-tests/test.list.ts`.
 9. Verify with:
 
    ```bash
    npm run e2e-test -- --grep "<test name>"
    ```
+
+   A passing run prints each `logStep` line to the terminal and exits 0. If the extension fails to launch, check the VS Code host stderr for VSIX load errors — this means a stale build; rebuild and rerun.
 
 ## Harness Rules
 
