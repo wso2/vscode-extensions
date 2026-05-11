@@ -216,15 +216,20 @@ export class Form {
                             await cmEditor.waitFor();
                             // Use view.dispatch to update CodeMirror state directly — Playwright's
                             // fill() on contenteditable doesn't reliably trigger CM6's onChange handler.
-                            const dispatched = await containerDiv.evaluate((container, text) => {
-                                const cmContent = container.querySelector('.cm-content');
-                                if (!cmContent) return false;
-                                const view = (cmContent as any).cmView?.view;
-                                if (!view) return false;
-                                view.focus();
-                                view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } });
-                                return true;
-                            }, data.value);
+                            let dispatched = false;
+                            try {
+                                dispatched = await containerDiv.evaluate((container, text) => {
+                                    const cmContent = container.querySelector('.cm-content');
+                                    if (!cmContent) return false;
+                                    const view = (cmContent as any).cmView?.view;
+                                    if (!view) return false;
+                                    view.focus();
+                                    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } });
+                                    return true;
+                                }, data.value);
+                            } catch (e) {
+                                console.warn('cmEditor view.dispatch failed, falling back to DOM fill:', e);
+                            }
                             if (!dispatched) {
                                 // Fallback: direct DOM fill if view reference is unavailable
                                 const editorInput = cmEditor.locator('div[contenteditable="true"]');
