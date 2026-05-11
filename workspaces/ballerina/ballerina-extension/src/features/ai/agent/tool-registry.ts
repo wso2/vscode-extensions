@@ -42,6 +42,7 @@ import { createConnectorGeneratorTool, CONNECTOR_GENERATOR_TOOL } from './tools/
 import { LIBRARY_SEARCH_TOOL, getLibrarySearchTool } from './tools/library-search';
 import { createConfigCollectorTool, CONFIG_COLLECTOR_TOOL } from './tools/config-collector';
 import { createGrepTool, createGrepExecute, GREP_TOOL_NAME } from './tools/grep';
+import { createGlobTool, createGlobExecute, GLOB_TOOL_NAME } from './tools/glob';
 import { createTestRunnerTool, TEST_RUNNER_TOOL_NAME } from './tools/test-runner';
 import {
     createMigrationSourceListTool,
@@ -126,6 +127,9 @@ export function createToolRegistry(opts: ToolRegistryOptions) {
         ),
         [GREP_TOOL_NAME]: createGrepTool(
             createGrepExecute(eventHandler, tempProjectPath)
+        ),
+        [GLOB_TOOL_NAME]: createGlobTool(
+            createGlobExecute(eventHandler, tempProjectPath)
         ),
         [DIAGNOSTICS_TOOL_NAME]: createDiagnosticsTool(tempProjectPath, eventHandler),
         [TEST_RUNNER_TOOL_NAME]: createTestRunnerTool(tempProjectPath, eventHandler, modifiedFiles, allModifiedFiles, ctx),
