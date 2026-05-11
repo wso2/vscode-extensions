@@ -60,6 +60,7 @@ For user-facing instructions and prompt examples, see `USER_GUIDE.md` in this sk
 - Build diagram flows top-to-bottom so each saved form leaves the project compilable for the next form.
 - When a form input opens the helper panel, either use it intentionally to choose inputs/variables or press `Escape` to dismiss it before saving. The helper panel can cover the Save button.
 - Fill form fields through stable labels, `data-testid`, CodeMirror helpers, or helper-panel selections. Never select extension UI by dynamic/generated class names such as Emotion CSS classes.
+- Add terminal-visible progress logs for each major E2E step using `logStep` from `e2e-playwright-tests/utils/helpers`, so headless failures show the last completed action.
 - Always use the authoring harness first, then promote the passing UI flow into `e2e-playwright-tests`, and verify with `npm run e2e-test -- --grep "<test name>"`.
 
 ## Useful Commands
