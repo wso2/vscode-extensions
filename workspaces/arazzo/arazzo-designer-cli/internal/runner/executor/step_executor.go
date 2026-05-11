@@ -280,9 +280,14 @@ func (se *StepExecutor) ExecuteStep(step map[string]interface{}, workflow map[st
 
 // findOperation locates the API operation for a step.
 func (se *StepExecutor) findOperation(step map[string]interface{}) *OperationInfo {
-	// Try operationId first
+	// Try operationId first.
+	// Supports both plain operationId and the qualified Arazzo spec form
+	// "$sourceDescriptions.NAME.operationId" which scopes the search to one source.
 	if opID, ok := step["operationId"].(string); ok && opID != "" {
 		log.Printf("Looking up operation by ID: %s", opID)
+		if sourceName, bareID, ok := parseQualifiedOperationID(opID); ok {
+			return se.OperationFinder.FindByIDInSource(sourceName, bareID)
+		}
 		return se.OperationFinder.FindByID(opID)
 	}
 

@@ -83,6 +83,38 @@ func (of *OperationFinder) FindByID(operationID string) *OperationInfo {
 	return nil
 }
 
+// parseQualifiedOperationID parses the Arazzo spec form
+// "$sourceDescriptions.NAME.operationId" into (sourceName, operationId, true).
+// Returns ("", "", false) for any other string.
+func parseQualifiedOperationID(expr string) (string, string, bool) {
+	const prefix = "$sourceDescriptions."
+	if !strings.HasPrefix(expr, prefix) {
+		return "", "", false
+	}
+	rest := expr[len(prefix):]
+	dot := strings.Index(rest, ".")
+	if dot < 0 {
+		return "", "", false
+	}
+	return rest[:dot], rest[dot+1:], true
+}
+
+// FindByIDInSource finds an operation by its operationId within a single named
+// source description. Used when the step specifies a qualified operationId like
+// "$sourceDescriptions.petStoreDescription.loginUser".
+// It reuses FindByID by constructing a single-entry finder scoped to that source.
+func (of *OperationFinder) FindByIDInSource(sourceName, operationID string) *OperationInfo {
+	sourceDescRaw, ok := of.SourceDescriptions[sourceName]
+	if !ok {
+		log.Printf("Source description %q not found", sourceName)
+		return nil
+	}
+	scoped := &OperationFinder{
+		SourceDescriptions: map[string]interface{}{sourceName: sourceDescRaw},
+	}
+	return scoped.FindByID(operationID)
+}
+
 // FindByHTTPPathAndMethod finds an operation by its HTTP path and method.
 func (of *OperationFinder) FindByHTTPPathAndMethod(httpPath, httpMethod string) *OperationInfo {
 	targetMethod := strings.ToLower(httpMethod)
@@ -519,7 +551,13 @@ func (of *OperationFinder) GetOperationsForWorkflow(workflow map[string]interfac
 		}
 
 		if opID, ok := step["operationId"].(string); ok && opID != "" {
-			if info := of.FindByID(opID); info != nil {
+			var info *OperationInfo
+			if sourceName, bareID, ok := parseQualifiedOperationID(opID); ok {
+				info = of.FindByIDInSource(sourceName, bareID)
+			} else {
+				info = of.FindByID(opID)
+			}
+			if info != nil {
 				operations = append(operations, info)
 			}
 		} else if opPath, ok := step["operationPath"].(string); ok && opPath != "" {
