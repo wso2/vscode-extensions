@@ -108,7 +108,7 @@ const SettingDescription = styled.span`
 
 // ── Action buttons ────────────────────────────────────────────────────────────
 
-const SignOutButton = styled.button`
+const DestructiveButton = styled.button`
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -120,14 +120,11 @@ const SignOutButton = styled.button`
     white-space: nowrap;
     flex-shrink: 0;
     font-family: var(--vscode-font-family);
-    transition: color 0.15s ease, border-color 0.15s ease;
-    color: var(--vscode-descriptionForeground);
-    background: transparent;
-    border: 1px solid var(--vscode-panel-border, var(--vscode-input-border));
-    &:hover {
-        color: var(--vscode-errorForeground);
-        border-color: var(--vscode-errorForeground);
-    }
+    transition: all 0.15s ease;
+    color: var(--vscode-errorForeground);
+    background: var(--vscode-inputValidation-errorBackground, transparent);
+    border: 1px solid var(--vscode-errorForeground);
+    &:hover { opacity: 0.85; }
 `;
 
 const CopilotButton = styled.button<{ authorized: boolean }>`
@@ -158,12 +155,50 @@ const CopilotButton = styled.button<{ authorized: boolean }>`
     `}
 `;
 
+const ActionButton = styled.button`
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-family: var(--vscode-font-family);
+    transition: all 0.15s ease;
+    color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+    background: var(--vscode-button-secondaryBackground, transparent);
+    border: 1px solid var(--vscode-button-secondaryBackground, var(--vscode-panel-border));
+    &:hover { opacity: 0.85; }
+`;
+
+const ConfirmRow = styled.div`
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+`;
+
+const CancelLink = styled.button`
+    background: none;
+    border: none;
+    padding: 2px 4px;
+    font-size: 12px;
+    font-family: var(--vscode-font-family);
+    color: var(--vscode-descriptionForeground);
+    cursor: pointer;
+    &:hover { color: var(--vscode-foreground); }
+`;
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export const SettingsPanel = (props: { onClose: () => void }) => {
     const { rpcClient } = useRpcContext();
 
     const [copilotAuthorized, setCopilotAuthorized] = React.useState(false);
+    const [clearing, setClearing] = React.useState<'workspace' | 'all' | null>(null);
 
     useEffect(() => {
         isCopilotAuthorized().then(setCopilotAuthorized);
@@ -180,6 +215,20 @@ export const SettingsPanel = (props: { onClose: () => void }) => {
 
     const isCopilotAuthorized = async () => {
         return await rpcClient.getAiPanelRpcClient().isCopilotSignedIn();
+    };
+
+    const handleViewMemories = (scope: 'global' | 'workspace') => {
+        rpcClient.getAiPanelRpcClient().openMemoryFiles({ scope });
+    };
+
+    const handleClearConfirm = async (scope: 'workspace' | 'all') => {
+        try {
+            await rpcClient.getAiPanelRpcClient().clearMemory({ scope });
+        } catch (e: unknown) {
+            console.error('[SettingsPanel] clearMemory failed:', e instanceof Error ? e.message : String(e));
+        } finally {
+            setClearing(null);
+        }
     };
 
     return (
@@ -206,6 +255,69 @@ export const SettingsPanel = (props: { onClose: () => void }) => {
                     </SettingRow>
                 </Section>
 
+                {/* Memory */}
+                <Section>
+                    <SectionHeader>Memory</SectionHeader>
+                    <SettingRow>
+                        <SettingInfo>
+                            <SettingLabel>Auto Memory</SettingLabel>
+                            <SettingDescription>
+                                Captures your preferences and integration patterns across sessions.
+                                Stored in <code style={{ fontSize: 10 }}>~/.ballerina/copilot/memory/</code>.
+                                Toggle via <em>ballerina.ai.autoMemory.enabled</em> in VS Code Settings.
+                            </SettingDescription>
+                        </SettingInfo>
+                    </SettingRow>
+                    <SettingRow>
+                        <SettingInfo>
+                            <SettingLabel>Global memories</SettingLabel>
+                            <SettingDescription>Open the global memory index in the editor</SettingDescription>
+                        </SettingInfo>
+                        <ActionButton onClick={() => handleViewMemories('global')}>
+                            <span className="codicon codicon-go-to-file" style={{ fontSize: 12 }} />
+                            Open
+                        </ActionButton>
+                    </SettingRow>
+                    <SettingRow>
+                        <SettingInfo>
+                            <SettingLabel>Workspace memories</SettingLabel>
+                            <SettingDescription>Open the workspace memory index in the editor</SettingDescription>
+                        </SettingInfo>
+                        <ActionButton onClick={() => handleViewMemories('workspace')}>
+                            <span className="codicon codicon-go-to-file" style={{ fontSize: 12 }} />
+                            Open
+                        </ActionButton>
+                    </SettingRow>
+                    <SettingRow>
+                        <SettingInfo>
+                            <SettingLabel>Clear workspace memories</SettingLabel>
+                            <SettingDescription>Remove all memory files for this project</SettingDescription>
+                        </SettingInfo>
+                        {clearing === 'workspace' ? (
+                            <ConfirmRow>
+                                <DestructiveButton onClick={() => handleClearConfirm('workspace')}>Confirm</DestructiveButton>
+                                <CancelLink onClick={() => setClearing(null)}>Cancel</CancelLink>
+                            </ConfirmRow>
+                        ) : (
+                            <DestructiveButton onClick={() => setClearing('workspace')}>Clear</DestructiveButton>
+                        )}
+                    </SettingRow>
+                    <SettingRow>
+                        <SettingInfo>
+                            <SettingLabel>Clear all memories</SettingLabel>
+                            <SettingDescription>Remove global and workspace memory files</SettingDescription>
+                        </SettingInfo>
+                        {clearing === 'all' ? (
+                            <ConfirmRow>
+                                <DestructiveButton onClick={() => handleClearConfirm('all')}>Confirm</DestructiveButton>
+                                <CancelLink onClick={() => setClearing(null)}>Cancel</CancelLink>
+                            </ConfirmRow>
+                        ) : (
+                            <DestructiveButton onClick={() => setClearing('all')}>Clear</DestructiveButton>
+                        )}
+                    </SettingRow>
+                </Section>
+
                 {/* Account */}
                 <Section>
                     <SectionHeader>Account</SectionHeader>
@@ -214,10 +326,10 @@ export const SettingsPanel = (props: { onClose: () => void }) => {
                             <SettingLabel>Sign out</SettingLabel>
                             <SettingDescription>End your session and disconnect from AI services</SettingDescription>
                         </SettingInfo>
-                        <SignOutButton onClick={handleCopilotLogout}>
+                        <DestructiveButton onClick={handleCopilotLogout}>
                             <span className="codicon codicon-sign-out" style={{ fontSize: 12 }} />
                             Sign out
-                        </SignOutButton>
+                        </DestructiveButton>
                     </SettingRow>
                 </Section>
             </PanelContent>

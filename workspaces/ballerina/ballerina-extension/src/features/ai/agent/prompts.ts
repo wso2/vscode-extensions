@@ -30,6 +30,26 @@ import { getRequirementAnalysisCodeGenPrefix, getRequirementAnalysisTestGenPrefi
 import { extractResourceDocumentContent, flattenProjectToFiles } from "../utils/ai-utils";
 import { BALLERINA_RUN_TOOL_NAME } from "./tools/ballerina-run";
 import { BALLERINA_STOP_TOOL_NAME } from "./tools/ballerina-stop";
+import { loadMemoryPrompt } from '@wso2/copilot-utilities/auto-memory';
+import { computeWorkspaceHash } from '@wso2/copilot-utilities/chat-persistence';
+import { resolveWorkspaceIdentity } from '../../../views/ai-panel/chatStateStorage';
+import { isMemoryEnabled } from '../memory/autoDream';
+
+/**
+ * Returns the system prompt with memory context prepended when auto-memory is enabled.
+ * Falls back to the base system prompt if memory loading fails.
+ */
+export function getSystemPromptWithMemory(projects: ProjectSource[], op: OperationType, workspacePath: string): string {
+    const base = getSystemPrompt(projects, op);
+    if (!workspacePath || !isMemoryEnabled()) { return base; }
+    try {
+        const hash = computeWorkspaceHash(resolveWorkspaceIdentity(workspacePath));
+        const memorySection = loadMemoryPrompt(hash);
+        return memorySection + '\n\n---\n\n' + base;
+    } catch {
+        return base;
+    }
+}
 
 /**
  * Generates the system prompt for the design agent

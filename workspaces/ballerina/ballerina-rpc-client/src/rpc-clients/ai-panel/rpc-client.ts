@@ -117,6 +117,16 @@ import {
     RunServiceRequest,
     runService,
     getDefaultVertexCredsPath,
+    listThreads,
+    switchThread,
+    SwitchThreadRequest,
+    deleteThread,
+    DeleteThreadRequest,
+    ThreadSummary,
+    clearMemory,
+    ClearMemoryRequest,
+    openMemoryFiles,
+    OpenMemoryRequest,
 } from "@wso2/ballerina-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -360,5 +370,25 @@ export class AiPanelRpcClient implements AIPanelAPI {
 
     getDefaultVertexCredsPath(): Promise<string> {
         return this._messenger.sendRequest(getDefaultVertexCredsPath, HOST_EXTENSION);
+    }
+
+    listThreads(): Promise<ThreadSummary[]> {
+        return this._messenger.sendRequest(listThreads, HOST_EXTENSION);
+    }
+
+    switchThread(params: SwitchThreadRequest): Promise<void> {
+        return this._messenger.sendRequest(switchThread, HOST_EXTENSION, params);
+    }
+
+    deleteThread(params: DeleteThreadRequest): Promise<void> {
+        return this._messenger.sendRequest(deleteThread, HOST_EXTENSION, params);
+    }
+
+    clearMemory(params: ClearMemoryRequest): Promise<void> {
+        return this._messenger.sendRequest(clearMemory, HOST_EXTENSION, params);
+    }
+
+    openMemoryFiles(params: OpenMemoryRequest): void {
+        this._messenger.sendNotification(openMemoryFiles, HOST_EXTENSION, params);
     }
 }

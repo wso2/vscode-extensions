@@ -70,6 +70,9 @@ const TOOL_ICON_MAP: Record<string, ToolIconEntry> = {
     TaskWrite:                     { loading: "codicon-checklist" },
     ConfigCollector:               { loading: "codicon-settings-gear" },
     ConnectorGeneratorTool:        { loading: "codicon-plug" },
+    save_memory:                   { loading: "codicon-bookmark" },
+    delete_memory:                 { loading: "codicon-trash" },
+    consolidate_memories:          { loading: "codicon-sync" },
 };
 const DEFAULT_TOOL_ICON = "codicon-symbol-property";
 
@@ -119,6 +122,9 @@ function getToolCallDisplay(toolName: string | undefined, toolInput: any): { lab
         case "stopBallerinaService": return { label: "Stopping service..." };
         case "web_search": return { label: toolInput?.query ? "Searching the web:" : "Searching the web...", detail: toolInput?.query };
         case "web_fetch":  return { label: toolInput?.url ? "Fetching from web:" : "Fetching from web...", detail: toolInput?.url };
+        case "save_memory":          return { label: "Saving to memory..." };
+        case "delete_memory":        return { label: "Removing from memory..." };
+        case "consolidate_memories": return { label: "Consolidating memories..." };
         default: return { label: "Working..." };
     }
 }
@@ -165,6 +171,18 @@ function getToolResultDisplay(toolName: string | undefined, toolOutput: any, hin
         }
         case "web_search": return { label: hint ? "Web search:" : "Web search completed", detail: hint };
         case "web_fetch":  return { label: hint ? "Web fetch:" : "Web fetch completed",  detail: hint };
+        case "save_memory": {
+            if (toolOutput?.action === 'error') return { label: "Memory save failed" };
+            const scope = toolOutput?.scope === 'global' ? 'Global' : 'Project';
+            return { label: `${scope} memory saved`, detail: toolOutput?.name };
+        }
+        case "delete_memory": {
+            if (toolOutput?.action === 'error') return { label: "Memory removal failed" };
+            const scope = toolOutput?.scope === 'global' ? 'Global' : 'Project';
+            return { label: `${scope} memory removed`, detail: toolOutput?.filename };
+        }
+        case "consolidate_memories":
+            return { label: toolOutput?.action === 'error' ? "Consolidation failed" : "Memories consolidated" };
         default: return { label: "Done" };
     }
 }
