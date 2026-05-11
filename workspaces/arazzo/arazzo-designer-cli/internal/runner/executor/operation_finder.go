@@ -83,6 +83,38 @@ func (of *OperationFinder) FindByID(operationID string) *OperationInfo {
 	return nil
 }
 
+// parseQualifiedOperationID parses the Arazzo spec form
+// "$sourceDescriptions.NAME.operationId" into (sourceName, operationId, true).
+// Returns ("", "", false) for any other string.
+func parseQualifiedOperationID(expr string) (string, string, bool) {
+	const prefix = "$sourceDescriptions."
+	if !strings.HasPrefix(expr, prefix) {
+		return "", "", false
+	}
+	rest := expr[len(prefix):]
+	dot := strings.Index(rest, ".")
+	if dot < 0 {
+		return "", "", false
+	}
+	return rest[:dot], rest[dot+1:], true
+}
+
+// FindByIDInSource finds an operation by its operationId within a single named
+// source description. Used when the step specifies a qualified operationId like
+// "$sourceDescriptions.petStoreDescription.loginUser".
+// It reuses FindByID by constructing a single-entry finder scoped to that source.
+func (of *OperationFinder) FindByIDInSource(sourceName, operationID string) *OperationInfo {
+	sourceDescRaw, ok := of.SourceDescriptions[sourceName]
+	if !ok {
+		log.Printf("Source description %q not found", sourceName)
+		return nil
+	}
+	scoped := &OperationFinder{
+		SourceDescriptions: map[string]interface{}{sourceName: sourceDescRaw},
+	}
+	return scoped.FindByID(operationID)
+}
+
 // FindByHTTPPathAndMethod finds an operation by its HTTP path and method.
 func (of *OperationFinder) FindByHTTPPathAndMethod(httpPath, httpMethod string) *OperationInfo {
 	targetMethod := strings.ToLower(httpMethod)
@@ -166,7 +198,12 @@ func (of *OperationFinder) FindByHTTPPathAndMethod(httpPath, httpMethod string) 
 
 // FindByPath finds an operation by source URL and JSON pointer.
 // operationPath format: sourceURL#jsonPointer
+// sourceURL may be a bare name, a URL, or a braced expression like
+// "{$sourceDescriptions.petStoreDescription.url}".
 func (of *OperationFinder) FindByPath(sourceURL, jsonPointer string) *OperationInfo {
+	// Strip surrounding braces and resolve "$sourceDescriptions.NAME.url" to "NAME"
+	sourceURL = resolveSourceDescriptionRef(strings.Trim(sourceURL, "{}"))
+
 	// Find the source description
 	sourceName, sourceDesc := of.findSourceDescription(sourceURL)
 	if sourceDesc == nil {
@@ -175,6 +212,18 @@ func (of *OperationFinder) FindByPath(sourceURL, jsonPointer string) *OperationI
 	}
 
 	return of.parseOperationPointer(jsonPointer, sourceName, sourceDesc)
+}
+
+// resolveSourceDescriptionRef converts a "$sourceDescriptions.NAME.url" expression
+// (already stripped of surrounding braces) to just "NAME", which directly matches
+// the key in the SourceDescriptions map. Any other string is returned unchanged.
+func resolveSourceDescriptionRef(expr string) string {
+	const prefix = "$sourceDescriptions."
+	const suffix = ".url"
+	if strings.HasPrefix(expr, prefix) && strings.HasSuffix(expr, suffix) {
+		return expr[len(prefix) : len(expr)-len(suffix)]
+	}
+	return expr
 }
 
 // findSourceDescription finds a source description by URL or name.
@@ -215,6 +264,13 @@ func (of *OperationFinder) parseOperationPointer(jsonPointer, sourceName string,
 
 	// Approach 3: Special cases with path parameters
 	info = of.handleSpecialCases(jsonPointer, sourceName, sourceDesc)
+	if info != nil {
+		return info
+	}
+
+	// Approach 4: Path-only pointer (no HTTP method) — picks the first available method.
+	// Handles e.g. /paths/~1pet~1findByStatus without a trailing /get.
+	info = of.resolvePathOnly(jsonPointer, sourceName, sourceDesc)
 	if info != nil {
 		return info
 	}
@@ -427,6 +483,62 @@ func (of *OperationFinder) handleSpecialCases(jsonPointer, sourceName string, so
 	return nil
 }
 
+// resolvePathOnly handles JSON pointers that reference a path item rather than a
+// specific operation, e.g. /paths/~1pet~1findByStatus (no HTTP method suffix).
+// It returns the first HTTP method found for the decoded path, in httpMethods order.
+func (of *OperationFinder) resolvePathOnly(jsonPointer, sourceName string, sourceDesc map[string]interface{}) *OperationInfo {
+	if !strings.HasPrefix(jsonPointer, "/paths/") {
+		return nil
+	}
+
+	// Everything after "/paths/" is the single encoded path token (e.g. ~1pet~1findByStatus).
+	encodedPath := strings.TrimPrefix(jsonPointer, "/paths/")
+	if encodedPath == "" {
+		return nil
+	}
+
+	// Decode JSON Pointer encoding: ~1 → /, ~0 → ~
+	httpPath := strings.ReplaceAll(encodedPath, "~1", "/")
+	httpPath = strings.ReplaceAll(httpPath, "~0", "~")
+	if !strings.HasPrefix(httpPath, "/") {
+		httpPath = "/" + httpPath
+	}
+
+	paths := toMap(sourceDesc["paths"])
+	if paths == nil {
+		return nil
+	}
+
+	pathItem := toMap(paths[httpPath])
+	if pathItem == nil {
+		return nil
+	}
+
+	baseURL, err := getBaseURL(sourceDesc)
+	if err != nil {
+		return nil
+	}
+
+	// Return the first HTTP method found for this path
+	for _, method := range httpMethods {
+		operation := toMap(pathItem[method])
+		if operation == nil {
+			continue
+		}
+		opID, _ := operation["operationId"].(string)
+		return &OperationInfo{
+			Source:      sourceName,
+			Path:        httpPath,
+			Method:      method,
+			URL:         baseURL + httpPath,
+			Operation:   operation,
+			OperationID: opID,
+		}
+	}
+
+	return nil
+}
+
 // GetOperationsForWorkflow finds all operation references in a workflow dict.
 func (of *OperationFinder) GetOperationsForWorkflow(workflow map[string]interface{}) []*OperationInfo {
 	var operations []*OperationInfo
@@ -439,7 +551,13 @@ func (of *OperationFinder) GetOperationsForWorkflow(workflow map[string]interfac
 		}
 
 		if opID, ok := step["operationId"].(string); ok && opID != "" {
-			if info := of.FindByID(opID); info != nil {
+			var info *OperationInfo
+			if sourceName, bareID, ok := parseQualifiedOperationID(opID); ok {
+				info = of.FindByIDInSource(sourceName, bareID)
+			} else {
+				info = of.FindByID(opID)
+			}
+			if info != nil {
 				operations = append(operations, info)
 			}
 		} else if opPath, ok := step["operationPath"].(string); ok && opPath != "" {

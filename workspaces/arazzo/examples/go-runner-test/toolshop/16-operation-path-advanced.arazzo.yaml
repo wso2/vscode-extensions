@@ -1,0 +1,40 @@
+arazzo: 1.0.0
+info:
+  title: Toolshop OperationPath Example
+  summary: Demonstrates using operationPath with expressions and path-only pointers.
+  description: This example shows how to use the Arazzo spec compliant operationPath syntax.
+  version: 1.0.0
+
+sourceDescriptions:
+  - name: toolshopDescription
+    url: toolshop-openapi.yaml
+    type: openapi
+
+workflows:
+  - workflowId: operationPathWorkflow
+    summary: Demonstrate operationPath support
+    description: This workflow retrieves categories and a specific category using operationPath.
+    steps:
+      - stepId: getCategoriesStep
+        description: Retrieve all categories using operationPath with an expression and no method
+        # Uses expression resolution and defaults to 'get' method since it's the only one available at /categories
+        operationPath: '{$sourceDescriptions.toolshopDescription.url}#/paths/~1categories'
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          firstCategoryId: "$response.body#/0/id"
+
+      - stepId: getSpecificCategoryStep
+        description: Retrieve a specific category using a parameterized path item pointer
+        # The pointer MUST match the path string in toolshop-openapi.yaml exactly: /categories/tree/{categoryId}
+        # / is escaped as ~1
+        operationPath: '{$sourceDescriptions.toolshopDescription.url}#/paths/~1categories~1tree~1{categoryId}'
+        parameters:
+          - name: categoryId
+            in: path
+            value: $steps.getCategoriesStep.outputs.firstCategoryId
+        successCriteria:
+          - condition: $statusCode == 200
+    
+    outputs:
+      categoryData: $steps.getSpecificCategoryStep.outputs

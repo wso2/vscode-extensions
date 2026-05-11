@@ -280,21 +280,25 @@ func (se *StepExecutor) ExecuteStep(step map[string]interface{}, workflow map[st
 
 // findOperation locates the API operation for a step.
 func (se *StepExecutor) findOperation(step map[string]interface{}) *OperationInfo {
-	// Try operationId first
+	// Try operationId first.
+	// Supports both plain operationId and the qualified Arazzo spec form
+	// "$sourceDescriptions.NAME.operationId" which scopes the search to one source.
 	if opID, ok := step["operationId"].(string); ok && opID != "" {
 		log.Printf("Looking up operation by ID: %s", opID)
+		if sourceName, bareID, ok := parseQualifiedOperationID(opID); ok {
+			return se.OperationFinder.FindByIDInSource(sourceName, bareID)
+		}
 		return se.OperationFinder.FindByID(opID)
 	}
 
-	// Try operationPath (e.g. "{$sourceDescriptions.petstore.url}#/pets/{petId}")
+	// Try operationPath (e.g. "{$sourceDescriptions.petstore.url}#/paths/~1pets/get")
 	if opPath, ok := step["operationPath"].(string); ok && opPath != "" {
 		log.Printf("Looking up operation by path: %s", opPath)
 		// Parse the operationPath: "{sourceURL}#{jsonPointer}" or "sourceURL#jsonPointer"
+		// FindByPath handles brace-stripping and $sourceDescriptions expression resolution.
 		parts := strings.SplitN(opPath, "#", 2)
 		if len(parts) == 2 {
-			sourceURL := strings.Trim(parts[0], "{}")
-			jsonPointer := parts[1]
-			return se.OperationFinder.FindByPath(sourceURL, jsonPointer)
+			return se.OperationFinder.FindByPath(parts[0], parts[1])
 		}
 	}
 

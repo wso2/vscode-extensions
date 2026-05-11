@@ -1,0 +1,42 @@
+arazzo: 1.0.0
+info:
+  title: Toolshop Qualified OperationID Example
+  summary: Demonstrates using scoped operationId references.
+  description: This example shows how to use the Arazzo spec compliant "$sourceDescriptions.NAME.operationId" syntax.
+  version: 1.0.0
+
+sourceDescriptions:
+  - name: toolshopDescription
+    url: toolshop-openapi.yaml
+    type: openapi
+
+workflows:
+  - workflowId: qualifiedOpIdWorkflow
+    summary: Demonstrate qualified operationId support
+    description: This workflow retrieves products using a qualified operationId scoped to the toolshop source.
+    steps:
+      - stepId: getProductsStep
+        description: Retrieve products using a scoped operationId
+        # Uses the qualified form to ensure we pick getProducts from toolshopDescription
+        operationId: $sourceDescriptions.toolshopDescription.getProducts
+        parameters:
+          - name: page
+            in: query
+            value: 1
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          firstProductId: "$response.body#/data/0/id"
+
+      - stepId: getProductDetailStep
+        description: Retrieve details using another scoped operationId
+        operationId: $sourceDescriptions.toolshopDescription.getProduct
+        parameters:
+          - name: productId
+            in: path
+            value: $steps.getProductsStep.outputs.firstProductId
+        successCriteria:
+          - condition: $statusCode == 200
+    
+    outputs:
+      productName: $steps.getProductDetailStep.outputs.response.body.name
