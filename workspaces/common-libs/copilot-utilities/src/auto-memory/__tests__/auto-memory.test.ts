@@ -64,7 +64,7 @@ function writeThreadJson(threadsDir: string, threadId: string, generations: Arra
 // truncateEntrypointContent
 // ---------------------------------------------------------------------------
 
-describe('truncateEntrypointContent', () => {
+describe('truncateEntrypointContent tests', () => {
     it('returns content unchanged when within both limits', () => {
         const input = 'line1\nline2\nline3';
         const result = truncateEntrypointContent(input);
@@ -114,7 +114,7 @@ describe('truncateEntrypointContent', () => {
 // scanMemoryFiles + formatMemoryManifest
 // ---------------------------------------------------------------------------
 
-describe('scanMemoryFiles', () => {
+describe('scanMemoryFiles tests', () => {
     let tmpDir: string;
 
     beforeEach(() => { tmpDir = makeTempDir(); });
@@ -165,7 +165,7 @@ describe('scanMemoryFiles', () => {
     });
 });
 
-describe('formatMemoryManifest', () => {
+describe('formatMemoryManifest tests', () => {
     it('shows both sections', () => {
         const globalFiles: MemoryHeader[] = [
             { filename: 'user_expertise.md', mtimeMs: 0, description: 'WSO2 expert', type: 'user' },
@@ -199,7 +199,7 @@ describe('formatMemoryManifest', () => {
 // prompt builders
 // ---------------------------------------------------------------------------
 
-describe('memory prompt builders', () => {
+describe('memory prompt builders tests', () => {
     it('instructs the main agent to use save_memory and delete_memory tools', () => {
         const prompt = buildMemoryLines('/tmp/global-memory', '/tmp/workspace-memory').join('\n');
 
@@ -226,7 +226,7 @@ describe('memory prompt builders', () => {
 // consolidationLock: tryAcquireLock / rollbackLock / readLastConsolidatedAt
 // ---------------------------------------------------------------------------
 
-describe('tryAcquireLock', () => {
+describe('tryAcquireLock tests', () => {
     let tmpDir: string;
     let lockPath: string;
 
@@ -263,7 +263,7 @@ describe('tryAcquireLock', () => {
     });
 });
 
-describe('rollbackLock', () => {
+describe('rollbackLock tests', () => {
     let tmpDir: string;
     let lockPath: string;
 
@@ -290,7 +290,7 @@ describe('rollbackLock', () => {
     });
 });
 
-describe('releaseLock', () => {
+describe('releaseLock tests', () => {
     let tmpDir: string;
     let lockPath: string;
 
@@ -328,7 +328,7 @@ describe('releaseLock', () => {
     });
 });
 
-describe('readLastConsolidatedAt', () => {
+describe('readLastConsolidatedAt tests', () => {
     let tmpDir: string;
 
     beforeEach(() => { tmpDir = makeTempDir(); });
@@ -352,7 +352,7 @@ describe('readLastConsolidatedAt', () => {
 // countGenerationsSince
 // ---------------------------------------------------------------------------
 
-describe('countGenerationsSince', () => {
+describe('countGenerationsSince tests', () => {
     let tmpDir: string;
     let workspacesDir: string;
     const HASH = 'abc1234567890def';

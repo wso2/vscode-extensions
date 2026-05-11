@@ -43,7 +43,8 @@ import { resolveWorkspaceIdentity } from '../../../views/ai-panel/chatStateStora
 
 const MIN_HOURS_BETWEEN_DREAMS   = 24;
 const MIN_GENERATIONS_SINCE_LAST = 10;
-const SCAN_THROTTLE_MS           = 10 * 60 *1000; // 10 minutes
+const SCAN_THROTTLE_MS           = 10 * 60 * 1000; // 10 minutes
+const MS_PER_HOUR                = 3_600_000;
 
 /** ~/.ballerina/copilot/workspaces/ */
 const WORKSPACES_BASE_DIR = join(homedir(), '.ballerina', 'copilot', 'workspaces');
@@ -154,7 +155,7 @@ async function runDream(
 
     // --- Gate 1: Time gate (cheapest — one stat call) ---
     const lastWorkspaceDreamAt = readLastConsolidatedAt(workspaceLockPath);
-    const hoursSince = (Date.now() - lastWorkspaceDreamAt) / 3_600_000;
+    const hoursSince = (Date.now() - lastWorkspaceDreamAt) / MS_PER_HOUR;
     if (hoursSince < MIN_HOURS_BETWEEN_DREAMS) { return; }
 
     // --- Gate 2: Scan throttle ---
