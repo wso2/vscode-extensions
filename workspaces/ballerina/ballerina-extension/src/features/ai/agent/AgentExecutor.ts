@@ -56,32 +56,8 @@ import {
 import { extension } from "../../../BalExtensionContext";
 import { getProjectMetrics } from "../../telemetry/common/project-metrics";
 import { getHashedProjectId } from "../../telemetry/common/project-id";
-import { ConfigurationTarget, workspace } from 'vscode';
+import { workspace } from 'vscode';
 import { runningServicesManager } from './tools/running-service-manager';
-import { INITIAL_SCAFFOLD_PROMPT_KEY } from '../../../core/preferences';
-
-let persistedScaffoldPrompt: string | undefined;
-
-async function recordInitialScaffoldPrompt(): Promise<void> {
-    const scaffoldPrompt = process.env.INITIAL_SCAFFOLD_PROMPT;
-    if (!scaffoldPrompt || scaffoldPrompt === persistedScaffoldPrompt) {
-        return;
-    }
-    const folderUri = workspace.workspaceFolders?.[0]?.uri;
-    if (!folderUri) {
-        return;
-    }
-    try {
-        const cfg = workspace.getConfiguration(undefined, folderUri);
-        if (cfg.get<string>(INITIAL_SCAFFOLD_PROMPT_KEY) !== scaffoldPrompt) {
-            await cfg.update(INITIAL_SCAFFOLD_PROMPT_KEY, scaffoldPrompt, ConfigurationTarget.WorkspaceFolder);
-        }
-        persistedScaffoldPrompt = scaffoldPrompt;
-    } catch (e) {
-        console.warn('[AgentExecutor] failed to persist scaffold prompt:', e);
-    }
-}
-
 
 const RESERVED_OUTPUT_TOKENS = 8_192;
 
@@ -834,8 +810,6 @@ Generation stopped by user. The last in-progress task was not saved. Files have 
                 'cost.total': totalCost,
             }
         );
-
-        void recordInitialScaffoldPrompt();
 
         // Update chat state storage
         await this.updateChatState(context, assistantMessages, tempProjectPath);

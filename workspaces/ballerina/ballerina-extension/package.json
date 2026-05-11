@@ -110,12 +110,6 @@
                     "scope": "resource",
                     "description": "Activate features for WSO2 Integrator: BI."
                 },
-                "ballerina.scaffold.prompt": {
-                    "type": "string",
-                    "default": "",
-                    "scope": "resource",
-                    "description": "Internal: records the initial scaffold prompt that has already been generated for this workspace folder, so it isn't re-triggered on subsequent opens."
-                },
                 "ballerina.scope": {
                     "type": "string",
                     "default": "any",
