@@ -59,7 +59,6 @@ import { getHashedProjectId } from "../../telemetry/common/project-id";
 import { workspace } from 'vscode';
 import { runningServicesManager } from './tools/running-service-manager';
 
-
 const RESERVED_OUTPUT_TOKENS = 8_192;
 
 /**
