@@ -218,10 +218,15 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
             setLoading(true);
             setError(null);
             try {
-                let projectUri = path;
-                const artifactsIndex = projectUri.indexOf('/artifacts');
+                let projectUri = pathModule.normalize(path);
+                const artifactsSep = `${pathModule.sep}artifacts`;
+                const artifactsIndex = projectUri.indexOf(artifactsSep);
                 if (artifactsIndex !== -1) {
-                    projectUri = projectUri.substring(0, artifactsIndex).replace(/\/src\/main\/wso2mi$/, '');
+                    projectUri = projectUri.substring(0, artifactsIndex);
+                    const suffixPattern = `${pathModule.sep}src${pathModule.sep}main${pathModule.sep}wso2mi`;
+                    if (projectUri.endsWith(suffixPattern)) {
+                        projectUri = projectUri.substring(0, projectUri.length - suffixPattern.length);
+                    }
                 }
 
                 const { apis: parsedAPIs, sequences: parsedSeqs } =
