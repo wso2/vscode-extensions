@@ -366,10 +366,10 @@ export const langlibTestCases = [
 ];
 
 export const testCasesForCodeIndexing = [
-  {
-    prompt: "Can you implement the encounter getbyid resource function so it fetches the encounter from the db using the dbClient and maps it to the fhir encounter type, same pattern as the patient getbyid endpoint", // implement a stubbed endpoint by mirroring an existing one
-    projectPath: "healthcare_sample"
-  },
+  // {
+  //   prompt: "Can you implement the encounter getbyid resource function so it fetches the encounter from the db using the dbClient and maps it to the fhir encounter type, same pattern as the patient getbyid endpoint", // implement a stubbed endpoint by mirroring an existing one
+  //   projectPath: "healthcare_sample"
+  // },
   // {
   //   prompt: "Add a phone number field to the patient data model, persist it through the db layer, and surface it on the fhir patient resource via the telecom element in the mappers", // add a new field that flows through persist model + db client + fhir mapper
   //   projectPath: "healthcare_sample"
@@ -442,10 +442,10 @@ export const testCasesForCodeIndexing = [
   //   prompt: "Right now we skip customer creation if first_name and last_name are both empty. Change the logic so we only require email, if email is present we should always create the stripe customer even if the name fields are empty", // tweak existing guard logic
   //   projectPath: "shopify_stripe_integration_errors"
   // },
-  // {
-  //   prompt: "Pull the stripe customer payload construction out of onCustomersCreate into a helper function in data_mappings.bal so the service handler is leaner", // extract a helper into a currently-empty file
-  //   projectPath: "shopify_stripe_integration_errors"
-  // },
+  {
+    prompt: "Pull the stripe customer payload construction out of onCustomersCreate into a helper function in data_mappings.bal so the service handler is leaner", // extract a helper into a currently-empty file
+    projectPath: "shopify_stripe_integration_errors"
+  },
   // {
   //   prompt: "Add doc comments to every remote function in the CustomersService", // common documentation prompt
   //   projectPath: "shopify_stripe_integration_errors"
