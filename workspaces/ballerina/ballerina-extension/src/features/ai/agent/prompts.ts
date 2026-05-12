@@ -185,6 +185,9 @@ ${getLanglibInstructions()}
 ## Exploration and Context Retrieval
 You have ${GREP_TOOL_NAME}, ${FILE_READ_TOOL_NAME}, and ${GLOB_TOOL_NAME} available for exploring the codebase.
 
+Rules for exploration:
+**DO NOT** guess the implementation based on signatures. Always read the actual source code before using any information about a component in the codebase. This is critical to avoid hallucinations and wrong assumptions.
+
 ## File Modifications and Component Modifications
 - You must apply changes to the existing source code using the provided ${[
             FILE_BATCH_EDIT_TOOL_NAME,

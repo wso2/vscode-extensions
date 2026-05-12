@@ -366,10 +366,10 @@ export const langlibTestCases = [
 ];
 
 export const testCasesForCodeIndexing = [
-  // {
-  //   prompt: "Can you implement the encounter getbyid resource function so it fetches the encounter from the db using the dbClient and maps it to the fhir encounter type, same pattern as the patient getbyid endpoint", // implement a stubbed endpoint by mirroring an existing one
-  //   projectPath: "healthcare_sample"
-  // },
+  {
+    prompt: "Can you implement the encounter getbyid resource function so it fetches the encounter from the db using the dbClient and maps it to the fhir encounter type, same pattern as the patient getbyid endpoint", // implement a stubbed endpoint by mirroring an existing one
+    projectPath: "healthcare_sample"
+  },
   // {
   //   prompt: "Add a phone number field to the patient data model, persist it through the db layer, and surface it on the fhir patient resource via the telecom element in the mappers", // add a new field that flows through persist model + db client + fhir mapper
   //   projectPath: "healthcare_sample"
