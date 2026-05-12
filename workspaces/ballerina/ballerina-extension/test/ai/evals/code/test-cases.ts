@@ -365,135 +365,130 @@ export const langlibTestCases = [
 //  }
 ];
 
-// Code Indexing test cases for single packages existing codebase - Basic common prompts
-export const codeIndexingTestCasesForSinglePackage = [
-// {
-//   prompt: "Update calculate total function to accept an optional discount percentage and apply it to the final total. Also add a discount field to make sure it's used where relevant.", // keyword that already exists in the bal-md
-//   projectPath: "simple_order_management_system",
-// },
-// {
-//   prompt: "Refactor the delete order id endpoint to add rate limiting so that each client can only make 100 requests per minute.", // unrelevant prompt
-//   projectPath: "simple_order_management_system"
-// },
-// {
-//   prompt: "Add comments to every resource function.", // common prompt
-//   projectPath: "simple_order_management_system"
-// },
-// {
-//   prompt: "How to write a ballerina integration using salesforce connector to fetch account details and log them?", // over engineered prompt
-//   projectPath: "simple_order_management_system"
-// },
-// {
-//   prompt: "Rename the process lead function name into isLeadAllowed", // refactor function name
-//   projectPath: "salesforce-lead-conversion-slack-notification"
-// },
-// {
-//   prompt: "Can you rename the dinner request record name to DodMealRequest", // refactor record name
-//   projectPath: "menu_app"
-// },
-{
-  prompt: "Can you merge the get dinner req by email and get dinner req by id function into one?", // merger two components
-  projectPath: "menu_app"
-},
-// {
-//   prompt: "Can you explain how the authentication works in here?", // ask for explanation
-//   projectPath: "menu_app"
-// },
-// {
-//   prompt: "can you convert the post dinner endpoint to a GraphQL mutation? keep all the logic the same, just change it to work with GraphQL", // rest to GraphQL
-//   projectPath: "menu_app"
-// },
-// {
-//   prompt: "can you rename the customjwtpayload type to UserJwtClaims, rename the email field to userEmail and groups field to roles", // refactor type and field names and usages
-//   projectPath: "menu_app"
-// },
-// {
-//   prompt: "When a dinner request is cancelled, nothing records when it happened. Add a nullable cancellation timestamp to the dinner request type across all packages that define it, populate it during the cancel flow, and persist it to both the database and the sheet row before deletion.", // add new feature
-//   projectPath: "menu_app"
-// },
-// {
-//   prompt: "Delete the lunch feedback feature entirely as it is no longer being used", // delete a feature
-//   projectPath: "menu_app"
-// },
-// {
-//   prompt: "Delete the job role field from the employee record", // delete a field
-//   projectPath: "menu_app",
-// },
-// {
-//   prompt: "I want to add a maximum booking limit on dinner requests so once it is reached for a given date any new requests get rejected, the limit should be configurable.", // add new feature
-//   projectPath: "menu_app"
-// },
-// {
-//   prompt: "We're moving away from syncing dinner orders to Google Sheets, remove the sheet sync from the dinner flow so requests only get saved to the database.", // delete a feature
-//   projectPath: "menu_app"
-// },
-// {
-//   prompt: "Can you convert the employee data fetch from GraphQL to a REST call, we are deprecating the GraphQL people service.", // change code logic
-//   projectPath: "menu_app"
-// }
-];
-
-// Code Indexing test cases for workspace existing codebase
-export const codeIndexingTestCasesForWorkspace = [
-// {
-//   prompt: "When we confirm an order, the payment method is accepted as any arbitrary string which means invalid values can slip through. Update the existing payment record type to replace the plain string field with a proper enum that restricts it to a fixed set of accepted methods like credit card, debit card, cash, and wallet.", // change the existing logic
-//   projectPath: "workspace_order_management_system",
-// },
-// {
-//   prompt: "I want to add a gift wrapping option to the checkout process. When a customer checks out, they should be able to indicate that they want their order gift wrapped, and a small fixed surcharge should be added to the total. This choice should be visible in the final order result and mentioned in the confirmation email the customer receives.", // add new feature
-//   projectPath: "gcp_microservices"
-// },
-// {
-//   prompt: "I want to update the way product recommendations work so that instead of just returning a list of product identifiers, the service returns the full product details like name, description, and price directly in the response. This means the frontend won't need to make extra calls to look up each recommended product separately, so the shared response structure between the recommendation service and its callers will need to be updated too.", // change the existing logic
-//   projectPath: "gcp_microservices"
-// },
-// {
-//   prompt: "I want to remove the advertising feature from the platform entirely. This means stripping out the logic the frontend uses to fetch and display ads on the home page and product detail page, removing the ad fields from the response structures those pages return, and cleaning up all the shared type definitions and service client code that was used to communicate with the ad backend.", // delete a feature
-//   projectPath: "gcp_microservices"
-// },
-// {
-//   prompt: "I want to change how product search works, right now it does a plain text match against product names and descriptions, but I want it to instead filter by category so users can pass in one or more category identifiers and get back only products that belong to those categories. The search request structure, the matching logic, and the way the frontend sends search queries all need to be updated to reflect this new approach.", // change the existing logic
-//   projectPath: "gcp_microservices"
-// },
-// {
-//   prompt: "I want to add tests for the payment service to cover invalid card scenarios that aren't tested at all right now. We only have a test for a successful charge with a valid card, but there's nothing checking that the service correctly rejects an expired card or a card number that fails checksum validation.", // add new tests
-//   projectPath: "gcp_microservices"
-// },
-// {
-//   prompt: "I want to update the cart test to also verify that emptying the cart actually works.", // change the existing test logic
-//   projectPath: "gcp_microservices"
-// }
-];
-
-// Code Indexing test cases for semantic errors in existing codebase
-export const testCasesForCodeIndexingSemanticErrors = [
+export const testCasesForCodeIndexing = [
   // {
-  //   prompt: "I want to add a retry mechanism to the publish orders event function , if the kafka producer send call logic fails, it should retry up to 3 times before returning an error. Can you update that function to include the retry logic?", // add new feature
-  //   projectPath: "simple_order_management_system_with_semantic_errors"
+  //   prompt: "Can you implement the encounter getbyid resource function so it fetches the encounter from the db using the dbClient and maps it to the fhir encounter type, same pattern as the patient getbyid endpoint", // implement a stubbed endpoint by mirroring an existing one
+  //   projectPath: "healthcare_sample"
   // },
   // {
-  //   prompt: "Hey, I deployed my order service and when I try to create an order, the Kafka publish step keeps failing. I can see in the logs that the publish order event function is throwing an error but I'm not sure why. Can you check and fix this?", // ask to fix the bug
-  //   projectPath: "simple_order_management_system_with_semantic_errors"
+  //   prompt: "Add a phone number field to the patient data model, persist it through the db layer, and surface it on the fhir patient resource via the telecom element in the mappers", // add a new field that flows through persist model + db client + fhir mapper
+  //   projectPath: "healthcare_sample"
   // },
   // {
-  //   prompt: "Can you add a new field called notes to each order line in the order creation payload so that customers can add special instructions per line item??", // change the existing logic
-  //   projectPath: "simple_order_management_system_with_semantic_errors"
-  // }
-];
-
-// Code Indexing test cases for syntax errors in existing codebase
-export const testCasesForCodeIndexingSyntaxErrors = [
-  // {
-  //   prompt: "I want to update the order retrieval logic so that when fetching an order by ID, it also returns the total number of order lines as a separate field in the response.",
-  //   projectPath: "simple_order_management_system_with_syntax_errors"
+  //   prompt: "Remove the encounter api entirely from the project, strip out the service, its config file, the EncounterData persist model and all the database client code generated for it", // delete an entire fhir resource across service, config, model and generated client
+  //   projectPath: "healthcare_sample"
   // },
   // {
-  //   prompt: "Something is wrong with my project, bal build keeps failing. I touched a few files but I can't figure out what I broke. Can you fixed", // ask to fix the bug
-  //   projectPath: "simple_order_management_system_with_syntax_errors"
+  //   prompt: "Rename the PatientData record to PatientRecord across the persist model and every generated db type that references it", // rename a record that has many auto-generated references
+  //   projectPath: "healthcare_sample"
   // },
   // {
-  //   prompt: "Can you fix the syntax errors in the functions.bal file?",
-  //   projectPath: "simple_order_management_system_with_syntax_errors"
+  //   prompt: "Switch the persist backend from mysql to postgresql, update the persist client init, the config types, and the sql specifics used in the generated client", // swap an underlying dependency / driver
+  //   projectPath: "healthcare_sample"
+  // },
+  // {
+  //   prompt: "Can you explain how a fhir patient resource gets persisted into mysql when a post request comes in?", // ask for explanation of an end-to-end flow
+  //   projectPath: "healthcare_sample"
+  // },
+  // {
+  //   prompt: "Refactor the patient search to support pagination with a configurable page size, plus rate limiting of 100 requests per minute per client", // over-engineered / out-of-scope prompt
+  //   projectPath: "healthcare_sample"
+  // },
+  // {
+  //   prompt: "Add an opportunity amount field to the slack notification so the message shows the dollar value of the converted opportunity. The amount needs to be fetched from salesforce and included in the conversion details record before the message is formatted", // add a feature that spans salesforce query + mapper + message formatter
+  //   projectPath: "salesforce_slack_integration"
+  // },
+  // {
+  //   prompt: "When a lead conversion notification is sent, also persist a record of it to a new audit log so we can later see which leads were notified and when. The log should capture lead id, owner email, slack channel and timestamp", // add a brand new sub-feature (audit log) layered onto an existing flow
+  //   projectPath: "salesforce_slack_integration"
+  // },
+  // {
+  //   prompt: "Drop the lead lifecycle duration from the notification, we dont want it in the message anymore. Remove the calculation helper, the field on LeadConversionDetails, and the line that adds it to the slack message", // delete a feature that touches helper, type and formatter
+  //   projectPath: "salesforce_slack_integration"
+  // },
+  // {
+  //   prompt: "Delete the leadSource field from LeadConversionDetails and stop populating it in the mapper", // delete a field
+  //   projectPath: "salesforce_slack_integration"
+  // },
+  // {
+  //   prompt: "Rename the LeadOwner record to OwnerInfo and rename its Email field to emailAddress across every place it is constructed, accessed, or destructured", // rename type AND field together
+  //   projectPath: "salesforce_slack_integration"
+  // },
+  // {
+  //   prompt: "Can you merge the two separate salesforce queries that fetch the lead owner, one inside processLeadConversion and the one in determineSlackChannel, into a single query so we dont hit salesforce twice for the same user", // detect and merge duplicate logic across functions
+  //   projectPath: "salesforce_slack_integration"
+  // },
+  // {
+  //   prompt: "Right now the lead source filter is a plain string equality check. Change it so that lead sources are matched as case-insensitive regex patterns instead, and update the config type to reflect that these are regex strings", // change a real piece of business logic + supporting config type
+  //   projectPath: "salesforce_slack_integration"
+  // },
+  // {
+  //   prompt: "Can you convert the salesforce listener service into a graphql subscription endpoint?", // unrelated / nonsensical conversion
+  //   projectPath: "salesforce_slack_integration"
+  // },
+  // {
+  //   prompt: "Something is wrong with my project, bal build keeps failing on main.bal but i cant see what i broke. Can you find and fix it?", // fix a syntax error the user hasn't pinpointed
+  //   projectPath: "shopify_stripe_integration_errors"
+  // },
+  // {
+  //   prompt: "When a customer is updated in shopify, mirror the change into stripe, update the existing stripe customer's name and email so they stay in sync", // implement an empty remote handler
+  //   projectPath: "shopify_stripe_integration_errors"
+  // },
+  // {
+  //   prompt: "When a shopify customer is disabled, mark the corresponding stripe customer as deleted so we stop billing them", // implement another empty remote handler
+  //   projectPath: "shopify_stripe_integration_errors"
+  // },
+  // {
+  //   prompt: "Right now we skip customer creation if first_name and last_name are both empty. Change the logic so we only require email, if email is present we should always create the stripe customer even if the name fields are empty", // tweak existing guard logic
+  //   projectPath: "shopify_stripe_integration_errors"
+  // },
+  // {
+  //   prompt: "Pull the stripe customer payload construction out of onCustomersCreate into a helper function in data_mappings.bal so the service handler is leaner", // extract a helper into a currently-empty file
+  //   projectPath: "shopify_stripe_integration_errors"
+  // },
+  // {
+  //   prompt: "Add doc comments to every remote function in the CustomersService", // common documentation prompt
+  //   projectPath: "shopify_stripe_integration_errors"
+  // },
+  // {
+  //   prompt: "How do i write a ballerina program that fetches weather data and posts it to slack?", // unrelated prompt
+  //   projectPath: "shopify_stripe_integration_errors"
+  // },
+  // {
+  //   prompt: "I want to add a notes field to each order line so customers can attach special instructions per line item. The note should be accepted on the create order payload, stored alongside the rest of the order line data in the db, and included in the OrderCreated event published to kafka so downstream consumers can see it too", // add a field that flows from http payload -> db -> kafka event
+  //   projectPath: "order_management_system"
+  // },
+  // {
+  //   prompt: "Add an optional discount percentage to the create order payload, if provided apply it to the calculated total before persisting, and include both the discount percentage and the discounted total in the OrderCreated kafka event", // add a feature that touches payload type, calculation, db insert and event
+  //   projectPath: "order_management_system"
+  // },
+  // {
+  //   prompt: "We're moving away from kafka entirely. Strip out the messaging module from order_service, remove the OrderCreated event publication from the create order flow, and clean up the import and shutdown hook in main.bal", // remove an entire submodule and all its call sites
+  //   projectPath: "order_management_system"
+  // },
+  // {
+  //   prompt: "Delete the billingAddress field from the Order, the create payload, the database row and insert record, the sql insert query and the OrderCreated event, we always bill to the shipping address now", // delete a field that exists in every layer
+  //   projectPath: "order_management_system"
+  // },
+  // {
+  //   prompt: "Right now createNewOrder mocks the unit price as 99.99 for every line. Change it so the unit price for each sku is looked up from a new in-memory price book map at the top of functions.bal and used when constructing the order lines and total instead of the hardcoded value", // replace hardcoded value with looked-up value
+  //   projectPath: "order_management_system"
+  // },
+  // {
+  //   prompt: "Rename the OrderCreatedEvent record to OrderPlacedEvent and update its eventType default to OrderPlaced, make sure every reference in the messaging module and in createNewOrder is updated", // rename a type used across packages
+  //   projectPath: "order_management_system"
+  // },
+  // {
+  //   prompt: "Move calculateTotal from order_service into the order_utils package so both packages can share it, and update createNewOrder to call it from there", // cross-package refactor — move a function between packages
+  //   projectPath: "order_management_system"
+  // },
+  // {
+  //   prompt: "Convert the post /v1/orders endpoint to a graphql mutation, keep all the existing logic the same, just expose it as graphql instead of rest", // protocol conversion REST -> GraphQL
+  //   projectPath: "order_management_system"
+  // },
+  // {
+  //   prompt: "Add a retry mechanism to publishOrderEvent, if the kafka producer send call fails, retry up to 3 times with a short backoff before returning an error", // resilience / retry around an existing call
+  //   projectPath: "order_management_system"
   // }
 ];
 
@@ -504,7 +499,4 @@ testCases.push(...textEditSpecializedTestCases);
 testCases.push(...testCasesForExistingProject);
 testCases.push(...testCasesForExistingSemanticErrors);
 testCases.push(...langlibTestCases);
-testCases.push(...codeIndexingTestCasesForSinglePackage);
-testCases.push(...codeIndexingTestCasesForWorkspace);
-testCases.push(...testCasesForCodeIndexingSemanticErrors);
-testCases.push(...testCasesForCodeIndexingSyntaxErrors);
+testCases.push(...testCasesForCodeIndexing);
