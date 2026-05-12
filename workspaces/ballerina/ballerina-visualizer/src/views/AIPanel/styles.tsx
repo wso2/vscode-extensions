@@ -119,6 +119,32 @@ export const OverlayMessage = styled.div`
     gap: 12px;
 `;
 
+export const StatusBanner = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+    border-bottom: 1px solid var(--vscode-panel-border);
+    color: var(--vscode-foreground);
+    font-size: 12px;
+    font-family: var(--vscode-font-family);
+    flex-shrink: 0;
+`;
+
+export const StatusBannerSpinner = styled.span`
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--vscode-progressBar-background, var(--vscode-foreground));
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: status-banner-spin 0.9s linear infinite;
+    flex-shrink: 0;
+    @keyframes status-banner-spin {
+        to { transform: rotate(360deg); }
+    }
+`;
+
 export const OverlayCloseButton = styled.button`
     background: transparent;
     border: none;

@@ -21,6 +21,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { AICommandConfig } from "../executors/base/AICommandExecutor";
 import { createWebviewEventHandler } from "../utils/events";
+import { sendDependencyPullProgressToAIPanel } from "../utils/ai-utils";
 import { AgentExecutor } from './AgentExecutor';
 import {
     sendTelemetryEvent,
@@ -132,12 +133,15 @@ export async function generateAgent(params: GenerateAgentCodeRequest): Promise<b
         if (langClient) {
             try {
                 try {
+                    sendDependencyPullProgressToAIPanel('Pulling module dependencies...');
                     const pullResponse = await langClient.codeMapResolveModuleDependencies({
                         projectPath: workspacePath
                     });
                     console.debug('[generateAgent] resolveModuleDependencies response:', JSON.stringify(pullResponse, null, 2));
                 } catch (pullErr) {
                     console.warn('[generateAgent] Failed to resolve module dependencies, continuing:', pullErr);
+                } finally {
+                    sendDependencyPullProgressToAIPanel('');
                 }
 
                 const codeMapResponse = await langClient.getCodeMap({

@@ -20,6 +20,7 @@ import {
     ChatNotify,
     ChatStart,
     DiagnosticEntry,
+    dependencyPullProgress,
     IntermidaryState,
     onChatNotify,
     ProjectSource,
@@ -232,6 +233,14 @@ export function sendIntermidateStateNotification(intermediaryState: Documentatio
         state: intermediaryState,
     };
     sendAIPanelNotification(msg);
+}
+
+export function sendDependencyPullProgressToAIPanel(message: string): void {
+    RPCLayer._messenger.sendNotification(
+        dependencyPullProgress,
+        { type: "webview", webviewType: AiPanelWebview.viewType },
+        message
+    );
 }
 
 export function sendToolCallNotification(toolName: string, toolInput?: any, toolCallId?: string): void {

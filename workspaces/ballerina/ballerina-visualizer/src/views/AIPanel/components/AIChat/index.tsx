@@ -55,7 +55,7 @@ import { ConfigurationCollectorSegment, ConfigurationCollectionData } from "../C
 import CheckpointSeparator from "../CheckpointSeparator";
 import { Attachment, AttachmentStatus, TaskApprovalRequest } from "@wso2/ballerina-core";
 
-import { AIChatView, Header, HeaderButtons, ChatMessage, TurnGroup, AuthProviderChip, UsageBadge, ApprovalOverlay, OverlayMessage, OverlayCloseButton } from "../../styles";
+import { AIChatView, Header, HeaderButtons, ChatMessage, TurnGroup, AuthProviderChip, UsageBadge, ApprovalOverlay, OverlayMessage, OverlayCloseButton, StatusBanner, StatusBannerSpinner } from "../../styles";
 import ReferenceDropdown from "../ReferenceDropdown";
 import { VSCodeButton } from "@vscode/webview-ui-toolkit/react";
 import MarkdownRenderer from "../MarkdownRenderer";
@@ -241,6 +241,7 @@ const AIChat: React.FC = () => {
     const [showContextUsage, setShowContextUsage] = useState(false);
 
     const [runningServices, setRunningServices] = useState<RunningServiceInfo[]>([]);
+    const [depPullStatus, setDepPullStatus] = useState<string>('');
 
     //TODO: Need a better way of storing data related to last generation to be in the repair state.
     const currentDiagnosticsRef = useRef<DiagnosticEntry[]>([]);
@@ -458,6 +459,12 @@ const AIChat: React.FC = () => {
     useEffect(() => {
         rpcClient.onWebToolToggle((payload: WebToolToggle) => {
             setIsWebToolsEnabled(payload.active ? true : userWebSearchPreferenceRef.current);
+        });
+    }, [rpcClient]);
+
+    useEffect(() => {
+        rpcClient?.onDependencyPullProgress((message: string) => {
+            setDepPullStatus(message);
         });
     }, [rpcClient]);
 
@@ -1796,6 +1803,12 @@ const AIChat: React.FC = () => {
                             </Button>
                         </HeaderButtons>
                     </Header>
+                    {depPullStatus && (
+                        <StatusBanner>
+                            <StatusBannerSpinner />
+                            <span>{depPullStatus}</span>
+                        </StatusBanner>
+                    )}
                     <main style={{ flex: 1, overflowY: "auto" }}>
                         {migrationSession && (
                             <MigrationContextCard
