@@ -89,7 +89,8 @@
      * Ppnpmdocumentation: https://pnpm.io/package_json#pnpmoverrides
      */
     "globalOverrides": {
-      "lodash": ">=4.18.0"
+      "lodash": ">=4.18.0",
+      "hono": "4.12.18"
     },
   
     /**
