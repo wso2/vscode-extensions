@@ -1099,7 +1099,7 @@
     "@babel/plugin-transform-typescript": "7.27.1",
     "@iarna/toml": "2.2.5",
     "@langfuse/otel": "4.5.1",
-    "@opentelemetry/sdk-node": "0.210.0",
+    "@opentelemetry/sdk-node": "0.217.0",
     "ai": "6.0.140",
     "@types/fs-extra": "11.0.4",
     "@types/handlebars": "4.1.0",
