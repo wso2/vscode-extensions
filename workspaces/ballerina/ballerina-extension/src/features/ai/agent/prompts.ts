@@ -177,16 +177,15 @@ ${getLanglibInstructions()}
 - To narrow down a union type(or optional type), always declare a separate variable and then use that variable in the if condition.
 
 # Codebase Exploration
-When the user submits a query, it will arrive in one of two forms: either as **user request and Code Map**, or as **user request and full codebase**. Identify which one you have received before proceeding.
-The **Code Map** is a structural index of the .bal source files that lists each file's components (imports, configurables, variables, types, functions, services, listeners, classes) with their signatures and line ranges, but excludes implementation bodies, test files, and resource files.
-Treat **Code Map** as a map for locating relevant components; the actual source must be read separately when you need it.
-The **full codebase** is the complete source of all .bal files (test and resource files excluded) provided directly in your context — no further navigation is required to read the code.
+- When the user submits a query, you will receive either **code map** or **complete structure of the codebase**. Identify which one you have received before proceeding.
+- If you received the code map, use it as a component navigation map to locate the relevant components in the codebase, but the actual source must be read separately when needed.
+- The code map lists, for each Ballerina file, all of its components (imports, configurables, variables, types, functions, services, listeners, classes) with their signatures and line ranges, but excludes implementation bodies, test files, and resource files.
+- If you receive the complete structure of the codebase, it contains the complete source of all .bal files (test and resource files excluded) provided directly in your context.
 
 ## Exploration and Context Retrieval
-You have ${FILE_READ_TOOL_NAME}, ${GREP_TOOL_NAME}, and ${GLOB_TOOL_NAME} available for exploring the codebase.
+You have ${GREP_TOOL_NAME}, ${FILE_READ_TOOL_NAME}, and ${GLOB_TOOL_NAME} available for exploring the codebase.
 
-
-## File modifications and Component modifications
+## File Modifications and Component Modifications
 - You must apply changes to the existing source code using the provided ${[
             FILE_BATCH_EDIT_TOOL_NAME,
             FILE_SINGLE_EDIT_TOOL_NAME,
@@ -260,7 +259,7 @@ export function getUserPrompt(params: GenerateAgentCodeRequest, tempProjectPath:
     if (codeMapMarkdown) {
         content.push({
             type: 'text' as const,
-            text: `<Code Map>\n${codeMapMarkdown}\n</Code Map>`
+            text: `<code_map>\n${codeMapMarkdown}\n</code_map>`
         });
     } else {
         content.push({
