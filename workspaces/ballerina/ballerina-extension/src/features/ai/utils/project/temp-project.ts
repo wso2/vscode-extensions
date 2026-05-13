@@ -20,6 +20,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { StateMachine } from '../../../../stateMachine';
 import { OperationType, ProjectModule, ProjectSource, ExecutionContext } from '@wso2/ballerina-core';
 import { getWorkspaceTomlValues } from '../../../../utils';
 import { NATURAL_PROGRAMMING_DIR_NAME, REQ_KEY, REQUIREMENT_DOC_PREFIX, REQUIREMENT_MD_DOCUMENT, REQUIREMENT_TEXT_DOCUMENT } from '../../../../rpc-managers/ai-panel/constants';
@@ -186,7 +187,7 @@ export async function getProjectSource(requestType: OperationType, ctx: Executio
         return [convertToProjectSource(project, "", true)];
     }
 
-    const packagePaths = workspaceTomlValues.workspace.packages;
+    const packagePaths = StateMachine.context().projectInfo?.children.map(child => child.projectPath);
     // Load all packages in parallel
     const projectSources: ProjectSource[] = await Promise.all(
         packagePaths.map(async (pkgPath) => {

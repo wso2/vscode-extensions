@@ -367,129 +367,21 @@ export const langlibTestCases = [
 
 export const testCasesForCodeIndexing = [
   // {
-  //   prompt: "Can you implement the encounter getbyid resource function so it fetches the encounter from the db using the dbClient and maps it to the fhir encounter type, same pattern as the patient getbyid endpoint", // implement a stubbed endpoint by mirroring an existing one
+  //   prompt: "I want to add a new endpoint to our FHIR patient API that lets clients search for patients by their last name. It should accept a query parameter, look up matching records from the database, convert each one into the FHIR profile we use everywhere else, and return them as a FHIR Bundle. Make sure it follows the same style and error handling as the other read endpoints on that resource.", //
   //   projectPath: "healthcare_sample"
   // },
   // {
-  //   prompt: "Add a phone number field to the patient data model, persist it through the db layer, and surface it on the fhir patient resource via the telecom element in the mappers", // add a new field that flows through persist model + db client + fhir mapper
+  //   prompt: "Right now whenever we create a new patient, the system generates a fresh internal ID for them. I want to change this so the caller can optionally pass in their own external identifier (for example a hospital MRN), and we'll use that instead of auto-generating one. Only fall back to generating an ID if none is provided",
   //   projectPath: "healthcare_sample"
   // },
   // {
-  //   prompt: "Remove the encounter api entirely from the project, strip out the service, its config file, the EncounterData persist model and all the database client code generated for it", // delete an entire fhir resource across service, config, model and generated client
+  //   prompt: "For compliance reasons we need an audit trail every time a patient record or an encounter record gets deleted. Add structured logging at the point of deletion that captures the resource type, the ID, and a timestamp — using whatever logging we already use elsewhere in the service.",
   //   projectPath: "healthcare_sample"
-  // },
-  // {
-  //   prompt: "Rename the PatientData record to PatientRecord across the persist model and every generated db type that references it", // rename a record that has many auto-generated references
-  //   projectPath: "healthcare_sample"
-  // },
-  // {
-  //   prompt: "Switch the persist backend from mysql to postgresql, update the persist client init, the config types, and the sql specifics used in the generated client", // swap an underlying dependency / driver
-  //   projectPath: "healthcare_sample"
-  // },
-  // {
-  //   prompt: "Can you explain how a fhir patient resource gets persisted into mysql when a post request comes in?", // ask for explanation of an end-to-end flow
-  //   projectPath: "healthcare_sample"
-  // },
-  // {
-  //   prompt: "Refactor the patient search to support pagination with a configurable page size, plus rate limiting of 100 requests per minute per client", // over-engineered / out-of-scope prompt
-  //   projectPath: "healthcare_sample"
-  // },
-  // {
-  //   prompt: "Add an opportunity amount field to the slack notification so the message shows the dollar value of the converted opportunity. The amount needs to be fetched from salesforce and included in the conversion details record before the message is formatted", // add a feature that spans salesforce query + mapper + message formatter
-  //   projectPath: "salesforce_slack_integration"
-  // },
-  // {
-  //   prompt: "When a lead conversion notification is sent, also persist a record of it to a new audit log so we can later see which leads were notified and when. The log should capture lead id, owner email, slack channel and timestamp", // add a brand new sub-feature (audit log) layered onto an existing flow
-  //   projectPath: "salesforce_slack_integration"
-  // },
-  // {
-  //   prompt: "Drop the lead lifecycle duration from the notification, we dont want it in the message anymore. Remove the calculation helper, the field on LeadConversionDetails, and the line that adds it to the slack message", // delete a feature that touches helper, type and formatter
-  //   projectPath: "salesforce_slack_integration"
-  // },
-  // {
-  //   prompt: "Delete the leadSource field from LeadConversionDetails and stop populating it in the mapper", // delete a field
-  //   projectPath: "salesforce_slack_integration"
-  // },
-  // {
-  //   prompt: "Rename the LeadOwner record to OwnerInfo and rename its Email field to emailAddress across every place it is constructed, accessed, or destructured", // rename type AND field together
-  //   projectPath: "salesforce_slack_integration"
-  // },
-  // {
-  //   prompt: "Can you merge the two separate salesforce queries that fetch the lead owner, one inside processLeadConversion and the one in determineSlackChannel, into a single query so we dont hit salesforce twice for the same user", // detect and merge duplicate logic across functions
-  //   projectPath: "salesforce_slack_integration"
-  // },
-  // {
-  //   prompt: "Right now the lead source filter is a plain string equality check. Change it so that lead sources are matched as case-insensitive regex patterns instead, and update the config type to reflect that these are regex strings", // change a real piece of business logic + supporting config type
-  //   projectPath: "salesforce_slack_integration"
-  // },
-  // {
-  //   prompt: "Can you convert the salesforce listener service into a graphql subscription endpoint?", // unrelated / nonsensical conversion
-  //   projectPath: "salesforce_slack_integration"
-  // },
-  // {
-  //   prompt: "Something is wrong with my project, bal build keeps failing on main.bal but i cant see what i broke. Can you find and fix it?", // fix a syntax error the user hasn't pinpointed
-  //   projectPath: "shopify_stripe_integration_errors"
-  // },
-  // {
-  //   prompt: "When a customer is updated in shopify, mirror the change into stripe, update the existing stripe customer's name and email so they stay in sync", // implement an empty remote handler
-  //   projectPath: "shopify_stripe_integration_errors"
-  // },
-  // {
-  //   prompt: "When a shopify customer is disabled, mark the corresponding stripe customer as deleted so we stop billing them", // implement another empty remote handler
-  //   projectPath: "shopify_stripe_integration_errors"
-  // },
-  // {
-  //   prompt: "Right now we skip customer creation if first_name and last_name are both empty. Change the logic so we only require email, if email is present we should always create the stripe customer even if the name fields are empty", // tweak existing guard logic
-  //   projectPath: "shopify_stripe_integration_errors"
   // },
   {
-    prompt: "Pull the stripe customer payload construction out of onCustomersCreate into a helper function in data_mappings.bal so the service handler is leaner", // extract a helper into a currently-empty file
-    projectPath: "shopify_stripe_integration_errors"
-  },
-  // {
-  //   prompt: "Add doc comments to every remote function in the CustomersService", // common documentation prompt
-  //   projectPath: "shopify_stripe_integration_errors"
-  // },
-  // {
-  //   prompt: "How do i write a ballerina program that fetches weather data and posts it to slack?", // unrelated prompt
-  //   projectPath: "shopify_stripe_integration_errors"
-  // },
-  // {
-  //   prompt: "I want to add a notes field to each order line so customers can attach special instructions per line item. The note should be accepted on the create order payload, stored alongside the rest of the order line data in the db, and included in the OrderCreated event published to kafka so downstream consumers can see it too", // add a field that flows from http payload -> db -> kafka event
-  //   projectPath: "order_management_system"
-  // },
-  // {
-  //   prompt: "Add an optional discount percentage to the create order payload, if provided apply it to the calculated total before persisting, and include both the discount percentage and the discounted total in the OrderCreated kafka event", // add a feature that touches payload type, calculation, db insert and event
-  //   projectPath: "order_management_system"
-  // },
-  // {
-  //   prompt: "We're moving away from kafka entirely. Strip out the messaging module from order_service, remove the OrderCreated event publication from the create order flow, and clean up the import and shutdown hook in main.bal", // remove an entire submodule and all its call sites
-  //   projectPath: "order_management_system"
-  // },
-  // {
-  //   prompt: "Delete the billingAddress field from the Order, the create payload, the database row and insert record, the sql insert query and the OrderCreated event, we always bill to the shipping address now", // delete a field that exists in every layer
-  //   projectPath: "order_management_system"
-  // },
-  // {
-  //   prompt: "Right now createNewOrder mocks the unit price as 99.99 for every line. Change it so the unit price for each sku is looked up from a new in-memory price book map at the top of functions.bal and used when constructing the order lines and total instead of the hardcoded value", // replace hardcoded value with looked-up value
-  //   projectPath: "order_management_system"
-  // },
-  // {
-  //   prompt: "Rename the OrderCreatedEvent record to OrderPlacedEvent and update its eventType default to OrderPlaced, make sure every reference in the messaging module and in createNewOrder is updated", // rename a type used across packages
-  //   projectPath: "order_management_system"
-  // },
-  // {
-  //   prompt: "Move calculateTotal from order_service into the order_utils package so both packages can share it, and update createNewOrder to call it from there", // cross-package refactor — move a function between packages
-  //   projectPath: "order_management_system"
-  // },
-  // {
-  //   prompt: "Convert the post /v1/orders endpoint to a graphql mutation, keep all the existing logic the same, just expose it as graphql instead of rest", // protocol conversion REST -> GraphQL
-  //   projectPath: "order_management_system"
-  // },
-  // {
-  //   prompt: "Add a retry mechanism to publishOrderEvent, if the kafka producer send call fails, retry up to 3 times with a short backoff before returning an error", // resilience / retry around an existing call
-  //   projectPath: "order_management_system"
-  // }
+    prompt: "For compliance reasons we need a full audit trail every time a patient record or an encounter record gets deleted. Before the row is actually removed from the database, look up the record first and have the log entry capture the key identifying fields from the record itself — for a patient that means things like their name and birth date, for an encounter the status and the period it covered — along with the resource type and a timestamp. The log needs to contain enough detail to reconstruct who or what was deleted",
+    projectPath: "healthcare_sample"
+  }
 ];
 
 export let testCases = [];

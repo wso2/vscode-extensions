@@ -258,7 +258,7 @@ export function createGlobTool(execute: (input: GlobInput) => Promise<GlobResult
     return tool({
         description: `
 Fast file pattern matching tool for Ballerina projects.
-- Supports glob patterns like \`**/*.bal\`, \`modules/**/*.bal\`, \`Ballerina.toml\`, \`**/*.{bal,toml}\`
+- Supports glob patterns like \`**/*.bal\`, \`modules/**/*.bal\`, \`Ballerina.toml\`, \`**/*.{bal,toml}\`, \`resources/**/*\`
 - Returns matching file paths sorted by modification time (most recent first)
 - Skips irrelevant directories automatically: \`.git\`, \`target\`
 - Use this tool when you need to find files by name or path patterns
@@ -266,7 +266,7 @@ Fast file pattern matching tool for Ballerina projects.
 `,
         inputSchema: z.object({
             pattern: z.string().describe(
-                "The glob pattern to match files against (e.g. \"**/*.bal\", \"src/**/*.ts\", \"*.toml\", \"**/*.{bal,toml}\")"
+                "The glob pattern to match files against (e.g. \"**/*.bal\", \"*.toml\", \"**/*.{bal,toml}\", \"resources/**/*\")"
             ),
             path: z.string().optional().describe(
                 "Directory to search in, relative to the project root. Defaults to the project root. Omit this field for the default behaviour — do NOT pass \"undefined\" or \"null\"."
