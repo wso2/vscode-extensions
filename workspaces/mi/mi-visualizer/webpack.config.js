@@ -28,7 +28,7 @@ module.exports = {
               "fs": false,
               "child_process": false,
             },
-        fallback: { 'process/browser': require.resolve('process/browser'), },
+        fallback: { 'process/browser': require.resolve('process/browser'), 'perf_hooks': false },
         fullySpecified: false
     },
     module: {
@@ -95,6 +95,11 @@ module.exports = {
         },
         hot: true,
     },
+    ignoreWarnings: [
+        // ts-morph bundles TypeScript's compiler which uses dynamic require()
+        // calls internally. These are harmless in a browser/webview context.
+        { module: /@ts-morph[\/]common[\/]dist[\/]typescript\.js$/ },
+    ],
     plugins: [
         new webpack.ProvidePlugin({
             process: "process/browser",

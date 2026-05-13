@@ -71,6 +71,9 @@ import {
     createWebFetchTool,
 } from '../../tools/web_tools';
 import {
+    createSemanticSearchTool,
+} from '../../tools/semantic_search_tools';
+import {
     FILE_WRITE_TOOL_NAME,
     FILE_READ_TOOL_NAME,
     FILE_EDIT_TOOL_NAME,
@@ -94,6 +97,7 @@ import {
     TASK_OUTPUT_TOOL_NAME,
     WEB_SEARCH_TOOL_NAME,
     WEB_FETCH_TOOL_NAME,
+    SEMANTIC_SEARCH_TOOL_NAME,
 } from '../../tools/types';
 
 // Re-export tool name constants for use in compact agent
@@ -121,6 +125,7 @@ export {
     TASK_OUTPUT_TOOL_NAME,
     WEB_SEARCH_TOOL_NAME,
     WEB_FETCH_TOOL_NAME,
+    SEMANTIC_SEARCH_TOOL_NAME,
 };
 
 /**
@@ -194,5 +199,8 @@ export function createCompactAgentTools() {
         [BASH_TOOL_NAME]: createBashTool(createBlockedExecute()),
         [KILL_TASK_TOOL_NAME]: createKillTaskTool(createBlockedExecute()),
         [TASK_OUTPUT_TOOL_NAME]: createTaskOutputTool(createBlockedExecute()),
+
+        // Semantic Search Tool (1 tool) - execution blocked
+        [SEMANTIC_SEARCH_TOOL_NAME]: createSemanticSearchTool(createBlockedExecute()),
     };
 }

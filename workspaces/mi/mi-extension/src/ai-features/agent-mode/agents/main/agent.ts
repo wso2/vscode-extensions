@@ -70,6 +70,7 @@ import {
     WEB_SEARCH_TOOL_NAME,
     WEB_FETCH_TOOL_NAME,
     DEEPWIKI_ASK_QUESTION_TOOL_NAME,
+    SEMANTIC_SEARCH_TOOL_NAME,
 } from './tools';
 import { logInfo, logError, logDebug } from '../../../copilot/logger';
 import { ChatHistoryManager, SessionContextBlocksState, TOOL_USE_INTERRUPTION_CONTEXT } from '../../chat-history-manager';
@@ -94,6 +95,8 @@ import {
 
 // Import types from mi-core (shared with visualizer)
 import { AgentEvent, AgentEventType, FileObject, ImageObject, AgentMode, LoginMethod, ModelSettings } from '@wso2/mi-core';
+import { getEmbeddingService } from '../../embedding-service/service/vscode-service';
+import { isSemanticToolEnabled } from '../../settings';
 
 // Re-export types for other modules that import from agent.ts
 export type { AgentEvent, AgentEventType };
@@ -545,6 +548,14 @@ export async function executeAgent(
     try {
         logInfo(`[Agent] Starting agent execution for project: ${request.projectPath}`);
 
+        const semanticToolEnabled = isSemanticToolEnabled();
+        if (semanticToolEnabled) {
+            // Warm the embedding service in background when semantic search is enabled.
+            getEmbeddingService(request.projectPath).start().catch(err => {
+                logError(`[Agent] Embedding service startup failed for ${request.projectPath}: ${err?.message || err}`);
+            });
+        }
+
         // Load chat history (reads from JSONL)
         let chatHistory: ModelMessage[] = [];
         if (request.chatHistoryManager) {
@@ -554,7 +565,7 @@ export async function executeAgent(
 
         const runtimeVersion = await getRuntimeVersionFromPom(request.projectPath);
         logInfo(`[Agent] Runtime version detected: ${runtimeVersion ?? 'unknown'}`);
-        const systemPromptSelection = getSystemPrompt(runtimeVersion);
+        const systemPromptSelection = getSystemPrompt(runtimeVersion, semanticToolEnabled);
 
         // System message (cache control will be added dynamically by prepareStep)
         // Adding a cache block here because tools + system would be same for all users who use our proxy.
@@ -1236,6 +1247,10 @@ export async function executeAgent(
                             repoName: toolInput?.repoName,
                             question: toolInput?.question,
                         };
+                    } else if (part.toolName === SEMANTIC_SEARCH_TOOL_NAME) {
+                        displayInput = {
+                            query: toolInput?.query,
+                        };
                     }
 
                     // Skip tool call UI for todo_write (handled by inline todo list)
@@ -1245,6 +1260,7 @@ export async function executeAgent(
                             toolName: part.toolName,
                             toolInput: displayInput,
                             loadingAction,
+                            toolCallId: part.toolCallId,
                         });
                     }
                     break;
@@ -1282,6 +1298,7 @@ export async function executeAgent(
                             toolName: part.toolName,
                             toolOutput: { success: result.success },
                             completedAction: resultAction,
+                            toolCallId: part.toolCallId,
                         };
 
                         // Add shell output fields for shell tool
@@ -1292,6 +1309,11 @@ export async function executeAgent(
                             toolResultEvent.bashStderr = result.stderr;
                             toolResultEvent.bashExitCode = result.exitCode;
                             toolResultEvent.bashRunning = !!result.taskId;
+                        }
+
+                        // Add semantic search result data for semantic search tool
+                        if (part.toolName === SEMANTIC_SEARCH_TOOL_NAME && result?.semanticSearchData) {
+                            toolResultEvent.semanticSearchData = result.semanticSearchData;
                         }
 
                         // Send to visualizer with result action for display

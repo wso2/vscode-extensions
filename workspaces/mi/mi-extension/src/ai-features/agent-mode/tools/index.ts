@@ -183,6 +183,13 @@ export {
     createToolSearchTool,
     DEFERRED_TOOL_DESCRIPTIONS,
 } from './tool_load';
+// Export semantic search tools
+export {
+    // Execute function creators
+    createSemanticSearchExecute,
+    // Tool creators
+    createSemanticSearchTool,
+} from './semantic_search_tools';
 
 // Re-export tool names for convenience
 export {
@@ -214,6 +221,7 @@ export {
     READ_SERVER_LOGS_TOOL_NAME,
     // Tool search
     TOOL_LOAD_TOOL_NAME,
+    SEMANTIC_SEARCH_TOOL_NAME,
 } from './types';
 
 /**

@@ -36,7 +36,12 @@ import {
     FILE_READ_TOOL_NAME,
     FILE_GREP_TOOL_NAME,
     FILE_GLOB_TOOL_NAME,
+    SEMANTIC_SEARCH_TOOL_NAME,
 } from '../../../tools/types';
+import {
+    createSemanticSearchTool,
+    createSemanticSearchExecute,
+} from '../../../tools/semantic_search_tools';
 
 /**
  * Execute the Explore subagent
@@ -54,7 +59,8 @@ export async function executeExploreSubagent(
     model: 'haiku' | 'sonnet',
     getAnthropicClient: (modelId: AnthropicModel) => Promise<any>,
     previousMessages?: any[],
-    abortSignal?: AbortSignal
+    abortSignal?: AbortSignal,
+    semanticEnabled: boolean = true
 ): Promise<SubagentResult> {
     const isResume = previousMessages && previousMessages.length > 0;
     logInfo(`[ExploreSubagent] Starting with model: ${model}${isResume ? ' (resuming from previous)' : ''}`);
@@ -70,11 +76,15 @@ export async function executeExploreSubagent(
         const anthropicModel = await getAnthropicClient(modelId);
 
         // Create read-only tools for the subagent
-        const tools = {
+        const tools: Record<string, any> = {
             [FILE_READ_TOOL_NAME]: createReadTool(createReadExecute(projectPath), projectPath),
             [FILE_GREP_TOOL_NAME]: createGrepTool(createGrepExecute(projectPath)),
             [FILE_GLOB_TOOL_NAME]: createGlobTool(createGlobExecute(projectPath)),
         };
+
+        if (semanticEnabled) {
+            tools[SEMANTIC_SEARCH_TOOL_NAME] = createSemanticSearchTool(createSemanticSearchExecute(projectPath));
+        }
 
         logDebug(`[ExploreSubagent] Tools available: ${Object.keys(tools).join(', ')}`);
 
@@ -98,6 +108,15 @@ export async function executeExploreSubagent(
                 `
             });
         } else {
+            const searchInstructions = semanticEnabled
+                ? `1. Choose the most appropriate search tool: semantic_code_search for conceptual/natural-language queries, grep for exact-literal lookups
+                2. Semantic search returns relevant chunks with inline source content — often sufficient without additional file reads
+                3. Semantic results include a confidence label; use it as a signal to decide if additional context is needed
+                4. Read only the most likely files and summarize findings concisely`
+                : `1. Use grep and glob to find relevant files and patterns
+                2. Read files that are likely to contain the answer
+                3. Summarize your findings concisely`;
+
             // Fresh start
             messages.push({
                 role: 'user',
@@ -108,9 +127,7 @@ export async function executeExploreSubagent(
 
                 ## Instructions
 
-                1. Use glob and grep to efficiently find relevant files
-                2. Read files that are likely to contain the answer
-                3. Summarize your findings concisely
+                ${searchInstructions}
 
                 Return your findings in the specified markdown format.
                 `
@@ -121,7 +138,7 @@ export async function executeExploreSubagent(
         // stopWhen: stepCountIs(30) allows up to 30 tool calling steps
         const result = await generateText({
             model: anthropicModel,
-            system: EXPLORE_SUBAGENT_SYSTEM,
+            system: EXPLORE_SUBAGENT_SYSTEM(semanticEnabled),
             messages,
             tools,
             stopWhen: stepCountIs(30), // Allow up to 30 tool calls for thorough exploration

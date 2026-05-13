@@ -100,6 +100,10 @@ import {
     createDeepWikiTool,
     createDeepWikiExecute,
 } from '../../tools/deepwiki_tools';
+import {
+    createSemanticSearchTool,
+    createSemanticSearchExecute,
+} from '../../tools/semantic_search_tools';
 import { createToolSearchTool } from '../../tools/tool_load';
 import { AnthropicModel } from '../../../connection';
 import { AgentMode, ModelSettings } from '@wso2/mi-core';
@@ -136,12 +140,14 @@ import {
     TOOL_LOAD_TOOL_NAME,
     ShellApprovalRuleStore,
     DEFERRED_TOOLS,
+    SEMANTIC_SEARCH_TOOL_NAME,
 } from '../../tools/types';
 import { AgentUndoCheckpointManager } from '../../undo/checkpoint-manager';
 import { logError } from '../../../copilot/logger';
 import { z } from 'zod';
 import * as path from 'path';
 import { getCopilotSessionDir } from '../../storage-paths';
+import { isSemanticToolEnabled } from '../../settings';
 
 // Re-export tool name constants for use in agent.ts
 export {
@@ -171,6 +177,7 @@ export {
     DEEPWIKI_ASK_QUESTION_TOOL_NAME,
     READ_SERVER_LOGS_TOOL_NAME,
     TOOL_LOAD_TOOL_NAME,
+    SEMANTIC_SEARCH_TOOL_NAME,
 };
 import { AgentEventHandler } from './agent';
 
@@ -435,13 +442,14 @@ interface ToolExecutionPipelineOptions {
     sessionId: string;
     sessionDir: string;
     persistResult: boolean;
+    semanticEnabled?: boolean;
 }
 
 async function evaluateModeRestriction(
-    options: Pick<ToolExecutionPipelineOptions, 'mode' | 'toolName' | 'projectPath' | 'sessionId'>,
+    options: Pick<ToolExecutionPipelineOptions, 'mode' | 'toolName' | 'projectPath' | 'sessionId' | 'semanticEnabled'>,
     toolArgs: unknown
 ): Promise<ToolResult | null> {
-    const { mode, toolName, projectPath, sessionId } = options;
+    const { mode, toolName, projectPath, sessionId, semanticEnabled } = options;
     if (mode === 'edit') {
         return null;
     }
@@ -470,7 +478,7 @@ async function evaluateModeRestriction(
             return validateReadOnlyServerManagementArgs(toolArgs, mode);
         }
 
-        if (PLAN_MODE_ALLOWED_TOOLS.has(toolName)) {
+        if (PLAN_MODE_ALLOWED_TOOLS.has(toolName) || (semanticEnabled && toolName === SEMANTIC_SEARCH_TOOL_NAME)) {
             return null;
         }
 
@@ -481,7 +489,7 @@ async function evaluateModeRestriction(
         return validateReadOnlyServerManagementArgs(toolArgs, mode);
     }
 
-    if (READ_ONLY_MODE_ALLOWED_TOOLS.has(toolName)) {
+    if (READ_ONLY_MODE_ALLOWED_TOOLS.has(toolName) || (semanticEnabled && toolName === SEMANTIC_SEARCH_TOOL_NAME)) {
         return null;
     }
 
@@ -523,6 +531,7 @@ function createToolExecutionPipeline<T extends (...args: any[]) => Promise<ToolR
                 toolName,
                 projectPath: options.projectPath,
                 sessionId: options.sessionId,
+                semanticEnabled: options.semanticEnabled,
             },
             args[0]
         );
@@ -581,6 +590,7 @@ export function createAgentTools(params: CreateToolsParams) {
         abortSignal,
         modelSettings,
     } = params;
+    const semanticEnabled = isSemanticToolEnabled();
 
     const getWrappedExecute = <T extends (...args: any[]) => Promise<ToolResult>>(
         toolName: string,
@@ -595,6 +605,7 @@ export function createAgentTools(params: CreateToolsParams) {
             sessionId,
             sessionDir,
             persistResult,
+            semanticEnabled,
         }
     );
 
@@ -741,6 +752,12 @@ export function createAgentTools(params: CreateToolsParams) {
         // Tool Search (local — returns tool-reference blocks for deferred tool discovery)
         [TOOL_LOAD_TOOL_NAME]: createToolSearchTool(),
     };
+
+    if (semanticEnabled) {
+        allTools[SEMANTIC_SEARCH_TOOL_NAME] = createSemanticSearchTool(
+            getWrappedExecute(SEMANTIC_SEARCH_TOOL_NAME, createSemanticSearchExecute(projectPath))
+        );
+    }
 
     // Mark deferred tools — schemas hidden from initial prompt, loaded on-demand
     // via tool_search returning tool-reference content blocks.

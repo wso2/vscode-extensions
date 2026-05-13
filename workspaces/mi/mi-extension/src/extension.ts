@@ -23,6 +23,12 @@ import { activateVisualizer } from './visualizer/activate';
 import { activateAiPanel } from './ai-features/activate';
 
 import { activateDebugger } from './debugger/activate';
+import {
+	disposeEmbeddingService,
+	disposeAllEmbeddingServices,
+	getEmbeddingService,
+} from './ai-features/agent-mode/embedding-service/service/vscode-service';
+import { isSemanticToolEnabled } from './ai-features/agent-mode/settings';
 import { activateMigrationSupport } from './migration';
 import { activateRuntimeService } from './runtime-services-panel/activate';
 import { MILanguageClient } from './lang-client/activator';
@@ -39,6 +45,16 @@ import { disposeMIAgentPanelRpcManager } from './rpc-managers/agent-mode/rpc-han
 import { isConsolidatedProject } from './util/onboardingUtils';
 const os = require('os');
 const fs = require('fs');
+
+function startEmbeddingServiceInBackground(projectPath: string): void {
+	try {
+		getEmbeddingService(projectPath).start().catch(err => {
+			console.warn(`[EmbeddingService] Background start failed for ${projectPath}:`, err?.message || err);
+		});
+	} catch (err) {
+		console.warn(`[EmbeddingService] Background start failed for ${projectPath}:`, err);
+	}
+}
 
 export async function activate(context: vscode.ExtensionContext) {
 	extension.context = context;
@@ -79,11 +95,18 @@ export async function activate(context: vscode.ExtensionContext) {
 		if (event.added.length > 0) {
 			for (const addedProject of event.added) {
 				getStateMachine(addedProject.uri.fsPath);
+				if (isSemanticToolEnabled()) {
+					startEmbeddingServiceInBackground(addedProject.uri.fsPath);
+				}
 			}
 		}
 		if (event.removed.length > 0) {
 			for (const removedProject of event.removed) {
 				disposeMIAgentPanelRpcManager(removedProject.uri.fsPath);
+				// Stop and dispose embedding service for the removed project
+				disposeEmbeddingService(removedProject.uri.fsPath).catch(err => {
+					console.warn(`[EmbeddingService] Dispose failed for ${removedProject.uri.fsPath}:`, err);
+				});
 				const webview = webviews.get(removedProject.uri.fsPath);
 				if (webview) {
 					webview.dispose();
@@ -93,6 +116,25 @@ export async function activate(context: vscode.ExtensionContext) {
 		// refresh project explorer
 		vscode.commands.executeCommand(COMMANDS.REFRESH_COMMAND);
 	});
+
+	context.subscriptions.push(
+		workspace.onDidChangeConfiguration((event) => {
+			for (const folder of (workspace.workspaceFolders ?? [])) {
+				const semanticToggleChanged = event.affectsConfiguration('MI.enableSemanticSearchTool');
+				if (!semanticToggleChanged) {
+					continue;
+				}
+
+				if (isSemanticToolEnabled()) {
+					startEmbeddingServiceInBackground(folder.uri.fsPath);
+				} else {
+					disposeEmbeddingService(folder.uri.fsPath).catch(err => {
+						console.warn(`[EmbeddingService] Dispose failed for ${folder.uri.fsPath}:`, err?.message);
+					});
+				}
+			}
+		})
+	);
 	StateMachineAI.initialize();
 
 	activateUriHandlers();
@@ -104,10 +146,23 @@ export async function activate(context: vscode.ExtensionContext) {
 	activateVisualizer(context, firstProject);
 	activateAiPanel(context);
 
+	// Start embedding services eagerly for all workspace folders so the
+	// semantic search index is warm by the time the user opens MI Copilot.
+	// Startup runs in the background; failures are logged and Copilot
+	// continues with semantic search unavailable.
+	for (const folder of (workspace.workspaceFolders ?? [])) {
+		if (!isSemanticToolEnabled()) {
+			continue;
+		}
+		startEmbeddingServiceInBackground(folder.uri.fsPath);
+	}
+
 	workspace.workspaceFolders?.forEach(folder => {
 		context.subscriptions.push(...enableLS());
 	});
+
 }
+
 
 export async function deactivate(): Promise<void> {
 	const clients = await MILanguageClient.getAllInstances();
@@ -123,6 +178,9 @@ export async function deactivate(): Promise<void> {
 			webview.dispose();
 		}
 	}
+
+	// Stop all background embedding services
+	await disposeAllEmbeddingServices();
 }
 
 export function checkForWso2IntegratorExt() {

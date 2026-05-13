@@ -30,6 +30,8 @@ import { AgentMode, LoginMethod } from '@wso2/mi-core';
 import { getModeBriefNote, getModeReminder } from './mode';
 import { logDebug } from '../../../copilot/logger';
 import { getStateMachine } from '../../../../stateMachine';
+import { getEmbeddingService } from '../../embedding-service/service/vscode-service';
+import { isSemanticToolEnabled } from '../../settings';
 
 const MAX_PROJECT_STRUCTURE_FILES = 50;
 const MAX_PROJECT_STRUCTURE_CHARS = 10000;
@@ -81,6 +83,7 @@ export const PROMPT_TEMPLATE = `
 {{#if env_block}}
 <system-reminder>
 {{{env_block}}}
+Semantic search index: {{env_semantic_search_status}}
 </system-reminder>
 {{/if}}
 
@@ -308,6 +311,7 @@ function formatProjectStructure(files: string[]): string {
             '.vscode/**',
             '.idea/**',
             '.mi-copilot/**',
+            '.data/**',
             '.env',
             '.env.local',
             '.env.development.local',
@@ -608,7 +612,7 @@ async function buildSessionContextSnapshot(params: SessionContextParams): Promis
  * value against the previous value stored on `SessionMetadata.sessionContextBlocks`
  * to decide which blocks to re-inject this turn.
  */
-function deriveBlockHashes(snapshot: SessionContextSnapshot): SessionContextBlockHashes {
+function deriveBlockHashes(snapshot: SessionContextSnapshot, semanticStatusToken?: string): SessionContextBlockHashes {
     return {
         env: hashJson({
             workingDirectory: snapshot.workingDirectory,
@@ -626,6 +630,7 @@ function deriveBlockHashes(snapshot: SessionContextSnapshot): SessionContextBloc
             miHttpAccessLogPath: snapshot.miHttpAccessLogPath,
             miServiceLogPath: snapshot.miServiceLogPath,
             miCorrelationLogPath: snapshot.miCorrelationLogPath,
+            semanticStatusToken: semanticStatusToken ?? null,
         }),
         connectors: hashJson({
             connectorArtifactIds: snapshot.connectorArtifactIds,
@@ -665,8 +670,26 @@ export interface SessionContextBuildResult {
  */
 export async function computeSessionContextBlockHashes(params: SessionContextParams): Promise<SessionContextBuildResult> {
     const built = await buildSessionContextSnapshot(params);
+    let semanticStatusToken: string | undefined = undefined;
+    if (!isSemanticToolEnabled()) {
+        semanticStatusToken = 'semantic_disabled';
+    } else {
+        try {
+            const svc = getEmbeddingService(params.projectPath);
+            if (svc.isAvailable) {
+                semanticStatusToken = 'semantic_ready';
+            } else if (svc.isInitializing) {
+                semanticStatusToken = 'semantic_initializing';
+            } else {
+                semanticStatusToken = 'semantic_unavailable';
+            }
+        } catch {
+            semanticStatusToken = undefined;
+        }
+    }
+
     return {
-        hashes: deriveBlockHashes(built.snapshot),
+        hashes: deriveBlockHashes(built.snapshot, semanticStatusToken),
         snapshot: built.snapshot,
         catalogWarnings: built.catalogWarnings,
         catalogStoreStatus: built.catalogStoreStatus,
@@ -805,6 +828,34 @@ ${list}`;
 }
 
 // ============================================================================
+// Semantic Search Status
+// ============================================================================
+
+/**
+ * Returns a human-readable status string for the embedding service.
+ * Injected into the user prompt so the LLM knows whether semantic search is usable.
+ */
+async function getSemanticSearchStatus(projectPath: string): Promise<string> {
+    if (!isSemanticToolEnabled()) {
+        return 'disabled by global setting (MI.enableSemanticSearchTool=false) — use grep/glob/file_read';
+    }
+
+    try {
+        const service = getEmbeddingService(projectPath);
+        if (service.isAvailable) {
+            const chunkCount = await service.getIndexedChunkCount();
+            return `ready (${chunkCount} chunks indexed)`;
+        }
+        if (service.isInitializing) {
+            return 'initializing — may be available shortly; prefer grep/glob until ready';
+        }
+        return 'unavailable — use grep/glob/file_read as fallback';
+    } catch {
+        return 'unavailable — use grep/glob/file_read as fallback';
+    }
+}
+
+// ============================================================================
 // User Prompt Generation
 // ============================================================================
 
@@ -892,6 +943,7 @@ export async function getUserPrompt(params: UserPromptParams): Promise<UserPromp
         mode_changed_from: modeChangedFrom,
         plan_file_reminder: planFileReminder,
         connector_store_reminder: connectorStoreReminder,
+        env_semantic_search_status: await getSemanticSearchStatus(params.projectPath),
     };
 
     // Render the template and split into content blocks

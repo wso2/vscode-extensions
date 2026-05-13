@@ -37,6 +37,7 @@ import FeedbackBar from "./FeedbackBar";
 import ToolCallSegment from "./ToolCallSegment";
 import TodoListSegment from "./TodoListSegment";
 import BashOutputSegment from "./BashOutputSegment";
+import SemanticSearchSegment from "./SemanticSearchSegment";
 import CompactSummarySegment from "./CompactSummarySegment";
 import ThinkingSegment from "./ThinkingSegment";
 import ErrorSegment from "./ErrorSegment";
@@ -282,6 +283,7 @@ const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
             segment.isToolCall ||
             segment.isTodoList ||
             segment.isBashOutput ||
+            segment.isSemanticSearch ||
             segment.isCompactSummary ||
             segment.isFileChanges ||
             segment.isPlan ||
@@ -336,6 +338,18 @@ const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
                     return <BashOutputSegment key={i} data={bashData} />;
                 } catch (e) {
                     console.error("Failed to parse bashoutput JSON:", e);
+                    return null;
+                }
+            } else if (segment.isSemanticSearch) {
+                try {
+                    const semanticData = JSON.parse(segment.text);
+                    // Use a key derived from loading state so React fully remounts
+                    // the component when the tag transitions from loading → completed,
+                    // preventing stale renders during live streaming.
+                    const segmentKey = `semantic-${i}-${segment.loading ? 'loading' : 'done'}`;
+                    return <SemanticSearchSegment key={segmentKey} data={semanticData} loadingOverride={segment.loading} />;
+                } catch (e) {
+                    console.error("Failed to parse semanticsearch JSON:", e);
                     return null;
                 }
             } else if (segment.isCompactSummary) {

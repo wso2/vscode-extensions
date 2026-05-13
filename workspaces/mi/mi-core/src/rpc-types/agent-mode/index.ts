@@ -66,6 +66,10 @@ export type {
     MainModelPreset,
     SubModelPreset,
     ModelSettings,
+    // Semantic search types
+    SemanticSearchData,
+    SemanticSearchChunk,
+    SemanticSearchConfidence,
 } from './types';
 
 // Export RPC type definitions
