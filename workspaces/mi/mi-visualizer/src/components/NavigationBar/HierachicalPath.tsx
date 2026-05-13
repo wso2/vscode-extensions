@@ -65,27 +65,38 @@ export function HierachicalPath(props: HierachicalPathProps) {
                 return;
             }
 
-            for (const pathItem of pathItems) {
+            for (let i = 0; i < pathItems.length; i++) {
+                const pathItem = pathItems[i];
                 if (pathItem.endsWith(".xml")) {
-                    try {
-                        const syntaxTree = await rpcClient.getMiDiagramRpcClient().getSyntaxTree({ documentUri: machineView.documentUri });
-                        if (!syntaxTree || !syntaxTree?.syntaxTree || !syntaxTree.syntaxTree?.api) {
-                            continue;
-                        }
-                        const api = syntaxTree.syntaxTree.api;
+                    if (pathItem.endsWith("-mcp-config.xml")) {
                         segments.push({
-                            label: `${api.context}`,
-                            onClick: () => {
-                                rpcClient.getMiVisualizerRpcClient().openView({
-                                    type: EVENT_TYPE.OPEN_VIEW,
-                                    location: { view: MACHINE_VIEW.ServiceDesigner, documentUri: machineView.documentUri }
-                                });
-                            },
-                            isClickable: true
+                            label: `MCP Server`,
+                            onClick: () => { },
+                            isClickable: false
                         });
-                    } catch (error) {
-                        console.error(error);
+                    } else {
+                        try {
+                            const syntaxTree = await rpcClient.getMiDiagramRpcClient().getSyntaxTree({ documentUri: machineView.documentUri });
+                            if (!syntaxTree || !syntaxTree?.syntaxTree || !syntaxTree.syntaxTree?.api) {
+                                continue;
+                            }
+                            const api = syntaxTree.syntaxTree.api;
+                            segments.push({
+                                label: `${api.context}`,
+                                onClick: () => {
+                                    rpcClient.getMiVisualizerRpcClient().openView({
+                                        type: EVENT_TYPE.OPEN_VIEW,
+                                        location: { view: MACHINE_VIEW.ServiceDesigner, documentUri: machineView.documentUri }
+                                    });
+                                },
+                                isClickable: true
+                            });
+                        } catch (error) {
+                            console.error(error);
+                        }
                     }
+                } else if (pathItem === "local-entries" && i + 1 < pathItems.length && pathItems[i + 1].endsWith("-mcp-config.xml")) {
+                    continue;
                 } else {
                     segments.push({
                         label: pathItem,

@@ -138,6 +138,24 @@ import {
     GetMediatorsResponse,
     McpToolsRequest,
     McpToolsResponse,
+    GetMcpUsedInboundPortsRequest,
+    GetMcpUsedInboundPortsResponse,
+    GetMcpServerProjectArtifactsRequest,
+    GetMcpServerProjectArtifactsResponse,
+    GetMcpServerEditDataRequest,
+    GetMcpServerEditDataResponse,
+    BuildMcpToolsXmlRequest,
+    BuildMcpToolsXmlResponse,
+    UpdateMcpInboundEndpointCorsRequest,
+    UpdateMcpInboundEndpointCorsResponse,
+    CleanMcpToolNamesRequest,
+    CleanMcpToolNamesResponse,
+    ConvertMcpJsonSchemaRequest,
+    ConvertMcpJsonSchemaResponse,
+    PickMcpJsonFileResponse,
+    GetMcpInboundListenerClassResponse,
+    APITool,
+    UnifiedTool,
     GetMessageStoreRequest,
     GetMessageStoreResponse,
     GetProjectRootRequest,
@@ -234,8 +252,8 @@ import {
     UpdateWsdlEndpointResponse,
     WriteContentToFileRequest,
     WriteIdpSchemaFileToRegistryRequest,
-    ReadIdpSchemaFileContentRequest,
-    ReadIdpSchemaFileContentResponse,
+    ReadFileContentRequest,
+    ReadFileContentResponse,
     WriteIdpSchemaFileToRegistryResponse,
     GetIdpSchemaFilesResponse,
     WriteContentToFileResponse,
@@ -368,6 +386,19 @@ import { parseStringPromise, Builder } from "xml2js";
 import { MILanguageClient } from "../../lang-client/activator";
 import { addWSO2AIConfigProperties } from "../../ai-features/configUtils";
 import { reorderModulesByBuildOrder, updatePomModules } from "../../debugger/pomResolver";
+import {
+    MCP_INBOUND_LISTENER_CLASS,
+    applyCorsParametersToInboundEndpointXml,
+    buildInputSchemasForAPITools,
+    cleanPathForToolName,
+    convertToJsonSchema,
+    generateToolsXml,
+    getUsedInboundPorts,
+    parseApisFromProjectStructure,
+    parseInboundEndpointConfig,
+    parseSequencesFromProjectStructure,
+    parseToolsFromXML,
+} from "../../util/mcp-server-utils";
 const AdmZip = require('adm-zip');
 
 const { XMLParser, XMLBuilder } = require("fast-xml-parser");
@@ -3772,17 +3803,31 @@ ${endpointAttributes}
         });
     }
 
-    async readIdpSchemaFileContent(params: ReadIdpSchemaFileContentRequest): Promise<ReadIdpSchemaFileContentResponse> {
+    async readFileContent(params: ReadFileContentRequest): Promise<ReadFileContentResponse> {
         const { filePath } = params;
         const response = {
             fileContent: '',
             base64Content: ''
         };
+        let resolvedFilePath = filePath;
         try {
             if (fs.existsSync(filePath)) {
                 response.fileContent = fs.readFileSync(filePath, 'utf8');
             } else {
-                throw new Error(`File does not exist at path: ${filePath}`);
+                // Case-insensitive fallback for Linux file systems
+                const dir = path.dirname(filePath);
+                const base = path.basename(filePath).toLowerCase();
+                if (fs.existsSync(dir)) {
+                    const match = fs.readdirSync(dir).find(f => f.toLowerCase() === base);
+                    if (match) {
+                        resolvedFilePath = path.join(dir, match);
+                        response.fileContent = fs.readFileSync(resolvedFilePath, 'utf8');
+                    } else {
+                        throw new Error(`File does not exist at path: ${filePath}`);
+                    }
+                } else {
+                    throw new Error(`File does not exist at path: ${filePath}`);
+                }
             }
             const folderPath = path.dirname(filePath);
             if (fs.existsSync(folderPath)) {
@@ -6633,6 +6678,100 @@ ${keyValuesXML}`;
             const res = await langClient.updateGlobalConnectorFlags(params);
             resolve(res);
         });
+    }
+
+    async getMcpUsedInboundPorts(params: GetMcpUsedInboundPortsRequest): Promise<GetMcpUsedInboundPortsResponse> {
+        const langClient = await MILanguageClient.getInstance(this.projectUri);
+        const projectStructure = await langClient.getProjectStructure(params.projectUri);
+        const artifacts: any = (projectStructure as any)?.directoryMap?.src?.main?.wso2mi?.artifacts;
+        const inboundEndpoints: Array<{ path: string }> = artifacts?.inboundEndpoints || [];
+        const mcpServers: Array<{ inboundEndpoint?: { path: string } }> = artifacts?.mcpServers || [];
+        const allEndpointPaths = [
+            ...inboundEndpoints.map(ep => ep.path),
+            ...mcpServers.filter(m => m.inboundEndpoint?.path).map(m => m.inboundEndpoint!.path),
+        ];
+        const ports = await getUsedInboundPorts(allEndpointPaths, params.excludePath);
+        return { ports };
+    }
+
+    async getMcpServerProjectArtifacts(params: GetMcpServerProjectArtifactsRequest): Promise<GetMcpServerProjectArtifactsResponse> {
+        const langClient = await MILanguageClient.getInstance(this.projectUri);
+        const projectStructure = await langClient.getProjectStructure(params.projectUri);
+        return {
+            apis: parseApisFromProjectStructure(projectStructure),
+            sequences: parseSequencesFromProjectStructure(projectStructure),
+        };
+    }
+
+    async getMcpServerEditData(params: GetMcpServerEditDataRequest): Promise<GetMcpServerEditDataResponse> {
+        const defaultCors = {
+            corsAllowOrigin: "*",
+            corsAllowMethods: "GET, POST, OPTIONS",
+            corsAllowHeaders: "Content-Type, Mcp-Session-Id",
+            corsExposeHeaders: "Mcp-Session-Id",
+            keepAliveInterval: 30000,
+        };
+        let tools: UnifiedTool[] = [];
+        if (params.localEntryPath && fs.existsSync(params.localEntryPath)) {
+            const content = fs.readFileSync(params.localEntryPath, "utf8");
+            tools = parseToolsFromXML(content);
+        }
+        let port: number | null = null;
+        let corsSettings = defaultCors;
+        if (params.inboundEndpointPath && fs.existsSync(params.inboundEndpointPath)) {
+            const content = fs.readFileSync(params.inboundEndpointPath, "utf8");
+            const cfg = parseInboundEndpointConfig(content);
+            port = cfg.port;
+            corsSettings = {
+                corsAllowOrigin: cfg.corsAllowOrigin,
+                corsAllowMethods: cfg.corsAllowMethods,
+                corsAllowHeaders: cfg.corsAllowHeaders,
+                corsExposeHeaders: cfg.corsExposeHeaders,
+                keepAliveInterval: cfg.keepAliveInterval,
+            };
+        }
+        return { tools, port, corsSettings };
+    }
+
+    async buildMcpToolsXml(params: BuildMcpToolsXmlRequest): Promise<BuildMcpToolsXmlResponse> {
+        const apiTools = params.tools.filter((t): t is APITool => t.kind === "api");
+        const apiDefDir = path.join(params.projectRoot, "src", "main", "wso2mi", "resources", "api-definitions");
+        const inputSchemas = await buildInputSchemasForAPITools(apiTools, apiDefDir);
+        return { xml: generateToolsXml(params.tools, inputSchemas) };
+    }
+
+    async updateMcpInboundEndpointCors(params: UpdateMcpInboundEndpointCorsRequest): Promise<UpdateMcpInboundEndpointCorsResponse> {
+        try {
+            if (!fs.existsSync(params.inboundEndpointPath)) return { success: false };
+            const original = fs.readFileSync(params.inboundEndpointPath, "utf8");
+            const updated = applyCorsParametersToInboundEndpointXml(original, params.corsSettings);
+            await replaceFullContentToFile(params.inboundEndpointPath, updated);
+            return { success: true };
+        } catch {
+            return { success: false };
+        }
+    }
+
+    async cleanMcpToolNames(params: CleanMcpToolNamesRequest): Promise<CleanMcpToolNamesResponse> {
+        return { names: params.paths.map(p => cleanPathForToolName(p)) };
+    }
+
+    async convertMcpJsonSchema(params: ConvertMcpJsonSchemaRequest): Promise<ConvertMcpJsonSchemaResponse> {
+        return { schema: convertToJsonSchema(params.input) };
+    }
+
+    async pickMcpJsonFile(): Promise<PickMcpJsonFileResponse> {
+        const selection = await vscode.window.showOpenDialog({
+            canSelectMany: false,
+            openLabel: 'Import',
+            filters: { 'JSON Schema': ['json'] },
+        });
+        if (!selection || selection.length === 0) return { content: null };
+        return { content: fs.readFileSync(selection[0].fsPath, 'utf8') };
+    }
+
+    async getMcpInboundListenerClass(): Promise<GetMcpInboundListenerClassResponse> {
+        return { className: MCP_INBOUND_LISTENER_CLASS };
     }
 }
 

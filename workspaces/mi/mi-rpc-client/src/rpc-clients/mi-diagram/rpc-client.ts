@@ -202,8 +202,8 @@ import {
     WriteIdpSchemaFileToRegistryRequest,
     WriteIdpSchemaFileToRegistryResponse,
     GetIdpSchemaFilesResponse,
-    ReadIdpSchemaFileContentRequest,
-    ReadIdpSchemaFileContentResponse,
+    ReadFileContentRequest,
+    ReadFileContentResponse,
     applyEdit,
     askFileDirPath,
     askProjectDirPath,
@@ -336,7 +336,7 @@ import {
     writeIdpSchemaFileToRegistry,
     getIdpSchemaFiles,
     convertPdfToBase64Images,
-    readIdpSchemaFileContent,
+    readFileContent,
     StoreConnectorJsonResponse,
     getStoreConnectorJSON,
     TestDbConnectionRequest,
@@ -482,6 +482,31 @@ import {
     resetConnectorDependencyOverrides,
     updateConnectorFlags,
     updateGlobalConnectorFlags,
+    getMcpUsedInboundPorts,
+    GetMcpUsedInboundPortsRequest,
+    GetMcpUsedInboundPortsResponse,
+    getMcpServerProjectArtifacts,
+    GetMcpServerProjectArtifactsRequest,
+    GetMcpServerProjectArtifactsResponse,
+    getMcpServerEditData,
+    GetMcpServerEditDataRequest,
+    GetMcpServerEditDataResponse,
+    buildMcpToolsXml,
+    BuildMcpToolsXmlRequest,
+    BuildMcpToolsXmlResponse,
+    updateMcpInboundEndpointCors,
+    UpdateMcpInboundEndpointCorsRequest,
+    UpdateMcpInboundEndpointCorsResponse,
+    cleanMcpToolNames,
+    CleanMcpToolNamesRequest,
+    CleanMcpToolNamesResponse,
+    convertMcpJsonSchema,
+    ConvertMcpJsonSchemaRequest,
+    ConvertMcpJsonSchemaResponse,
+    pickMcpJsonFile,
+    PickMcpJsonFileResponse,
+    getMcpInboundListenerClass,
+    GetMcpInboundListenerClassResponse,
 } from "@wso2/mi-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -773,8 +798,8 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
         return this._messenger.sendRequest(convertPdfToBase64Images, HOST_EXTENSION, params);
     }
 
-    readIdpSchemaFileContent(params: ReadIdpSchemaFileContentRequest): Promise<ReadIdpSchemaFileContentResponse> {
-        return this._messenger.sendRequest(readIdpSchemaFileContent, HOST_EXTENSION, params);
+    readFileContent(params: ReadFileContentRequest): Promise<ReadFileContentResponse> {
+        return this._messenger.sendRequest(readFileContent, HOST_EXTENSION, params);
     }
 
     highlightCode(params: HighlightCodeRequest): void {
@@ -1269,5 +1294,41 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
 
     async updateGlobalConnectorFlags(params: UpdateGlobalConnectorFlagsRequest): Promise<boolean> {
         return this._messenger.sendRequest(updateGlobalConnectorFlags, HOST_EXTENSION, params);
+    }
+
+    async getMcpUsedInboundPorts(params: GetMcpUsedInboundPortsRequest): Promise<GetMcpUsedInboundPortsResponse> {
+        return this._messenger.sendRequest(getMcpUsedInboundPorts, HOST_EXTENSION, params);
+    }
+
+    async getMcpServerProjectArtifacts(params: GetMcpServerProjectArtifactsRequest): Promise<GetMcpServerProjectArtifactsResponse> {
+        return this._messenger.sendRequest(getMcpServerProjectArtifacts, HOST_EXTENSION, params);
+    }
+
+    async getMcpServerEditData(params: GetMcpServerEditDataRequest): Promise<GetMcpServerEditDataResponse> {
+        return this._messenger.sendRequest(getMcpServerEditData, HOST_EXTENSION, params);
+    }
+
+    async buildMcpToolsXml(params: BuildMcpToolsXmlRequest): Promise<BuildMcpToolsXmlResponse> {
+        return this._messenger.sendRequest(buildMcpToolsXml, HOST_EXTENSION, params);
+    }
+
+    async updateMcpInboundEndpointCors(params: UpdateMcpInboundEndpointCorsRequest): Promise<UpdateMcpInboundEndpointCorsResponse> {
+        return this._messenger.sendRequest(updateMcpInboundEndpointCors, HOST_EXTENSION, params);
+    }
+
+    async cleanMcpToolNames(params: CleanMcpToolNamesRequest): Promise<CleanMcpToolNamesResponse> {
+        return this._messenger.sendRequest(cleanMcpToolNames, HOST_EXTENSION, params);
+    }
+
+    async convertMcpJsonSchema(params: ConvertMcpJsonSchemaRequest): Promise<ConvertMcpJsonSchemaResponse> {
+        return this._messenger.sendRequest(convertMcpJsonSchema, HOST_EXTENSION, params);
+    }
+
+    async pickMcpJsonFile(): Promise<PickMcpJsonFileResponse> {
+        return this._messenger.sendRequest(pickMcpJsonFile, HOST_EXTENSION, undefined);
+    }
+
+    async getMcpInboundListenerClass(): Promise<GetMcpInboundListenerClassResponse> {
+        return this._messenger.sendRequest(getMcpInboundListenerClass, HOST_EXTENSION, undefined);
     }
 }

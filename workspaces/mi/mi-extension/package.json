@@ -493,6 +493,25 @@
         "category": "MI"
       },
       {
+        "command": "MI.project-explorer.add-mcp-server",
+        "title": "Add MCP Server",
+        "icon": "$(add)",
+        "group": "navigation",
+        "category": "MI"
+      },
+      {
+        "command": "MI.project-explorer.show-mcp-server",
+        "title": "Show MCP Server",
+        "icon": "$(server)",
+        "category": "MI"
+      },
+      {
+        "command": "MI.project-explorer.delete-mcp-server",
+        "title": "Delete MCP Server",
+        "icon": "$(trash)",
+        "category": "MI"
+      },
+      {
         "command": "MI.project-explorer.open-dss-service-designer",
         "title": "Open Service Designer",
         "icon": "$(mi-design-view)",
@@ -699,6 +718,18 @@
         },
         {
           "command": "MI.project-explorer.add-data-service",
+          "when": "false"
+        },
+        {
+          "command": "MI.project-explorer.add-mcp-server",
+          "when": "false"
+        },
+        {
+          "command": "MI.project-explorer.show-mcp-server",
+          "when": "false"
+        },
+        {
+          "command": "MI.project-explorer.delete-mcp-server",
           "when": "false"
         },
         {
@@ -947,6 +978,16 @@
         {
           "command": "MI.project-explorer.add-data-service",
           "when": "view == MI.project-explorer && viewItem == dataServices",
+          "group": "inline"
+        },
+        {
+          "command": "MI.project-explorer.add-mcp-server",
+          "when": "view == MI.project-explorer && viewItem == mcpServers",
+          "group": "inline"
+        },
+        {
+          "command": "MI.project-explorer.delete-mcp-server",
+          "when": "view == MI.project-explorer && viewItem == mcpServer",
           "group": "inline"
         },
         {

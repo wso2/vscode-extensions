@@ -40,7 +40,9 @@ import {
     dmcToTs,
     DmcToTsRequest,
     autoFillForm,
-    AutoFillFormRequest
+    AutoFillFormRequest,
+    getMcpToolSuggestion,
+    McpToolSuggestionRequest
 } from "@wso2/mi-core";
 
 export function registerMIAiPanelRpcHandlers(messenger: MessengerAPI, projectUri: string) {
@@ -79,4 +81,9 @@ export function registerMIAiPanelRpcHandlers(messenger: MessengerAPI, projectUri
     // Auto-Fill Form
     // ==================================
     messenger.onRequest(autoFillForm, (request: AutoFillFormRequest) => rpcManager.autoFillForm(request));
+
+    // ==================================
+    // MCP Tool Suggestion
+    // ==================================
+    messenger.onRequest(getMcpToolSuggestion, (request: McpToolSuggestionRequest) => rpcManager.getMcpToolSuggestion(request));
 }

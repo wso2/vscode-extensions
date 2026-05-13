@@ -55,7 +55,9 @@ import {
     ProjectConfig,
     MavenDeployPluginDetails,
     ReloadDependenciesRequest,
-    DependencyStatusResponse
+    DependencyStatusResponse,
+    McpToolSuggestionRequest,
+    McpToolSuggestionResponse
 } from "./types";
 import { GettingStartedData, SampleDownloadRequest } from "./types";
 import { RequestType, NotificationType } from "vscode-messenger-common";
@@ -114,3 +116,4 @@ export const setDeployPlugin: RequestType<MavenDeployPluginDetails, MavenDeployP
 export const getDeployPluginDetails: RequestType<void, MavenDeployPluginDetails> = { method: `${_preFix}/getDeployPluginDetails` };
 export const removeDeployPlugin: RequestType<void, MavenDeployPluginDetails> = { method: `${_preFix}/removeDeployPlugin` };
 export const updateAiDependencies: RequestType<UpdateAiDependenciesRequest, boolean> = { method: `${_preFix}/updateAiDependencies` };
+export const getMcpToolSuggestion: RequestType<McpToolSuggestionRequest, McpToolSuggestionResponse> = { method: `${_preFix}/getMcpToolSuggestion` };

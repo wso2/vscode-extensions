@@ -67,7 +67,9 @@ import {
     MavenDeployPluginDetails,
     ProjectConfig,
     ReloadDependenciesRequest,
-    DependencyStatusResponse
+    DependencyStatusResponse,
+    McpToolSuggestionRequest,
+    McpToolSuggestionResponse
 } from "@wso2/mi-core";
 import * as https from "https";
 import Mustache from "mustache";
@@ -94,6 +96,7 @@ import { extractCAppDependenciesAsProjects, loadCAppResources } from "../../visu
 import { findMultiModuleProjectsInWorkspaceDir } from "../../util/migrationUtils";
 import { MILanguageClient } from "../../lang-client/activator";
 import { reorderModulesByBuildOrder } from "../../debugger/pomResolver";
+import { MIAIPanelRpcManager } from "./../../rpc-managers/ai-features/rpc-manager";
 
 Mustache.escape = escapeXml;
 
@@ -969,5 +972,10 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
             log(`Failed to parse URL. originalUrl="${originalUrl}", targetHost="${targetHost}", error=${e}`);
             return originalUrl;
         }
+    }
+
+    async getMcpToolSuggestion(params: McpToolSuggestionRequest): Promise<McpToolSuggestionResponse> {
+        const aiManager = new MIAIPanelRpcManager(this.projectUri);
+        return aiManager.getMcpToolSuggestion(params);
     }
 }

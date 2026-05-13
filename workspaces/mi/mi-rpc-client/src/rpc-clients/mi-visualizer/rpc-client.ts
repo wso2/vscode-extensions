@@ -110,7 +110,10 @@ import {
     removeDeployPlugin,
     MavenDeployPluginDetails,
     getDependencyStatusList,
-    DependencyStatusResponse
+    DependencyStatusResponse,
+    getMcpToolSuggestion,
+    McpToolSuggestionRequest,
+    McpToolSuggestionResponse
 } from "@wso2/mi-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -313,5 +316,8 @@ export class MiVisualizerRpcClient implements MIVisualizerAPI {
     }
     updateAiDependencies(params: UpdateAiDependenciesRequest): Promise<boolean> {
         return this._messenger.sendRequest(updateAiDependencies, HOST_EXTENSION, params);
+    }
+    getMcpToolSuggestion(params: McpToolSuggestionRequest): Promise<McpToolSuggestionResponse> {
+        return this._messenger.sendRequest(getMcpToolSuggestion, HOST_EXTENSION, params);
     }
 }

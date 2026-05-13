@@ -120,7 +120,7 @@ import {
     WriteMockServicesRequest,
     HandleFileRequest,
     WriteIdpSchemaFileToRegistryRequest,
-    ReadIdpSchemaFileContentRequest,
+    ReadFileContentRequest,
     addDBDriver,
     addDriverToLib,
     applyEdit,
@@ -273,7 +273,7 @@ import {
     writeIdpSchemaFileToRegistry,
     getIdpSchemaFiles,
     convertPdfToBase64Images,
-    readIdpSchemaFileContent,
+    readFileContent,
     tryOutMediator,
     MediatorTryOutRequest,
     saveInputPayload,
@@ -348,6 +348,22 @@ import {
     UpdateConnectorFlagsRequest,
     updateGlobalConnectorFlags,
     UpdateGlobalConnectorFlagsRequest,
+    getMcpUsedInboundPorts,
+    GetMcpUsedInboundPortsRequest,
+    getMcpServerProjectArtifacts,
+    GetMcpServerProjectArtifactsRequest,
+    getMcpServerEditData,
+    GetMcpServerEditDataRequest,
+    buildMcpToolsXml,
+    BuildMcpToolsXmlRequest,
+    updateMcpInboundEndpointCors,
+    UpdateMcpInboundEndpointCorsRequest,
+    cleanMcpToolNames,
+    CleanMcpToolNamesRequest,
+    convertMcpJsonSchema,
+    ConvertMcpJsonSchemaRequest,
+    pickMcpJsonFile,
+    getMcpInboundListenerClass,
     // getBackendRootUrl - REMOVED: Backend URLs deprecated, all AI features use local LLM
 } from "@wso2/mi-core";
 import { Messenger } from "vscode-messenger";
@@ -426,7 +442,7 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(writeIdpSchemaFileToRegistry, (args: WriteIdpSchemaFileToRegistryRequest) => rpcManger.writeIdpSchemaFileToRegistry(args));
     messenger.onRequest(getIdpSchemaFiles,() => rpcManger.getIdpSchemaFiles());
     messenger.onRequest(convertPdfToBase64Images, (args: string) => rpcManger.convertPdfToBase64Images(args));
-    messenger.onRequest(readIdpSchemaFileContent, (args: ReadIdpSchemaFileContentRequest) => rpcManger.readIdpSchemaFileContent(args));
+    messenger.onRequest(readFileContent, (args: ReadFileContentRequest) => rpcManger.readFileContent(args));
     messenger.onNotification(highlightCode, (args: HighlightCodeRequest) => rpcManger.highlightCode(args));
     messenger.onRequest(getWorkspaceContext, () => rpcManger.getWorkspaceContext());
     messenger.onRequest(getProjectUuid, () => rpcManger.getProjectUuid());
@@ -549,4 +565,13 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(resetConnectorDependencyOverrides, (args: ResetConnectorDependencyOverridesRequest) => rpcManger.resetConnectorDependencyOverrides(args));
     messenger.onRequest(updateConnectorFlags, (args: UpdateConnectorFlagsRequest) => rpcManger.updateConnectorFlags(args));
     messenger.onRequest(updateGlobalConnectorFlags, (args: UpdateGlobalConnectorFlagsRequest) => rpcManger.updateGlobalConnectorFlags(args));
+    messenger.onRequest(getMcpUsedInboundPorts, (args: GetMcpUsedInboundPortsRequest) => rpcManger.getMcpUsedInboundPorts(args));
+    messenger.onRequest(getMcpServerProjectArtifacts, (args: GetMcpServerProjectArtifactsRequest) => rpcManger.getMcpServerProjectArtifacts(args));
+    messenger.onRequest(getMcpServerEditData, (args: GetMcpServerEditDataRequest) => rpcManger.getMcpServerEditData(args));
+    messenger.onRequest(buildMcpToolsXml, (args: BuildMcpToolsXmlRequest) => rpcManger.buildMcpToolsXml(args));
+    messenger.onRequest(updateMcpInboundEndpointCors, (args: UpdateMcpInboundEndpointCorsRequest) => rpcManger.updateMcpInboundEndpointCors(args));
+    messenger.onRequest(cleanMcpToolNames, (args: CleanMcpToolNamesRequest) => rpcManger.cleanMcpToolNames(args));
+    messenger.onRequest(convertMcpJsonSchema, (args: ConvertMcpJsonSchemaRequest) => rpcManger.convertMcpJsonSchema(args));
+    messenger.onRequest(pickMcpJsonFile, () => rpcManger.pickMcpJsonFile());
+    messenger.onRequest(getMcpInboundListenerClass, () => rpcManger.getMcpInboundListenerClass());
 }

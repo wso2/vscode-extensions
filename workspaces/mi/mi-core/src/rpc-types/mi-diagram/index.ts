@@ -53,8 +53,8 @@ import {
     WriteIdpSchemaFileToRegistryRequest,
     WriteIdpSchemaFileToRegistryResponse,
     GetIdpSchemaFilesResponse,
-    ReadIdpSchemaFileContentRequest,
-    ReadIdpSchemaFileContentResponse,
+    ReadFileContentRequest,
+    ReadFileContentResponse,
     CreateLocalEntryRequest,
     CreateLocalEntryResponse,
     FileDirResponse,
@@ -267,6 +267,22 @@ import {
     ConfigureKubernetesResponse,
     UpdateRegistryPropertyRequest,
     Property,
+    GetMcpUsedInboundPortsRequest,
+    GetMcpUsedInboundPortsResponse,
+    GetMcpServerProjectArtifactsRequest,
+    GetMcpServerProjectArtifactsResponse,
+    GetMcpServerEditDataRequest,
+    GetMcpServerEditDataResponse,
+    BuildMcpToolsXmlRequest,
+    BuildMcpToolsXmlResponse,
+    UpdateMcpInboundEndpointCorsRequest,
+    UpdateMcpInboundEndpointCorsResponse,
+    CleanMcpToolNamesRequest,
+    CleanMcpToolNamesResponse,
+    ConvertMcpJsonSchemaRequest,
+    ConvertMcpJsonSchemaResponse,
+    PickMcpJsonFileResponse,
+    GetMcpInboundListenerClassResponse,
     GenerateMappingsParamsRequest,
     ProjectCreationStatusResponse,
     LoadDriverAndTestConnectionRequest,
@@ -354,7 +370,7 @@ export interface MiDiagramAPI {
     handleFileWithFS: (params: HandleFileRequest) => Promise<HandleFileResponse>;
     writeIdpSchemaFileToRegistry: (params: WriteIdpSchemaFileToRegistryRequest) => Promise<WriteIdpSchemaFileToRegistryResponse>;
     getIdpSchemaFiles: ()=> Promise<GetIdpSchemaFilesResponse>;
-    readIdpSchemaFileContent: (params: ReadIdpSchemaFileContentRequest) => Promise<ReadIdpSchemaFileContentResponse>;
+    readFileContent: (params: ReadFileContentRequest) => Promise<ReadFileContentResponse>;
     highlightCode: (params: HighlightCodeRequest) => void;
     getWorkspaceContext: () => Promise<GetWorkspaceContextResponse>;
     getProjectUuid: () => Promise<GetProjectUuidResponse>;
@@ -476,6 +492,15 @@ export interface MiDiagramAPI {
     resetConnectorDependencyOverrides: (params: ResetConnectorDependencyOverridesRequest) => Promise<boolean>;
     updateConnectorFlags: (params: UpdateConnectorFlagsRequest) => Promise<boolean>;
     updateGlobalConnectorFlags: (params: UpdateGlobalConnectorFlagsRequest) => Promise<boolean>;
+    getMcpUsedInboundPorts: (params: GetMcpUsedInboundPortsRequest) => Promise<GetMcpUsedInboundPortsResponse>;
+    getMcpServerProjectArtifacts: (params: GetMcpServerProjectArtifactsRequest) => Promise<GetMcpServerProjectArtifactsResponse>;
+    getMcpServerEditData: (params: GetMcpServerEditDataRequest) => Promise<GetMcpServerEditDataResponse>;
+    buildMcpToolsXml: (params: BuildMcpToolsXmlRequest) => Promise<BuildMcpToolsXmlResponse>;
+    updateMcpInboundEndpointCors: (params: UpdateMcpInboundEndpointCorsRequest) => Promise<UpdateMcpInboundEndpointCorsResponse>;
+    cleanMcpToolNames: (params: CleanMcpToolNamesRequest) => Promise<CleanMcpToolNamesResponse>;
+    convertMcpJsonSchema: (params: ConvertMcpJsonSchemaRequest) => Promise<ConvertMcpJsonSchemaResponse>;
+    pickMcpJsonFile: () => Promise<PickMcpJsonFileResponse>;
+    getMcpInboundListenerClass: () => Promise<GetMcpInboundListenerClassResponse>;
 }
 
 // Re-export LS-only types (consumed by the extension's LS client; not part of MiDiagramAPI).

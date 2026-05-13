@@ -213,6 +213,10 @@ export function AddArtifactView() {
             await rpcClient
                 .getMiDiagramRpcClient()
                 .executeCommand({ commands: ["MI.project-explorer.add-data-source", entry] });
+        } else if (key === "mcpServers") {
+            await rpcClient
+                .getMiDiagramRpcClient()
+                .executeCommand({ commands: ["MI.project-explorer.add-mcp-server", entry] });
         }
     };
 
@@ -439,6 +443,14 @@ export function AddArtifactView() {
                                         title="Data Source"
                                         description="Create a data source and connect with a database."
                                         onClick={() => handleClick("dataSources")}
+                                    />
+                                    <Card
+                                        id="MCP Server"
+                                        icon="server"
+                                        isCodicon
+                                        title="MCP Server"
+                                        description="Create, expose, and manage MCP Servers."
+                                        onClick={() => handleClick("mcpServers")}
                                     />
                                 </HorizontalCardContainer>
                             </PanelViewMore>
