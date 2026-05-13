@@ -84,6 +84,7 @@ import { AiAgentRpcClient } from "./rpc-clients/ai-agent/rpc-client";
 import { ICPServiceRpcClient } from "./rpc-clients/icp-service/rpc-client";
 import { AgentChatRpcClient } from "./rpc-clients/agent-chat/rpc-client";
 import { PlatformExtRpcClient } from "./rpc-clients/platform-ext/platform-ext-client";
+import { ScannerRpcClient } from "./rpc-clients/scanner/rpc-client";
 
 export class BallerinaRpcClient {
 
@@ -107,6 +108,7 @@ export class BallerinaRpcClient {
     private _icpManager: ICPServiceRpcClient;
     private _agentChat: AgentChatRpcClient;
     private _platformExt: PlatformExtRpcClient;
+    private _scanner: ScannerRpcClient;
     private _identifierUpdatedCallbacks = new Set<(response: ProjectStructureArtifactResponse[]) => void>();
     private _runningServicesChangedCallbacks = new Set<(services: RunningServiceInfo[]) => void>();
 
@@ -132,6 +134,7 @@ export class BallerinaRpcClient {
         this._icpManager = new ICPServiceRpcClient(this.messenger);
         this._agentChat = new AgentChatRpcClient(this.messenger);
         this._platformExt = new PlatformExtRpcClient(this.messenger);
+        this._scanner = new ScannerRpcClient(this.messenger);
         this.messenger.onNotification(onIdentifierUpdated, (response: ProjectStructureArtifactResponse[]) => {
             this._identifierUpdatedCallbacks.forEach((callback) => callback(response));
         });
@@ -214,6 +217,10 @@ export class BallerinaRpcClient {
 
     getVisualizerLocation(): Promise<VisualizerLocation> {
         return this.messenger.sendRequest(getVisualizerLocation, HOST_EXTENSION);
+    }
+
+    getScannerRpcClient(): ScannerRpcClient {
+        return this._scanner;
     }
 
     onStateChanged(callback: (state: MachineStateValue) => void) {

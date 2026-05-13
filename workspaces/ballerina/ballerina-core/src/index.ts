@@ -121,3 +121,8 @@ export * from "./flow-model/BaseVisitor";
 export * from "./flow-model/flow-model-utils";
 
 export { Diagnostic } from "vscode-languageserver-types";
+
+// ------ Scanner -------->
+export * from "./rpc-types/scanner";
+export * from "./rpc-types/scanner/rpc-type";
+export * from "./rpc-types/scanner/interfaces";
