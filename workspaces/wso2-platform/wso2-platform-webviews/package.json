@@ -59,7 +59,7 @@
     "webpack-cli": "6.0.1",
     "webpack-dev-server": "5.2.3",
     "source-map-loader": "5.0.0",
-    "postcss": "8.5.3",
+    "postcss": "8.5.13",
     "postcss-loader" :"8.1.1",
     "autoprefixer": "10.4.19",
     "tailwindcss": "4.1.7",
