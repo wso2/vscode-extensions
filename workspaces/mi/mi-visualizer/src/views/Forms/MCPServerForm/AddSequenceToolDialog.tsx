@@ -22,7 +22,8 @@ import { Dialog, Button, Typography, TextField, TextArea } from '@wso2/ui-toolki
 import { useForm } from 'react-hook-form';
 import { Sequence } from '@wso2/mi-core';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
-import { DialogField, DialogButtonGroup, SelectAllRow, FlexRow, CustomInputsContainer, ItemsList, ListItem, ListItemHeader, ItemCheckbox, DialogTitle } from './dialogStyles';
+import { DialogField, DialogButtonGroup, FlexRow, DialogTitle } from '../Commons';
+import { SelectAllRow, CustomInputsContainer, ItemsList, ListItem, ListItemHeader, ItemCheckbox } from './styles';
 import { EMPTY_MCP_SCHEMA, INVALID_MCP_SCHEMA_MESSAGE } from '../../../constants';
 
 // Styled Components

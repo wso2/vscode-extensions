@@ -23,7 +23,7 @@ import { useForm } from 'react-hook-form';
 import * as yup from 'yup';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
-import { DialogField, DialogButtonGroup, DialogTitle } from './dialogStyles';
+import { DialogField, DialogButtonGroup, DialogTitle } from '../Commons';
 import { EMPTY_MCP_SCHEMA, INVALID_MCP_SCHEMA_MESSAGE } from '../../../constants';
 
 // Styled Components

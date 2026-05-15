@@ -21,7 +21,8 @@ import styled from '@emotion/styled';
 import { Dialog, Button, Typography, TextField } from '@wso2/ui-toolkit';
 import { useForm } from 'react-hook-form';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
-import { DialogField, DialogButtonGroup, SelectAllRow, FlexRow, CustomInputsContainer, ItemsList, ListItem, ListItemHeader, ItemCheckbox, DialogTitle } from './dialogStyles';
+import { DialogField, DialogButtonGroup, FlexRow, DialogTitle } from '../Commons';
+import { SelectAllRow, CustomInputsContainer, ItemsList, ListItem, ListItemHeader, ItemCheckbox } from './styles';
 
 interface APIOperation {
     id: string;
