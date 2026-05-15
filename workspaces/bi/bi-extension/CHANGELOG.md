@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+### Deprecated
+
+- **Extension Deprecation Notice** — This extension will be officially deprecated in the next release. All features are migrating to the unified **WSO2 Integrator** extension.
+
+### Changed
+
+- **Automatic Upgrade & Migration Path** — Transition to the new extension is fully automated. The new **WSO2 Integrator** extension will be automatically installed in your VS Code.
+- **Manual Installation Fallback** — If the automatic lifecycle migration is blocked by your local environment, you can manually install the new extension from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=WSO2.wso2-integrator).
+
+## [1.10.0](https://github.com/wso2/vscode-extensions/compare/ballerina-integrator-1.7.0...ballerina-integrator-1.10.0) - 2026-05-15
+
+### Deprecated
+
+- **Extension Deprecation & Migration** — The **WSO2 Integrator: BI** extension is now officially deprecated. All its capabilities have been merged and upgraded into the new **WSO2 Integrator 5.0.0** extension.
+
 ### Added
 
 - **Persist Database Support** — Added support for persist database workflows in BI, including multiple database connections.
