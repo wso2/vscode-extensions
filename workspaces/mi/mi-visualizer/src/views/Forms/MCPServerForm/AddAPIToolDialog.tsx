@@ -18,10 +18,10 @@
 
 import { useEffect, useState } from 'react';
 import styled from '@emotion/styled';
-import { Button, Typography } from '@wso2/ui-toolkit';
+import { Dialog, Button, Typography, TextField } from '@wso2/ui-toolkit';
 import { useForm } from 'react-hook-form';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
-import { DialogOverlay, DialogContent, DialogField, DialogButtonGroup, CustomInput, SelectAllRow, FlexRow, CustomInputsContainer, ItemsList, ListItem, ListItemHeader, ItemCheckbox, DialogTitle } from './dialogStyles';
+import { DialogField, DialogButtonGroup, SelectAllRow, FlexRow, CustomInputsContainer, ItemsList, ListItem, ListItemHeader, ItemCheckbox, DialogTitle } from './dialogStyles';
 
 interface APIOperation {
     id: string;
@@ -121,8 +121,6 @@ export function AddAPIToolDialog({
         }
     }, [isOpen, reset]);
 
-    if (!isOpen) return null;
-
     const selectedAPI = apis.find(a => a.id === selectedAPIForTool);
 
     const handleOperationToggle = (operationId: string) => {
@@ -206,128 +204,125 @@ export function AddAPIToolDialog({
     const hasMissingDescriptions = Array.from(selectedOperationIds).some(id => !items[id]?.description?.trim());
 
     return (
-        <DialogOverlay onClick={onCancel}>
-            <DialogContent onClick={(e) => e.stopPropagation()}>
-                <DialogTitle>Add Tools from API Operations</DialogTitle>
+        <Dialog isOpen={isOpen} onClose={onCancel} sx={{ maxWidth: '600px', width: '90%', maxHeight: '80vh', overflowY: 'auto', borderRadius: '8px', textAlign: 'left' }}>
+            <DialogTitle>Add Tools from API Operations</DialogTitle>
 
+            <DialogField>
+                <Typography variant="subtitle2">Select API</Typography>
+                <DialogSelect
+                    id="api-select"
+                    value={selectedAPIForTool}
+                    onChange={(e) => handleAPIChange(e.target.value)}
+                >
+                    <option value="">-- Choose an API --</option>
+                    {apis.map(api => (
+                        <option key={api.id} value={api.id}>
+                            {api.name} ({api.context})
+                        </option>
+                    ))}
+                </DialogSelect>
+            </DialogField>
+
+            {selectedAPIForTool && selectedAPI && (
                 <DialogField>
-                    <Typography variant="subtitle2">Select API</Typography>
-                    <DialogSelect
-                        id="api-select"
-                        value={selectedAPIForTool}
-                        onChange={(e) => handleAPIChange(e.target.value)}
-                    >
-                        <option value="">-- Choose an API --</option>
-                        {apis.map(api => (
-                            <option key={api.id} value={api.id}>
-                                {api.name} ({api.context})
-                            </option>
-                        ))}
-                    </DialogSelect>
-                </DialogField>
-
-                {selectedAPIForTool && selectedAPI && (
-                    <DialogField>
-                        <Typography variant="subtitle2">
-                            Select Operations & Custom Names ({selectedOperationIds.size} of {selectedAPI.operations.length})
-                        </Typography>
-                        {selectedAPI.operations.length > 0 ? (
-                            <ItemsList>
-                                <SelectAllRow onClick={handleSelectAll}>
-                                    <ItemCheckbox
-                                        type="checkbox"
-                                        checked={allSelected}
-                                        onChange={handleSelectAll}
-                                        onClick={(e) => e.stopPropagation()}
-                                        id="select-all"
-                                    />
-                                    <label onClick={(e: any) => e.stopPropagation()} style={{ cursor: 'pointer', margin: 0, fontSize: '12px', fontWeight: 500, color: 'var(--vscode-editor-foreground)' }}>
-                                        <strong>Select All Operations</strong>
-                                    </label>
-                                </SelectAllRow>
-                                {selectedAPI.operations.map((op: APIOperation) => {
-                                    const itemErrors = errors.items?.[op.id];
-                                    return (
-                                    <ListItem key={op.id}>
-                                        <ListItemHeader onClick={() => handleOperationToggle(op.id)}>
-                                            <ItemCheckbox
-                                                type="checkbox"
-                                                checked={selectedOperationIds.has(op.id)}
-                                                onChange={() => handleOperationToggle(op.id)}
+                    <Typography variant="subtitle2">
+                        Select Operations & Custom Names ({selectedOperationIds.size} of {selectedAPI.operations.length})
+                    </Typography>
+                    {selectedAPI.operations.length > 0 ? (
+                        <ItemsList>
+                            <SelectAllRow onClick={handleSelectAll}>
+                                <ItemCheckbox
+                                    type="checkbox"
+                                    checked={allSelected}
+                                    onChange={handleSelectAll}
+                                    onClick={(e) => e.stopPropagation()}
+                                    id="select-all"
+                                />
+                                <label onClick={(e: any) => e.stopPropagation()} style={{ cursor: 'pointer', margin: 0, fontSize: '12px', fontWeight: 500, color: 'var(--vscode-editor-foreground)' }}>
+                                    <strong>Select All Operations</strong>
+                                </label>
+                            </SelectAllRow>
+                            {selectedAPI.operations.map((op: APIOperation) => {
+                                const itemErrors = errors.items?.[op.id];
+                                return (
+                                <ListItem key={op.id}>
+                                    <ListItemHeader onClick={() => handleOperationToggle(op.id)}>
+                                        <ItemCheckbox
+                                            type="checkbox"
+                                            checked={selectedOperationIds.has(op.id)}
+                                            onChange={() => handleOperationToggle(op.id)}
+                                            onClick={(e) => e.stopPropagation()}
+                                            id={`op-${op.id}`}
+                                        />
+                                        <OperationDetails>
+                                            <OperationMethodRow>
+                                                <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '11px', color: 'var(--vscode-descriptionForeground)' }}>
+                                                    {op.method}
+                                                </Typography>
+                                                <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--vscode-editor-foreground)' }}>{op.path}</Typography>
+                                            </OperationMethodRow>
+                                            {op.summary && <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', fontSize: '10px' }}>{op.summary}</Typography>}
+                                        </OperationDetails>
+                                    </ListItemHeader>
+                                    {selectedOperationIds.has(op.id) && (
+                                        <CustomInputsContainer>
+                                            <Typography variant="caption" sx={{ fontSize: '10px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>Tool name</Typography>
+                                            <TextField
+                                                id={`name-${op.id}`}
+                                                placeholder={getDefaultName(op)}
+                                                {...register(`items.${op.id}.customName` as const)}
                                                 onClick={(e) => e.stopPropagation()}
-                                                id={`op-${op.id}`}
                                             />
-                                            <OperationDetails>
-                                                <OperationMethodRow>
-                                                    <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '11px', color: 'var(--vscode-descriptionForeground)' }}>
-                                                        {op.method}
-                                                    </Typography>
-                                                    <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--vscode-editor-foreground)' }}>{op.path}</Typography>
-                                                </OperationMethodRow>
-                                                {op.summary && <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', fontSize: '10px' }}>{op.summary}</Typography>}
-                                            </OperationDetails>
-                                        </ListItemHeader>
-                                        {selectedOperationIds.has(op.id) && (
-                                            <CustomInputsContainer>
-                                                <Typography variant="caption" sx={{ fontSize: '10px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>Tool name</Typography>
-                                                <CustomInput
-                                                    id={`name-${op.id}`}
-                                                    type="text"
-                                                    placeholder={getDefaultName(op)}
-                                                    {...register(`items.${op.id}.customName` as const)}
+                                            <Typography variant="caption" sx={{ fontSize: '10px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>Description *</Typography>
+                                            <FlexRow>
+                                                <TextField
+                                                    id={`desc-${op.id}`}
+                                                    placeholder={op.summary || 'Describe what this tool does'}
+                                                    {...register(`items.${op.id}.description` as const, {
+                                                        onChange: e => { if (e.target.value.trim()) clearErrors(`items.${op.id}.description` as const); },
+                                                        onBlur: e => { if (!e.target.value.trim()) setError(`items.${op.id}.description` as const, { message: 'Description is required.' }); },
+                                                    })}
                                                     onClick={(e) => e.stopPropagation()}
+                                                    sx={{ flex: 1 }}
                                                 />
-                                                <Typography variant="caption" sx={{ fontSize: '10px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>Description *</Typography>
-                                                <FlexRow>
-                                                    <CustomInput
-                                                        id={`desc-${op.id}`}
-                                                        type="text"
-                                                        placeholder={op.summary || 'Describe what this tool does'}
-                                                        {...register(`items.${op.id}.description` as const, {
-                                                            onChange: e => { if (e.target.value.trim()) clearErrors(`items.${op.id}.description` as const); },
-                                                            onBlur: e => { if (!e.target.value.trim()) setError(`items.${op.id}.description` as const, { message: 'Description is required.' }); },
-                                                        })}
-                                                        onClick={(e) => e.stopPropagation()}
-                                                    />
-                                                    <Button
-                                                        appearance="secondary"
-                                                        disabled={aiLoadingIds.has(op.id)}
-                                                        onClick={(e: any) => { e.stopPropagation(); handleFillWithAI(op); }}
-                                                        sx={{ padding: '4px 10px', fontSize: '12px', minWidth: 'auto' }}
-                                                    >
-                                                        {aiLoadingIds.has(op.id) ? 'Filling...' : 'Fill With AI'}
-                                                    </Button>
-                                                </FlexRow>
-                                                {itemErrors?.description && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)', fontSize: '11px' }}>{String(itemErrors.description.message)}</Typography>}
-                                            </CustomInputsContainer>
-                                        )}
-                                    </ListItem>
-                                    );
-                                })}
-                            </ItemsList>
-                        ) : (
-                            <Typography variant="body2" sx={{ color: 'var(--vscode-descriptionForeground)', textAlign: 'center', padding: '20px' }}>No operations available in this API</Typography>
-                        )}
-                    </DialogField>
-                )}
-
-                <DialogButtonGroup>
-                    <Button appearance="secondary" onClick={onCancel}>Cancel</Button>
-                    {someSelected && (
-                        <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', alignSelf: 'center' }}>
-                            {selectedOperationIds.size} operation{selectedOperationIds.size !== 1 ? 's' : ''} selected
-                        </Typography>
+                                                <Button
+                                                    appearance="secondary"
+                                                    disabled={aiLoadingIds.has(op.id)}
+                                                    onClick={(e: any) => { e.stopPropagation(); handleFillWithAI(op); }}
+                                                    sx={{ padding: '4px 10px', fontSize: '12px', minWidth: 'auto' }}
+                                                >
+                                                    {aiLoadingIds.has(op.id) ? 'Filling...' : 'Fill With AI'}
+                                                </Button>
+                                            </FlexRow>
+                                            {itemErrors?.description && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)', fontSize: '11px' }}>{String(itemErrors.description.message)}</Typography>}
+                                        </CustomInputsContainer>
+                                    )}
+                                </ListItem>
+                                );
+                            })}
+                        </ItemsList>
+                    ) : (
+                        <Typography variant="body2" sx={{ color: 'var(--vscode-descriptionForeground)', textAlign: 'center', padding: '20px' }}>No operations available in this API</Typography>
                     )}
-                    <Button
-                        appearance="primary"
-                        onClick={handleSubmit(onSubmit)}
-                        disabled={!selectedAPIForTool || !someSelected || hasMissingDescriptions}
-                    >
-                        Add Selected Tools ({selectedOperationIds.size})
-                    </Button>
-                </DialogButtonGroup>
-            </DialogContent>
-        </DialogOverlay>
+                </DialogField>
+            )}
+
+            <DialogButtonGroup>
+                <Button appearance="secondary" onClick={onCancel}>Cancel</Button>
+                {someSelected && (
+                    <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', alignSelf: 'center' }}>
+                        {selectedOperationIds.size} operation{selectedOperationIds.size !== 1 ? 's' : ''} selected
+                    </Typography>
+                )}
+                <Button
+                    appearance="primary"
+                    onClick={handleSubmit(onSubmit)}
+                    disabled={!selectedAPIForTool || !someSelected || hasMissingDescriptions}
+                >
+                    Add Selected Tools ({selectedOperationIds.size})
+                </Button>
+            </DialogButtonGroup>
+        </Dialog>
     );
 }
 

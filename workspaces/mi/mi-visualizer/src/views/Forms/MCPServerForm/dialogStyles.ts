@@ -18,31 +18,6 @@
 
 import styled from '@emotion/styled';
 
-export const DialogOverlay = styled.div`
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-`;
-
-export const DialogContent = styled.div`
-    background: var(--vscode-editor-background);
-    border: 1px solid var(--vscode-panel-border);
-    border-radius: 8px;
-    padding: 20px;
-    max-width: 600px;
-    width: 90%;
-    max-height: 80vh;
-    overflow-y: auto;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-`;
-
 export const DialogField = styled.div`
     display: flex;
     flex-direction: column;
@@ -59,44 +34,12 @@ export const DialogButtonGroup = styled.div`
     border-top: 1px solid var(--vscode-panel-border);
 `;
 
-// Common form inputs
-export const CustomInput = styled.input`
-    background: var(--vscode-editor-background);
+export const DialogTitle = styled.div`
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 16px;
+    font-weight: 600;
     color: var(--vscode-editor-foreground);
-    border: 1px solid var(--vscode-input-border);
-    padding: 4px 6px;
-    border-radius: 3px;
-    font-size: 11px;
-    font-family: inherit;
-    &:focus { outline: none; border-color: var(--vscode-focusBorder); }
-`;
-
-export const StdInput = styled.input`
-    background: var(--vscode-input-background);
-    color: var(--vscode-input-foreground);
-    border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
-    padding: 6px 8px;
-    border-radius: 3px;
-    font-size: 13px;
-    font-family: inherit;
-    width: 100%;
-    box-sizing: border-box;
-    &:focus { outline: none; border-color: var(--vscode-focusBorder); }
-`;
-
-export const SchemaTextarea = styled.textarea`
-    flex: 1;
-    min-height: 80px;
-    padding: 6px 8px;
-    font-size: 12px;
-    font-family: var(--vscode-editor-font-family, monospace);
-    background: var(--vscode-input-background);
-    color: var(--vscode-input-foreground);
-    border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
-    border-radius: 3px;
-    resize: vertical;
-    box-sizing: border-box;
-    &:focus { outline: none; border-color: var(--vscode-focusBorder); }
 `;
 
 // Common list components
@@ -162,12 +105,4 @@ export const CustomInputsContainer = styled.div`
     flex-direction: column;
     gap: 4px;
     margin-left: 26px;
-`;
-
-export const DialogTitle = styled.div`
-    text-align: center;
-    margin-bottom: 20px;
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--vscode-editor-foreground);
 `;

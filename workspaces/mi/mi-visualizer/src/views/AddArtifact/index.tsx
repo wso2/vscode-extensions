@@ -387,6 +387,14 @@ export function AddArtifactView() {
                                         onClick={() => handleClick("resources")}
                                     />
                                     <Card
+                                        id="MCP Server"
+                                        icon="server"
+                                        isCodicon
+                                        title="MCP Server"
+                                        description="Create, expose, and manage MCP Servers."
+                                        onClick={() => handleClick("mcpServers")}
+                                    />
+                                    <Card
                                         id="Message Processor"
                                         icon="message-processor"
                                         title="Message Processor"
@@ -443,14 +451,6 @@ export function AddArtifactView() {
                                         title="Data Source"
                                         description="Create a data source and connect with a database."
                                         onClick={() => handleClick("dataSources")}
-                                    />
-                                    <Card
-                                        id="MCP Server"
-                                        icon="server"
-                                        isCodicon
-                                        title="MCP Server"
-                                        description="Create, expose, and manage MCP Servers."
-                                        onClick={() => handleClick("mcpServers")}
                                     />
                                 </HorizontalCardContainer>
                             </PanelViewMore>

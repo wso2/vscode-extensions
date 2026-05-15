@@ -18,12 +18,12 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import styled from '@emotion/styled';
-import { Button, Typography } from '@wso2/ui-toolkit';
+import { Dialog, Button, Typography, TextField, TextArea } from '@wso2/ui-toolkit';
 import { useForm } from 'react-hook-form';
 import * as yup from 'yup';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
-import { DialogOverlay, DialogContent, DialogField, DialogButtonGroup, StdInput, SchemaTextarea, DialogTitle } from './dialogStyles';
+import { DialogField, DialogButtonGroup, DialogTitle } from './dialogStyles';
 import { EMPTY_MCP_SCHEMA, INVALID_MCP_SCHEMA_MESSAGE } from '../../../constants';
 
 // Styled Components
@@ -102,8 +102,6 @@ export function CreateScratchToolDialog({
         if (!isOpen) reset();
     }, [isOpen, reset]);
 
-    if (!isOpen) return null;
-
     const derivedSequenceName = name?.trim() ? sanitizeToolName(name) + '_tool' : '';
 
     const validateSchema = async (value: string): Promise<boolean> => {
@@ -175,68 +173,68 @@ export function CreateScratchToolDialog({
     const submitDisabled = !name?.trim() || !description?.trim() || !!errors.name || !!errors.description || !!errors.inputSchema;
 
     return (
-        <DialogOverlay onClick={onCancel}>
-            <DialogContent onClick={e => e.stopPropagation()}>
-                <DialogTitle>Create New Tool</DialogTitle>
-                <Typography variant="body2" sx={{ color: 'var(--vscode-descriptionForeground)', marginBottom: '16px' }}>
-                    A new sequence will be created automatically. You can implement the logic inside it after.
-                </Typography>
+        <Dialog isOpen={isOpen} onClose={onCancel} sx={{ maxWidth: '600px', width: '90%', maxHeight: '80vh', overflowY: 'auto', borderRadius: '8px', textAlign: 'left' }}>
+            <DialogTitle>Create New Tool</DialogTitle>
+            <Typography variant="body2" sx={{ color: 'var(--vscode-descriptionForeground)', marginBottom: '16px' }}>
+                A new sequence will be created automatically. You can implement the logic inside it after.
+            </Typography>
 
-                <DialogField>
-                    <Typography variant="subtitle2">Tool Name *</Typography>
-                    <StdInput
-                        type="text"
-                        placeholder="e.g., get_weather"
-                        {...register('name')}
+            <DialogField>
+                <Typography variant="subtitle2">Tool Name *</Typography>
+                <TextField
+                    placeholder="e.g., get_weather"
+                    {...register('name')}
+                />
+                {errors.name && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)' }}>{String(errors.name.message)}</Typography>}
+                {derivedSequenceName && !errors.name && (
+                    <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', fontStyle: 'italic' }}>A sequence named "{derivedSequenceName}" will be created.</Typography>
+                )}
+            </DialogField>
+
+            <DialogField>
+                <Typography variant="subtitle2">Description *</Typography>
+                <SchemaRow>
+                    <TextField
+                        placeholder="Describe what this tool does"
+                        {...register('description')}
+                        sx={{ flex: 1 }}
                     />
-                    {errors.name && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)' }}>{String(errors.name.message)}</Typography>}
-                    {derivedSequenceName && !errors.name && (
-                        <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', fontStyle: 'italic' }}>A sequence named "{derivedSequenceName}" will be created.</Typography>
-                    )}
-                </DialogField>
-
-                <DialogField>
-                    <Typography variant="subtitle2">Description *</Typography>
-                    <SchemaRow>
-                        <StdInput
-                            type="text"
-                            placeholder="Describe what this tool does"
-                            {...register('description')}
-                        />
-                        <Button appearance="secondary" onClick={handleFillDescription} disabled={!name?.trim() || aiDescLoading} sx={{ padding: '4px 10px', fontSize: '12px', minWidth: 'auto' }}>
-                            {aiDescLoading ? 'Filling...' : 'Fill With AI'}
-                        </Button>
-                    </SchemaRow>
-                    {errors.description && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)' }}>{String(errors.description.message)}</Typography>}
-                </DialogField>
-
-                <DialogField>
-                    <Typography variant="subtitle2">Input Schema (JSON)</Typography>
-                    <SchemaRow>
-                        <SchemaTextarea
-                            placeholder='e.g. {"city": "string", "units": "string"}'
-                            {...register('inputSchema', {
-                                onChange: e => validateSchema(e.target.value),
-                            })}
-                        />
-                        <Button appearance="secondary" onClick={handleFillSchema} disabled={!name?.trim() || aiSchemaLoading} sx={{ padding: '4px 10px', fontSize: '12px', minWidth: 'auto' }}>
-                            {aiSchemaLoading ? 'Filling...' : 'Fill With AI'}
-                        </Button>
-                        <Button appearance="secondary" onClick={handleImportFile} sx={{ padding: '4px 10px', fontSize: '12px', minWidth: 'auto' }}>
-                            Import JSON
-                        </Button>
-                    </SchemaRow>
-                    {errors.inputSchema && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)' }}>{String(errors.inputSchema.message)}</Typography>}
-                </DialogField>
-
-                <DialogButtonGroup>
-                    <Button appearance="secondary" onClick={onCancel}>Cancel</Button>
-                    <Button appearance="primary" onClick={handleSubmit(onSubmit)} disabled={submitDisabled}>
-                        Create Tool
+                    <Button appearance="secondary" onClick={handleFillDescription} disabled={!name?.trim() || aiDescLoading} sx={{ padding: '4px 10px', fontSize: '12px', minWidth: 'auto' }}>
+                        {aiDescLoading ? 'Filling...' : 'Fill With AI'}
                     </Button>
-                </DialogButtonGroup>
-            </DialogContent>
-        </DialogOverlay>
+                </SchemaRow>
+                {errors.description && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)' }}>{String(errors.description.message)}</Typography>}
+            </DialogField>
+
+            <DialogField>
+                <Typography variant="subtitle2">Input Schema (JSON)</Typography>
+                <SchemaRow>
+                    <TextArea
+                        placeholder='e.g. {"city": "string", "units": "string"}'
+                        rows={4}
+                        resize="vertical"
+                        sx={{ flex: 1, fontFamily: 'var(--vscode-editor-font-family, monospace)' }}
+                        {...register('inputSchema', {
+                            onChange: e => validateSchema(e.target.value),
+                        })}
+                    />
+                    <Button appearance="secondary" onClick={handleFillSchema} disabled={!name?.trim() || aiSchemaLoading} sx={{ padding: '4px 10px', fontSize: '12px', minWidth: 'auto' }}>
+                        {aiSchemaLoading ? 'Filling...' : 'Fill With AI'}
+                    </Button>
+                    <Button appearance="secondary" onClick={handleImportFile} sx={{ padding: '4px 10px', fontSize: '12px', minWidth: 'auto' }}>
+                        Import JSON
+                    </Button>
+                </SchemaRow>
+                {errors.inputSchema && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)' }}>{String(errors.inputSchema.message)}</Typography>}
+            </DialogField>
+
+            <DialogButtonGroup>
+                <Button appearance="secondary" onClick={onCancel}>Cancel</Button>
+                <Button appearance="primary" onClick={handleSubmit(onSubmit)} disabled={submitDisabled}>
+                    Create Tool
+                </Button>
+            </DialogButtonGroup>
+        </Dialog>
     );
 }
 

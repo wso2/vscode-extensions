@@ -18,11 +18,11 @@
 
 import { useEffect, useState } from 'react';
 import styled from '@emotion/styled';
-import { Button, Typography } from '@wso2/ui-toolkit';
+import { Dialog, Button, Typography, TextField, TextArea } from '@wso2/ui-toolkit';
 import { useForm } from 'react-hook-form';
 import { Sequence } from '@wso2/mi-core';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
-import { DialogOverlay, DialogContent, DialogField, DialogButtonGroup, CustomInput, SelectAllRow, FlexRow, CustomInputsContainer, ItemsList, ListItem, ListItemHeader, ItemCheckbox, SchemaTextarea, DialogTitle } from './dialogStyles';
+import { DialogField, DialogButtonGroup, SelectAllRow, FlexRow, CustomInputsContainer, ItemsList, ListItem, ListItemHeader, ItemCheckbox, DialogTitle } from './dialogStyles';
 import { EMPTY_MCP_SCHEMA, INVALID_MCP_SCHEMA_MESSAGE } from '../../../constants';
 
 // Styled Components
@@ -71,8 +71,6 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
             setSelectedIds(new Set());
         }
     }, [isOpen, reset]);
-
-    if (!isOpen) return null;
 
     const toggleSequence = (id: string) => {
         const next = new Set(selectedIds);
@@ -185,118 +183,118 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
     const hasMissingDescriptions = selectedIdList.some(id => !items[id]?.description?.trim());
 
     return (
-        <DialogOverlay onClick={onCancel}>
-            <DialogContent onClick={e => e.stopPropagation()}>
-                <DialogTitle>Add Tools from Sequences</DialogTitle>
-                <DialogField>
-                    <Typography variant="subtitle2">Select Sequences ({selectedIds.size} of {sequences.length})</Typography>
-                    {sequences.length === 0 ? (
-                        <Typography variant="body2" sx={{ color: 'var(--vscode-descriptionForeground)', textAlign: 'center', padding: '15px' }}>No sequences found in the project</Typography>
-                    ) : (
-                        <ItemsList>
-                            <SelectAllRow onClick={handleSelectAll}>
-                                <ItemCheckbox
-                                    type="checkbox"
-                                    checked={allSelected}
-                                    onChange={handleSelectAll}
-                                    onClick={e => e.stopPropagation()}
-                                    id="select-all-sequences"
-                                />
-                                <label onClick={(e: any) => e.stopPropagation()} style={{ cursor: 'pointer', margin: 0, fontSize: '12px', fontWeight: 500, color: 'var(--vscode-editor-foreground)' }}>
-                                    <strong>Select All Sequences</strong>
-                                </label>
-                            </SelectAllRow>
-                            {sequences.map(seq => {
-                                const itemErrors = errors.items?.[seq.id];
-                                return (
-                                <ListItem key={seq.id}>
-                                    <ListItemHeader onClick={() => toggleSequence(seq.id)}>
-                                        <ItemCheckbox
-                                            type="checkbox"
-                                            checked={selectedIds.has(seq.id)}
-                                            onChange={() => toggleSequence(seq.id)}
+        <Dialog isOpen={isOpen} onClose={onCancel} sx={{ maxWidth: '600px', width: '90%', maxHeight: '80vh', overflowY: 'auto', borderRadius: '8px', textAlign: 'left' }}>
+            <DialogTitle>Add Tools from Sequences</DialogTitle>
+            <DialogField>
+                <Typography variant="subtitle2">Select Sequences ({selectedIds.size} of {sequences.length})</Typography>
+                {sequences.length === 0 ? (
+                    <Typography variant="body2" sx={{ color: 'var(--vscode-descriptionForeground)', textAlign: 'center', padding: '15px' }}>No sequences found in the project</Typography>
+                ) : (
+                    <ItemsList>
+                        <SelectAllRow onClick={handleSelectAll}>
+                            <ItemCheckbox
+                                type="checkbox"
+                                checked={allSelected}
+                                onChange={handleSelectAll}
+                                onClick={e => e.stopPropagation()}
+                                id="select-all-sequences"
+                            />
+                            <label onClick={(e: any) => e.stopPropagation()} style={{ cursor: 'pointer', margin: 0, fontSize: '12px', fontWeight: 500, color: 'var(--vscode-editor-foreground)' }}>
+                                <strong>Select All Sequences</strong>
+                            </label>
+                        </SelectAllRow>
+                        {sequences.map(seq => {
+                            const itemErrors = errors.items?.[seq.id];
+                            return (
+                            <ListItem key={seq.id}>
+                                <ListItemHeader onClick={() => toggleSequence(seq.id)}>
+                                    <ItemCheckbox
+                                        type="checkbox"
+                                        checked={selectedIds.has(seq.id)}
+                                        onChange={() => toggleSequence(seq.id)}
+                                        onClick={e => e.stopPropagation()}
+                                        id={`seq-${seq.id}`}
+                                    />
+                                    <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '12px' }}>{seq.name}</Typography>
+                                </ListItemHeader>
+                                {selectedIds.has(seq.id) && (
+                                    <CustomInputsContainer>
+                                        <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', marginTop: '2px', fontSize: '10px' }}>Tool name</Typography>
+                                        <TextField
+                                            id={`name-${seq.id}`}
+                                            placeholder={seq.name}
+                                            {...register(`items.${seq.id}.customName` as const)}
                                             onClick={e => e.stopPropagation()}
-                                            id={`seq-${seq.id}`}
                                         />
-                                        <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '12px' }}>{seq.name}</Typography>
-                                    </ListItemHeader>
-                                    {selectedIds.has(seq.id) && (
-                                        <CustomInputsContainer>
-                                            <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', marginTop: '2px', fontSize: '10px' }}>Tool name</Typography>
-                                            <CustomInput
-                                                id={`name-${seq.id}`}
-                                                type="text"
-                                                placeholder={seq.name}
-                                                {...register(`items.${seq.id}.customName` as const)}
+                                        <Typography variant="caption" sx={{ fontSize: '10px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>Description *</Typography>
+                                        <FlexRow>
+                                            <TextField
+                                                id={`desc-${seq.id}`}
+                                                placeholder="Describe what this tool does"
+                                                {...register(`items.${seq.id}.description` as const, {
+                                                    onChange: e => { if (e.target.value.trim()) clearErrors(`items.${seq.id}.description` as const); },
+                                                    onBlur: e => { if (!e.target.value.trim()) setError(`items.${seq.id}.description` as const, { message: 'Description is required.' }); },
+                                                })}
+                                                onClick={e => e.stopPropagation()}
+                                                sx={{ flex: 1 }}
+                                            />
+                                            <Button
+                                                appearance="secondary"
+                                                disabled={aiDescLoadingIds.has(seq.id)}
+                                                onClick={(e: any) => { e.stopPropagation(); handleFillDescription(seq); }}
+                                                sx={{ padding: '4px 10px', fontSize: '12px', minWidth: 'auto' }}
+                                            >
+                                                {aiDescLoadingIds.has(seq.id) ? 'Filling...' : 'Fill With AI'}
+                                            </Button>
+                                        </FlexRow>
+                                        {itemErrors?.description && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)', fontSize: '11px' }}>{String(itemErrors.description.message)}</Typography>}
+                                        <Typography variant="caption" sx={{ fontSize: '10px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>Input Schema (JSON)</Typography>
+                                        <SchemaRow>
+                                            <TextArea
+                                                placeholder='e.g. {"amount": number, "name": string}'
+                                                rows={4}
+                                                resize="vertical"
+                                                sx={{ flex: 1, fontFamily: 'var(--vscode-editor-font-family, monospace)' }}
+                                                {...register(`items.${seq.id}.inputSchema` as const, {
+                                                    onChange: e => validateSchema(seq.id, e.target.value),
+                                                })}
                                                 onClick={e => e.stopPropagation()}
                                             />
-                                            <Typography variant="caption" sx={{ fontSize: '10px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>Description *</Typography>
-                                            <FlexRow>
-                                                <CustomInput
-                                                    id={`desc-${seq.id}`}
-                                                    type="text"
-                                                    placeholder="Describe what this tool does"
-                                                    {...register(`items.${seq.id}.description` as const, {
-                                                        onChange: e => { if (e.target.value.trim()) clearErrors(`items.${seq.id}.description` as const); },
-                                                        onBlur: e => { if (!e.target.value.trim()) setError(`items.${seq.id}.description` as const, { message: 'Description is required.' }); },
-                                                    })}
-                                                    onClick={e => e.stopPropagation()}
-                                                />
-                                                <Button
-                                                    appearance="secondary"
-                                                    disabled={aiDescLoadingIds.has(seq.id)}
-                                                    onClick={(e: any) => { e.stopPropagation(); handleFillDescription(seq); }}
-                                                    sx={{ padding: '4px 10px', fontSize: '12px', minWidth: 'auto' }}
-                                                >
-                                                    {aiDescLoadingIds.has(seq.id) ? 'Filling...' : 'Fill With AI'}
-                                                </Button>
-                                            </FlexRow>
-                                            {itemErrors?.description && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)', fontSize: '11px' }}>{String(itemErrors.description.message)}</Typography>}
-                                            <Typography variant="caption" sx={{ fontSize: '10px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>Input Schema (JSON)</Typography>
-                                            <SchemaRow>
-                                                <SchemaTextarea
-                                                    placeholder='e.g. {"amount": number, "name": string}'
-                                                    {...register(`items.${seq.id}.inputSchema` as const, {
-                                                        onChange: e => validateSchema(seq.id, e.target.value),
-                                                    })}
-                                                    onClick={e => e.stopPropagation()}
-                                                />
-                                                <Button
-                                                    appearance="secondary"
-                                                    disabled={aiSchemaLoadingIds.has(seq.id)}
-                                                    onClick={(e: any) => { e.stopPropagation(); handleFillSchema(seq); }}
-                                                    sx={{ padding: '4px 10px', fontSize: '12px', minWidth: 'auto' }}
-                                                >
-                                                    {aiSchemaLoadingIds.has(seq.id) ? 'Filling...' : 'Fill With AI'}
-                                                </Button>
-                                                <Button
-                                                    appearance="secondary"
-                                                    onClick={(e: any) => { e.stopPropagation(); handleImportFile(seq.id); }}
-                                                    sx={{ padding: '4px 10px', fontSize: '12px', minWidth: 'auto' }}
-                                                >
-                                                    Import JSON
-                                                </Button>
-                                            </SchemaRow>
-                                            {itemErrors?.inputSchema && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)', fontSize: '11px' }}>{String(itemErrors.inputSchema.message)}</Typography>}
-                                        </CustomInputsContainer>
-                                    )}
-                                </ListItem>
-                                );
-                            })}
-                        </ItemsList>
-                    )}
-                </DialogField>
-                <DialogButtonGroup>
-                    <Button appearance="secondary" onClick={onCancel}>Cancel</Button>
-                    {selectedIds.size > 0 && (
-                        <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', alignSelf: 'center' }}>{selectedIds.size} sequence{selectedIds.size !== 1 ? 's' : ''} selected</Typography>
-                    )}
-                    <Button appearance="primary" onClick={handleSubmit(onSubmit)} disabled={selectedIds.size === 0 || hasSchemaErrors || hasMissingDescriptions}>
-                        Add Selected ({selectedIds.size})
-                    </Button>
-                </DialogButtonGroup>
-            </DialogContent>
-        </DialogOverlay>
+                                            <Button
+                                                appearance="secondary"
+                                                disabled={aiSchemaLoadingIds.has(seq.id)}
+                                                onClick={(e: any) => { e.stopPropagation(); handleFillSchema(seq); }}
+                                                sx={{ padding: '4px 10px', fontSize: '12px', minWidth: 'auto' }}
+                                            >
+                                                {aiSchemaLoadingIds.has(seq.id) ? 'Filling...' : 'Fill With AI'}
+                                            </Button>
+                                            <Button
+                                                appearance="secondary"
+                                                onClick={(e: any) => { e.stopPropagation(); handleImportFile(seq.id); }}
+                                                sx={{ padding: '4px 10px', fontSize: '12px', minWidth: 'auto' }}
+                                            >
+                                                Import JSON
+                                            </Button>
+                                        </SchemaRow>
+                                        {itemErrors?.inputSchema && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)', fontSize: '11px' }}>{String(itemErrors.inputSchema.message)}</Typography>}
+                                    </CustomInputsContainer>
+                                )}
+                            </ListItem>
+                            );
+                        })}
+                    </ItemsList>
+                )}
+            </DialogField>
+            <DialogButtonGroup>
+                <Button appearance="secondary" onClick={onCancel}>Cancel</Button>
+                {selectedIds.size > 0 && (
+                    <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', alignSelf: 'center' }}>{selectedIds.size} sequence{selectedIds.size !== 1 ? 's' : ''} selected</Typography>
+                )}
+                <Button appearance="primary" onClick={handleSubmit(onSubmit)} disabled={selectedIds.size === 0 || hasSchemaErrors || hasMissingDescriptions}>
+                    Add Selected ({selectedIds.size})
+                </Button>
+            </DialogButtonGroup>
+        </Dialog>
     );
 }
 
