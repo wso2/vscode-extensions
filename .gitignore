@@ -83,7 +83,8 @@ extensions.json
 !sample-mi-project.zip
 package.json.backup
 
-.claude/
+.claude/*
+!.claude/commands
 
 pnpm-lock.yaml
 
