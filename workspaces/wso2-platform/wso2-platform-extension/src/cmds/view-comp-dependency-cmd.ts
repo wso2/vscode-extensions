@@ -36,10 +36,9 @@ export function viewComponentDependencyCommand(context: ExtensionContext) {
 	context.subscriptions.push(
 		commands.registerCommand(CommandIds.ViewDependency, async (params: IViewDependencyCmdParams) => {
 			setExtensionName(params?.extName);
-			const extName = webviewStateStore.getState().state?.extensionName;
 			try {
 				isRpcActive(ext);
-				const userInfo = await getUserInfoForCmd(`view ${extName === "Devant" ? "integration" : "component"} dependency`);
+				const userInfo = await getUserInfoForCmd(`view ${ext.terminologies?.componentTerm} dependency`);
 				if (userInfo) {
 					const selected = contextStore.getState().state.selected;
 					if (!selected?.org || !selected.project) {
@@ -61,11 +60,11 @@ export function viewComponentDependencyCommand(context: ExtensionContext) {
 					if (components?.length === 0) {
 						window
 							.showInformationMessage(
-								`No ${extName === "Devant" ? "integrations" : "components"} available within the project directory`,
-								`Create ${extName === "Devant" ? "Integration" : "Component"}`,
+								`No ${ext.terminologies?.componentTermPlural} available within the project directory`,
+								`Create ${ext.terminologies?.componentTerm}`,
 							)
 							.then((res) => {
-								if (res === "Create Integration" || res === "Create Component") {
+								if (res === `Create ${ext.terminologies?.componentTerm}`) {
 									commands.executeCommand(CommandIds.CreateNewComponent);
 								}
 							});
@@ -75,7 +74,7 @@ export function viewComponentDependencyCommand(context: ExtensionContext) {
 					const component = await getComponentStateOfPath(params?.componentFsPath, components);
 
 					if (!component?.component) {
-						throw new Error(`Failed to select ${extName === "Devant" ? "integration" : "component"}`);
+						throw new Error(`Failed to select ${ext.terminologies?.componentTerm}`);
 					}
 
 					let connectionItem: ConnectionListItem | undefined;
@@ -118,8 +117,8 @@ export function viewComponentDependencyCommand(context: ExtensionContext) {
 						});
 				}
 			} catch (err: any) {
-				console.error(`Failed to view ${extName === "Devant" ? "integration" : "component"} dependency`, err);
-				window.showErrorMessage(err?.message || `Failed to view ${extName === "Devant" ? "integration" : "component"} dependency`);
+				console.error(`Failed to view ${ext.terminologies?.componentTerm} dependency`, err);
+				window.showErrorMessage(err?.message || `Failed to view ${ext.terminologies?.componentTerm} dependency`);
 			}
 		}),
 	);
@@ -137,11 +136,11 @@ export const getComponentStateOfPath = async (componentFsPath = "", components: 
 			window
 				.showInformationMessage(
 					`Could not find any ${webviewStateStore.getState().state.extensionName} components that match this directory within the the linked project context. (${selected?.project?.name})`,
-					`Create ${extName === "Devant" ? "Integration" : "Component"}`,
+					`Create ${ext.terminologies?.componentTermCapitalized}`,
 					"Manage Context",
 				)
 				.then((res) => {
-					if (res === "Create Component" || res === "Create Integration") {
+					if (res === `Create ${ext.terminologies?.componentTermCapitalized}`) {
 						commands.executeCommand(CommandIds.CreateNewComponent);
 					}
 					if (res === "Manage Context") {

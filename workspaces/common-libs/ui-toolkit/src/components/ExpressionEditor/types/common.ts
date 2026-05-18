@@ -159,6 +159,8 @@ type ExpressionEditorBaseProps = {
     onCompletionSelect?: (value: string, item: CompletionItem) => void | Promise<void>;
     // - The function to be called when a manual completion request is made (when ctrl+space pressed)
     onManualCompletionRequest?: () => void | Promise<void>;
+    // - The function to be called when the user manually interacts (text input, click, completion select)
+    onManualInteraction?: () => void;
     // - The function to be called if a function is being edited
     onFunctionEdit?: (functionName: string | undefined) => void | Promise<void>;
 

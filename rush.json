@@ -232,7 +232,9 @@
     /**
      * The list of shell commands to run after the Rush installation finishes
      */
-    "postRushInstall": [],
+    "postRushInstall": [
+      "node common/scripts/install-git-hooks.js"
+    ],
     /**
      * The list of shell commands to run before the Rush build command starts
      */
@@ -250,7 +252,8 @@
       "cd workspaces/bi/bi-extension && pnpm run copyVSIXToRoot",
       "cd workspaces/apk/apk-extension && pnpm run copyVSIXToRoot",
       "cd workspaces/api-designer/api-designer-extension && pnpm run copyVSIXToRoot",
-      "cd workspaces/mcp-inspector/mcp-inspector-extension && pnpm run copyVSIXToRoot"
+      "cd workspaces/mcp-inspector/mcp-inspector-extension && pnpm run copyVSIXToRoot",
+      "cd workspaces/hurl-client/hurl-client-extension && pnpm run copyVSIXToRoot"
     ]
   },
   /**
@@ -399,6 +402,11 @@
     //    */
     //   // "tags": [ "1.0.0-release", "frontend-team" ]
     // },
+    {
+      "packageName": "@wso2/copilot-utilities",
+      "projectFolder": "workspaces/common-libs/copilot-utilities",
+      "reviewCategory": "production"
+    },
     {
       "packageName": "@wso2/font-wso2-vscode",
       "projectFolder": "workspaces/common-libs/font-wso2-vscode",
@@ -615,6 +623,26 @@
     {
       "packageName": "mcp-server-inspector",
       "projectFolder": "workspaces/mcp-inspector/mcp-inspector-extension"
+    },
+    {
+      "packageName": "@wso2/api-tryit-hurl-parser",
+      "projectFolder": "workspaces/api-tryit/hurl-parser"
+    },
+    {
+      "packageName": "@wso2/api-tryit-hurl-runner",
+      "projectFolder": "workspaces/api-tryit/hurl-runner"
+    },
+    {
+      "packageName": "@wso2/api-tryit-core",
+      "projectFolder": "workspaces/api-tryit/api-tryit-core"
+    },
+    {
+      "packageName": "@wso2/hurl-client-core",
+      "projectFolder": "workspaces/hurl-client/hurl-client-core"
+    },
+    {
+      "packageName": "hurl-client",
+      "projectFolder": "workspaces/hurl-client/hurl-client-extension"
     }
   ]
 }

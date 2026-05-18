@@ -17,7 +17,7 @@
  */
 
 import { window } from "vscode";
-import { z } from "zod/v3";
+import { z } from "zod";
 import { ext } from "./extensionVariables";
 
 const envSchemaItem = z.object({});
@@ -41,11 +41,18 @@ if (!_env.success) {
 	console.error("Invalid environment variables:", _env.error.flatten().fieldErrors);
 }
 
+const envData = _env.success ? _env.data : {
+	CLI_RELEASES_BASE_URL: "",
+	defaultEnvs: {},
+	stageEnvs: {},
+	devEnvs: {},
+};
+
 class ChoreoEnvConfig {
-	constructor(private _config: z.infer<typeof envSchemaItem> = _env.data!.defaultEnvs) {}
+	constructor(private _config: z.infer<typeof envSchemaItem> = envData.defaultEnvs) {}
 
 	public getCliInstallUrl() {
-		return _env.data?.CLI_RELEASES_BASE_URL;
+		return envData.CLI_RELEASES_BASE_URL;
 	}
 }
 
@@ -53,16 +60,16 @@ let pickedEnvConfig: z.infer<typeof envSchemaItem>;
 
 switch (ext.choreoEnv) {
 	case "prod":
-		pickedEnvConfig = _env.data!.defaultEnvs;
+		pickedEnvConfig = envData.defaultEnvs;
 		break;
 	case "stage":
-		pickedEnvConfig = _env.data!.stageEnvs;
+		pickedEnvConfig = envData.stageEnvs;
 		break;
 	case "dev":
-		pickedEnvConfig = _env.data!.devEnvs;
+		pickedEnvConfig = envData.devEnvs;
 		break;
 	default:
-		pickedEnvConfig = _env.data!.defaultEnvs;
+		pickedEnvConfig = envData.defaultEnvs;
 }
 
 export const choreoEnvConfig: ChoreoEnvConfig = new ChoreoEnvConfig(pickedEnvConfig);

@@ -1,0 +1,31 @@
+{
+  "name": "@wso2/copilot-utilities",
+  "version": "1.0.0",
+  "description": "Shared copilot utilities for WSO2 VSCode extensions",
+  "files": ["lib"],
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    "./context-management": "./lib/context-management/index.js",
+    "./chat-persistence": "./lib/chat-persistence/index.js"
+  },
+  "typesVersions": {
+    "*": {
+      "context-management": ["lib/context-management/index.d.ts"],
+      "chat-persistence": ["lib/chat-persistence/index.d.ts"]
+    }
+  },
+  "scripts": {
+    "build": "tsc --pretty",
+    "watch": "tsc --pretty --watch"
+  },
+  "devDependencies": {
+    "@types/node": "22.15.21",
+    "typescript": "5.8.3"
+  },
+  "dependencies": {},
+  "peerDependencies": {},
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/"
+  }
+}

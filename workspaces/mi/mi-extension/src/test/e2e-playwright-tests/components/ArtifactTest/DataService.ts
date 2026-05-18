@@ -469,7 +469,7 @@ export class DataService {
         await frame.getByRole('button', { name: 'Save Changes' }).click();
     }
 
-    public async addCarbonDs(name: string) {
+    public async addCarbonDs(name: string, testAttempt: number) {
         const projectExplorer = new ProjectExplorer(this._page);
         await projectExplorer.goToOverview("testProject");
         console.log("Navigated to project overview");
@@ -480,7 +480,7 @@ export class DataService {
             throw new Error("Failed to switch to Data Service Form iframe");
         }
         const frame = dsWebView.locator('div#root');
-        await frame.getByRole('textbox', { name: 'Data Service Name*' }).fill(name);
+        await frame.getByRole('textbox', { name: 'Data Service Name*' }).fill(name + testAttempt);
         await frame.getByRole('textbox', { name: 'Description' }).fill('Test CSV');
         await frame.getByText('Add Datasource').click();
         const form = new Form(this._page, "Data Service Form", frame);
@@ -498,7 +498,7 @@ export class DataService {
             }
         });
         await frame.getByLabel('Datasource Name').click();
-        await frame.getByText('newTestDataSource1').click();
+        await frame.getByText('newTestDataSource' + testAttempt).click();
         await frame.getByLabel('Enable OData').click();
         await frame.getByText('Add Parameter').click();
         await frame.getByRole('textbox', { name: 'Carbon Username*' }).fill('wso2');

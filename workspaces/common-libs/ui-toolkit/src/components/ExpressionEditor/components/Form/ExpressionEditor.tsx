@@ -144,8 +144,8 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
     const [fnSignature, setFnSignature] = useState<FnSignatureProps | undefined>();
     const [isFocused, setIsFocused] = useState<boolean>(false);
     const SUGGESTION_REGEX = {
-        prefix: /((?:\w|')*)$/,
-        suffix: /^((?:\w|')*)/
+        prefix: /((?:\w|'|<)*)$/,
+        suffix: /^((?:\w|'|>)*)/
     };
     const showCompletions = (showDefaultCompletion || completions?.length > 0) && !isHelperPaneOpen;
 
@@ -616,7 +616,7 @@ export const ExpressionEditor = forwardRef<FormExpressionEditorRef, FormExpressi
                 onFocus={handleTextAreaFocus}
                 onBlur={handleTextAreaBlur}
                 sx={{ width: '100%', ...sx }}
-                disabled={disabled || isSavingExpression}
+                disabled={(disabled || isSavingExpression) || undefined}
                 growRange={growRange}
                 resize={resize}
             />

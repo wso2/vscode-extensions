@@ -21,32 +21,44 @@ import type { WebviewState } from "@wso2/wso2-platform-core";
 import React, { type FC, type ReactNode, useContext, useEffect } from "react";
 import { ChoreoWebViewAPI } from "../utilities/vscode-webview-rpc";
 
-const defaultContext: WebviewState = { openedComponentKey: "", componentViews: {}, choreoEnv: "prod", extensionName: "WSO2" };
+const defaultContext: WebviewState = {
+    openedComponentKey: "",
+    componentViews: {},
+    choreoEnv: "prod",
+    extensionName: "WSO2",
+    terminologies: {
+        cloudName: "WSO2 Cloud",
+        componentTerm: "component",
+        componentTermPlural: "components",
+        componentTermCapitalized: "Component",
+        articleComponentTerm: "a component",
+    },
+};
 
 const ExtWebviewContext = React.createContext(defaultContext);
 
 export const useExtWebviewContext = () => {
-	return useContext(ExtWebviewContext) || defaultContext;
+    return useContext(ExtWebviewContext) || defaultContext;
 };
 
 interface Props {
-	children: ReactNode;
+    children: ReactNode;
 }
 
 export const ExtWebviewContextProvider: FC<Props> = ({ children }) => {
-	const queryClient = useQueryClient();
+    const queryClient = useQueryClient();
 
-	const { data: webviewContext } = useQuery({
-		queryKey: ["webview_context"],
-		queryFn: () => ChoreoWebViewAPI.getInstance().getWebviewStoreState(),
-		refetchOnWindowFocus: true,
-	});
+    const { data: webviewContext } = useQuery({
+        queryKey: ["webview_context"],
+        queryFn: () => ChoreoWebViewAPI.getInstance().getWebviewStoreState(),
+        refetchOnWindowFocus: true,
+    });
 
-	useEffect(() => {
-		ChoreoWebViewAPI.getInstance().onWebviewStateChanged((webviewState) => {
-			queryClient.setQueryData(["webview_context"], webviewState);
-		});
-	}, []);
+    useEffect(() => {
+        ChoreoWebViewAPI.getInstance().onWebviewStateChanged((webviewState) => {
+            queryClient.setQueryData(["webview_context"], webviewState);
+        });
+    }, []);
 
-	return <ExtWebviewContext.Provider value={webviewContext}>{children}</ExtWebviewContext.Provider>;
+    return <ExtWebviewContext.Provider value={webviewContext}>{children}</ExtWebviewContext.Provider>;
 };

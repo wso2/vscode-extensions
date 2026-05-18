@@ -16,7 +16,7 @@
  * under the License.
  */
 
-const { generateFonts } = require('fantasticon');
+const { generateFonts } = require('@twbs/fantasticon');
 const fs = require('fs');
 const path = require('path');
 

@@ -29,11 +29,12 @@ export type ClickAwayListenerProps = {
     anchorEl?: HTMLElement | SVGGElement;
     isMenuOpen?: boolean;
     onClickAway: (event?: React.MouseEvent<HTMLElement, MouseEvent>) => void;
+    sx?: React.CSSProperties;
 };
 
 export const ClickAwayListener: React.FC<PropsWithChildren<ClickAwayListenerProps>> = 
     (props: PropsWithChildren<ClickAwayListenerProps>) => {
-        const { anchorEl, isMenuOpen, children, onClickAway } = props;
+        const { anchorEl, isMenuOpen, children, onClickAway, sx } = props;
         const ref = React.useRef<HTMLDivElement>(null);
 
         const handleClickAway = useCallback((event: MouseEvent) => {
@@ -53,7 +54,7 @@ export const ClickAwayListener: React.FC<PropsWithChildren<ClickAwayListenerProp
         }, [handleClickAway])
 
         return (
-            <Container ref={ref}>
+            <Container ref={ref} style={sx}>
                 {children}
                 {isMenuOpen && (
                     <Overlay sx={{zIndex: 0}} onClose={onClickAway}/>

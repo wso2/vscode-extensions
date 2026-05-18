@@ -19,7 +19,7 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { useQuery } from "@tanstack/react-query";
 import { VSCodeLink } from "@vscode/webview-ui-toolkit/react";
-import type { NewComponentWebviewProps } from "@wso2/wso2-platform-core";
+import type { ComponentFormSectionProps } from "@wso2/wso2-platform-core";
 import React, { type FC } from "react";
 import type { SubmitHandler, UseFormReturn } from "react-hook-form";
 import type { z } from "zod/v3";
@@ -33,7 +33,7 @@ import { type componentGitProxyFormSchema, getOpenApiContent, getOpenApiFiles, h
 
 type ComponentFormGitProxyType = z.infer<typeof componentGitProxyFormSchema>;
 
-interface Props extends NewComponentWebviewProps {
+interface Props extends ComponentFormSectionProps {
 	isSaving?: boolean;
 	onNextClick: (data: ComponentFormGitProxyType) => void;
 	onBackClick: () => void;

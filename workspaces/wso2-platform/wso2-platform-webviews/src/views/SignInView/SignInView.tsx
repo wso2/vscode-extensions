@@ -32,10 +32,10 @@ export const SignInView: FC<Props> = ({ className }) => {
 	const { mutate: signInCmd, isLoading: isInitSignIn } = useMutation({
 		mutationFn: async () => ChoreoWebViewAPI.getInstance().triggerCmd(CommandIds.SignIn),
 	});
-	const { extensionName } = useExtWebviewContext();
+	const { terminologies } = useExtWebviewContext();
 	return (
 		<div className={classNames("flex w-full flex-col gap-[10px] px-6 py-2", className)}>
-			<p>Sign in to {extensionName} to get started.</p>
+			<p>Sign in to {terminologies.cloudName} to get started.</p>
 			<Button className="w-full max-w-80 self-center sm:self-start" onClick={() => signInCmd()} disabled={isInitSignIn}>
 				Sign In
 			</Button>

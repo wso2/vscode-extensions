@@ -496,7 +496,7 @@ export default function createTests() {
       await test.step('Add Carbon Data source', async () => {
         console.log('Adding Carbon Data Service');
         const dataService = new DataService(page.page);
-        await dataService.addCarbonDs("testCarbonDs" + testAttempt);
+        await dataService.addCarbonDs("testCarbonDs", testAttempt);
       });
       await test.step('Edit Carbon Data source', async () => {
         console.log('Editing Carbon Data Service');

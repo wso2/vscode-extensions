@@ -20,17 +20,61 @@ import type { ComponentKind, Environment, Organization, Project } from "./common
 
 export type WebviewTypes = "NewComponentForm" | "ComponentsListActivityView" | "ComponentDetailsView" | "ChoreoCellView";
 
-export interface NewComponentWebviewProps {
-	type: "NewComponentForm";
+/** Configuration for a single component to be created */
+export interface ComponentConfig {
 	directoryUriPath: string;
 	directoryFsPath: string;
 	directoryName: string;
+	initialValues?: { type?: string; subType?: string; buildPackLang?: string; name?: string };
+	isNewCodeServerComp?: boolean;
+	supportedIntegrationTypes?: string[];
+}
+
+export interface ComponentFormWebviewProps {
+	type: "NewComponentForm";
 	organization: Organization;
 	project: Project;
 	existingComponents: ComponentKind[];
-	initialValues?: { type?: string; subType?: string; buildPackLang?: string; name?: string };
 	extensionName?: string;
-	isNewCodeServerComp?: boolean;
+	/** Array of components to be created. For single component creation, this will contain one item. */
+	components: ComponentConfig[];
+	rootDirectory: string;
+}
+
+/**
+ * Flattened props type for form section components.
+ * This combines the common webview props with the current component's config.
+ */
+export type ComponentFormSectionProps = Omit<ComponentFormWebviewProps, "components"> & ComponentConfig;
+
+/**
+ * Extended props for sections that need to handle multi-component mode.
+ */
+export interface MultiComponentSectionProps extends ComponentFormSectionProps {
+	/** All components to be created (for multi-component mode) */
+	allComponents?: ComponentConfig[];
+	/** Whether the form is in multi-component mode */
+	isMultiComponentMode?: boolean;
+	/** Callback to update selected components and their types */
+	onComponentSelectionChange?: (selectedComponents: ComponentSelectionItem[]) => void;
+	/** Currently selected components with their configurations */
+	selectedComponents?: ComponentSelectionItem[];
+}
+
+/**
+ * Represents a component selection item in multi-component mode.
+ */
+export interface ComponentSelectionItem {
+	/** Index of the component in the components array */
+	index: number;
+	/** Whether this component is selected for deployment */
+	selected: boolean;
+	/** The component type to deploy as */
+	componentType: string;
+	/** The component name */
+	name: string;
+	/** The directory name */
+	directoryName: string;
 }
 
 export interface ComponentsDetailsWebviewProps {
@@ -48,4 +92,4 @@ export interface ComponentsListActivityViewProps {
 	directoryFsPath?: string;
 }
 
-export type WebviewProps = ComponentsDetailsWebviewProps | NewComponentWebviewProps | ComponentsListActivityViewProps;
+export type WebviewProps = ComponentsDetailsWebviewProps | ComponentFormWebviewProps | ComponentsListActivityViewProps;

@@ -1,0 +1,188 @@
+{
+  "name": "Hurl",
+  "scopeName": "source.hurl",
+  "fileTypes": ["hurl"],
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#request-line" },
+    { "include": "#response-line" },
+    { "include": "#section-header" },
+    { "include": "#multiline-string" },
+    { "include": "#oneline-base64" },
+    { "include": "#oneline-hex" },
+    { "include": "#oneline-file" },
+    { "include": "#oneline-string" },
+    { "include": "#assert-predicate" },
+    { "include": "#query-keyword" },
+    { "include": "#filter-keyword" },
+    { "include": "#option-keyword" },
+    { "include": "#literal" },
+    { "include": "#regex-literal" },
+    { "include": "#template" },
+    { "include": "#quoted-string" },
+    { "include": "#key-value" }
+  ],
+  "repository": {
+    "comment": {
+      "match": "(#(?!md:).*)$",
+      "name": "comment.line.number-sign.hurl"
+    },
+
+    "request-line": {
+      "match": "^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|CONNECT|TRACE)\\s+(\\S+)$",
+      "captures": {
+        "1": { "name": "keyword.other.http-method.hurl" },
+        "2": { "name": "markup.underline.link.hurl" }
+      }
+    },
+
+    "response-line": {
+      "match": "^(HTTP(?:/[0-9\\.]+)?)\\s+([0-9]{3})(?:\\s+(.*))?$",
+      "captures": {
+        "1": { "name": "keyword.control.http-version.hurl" },
+        "2": { "name": "constant.numeric.http-status-code.hurl" },
+        "3": { "name": "string.unquoted.http-reason.hurl" }
+      }
+    },
+
+    "section-header": {
+      "match": "^\\[(QueryStringParams|Query|FormParams|Form|MultipartFormData|Multipart|Cookies|Captures|Asserts|BasicAuth|Options)\\]\\s*$",
+      "captures": {
+        "0": { "name": "entity.name.section.hurl" },
+        "1": { "name": "entity.name.section.name.hurl" }
+      }
+    },
+
+    "multiline-string": {
+      "begin": "^```(base64|hex|json|xml|graphql)?",
+      "end": "^```",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.string.begin.hurl" },
+        "1": { "name": "storage.type.multiline-string.hurl" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.string.end.hurl" }
+      },
+      "name": "string.multiline.hurl",
+      "patterns": [
+        { "include": "#template" }
+      ]
+    },
+
+    "oneline-base64": {
+      "match": "(base64,)([A-Za-z0-9+/= \\n]*)(;)",
+      "captures": {
+        "1": { "name": "keyword.other.base64.hurl" },
+        "2": { "name": "string.unquoted.base64.hurl" },
+        "3": { "name": "punctuation.terminator.hurl" }
+      }
+    },
+
+    "oneline-hex": {
+      "match": "(hex,)([0-9A-Fa-f]*)(;)",
+      "captures": {
+        "1": { "name": "keyword.other.hex.hurl" },
+        "2": { "name": "constant.numeric.hex.hurl" },
+        "3": { "name": "punctuation.terminator.hurl" }
+      }
+    },
+
+    "oneline-file": {
+      "match": "(file,)([^;]+)(;)",
+      "captures": {
+        "1": { "name": "keyword.other.file.hurl" },
+        "2": { "name": "string.unquoted.filename.hurl" },
+        "3": { "name": "punctuation.terminator.hurl" }
+      }
+    },
+
+    "oneline-string": {
+      "begin": "`",
+      "end": "`",
+      "name": "string.quoted.backtick.hurl",
+      "patterns": [
+        { "include": "#template" },
+        { "match": "\\\\.", "name": "constant.character.escape.hurl" }
+      ]
+    },
+
+    "query-keyword": {
+      "match": "\\b(status|version|url|ip|body|duration|sha256|md5|bytes|header|cookie|xpath|jsonpath|regex|variable|certificate)\\b",
+      "name": "support.function.query.hurl"
+    },
+
+    "assert-predicate": {
+      "match": "(not\\s+)?(==|!=|>=|<=|>|<|contains|startsWith|endsWith|matches|exists|isString|isInteger|isFloat|isBoolean|isCollection|isDate|isEmpty|isList|isObject|isUuid|isIpv4|isIpv6|isIsoDate)\\b",
+      "captures": {
+        "1": { "name": "keyword.operator.logical.not.hurl" },
+        "2": { "name": "keyword.operator.predicate.hurl" }
+      }
+    },
+
+    "filter-keyword": {
+      "match": "\\b(base64Decode|base64Encode|base64UrlSafeDecode|base64UrlSafeEncode|count|daysAfterNow|daysBeforeNow|decode|first|last|location|toFloat|toHex|toInt|toString|toDate|htmlEscape|htmlUnescape|urlDecode|urlEncode|utf8Decode|utf8Encode|nth|split|regex|replace|replaceRegex|jsonpath|xpath|dateFormat|urlQueryParam)\\b",
+      "name": "support.function.filter.hurl"
+    },
+
+    "option-keyword": {
+      "match": "^(aws-sigv4|cacert|cert|key|compressed|connect-to|connect-timeout|delay|location|location-trusted|header|http1\\.0|http1\\.1|http2|http3|insecure|ipv4|ipv6|limit-rate|max-redirs|max-time|netrc|netrc-file|netrc-optional|output|path-as-is|pinnedpubkey|proxy|repeat|resolve|retry|retry-interval|skip|unix-socket|user|variable|verbose|very-verbose)\\s*(:)",
+      "captures": {
+        "1": { "name": "support.type.option-name.hurl" },
+        "2": { "name": "punctuation.separator.key-value.hurl" }
+      }
+    },
+
+    "literal": {
+      "match": "\\b(true|false|null)\\b",
+      "name": "constant.language.hurl"
+    },
+
+    "regex-literal": {
+      "begin": "(?<=[\\s,])(\\/)",
+      "end": "(\\/)",
+      "beginCaptures": { "1": { "name": "punctuation.definition.regex.begin.hurl" } },
+      "endCaptures": { "1": { "name": "punctuation.definition.regex.end.hurl" } },
+      "name": "string.regexp.hurl",
+      "patterns": [
+        { "match": "\\\\.", "name": "constant.character.escape.hurl" }
+      ]
+    },
+
+    "template": {
+      "begin": "\\{\\{",
+      "end": "\\}\\}",
+      "beginCaptures": { "0": { "name": "punctuation.definition.template.begin.hurl" } },
+      "endCaptures": { "0": { "name": "punctuation.definition.template.end.hurl" } },
+      "name": "meta.template.hurl",
+      "patterns": [
+        {
+          "match": "\\b(getEnv|newDate|newUuid)\\b",
+          "name": "support.function.builtin.hurl"
+        },
+        {
+          "match": "[A-Za-z][A-Za-z_\\-0-9]*",
+          "name": "variable.other.template.hurl"
+        }
+      ]
+    },
+
+    "quoted-string": {
+      "begin": "\"",
+      "end": "\"",
+      "name": "string.quoted.double.hurl",
+      "patterns": [
+        { "include": "#template" },
+        { "match": "\\\\.", "name": "constant.character.escape.hurl" }
+      ]
+    },
+
+    "key-value": {
+      "match": "^([A-Za-z0-9_][A-Za-z0-9_\\-.]*)\\s*(:)\\s*(.*)$",
+      "captures": {
+        "1": { "name": "support.type.property-name.hurl" },
+        "2": { "name": "punctuation.separator.key-value.hurl" },
+        "3": { "name": "string.unquoted.value.hurl" }
+      }
+    }
+  }
+}

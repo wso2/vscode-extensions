@@ -164,21 +164,21 @@ export function DeploymentOptions({ handleDockerBuild, handleConfigureKubernetes
             <Title variant="h3">Deployment Options</Title>
 
             <DeploymentOption
-                title={devantMetadata?.hasComponent ? "Deployed in Devant" : "Deploy to Devant"}
+                title={devantMetadata?.hasComponent ? "Deployed in WSO2 Cloud" : "Deploy to WSO2 Cloud"}
                 description={
                     devantMetadata?.hasComponent
-                        ? "This integration is already deployed in Devant."
-                        : "Deploy your integration to the cloud using Devant by WSO2."
+                        ? "This integration is already deployed in WSO2 Cloud."
+                        : "Deploy your integration to the WSO2 Cloud"
                 }
-                buttonText={devantMetadata?.hasComponent ? "View in Devant" : "Deploy"}
+                buttonText={devantMetadata?.hasComponent ? "View in WSO2 Cloud" : "Deploy"}
                 isExpanded={expandedOptions.has("devant")}
                 onToggle={() => toggleOption("devant")}
                 onDeploy={devantMetadata?.hasComponent ? () => goToDevant() : () => handleDeploy({})}
-                learnMoreLink={"https://wso2.com/devant/docs"}
+                learnMoreLink={"https://wso2.com/devant/docs/"}
                 secondaryAction={
                     devantMetadata?.hasComponent && devantMetadata?.hasLocalChanges
                         ? {
-                                description: "To redeploy in Devant, please commit and push your changes.",
+                                description: "To redeploy in WSO2 Cloud, please commit and push your changes.",
                                 buttonText: "Open Source Control",
                                 onClick: () =>
                                     rpcClient

@@ -1,0 +1,18 @@
+{
+  "name": "@wso2/hurl-client-core",
+  "version": "1.0.0",
+  "description": "Shared types for WSO2 Hurl Client",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "license": "Apache-2.0",
+  "scripts": {
+    "build": "tsc --pretty",
+    "build:tsc": "tsc --pretty"
+  },
+  "devDependencies": {
+    "typescript": "5.8.3"
+  },
+  "dependencies": {
+    "@wso2/api-tryit-hurl-runner": "workspace:*"
+  }
+}
