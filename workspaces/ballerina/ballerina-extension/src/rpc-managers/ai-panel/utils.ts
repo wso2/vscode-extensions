@@ -52,16 +52,17 @@ export async function addToIntegration(workspaceFolderPath: string, fileChanges:
         }
         isBalFileAdded = true;
 
-        formattedWorkspaceEdit.createFile(fileUri, { ignoreIfExists: true });
-
-        formattedWorkspaceEdit.replace(
-            fileUri,
-            new Range(
-                new Position(0, 0),
-                new Position(Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER)
-            ),
-            fileChange.content
-        );
+        if (fs.existsSync(balFilePath)) {
+            const doc = await workspace.openTextDocument(fileUri);
+            formattedWorkspaceEdit.replace(
+                fileUri,
+                new Range(new Position(0, 0), doc.lineAt(doc.lineCount - 1).range.end),
+                fileChange.content
+            );
+        } else {
+            formattedWorkspaceEdit.createFile(fileUri);
+            formattedWorkspaceEdit.insert(fileUri, new Position(0, 0), fileChange.content);
+        }
     }
 
     // Apply all formatted changes at once
