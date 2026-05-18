@@ -60,6 +60,7 @@ import { ImportArtfactForm } from './views/Forms/ImportArtifactForm';
 import { IdpConnectorSchemaGenerateForm }from './views/Forms/IDPConnectorForm/IdpConnectorSchemaGenerateForm';
 import { KubernetesConfigurationForm } from "./views/Forms/KubernetesConfigurationForm";
 import { RegistryPropertyForm } from "./views/Forms/RegistryPropertyForm";
+import { ConvertToConsolidatedWizard } from './views/Forms/ConvertToConsolidated';
 
 const MainContainer = styled.div`
     display: flex;
@@ -314,6 +315,10 @@ const MainPanel = (props: MainPanelProps) => {
                 break;
             case MACHINE_VIEW.ProjectCreationForm:
                 setViewComponent(<ProjectWizard cancelView={MACHINE_VIEW.Overview} />);
+                shouldShowNavigator = false;
+                break;
+            case MACHINE_VIEW.ConvertToConsolidatedForm:
+                setViewComponent(<ConvertToConsolidatedWizard cancelView={MACHINE_VIEW.Overview} />);
                 shouldShowNavigator = false;
                 break;
             case MACHINE_VIEW.LocalEntryForm:

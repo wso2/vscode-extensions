@@ -98,6 +98,7 @@ export function ConnectionPage(props: ConnectorPageProps) {
     const [filteredOperations, setFilteredOperations] = useState<any[][]>([]);
     const [isOldProject, setIsOldProject] = useState(false);
     const [debouncedValue, setDebouncedValue] = useState(props.searchValue);
+    const [projectJavaVersion, setProjectJavaVersion] = useState<number | null>(null);
 
     const fetchConnections = async () => {
         const connectionData: any = await rpcClient.getMiDiagramRpcClient().getConnectorConnections({
@@ -140,6 +141,11 @@ export function ConnectionPage(props: ConnectorPageProps) {
     useEffect(() => {
         checkOldProject();
         fetchConnections();
+        rpcClient.getMiDiagramRpcClient().getMIVersionFromPom().then((response) => {
+            if (response.javaVersion) {
+                setProjectJavaVersion(parseInt(response.javaVersion, 10));
+            }
+        });
     }, []);
 
     useEffect(() => {
@@ -348,14 +354,19 @@ export function ConnectionPage(props: ConnectorPageProps) {
                                         {Object.keys(filteredConnections).map((key) => {
                                             return (
                                                 <div key={key}>
-                                                    {filteredConnections[key].connections.map((connection, index) => (
-                                                        connection && (
-                                                            <div key={key} data-key={key}>
+                                                    {filteredConnections[key].connections.map((connection) => {
+                                                        const connectorVersion = filteredConnections[key].connectorData?.version ?? '';
+                                                        const jdkMatch = connectorVersion.match(/[-_]jdk(\d+)/i);
+                                                        const requiredJavaVersion = jdkMatch ? parseInt(jdkMatch[1], 10) : null;
+                                                        const showJavaWarning = requiredJavaVersion !== null && projectJavaVersion !== null && projectJavaVersion < requiredJavaVersion;
+                                                        return connection && (
+                                                            <div key={connection.name} data-key={key}>
                                                                 <ButtonGroup
-                                                                    key={key}
+                                                                    key={connection.name}
                                                                     title={connection.name}
                                                                     isCollapsed={!expandedConnections.includes(connection)}
-                                                                    iconUri={connection.connectionIconPath}>
+                                                                    iconUri={connection.connectionIconPath}
+                                                                    warningMessage={showJavaWarning ? `This version requires Java ${requiredJavaVersion} or higher.` : undefined}>
                                                                     <>
                                                                         {((filteredOperations.find(([filteredConnection]) => filteredConnection === connection)?.slice(1)[0])
                                                                             || filteredConnections[key].connectorData?.actions).map((operation: any) => {
@@ -392,8 +403,8 @@ export function ConnectionPage(props: ConnectorPageProps) {
                                                                     </>
                                                                 </ButtonGroup >
                                                             </div>
-                                                        )
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </div>
                                             );
                                         })}

@@ -19,7 +19,7 @@
 import { Endpoint, STNode } from "@wso2/mi-syntax-tree/src";
 import { NODE_DIMENSIONS, NodeTypes } from "../../../resources/constants";
 import { BaseNodeModel } from "../BaseNodeModel";
-import { Diagnostic } from "vscode-languageserver-types";
+import { Diagnostic, DiagnosticSeverity } from "vscode-languageserver-types";
 
 export class CallNodeModel extends BaseNodeModel {
     readonly endpoint: Endpoint;
@@ -39,6 +39,10 @@ export class CallNodeModel extends BaseNodeModel {
 
     endpointHasDiagnostics(): boolean {
         return this.endpoint?.diagnostics && this.endpoint.diagnostics.length > 0;
+    }
+
+    endpointHasErrors(): boolean {
+        return this.endpoint?.diagnostics?.some(d => d.severity === DiagnosticSeverity.Error) ?? false;
     }
 
     getEndpointDiagnostics(): Diagnostic[] {

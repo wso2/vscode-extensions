@@ -41,7 +41,8 @@ import {
 } from 'vscode-languageclient';
 import { ServerOptions } from "vscode-languageclient/node";
 import { DidChangeConfigurationNotification } from 'vscode-languageserver-protocol';
-import { ErrorType } from '@wso2/mi-core';
+import { ErrorType, Platform } from '@wso2/mi-core';
+import { getPlatform } from '../RPCLayer';
 import { activateTagClosing, AutoCloseResult } from './tagClosing';
 import { ExtendedLanguageClient } from './ExtendedLanguageClient';
 import { GoToDefinitionProvider } from './DefinitionProvider';
@@ -234,7 +235,7 @@ export class MILanguageClient {
                     this.updateErrors(ERRORS.INCOMPATIBLE_JDK);
                     throw new Error(errorMessage);
                 }
-                let executable: string = path.join(JAVA_HOME, 'bin', 'java');
+                let executable: string = path.join(JAVA_HOME, 'bin', getPlatform() === Platform.WINDOWS ? 'java.exe' : 'java');
                 let schemaPath = extension.context.asAbsolutePath(path.join("synapse-schemas", "synapse_config.xsd"));
                 let langServerCP = extension.context.asAbsolutePath(path.join('ls', '*'));
 

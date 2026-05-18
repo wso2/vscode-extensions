@@ -124,7 +124,7 @@ export async function importCapp(params: ImportProjectRequest): Promise<ImportPr
             projectDir = directory;
         }
         const folderStructure: FileStructure = {
-            'pom.xml': rootPomXmlContent(projectName, groupId, artifactId, projectUuid, version, LATEST_MI_VERSION, ""),
+            'pom.xml': await rootPomXmlContent(projectName, groupId, artifactId, projectUuid, version, LATEST_MI_VERSION, ""),
             '.env': '',
             'src': {
                 'main': {

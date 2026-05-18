@@ -31,10 +31,10 @@ import { RPCLayer } from '../RPCLayer';
 import { deleteSwagger, generateSwagger } from '../util/swagger';
 import { VisualizerWebview, webviews } from './webview';
 import * as fs from 'fs';
-import { AiPanelWebview } from '../ai-panel/webview';
+import { AiPanelWebview } from '../ai-features/webview';
 import { MiDiagramRpcManager } from '../rpc-managers/mi-diagram/rpc-manager';
 import { log, outputChannel } from '../util/logger';
-import { CACHED_FOLDER, INTEGRATION_PROJECT_DEPENDENCIES_DIR } from '../util/onboardingUtils';
+import { CACHED_FOLDER, INTEGRATION_PROJECT_DEPENDENCIES_DIR, isConsolidatedProject } from '../util/onboardingUtils';
 import { extractZip, formatAndSavePomDocument, getHash, zipProjectFolder } from '../util/fileOperations';
 import { MILanguageClient } from '../lang-client/activator';
 import { ConflictingDependency } from '../lang-client/ExtendedLanguageClient';
@@ -43,15 +43,57 @@ import { askForProject } from '../util/workspace';
 export function activateVisualizer(context: vscode.ExtensionContext, firstProject: string) {
     context.subscriptions.push(
         vscode.commands.registerCommand(COMMANDS.OPEN_PROJECT, (providedUri?: vscode.Uri) => {
-            const processUri = (uri: vscode.Uri[] | undefined) => {
+            const processUri = async (uri: vscode.Uri[] | undefined) => {
                 if (uri && uri[0]) {
+                    let isWorkspaceAlreadyOpen = false;
+                    let isConsolidatedProjectAlreadyOpened = false;
+                    let isSelectedProjectConsolidated = false;
+                    const workspaceFolders = vscode.workspace.workspaceFolders;
+                    if (isConsolidatedProject(uri[0].fsPath)) {
+                        isSelectedProjectConsolidated = true;
+                    }
+                    if (workspaceFolders && workspaceFolders.length > 0) {
+                        isWorkspaceAlreadyOpen = true;
+                        if (isConsolidatedProject(path.dirname(workspaceFolders[0].uri.fsPath))) {
+                            isConsolidatedProjectAlreadyOpened = true;
+                        }
+                    }
+
+                    const rpcManager = new MiDiagramRpcManager("");
+                    if (isWorkspaceAlreadyOpen) {
+                        if (isSelectedProjectConsolidated) {
+                            await rpcManager.addSubfoldersToWorkspace(uri[0].fsPath);
+                            return;
+                        } else {
+                            if (isConsolidatedProjectAlreadyOpened) {
+                                window.showInformationMessage('Would you like to add the project to the existing consolidated project?',
+                                    { modal: true },
+                                    'Yes',
+                                    'No'
+                                ).then(selection => {
+                                    if (selection === "Yes") {
+                                        rpcManager.addProjectToConsolidatedProject(uri[0].fsPath, path.dirname(workspaceFolders![0].uri.fsPath));
+                                    } else if (selection === "No") {
+                                        commands.executeCommand('vscode.openFolder', uri[0]);
+                                        return;
+                                    }
+                                });
+                            }
+                        }
+                    } else {
+                        if (isSelectedProjectConsolidated) {
+                            await rpcManager.addSubfoldersToWorkspace(uri[0].fsPath);
+                            return;
+                        } else {
+                            commands.executeCommand('vscode.openFolder', uri[0]);
+                        }
+                    }
+
                     const webview = [...webviews.values()].find(webview => webview.getWebview()?.active) || [...webviews.values()][0];
                     const projectUri = webview ? webview.getProjectUri() : firstProject;
                     const projectOpened = getStateMachine(projectUri).context().projectOpened;
-                    if (projectOpened) {
+                    if (projectOpened && !isConsolidatedProjectAlreadyOpened && !isSelectedProjectConsolidated) {
                         handleOpenProject(uri[0]);
-                    } else {
-                        commands.executeCommand('vscode.openFolder', uri[0]);
                     }
                 }
             };
@@ -112,7 +154,12 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                             directory: path.dirname(args.path),
                             name: path.basename(args.path),
                             open: args.open ?? false,
-                            miVersion: "4.4.0"
+                            miVersion: args.miVersion ?? "4.6.0",
+                            isConsolidatedProject: args.isConsolidatedProject ?? false,
+                            subProjects: args.subProjects ?? [],
+                            groupID: args.groupId ?? "com.microintegrator.projects",
+                            artifactID: args.artifactId ?? args.name,
+                            version: args.version ?? "1.0.0"
                         }
                     );
                     await createSettingsFile(args);
@@ -172,7 +219,11 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                                             const projectUri = webview ? webview.getProjectUri() : firstProject;
                                             const projectOpened = getStateMachine(projectUri).context().projectOpened;
                                             if (projectOpened) {
-                                                handleOpenProject(Uri.file(result));
+                                                if (isConsolidatedProject(path.dirname(projectUri))) {
+                                                    commands.executeCommand('vscode.openFolder', Uri.file(result));
+                                                } else {
+                                                    handleOpenProject(Uri.file(result));
+                                                }
                                             } else {
                                                 commands.executeCommand('vscode.openFolder', Uri.file(result));
                                             }
@@ -201,7 +252,11 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
             }
             let sourceProject: string;
             if (vscode.workspace.workspaceFolders.length > 1) {
-                sourceProject = await askForProject();
+                if (isConsolidatedProject(path.dirname(vscode.workspace.workspaceFolders[0].uri.fsPath))) {
+                    sourceProject = path.dirname(vscode.workspace.workspaceFolders[0].uri.fsPath);
+                } else {
+                    sourceProject = await askForProject();
+                }
             } else {
                 sourceProject = vscode.workspace.workspaceFolders[0].uri.fsPath;
             }
@@ -226,7 +281,7 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                         placeHolder: "Export Options",
                     }
                 );
-                
+
 
                 if (selection) {
                     let destination: string | undefined;
@@ -271,6 +326,12 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
         vscode.commands.registerCommand(COMMANDS.OPEN_WELCOME, () => {
             const webview = [...webviews.values()].find(webview => webview.getWebview()?.active) || [...webviews.values()][0];
             openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.Welcome, projectUri: webview ? webview.getProjectUri() : firstProject });
+        })
+    );
+    context.subscriptions.push(
+        vscode.commands.registerCommand(COMMANDS.CONVERT_TO_CONSOLIDATED, () => {
+            const webview = [...webviews.values()].find(webview => webview.getWebview()?.active) || [...webviews.values()][0];
+            openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.ConvertToConsolidatedForm, projectUri: webview ? webview.getProjectUri() : firstProject });
         })
     );
     // Activate editor/title items

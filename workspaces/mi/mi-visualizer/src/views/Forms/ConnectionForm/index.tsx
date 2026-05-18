@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { ComponentCard, IconLabel, FormView, TextField, Codicon, Typography, FormActions, Button, Divider, Icon, DropdownButton } from "@wso2/ui-toolkit";
+import { ComponentCard, IconLabel, FormView, TextField, Codicon, Typography, FormActions, Button, Divider, Icon, DropdownButton, Tooltip } from "@wso2/ui-toolkit";
 import { useEffect, useState } from "react";
 import styled from "@emotion/styled";
 import { VSCodeLink, VSCodeProgressRing } from "@vscode/webview-ui-toolkit/react";
@@ -112,6 +112,18 @@ const NameLabel = styled(IconLabel)`
     font-size: 1.2em;
 `;
 
+const WarningBanner = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    margin-bottom: 8px;
+    background-color: var(--vscode-inputValidation-warningBackground);
+    border: 1px solid var(--vscode-inputValidation-warningBorder);
+    color: var(--vscode-inputValidation-warningForeground);
+    font-size: 12px;
+`;
+
 const connectorCardStyle = {
     border: '1px solid var(--vscode-dropdown-border)',
     backgroundColor: 'var(--vscode-dropdown-background)',
@@ -128,6 +140,15 @@ const connectorCardStyle = {
         backgroundColor: 'var(--vscode-editorHoverWidget-statusBarBackground)'
     },
     fontSize: '15px'
+};
+
+const disabledConnectorCardStyle = {
+    ...connectorCardStyle,
+    cursor: 'not-allowed',
+    opacity: 0.5,
+    '&:hover': {
+        backgroundColor: 'var(--vscode-dropdown-background)'
+    }
 };
 
 const IconWrapper = styled.div`
@@ -175,6 +196,8 @@ const option2 = (
     </div>
 );
 
+const WSO2_AI_CONNECTION_TYPE = 'WSO2_AI';
+
 export function ConnectionWizard(props: ConnectionStoreProps) {
     const { rpcClient } = useVisualizerContext();
     const { allowedConnectionTypes } = props;
@@ -190,6 +213,8 @@ export function ConnectionWizard(props: ConnectionStoreProps) {
     const [searchValue, setSearchValue] = useState<string>('');
     const [isFailedDownload, setIsFailedDownload] = useState(false);
     const [selectedItem, setSelectedItem] = useState<string>("openapi");
+    const [isMiCopilotLoggedIn, setIsMiCopilotLoggedIn] = useState<boolean>(false);
+    const [projectJavaVersion, setProjectJavaVersion] = useState<number | null>(null);
 
     const fetchLocalConnectorData = async () => {
         const connectorData = await rpcClient.getMiDiagramRpcClient().getAvailableConnectors({ documentUri: props.path, connectorName: "" });
@@ -243,6 +268,15 @@ export function ConnectionWizard(props: ConnectionStoreProps) {
     useEffect(() => {
         fetchLocalConnectorData();
         fetchStoreConnectors();
+        // Check MI Copilot login status for WSO2_AI connection
+        rpcClient.getMiAiPanelRpcClient().isMiCopilotLoggedIn()
+            .then(setIsMiCopilotLoggedIn)
+            .catch(() => setIsMiCopilotLoggedIn(false));
+        rpcClient.getMiDiagramRpcClient().getMIVersionFromPom().then((response) => {
+            if (response.javaVersion) {
+                setProjectJavaVersion(parseInt(response.javaVersion, 10));
+            }
+        });
     }, []);
 
     const searchConnectors = () => {
@@ -475,14 +509,23 @@ export function ConnectionWizard(props: ConnectionStoreProps) {
                                 <>
                                     {Object.entries(connector.connectionUiSchema).length > 0 && (
                                         <SampleGrid>
-                                            {Object.entries(connector.connectionUiSchema).map(([connectionType, connectionData]) => (
-                                                (allowedConnectionTypes && !allowedConnectionTypes.some(
-                                                    type => type.toLowerCase() === connectionType.toLowerCase() // Ignore case on allowedtype check
-                                                )) ? null : (
+                                            {Object.entries(connector.connectionUiSchema).map(([connectionType, connectionData]) => {
+                                                // Check if connection type is in allowed list (if specified)
+                                                if (allowedConnectionTypes && !allowedConnectionTypes.some(
+                                                    type => type.toLowerCase() === connectionType.toLowerCase()
+                                                )) {
+                                                    return null;
+                                                }
+
+                                                // Check if WSO2_AI connection requires login
+                                                const isWso2AiConnection = connectionType.toUpperCase() === WSO2_AI_CONNECTION_TYPE;
+                                                const isDisabled = isWso2AiConnection && !isMiCopilotLoggedIn;
+
+                                                const cardContent = (
                                                     <ComponentCard
                                                         key={connectionType}
-                                                        onClick={() => selectConnectionType(connector, connectionType)}
-                                                        sx={connectorCardStyle}
+                                                        onClick={isDisabled ? undefined : () => selectConnectionType(connector, connectionType)}
+                                                        sx={isDisabled ? disabledConnectorCardStyle : connectorCardStyle}
                                                     >
                                                         <CardContent>
                                                             <IconContainer>
@@ -500,7 +543,24 @@ export function ConnectionWizard(props: ConnectionStoreProps) {
                                                             </CardLabel>
                                                         </CardContent>
                                                     </ComponentCard>
-                                                )))}
+                                                );
+
+                                                // Wrap disabled WSO2_AI connection with tooltip
+                                                if (isDisabled) {
+                                                    return (
+                                                        <Tooltip
+                                                            key={connectionType}
+                                                            content="Login to WSO2 Integrator Copilot to use WSO2_AI connection"
+                                                            position="top"
+                                                            containerSx={{ display: 'flex' }}
+                                                        >
+                                                            {cardContent}
+                                                        </Tooltip>
+                                                    );
+                                                }
+
+                                                return cardContent;
+                                            })}
                                         </SampleGrid>
                                     )}
                                 </>
@@ -513,12 +573,21 @@ export function ConnectionWizard(props: ConnectionStoreProps) {
                                 {checkStoreConnectionsAvailable(displayedStoreConnectors, displayedLocalConnectors) &&
                                     <>
                                         <Typography variant="h3">In Store: </Typography>
-                                        {displayedStoreConnectors.sort((a: any, b: any) => a.connectorRank - b.connectorRank).map((connector: any) => (
-                                            (connector.version.connections?.length > 0) && <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '10px' }}>
+                                        {displayedStoreConnectors.sort((a: any, b: any) => a.connectorRank - b.connectorRank).map((connector: any) => {
+                                            const jdkMatch = connector.version.tagName?.match(/[-_]jdk(\d+)/i);
+                                            const requiredJavaVersion = jdkMatch ? parseInt(jdkMatch[1], 10) : null;
+                                            const showJavaWarning = requiredJavaVersion !== null && projectJavaVersion !== null && projectJavaVersion < requiredJavaVersion;
+                                            return (connector.version.connections?.length > 0) && <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '10px' }}>
                                                 <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
                                                     <Typography variant="h4">{connector.connectorName} Connector </Typography>
                                                     <VersionTag>{connector.version.tagName}</VersionTag>
                                                 </div>
+                                                {showJavaWarning && (
+                                                    <WarningBanner>
+                                                        <Codicon name="warning" />
+                                                        This version requires Java {requiredJavaVersion} or higher.
+                                                    </WarningBanner>
+                                                )}
                                                 <SampleGrid>
                                                     {(connector.version.connections).map((connection: any) => (
                                                         <ComponentCard
@@ -549,7 +618,7 @@ export function ConnectionWizard(props: ConnectionStoreProps) {
                                                     ))}
                                                 </SampleGrid>
                                             </div>
-                                        ))}
+                                        })}
                                     </>}
                             </>
                         )}

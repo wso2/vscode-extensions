@@ -22,7 +22,7 @@ import * as path from 'path';
 import * as childprocess from 'child_process';
 import { parseString, Builder } from 'xml2js';
 import { v4 as uuidv4 } from 'uuid';
-import { dockerfileContent, rootPomXmlContent } from './templates';
+import { consolidatedProjectPomContent, dockerfileContent, rootPomXmlContent } from './templates';
 import { createFolderStructure, copyDockerResources, copyMavenWrapper, removeMavenWrapper } from '.';
 import { commands, Uri, window, workspace } from 'vscode';
 import { extension } from '../MIExtensionContext';
@@ -30,6 +30,7 @@ import { XMLParser, XMLBuilder } from "fast-xml-parser";
 import { updatePomForClassMediator, LATEST_MI_VERSION } from './onboardingUtils';
 import { setJavaHomeInEnvironmentAndPath } from '../debugger/debugHelper';
 import { MVN_COMMANDS } from "../constants";
+import { updatePomWithParent } from './fileOperations';
 
 enum Nature {
     MULTIMODULE,
@@ -421,7 +422,7 @@ export async function importProject(params: ImportProjectRequest): Promise<Impor
 
         // If no folder structure was created, create one in the given directory
         if (createdProjectCount == 0) {
-            const folderStructure = getFolderStructure(projectName, groupId, artifactId, projectUuid, version, runtimeVersion ?? LATEST_MI_VERSION);
+            const folderStructure = await getFolderStructure(projectName, groupId, artifactId, projectUuid, version, runtimeVersion ?? LATEST_MI_VERSION);
             await createFolderStructure(source, folderStructure);
             copyDockerResources(extension.context.asAbsolutePath(path.join('resources', 'docker-resources')), source);
             logInfo("Created project structure for project: " + projectName);
@@ -476,7 +477,7 @@ async function createFolderStructuresForDistributionProjects(
                     getProjectDetails(projectDir, projectDirToResolvedPomMap);
 
                 if (projectName && groupId && artifactId && version) {
-                    const newFolderStructure = getFolderStructure(
+                    const newFolderStructure = await getFolderStructure(
                         projectName,
                         groupId,
                         artifactId,
@@ -773,6 +774,26 @@ async function updateWorkspaceWithNewFolders(projectUri: string, createdFolderUr
         const currentProjectIndex = workspaceFolders.findIndex(folder => folder.uri.fsPath === projectUri);
         const foldersToAdd = urisToAdd.map(uri => ({ uri }));
         const foldersToRemove = currentProjectIndex !== -1 ? [currentProjectIndex] : [];
+
+        const config = workspace.getConfiguration('MI', Uri.file(projectUri));
+        const convertToConsolidated = config.get("convertToConsolidatedProjectAfterMigration");
+
+        if (convertToConsolidated) {
+            const runtimeVersion = getProjectDetails(foldersToAdd[0].uri.fsPath).runtimeVersion;
+            fs.writeFileSync(
+                path.join(path.dirname(foldersToAdd[0].uri.fsPath), 'pom.xml'),
+                consolidatedProjectPomContent(
+                    "consolidated-project",
+                    "com.microintegrator.projects",
+                    "consolidated-project",
+                    "1.0.0",
+                    runtimeVersion ?? LATEST_MI_VERSION,
+                    foldersToAdd.map(folder => path.basename(folder.uri.fsPath))));
+            for (const folder of foldersToAdd) {
+                const pomPath = path.join(folder.uri.fsPath, 'pom.xml');
+                updatePomWithParent(pomPath, { groupId: "com.microintegrator.projects", artifactId: "consolidated-project", version: "1.0.0" });
+            }
+        }
 
         workspace.updateWorkspaceFolders(
             foldersToRemove[0] ?? workspaceFolders.length,
@@ -1178,16 +1199,16 @@ function getPomIdentifier(projectDir: string, projectDirToResolvedPom: Map<strin
     return null;
 }
 
-function getFolderStructure(
+async function getFolderStructure(
     projectName: string,
     groupId: string,
     artifactId: string,
     projectUuid: string,
     version: string,
     runtimeVersion: string | undefined
-): FileStructure {
+): Promise<FileStructure> {
     return {
-        'pom.xml': rootPomXmlContent(projectName, groupId, artifactId, projectUuid, version, runtimeVersion ?? LATEST_MI_VERSION, ""),
+        'pom.xml': await rootPomXmlContent(projectName, groupId, artifactId, projectUuid, version, runtimeVersion ?? LATEST_MI_VERSION, ""),
         '.env': '',
         'src': {
             'main': {

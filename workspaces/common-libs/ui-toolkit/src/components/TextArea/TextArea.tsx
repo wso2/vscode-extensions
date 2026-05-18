@@ -71,7 +71,7 @@ const LabelContainer = styled.div<ContainerProps>`
 export const TextArea = React.forwardRef<HTMLTextAreaElement, TextAreaProps>(
     function TextArea(props: TextAreaProps, ref: React.ForwardedRef<HTMLTextAreaElement>) {
         const { label, id, className, autoFocus, required, validationMessage, cols = 40,
-            rows, resize, errorMsg, sx, onTextChange, labelAdornment, icon, "aria-label": ariaLabel, ...rest
+            rows, resize, errorMsg, sx, onTextChange, labelAdornment, icon, "aria-label": ariaLabel, disabled, ...rest
         } = props;
 
         const { iconComponent, onClick: iconClick } = icon || {};
@@ -92,6 +92,7 @@ export const TextArea = React.forwardRef<HTMLTextAreaElement, TextAreaProps>(
                 <VSCodeTextArea
                     ref={ref}
                     autoFocus={autoFocus}
+                    disabled={disabled || undefined}
                     validationMessage={validationMessage}
                     cols={cols}
                     rows={rows}

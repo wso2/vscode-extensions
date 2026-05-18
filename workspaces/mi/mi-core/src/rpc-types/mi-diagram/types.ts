@@ -364,6 +364,9 @@ export interface CreateProjectRequest {
     artifactID?: string;
     version?: string;
     miVersion: string;
+    isConsolidatedProject?: boolean;
+    subProjects?: string[];
+    isMigration?: boolean;
 }
 
 export interface ImportProjectRequest {
@@ -462,6 +465,7 @@ export interface ShowErrorMessageRequest {
 export interface OpenDiagramRequest {
     path: string;
     beside?: boolean;
+    line?: number;
 }
 
 export interface CreateAPIResponse {
@@ -1440,6 +1444,7 @@ export interface MultipleResourceType {
 export interface GetAvailableResourcesRequest {
     documentIdentifier: string | undefined;
     resourceType: ResourceType | MultipleResourceType[];
+    isDebugFlow?: boolean;
 }
 
 export interface GetAvailableResourcesResponse {
@@ -1480,7 +1485,6 @@ export interface ConfigureKubernetesResponse {
 }
 
 export interface GetProxyRootUrlResponse {
-    openaiUrl: string;
     anthropicUrl: string;
 }
 
@@ -1548,6 +1552,79 @@ export interface GetAvailableConnectorResponse {
     artifactId?: string;
     connectorZipPath?: string;
 }
+
+// --- synapse/getConnectorInfo ---
+// Per Connector-Info-API.md. Either returns a full Connector object or a plain
+// string error message.
+export interface GetConnectorInfoRequest {
+    groupId: string;
+    artifactId: string;
+    version: string;
+}
+
+export interface ConnectorActionParameter {
+    name: string;
+    description?: string;
+    required?: boolean;
+    xsdType?: string;
+}
+
+export interface ConnectorAction {
+    name: string;
+    tag?: string;
+    displayName?: string;
+    description?: string;
+    groupName?: string;
+    hidden?: boolean;
+    isHidden?: boolean;
+    supportsResponseModel?: boolean;
+    canActAsAgentTool?: boolean;
+    allowedConnectionTypes?: string[];
+    outputSchemaPath?: string;
+    outputSchema?: unknown;
+    parameters?: ConnectorActionParameter[];
+}
+
+export interface ConnectorInfo {
+    name: string;
+    displayName?: string;
+    artifactId?: string;
+    version?: string;
+    packageName?: string;
+    uiSchemaPath?: string;
+    outputSchemaPath?: string;
+    connectionUiSchema?: connectionUiSchemaRecord;
+    actions?: ConnectorAction[];
+}
+
+// Either the info object on success, or a plain string on error.
+export type GetConnectorInfoResponse = ConnectorInfo | string;
+
+// --- synapse/getInboundInfo ---
+// Accepts either a bundled id OR full Maven coordinates (never a partial mix).
+// Returns an InboundEndpointInfo or a plain string error.
+export type GetInboundInfoRequest =
+    | { id: string; groupId?: never; artifactId?: never; version?: never }
+    | { id?: never; groupId: string; artifactId: string; version: string };
+
+export interface InboundEndpointParameter {
+    name: string;
+    description?: string;
+    required?: boolean;
+    xsdType?: string;
+}
+
+export interface InboundEndpointInfo {
+    name: string;
+    id: string;
+    displayName?: string;
+    description?: string;
+    type?: string;              // "event-integration", "inbuilt-inbound-endpoint", ...
+    source: 'bundled' | 'downloaded';
+    parameters?: InboundEndpointParameter[];
+}
+
+export type GetInboundInfoResponse = InboundEndpointInfo | string;
 
 export interface ConnectorDependency {
     artifactId: string;
@@ -1654,6 +1731,7 @@ export interface CreateConnectionRequest {
     keyValuesXML: string;
     directory: string;
     filePath?: string;
+    connectionType?: string;
 }
 
 export interface CreateConnectionResponse {
@@ -1728,7 +1806,7 @@ export interface APIContextsResponse {
 }
 
 export interface BuildProjectRequest {
-    buildType?: 'docker' | 'capp';
+    buildType?: 'docker' | 'capp' | 'consolidated';
 }
 
 export interface DevantMetadata {
@@ -1780,7 +1858,7 @@ export interface SwaggerFromAPIRequest {
     swaggerPath?: string;
     isJsonIn?: boolean;
     isJsonOut?: boolean;
-    host?: string;
+    hostname?: string;
     port?: number;
     projectPath?: string;
 }
@@ -1930,6 +2008,7 @@ export interface DSSFetchTablesRequest {
     username: string;
     password: string;
     url: string;
+    driverPath: string;
 }
 
 export interface DSSFetchTablesResponse {
@@ -1966,6 +2045,7 @@ export interface FileRenameRequest {
 
 export interface MiVersionResponse {
     version: string;
+    javaVersion?: string;
 }
 
 export interface MediatorTryOutRequest {
@@ -2103,6 +2183,21 @@ export interface UpdateMediatorRequest {
     values: any;
     dirtyFields?: string[];
     trailingSpace?: string;
+}
+
+export interface McpToolsRequest {
+    documentUri: string;
+    range: Range;
+    connectionName: string;
+}
+
+export interface McpToolsResponse {
+    tools: Array<{
+        name: string;
+        description?: string;
+    }>;
+    selectedTools?: string[];
+    error?: string;
 }
 
 export interface UpdateMediatorResponse {
@@ -2263,4 +2358,127 @@ export interface GenerateMappingsParamsRequest {
     username?: string;
     password?: string;
     type: 'input' | 'output'
+}
+export interface DynamicField {
+    type: string;
+    value: {
+        name: string;
+        displayName: string;
+        inputType: string;
+        required: string;
+        helpTip: string;
+        placeholder: string;
+        defaultValue: string;
+    };
+}
+
+export interface GetDynamicFieldsRequest {
+    connectorName: string;
+    operationName: string;
+    fieldName: string;
+    selectedValue: string;
+    connection: ConnectorConnection;
+}
+
+export interface GetDynamicFieldsResponse {
+    columns: DynamicField[];
+}
+
+export interface GetStoredProceduresResponse {
+    procedures: string[];
+}
+
+export interface DriverDownloadRequest {
+    connectorName: string;
+    connectionType: string;
+}
+
+export interface DriverDownloadResponse {
+    driverPath: string;
+}
+export interface DriverMavenCoordinatesRequest {
+    filePath: string;
+    connectorName: string;
+    connectionType: string;
+}
+
+export interface DriverMavenCoordinatesResponse {
+    groupId: string;
+    artifactId: string;
+    version: string;
+    found: boolean;
+}
+
+export interface LoadDriverAndTestConnectionRequest {
+    dbType: string;
+    username: string;
+    password: string;
+    host: string;
+    port: string;
+    dbName: string;
+    url: string;
+    className: string;
+    driverPath: string;
+}
+
+export interface ProjectCreationStatusResponse {
+    canCreateConsolidatedProject: boolean;
+    isConsolidatedProject: boolean;
+}
+
+export interface ConnectorEffectiveDependency {
+    connectionType?: string;
+    groupId?: string;
+    artifactId?: string;
+    defaultVersion?: string;
+    overriddenVersion?: string;
+    omit?: boolean;
+    isOverridden?: boolean;
+    isConnectionTypeActive?: boolean;
+    localPath?: string;
+}
+
+export interface ConnectorEffectiveData {
+    omit?: boolean;
+    omitAllDrivers?: boolean;
+    dependencies?: ConnectorEffectiveDependency[];
+}
+
+export interface GetConnectorDependenciesRequest {
+    connectorArtifactId?: string;
+}
+
+export interface GetConnectorDependenciesResponse {
+    omitAllDrivers?: boolean;
+    omitAllConnectors?: boolean;
+    dependencies?: ConnectorEffectiveDependency[];
+    allConnectors?: { [connectorArtifactId: string]: ConnectorEffectiveData };
+}
+
+export interface UpdateConnectorDependencyOverrideRequest {
+    connectorArtifactId: string;
+    connectionType?: string;
+    groupId?: string;
+    artifactId?: string;
+    version?: string;
+    omit?: boolean;
+    localPath?: string;
+}
+
+export interface ResetConnectorDependencyOverridesRequest {
+    connectorArtifactId: string;
+    connectionType?: string;
+    groupId?: string;
+    artifactId?: string;
+}
+
+export interface UpdateConnectorFlagsRequest {
+    connectorArtifactId: string;
+    omit?: boolean;
+    omitAllDrivers?: boolean;
+}
+
+export interface UpdateGlobalConnectorFlagsRequest {
+    omitAllDrivers?: boolean;
+    omitAllConnectors?: boolean;
 }

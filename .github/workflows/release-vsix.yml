@@ -36,6 +36,16 @@ on:
         type: boolean
         required: true
         default: false
+      hurl-client:
+        description: Release Hurl Client extension
+        type: boolean
+        required: true
+        default: false
+      ballerinaLsTag:
+        description: 'Override Ballerina LS download tag (latest, prerelease, v1.5.0). Overrides isPreRelease for LS download.'
+        type: string
+        required: false
+        default: ''
       version:
         type: choice
         description: 'Enter the version type'
@@ -55,6 +65,7 @@ jobs:
     with:
       runOnAWS: true
       isPreRelease: ${{ inputs.isPreRelease }}
+      ballerinaLsTag: ${{ inputs.ballerinaLsTag }}
       enableCache: false
       ballerina: ${{ inputs.ballerina }}
       wso2-platform: ${{ inputs.wso2-platform }}
@@ -62,6 +73,7 @@ jobs:
       apk: ${{ inputs.apk }}
       bi:  ${{ inputs.bi }}
       mi:  ${{ inputs.mi }}
+      hurl-client: ${{ inputs.hurl-client }}
       version: ${{ inputs.version }}
       isReleaseBuild: true
 
@@ -109,6 +121,9 @@ jobs:
           fi
           if [[ "${{ github.event.inputs.mi }}" == "true" ]]; then
             file=$(ls micro-integrator*.vsix)
+          fi
+          if [[ "${{ github.event.inputs.hurl-client }}" == "true" ]]; then
+            file=$(ls hurl-client-[0-9]*.[0-9]*.[0-9]*.vsix)
           fi
           version=$(basename "$file" .vsix)
           echo $version
@@ -179,6 +194,15 @@ jobs:
           name: micro-integrator
           chatAPI: ${{ steps.chat.outputs.chatAPI }}
 
+      - name: Create a release in wso2/ballerina-vscode repo for hurl-client
+        if: ${{ github.event.inputs.hurl-client == 'true' }}
+        uses: ./.github/actions/release
+        with:
+          repo: wso2/ballerina-vscode
+          token: ${{ secrets.CHOREO_BOT_TOKEN }}
+          name: hurl-client
+          chatAPI: ${{ secrets.TOOLING_TEAM_CHAT_API }}
+
       - name: Create PR and notify
         uses: ./.github/actions/pr
         with:
@@ -195,6 +219,7 @@ jobs:
           choreo: ${{ inputs.choreo }}
           apk: ${{ inputs.apk }}
           mi: ${{ inputs.mi }}
+          hurl-client: ${{ inputs.hurl-client }}
           chatAPI: ${{ secrets.TOOLING_TEAM_CHAT_API }}
 
   Notify:

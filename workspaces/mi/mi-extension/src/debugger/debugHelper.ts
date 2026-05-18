@@ -39,6 +39,7 @@ import { getJavaHomeFromConfig, getServerPathFromConfig } from '../util/onboardi
 import * as crypto from 'crypto';
 import { Uri, workspace } from "vscode";
 import { MILanguageClient } from '../lang-client/activator';
+import { getBuildOrder } from './pomResolver';
 
 const child_process = require('child_process');
 const findProcess = require('find-process');
@@ -154,10 +155,9 @@ export async function executeCopyTask(task: vscode.Task) {
     });
 }
 
-export async function executeBuildTask(projectUri: string, serverPath: string, shouldCopyTarget: boolean = true, postBuildTask?: Function) {
-    return new Promise<void>(async (resolve, reject) => {
-
-        if (shouldCopyTarget) {
+export async function executeBuildTask(projectUri: string, serverPath: string, shouldCopyTarget: boolean = true, postBuildTask?: Function, isConsolidated: boolean = false) {
+    if (shouldCopyTarget) {
+        if (DebuggerConfig.getProjectList().length <= 1) {
             const isEqual = await compareFilesByMD5(path.join(serverPath, "conf", "deployment.toml"),
                 path.join(projectUri, "deployment", "deployment.toml"));
             if (!isEqual) {
@@ -174,103 +174,154 @@ export async function executeBuildTask(projectUri: string, serverPath: string, s
                     fs.copyFileSync(path.join(serverPath, "conf", "deployment.toml"), path.join(projectUri, "deployment", "deployment.toml"));
                     DebuggerConfig.setConfigPortOffset(projectUri);
                 } else {
-                    reject('Deployment configurations in the project should be as the same as the runtime.');
-                    return;
+                    throw new Error('Deployment configurations in the project should be the same as the runtime.');
                 }
             }
-      }
-
-        const buildCommand = getBuildCommand(projectUri);
-        const envVariables = {
-            ...process.env,
-            ...setJavaHomeInEnvironmentAndPath(projectUri)
-        };
-        const buildProcess = await child_process.spawn(buildCommand, [], { shell: true, cwd: projectUri, env: envVariables });
-        showServerOutputChannel();
-
-        buildProcess.stdout.on('data', (data) => {
-            serverLog(data.toString('utf8'));
-        });
-
-        if (shouldCopyTarget) {
-            buildProcess.on('close', async (code) => {
-                if (code === 0) {
-                    vscode.window.showInformationMessage('Project build was successful');
-                } else {
-                    vscode.window.showErrorMessage('Failed to build integration project.');
-                }
-            });
         }
+    } else {
+        if (isConsolidated) {
+            const workspaceFolders = vscode.workspace.workspaceFolders;
+            const folderPaths = workspaceFolders?.map(f => f.uri.fsPath) || [];
+            
+            if (folderPaths.length === 0) {
+                const message = 'No workspace folder is opened';
+                vscode.window.showErrorMessage(message);
+                return;
+            }
+            DebuggerConfig.setProjectList(folderPaths);
+        } else {
+            DebuggerConfig.setProjectList([projectUri]);
+        }
+    }
 
-        buildProcess.stderr.on('data', (data) => {
-            serverLog(`Build error:\n${data.toString('utf8')}`);
-        });
+    if (DebuggerConfig.getProjectList().length > 0) {
+        const orderedProjectList = DebuggerConfig.getProjectList().length > 1 ? 
+                await getBuildOrder(DebuggerConfig.getProjectList()) : DebuggerConfig.getProjectList();
+        for (const project of orderedProjectList) {
+            let buildOutput = '';
 
-        if (shouldCopyTarget) {
+            const runBuildProcess = (forceUpdate?: boolean): Promise<void> => new Promise<void>(async (resolve, reject) => {
+                buildOutput = '';
+                const buildCommand = getBuildCommand(project) + (forceUpdate ? ' -U' : '');
+                const envVariables = {
+                    ...process.env,
+                    ...setJavaHomeInEnvironmentAndPath(project)
+                };
 
-            buildProcess.on('exit', async (code) => {
-                if (shouldCopyTarget && code === 0) {
-                    if (!fs.existsSync(serverPath)) {
-                        reject(INCORRECT_SERVER_PATH_MSG);
-                    }
-                    // Check if the target directory exists in the workspace
-                    const workspaceFolders = vscode.workspace.workspaceFolders;
-                    if (workspaceFolders && workspaceFolders.length > 0) {
-                        // copy all the jars present in deployement/libs
-                        const workspaceLibs = vscode.Uri.joinPath(vscode.Uri.file(projectUri), "deployment", "libs");
-                        if (fs.existsSync(workspaceLibs.fsPath)) {
-                            try {
-                                const jars = await getDeploymentLibJars(workspaceLibs);
-                                if (jars.length > 0) {
-                                    const targetLibs = path.join(serverPath, 'lib');
-                                    jars.forEach(jar => {
-                                        const destinationJar = path.join(targetLibs, path.basename(jar.fsPath));
-                                        fs.copyFileSync(jar.fsPath, destinationJar);
-                                        DebuggerConfig.setCopiedLibs(destinationJar);
-                                    });
-                                }
-                            } catch (err) {
-                                reject(err);
-                            }
+                const buildProcess = await child_process.spawn(
+                    buildCommand,
+                    [],
+                    { shell: true, cwd: project, env: envVariables }
+                );
+                showServerOutputChannel();
+
+                buildProcess.stdout.on('data', (data) => {
+                    const text = data.toString('utf8');
+                    buildOutput += text;
+                    serverLog(text);
+                });
+
+                if (shouldCopyTarget) {
+                    buildProcess.on('close', async (code) => {
+                        if (code === 0) {
+                            vscode.window.showInformationMessage(`${path.basename(project)} build was successful`);
+                        } else {
+                            vscode.window.showErrorMessage(`${path.basename(project)} build failed`);
                         }
-                        const targetDirectory = vscode.Uri.joinPath(vscode.Uri.file(projectUri), "target");
-                        if (fs.existsSync(targetDirectory.fsPath)) {
-                            try {
-                                const sourceFiles = await getCarFiles(targetDirectory);
-                                if (sourceFiles.length === 0) {
-                                    const errorMessage = "No .car files were found in the target directory. Built without copying to the server's carbonapps directory.";
-                                    logDebug(errorMessage, LogLevel.ERROR);
-                                    reject(errorMessage);
+                    });
+                }
+
+                buildProcess.stderr.on('data', (data) => {
+                    const text = data.toString('utf8');
+                    buildOutput += text;
+                    serverLog(`Build error:\n${text}`);
+                });
+
+                if (shouldCopyTarget) {
+
+                    buildProcess.on('exit', async (code) => {
+                        if (shouldCopyTarget && code === 0) {
+                            if (!fs.existsSync(serverPath)) {
+                                reject(INCORRECT_SERVER_PATH_MSG);
+                                return;
+                            }
+                            // Check if the target directory exists in the workspace
+                            const workspaceFolders = vscode.workspace.workspaceFolders;
+                            if (workspaceFolders && workspaceFolders.length > 0) {
+                                // copy all the jars present in deployement/libs
+                                const workspaceLibs = vscode.Uri.joinPath(vscode.Uri.file(project), "deployment", "libs");
+                                if (fs.existsSync(workspaceLibs.fsPath)) {
+                                    try {
+                                        const jars = await getDeploymentLibJars(workspaceLibs);
+                                        if (jars.length > 0) {
+                                            const targetLibs = path.join(serverPath, 'lib');
+                                            jars.forEach(jar => {
+                                                const destinationJar = path.join(targetLibs, path.basename(jar.fsPath));
+                                                fs.copyFileSync(jar.fsPath, destinationJar);
+                                                DebuggerConfig.setCopiedLibs(destinationJar);
+                                            });
+                                        }
+                                    } catch (err) {
+                                        reject(err);
+                                        return;
+                                    }
+                                }
+                                const targetDirectory = vscode.Uri.joinPath(vscode.Uri.file(project), "target");
+                                if (fs.existsSync(targetDirectory.fsPath)) {
+                                    try {
+                                        const sourceFiles = await getCarFiles(targetDirectory);
+                                        if (sourceFiles.length === 0) {
+                                            const errorMessage = "No .car files were found in the target directory. Built without copying to the server's carbonapps directory.";
+                                            logDebug(errorMessage, LogLevel.ERROR);
+                                            reject(errorMessage);
+                                        } else {
+                                            const targetPath = path.join(serverPath, 'repository', 'deployment', 'server', 'carbonapps');
+                                            sourceFiles.forEach(sourceFile => {
+                                                const destinationFile = path.join(targetPath, path.basename(sourceFile.fsPath));
+                                                fs.copyFileSync(sourceFile.fsPath, destinationFile);
+                                                DebuggerConfig.setCopiedCapp(destinationFile);
+                                            });
+                                            logDebug('Build and copy tasks executed successfully', LogLevel.INFO);
+                                            resolve();
+                                        }
+                                    } catch (err) {
+                                        reject(err);
+                                    }
                                 } else {
-                                    const targetPath = path.join(serverPath, 'repository', 'deployment', 'server', 'carbonapps');
-                                    sourceFiles.forEach(sourceFile => {
-                                        const destinationFile = path.join(targetPath, path.basename(sourceFile.fsPath));
-                                        fs.copyFileSync(sourceFile.fsPath, destinationFile);
-                                        DebuggerConfig.setCopiedCapp(destinationFile);
-                                    });
-                                    logDebug('Build and copy tasks executed successfully', LogLevel.INFO);
-                                    resolve();
+                                    reject(`Target directory not found for project ${path.basename(project)}`);
                                 }
-                            } catch (err) {
-                                reject(err);
                             }
+                        } else {
+                            reject(`Build process failed`);
                         }
-                    }
+                    });
                 } else {
-                    reject(`Build process failed`);
+                    buildProcess.on('exit', async (code) => {
+                        if (code === 0) {
+                            resolve();
+                        } else {
+                            reject(`Build process failed`);
+                        }
+                    });
                 }
             });
-        } else if (postBuildTask) {
-            buildProcess.on('exit', async (code) => {
-                if (code === 0) {
-                    postBuildTask();
-                    resolve();
+
+            try {
+                await runBuildProcess(false);
+            } catch (err) {
+                if (buildOutput.includes('resolution will not be reattempted until the update interval') ||
+                    buildOutput.includes('updates are forced')) {
+                    serverLog('\nRe-running build with -U flag to force update snapshots/releases...\n');
+                    await runBuildProcess(true);
                 } else {
-                    reject(`Build process failed`);
+                    throw err;
                 }
-            });
+            }
         }
-    });
+        if (postBuildTask) {
+            postBuildTask();
+        }
+    }
 }
 
 export async function executeRemoteDeployTask(projectUri: string, postBuildTask?: Function) {
@@ -318,12 +369,64 @@ async function getCarFiles(targetDirectory) {
 let serverProcess: ChildProcess;
 const debugConsole = vscode.debug.activeDebugConsole;
 
+export function isCipherToolEnabled(serverPath: string): boolean {
+    const secretConfPath = path.join(serverPath, 'conf', 'security', 'secret-conf.properties');
+    if (!fs.existsSync(secretConfPath)) {
+        return false;
+    }
+    const lines = fs.readFileSync(secretConfPath, 'utf-8').split(/\r?\n/);
+    return lines.some(line => {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('#')) {
+            return false;
+        }
+        const [key, ...rest] = trimmed.split('=');
+        const value = rest.join('=').split('#')[0].trim();
+        return key.trim() === 'secVault.enabled' && value === 'true';
+    });
+}
+
+export async function promptAndWriteCipherToolPassword(serverPath: string): Promise<boolean> {
+    if (!isCipherToolEnabled(serverPath)) {
+        return true;
+    }
+    const password = await vscode.window.showInputBox({
+        title: 'Cipher Tool Decrypt Password',
+        prompt: 'Enter the decrypt password for the cipher tool',
+        password: true,
+        ignoreFocusOut: true,
+        placeHolder: 'Decrypt password',
+        validateInput: (value: string) => value.trim() === '' ? 'Password cannot be blank' : undefined
+    });
+    if (password === undefined) {
+        return false;
+    }
+    const passwordFileName = process.platform === 'win32' ? 'password-tmp.txt' : 'password-tmp';
+    try {
+        fs.writeFileSync(path.join(serverPath, passwordFileName), password, { encoding: 'utf8' });
+        return true;
+    } catch (err) {
+        vscode.window.showErrorMessage(`Failed to write cipher tool password file: ${(err as Error).message}`);
+        return false;
+    }
+}
+
 // Start the server
 export async function startServer(projectUri: string, serverPath: string, isDebug: boolean): Promise<void> {
     return new Promise<void>(async (resolve, reject) => {
-        const filePath = path.resolve(projectUri, '.env');
-        if (fs.existsSync(filePath)) {
-            loadEnvVariables(filePath)
+        const passwordWritten = await promptAndWriteCipherToolPassword(serverPath);
+        if (!passwordWritten) {
+            reject('Server startup cancelled: cipher tool decrypt password was not provided.');
+            return;
+        }
+
+        if (DebuggerConfig.getProjectList().length > 0) {
+            for (const project of DebuggerConfig.getProjectList()) {
+                const filePath = path.resolve(project, '.env');
+                if (fs.existsSync(filePath)) {
+                    loadEnvVariables(filePath)
+                }
+            }
         }
         const runCommand = await getRunCommand(serverPath, isDebug);
         if (runCommand === undefined) {
@@ -502,11 +605,12 @@ export async function getServerPath(projectUri: string): Promise<string | undefi
     return path.normalize(currentPath);
 }
 export function setJavaHomeInEnvironmentAndPath(projectUri: string): { [key: string]: string; } {
-    const config = vscode.workspace.getConfiguration('MI', vscode.Uri.file(projectUri));
     const javaHome = getJavaHomeFromConfig(projectUri);
     const env = { ...process.env };
     if (javaHome) {
         env['JAVA_HOME'] = javaHome;
+        const pathKey = Object.keys(env).find(k => k.toUpperCase() === 'PATH') || 'PATH';
+        env[pathKey] = `${path.join(javaHome, 'bin')}${path.delimiter}${env[pathKey] || ''}`;
     }
     const sanitizedEnv: { [key: string]: string } = {};
 

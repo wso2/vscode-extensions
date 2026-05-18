@@ -25,6 +25,7 @@ export const COMMANDS = {
     SHOW_OVERVIEW: "MI.showOverview",
     DISABLE_OVERVIEW: "MI.disableOverview",
     OPEN_AI_PANEL: "MI.openAiPanel",
+    OPEN_AGENT_PANEL: "MI.openAgentPanel",
     CLEAR_AI_PROMPT: "MI.clearAIPrompt",
     OPEN_WELCOME: "MI.openWelcome",
     SHOW_GRAPHICAL_VIEW: "MI.show.graphical-view",
@@ -86,7 +87,9 @@ export const COMMANDS = {
     ADD_BALLERINA_MODULE_COMMAND: 'MI.project-explorer.add-ballerina-module',
     EDIT_BALLERINA_MODULE_COMMAND: 'MI.project-explorer.edit-ballerina-module',
     DELETE_PROJECT_EXPLORER_ITEM: 'MI.project-explorer.delete',
+    DELETE_PROJECT_EXPLORER_PROJECT: 'MI.project-explorer.project-delete',
     CHANGE_SERVER_PATH: 'MI.change.server',
+    CONVERT_TO_CONSOLIDATED: 'MI.convert.to.consolidated',
     CHANGE_JAVA_HOME: 'MI.change.java',
     BUILD_PROJECT: 'MI.build-project',
     REMOTE_DEPLOY_PROJECT: 'MI.remote-deploy-project',
@@ -113,10 +116,10 @@ export const COMMANDS = {
     REVEAL_TEST_PANE: 'MI.mock-services.focus',
     EDIT_K8_CONFIGURATION_COMMAND: 'MI.edit-k8-configuration',
     MANAGE_REGISTRY_PROPERTIES_COMMAND: 'MI.manage-registry-property',
+    CONFIGURE_DEFAULT_MODEL: 'MI.configureDefaultModelProvider',
 
-    BI_EXTENSION: 'WSO2.ballerina-integrator',
-    BI_OPEN_COMMAND: 'ballerina.open.bi.welcome',
-    INSTALL_EXTENSION_COMMAND: 'workbench.extensions.installExtension'
+    INSTALL_EXTENSION_COMMAND: 'workbench.extensions.installExtension',
+    RELOAD_WINDOW: 'workbench.action.reloadWindow'
 };
 
 export const MVN_COMMANDS = {
@@ -131,6 +134,8 @@ export const MVN_COMMANDS = {
 }
 
 export const DEFAULT_PROJECT_VERSION = "1.0.0";
+
+export const BALLERINA_VERSION = "2201.13.3";
 
 export const READONLY_MAPPING_FUNCTION_NAME = "mapFunction";
 

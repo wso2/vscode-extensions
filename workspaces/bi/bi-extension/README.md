@@ -46,35 +46,16 @@ You can provide integration requirements as:
 ## Explore Pre-Built Samples
 
 Need inspiration? Browse through sample projects to see how WSO2 Integrator: BI handles real-world integrations.
-[Explore Samples](https://bi.docs.wso2.com/learn/message-transformation/)
+[Explore Samples](https://bi.docs.wso2.com/integration-guides/usecases/datamapper/read-csv-file-and-transform-to-xml-file/)
 
 ## Documentation
 
 To learn more about the WSO2 Integrator: BI for Visual Studio Code extension, go to the [WSO2 Integrator: BI quick start guide](https://bi.docs.wso2.com/get-started/quick-start-guide/) documentation.
 
-## Writing End to End tests
+## End-to-end tests
 
-### Test Directory Structure
-```
-bi-extension/
-  src/
-   test/ 
-    e2e-playwright-tests/
-     componentA/
-      componentA.spec.ts
-     componentB/
-      componentB.spec.ts
+BI Playwright tests are now maintained in `workspaces/ballerina/ballerina-extension/e2e-test`.
 
-     test.list.ts
-     utils.ts
-```
-### Getting started
-- Navigate to bi-extension root directory.
-- Run `npx playwright install` to install the playwright package.
-- Run `npm run e2e-test` to execute the tests.
-
-### Writing tests
-- Navigate to the `e2e-playwright-tests` folder and create a folder with the artifact name.
-- Create a `spec.ts` file as mentioned in the folder structure and start writing tests.
-- Import and add that spec to the `test.list.ts` file.
-- Run `npm run e2e-test` to verify the test.
+Use these commands from `workspaces/ballerina/ballerina-extension`:
+- `pnpm run e2e-test:bi`
+- `pnpm run e2e-test:bi:download-prerelease`

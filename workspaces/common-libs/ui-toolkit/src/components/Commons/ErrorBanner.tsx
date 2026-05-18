@@ -30,7 +30,11 @@ const Container = styled.div<{ sx?: React.CSSProperties }>`
 `;
 
 const ErrorMsg = styled.div`
+    flex: 1;
+    min-width: 0;
     white-space: break-spaces;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 `;
 
 const codiconStyles = css`

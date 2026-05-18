@@ -11,6 +11,10 @@ rush.json @hevayo @gigara @kanushka
 /common/ @hevayo @gigara @kanushka
 /workspaces/common-libs/ @hevayo @gigara @tharindulak
 /workspaces/mi/ @hevayo @gigara @kaumini
+workspaces/ballerina/bi-diagram/src/test/__snapshots__ @hevayo @kanushka
+workspaces/ballerina/component-diagram/src/test/__snapshots__ @hevayo @kanushka
+workspaces/ballerina/sequence-diagram/src/test/__snapshots__ @hevayo @kanushka
+workspaces/ballerina/type-diagram/src/test/__snapshots__ @hevayo @kanushka
 /workspaces/ballerina/ballerina-core/src/interfaces/extended-lang-client.ts @hevayo @axewilledge @kanushka
 /workspaces/ballerina/ballerina-rpc-client @hevayo @axewilledge @kanushka
 /workspaces/choreo/ @kaje94

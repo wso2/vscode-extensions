@@ -16,7 +16,8 @@
  * under the License.
  */
 
-import { HOST_EXTENSION, type RequestType } from "vscode-messenger-common";
+import type { RequestType } from "vscode-messenger-common";
+import { HOST_EXTENSION } from "vscode-messenger-common";
 import type { Messenger } from "vscode-messenger-webview";
 import type {
 	BuildKind,
@@ -77,11 +78,28 @@ export interface GetComponentsReq {
 	projectId: string;
 	projectHandle: string;
 }
+export interface ResolveConnectionSecretsReq {
+	orgId: string;
+	groupId: string;
+	projectId: string;
+	componentId: string;
+	envTemplateId: string;
+	secrets: { key: string; valueRef: string }[]
+}
+export interface ResolveConnectionSecretsResp {
+	secrets: {key: string; valueRef: string; value: string}[]
+}
 export interface CreateProjectReq {
 	orgId: string;
 	orgHandler: string;
 	projectName: string;
+	projectHandler?: string;
 	region: string;
+}
+export interface UpdateProjectReq {
+	orgId: string;
+	projectId: string;
+    name: string;
 }
 export interface DeleteCompReq {
 	orgId: string;
@@ -106,17 +124,17 @@ export interface CreateComponentReq {
 	gitCredRef: string;
 	branch: string;
 	langVersion: string;
-	dockerFile: string;
+	dockerFile?: string;
 	port: number;
 	spaBuildCommand: string;
 	spaNodeVersion: string;
 	spaOutputDir: string;
-	proxyApiVersion: string;
-	proxyEndpointUrl: string;
-	proxyApiContext: string;
+	proxyApiVersion?: string;
+	proxyEndpointUrl?: string;
+	proxyApiContext?: string;
 	originCloud?: string;
 	// todo: remove
-	proxyAccessibility: string;
+	proxyAccessibility?: string;
 }
 export interface CreateConfigYamlReq {
 	componentDir: string;
@@ -214,11 +232,81 @@ export interface GetTestKeyResp {
 	validityTime: number;
 }
 
+export interface MarketplaceDatabaseListResp {
+	/** @format int64 */
+	count: number;
+	pagination: Pagination;
+	data: MarketplaceItem[];
+}
+
 export interface MarketplaceListResp {
 	/** @format int64 */
 	count: number;
 	pagination: Pagination;
 	data: MarketplaceItem[];
+}
+
+export interface DatabaseCredential {
+	applicable_environments: string[];
+	created_at: string;
+	database_name: string;
+	display_name: string;
+	id: string;
+	is_super_admin: boolean;
+	privilege_levels: string[] | null;
+	updated_at: string;
+}
+
+export interface DatabaseServer {
+	allowed_ips: {
+		mode: 'allow_all' | string;
+	};
+	cloud_provider: string;
+	cloud_region: string;
+	connection_params: {
+		database: string;
+		host: string;
+		password_reset: boolean;
+		port: string;
+		ssl_required: boolean;
+		user: string;
+	};
+	created_at: string;
+	display_on_marketplace: boolean;
+	id: string;
+	is_vector_enabled: boolean;
+	maintenance: {
+		day: string;
+		time: string;
+	};
+	name: string;
+	nodes: {
+		name: string;
+		role: string;
+		state: string;
+	}[];
+	project_id: string | null;
+	service_plan: {
+		backup_interval_hours: number;
+		backup_retention_days: number;
+		hourly_price_usd: string;
+		monthly_price_usd: string;
+		name: string;
+		node_count: number;
+		node_cpu_count: number;
+		node_ram_gb: number;
+		storage_gb: number;
+	};
+	service_plan_id: string;
+	service_version: string;
+	status: string;
+	type: string;
+}
+
+
+export interface DatabaseAdminCredential {
+	name: string;
+	password: string;
 }
 
 export interface MarketplaceIdlResp {
@@ -258,6 +346,21 @@ export interface GetMarketplaceListReq {
 	request: GetMarketplaceItemsParams;
 }
 
+export interface GetDatabaseItemReq {
+	orgId: string;
+	resourceId: string;
+}
+
+export interface GetDatabaseServerReq {
+	orgId: string;
+	databaseServerId: string;
+}
+
+export interface GetMarketplaceItemReq {
+	orgId: string;
+	serviceId: string;
+}
+
 export interface GetMarketplaceIdlReq {
 	orgId: string;
 	serviceId: string;
@@ -274,6 +377,23 @@ export interface GetConnectionItemReq {
 	connectionGroupId: string;
 }
 
+export interface CreateDatabaseConnectionReq {
+	orgId: string;
+	orgUuid: string;
+	projectId: string;
+	componentId: string;
+	name: string;
+	serviceId: string;
+	schemaReference: string;
+	envMapping: Record<
+		string,
+		{
+			resourceId: string;
+			parameterReference: string;
+		}
+	>;
+}
+
 export interface CreateComponentConnectionReq {
 	orgId: string;
 	orgUuid: string;
@@ -286,6 +406,53 @@ export interface CreateComponentConnectionReq {
 	serviceSchemaId: string;
 	name: string;
 	generateCreds: boolean;
+}
+
+export interface CreateThirdPartyConnectionReq {
+	orgId: string;
+	orgUuid: string;
+	projectId: string;
+	componentId: string;
+	name: string;
+	serviceId: string;
+	serviceSchemaId: string;
+	endpointRefs: Record<string, string>;
+	sensitiveKeys: string[];
+}
+
+export type  MarketplaceIdlTypes = 'UDP' | 'TCP' | 'WSDL' | 'Proto3' | 'GraphQL_SDL' | 'OpenAPI' | 'AsyncAPI';
+
+export type MarketplaceServiceTypes = 'ASYNC_API' | 'GRPC' | 'GRAPHQL' | 'SOAP' | 'REST';
+
+export type RegisterMarketplaceConfigMap = Record<
+    string,
+    {
+        environmentTemplateIds: string[];
+        values: {
+            key: string;
+            value: string;
+            isOptional?: boolean;
+        }[];
+        name: string;
+    }
+>;
+
+export interface RegisterMarketplaceConnectionReq {
+	orgId: string;
+	orgUuid: string;
+	projectId: string;
+	name: string;
+	serviceType: MarketplaceServiceTypes;
+	idlType: MarketplaceIdlTypes;
+	idlContent: string;
+	schemaEntries: {
+		name: string;
+		type: string;
+		description?: string;
+		isSensitive: boolean;
+		isOptional?: boolean;
+	}[];
+	configs: RegisterMarketplaceConfigMap;
 }
 
 export interface DeleteConnectionReq {
@@ -420,6 +587,42 @@ export interface UpdateCodeServerReq {
 	sourceCommitHash: string;
 }
 
+export interface ChangePrebuiltIntegrationRepositoryReq {
+	orgId: string;
+	orgHandler: string;
+	projectId: string;
+	componentId: string;
+	srcGitRepoUrl: string;
+	repositorySubPath: string;
+	repositoryBranch: string;
+	secretRef: string;
+	originCloud: string;
+	isPublicRepo: boolean;
+}
+
+export interface GetComponentUsageReq {
+	orgId: string;
+	orgUuid: string;
+	cloudOrigin: string;
+}
+
+export interface GetComponentUsageResp {
+	success: boolean;
+	message: string;
+	data: {
+		billableComponentCount: number;
+		componentCount: number;
+		externalConsumerComponentCount: number;
+		systemComponentCount: number;
+		orgId: number;
+		isWebappConstrained: boolean;
+		distinctTypeCount: {
+			componentType: string;
+			count: number;
+		}[];
+	};
+}
+
 export interface GetGitTokenForRepositoryReq {
 	orgId: string;
 	gitOrg: string;
@@ -483,6 +686,7 @@ export interface IChoreoRPCClient {
 	getProjects(orgID: string): Promise<Project[]>;
 	getComponentList(params: GetComponentsReq): Promise<ComponentKind[]>;
 	createProject(params: CreateProjectReq): Promise<Project>;
+	updateProject(params: UpdateProjectReq): Promise<Project>;
 	createComponent(params: CreateComponentReq): Promise<ComponentKind>;
 	getBuildPacks(params: BuildPackReq): Promise<Buildpack[]>;
 	getRepoBranches(params: GetBranchesReq): Promise<string[]>;
@@ -503,7 +707,7 @@ export interface IChoreoRPCClient {
 	getMarketplaceItems(params: GetMarketplaceListReq): Promise<MarketplaceListResp>;
 	getMarketplaceIdl(params: GetMarketplaceIdlReq): Promise<MarketplaceIdlResp>;
 	getConnections(params: GetConnectionsReq): Promise<ConnectionListItem[]>;
-	getConnectionItem(params: GetConnectionItemReq): Promise<ConnectionListItem>;
+	getConnectionItem(params: GetConnectionItemReq): Promise<ConnectionDetailed>;
 	createComponentConnection(params: CreateComponentConnectionReq): Promise<ConnectionDetailed>;
 	deleteConnection(params: DeleteConnectionReq): Promise<void>;
 	getConnectionGuide(params: GetConnectionGuideReq): Promise<GetConnectionGuideResp>;
@@ -520,6 +724,7 @@ export interface IChoreoRPCClient {
 	getSubscriptions(params: GetSubscriptionsReq): Promise<SubscriptionsResp>;
 	getGitTokenForRepository(params: GetGitTokenForRepositoryReq): Promise<GetGitTokenForRepositoryResp>;
 	getGitRepoMetadata(params: GetGitMetadataReq): Promise<GetGitMetadataResp>;
+	getGitRepoMetadataBatch(params: GetGitMetadataReq[]): Promise<GetGitMetadataResp[]>;
 }
 
 export class ChoreoRpcWebview implements IChoreoRPCClient {
@@ -536,6 +741,9 @@ export class ChoreoRpcWebview implements IChoreoRPCClient {
 	}
 	createProject(params: CreateProjectReq): Promise<Project> {
 		return this._messenger.sendRequest(ChoreoRpcCreateProjectRequest, HOST_EXTENSION, params);
+	}
+	updateProject(params: UpdateProjectReq): Promise<Project> {
+		return this._messenger.sendRequest(ChoreoRpcUpdateProjectRequest, HOST_EXTENSION, params);
 	}
 	createComponent(params: CreateComponentReq): Promise<ComponentKind> {
 		return this._messenger.sendRequest(ChoreoRpcCreateComponentRequest, HOST_EXTENSION, params);
@@ -600,7 +808,7 @@ export class ChoreoRpcWebview implements IChoreoRPCClient {
 	getConnections(params: GetConnectionsReq): Promise<ConnectionListItem[]> {
 		return this._messenger.sendRequest(ChoreoRpcGetConnections, HOST_EXTENSION, params);
 	}
-	getConnectionItem(params: GetConnectionItemReq): Promise<ConnectionListItem> {
+	getConnectionItem(params: GetConnectionItemReq): Promise<ConnectionDetailed> {
 		return this._messenger.sendRequest(ChoreoRpcGetConnectionItem, HOST_EXTENSION, params);
 	}
 	createComponentConnection(params: CreateComponentConnectionReq): Promise<ConnectionDetailed> {
@@ -651,12 +859,16 @@ export class ChoreoRpcWebview implements IChoreoRPCClient {
 	getGitRepoMetadata(params: GetGitMetadataReq): Promise<GetGitMetadataResp> {
 		return this._messenger.sendRequest(ChoreoRpcGetGitRepoMetadata, HOST_EXTENSION, params);
 	}
+	getGitRepoMetadataBatch(params: GetGitMetadataReq[]): Promise<GetGitMetadataResp[]> {
+		return this._messenger.sendRequest(ChoreoRpcGetGitRepoMetadataBatch, HOST_EXTENSION, params);
+	}
 }
 
 export const ChoreoRpcGetProjectsRequest: RequestType<string, Project[]> = { method: "rpc/project/getProjects" };
 export const ChoreoRpcGetComponentsRequest: RequestType<GetComponentsReq, ComponentKind[]> = { method: "rpc/component/getList" };
 export const ChoreoRpcGetComponentItemRequest: RequestType<GetComponentItemReq, ComponentKind> = { method: "rpc/component/getItem" };
 export const ChoreoRpcCreateProjectRequest: RequestType<CreateProjectReq, Project> = { method: "rpc/project/create" };
+export const ChoreoRpcUpdateProjectRequest: RequestType<UpdateProjectReq, Project> = { method: "rpc/project/update" };
 export const ChoreoRpcCreateComponentRequest: RequestType<CreateComponentReq, ComponentKind> = { method: "rpc/component/create" };
 export const ChoreoRpcGetBuildPacksRequest: RequestType<BuildPackReq, Buildpack[]> = { method: "rpc/component/getBuildPacks" };
 export const ChoreoRpcGetBranchesRequest: RequestType<GetBranchesReq, string[]> = { method: "rpc/repo/getBranches" };
@@ -684,13 +896,31 @@ export const ChoreoRpcGetSwaggerRequest: RequestType<GetSwaggerSpecReq, object> 
 export const ChoreoRpcGetMarketplaceItems: RequestType<GetMarketplaceListReq, MarketplaceListResp> = {
 	method: "rpc/connections/getMarketplaceItems",
 };
+export const ChoreoRpcGetDatabases: RequestType<GetMarketplaceListReq, MarketplaceListResp> = {
+	method: "rpc/connections/getMarketplaceDatabases",
+};
+export const ChoreoRpcGetDatabaseItem: RequestType<GetDatabaseItemReq, MarketplaceItem> = {
+	method: "rpc/connections/getMarketplaceDatabaseItem",
+};
+export const ChoreoRpcGetDatabaseServer: RequestType<GetDatabaseServerReq, DatabaseServer> = {
+	method: "rpc/connections/getDatabaseServer",
+};
+export const ChoreoRpcGetDatabaseAdminCredential: RequestType<GetDatabaseServerReq, DatabaseAdminCredential> = {
+	method: "rpc/connections/getDatabaseAdminCredential",
+};
+export const ChoreoRpcGetDatabaseCredentials: RequestType<GetDatabaseServerReq, DatabaseCredential[]> = {
+	method: "rpc/connections/getDatabaseCredentials",
+};
+export const ChoreoRpcCreateDatabaseConnection: RequestType<CreateDatabaseConnectionReq, ConnectionDetailed> = {
+	method: "rpc/connections/createDatabaseConnection",
+};
 export const ChoreoRpcGetMarketplaceItemIdl: RequestType<GetMarketplaceIdlReq, MarketplaceIdlResp> = {
 	method: "rpc/connections/getMarketplaceItemIdl",
 };
 export const ChoreoRpcGetConnections: RequestType<GetConnectionsReq, ConnectionListItem[]> = {
 	method: "rpc/connections/getConnections",
 };
-export const ChoreoRpcGetConnectionItem: RequestType<GetConnectionItemReq, ConnectionListItem> = {
+export const ChoreoRpcGetConnectionItem: RequestType<GetConnectionItemReq, ConnectionDetailed> = {
 	method: "rpc/connections/getConnectionItem",
 };
 export const ChoreoRpcCreateComponentConnection: RequestType<CreateComponentConnectionReq, ConnectionDetailed> = {
@@ -726,4 +956,7 @@ export const ChoreoRpcGetGitTokenForRepository: RequestType<GetGitTokenForReposi
 };
 export const ChoreoRpcGetGitRepoMetadata: RequestType<GetGitMetadataReq, GetGitMetadataResp> = {
 	method: "rpc/repo/getRepoMetadata",
+};
+export const ChoreoRpcGetGitRepoMetadataBatch: RequestType<GetGitMetadataReq[], GetGitMetadataResp[]> = {
+	method: "rpc/repo/getRepoMetadataBatch",
 };

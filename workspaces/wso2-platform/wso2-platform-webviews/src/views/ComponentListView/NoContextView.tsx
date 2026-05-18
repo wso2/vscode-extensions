@@ -29,17 +29,17 @@ interface Props {
 }
 
 export const NoContextView: FC<Props> = ({ loading }) => {
-	const { extensionName } = useExtWebviewContext();
+	const { terminologies } = useExtWebviewContext();
 	return (
 		<>
 			{loading && <ProgressIndicator />}
 			<div className="flex w-full flex-col gap-[10px] px-6 py-2">
-				<p>{extensionName} project/component directories are not detected within the current workspace.</p>
+				<p>{terminologies.cloudName} project/component directories are not detected within the current workspace.</p>
 				<p>Create a new component.</p>
 				<Button
 					className="w-full max-w-80 self-center sm:self-start"
 					onClick={() => ChoreoWebViewAPI.getInstance().triggerCmd(CommandIds.CreateNewComponent)}
-					title={`Create a ${extensionName} component linked to your local directory. Build and deploy it to the cloud effortlessly.`}
+					title={`Create a ${terminologies.cloudName} component linked to your local directory. Build and deploy it to the cloud effortlessly.`}
 				>
 					Create Component
 				</Button>

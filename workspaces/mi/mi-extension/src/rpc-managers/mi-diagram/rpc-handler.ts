@@ -70,6 +70,7 @@ import {
     GetLocalEntryRequest,
     GetMediatorRequest,
     GetMediatorsRequest,
+    McpToolsRequest,
     GetMessageStoreRequest,
     GetProjectRootRequest,
     GetRecipientEPRequest,
@@ -203,6 +204,7 @@ import {
     getInboundEndpoint,
     getLoadBalanceEndpoint,
     getLocalEntry,
+    getMcpTools,
     getMediator,
     getMediators,
     getMessageProcessor,
@@ -320,8 +322,33 @@ import {
     getPropertiesFromArtifactXML,
     formatPomFile,
     GenerateMappingsParamsRequest,
-    getInputOutputMappings
+    getInputOutputMappings,
     // getBackendRootUrl - REMOVED: Backend URLs deprecated, all AI features use local LLM,
+    getDynamicFields,
+    GetDynamicFieldsRequest,
+    getStoredProcedures,
+    GetStoredProceduresResponse,
+    DriverDownloadRequest,
+    DriverDownloadResponse,
+    DriverMavenCoordinatesRequest,
+    DriverMavenCoordinatesResponse,
+    downloadDriverForConnector,
+    getDriverMavenCoordinates,
+    loadDriverAndTestConnection,
+    LoadDriverAndTestConnectionRequest,
+    canCreateConsolidatedProject,
+    createConsolidatedProjectFromWorkspace,
+    getConnectorDependencies,
+    GetConnectorDependenciesRequest,
+    updateConnectorDependencyOverride,
+    UpdateConnectorDependencyOverrideRequest,
+    resetConnectorDependencyOverrides,
+    ResetConnectorDependencyOverridesRequest,
+    updateConnectorFlags,
+    UpdateConnectorFlagsRequest,
+    updateGlobalConnectorFlags,
+    UpdateGlobalConnectorFlagsRequest,
+    // getBackendRootUrl - REMOVED: Backend URLs deprecated, all AI features use local LLM
 } from "@wso2/mi-core";
 import { Messenger } from "vscode-messenger";
 import { MiDiagramRpcManager } from "./rpc-manager";
@@ -335,6 +362,7 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(getESBConfigs, () => rpcManger.getESBConfigs());
     messenger.onRequest(getConnectors, () => rpcManger.getConnectors());
     messenger.onRequest(getConnector, (args: ConnectorRequest) => rpcManger.getConnector(args));
+        messenger.onRequest(getMcpTools, (args: McpToolsRequest) => rpcManger.getMcpTools(args));
     messenger.onRequest(getAPIDirectory, () => rpcManger.getAPIDirectory());
     messenger.onRequest(createAPI, (args: CreateAPIRequest) => rpcManger.createAPI(args));
     messenger.onRequest(editAPI, (args: EditAPIRequest) => rpcManger.editAPI(args));
@@ -383,7 +411,7 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onNotification(openDiagram, (args: OpenDiagramRequest) => rpcManger.openDiagram(args));
     messenger.onNotification(openFile, (args: OpenDiagramRequest) => rpcManger.openFile(args));
     messenger.onNotification(closeWebViewNotification, () => rpcManger.closeWebViewNotification());
-    messenger.onRequest(getWorkspaceRoot, () => rpcManger.getWorkspaceRoot());
+    messenger.onRequest(getWorkspaceRoot, (args?: boolean) => rpcManger.getWorkspaceRoot(args));
     messenger.onRequest(getProjectRoot, (args: GetProjectRootRequest) => rpcManger.getProjectRoot(args));
     messenger.onRequest(askProjectDirPath, () => rpcManger.askProjectDirPath());
     messenger.onRequest(askProjectImportDirPath, () => rpcManger.askProjectImportDirPath());
@@ -509,4 +537,16 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(updatePropertiesInArtifactXML, (args: UpdateRegistryPropertyRequest) => rpcManger.updatePropertiesInArtifactXML(args));
     messenger.onRequest(getPropertiesFromArtifactXML, (args: string) => rpcManger.getPropertiesFromArtifactXML(args));
     messenger.onRequest(getInputOutputMappings, (args: GenerateMappingsParamsRequest) => rpcManger.getInputOutputMappings(args));
+    messenger.onRequest(loadDriverAndTestConnection, (args: LoadDriverAndTestConnectionRequest) => rpcManger.loadDriverAndTestConnection(args));
+    messenger.onRequest(getDynamicFields, (args: GetDynamicFieldsRequest) => rpcManger.getDynamicFields(args));
+    messenger.onRequest(getStoredProcedures, (args: DSSFetchTablesRequest) => rpcManger.getStoredProcedures(args));
+    messenger.onRequest(downloadDriverForConnector, (args: DriverDownloadRequest) => rpcManger.downloadDriverForConnector(args));
+    messenger.onRequest(getDriverMavenCoordinates, (args: DriverMavenCoordinatesRequest) => rpcManger.getDriverMavenCoordinates(args));
+    messenger.onRequest(canCreateConsolidatedProject, () => rpcManger.canCreateConsolidatedProject());
+    messenger.onRequest(createConsolidatedProjectFromWorkspace, (args: CreateProjectRequest) => rpcManger.createConsolidatedProjectFromWorkspace(args));
+    messenger.onRequest(getConnectorDependencies, (args: GetConnectorDependenciesRequest) => rpcManger.getConnectorDependencies(args));
+    messenger.onRequest(updateConnectorDependencyOverride, (args: UpdateConnectorDependencyOverrideRequest) => rpcManger.updateConnectorDependencyOverride(args));
+    messenger.onRequest(resetConnectorDependencyOverrides, (args: ResetConnectorDependencyOverridesRequest) => rpcManger.resetConnectorDependencyOverrides(args));
+    messenger.onRequest(updateConnectorFlags, (args: UpdateConnectorFlagsRequest) => rpcManger.updateConnectorFlags(args));
+    messenger.onRequest(updateGlobalConnectorFlags, (args: UpdateGlobalConnectorFlagsRequest) => rpcManger.updateGlobalConnectorFlags(args));
 }

@@ -647,7 +647,7 @@ const stateMachine = createMachine<MachineContext>({
         },
         activateOtherFeatures: (context, event) => {
             return new Promise(async (resolve, reject) => {
-                await activateProjectExplorer(MI_PROJECT_EXPLORER_VIEW_ID, extension.context, context.projectUri!, context.isInWI);
+                await activateProjectExplorer(MI_PROJECT_EXPLORER_VIEW_ID, extension.context, context.projectUri!);
                 await activateTestExplorer(extension.context);
                 resolve(true);
             });

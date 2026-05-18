@@ -66,7 +66,7 @@ export class ClassMediator {
         const projectExplorer = new ProjectExplorer(this._page);
         await projectExplorer.goToOverview("testProject");
         await projectExplorer.findItem(['Project testProject', 'Other Artifacts', 'Class Mediators', `${className}.java (org.wso2.sample)`], true);
-        await page.selectSidebarItem('WSO2 Integrator: MI');
+        await page.selectSidebarItem('WSO2 Integrator');
         await projectExplorer.goToOverview("testProject");
     }
 

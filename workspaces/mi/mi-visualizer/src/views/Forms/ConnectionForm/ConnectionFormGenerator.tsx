@@ -96,14 +96,18 @@ export function AddConnection(props: AddConnectionProps) {
         };
 
         (async () => {
-            setIsLoading(true);
-            await fetchArtifacts();
-            // Fetch connections and form data for connection creation
             if (!props.connectionName) {
-                await fetchConnections();
-                await fetchFormData();
+                setIsLoading(true);
+                try {
+                    await fetchArtifacts();
+                    await fetchConnections();
+                    await fetchFormData();
+                } finally {
+                    setIsLoading(false);
+                }
+            } else {
+                await fetchArtifacts();
             }
-            setIsLoading(false);
         })();
     }, [connectionType]);
 
@@ -125,6 +129,7 @@ export function AddConnection(props: AddConnectionProps) {
                     documentUri: props.path, connectorName: connectionFound.connectorName
                 });
                 props.connector.name = connector.name;
+                props.connector.artifactId = connector.artifactId;
 
                 const connectionSchema = await rpcClient.getMiDiagramRpcClient().getConnectionSchema({
                     documentUri: props.path
@@ -132,28 +137,28 @@ export function AddConnection(props: AddConnectionProps) {
                 setConnectionType(connectionFound.connectionType);
                 setConnectionName(props.connectionName);
                 setFormData(connectionSchema);
+
                 reset({
                     name: props.connectionName,
-                    connectionType: connectionType
+                    connectionType: connectionFound.connectionType
                 });
 
-                const parameters = connectionFound.parameters
-
-                // Populate form with existing values
+                // Populate form with existing values (no uischema path)
                 if (connectionSchema === undefined) {
-                    // Handle connections without uischema
-                    // Remove connection name from param manager fields
-                    const filteredParameters = parameters.filter((param: { name: string; }) => param.name !== 'name');
-
-                    const modifiedParams = {
-                        ...params, paramValues: generateParams(filteredParameters)
-                    };
-                    setParams(modifiedParams);
+                    const parameters = connectionFound.parameters;
+                    const filteredParameters = parameters.filter((param: { name: string; }) =>
+                        param.name !== 'name' && !['groupId', 'artifactId', 'version', 'driverPath'].includes(param.name));
+                    setParams({ ...params, paramValues: generateParams(filteredParameters) });
                 }
             }
         }
         (async () => {
-            await fetchFormData();
+            setIsLoading(true);
+            try {
+                await fetchFormData();
+            } finally {
+                setIsLoading(false);
+            }
         })();
     }, [props.connectionName]);
 
@@ -203,9 +208,8 @@ export function AddConnection(props: AddConnectionProps) {
             console.error("Errors in saving connection form", errors);
         }
 
-        // Fill the values
         Object.keys(values).forEach((key: string) => {
-            if ((key !== 'configRef' && key !== 'connectionType' && key !== 'connectionName') && values[key]) {
+            if ((key !== 'configRef' && key !== 'connectionType' && key !== 'connectionName') && values[key] != null) {
                 if (typeof values[key] === 'object' && values[key] !== null) {
                     if (Array.isArray(values[key])) {
                         // Handle param manager input type
@@ -267,7 +271,8 @@ export function AddConnection(props: AddConnectionProps) {
             connectionName: connectionName,
             keyValuesXML: modifiedXml,
             directory: localEntryPath,
-            filePath: props.connectionName ? props.path : ""
+            filePath: props.connectionName ? props.path : "",
+            connectionType: connectionType
         });
 
         if (props.isPopup) {
@@ -293,7 +298,7 @@ export function AddConnection(props: AddConnectionProps) {
 
         params.paramValues.forEach(param => {
             connectorTag.ele(param.key).txt(param.value);
-        })
+        });
 
         const modifiedXml = template.end({ prettyPrint: true, headless: true });
 
@@ -306,7 +311,8 @@ export function AddConnection(props: AddConnectionProps) {
             connectionName: name,
             keyValuesXML: modifiedXml,
             directory: localEntryPath,
-            filePath: props.connectionName ? props.path : ""
+            filePath: props.connectionName ? props.path : "",
+            connectionType: connectionType
         });
 
         if (props.isPopup) {
@@ -438,6 +444,7 @@ export function AddConnection(props: AddConnectionProps) {
                         <>
                             <FormGenerator
                                 formData={formData}
+                                parameters={params}
                                 control={control}
                                 errors={errors}
                                 setValue={setValue}
@@ -445,7 +452,10 @@ export function AddConnection(props: AddConnectionProps) {
                                 watch={watch}
                                 getValues={getValues}
                                 skipGeneralHeading={true}
-                                ignoreFields={["connectionName"]} />
+                                ignoreFields={["connectionName"]}
+                                connectorName={props.connector.name}
+                                connectorArtifactId={props.connector.artifactId ?? props.connector.name}
+                                connectionName={connectionType} />
                             <FormActions>
                                 {formData.testConnectionEnabled && <div style={{ display: 'flex', alignItems: 'center', marginRight: 'auto' }}>
                                     <Button

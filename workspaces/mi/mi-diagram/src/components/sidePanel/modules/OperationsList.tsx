@@ -52,10 +52,11 @@ export function OperationsList(props: OperationsListProps) {
                     operations = connector.version.operations;
                 } else {
                     const runtimeVersion = await rpcClient.getMiDiagramRpcClient().getMIVersionFromPom();
-                    const response = await fetch(`${process.env.MI_CONNECTOR_STORE_BACKEND_GETBYVERSION
+                    const url = process.env.MI_CONNECTOR_STORE_BACKEND_GETBYVERSION
                         .replace('${repoName}', connector.repoName)
                         .replace('${versionId}', connector.otherVersions[version])
-                        .replace('${version}', runtimeVersion.version)}`);
+                        .replace('${version}', runtimeVersion.version);
+                    const response = await fetch(url);
                     const data = await response.json();
                     operations = data.version.operations;
                 }
@@ -87,7 +88,7 @@ export function OperationsList(props: OperationsListProps) {
                                 items={[
                                     connector.version.tagName,
                                     ...(Object.keys(connector.otherVersions || {}).map(version => (version)))
-                                ]}
+                                ].sort((a, b) => b.localeCompare(a, undefined, { numeric: true, sensitivity: "base" }))}
                                 value={selectedVersion}
                                 onValueChange={(e) => setVersion(e)}
                                 allowItemCreate={false}

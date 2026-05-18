@@ -43,9 +43,13 @@ inputs:
     type: boolean
     default: false
   mi:
-    description: 'Is MI'    
+    description: 'Is MI'
     type: boolean
-    default: false 
+    default: false
+  hurl-client:
+    description: 'Is Hurl Client'
+    type: boolean
+    default: false
   commonLibs:
     description: 'Is Common Lib'    
     type: boolean
@@ -96,6 +100,11 @@ runs:
         shell: bash
         run: git add workspaces/mi/*/*.json
 
+      - name: Add Hurl Client git changes
+        if: ${{ inputs.hurl-client == 'true' }}
+        shell: bash
+        run: git add workspaces/hurl-client/*/*.json
+
       - name: Commit version
         shell: bash
         id: commit
@@ -139,6 +148,8 @@ runs:
             baseBranch="stable/apk"
           elif [ "${{ inputs.mi }}" == 'true' ]; then
             baseBranch="stable/mi"
+          elif [ "${{ inputs.hurl-client }}" == 'true' ]; then
+            baseBranch="stable/hurl-client"
           fi
           pr=$(gh pr create -B "$baseBranch" -H "${{ inputs.version }}" --title "Merge \"${{ inputs.version }}\" into \"$baseBranch\"" --body '$subject')
           echo "prURL=$pr" >> $GITHUB_OUTPUT

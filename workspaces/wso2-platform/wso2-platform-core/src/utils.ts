@@ -134,7 +134,14 @@ export const getComponentTypeText = (componentType: string): string => {
 export const getIntegrationComponentTypeText = (componentType: string, subType: string): string => {
 	switch (componentType) {
 		case ChoreoComponentType.Service:
-			return subType === ChoreoComponentSubType.AiAgent ? "AI Agent" : "Integration as API";
+			switch (subType) {
+				case ChoreoComponentSubType.AiAgent:
+					return "AI Agent";
+				case ChoreoComponentSubType.MCP:
+					return "MCP Server";
+				default:
+					return "Integration as API";
+			}
 		case ChoreoComponentType.ManualTrigger:
 			return "Automation";
 		case ChoreoComponentType.ScheduledTask:
@@ -158,6 +165,10 @@ export const getIntegrationScopeText = (integrationScope: string): string => {
 			return "File Integration";
 		case DevantScopes.AI_AGENT:
 			return "AI Agent";
+		case DevantScopes.MCP:
+			return "MCP Server";
+		case DevantScopes.LIBRARY:
+			return "Library";
 		default:
 			return integrationScope;
 	}
@@ -175,8 +186,45 @@ export const getTypeOfIntegrationType = (integrationScope: string): { type?: str
 			return { type: ChoreoComponentType.EventHandler, subType: ChoreoComponentSubType.fileIntegration };
 		case DevantScopes.AI_AGENT:
 			return { type: ChoreoComponentType.Service, subType: ChoreoComponentSubType.AiAgent };
+		case DevantScopes.MCP:
+			return { type: ChoreoComponentType.Service, subType: ChoreoComponentSubType.MCP };
+		case DevantScopes.LIBRARY:
+			return { type: ChoreoComponentType.Library };
 		default:
 			return {};
+	}
+};
+
+/**
+ * Convert ChoreoComponentType back to DevantScopes (inverse of getTypeOfIntegrationType).
+ * @param componentType - The ChoreoComponentType to convert
+ * @param subType - Optional subType for more specific mapping
+ * @returns The corresponding DevantScope
+ */
+export const getIntegrationTypeFromComponentType = (componentType: string, subType?: string): string | undefined => {
+	// Handle subTypes first for more specific matches
+	if (componentType === ChoreoComponentType.Service && subType === ChoreoComponentSubType.AiAgent) {
+		return DevantScopes.AI_AGENT;
+	}
+	if (componentType === ChoreoComponentType.Service && subType === ChoreoComponentSubType.MCP) {
+		return DevantScopes.MCP;
+	}
+	if (componentType === ChoreoComponentType.EventHandler && subType === ChoreoComponentSubType.fileIntegration) {
+		return DevantScopes.FILE_INTEGRATION;
+	}
+
+	// Map ChoreoComponentType to DevantScopes
+	switch (componentType) {
+		case ChoreoComponentType.ScheduledTask:
+			return DevantScopes.AUTOMATION;
+		case ChoreoComponentType.Service:
+			return DevantScopes.INTEGRATION_AS_API; // Default for service without subType
+		case ChoreoComponentType.EventHandler:
+			return DevantScopes.EVENT_INTEGRATION; // Default for event handler without subType
+		case ChoreoComponentType.Library:
+			return DevantScopes.LIBRARY;
+		default:
+			return undefined;
 	}
 };
 
