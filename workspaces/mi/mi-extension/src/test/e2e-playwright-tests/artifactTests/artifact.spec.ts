@@ -256,9 +256,7 @@ export default function createTests() {
       await projectExplorer.findItem(['Project testProject', 'Other Artifacts', 'Class Mediators'], true);
     });
     
-    // Enable this test after fixing the issue : https://github.com/wso2/mi-vscode/issues/1461
     test('Ballerina Module Tests', async () => {
-      test.skip(process.platform === 'win32', 'Ballerina Module tests are skipped on Windows');
       await toggleNotifications(false);
       const testAttempt = test.info().retry + 1;
       const ballerinaModuleName = "TestBallerinaModule" + testAttempt;

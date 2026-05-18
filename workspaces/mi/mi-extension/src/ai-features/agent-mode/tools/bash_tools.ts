@@ -35,6 +35,7 @@ import {
     normalizePrefixRule,
 } from './shell_sandbox';
 import { AgentUndoCheckpointManager } from '../undo/checkpoint-manager';
+import { stripAnsiAndControl } from '../../utils/sanitize-text';
 import treeKill = require('tree-kill');
 
 // ============================================================================
@@ -327,7 +328,19 @@ function appendBoundedOutput(
         return { output: current, truncated: alreadyTruncated };
     }
 
-    const combined = current + chunk;
+    // Strip ANSI escapes and stray control bytes per chunk before accumulation.
+    // Maven/Gradle emit ANSI color codes; raw 0x00-0x1F bytes in tool-result
+    // strings cause the Copilot proxy to reject the request with
+    // `unexpected control character in string`. Per-chunk stripping is safe
+    // because the regex only matches complete ESC...terminator sequences;
+    // mid-sequence splits across chunks degrade gracefully (the stripped
+    // remnant is harmless text).
+    const sanitized = stripAnsiAndControl(chunk);
+    if (!sanitized) {
+        return { output: current, truncated: alreadyTruncated };
+    }
+
+    const combined = current + sanitized;
     if (combined.length <= MAX_SHELL_OUTPUT_CHARS) {
         return { output: combined, truncated: alreadyTruncated };
     }

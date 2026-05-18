@@ -172,9 +172,7 @@ export default function createTests() {
         });
       });
 
-      // NOTE: Skipping delete connector test as it is causing instability in the test suite.
-      // This will be re-enabled once the stability issue is resolved.
-      await test.step.skip('Delete connector', async () => {
+      await test.step('Delete connector', async () => {
         console.log('Deleting connector');
         // diagram
         const diagram = new Diagram(page.page, 'Resource');
@@ -184,8 +182,7 @@ export default function createTests() {
         console.log('Deleting connector completed');
       });
 
-      // Enabling this test step is after fixing: https://github.com/wso2/mi-vscode/issues/1463
-      await test.step.skip('Import connector from file', async () => {
+      await test.step('Import connector from file', async () => {
         console.log('Importing connector from file');
         const diagram = new Diagram(page.page, 'Resource');
         await diagram.init();

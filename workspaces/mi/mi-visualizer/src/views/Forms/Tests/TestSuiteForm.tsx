@@ -1031,7 +1031,7 @@ export function TestSuiteForm(props: TestSuiteFormProps) {
                     appearance="primary"
                     onClick={handleSubmit(handleCreateUnitTests)}
                 >
-                    <Icon name="wand-magic-sparkles-solid" sx="marginRight:5px" />&nbsp;
+                    <Icon name="bi-ai-chat" sx="marginRight:5px" />&nbsp;
                     Generate Unit Tests with AI
                 </Button>
                 <Button appearance="secondary" onClick={openOverview}>

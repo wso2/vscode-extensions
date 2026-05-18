@@ -96,15 +96,21 @@ const AIChatHeader: React.FC<AIChatHeaderProps> = ({ onOpenSettings }) => {
                 />
                 <button
                     className="flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors"
-                    style={{ color: "var(--vscode-foreground)", opacity: 0.8 }}
+                    style={{
+                        color: "var(--vscode-foreground)",
+                        opacity: backendRequestTriggered ? 0.4 : 0.8,
+                        cursor: backendRequestTriggered ? "not-allowed" : "pointer",
+                    }}
                     onClick={onOpenSettings}
+                    disabled={backendRequestTriggered}
                     onMouseEnter={(e) => {
+                        if (backendRequestTriggered) return;
                         (e.currentTarget as HTMLElement).style.backgroundColor = "var(--vscode-list-hoverBackground)";
                     }}
                     onMouseLeave={(e) => {
                         (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
                     }}
-                    title="Settings"
+                    title={backendRequestTriggered ? "Settings (disabled while agent is running)" : "Settings"}
                 >
                     <Codicon name="settings-gear" />
                     <span>Settings</span>

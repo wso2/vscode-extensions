@@ -40,8 +40,6 @@ export interface SendAgentMessageRequest {
     images?: ImageObject[];
     /** Enable Claude thinking mode (reasoning blocks) */
     thinking?: boolean;
-    /** When true, web_search and web_fetch run without per-call approval prompts */
-    webAccessPreapproved?: boolean;
     /** Chat history for context (AI SDK format with tool calls/results) */
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     chatHistory?: any[];
@@ -207,8 +205,6 @@ export type PlanApprovalKind =
     | 'enter_plan_mode'
     | 'exit_plan_mode'
     | 'exit_plan_mode_without_plan'
-    | 'web_search'
-    | 'web_fetch'
     | 'shell_command'
     | 'continue_after_limit';
 
@@ -418,6 +414,33 @@ export interface SessionMetadata {
      * Used to skip loading unsupported sessions after breaking storage changes.
      */
     sessionVersion?: number;
+    /**
+     * Per-block tracking state for the user-prompt session-context blocks.
+     * Each value is the hash (or, for `modePolicy`, the verbatim mode name) of
+     * the inputs that produced the most recently injected block. The agent
+     * re-injects only the blocks whose stored value drifts since last turn
+     * (branch switch, date rollover, runtime version change, mode switch,
+     * payloads change, Tavily key add/remove, ...). Persisting this on metadata
+     * (rather than in-memory) means the check survives extension restarts.
+     */
+    sessionContextBlocks?: SessionContextBlocksState;
+}
+
+/**
+ * Tracking state for each session-context block. Absent fields mean "block
+ * has never been injected" (treated as a first injection on the next turn).
+ */
+export interface SessionContextBlocksState {
+    /** sha256-16 of env fields (working dir, git, date, OS, MI runtime info, backend) */
+    env?: string;
+    /** sha256-16 of the connector catalog (artifact ids + bundled inbound ids) */
+    connectors?: string;
+    /** sha256-16 of the web-search-availability flag */
+    webAvailability?: string;
+    /** Verbatim mode name (`"ask" | "edit" | "plan"`) — stored as-is so change notices can say "[mode changed from EDIT]" */
+    modePolicy?: string;
+    /** sha256-16 of the canonicalized preconfigured-payloads JSON */
+    payloads?: string;
 }
 
 /**

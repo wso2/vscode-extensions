@@ -258,7 +258,7 @@ export function AddArtifactView() {
                 <Container>
                     <AddPanel>
                         <Typography variant="h3" sx={{ margin: "0 0 5px 0", display: "flex", alignItems: "center" }}>
-                            <Codicon name="wand" sx={{ marginRight: "5px" }} />
+                            <Icon name="bi-ai-chat" sx={{ marginRight: "5px" }} />
                             Describe your Integration to generate with AI
                         </Typography>
                         <AIPanel>
@@ -302,7 +302,7 @@ export function AddArtifactView() {
                                     disabled={inputAiPrompt.length === 0}
                                     onClick={handleGenerateWithAI}
                                 >
-                                    <Codicon name="wand" />
+                                    <Icon name="bi-ai-chat" />
                                     &nbsp; Generate
                                 </Button>
                             </ItemRow>

@@ -31,22 +31,26 @@ module.exports = {
         if (deps['esbuild']) deps['esbuild'] = '0.25.12';
         if (deps['lodash']) deps['lodash'] = '4.18.0';
         if (deps['qs']) deps['qs'] = '6.14.2';
-        if (deps['hono']) deps['hono'] = '4.12.18';
+        if (deps['hono']) deps['hono'] = '4.12.18'; // CVE-2026-44455 (JSX injection), CVE-2026-44456 (bodyLimit bypass)
         if (deps['@hono/node-server']) deps['@hono/node-server'] = '1.19.13';
         if (deps['@tootallnate/once']) deps['@tootallnate/once'] = '3.0.1';
-        if (deps['dompurify']) deps['dompurify'] = '3.4.0';
-        if (deps['axios']) deps['axios'] = '1.15.2';
-        if (deps['ip-address']) deps['ip-address'] = '10.1.1';
-        if (deps['follow-redirects']) deps['follow-redirects'] = '1.16.0';
-        if (deps['express-rate-limit']) deps['express-rate-limit'] = '8.2.2';
-        if (deps['file-type']) deps['file-type'] = '21.3.2';
+        if (deps['dompurify']) deps['dompurify'] = '3.4.0'; // security fix: XSS vulnerability
+        if (deps['axios']) deps['axios'] = '1.15.2'; // security fix: SSRF vulnerability
+        if (deps['ip-address']) { // security fix: force patch within 10.x range only to avoid breaking consumers on earlier majors
+          if (/^[\s\^~><=]*10[.\s]/.test(deps['ip-address'])) {
+            deps['ip-address'] = '10.1.1';
+          }
+        }
+        if (deps['follow-redirects']) deps['follow-redirects'] = '1.16.0'; // security fix: redirect bypass vulnerability
+        if (deps['express-rate-limit']) deps['express-rate-limit'] = '8.2.2'; // security fix
+        if (deps['file-type']) deps['file-type'] = '21.3.2'; // security fix
         if (deps['postcss']) deps['postcss'] = '8.5.10';
-        if (deps['immutable']) deps['immutable'] = '3.8.3';
-        if (deps['serialize-javascript']) deps['serialize-javascript'] = '7.0.5';
-        if (deps['flatted']) deps['flatted'] = '3.4.2';
-        if (deps['handlebars']) deps['handlebars'] = '4.7.9';
-        if (deps['tmp']) deps['tmp'] = '0.2.4';
-        if (deps['undici']) deps['undici'] = '7.24.0';
+        if (deps['immutable']) deps['immutable'] = '3.8.3'; // security fix
+        if (deps['serialize-javascript']) deps['serialize-javascript'] = '7.0.5'; // security fix: XSS/code injection
+        if (deps['flatted']) deps['flatted'] = '3.4.2'; // security fix
+        if (deps['handlebars']) deps['handlebars'] = '4.7.9'; // security fix: prototype pollution
+        if (deps['tmp']) deps['tmp'] = '0.2.4'; // security fix
+        if (deps['undici']) deps['undici'] = '7.24.0'; // security fix: header injection
         if (deps['protobufjs']) {
           const currentVersion = deps['protobufjs'];
           if (currentVersion.startsWith('^8') || currentVersion.startsWith('8')) {
@@ -57,7 +61,6 @@ module.exports = {
         }
         if (deps['vite']) deps['vite'] = '6.0.14';
         if (deps['yauzl']) deps['yauzl'] = '3.2.1';
-        if (deps['follow-redirects']) deps['follow-redirects'] = '1.16.0';
         if (deps['bn.js']) {
           deps['bn.js'] = deps['bn.js'].startsWith('^5') ? '5.2.3' : '4.12.3';
         }

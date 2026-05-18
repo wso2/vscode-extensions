@@ -24,6 +24,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { logDebug, logError, logInfo } from '../copilot/logger';
 import { getToolAction, capitalizeAction } from './tool-action-mapper';
 import { BASH_TOOL_NAME } from './tools/types';
+import { stripAnsiAndControl } from '../utils/sanitize-text';
 import {
     AgentMode,
     CheckpointAnchorSummary,
@@ -54,6 +55,29 @@ export interface SessionMetadata {
      * Used to skip loading unsupported sessions after breaking storage changes.
      */
     sessionVersion?: number;
+    /**
+     * Per-block tracking state for the user-prompt session-context blocks.
+     * The agent re-injects only the blocks whose stored value drifts since
+     * the last turn. Persisted so the check survives extension restarts.
+     */
+    sessionContextBlocks?: SessionContextBlocksState;
+}
+
+/**
+ * Tracking state for each session-context block. Absent fields mean "block
+ * has never been injected" (treated as a first injection on the next turn).
+ *
+ * Re-exported (via duplicate definition) from `@wso2/mi-core` to avoid a
+ * dev-loop rebuild dependency on mi-core when this type changes — same pattern
+ * as `SessionMetadata` above.
+ */
+export interface SessionContextBlocksState {
+    env?: string;
+    connectors?: string;
+    webAvailability?: string;
+    /** Verbatim mode name (`"ask" | "edit" | "plan"`) for "[mode changed from EDIT]" notices. */
+    modePolicy?: string;
+    payloads?: string;
 }
 
 export const TOOL_USE_INTERRUPTION_CONTEXT = `<system-reminder>The user interrupted while a tool was running. The tool use was rejected and any pending mutations were NOT applied. Stop immediately and wait for the user's next message.</system-reminder>`;
@@ -913,6 +937,46 @@ export class ChatHistoryManager {
         includeUndoCheckpointEntry?: boolean;
         includeCheckpointAnchorEntry?: boolean;
     }): Promise<any[]> {
+        // Sanitize tool-result / text content blocks on load. Older sessions
+        // may have persisted raw control bytes (e.g. ANSI codes from a Maven
+        // `build.txt` read) that pass JSON.parse fine but trip the Copilot
+        // proxy's stricter validator on resend. Walking the message structure
+        // is cheap (each session has at most a few hundred entries) and lets
+        // existing sessions keep working without a manual edit.
+        const sanitizeContentBlock = (block: any): any => {
+            if (!block || typeof block !== 'object') {
+                return block;
+            }
+            if (block.type === 'text' && typeof block.text === 'string') {
+                return { ...block, text: stripAnsiAndControl(block.text) };
+            }
+            if (block.type === 'tool-result' && block.output && typeof block.output === 'object') {
+                const out = block.output;
+                if (typeof out.value === 'string') {
+                    return { ...block, output: { ...out, value: stripAnsiAndControl(out.value) } };
+                }
+                if (Array.isArray(out.value)) {
+                    return {
+                        ...block,
+                        output: {
+                            ...out,
+                            value: out.value.map((v: any) =>
+                                v && typeof v === 'object' && typeof v.text === 'string'
+                                    ? { ...v, text: stripAnsiAndControl(v.text) }
+                                    : v
+                            ),
+                        },
+                    };
+                }
+            }
+            return block;
+        };
+        const sanitizeMessage = (message: any): any => {
+            if (!message || typeof message !== 'object' || !Array.isArray(message.content)) {
+                return message;
+            }
+            return { ...message, content: message.content.map(sanitizeContentBlock) };
+        };
         try {
             const includeCompactSummaryEntry = options?.includeCompactSummaryEntry === true;
             const includeUndoCheckpointEntry = options?.includeUndoCheckpointEntry === true;
@@ -955,7 +1019,7 @@ export class ChatHistoryManager {
                 for (let i = lastCompactIndex + 1; i < allEntries.length; i++) {
                     const entry = allEntries[i];
                     if (entry.type === 'user' || entry.type === 'assistant' || entry.type === 'tool') {
-                        let modelMessage = entry.message;
+                        let modelMessage = sanitizeMessage(entry.message);
                         if (entry.chatId !== undefined && modelMessage && typeof modelMessage === 'object') {
                             modelMessage = {
                                 ...modelMessage,
@@ -984,7 +1048,7 @@ export class ChatHistoryManager {
             const messages: any[] = [];
             for (const entry of allEntries) {
                 if (entry.type === 'user' || entry.type === 'assistant' || entry.type === 'tool') {
-                    let modelMessage = entry.message;
+                    let modelMessage = sanitizeMessage(entry.message);
                     if (entry.chatId !== undefined && modelMessage && typeof modelMessage === 'object') {
                         modelMessage = {
                             ...modelMessage,

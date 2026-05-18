@@ -58,7 +58,7 @@ jobs:
               branch="${branch#"${branch%%[![:space:]]*}"}"
               branch="${branch%"${branch##*[![:space:]]}"}"
               if [ -z "$branch" ]; then
-                echo "::error::vscodeBranches contains an empty branch entry"
+                echo "::error::vscodeBranches contains an empty branch entry" >&2
                 exit 1
               fi
               printf '%s\n' "$branch"
@@ -267,18 +267,32 @@ jobs:
             envfile="$(dirname "$example")/.env"
             cp "$example" "$envfile"
           done
+          ballerinaEnv="workspaces/ballerina/ballerina-extension/.env"
+          for key in COPILOT_ROOT_URL COPILOT_DEV_ROOT_URL APPINSIGHTS_INSTRUMENTATION_KEY; do
+            if grep -q "^${key}=" "$ballerinaEnv"; then
+              sed -i "s|^${key}=.*|${key}=|" "$ballerinaEnv"
+            else
+              echo "${key}=" >> "$ballerinaEnv"
+            fi
+          done
 
       - name: Build Ballerina extension
         run: node common/scripts/install-run-rush.js build -t ballerina --verbose
         env:
           isPreRelease: true
+          COPILOT_ROOT_URL: ${{ secrets.COPILOT_ROOT_URL }}
+          COPILOT_DEV_ROOT_URL: ${{ secrets.COPILOT_DEV_ROOT_URL }}
+          APPINSIGHTS_INSTRUMENTATION_KEY: ${{ secrets.APPINSIGHTS_INSTRUMENTATION_KEY }}
 
       - name: Run Ballerina package tests
         continue-on-error: true
+        env:
+          PACKAGES: ballerina-visualizer ballerina-side-panel type-diagram sequence-diagram component-diagram bi-diagram
         run: |
           set +e
           mkdir -p /tmp/snapshot
-          for pkg in ballerina-visualizer ballerina-side-panel type-diagram sequence-diagram component-diagram bi-diagram; do
+          echo "$PACKAGES" > /tmp/snapshot/.packages
+          for pkg in $PACKAGES; do
             echo "::group::Package tests — $pkg"
             (cd "workspaces/ballerina/$pkg" && pnpm test) 2>&1 | tee "/tmp/snapshot/${pkg}.log"
             rc=${PIPESTATUS[0]}
@@ -352,7 +366,7 @@ jobs:
             echo ""
             echo "| Package | Test Suites | Tests | Status |"
             echo "|---|---|---|---|"
-            for pkg in ballerina-visualizer ballerina-side-panel type-diagram sequence-diagram component-diagram bi-diagram; do
+            for pkg in $(cat /tmp/snapshot/.packages); do
               log="/tmp/snapshot/${pkg}.log"
               status=$(cat "/tmp/snapshot/${pkg}.status" 2>/dev/null || echo "fail")
               suites="—"

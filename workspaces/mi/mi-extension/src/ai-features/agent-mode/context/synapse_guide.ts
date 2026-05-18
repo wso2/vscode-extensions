@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { CREATE_DATA_MAPPER_TOOL_NAME } from "../tools/types";
+import { CREATE_DATA_MAPPER_TOOL_NAME, GENERATE_DATA_MAPPING_TOOL_NAME } from "../tools/types";
 import { SYNAPSE_EXPRESSION_GUIDE } from "./synapse_expression_guide"
 
 export const SYNAPSE_GUIDE = `
@@ -210,6 +210,7 @@ For the full property reference (70+ properties with exact names, scopes, and us
 
 ## Filter mediator (prefer xpath for new code):
     - The \`xpath\` attribute accepts Synapse Expressions (despite the attribute name). The expression must evaluate to a boolean.
+    - **Always include \`<else>\` (empty if not needed)**. The diagram view renders \`<filter>\` as a two-branch construct; omitting \`<else>\` causes the diagram to show only the Then branch, even though the runtime accepts the bare form. Use \`<else/>\` (self-closing) when there is no else logic — guard / early-return patterns ending in \`<respond/>\` or \`<throwError/>\` still need it for diagram correctness.
 \`\`\`xml
 <filter xpath="\${payload.age &gt; 18}">
     <then>
@@ -218,6 +219,14 @@ For the full property reference (70+ properties with exact names, scopes, and us
     <else>
         <!-- minor flow -->
     </else>
+</filter>
+
+<!-- Guard / early-return — still include empty <else/> for the diagram -->
+<filter xpath="\${not(exists(payload.userId))}">
+    <then>
+        <throwError type="VALIDATION" errorMessage="userId is required"/>
+    </then>
+    <else/>
 </filter>
 \`\`\`
 
@@ -265,7 +274,7 @@ For the full property reference (70+ properties with exact names, scopes, and us
                 <relativePath>/api/pet</relativePath>
                 <headers>[]</headers>
                 <requestBodyType>JSON</requestBodyType>
-                <requestBodyJson>\${payload}</requestBodyJson>
+                <requestBodyJson>{\${payload}}</requestBodyJson>
             </http.post>
         </sequence>
 
@@ -396,41 +405,13 @@ For the full property reference (70+ properties with exact names, scopes, and us
 **Important runtime requirement:** Data mapper artifacts and the \`<datamapper>\` mediator require MI runtime \`4.4.0\` or newer. If runtime is below \`4.4.0\`, do not use data mapper generation.
 
 Data mappers transform data between input and output schemas using TypeScript. They are used with the \`<datamapper>\` mediator in Synapse integrations.
-Always use ${CREATE_DATA_MAPPER_TOOL_NAME} tool to create a data mapper. Do not create data mappers manually.
 
-**Folder Structure:**
-Each data mapper creates a folder at \`src/main/wso2mi/resources/datamapper/{name}/\` containing:
-- \`{name}.ts\` - TypeScript mapping file with input/output interfaces and mapFunction
-- \`dm-utils.ts\` - Utility operators (arithmetic, string, type conversion functions)
+**Tool routing (always prefer tools over hand-writing):**
+- New mapper → use \`${CREATE_DATA_MAPPER_TOOL_NAME}\` (scaffolds folder, \`.ts\` file, and \`dm-utils.ts\`).
+- Generate / fill the \`mapFunction\` body → use \`${GENERATE_DATA_MAPPING_TOOL_NAME}\`.
+- Direct \`file_edit\` on the \`.ts\` file is only for targeted single-field tweaks, user-dictated formula changes, or fixing a TS2556 spread error.
 
-**TypeScript Mapping File Format:**
-\`\`\`typescript
-import * as dmUtils from "./dm-utils";
-declare var DM_PROPERTIES: any;
-
-/**
- * inputType:JSON
- * title:"InputSchemaName"
- */
-interface InputRoot {
-    // Input schema fields
-}
-
-/**
- * outputType:JSON
- * title:"OutputSchemaName"
- */
-interface OutputRoot {
-    // Output schema fields
-}
-
-export function mapFunction(input: InputRoot): OutputRoot {
-    return {
-        // Field mappings: outputField: input.inputField
-        // Can use dmUtils functions for transformations
-    };
-}
-\`\`\`
+**Before editing an existing \`.ts\` mapping file**, load \`data-mapper-reference\` via \`load_context_reference\` for the dmUtils API, the TS2556 dynamic-array spread rule (use \`arr.reduce(...)\`, never \`dmUtils.sum(...arr)\`), and the file format. Sections: \`overview\`, \`typescript_rules\`, \`dmutils_functions\`, \`dynamic_arrays\`, \`when_to_use_dmutils\`, \`array_handling\`, \`tool_usage\`.
 
 **Using Data Mapper in Synapse XML:**
 \`\`\`xml
@@ -442,11 +423,32 @@ export function mapFunction(input: InputRoot): OutputRoot {
     outputType="JSON"/>
 \`\`\`
 
-**Available dm-utils Functions:**
-- Arithmetic: \`dmUtils.sum()\`, \`dmUtils.max()\`, \`dmUtils.min()\`, \`dmUtils.average()\`, \`dmUtils.ceiling()\`, \`dmUtils.floor()\`, \`dmUtils.round()\`
-- String: \`dmUtils.concat()\`, \`dmUtils.split()\`, \`dmUtils.toUppercase()\`, \`dmUtils.toLowercase()\`, \`dmUtils.trim()\`, \`dmUtils.substring()\`, \`dmUtils.stringLength()\`, \`dmUtils.startsWith()\`, \`dmUtils.endsWith()\`, \`dmUtils.replaceFirst()\`, \`dmUtils.match()\`
-- Type conversion: \`dmUtils.toNumber()\`, \`dmUtils.toBoolean()\`, \`dmUtils.numberToString()\`, \`dmUtils.booleanToString()\`
-- Property access: \`dmUtils.getPropertyValue(scope, name)\`
+## Scheduled Task (\`<task>\`)
+For triggering a sequence/proxy on a schedule. Default class: \`org.apache.synapse.startup.tasks.MessageInjector\`. File path: \`src/main/wso2mi/artifacts/tasks/<Name>.xml\`.
+
+\`\`\`xml
+<task xmlns="http://ws.apache.org/ns/synapse"
+      name="MyTask"
+      class="org.apache.synapse.startup.tasks.MessageInjector"
+      group="synapse.simple.quartz">
+  <trigger cron="0 0/5 * * * ?"/>
+  <!-- or simple trigger: <trigger interval="30" count="-1"/>  (count=-1 = forever) -->
+  <property name="injectTo" value="sequence"/>
+  <property name="sequenceName" value="MySequence"/>
+  <property name="message">
+    <payload xmlns=""><trigger>scheduled</trigger></payload>
+  </property>
+</task>
+\`\`\`
+
+**Required properties** (every \`MessageInjector\` task must have these):
+- \`injectTo\` — \`sequence\` | \`proxy\` | \`main\`
+- \`sequenceName\` (when \`injectTo=sequence\`) or \`proxyName\` (when \`injectTo=proxy\`)
+- **Exactly one** of \`message\` (inline payload, child element wraps the body) or \`registry-key\` (registry path to payload, e.g. \`<property name="registry-key" value="conf:/myMessage"/>\`). Omitting both produces a runtime-broken task even though the XML parses.
+
+**Cron**: Quartz cron — **6+ fields** with seconds first (\`sec min hour dom mon dow [year]\`). \`0 0/5 * * * ?\` = every 5 minutes; \`0 * * * * ?\` = every minute. Not Unix 5-field cron.
+
+For full attribute reference (pinnedServers, format, soapAction, to) and pitfalls, load \`synapse-artifact-reference:scheduled_task\`.
 
 ## Registry Resources
 When creating supportive resources that are needed for the Integration inside src/main/wso2mi/resources, an entry should be added to the src/main/wso2mi/resources/artifact.xml. If an artifact.xml doesn't exist, then create one and add the entry. The format should be as follows:

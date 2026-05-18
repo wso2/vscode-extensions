@@ -65,16 +65,17 @@ export class HurlNotebookController {
 
     private async executeHandler(
         cells: vscode.NotebookCell[],
-        _notebook: vscode.NotebookDocument,
+        notebook: vscode.NotebookDocument,
         controller: vscode.NotebookController
     ): Promise<void> {
         for (const cell of cells) {
-            await this.executeCell(cell, controller);
+            await this.executeCell(cell, notebook, controller);
         }
     }
 
     private async executeCell(
         cell: vscode.NotebookCell,
+        notebook: vscode.NotebookDocument,
         controller: vscode.NotebookController
     ): Promise<void> {
         const execution = controller.createNotebookCellExecution(cell);
@@ -97,10 +98,15 @@ export class HurlNotebookController {
             const tempFile = path.join(tempDir, 'cell.hurl');
             await fs.writeFile(tempFile, hurlContent, 'utf-8');
 
+            // Determine fileRoot: check configuration and fallback to notebook directory.
+            const configuredFileRoot = vscode.workspace.getConfiguration('hurl-client', notebook.uri).get<string>('fileRoot');
+            const notebookPath = notebook.uri.fsPath;
+            const fileRoot = configuredFileRoot || path.dirname(notebookPath);
+
             const runner = createHurlRunner();
             const result = await runner.run(
                 { collectionPath: tempDir, includePatterns: ['cell.hurl'] },
-                { commandPath, includeResponseOutput: true, continueOnError: true }
+                { commandPath, includeResponseOutput: true, continueOnError: true, fileRoot: fileRoot }
             );
 
             const fileResult = result.files[0];

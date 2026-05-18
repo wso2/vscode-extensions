@@ -172,13 +172,13 @@ export function DeploymentOptions({ handleDockerBuild, handleConfigureKubernetes
                         description={
                             devantMetadata?.hasComponent
                                 ? "This integration is already deployed in WSO2 Cloud."
-                                : "Deploy your integration to the WSO2 Cloud"
+                                : "Deploy your integration to the cloud using WSO2 Cloud."
                         }
-                        buttonText={devantMetadata?.hasComponent ? "View in WSO2 Cloud" : "Deploy"}
+                        buttonText={devantMetadata?.hasComponent ? "View in Console" : "Deploy"}
                         isExpanded={expandedOptions.has("devant")}
                         onToggle={() => toggleOption("devant")}
                         onDeploy={devantMetadata?.hasComponent ? () => goToDevant() : () => handleDeploy({})}
-                        learnMoreLink={"https://wso2.com/devant/docs/"}
+                        learnMoreLink={"https://wso2.com/devant/docs"}
                         secondaryAction={
                             devantMetadata?.hasComponent && devantMetadata?.hasLocalChanges
                                 ? {
@@ -192,7 +192,6 @@ export function DeploymentOptions({ handleDockerBuild, handleConfigureKubernetes
                                 : undefined
                         }
                     />
-
 
                     <DeploymentOption
                         title="Deploy on a Remote Server"

@@ -25,7 +25,7 @@ import { downloadWithProgress, extractWithProgress, selectFolderDialog } from '.
 import { extension } from '../MIExtensionContext';
 import { copyMavenWrapper } from '.';
 import { SELECTED_JAVA_HOME, SELECTED_SERVER_PATH } from '../debugger/constants';
-import { COMMANDS } from '../constants';
+import { COMMANDS, BALLERINA_VERSION } from '../constants';
 import { SetPathRequest, PathDetailsResponse, SetupDetails } from '@wso2/mi-core';
 import { parseStringPromise } from 'xml2js';
 import { LATEST_CAR_PLUGIN_VERSION } from './templates';
@@ -47,6 +47,7 @@ export const LATEST_MI_VERSION = "4.6.0";
 const COMPATIBLE_JDK_VERSION = "11";
 const miDownloadUrls: { [key: string]: string } = {
     '4.6.0': 'https://mi-distribution.wso2.com/4.6.0/wso2mi-4.6.0.zip',
+    '4.6.0-EULA': 'https://mi-distribution.wso2.com/4.6.0/updated/wso2mi-4.6.0.zip',
     '4.5.0': 'https://mi-distribution.wso2.com/4.5.0/wso2mi-4.5.0.zip',
     '4.4.0-UPDATED': 'https://mi-distribution.wso2.com/4.4.0/wso2mi-4.4.0-UPDATED.zip',
     '4.4.0': 'https://mi-distribution.wso2.com/4.4.0/wso2mi-4.4.0.zip',
@@ -55,9 +56,14 @@ const miDownloadUrls: { [key: string]: string } = {
 
 export const miUpdateVersionCheckUrl: string = process.env.MI_UPDATE_VERSION_CHECK_URL as string;
 export const ADOPTIUM_API_BASE_URL: string = process.env.ADOPTIUM_API_BASE_URL as string;
+export const BALLERINA_DIST_BASE_URL: string = process.env.BALLERINA_DIST_BASE_URL as string;
 
 export const CACHED_FOLDER = path.join(os.homedir(), '.wso2-mi');
 export const INTEGRATION_PROJECT_DEPENDENCIES_DIR = 'integration-project-dependencies';
+
+export function isWso2IntegratorRuntime(): boolean {
+    return process.env.WSO2_INTEGRATOR_RUNTIME === 'true';
+}
 
 let ballerinaOutputChannel: vscode.OutputChannel | undefined;
 
@@ -533,7 +539,14 @@ export async function downloadMI(projectUri: string, miVersion: string, isUpdate
         if (!fs.existsSync(miPath)) {
             fs.mkdirSync(miPath, { recursive: true });
         }
-        const miDownloadUrl = isUpdatedPack ? miDownloadUrls[miVersion + '-UPDATED'] : miDownloadUrls[miVersion];
+        let miDownloadUrl: string;
+        if (isUpdatedPack) {
+            miDownloadUrl = miDownloadUrls[miVersion + '-UPDATED'];
+        } else if (miVersion === '4.6.0' && isWso2IntegratorRuntime() && isEulaPack()) {
+            miDownloadUrl = miDownloadUrls['4.6.0-EULA'];
+        } else {
+            miDownloadUrl = miDownloadUrls[miVersion];
+        }
         const zipName = miDownloadUrl.split('/').pop();
         const miDownloadPath = path.join(miPath, zipName!);
 
@@ -1089,6 +1102,25 @@ export function getDefaultProjectPath(): string {
 
 export async function buildBallerinaModule(projectPath: string) {
     const MIN_REQUIRED_UPDATE = 13;
+
+    // Try the bundled Ballerina distribution first when running inside the WSO2 Integrator IDE.
+    if (isWso2IntegratorRuntime()) {
+        const wiBalHome = process.env.WSO2_INTEGRATOR_BALLERINA_HOME;
+        if (wiBalHome) {
+            const balExecutable = process.platform === 'win32' ? 'bal.bat' : 'bal';
+            const balBin = path.join(wiBalHome, 'bin', balExecutable);
+            if (fs.existsSync(balBin)) {
+                console.log('Attempting to use bundled Ballerina distribution at:', balBin);
+                try {
+                    await runBallerinaBuildsWithProgress(projectPath, false, wiBalHome);
+                    return;
+                } catch {
+                    // Fall through to the standard resolution below.
+                }
+            }
+        }
+    }
+
     const isBallerinaInstalled = await isBallerinaAvailableGlobally();
     const isLocalBallerina = fs.existsSync(path.join(os.homedir(), '.ballerina', 'ballerina-home', 'bin', process.platform === 'win32' ? 'bal.bat' : 'bal'));
 
@@ -1123,12 +1155,11 @@ export async function buildBallerinaModule(projectPath: string) {
 
         await runBallerinaBuildsWithProgress(projectPath, isBallerinaInstalled);
     } else {
-        vscode.window.showErrorMessage('Ballerina not found. Please download Ballerina and try again.');
-        showExtensionPrompt();
+        await downloadAndInstallBallerina();
     }
 }
 
-async function runBallerinaBuildsWithProgress(projectPath: string, isBallerinaInstalled: boolean = false) {
+async function runBallerinaBuildsWithProgress(projectPath: string, isBallerinaInstalled: boolean = false, inbuiltBalHome?: string) {
     await vscode.window.withProgress(
         {
             location: vscode.ProgressLocation.Notification,
@@ -1141,9 +1172,9 @@ async function runBallerinaBuildsWithProgress(projectPath: string, isBallerinaIn
             // Handle paths for different OS
             const isWindows = process.platform === 'win32';
             console.debug('[Ballerina Build] OS Platform:', process.platform);
-            
-            // Normalize paths for proper handling
-            const balHome = path.normalize(path.join(os.homedir(), '.ballerina', 'ballerina-home', 'bin'));
+
+            // Use inbuilt ballerina home if provided (WI runtime), otherwise fall back to the local installation.
+            const balHome = path.normalize(path.join(inbuiltBalHome ?? path.join(os.homedir(), '.ballerina', 'ballerina-home'), 'bin'));
             console.debug('[Ballerina Build] Ballerina Home:', balHome);
             
             // Use appropriate executable for the platform
@@ -1159,7 +1190,7 @@ async function runBallerinaBuildsWithProgress(projectPath: string, isBallerinaIn
                 return;
             }
 
-            // Properly quote paths for Windows, ensuring spaces are handled correctly
+            // Quote paths on all platforms to handle spaces in directory names
             const quotedProjectPath = isWindows ? `"${projectPath.replace(/"/g, '""')}"` : projectPath;
             const quotedBalCommand = isWindows ? `"${balCommand.replace(/"/g, '""')}"` : balCommand;
             console.debug('[Ballerina Build] Quoted Project Path:', quotedProjectPath);
@@ -1193,7 +1224,7 @@ async function runBallerinaBuildsWithProgress(projectPath: string, isBallerinaIn
                 }
             }
 
-            function onError(data: any) {
+            async function onError(data: any) {
                 if (data) {
                     // Convert data to string with simplified logic
                     const errorMessage: string = data?.toString?.() ?? String(data);
@@ -1225,8 +1256,7 @@ async function runBallerinaBuildsWithProgress(projectPath: string, isBallerinaIn
                         if (errorMessage.includes('EPERM') || errorMessage.includes('EACCES')) {
                             vscode.window.showErrorMessage("Permission error. Please run VS Code with administrator privileges.");
                         } else {
-                            vscode.window.showErrorMessage("Ballerina not found. Please install and setup the Ballerina Extension and try again.");
-                            showExtensionPrompt();
+                            await downloadAndInstallBallerina();
                         }
                     } else {
                         console.error('[Ballerina Build] Unexpected error:', errorMessage);
@@ -1251,7 +1281,7 @@ async function runBallerinaBuildsWithProgress(projectPath: string, isBallerinaIn
                 const isWindows = process.platform === 'win32';
                 const moduleGenCommand = isBallerinaInstalled
                     ? (isWindows ? 'bal.bat migen module' : 'bal migen module')
-                    : `${path.join(balHome, isWindows ? 'bal.bat' : 'bal')} migen module`;
+                    : `"${path.join(balHome, isWindows ? 'bal.bat' : 'bal').replace(/"/g, isWindows ? '""' : '\\"')}" migen module`;
 
                 console.debug('Running module gen command:', moduleGenCommand, 'in directory:', projectPath);
                 runBasicCommand(moduleGenCommand, projectPath,
@@ -1337,16 +1367,83 @@ async function runBallerinaBuildsWithProgress(projectPath: string, isBallerinaIn
     );
 }
 
-async function showExtensionPrompt() {
-    vscode.window.showInformationMessage(
-        'Ballerina distribution is required to build the Ballerina module. Install and setup the Ballerina Extension from the Visual Studio Code Marketplace.',
-        'Install Now'
-    ).then(async (selection) => {
-        if (selection === 'Install Now') {
-            await vscode.commands.executeCommand(COMMANDS.INSTALL_EXTENSION_COMMAND, COMMANDS.BI_EXTENSION);
-            await vscode.commands.executeCommand(COMMANDS.SETUP_BALLERINA);
+
+function getBallerinaOsSuffix(): string {
+    const platform = os.platform();
+    const arch = os.arch();
+    if (platform === 'darwin') {
+        return arch === 'arm64' ? 'macos-arm' : 'macos';
+    } else if (platform === 'linux') {
+        return arch === 'arm64' ? 'linux-arm' : 'linux';
+    } else if (platform === 'win32') {
+        return 'windows';
+    }
+    throw new Error(`Unsupported platform: ${platform} (${arch})`);
+}
+
+async function downloadAndInstallBallerina() {
+    const osSuffix = getBallerinaOsSuffix();
+    const ballerinaZipName = `ballerina-${BALLERINA_VERSION}-swan-lake-${osSuffix}.zip`;
+    const ballerinaDownloadUrl = `${BALLERINA_DIST_BASE_URL}/v${BALLERINA_VERSION}/${ballerinaZipName}`;
+    const ballerinaDir = path.join(os.homedir(), '.ballerina');
+    const ballerinaZipPath = path.join(ballerinaDir, ballerinaZipName);
+    const ballerinaHomePath = path.join(ballerinaDir, 'ballerina-home');
+
+    const selection = await vscode.window.showInformationMessage(
+        'Ballerina distribution is required to build the Ballerina module. Would you like to download and install Ballerina now?',
+        { modal: true },
+        'Download Now'
+    );
+
+    if (selection !== 'Download Now') {
+        return;
+    }
+
+    try {
+        if (!fs.existsSync(ballerinaDir)) {
+            fs.mkdirSync(ballerinaDir, { recursive: true });
         }
-    });
+        await downloadWithProgress('', ballerinaDownloadUrl, ballerinaZipPath, 'Downloading Ballerina');
+
+        if (!fs.existsSync(ballerinaZipPath)) {
+            vscode.window.showErrorMessage('Failed to download Ballerina. Please try again.');
+            return;
+        }
+
+        const beforeExtraction = new Set(fs.readdirSync(ballerinaDir));
+        await extractWithProgress(ballerinaZipPath, ballerinaDir, 'Extracting Ballerina');
+
+        const extractedEntry = fs.readdirSync(ballerinaDir).find(entry => {
+            if (beforeExtraction.has(entry)) {
+                return false;
+            }
+            return fs.statSync(path.join(ballerinaDir, entry)).isDirectory();
+        });
+
+        if (!extractedEntry) {
+            vscode.window.showErrorMessage('Failed to locate extracted Ballerina distribution.');
+            return;
+        }
+
+        if (fs.existsSync(ballerinaHomePath)) {
+            fs.rmSync(ballerinaHomePath, { recursive: true, force: true });
+        }
+        fs.renameSync(path.join(ballerinaDir, extractedEntry), ballerinaHomePath);
+
+        if (process.platform !== 'win32') {
+            child_process.spawnSync('chmod', ['-R', '+x', path.join(ballerinaHomePath, 'bin')]);
+            if (process.platform === 'darwin') {
+                child_process.spawnSync('xattr', ['-dr', 'com.apple.quarantine', ballerinaHomePath]);
+            }
+        }
+
+        fs.rmSync(ballerinaZipPath, { force: true });
+        vscode.window.showInformationMessage(
+            'Ballerina has been installed successfully. Please retrigger the build to continue.'
+        );
+    } catch (error) {
+        vscode.window.showErrorMessage(`Failed to install Ballerina: ${error instanceof Error ? error.message : String(error)}`);
+    }
 }
 
 async function isBallerinaAvailableGlobally(): Promise<boolean> {
@@ -1625,6 +1722,22 @@ export function isConsolidatedProject(filePath: string): boolean {
         return match[1].toLowerCase() === 'true';
 
     } catch (error) {
+        return false;
+    }
+}
+
+function isEulaPack(): boolean {
+    try {
+        if (!process.env.WSO2_INTEGRATOR_BALLERINA_HOME) {
+            return false;
+        }
+        const componentsDir = path.join(process.env.WSO2_INTEGRATOR_BALLERINA_HOME, '..');
+        if (!componentsDir) {
+            return false;
+        }
+        return fs.existsSync(path.join(componentsDir, 'distribution.txt')) ||
+            fs.existsSync(path.join(componentsDir, 'distribution'));
+    } catch {
         return false;
     }
 }

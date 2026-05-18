@@ -110,6 +110,61 @@ function getErrorName(error: unknown): string | undefined {
 }
 
 export function getErrorDiagnostics(error: unknown): string {
+    const extractApiCallFields = (err: unknown): Record<string, unknown> => {
+        if (!err || typeof err !== 'object') {
+            return {};
+        }
+        const r = err as Record<string, unknown>;
+        const fields: Record<string, unknown> = {};
+        // Vercel AI SDK APICallError surface — most useful for provider 4xx debugging.
+        if (r.statusCode !== undefined) fields.statusCode = r.statusCode;
+        if (r.url !== undefined) fields.url = r.url;
+        if (typeof r.responseBody === 'string') {
+            fields.responseBody = r.responseBody.length > 2000
+                ? r.responseBody.slice(0, 2000) + '…[truncated]'
+                : r.responseBody;
+        }
+        if (r.data !== undefined) {
+            try {
+                const dataStr = typeof r.data === 'string' ? r.data : JSON.stringify(r.data);
+                fields.data = dataStr.length > 2000
+                    ? dataStr.slice(0, 2000) + '…[truncated]'
+                    : dataStr;
+            } catch {
+                fields.data = '[unserializable]';
+            }
+        }
+        if (r.responseHeaders !== undefined && r.responseHeaders !== null && typeof r.responseHeaders === 'object') {
+            // Whitelist known-safe headers — set-cookie, authorization echoes,
+            // x-amz-security-token, etc. must never reach logs.
+            const safeKeys = new Set([
+                'content-type',
+                'content-length',
+                'date',
+                'x-request-id',
+                'request-id',
+                'retry-after',
+                'x-ratelimit-limit',
+                'x-ratelimit-remaining',
+                'x-ratelimit-reset',
+                'anthropic-ratelimit-requests-limit',
+                'anthropic-ratelimit-requests-remaining',
+                'anthropic-ratelimit-requests-reset',
+                'anthropic-ratelimit-tokens-limit',
+                'anthropic-ratelimit-tokens-remaining',
+                'anthropic-ratelimit-tokens-reset',
+            ]);
+            const filtered: Record<string, unknown> = {};
+            for (const [key, value] of Object.entries(r.responseHeaders as Record<string, unknown>)) {
+                if (safeKeys.has(key.toLowerCase())) {
+                    filtered[key] = value;
+                }
+            }
+            fields.responseHeaders = filtered;
+        }
+        return fields;
+    };
+
     if (error instanceof Error) {
         const topOfStack = typeof error.stack === 'string'
             ? error.stack.split('\n').slice(0, 3).join(' | ')
@@ -120,6 +175,8 @@ export function getErrorDiagnostics(error: unknown): string {
             code: getErrorCode(error),
             message: error.message,
             cause: cause ? getErrorMessage(cause) : undefined,
+            ...extractApiCallFields(error),
+            causeDiagnostics: cause ? extractApiCallFields(cause) : undefined,
             stack: topOfStack,
         });
     }
@@ -131,6 +188,7 @@ export function getErrorDiagnostics(error: unknown): string {
             code: getErrorCode(error),
             message: typeof record.message === 'string' ? record.message : undefined,
             type: typeof record.type === 'string' ? record.type : undefined,
+            ...extractApiCallFields(error),
         });
     }
 

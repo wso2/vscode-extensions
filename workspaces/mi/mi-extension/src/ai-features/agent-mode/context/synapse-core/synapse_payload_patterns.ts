@@ -457,6 +457,7 @@ array_patterns: `## Array Transformation Patterns
     </payloadFactory>
     <respond/>
   </then>
+  <else/>
 </filter>
 \`\`\`
 

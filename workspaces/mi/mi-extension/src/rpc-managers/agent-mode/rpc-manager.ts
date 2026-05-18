@@ -812,7 +812,6 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
                             files: request.files,
                             images: request.images,
                             thinking: request.thinking ?? true,
-                            webAccessPreapproved: request.webAccessPreapproved,
                             projectPath: this.projectUri,
                             sessionId: this.currentSessionId || undefined,
                             abortSignal: abortController.signal,

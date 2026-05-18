@@ -85,8 +85,7 @@ export default function createTests() {
                 console.log('Existing project opened and API added successfully');
             });
 
-            // Enable this test after fixing the issue : https://github.com/wso2/mi-vscode/issues/1460
-            await test.step.skip("Create New Project with Advanced Config Tests", async () => {
+            await test.step("Create New Project with Advanced Config Tests", async () => {
                 console.log('Starting to create a new project with advanced configuration');
                 await page.executePaletteCommand('Workspaces: Close Workspace');
                 console.log("Closed Workspace");

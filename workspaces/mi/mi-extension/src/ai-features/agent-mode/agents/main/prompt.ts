@@ -20,13 +20,14 @@ import * as Handlebars from 'handlebars';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import * as crypto from 'crypto';
 import { formatFileTree, getExistingFiles } from '../../../utils/file-utils';
 import { getAvailableConnectorCatalog } from '../../tools/connector_tools';
 import { getPlanModeReminder as getPlanModeSessionReminder } from '../../tools/plan_mode_tools';
 import { getRuntimeVersionFromPom } from '../../tools/connector_store_cache';
 import { getServerPathFromConfig } from '../../../../util/onboardingUtils';
-import { AgentMode } from '@wso2/mi-core';
-import { getModeReminder } from './mode';
+import { AgentMode, LoginMethod } from '@wso2/mi-core';
+import { getModeBriefNote, getModeReminder } from './mode';
 import { logDebug } from '../../../copilot/logger';
 import { getStateMachine } from '../../../../stateMachine';
 
@@ -77,35 +78,21 @@ export interface UserPromptContentBlock {
 // {{/if}}
 
 export const PROMPT_TEMPLATE = `
-{{#if include_session_context}}
+{{#if env_block}}
 <system-reminder>
-# Environment
-Working directory: {{env_working_directory}}
-Is directory a git repo: {{env_is_git_repo}}
-{{#if env_git_branch}}Current git branch: {{env_git_branch}}{{/if}}
-Platform: {{env_platform}}
-OS Version: {{env_os_version}}
-Today's date: {{env_today}}
-MI Runtime version: {{env_mi_runtime_version}}
-MI Runtime home path: {{env_mi_runtime_home_path}}
-MI Runtime log directory: {{env_mi_log_dir_path}}
-MI Runtime logs:
-  - wso2carbon.log (main): {{env_mi_runtime_carbon_log_path}}
-  - wso2error.log (errors + stack traces): {{env_mi_error_log_path}}
-  - http_access.log (HTTP requests): {{env_mi_http_access_log_path}}
-  - wso2-mi-service.log (service lifecycle): {{env_mi_service_log_path}}
-  - correlation.log (request tracing): {{env_mi_correlation_log_path}}
+{{{env_block}}}
 </system-reminder>
+{{/if}}
 
+{{#if connectors_block}}
 <system-reminder>
-Available WSO2 connector artifact ids for this version of the MI runtime (from the connector store — pass these to get_connector_info / add_or_remove_connector):
-{{available_connector_artifact_ids}}
+{{{connectors_block}}}
+</system-reminder>
+{{/if}}
 
-Available downloadable inbound artifact ids for this version of the MI runtime (from the connector store — add via add_or_remove_connector):
-{{available_inbound_artifact_ids}}
-
-Available bundled inbound ids (shipped with this version of the MI runtime — use the id directly with get_connector_info, do NOT add to pom.xml):
-{{available_bundled_inbound_ids}}
+{{#if web_availability_block}}
+<system-reminder>
+{{{web_availability_block}}}
 </system-reminder>
 {{/if}}
 
@@ -116,11 +103,9 @@ The user has opened the file {{currentlyOpenedFile}} in the IDE. This may or may
 </system-reminder>
 {{/if}}
 
-{{#if userPreconfigured}}
+{{#if payloads_block}}
 <system-reminder>
-# Preconfigured Values
-{{payloads}}
-These are preconfigured values in the Low-Code IDE that should be accessed using Synapse expressions in the integration flow. Always use Synapse expressions when referring to these values.
+{{{payloads_block}}}
 </system-reminder>
 {{/if}}
 
@@ -132,9 +117,16 @@ These are preconfigured values in the Low-Code IDE that should be accessed using
 {{/if}}
 
 <system-reminder>
-You are in {{mode_upper}} mode.
-{{mode_policy}}
+You are in {{mode_upper}} mode.{{#if mode_changed_from}} [mode changed from {{mode_changed_from}}]{{/if}}{{#if mode_brief_note}}
+
+{{mode_brief_note}}{{/if}}
 </system-reminder>
+
+{{#if full_mode_policy_block}}
+<system-reminder>
+{{{full_mode_policy_block}}}
+</system-reminder>
+{{/if}}
 
 {{#if plan_file_reminder}}
 <system-reminder>
@@ -163,6 +155,33 @@ You are in {{mode_upper}} mode.
 // ============================================================================
 
 /**
+ * Per-block injection status. Decided in agent.ts based on first-message /
+ * post-compaction triggers and per-block hash drift, then passed to
+ * `getUserPrompt` so each block renders the correct content (with or without
+ * a "[context updated]" notice, or omitted entirely).
+ *
+ * `cleared`: the block was injected on a prior turn but is absent now (e.g.
+ * payloads removed by the user). Render an explicit removal notice so the
+ * model doesn't keep referencing the stale prior-turn reminder, and clear
+ * the persisted hash so the next non-empty injection starts fresh.
+ */
+export type BlockInjectionStatus = 'omit' | 'first-injection' | 're-injection' | 'cleared';
+
+/**
+ * Per-block injection statuses for the five tracked session-context blocks.
+ * Default (when omitted from `UserPromptParams`) is 'first-injection' for all
+ * blocks — matches the legacy "always inject session context" behavior.
+ */
+export interface BlockInjectionStatuses {
+    env: BlockInjectionStatus;
+    connectors: BlockInjectionStatus;
+    webAvailability: BlockInjectionStatus;
+    /** Plan-only. For Ask/Edit, the full policy is always rendered regardless of this status. */
+    modePolicy: BlockInjectionStatus;
+    payloads: BlockInjectionStatus;
+}
+
+/**
  * Parameters for rendering the user prompt
  */
 export interface UserPromptParams {
@@ -174,14 +193,58 @@ export interface UserPromptParams {
     projectPath: string;
     /** Session ID for plan file path generation */
     sessionId?: string;
-    /** Pre-configured payloads, query params, or path params (optional) */
-    payloads?: string;
     /** MI runtime version from pom.xml (optional; avoids re-reading pom when already known) */
     runtimeVersion?: string | null;
     /** True when runtime version was detected from project metadata */
     runtimeVersionDetected?: boolean;
-    /** Include session context (env, connectors) — true for first message or after compaction, false otherwise */
-    includeSessionContext?: boolean;
+    /** True when the active provider can't run web_search/web_fetch (e.g. Bedrock without a Tavily key). */
+    webSearchUnavailable?: boolean;
+    /**
+     * Active Copilot backend for this session. Surfaced to the model in the
+     * `<env>` block so it can reason about backend-specific behaviour (notably the
+     * web tools — Anthropic server-side on Proxy/BYOK, Tavily-local on Bedrock).
+     */
+    loginMethod?: LoginMethod;
+    /**
+     * Per-block injection statuses computed by agent.ts from the previous
+     * `SessionMetadata.sessionContextBlocks` and the current snapshot. When
+     * omitted, all blocks default to 'first-injection' (full content, no notice).
+     */
+    blockStatuses?: BlockInjectionStatuses;
+    /**
+     * Previous mode name used for the "[mode changed from EDIT]" notice when
+     * `blockStatuses.modePolicy === 're-injection'` and the agent is in Plan
+     * mode. Ignored otherwise.
+     */
+    previousMode?: AgentMode;
+    /**
+     * Pre-built session context from `computeSessionContextBlockHashes`. When
+     * provided, `getUserPrompt` reuses the same snapshot instead of rebuilding
+     * it (avoids the second pass of pom.xml read, .git/HEAD read, and
+     * connector-store catalog lookup).
+     */
+    precomputedContext?: SessionContextBuildResult;
+}
+
+// ============================================================================
+// Backend label mapping
+// ============================================================================
+
+/**
+ * One-line summary of each Copilot backend, surfaced in the `<env>` block.
+ * Keep in sync with the "Copilot backends" section of system.ts.
+ */
+function describeBackend(loginMethod?: LoginMethod): string {
+    switch (loginMethod) {
+        case LoginMethod.MI_INTEL:
+            return 'WSO2 Integrator Copilot Proxy (SSO via WSO2 Devant) — quota-limited; Anthropic server-side web_search / web_fetch';
+        case LoginMethod.ANTHROPIC_KEY:
+            return 'Anthropic Direct (BYOK) — user-paid; Anthropic server-side web_search / web_fetch';
+        case LoginMethod.AWS_BEDROCK:
+            return 'AWS Bedrock — user-paid; web tools only available when a Tavily API key is configured (Tavily-backed wrapper)';
+        default:
+            return 'unknown';
+    }
 }
 
 // ============================================================================
@@ -336,6 +399,412 @@ function getRuntimePaths(projectPath: string): {
 }
 
 // ============================================================================
+// Session Context Snapshot
+// ============================================================================
+
+/**
+ * Subset of `UserPromptParams` needed to compute the session-context snapshot
+ * (env + connectors + web availability + mode + tryout payloads). Used by both
+ * `getUserPrompt` and `computeSessionContextBlockHashes` so the two stay in
+ * lockstep.
+ */
+export interface SessionContextParams {
+    projectPath: string;
+    runtimeVersion?: string | null;
+    webSearchUnavailable?: boolean;
+    loginMethod?: LoginMethod;
+    mode?: AgentMode;
+}
+
+/**
+ * Per-file fingerprint for `.tryout/*.json`. mtimeMs+size is good enough
+ * for change detection here — the IDE always writes through normal
+ * `fs.writeFile`, so an unchanged-content file keeps its mtime, and any
+ * real edit bumps it. Avoids reading every payload's bytes per turn
+ * (matters when users stash large saved requests).
+ */
+interface TryoutPayloadEntry {
+    name: string;
+    mtimeMs: number;
+    size: number;
+}
+
+/**
+ * Captures every value rendered inside any tracked session-context block of
+ * the user-prompt template. The block-hashing logic in
+ * `computeSessionContextBlockHashes` derives a per-block hash from a stable
+ * subset of these fields.
+ */
+export interface SessionContextSnapshot {
+    // env block
+    workingDirectory: string;
+    isGitRepo: boolean;
+    gitBranch: string | null;
+    platform: string;
+    osVersion: string;
+    today: string;
+    backend: string;
+    miRuntimeVersion: string;
+    miRuntimeHomePath: string;
+    miLogDirPath: string;
+    miCarbonLogPath: string;
+    miErrorLogPath: string;
+    miHttpAccessLogPath: string;
+    miServiceLogPath: string;
+    miCorrelationLogPath: string;
+    // connectors block
+    connectorArtifactIds: string;
+    inboundArtifactIds: string;
+    bundledInboundIds: string;
+    // web availability block
+    webSearchUnavailable: boolean;
+    // mode policy block (stored as the verbatim mode name)
+    mode: AgentMode;
+    /**
+     * Listing of `.tryout/*.json` files (sorted by name). The model reads them
+     * on demand via `file_read` — we surface only the listing in the user
+     * prompt to avoid dumping (potentially large) saved request bodies on
+     * every turn. Empty array = no `.tryout/` folder or no payload files.
+     */
+    tryoutPayloads: TryoutPayloadEntry[];
+}
+
+interface SessionContextWithCatalog {
+    snapshot: SessionContextSnapshot;
+    catalogWarnings: string[];
+    catalogStoreStatus: string;
+    runtimeVersionResolved: string | null;
+}
+
+/**
+ * Per-block hashes / scalars used by agent.ts for change detection.
+ * `modePolicy` stores the verbatim mode name, not a hash, so the change
+ * notice can say `[mode changed from EDIT]`. `payloads` is `undefined` when
+ * no payloads are provided this turn (block is omitted entirely).
+ */
+export interface SessionContextBlockHashes {
+    env: string;
+    connectors: string;
+    webAvailability: string;
+    modePolicy: AgentMode;
+    payloads: string | undefined;
+}
+
+/**
+ * Recursive stable JSON stringifier — sorts object keys deterministically so
+ * semantically-equal objects produce identical strings regardless of insertion
+ * order. Used by `hashJson` so block hashes are reproducible across processes.
+ */
+function stableStringify(value: unknown): string {
+    if (value === null || typeof value !== 'object') {
+        return JSON.stringify(value);
+    }
+    if (Array.isArray(value)) {
+        return '[' + value.map(stableStringify).join(',') + ']';
+    }
+    const obj = value as Record<string, unknown>;
+    const keys = Object.keys(obj).sort();
+    return '{' + keys.map(k => JSON.stringify(k) + ':' + stableStringify(obj[k])).join(',') + '}';
+}
+
+function hashJson(value: unknown): string {
+    return crypto.createHash('sha256').update(stableStringify(value)).digest('hex').slice(0, 16);
+}
+
+/**
+ * Scan `.tryout/*.json` and return a sorted listing for change detection.
+ * mtimeMs+size is enough — IDE writes always bump mtime, and the cost of a
+ * false-positive re-injection is one extra reminder (negligible) while the
+ * cost of reading every payload's bytes per turn would be real for users
+ * who save large request bodies.
+ */
+function scanTryoutPayloads(projectPath: string): TryoutPayloadEntry[] {
+    const tryoutDir = path.join(projectPath, '.tryout');
+    if (!fs.existsSync(tryoutDir)) {
+        return [];
+    }
+    try {
+        const files = fs.readdirSync(tryoutDir).filter(f => f.endsWith('.json'));
+        const result: TryoutPayloadEntry[] = [];
+        for (const file of files) {
+            const filePath = path.join(tryoutDir, file);
+            try {
+                const stat = fs.statSync(filePath);
+                if (!stat.isFile()) {
+                    continue;
+                }
+                result.push({ name: file, mtimeMs: stat.mtimeMs, size: stat.size });
+            } catch {
+                // Skip unreadable entries silently — model can still file_read by name.
+            }
+        }
+        return result.sort((a, b) => a.name.localeCompare(b.name));
+    } catch (error) {
+        logDebug(
+            `[Prompt] Failed to scan .tryout/ for project ${projectPath}: ` +
+            `${error instanceof Error ? error.message : String(error)}`
+        );
+        return [];
+    }
+}
+
+async function buildSessionContextSnapshot(params: SessionContextParams): Promise<SessionContextWithCatalog> {
+    const isGitRepo = fs.existsSync(path.join(params.projectPath, '.git'));
+    let gitBranch: string | null = null;
+    if (isGitRepo) {
+        try {
+            const headPath = path.join(params.projectPath, '.git', 'HEAD');
+            const headContent = fs.readFileSync(headPath, 'utf8').trim();
+            if (headContent.startsWith('ref: refs/heads/')) {
+                gitBranch = headContent.replace('ref: refs/heads/', '');
+            } else if (/^[0-9a-f]{40}$/i.test(headContent)) {
+                gitBranch = `DETACHED@${headContent.substring(0, 7)}`;
+            }
+        } catch (error) {
+            logDebug(
+                `[Prompt] Failed to resolve git branch from HEAD for project ${params.projectPath}: ` +
+                `${error instanceof Error ? error.message : String(error)}`
+            );
+        }
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    const runtimeVersion = params.runtimeVersion ?? await getRuntimeVersionFromPom(params.projectPath);
+    const runtimePaths = getRuntimePaths(params.projectPath);
+    const catalog = await getAvailableConnectorCatalog(params.projectPath);
+
+    return {
+        snapshot: {
+            workingDirectory: params.projectPath,
+            isGitRepo,
+            gitBranch,
+            platform: process.platform,
+            osVersion: `${os.type()} ${os.release()}`,
+            today,
+            backend: describeBackend(params.loginMethod),
+            miRuntimeVersion: runtimeVersion || 'unknown',
+            miRuntimeHomePath: runtimePaths.runtimeHomePath,
+            miLogDirPath: runtimePaths.logDirPath,
+            miCarbonLogPath: runtimePaths.carbonLogPath,
+            miErrorLogPath: runtimePaths.errorLogPath,
+            miHttpAccessLogPath: runtimePaths.httpAccessLogPath,
+            miServiceLogPath: runtimePaths.serviceLogPath,
+            miCorrelationLogPath: runtimePaths.correlationLogPath,
+            connectorArtifactIds: catalog.connectorArtifactIds.join(', '),
+            inboundArtifactIds: catalog.inboundArtifactIds.join(', '),
+            bundledInboundIds: catalog.bundledInboundIds.join(', '),
+            webSearchUnavailable: params.webSearchUnavailable === true,
+            mode: params.mode || 'edit',
+            tryoutPayloads: scanTryoutPayloads(params.projectPath),
+        },
+        catalogWarnings: catalog.warnings,
+        catalogStoreStatus: catalog.storeStatus,
+        runtimeVersionResolved: runtimeVersion ?? null,
+    };
+}
+
+/**
+ * Per-block tracking values derived from a snapshot. agent.ts compares each
+ * value against the previous value stored on `SessionMetadata.sessionContextBlocks`
+ * to decide which blocks to re-inject this turn.
+ */
+function deriveBlockHashes(snapshot: SessionContextSnapshot): SessionContextBlockHashes {
+    return {
+        env: hashJson({
+            workingDirectory: snapshot.workingDirectory,
+            isGitRepo: snapshot.isGitRepo,
+            gitBranch: snapshot.gitBranch,
+            platform: snapshot.platform,
+            osVersion: snapshot.osVersion,
+            today: snapshot.today,
+            backend: snapshot.backend,
+            miRuntimeVersion: snapshot.miRuntimeVersion,
+            miRuntimeHomePath: snapshot.miRuntimeHomePath,
+            miLogDirPath: snapshot.miLogDirPath,
+            miCarbonLogPath: snapshot.miCarbonLogPath,
+            miErrorLogPath: snapshot.miErrorLogPath,
+            miHttpAccessLogPath: snapshot.miHttpAccessLogPath,
+            miServiceLogPath: snapshot.miServiceLogPath,
+            miCorrelationLogPath: snapshot.miCorrelationLogPath,
+        }),
+        connectors: hashJson({
+            connectorArtifactIds: snapshot.connectorArtifactIds,
+            inboundArtifactIds: snapshot.inboundArtifactIds,
+            bundledInboundIds: snapshot.bundledInboundIds,
+        }),
+        webAvailability: hashJson({ webSearchUnavailable: snapshot.webSearchUnavailable }),
+        modePolicy: snapshot.mode,
+        // Hash over the file listing — adding/removing/modifying any
+        // .tryout/*.json flips the block hash and triggers a re-injection.
+        // `undefined` when the folder is empty so 'cleared' fires correctly
+        // when the user wipes all saved payloads.
+        payloads: snapshot.tryoutPayloads.length > 0 ? hashJson(snapshot.tryoutPayloads) : undefined,
+    };
+}
+
+/**
+ * Bundles the per-block hashes (used by agent.ts for change detection) with
+ * the snapshot + catalog metadata they were derived from. Letting agent.ts
+ * pass this back into `getUserPrompt` via `precomputedContext` avoids
+ * `buildSessionContextSnapshot` running twice per turn (it touches .git/HEAD,
+ * pom.xml, runtime paths, and the connector store catalog).
+ */
+export interface SessionContextBuildResult {
+    hashes: SessionContextBlockHashes;
+    snapshot: SessionContextSnapshot;
+    catalogWarnings: string[];
+    catalogStoreStatus: string;
+    runtimeVersionResolved: string | null;
+}
+
+/**
+ * Build the per-turn session context: snapshot + per-block hashes + catalog
+ * metadata. Agent.ts uses `result.hashes` for the block-status decisions and
+ * passes the whole result back through `UserPromptParams.precomputedContext`
+ * so `getUserPrompt` reuses the same snapshot.
+ */
+export async function computeSessionContextBlockHashes(params: SessionContextParams): Promise<SessionContextBuildResult> {
+    const built = await buildSessionContextSnapshot(params);
+    return {
+        hashes: deriveBlockHashes(built.snapshot),
+        snapshot: built.snapshot,
+        catalogWarnings: built.catalogWarnings,
+        catalogStoreStatus: built.catalogStoreStatus,
+        runtimeVersionResolved: built.runtimeVersionResolved,
+    };
+}
+
+// ============================================================================
+// Tracked-block text builders
+// ============================================================================
+
+const CONTEXT_UPDATED = '[context updated]';
+
+const DEFAULT_BLOCK_STATUSES: BlockInjectionStatuses = {
+    env: 'first-injection',
+    connectors: 'first-injection',
+    webAvailability: 'first-injection',
+    modePolicy: 'first-injection',
+    payloads: 'first-injection',
+};
+
+function buildEnvBlockText(snapshot: SessionContextSnapshot, status: BlockInjectionStatus): string | undefined {
+    // 'cleared' is unreachable for env (always-defined hash) but treat it as
+    // omit defensively so adding new statuses can't silently render junk.
+    if (status === 'omit' || status === 'cleared') {
+        return undefined;
+    }
+    const headerSuffix = status === 're-injection' ? ` ${CONTEXT_UPDATED}` : '';
+    const lines: string[] = [
+        `# Environment${headerSuffix}`,
+        `Working directory: ${snapshot.workingDirectory}`,
+        `Is directory a git repo: ${snapshot.isGitRepo ? 'true' : 'false'}`,
+    ];
+    if (snapshot.gitBranch) {
+        lines.push(`Current git branch: ${snapshot.gitBranch}`);
+    }
+    lines.push(
+        `Platform: ${snapshot.platform}`,
+        `OS Version: ${snapshot.osVersion}`,
+        `Today's date: ${snapshot.today}`,
+        `Copilot backend: ${snapshot.backend}`,
+        `MI Runtime version: ${snapshot.miRuntimeVersion}`,
+        `MI Runtime home path: ${snapshot.miRuntimeHomePath}`,
+        `MI Runtime log directory: ${snapshot.miLogDirPath}`,
+        `MI Runtime logs:`,
+        `  - wso2carbon.log (main): ${snapshot.miCarbonLogPath}`,
+        `  - wso2error.log (errors + stack traces): ${snapshot.miErrorLogPath}`,
+        `  - http_access.log (HTTP requests): ${snapshot.miHttpAccessLogPath}`,
+        `  - wso2-mi-service.log (service lifecycle): ${snapshot.miServiceLogPath}`,
+        `  - correlation.log (request tracing): ${snapshot.miCorrelationLogPath}`,
+    );
+    return lines.join('\n');
+}
+
+function buildConnectorsBlockText(snapshot: SessionContextSnapshot, status: BlockInjectionStatus): string | undefined {
+    if (status === 'omit' || status === 'cleared') {
+        return undefined;
+    }
+    const prefix = status === 're-injection' ? `${CONTEXT_UPDATED}\n` : '';
+    return `${prefix}Available WSO2 connector artifact ids for this version of the MI runtime (from the connector store — pass these to get_connector_info / add_or_remove_connector):
+${snapshot.connectorArtifactIds}
+
+Available downloadable inbound artifact ids for this version of the MI runtime (from the connector store — add via add_or_remove_connector):
+${snapshot.inboundArtifactIds}
+
+Available bundled inbound ids (shipped with this version of the MI runtime — use the id directly with get_connector_info, do NOT add to pom.xml):
+${snapshot.bundledInboundIds}`;
+}
+
+/**
+ * Web-availability block: only renders the "not available" warning when
+ * Bedrock has no Tavily key. When the flag flips to "available", the block
+ * disappears — the model sees the prior turn's warning fade out of relevance,
+ * and the underlying tools start succeeding. Asymmetric but matches today's
+ * semantics; the `[context updated]` notice fires when the warning re-appears.
+ */
+function buildWebAvailabilityBlockText(snapshot: SessionContextSnapshot, status: BlockInjectionStatus): string | undefined {
+    if (status === 'omit' || status === 'cleared') {
+        return undefined;
+    }
+    if (!snapshot.webSearchUnavailable) {
+        return undefined;
+    }
+    const prefix = status === 're-injection' ? `${CONTEXT_UPDATED}\n` : '';
+    return `${prefix}Web search is not available in this environment because no Tavily API key is configured (AWS Bedrock has no first-party web tools). Do NOT call web_search or web_fetch — they will fail with WEB_SEARCH_NOT_CONFIGURED / WEB_FETCH_NOT_CONFIGURED. Override the system prompt's research-priority guidance: skip step (3) entirely. If the user asks for external/web information, tell them to add a Tavily API key in the AI Panel settings (Web Search section) to enable it. For Synapse/MI internals continue to use load_context_reference and deepwiki_ask_question as the system prompt instructs.`;
+}
+
+/**
+ * Full mode-policy block. For Ask/Edit, always renders (status is ignored —
+ * their policies are short, gating saves nothing). For Plan, gated by status:
+ * 'omit' skips entirely (relies on the always-rendered brief Plan note for
+ * the highest-stakes rules).
+ *
+ * The "[mode changed from PREV]" notice is rendered separately on the mode-
+ * header line by the template — works for every mode transition, not just
+ * entering Plan, so the model always knows when the mode flipped.
+ */
+function buildFullModePolicyBlockText(
+    mode: AgentMode,
+    fullPolicy: string,
+    status: BlockInjectionStatus,
+): string | undefined {
+    if (mode !== 'plan') {
+        return fullPolicy.trim();
+    }
+    if (status === 'omit' || status === 'cleared') {
+        return undefined;
+    }
+    return fullPolicy.trim();
+}
+
+/**
+ * Render the tryout payloads block. We surface only a *listing* of
+ * `.tryout/*.json` files (not their contents) — the model reads the relevant
+ * file on demand via `file_read`. See system.ts "Tryout payloads" section
+ * for file-format details and read-on-demand guidance.
+ */
+function buildPayloadsBlockText(
+    files: TryoutPayloadEntry[],
+    status: BlockInjectionStatus,
+): string | undefined {
+    if (status === 'cleared') {
+        // Listing was non-empty on a prior turn but `.tryout/` is now empty —
+        // model still has the stale listing in context.
+        return `# Tryout payloads [removed]
+The .tryout/ folder no longer contains saved sample request payloads. Discard any prior payload references and do not read .tryout/*.json until new ones are saved.`;
+    }
+    if (status === 'omit' || files.length === 0) {
+        return undefined;
+    }
+    const headerSuffix = status === 're-injection' ? ` ${CONTEXT_UPDATED}` : '';
+    const list = files.map(f => `  - .tryout/${f.name}`).join('\n');
+    return `# Tryout payloads${headerSuffix}
+The user has saved sample request payloads in .tryout/ (one file per artifact). Use file_read on the relevant file ONLY when you need to reason about runtime inputs (expression mapping, body shape, query/path params, field names) — do not read otherwise. See the system prompt's "Tryout payloads" section for the file format and how to pick the default request.
+${list}`;
+}
+
+// ============================================================================
 // User Prompt Generation
 // ============================================================================
 
@@ -361,77 +830,66 @@ export async function getUserPrompt(params: UserPromptParams): Promise<UserPromp
     // Get currently opened file content
     const currentlyOpenedFile = await getCurrentlyOpenedFile(params.projectPath);
 
-    // Get available connectors, downloadable inbounds, and bundled inbounds.
-    // All three lists are now artifact ids / bundled ids — the tools take those directly.
-    const connectorCatalog = await getAvailableConnectorCatalog(params.projectPath);
-    const availableConnectorArtifactIds = connectorCatalog.connectorArtifactIds;
-    const availableInboundArtifactIds = connectorCatalog.inboundArtifactIds;
-    const availableBundledInboundIds = connectorCatalog.bundledInboundIds;
-
     const mode = params.mode || 'edit';
-    const modePolicyReminder = await getModeReminder({
-        mode,
-    });
+    // Reuse the pre-built context from agent.ts when available — otherwise
+    // fall back to building it here (e.g. tests or callers that haven't run
+    // `computeSessionContextBlockHashes` first).
+    const sessionContext: { snapshot: SessionContextSnapshot; catalogWarnings: string[]; catalogStoreStatus: string; runtimeVersionResolved: string | null } =
+        params.precomputedContext ?? await buildSessionContextSnapshot({
+            projectPath: params.projectPath,
+            runtimeVersion: params.runtimeVersion,
+            webSearchUnavailable: params.webSearchUnavailable,
+            loginMethod: params.loginMethod,
+            mode,
+        });
+    const { snapshot } = sessionContext;
+
+    const fullModePolicy = await getModeReminder({ mode });
+    const modeBriefNote = getModeBriefNote(mode);
     const planFileReminder = mode === 'plan'
         ? await getPlanModeSessionReminder(params.projectPath, params.sessionId || 'default')
         : '';
-    const connectorStoreReminder = connectorCatalog.warnings.length > 0
-        ? `Connector store status: ${connectorCatalog.storeStatus}. ${connectorCatalog.warnings.join(' ')}`
+    const connectorStoreReminder = sessionContext.catalogWarnings.length > 0
+        ? `Connector store status: ${sessionContext.catalogStoreStatus}. ${sessionContext.catalogWarnings.join(' ')}`
         : '';
 
-    // Prepare template context
-    const isGitRepo = fs.existsSync(path.join(params.projectPath, '.git'));
-    let gitBranch: string | null = null;
-    if (isGitRepo) {
-        try {
-            const headPath = path.join(params.projectPath, '.git', 'HEAD');
-            const headContent = fs.readFileSync(headPath, 'utf8').trim();
-            if (headContent.startsWith('ref: refs/heads/')) {
-                gitBranch = headContent.replace('ref: refs/heads/', '');
-            } else if (/^[0-9a-f]{40}$/i.test(headContent)) {
-                gitBranch = `DETACHED@${headContent.substring(0, 7)}`;
-            }
-        } catch (error) {
-            logDebug(
-                `[Prompt] Failed to resolve git branch from HEAD for project ${params.projectPath}: ` +
-                `${error instanceof Error ? error.message : String(error)}`
-            );
-        }
-    }
-    const today = new Date().toISOString().split('T')[0];
-    const runtimeVersion = params.runtimeVersion ?? await getRuntimeVersionFromPom(params.projectPath);
-    const runtimeVersionDetected = params.runtimeVersionDetected ?? !!runtimeVersion;
+    const runtimeVersionDetected = params.runtimeVersionDetected ?? !!sessionContext.runtimeVersionResolved;
     const runtimeVersionDetectionWarning = runtimeVersionDetected
         ? ''
         : 'MI runtime version could not be detected. Code examples use modern syntax (MI >= 4.4.0). If your project uses an older MI runtime, specify it explicitly.';
-    const runtimePaths = getRuntimePaths(params.projectPath);
+
+    const blockStatuses = params.blockStatuses ?? DEFAULT_BLOCK_STATUSES;
+
+    const envBlock = buildEnvBlockText(snapshot, blockStatuses.env);
+    const connectorsBlock = buildConnectorsBlockText(snapshot, blockStatuses.connectors);
+    const webAvailabilityBlock = buildWebAvailabilityBlockText(snapshot, blockStatuses.webAvailability);
+    const payloadsBlock = buildPayloadsBlockText(snapshot.tryoutPayloads, blockStatuses.payloads);
+    const fullModePolicyBlock = buildFullModePolicyBlockText(
+        mode,
+        fullModePolicy,
+        blockStatuses.modePolicy,
+    );
+    // Render "[mode changed from PREV]" inline on the mode-header line for any
+    // mode transition (not just entering Plan), so the model always sees a
+    // diff when the active mode flipped — even for Ask/Edit where the full
+    // policy isn't gated.
+    const modeChangedFrom = blockStatuses.modePolicy === 're-injection' && params.previousMode
+        ? params.previousMode.toUpperCase()
+        : undefined;
+
     const context: Record<string, any> = {
         question: params.query,
         fileList: fileList,
         currentlyOpenedFile: currentlyOpenedFile, // Currently editing file (optional)
-        userPreconfigured: params.payloads, // Pre-configured payloads (optional)
-        payloads: params.payloads, // Backward-compatible template key
-        include_session_context: params.includeSessionContext ?? true,
-        available_connector_artifact_ids: availableConnectorArtifactIds.join(', '),
-        available_inbound_artifact_ids: availableInboundArtifactIds.join(', '),
-        available_bundled_inbound_ids: availableBundledInboundIds.join(', '),
-        env_working_directory: params.projectPath,
-        env_is_git_repo: isGitRepo ? 'true' : 'false',
-        env_git_branch: gitBranch,
-        env_platform: process.platform,
-        env_os_version: `${os.type()} ${os.release()}`,
-        env_today: today,
-        env_mi_runtime_version: runtimeVersion || 'unknown',
-        env_mi_runtime_home_path: runtimePaths.runtimeHomePath,
-        env_mi_log_dir_path: runtimePaths.logDirPath,
-        env_mi_runtime_carbon_log_path: runtimePaths.carbonLogPath,
-        env_mi_error_log_path: runtimePaths.errorLogPath,
-        env_mi_http_access_log_path: runtimePaths.httpAccessLogPath,
-        env_mi_service_log_path: runtimePaths.serviceLogPath,
-        env_mi_correlation_log_path: runtimePaths.correlationLogPath,
+        env_block: envBlock,
+        connectors_block: connectorsBlock,
+        web_availability_block: webAvailabilityBlock,
+        payloads_block: payloadsBlock,
+        full_mode_policy_block: fullModePolicyBlock,
         runtime_version_detection_warning: runtimeVersionDetectionWarning,
         mode_upper: mode.toUpperCase(),
-        mode_policy: modePolicyReminder,
+        mode_brief_note: modeBriefNote,
+        mode_changed_from: modeChangedFrom,
         plan_file_reminder: planFileReminder,
         connector_store_reminder: connectorStoreReminder,
     };

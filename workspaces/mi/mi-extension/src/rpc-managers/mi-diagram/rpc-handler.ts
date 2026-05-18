@@ -337,7 +337,17 @@ import {
     loadDriverAndTestConnection,
     LoadDriverAndTestConnectionRequest,
     canCreateConsolidatedProject,
-    createConsolidatedProjectFromWorkspace
+    createConsolidatedProjectFromWorkspace,
+    getConnectorDependencies,
+    GetConnectorDependenciesRequest,
+    updateConnectorDependencyOverride,
+    UpdateConnectorDependencyOverrideRequest,
+    resetConnectorDependencyOverrides,
+    ResetConnectorDependencyOverridesRequest,
+    updateConnectorFlags,
+    UpdateConnectorFlagsRequest,
+    updateGlobalConnectorFlags,
+    UpdateGlobalConnectorFlagsRequest,
     // getBackendRootUrl - REMOVED: Backend URLs deprecated, all AI features use local LLM
 } from "@wso2/mi-core";
 import { Messenger } from "vscode-messenger";
@@ -534,4 +544,9 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(getDriverMavenCoordinates, (args: DriverMavenCoordinatesRequest) => rpcManger.getDriverMavenCoordinates(args));
     messenger.onRequest(canCreateConsolidatedProject, () => rpcManger.canCreateConsolidatedProject());
     messenger.onRequest(createConsolidatedProjectFromWorkspace, (args: CreateProjectRequest) => rpcManger.createConsolidatedProjectFromWorkspace(args));
+    messenger.onRequest(getConnectorDependencies, (args: GetConnectorDependenciesRequest) => rpcManger.getConnectorDependencies(args));
+    messenger.onRequest(updateConnectorDependencyOverride, (args: UpdateConnectorDependencyOverrideRequest) => rpcManger.updateConnectorDependencyOverride(args));
+    messenger.onRequest(resetConnectorDependencyOverrides, (args: ResetConnectorDependencyOverridesRequest) => rpcManger.resetConnectorDependencyOverrides(args));
+    messenger.onRequest(updateConnectorFlags, (args: UpdateConnectorFlagsRequest) => rpcManger.updateConnectorFlags(args));
+    messenger.onRequest(updateGlobalConnectorFlags, (args: UpdateGlobalConnectorFlagsRequest) => rpcManger.updateGlobalConnectorFlags(args));
 }

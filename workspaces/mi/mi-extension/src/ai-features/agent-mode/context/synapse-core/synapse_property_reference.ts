@@ -80,6 +80,16 @@ HTTP headers are NOT properties — they are accessed via the \`headers\` scope:
 ### Critical Rule
 **There is NO \`trp\` scope** in Synapse expressions. Use \`headers["X"]\` to access transport headers, NOT \`props.trp.X\`.
 
+### \`<variable>\` does NOT support \`scope\`
+The \`<variable>\` mediator has no \`scope\` attribute — it writes to Synapse variables only. For axis2/transport/synapse-scope properties (\`HTTP_SC\`, \`messageType\`, \`ContentType\`, \`OUT_ONLY\`, \`REST_URL_POSTFIX\`, etc.), use the \`<property>\` mediator instead. The validator rejects \`scope\` on \`<variable>\`.
+\`\`\`xml
+<!-- WRONG: <variable> has no scope attribute -->
+<variable name="HTTP_SC" type="INTEGER" value="200" action="set" scope="axis2"/>
+
+<!-- CORRECT: use <property> for scoped/transport values -->
+<property name="HTTP_SC" value="200" scope="axis2"/>
+\`\`\`
+
 ### Setting Outbound HTTP Request Headers
 The \`<variable>\` mediator **cannot** set outbound HTTP headers — it writes to Synapse variables only. Two working options:
 

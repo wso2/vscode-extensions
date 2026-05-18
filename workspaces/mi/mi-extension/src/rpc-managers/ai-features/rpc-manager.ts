@@ -47,7 +47,7 @@ import { MiDiagramRpcManager } from "../mi-diagram/rpc-manager";
 import { generateSuggestions as generateSuggestionsFromLLM } from "../../ai-features/copilot/suggestions/suggestions";
 import { fillIdpSchema } from '../../ai-features/copilot/idp/fill_schema';
 import { codeDiagnostics } from "../../ai-features/copilot/diagnostics/diagnostics";
-import { getCopilotUsageApiUrl, getLoginMethod } from '../../ai-features/auth';
+import { getCopilotUsageApiUrl, getLoginMethod, getTavilyApiKey, setTavilyApiKey } from '../../ai-features/auth';
 import { LoginMethod } from '@wso2/mi-core';
 import { logInfo, logWarn, logError, logDebug } from '../../ai-features/copilot/logger';
 import { MILanguageClient } from '../../lang-client/activator';
@@ -633,6 +633,28 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
     async isMiCopilotLoggedIn(): Promise<boolean> {
         const loginMethod = await getLoginMethod();
         return loginMethod === LoginMethod.MI_INTEL;
+    }
+
+    /**
+     * Read the Tavily API key bundled with Bedrock credentials.
+     * Returns undefined for non-Bedrock auth methods or when the key is unset.
+     */
+    async getTavilyApiKey(): Promise<string | undefined> {
+        return await getTavilyApiKey();
+    }
+
+    /**
+     * Update the Tavily API key on the stored Bedrock credentials.
+     * Empty string clears the key. Bedrock-only.
+     */
+    async setTavilyApiKey(request: { apiKey: string }): Promise<{ success: boolean; error?: string }> {
+        try {
+            await setTavilyApiKey(request.apiKey);
+            return { success: true };
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            return { success: false, error: message };
+        }
     }
 
     /**

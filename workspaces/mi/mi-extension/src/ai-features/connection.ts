@@ -15,7 +15,7 @@
 // under the License.
 
 import { createAnthropic } from "@ai-sdk/anthropic";
-import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
+import { createBedrockAnthropic } from "@ai-sdk/amazon-bedrock/anthropic";
 import * as vscode from "vscode";
 import {
     getAccessToken,
@@ -31,44 +31,48 @@ import { logInfo, logDebug, logError } from "./copilot/logger";
 
 export const ANTHROPIC_HAIKU_4_5 = "claude-haiku-4-5";
 export const ANTHROPIC_SONNET_4_6 = "claude-sonnet-4-6";
-export const ANTHROPIC_OPUS_4_6 = "claude-opus-4-6";
+export const ANTHROPIC_OPUS_4_7 = "claude-opus-4-7";
 // Backward-compatible alias for existing imports.
 export const ANTHROPIC_SONNET_4_5 = ANTHROPIC_SONNET_4_6;
 
 export type AnthropicModel =
     | typeof ANTHROPIC_HAIKU_4_5
     | typeof ANTHROPIC_SONNET_4_6
-    | typeof ANTHROPIC_OPUS_4_6;
+    | typeof ANTHROPIC_OPUS_4_7;
 
-// Bedrock model ID mappings
+// Bedrock inference-profile IDs (without the regional prefix).
+// Base IDs verified against `aws bedrock list-inference-profiles`.
 const BEDROCK_MODEL_MAP: Record<string, string> = {
-    [ANTHROPIC_HAIKU_4_5]: "anthropic.claude-3-5-haiku-20241022-v1:0",
-    [ANTHROPIC_SONNET_4_6]: "anthropic.claude-sonnet-4-6-20250619-v1:0",
-    [ANTHROPIC_OPUS_4_6]: "anthropic.claude-opus-4-6-20250619-v1:0",
+    [ANTHROPIC_HAIKU_4_5]: "anthropic.claude-haiku-4-5-20251001-v1:0",
+    [ANTHROPIC_SONNET_4_6]: "anthropic.claude-sonnet-4-6",
+    [ANTHROPIC_OPUS_4_7]: "anthropic.claude-opus-4-7",
 };
 
 /**
- * Get the regional prefix for Bedrock model IDs based on AWS region.
- * Cross-region inference requires a regional prefix (e.g., us., eu.).
+ * Bedrock 4.x models can only be invoked through an inference profile, not as
+ * on-demand foundation models. Region-pinned profiles (us./eu./ap./...) are
+ * not published in every AWS region for every model, so we always use the
+ * `global.` profile — it is published for all three models we support and is
+ * accessible from any Bedrock-enabled region.
+ *
+ * Trade-off: `global.` may cost slightly more per token than a region-pinned
+ * profile and offers no data-residency guarantee. If a user needs region
+ * pinning we will need to add a setting and a region→profile lookup.
  */
-export const getBedrockRegionalPrefix = (region: string): string => {
-    const prefix = region.split('-')[0];
-    switch (prefix) {
-        case 'us':
-        case 'eu':
-        case 'ap':
-        case 'ca':
-        case 'sa':
-        case 'me':
-        case 'af':
-            return prefix;
-        default:
-            return 'us';
-    }
+const BEDROCK_INFERENCE_PROFILE_PREFIX = 'global';
+
+export const getBedrockRegionalPrefix = (_region: string): string => BEDROCK_INFERENCE_PROFILE_PREFIX;
+
+/**
+ * Resolve the Bedrock inference-profile ID used to validate AWS credentials.
+ * Uses Haiku 4.5 — cheapest of the three.
+ */
+export const getBedrockValidationModelId = (region: string): string => {
+    const regionalPrefix = getBedrockRegionalPrefix(region);
+    return `${regionalPrefix}.${BEDROCK_MODEL_MAP[ANTHROPIC_HAIKU_4_5]}`;
 };
 
 let cachedAnthropic: ReturnType<typeof createAnthropic> | null = null;
-let cachedBedrock: ReturnType<typeof createAmazonBedrock> | null = null;
 let cachedAuthMethod: LoginMethod | null = null;
 let reLoginPromptInFlight = false;
 
@@ -298,9 +302,14 @@ export const getAnthropicProvider = async (): Promise<ReturnType<typeof createAn
 
 /**
  * Get or create a cached Bedrock provider instance.
+ *
+ * Uses the `@ai-sdk/amazon-bedrock/anthropic` subpath, which calls Bedrock's
+ * InvokeModel API rather than Converse. This gives us full Anthropic feature
+ * parity (native compaction, deferLoading, anthropic-beta headers, adaptive
+ * thinking, ttl-based cache control) — none of which work through Converse.
  */
 const getBedrockProvider = async (): Promise<{
-    provider: ReturnType<typeof createAmazonBedrock>;
+    provider: ReturnType<typeof createBedrockAnthropic>;
     credentials: Awaited<ReturnType<typeof getAwsBedrockCredentials>> & {};
 }> => {
     const credentials = await getAwsBedrockCredentials();
@@ -308,15 +317,20 @@ const getBedrockProvider = async (): Promise<{
         throw new Error("Authentication failed: Unable to get AWS Bedrock credentials");
     }
 
-    // Always recreate to ensure fresh credentials
-    cachedBedrock = createAmazonBedrock({
-        region: credentials.region,
-        accessKeyId: credentials.accessKeyId,
-        secretAccessKey: credentials.secretAccessKey,
-        sessionToken: credentials.sessionToken,
-    });
+    // Always recreate to ensure fresh credentials.
+    const provider = credentials.authType === 'api_key'
+        ? createBedrockAnthropic({
+            region: credentials.region,
+            apiKey: credentials.apiKey,
+        })
+        : createBedrockAnthropic({
+            region: credentials.region,
+            accessKeyId: credentials.accessKeyId,
+            secretAccessKey: credentials.secretAccessKey,
+            sessionToken: credentials.sessionToken,
+        });
 
-    return { provider: cachedBedrock, credentials };
+    return { provider, credentials };
 };
 
 export const getAnthropicClient = async (model: AnthropicModel): Promise<any> => {
@@ -358,7 +372,7 @@ export function resolveMainModelId(settings: { mainModelPreset: string; mainMode
     if (settings.mainModelCustomId) {
         return settings.mainModelCustomId;
     }
-    return settings.mainModelPreset === 'opus' ? ANTHROPIC_OPUS_4_6 : ANTHROPIC_SONNET_4_6;
+    return settings.mainModelPreset === 'opus' ? ANTHROPIC_OPUS_4_7 : ANTHROPIC_SONNET_4_6;
 }
 
 /**
@@ -372,13 +386,12 @@ export function resolveSubModelId(settings: { subModelPreset: string; subModelCu
 }
 
 /**
- * Returns cache control options for prompt caching
- * @returns Cache control options for Anthropic or Bedrock
+ * Returns cache control options for prompt caching.
+ *
+ * Both the direct Anthropic provider and the Bedrock-Anthropic provider
+ * (`@ai-sdk/amazon-bedrock/anthropic`) speak the Anthropic protocol under the
+ * hood, so the providerOptions key is always `anthropic` — even on Bedrock.
  */
 export const getProviderCacheControl = async (): Promise<Record<string, { cacheControl: { type: string } }>> => {
-    const loginMethod = await getLoginMethod();
-    if (loginMethod === LoginMethod.AWS_BEDROCK) {
-        return { bedrock: { cacheControl: { type: "ephemeral" } } };
-    }
     return { anthropic: { cacheControl: { type: "ephemeral" } } };
 };
