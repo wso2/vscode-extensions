@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
-## [1.10.0](https://github.com/wso2/vscode-extensions/compare/ballerina-integrator-1.7.0...ballerina-integrator-1.10.0) - 2026-05-16
+## [1.10.0](https://github.com/wso2/vscode-extensions/compare/ballerina-integrator-1.7.0...ballerina-integrator-1.10.0) - 2026-05-18
 
 ### Deprecated
 
