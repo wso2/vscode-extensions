@@ -10,11 +10,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Deprecated
 
-- **Extension Deprecation Notice** — This extension will be officially deprecated in the next release. All features are migrating to the unified **WSO2 Integrator** extension.
+- **Extension Deprecation Notice** — This extension will be officially deprecated in the next release. All features are migrating to the unified [**WSO2 Integrator**](https://marketplace.visualstudio.com/items?itemName=WSO2.wso2-integrator) extension.
 
 ### Added
 
-- **Automatic Upgrade & Migration Path** — Transition to the new extension is fully automated. The new [**WSO2 Integrator**](https://marketplace.visualstudio.com/items?itemName=WSO2.wso2-integrator) extension will be automatically installed in your VS Code.
+- **Automatic Upgrade & Migration Path** — Transition to the new extension is fully automated. The new **WSO2 Integrator** extension will be automatically installed in your VS Code.
 - **Manual Installation Fallback** — If the automatic lifecycle migration is blocked by your local environment, you can manually install the new extension from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=WSO2.wso2-integrator).
 - **Persist Database Support** — Added support for persist database workflows in BI, including multiple database connections.
 - **Library Projects** — Added end-to-end support for library projects, including creation improvements, new overview page, `lib.bal` validator import, publishing to Ballerina Central, and deployment enforcement when deploying workspaces to Devant.
