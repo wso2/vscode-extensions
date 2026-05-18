@@ -367,7 +367,7 @@ export const langlibTestCases = [
 
 export const testCasesForCodeIndexing = [
   // {
-  //   prompt: "I want to add a new endpoint to our FHIR patient API that lets clients search for patients by their last name. It should accept a query parameter, look up matching records from the database, convert each one into the FHIR profile we use everywhere else, and return them as a FHIR Bundle. Make sure it follows the same style and error handling as the other read endpoints on that resource.", //
+  //   prompt: "I want to add a new endpoint to our FHIR patient API that lets clients search for patients by their last name. It should accept a query parameter, look up matching records from the database, convert each one into the FHIR profile we use everywhere else, and return them as a FHIR Bundle. Make sure it follows the same style and error handling as the other read endpoints on that resource.",
   //   projectPath: "healthcare_sample"
   // },
   // {
@@ -378,10 +378,30 @@ export const testCasesForCodeIndexing = [
   //   prompt: "For compliance reasons we need an audit trail every time a patient record or an encounter record gets deleted. Add structured logging at the point of deletion that captures the resource type, the ID, and a timestamp — using whatever logging we already use elsewhere in the service.",
   //   projectPath: "healthcare_sample"
   // },
+  // {
+  //   prompt: "For compliance reasons we need a full audit trail every time a patient record or an encounter record gets deleted. Before the row is actually removed from the database, look up the record first and have the log entry capture the key identifying fields from the record itself — for a patient that means things like their name and birth date, for an encounter the status and the period it covered — along with the resource type and a timestamp. The log needs to contain enough detail to reconstruct who or what was deleted",
+  //   projectPath: "healthcare_sample"
+  // },
+  // {
+  //   prompt: "Leadership decided that all lead-conversion notifications should go to a single shared channel, regardless of which team the owner belongs to. Strip out the team-routing feature entirely — the configuration for it, the lookup logic that picks a channel based on the owner's role, and any types that only exist to support that mapping. Every notification should just go to the default channel from now on.",
+  //   projectPath: "salesforce_slack_integration"
+  // },
+  // {
+  //   prompt: "We're not filtering leads anymore — every converted lead should produce a notification. Remove the filter configuration, the function that decides whether a lead passes the filters, and the call into it from the main processing flow.",
+  //   projectPath: "salesforce_slack_integration"
+  // },
   {
-    prompt: "For compliance reasons we need a full audit trail every time a patient record or an encounter record gets deleted. Before the row is actually removed from the database, look up the record first and have the log entry capture the key identifying fields from the record itself — for a patient that means things like their name and birth date, for an encounter the status and the period it covered — along with the resource type and a timestamp. The log needs to contain enough detail to reconstruct who or what was deleted",
+    prompt: "I'd like to add a feature to the service that fetches the current Bitcoin price every hour from a public crypto exchange and posts the price as a tweet on our company Twitter account.",
     projectPath: "healthcare_sample"
-  }
+  },
+  {
+    prompt: "Can you add an endpoint that takes a 9x9 Sudoku puzzle as input and returns the solved board?",
+    projectPath: "healthcare_sample"
+  },
+  {
+    prompt: "Add a widget to the service that fetches the weather forecast for a given city and renders it as an HTML page.",
+    projectPath: "shopify_stripe_integration_errors",
+  },
 ];
 
 export let testCases = [];
