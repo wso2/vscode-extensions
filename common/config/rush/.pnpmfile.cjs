@@ -57,6 +57,7 @@ module.exports = {
         }
         if (deps['vite']) deps['vite'] = '6.0.14';
         if (deps['yauzl']) deps['yauzl'] = '3.2.1';
+        if (deps['follow-redirects']) deps['follow-redirects'] = '1.16.0';
         if (deps['bn.js']) {
           deps['bn.js'] = deps['bn.js'].startsWith('^5') ? '5.2.3' : '4.12.3';
         }

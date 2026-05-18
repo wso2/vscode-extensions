@@ -75,7 +75,7 @@ export const DisabledMessage = (props: { showProjectHeader?: boolean }) => {
                 buttonTitle="Retry"
                 onClick={Retry}
                 subTitle={
-                    "An error occurred while trying to establish a connection with the MI Copilot server. Please click retry to try again."
+                    "An error occurred while trying to establish a connection with the WSO2 Integrator Copilot server. Please click retry to try again."
                 }
                 title={"Error in establishing Connection"}
             />

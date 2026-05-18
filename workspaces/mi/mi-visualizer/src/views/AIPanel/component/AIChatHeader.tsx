@@ -17,80 +17,101 @@
  */
 
 import React, { useState, useEffect } from "react";
-import { Button, Codicon } from "@wso2/ui-toolkit";
-import { Badge, Header, HeaderButtons, ResetsInBadge } from '../styles';
+import { Codicon } from "@wso2/ui-toolkit";
+import { LoginMethod } from "@wso2/mi-core";
 import { useMICopilotContext } from "./MICopilotContext";
+import SessionSwitcher from "./SessionSwitcher";
+import AuthProviderChip from "./AuthProviderChip";
+
+// Guard session switching while an agent run is active.
+const ENABLE_SESSION_SWITCH_GUARD = true;
+
+interface AIChatHeaderProps {
+    onOpenSettings: () => void;
+}
 
 /**
- * Header component for the chat interface
- * Shows token information and action buttons
+ * Header component for the chat interface.
+ * Left: AuthProviderChip | Right: New Chat (SessionSwitcher) + Settings
  */
-const AIChatHeader: React.FC = () => {
-  const { rpcClient, setChatClearEventTriggered, tokenInfo, chatClearEventTriggered, backendRequestTriggered} = useMICopilotContext();
-  const [hasApiKey, setHasApiKey] = useState(false);
+const AIChatHeader: React.FC<AIChatHeaderProps> = ({ onOpenSettings }) => {
+    const {
+        rpcClient,
+        tokenInfo,
+        backendRequestTriggered,
+        currentSessionId,
+        currentSessionTitle,
+        sessions,
+        isSessionsLoading,
+        refreshSessions,
+        switchToSession,
+        createNewSession,
+        deleteSession,
+    } = useMICopilotContext();
+    const [hasApiKey, setHasApiKey] = useState(false);
+    const [isAwsBedrock, setIsAwsBedrock] = useState(false);
 
-  const handleLogout = async () => {
-    await rpcClient?.getMiDiagramRpcClient().logoutFromMIAccount();
-  };
+    const checkApiKey = async () => {
+        const apiKeyPresent = await rpcClient?.getMiAiPanelRpcClient().hasAnthropicApiKey();
+        setHasApiKey(apiKeyPresent);
+        const machineView = await rpcClient?.getAIVisualizerState();
+        setIsAwsBedrock(machineView?.loginMethod === LoginMethod.AWS_BEDROCK);
+    };
 
-  const checkApiKey = async () => {
-    const hasApiKey = await rpcClient?.getMiAiPanelRpcClient().hasAnthropicApiKey();
-    setHasApiKey(hasApiKey);
-  };
+    useEffect(() => {
+        checkApiKey();
+    }, [rpcClient]);
 
-  // Check for API key on component mount
-  useEffect(() => {
-    checkApiKey();
-  }, [rpcClient]);
+    const isLoading = backendRequestTriggered || isSessionsLoading;
 
-  const isLoading = chatClearEventTriggered || backendRequestTriggered;
+    return (
+        <header
+            className="flex justify-between items-center px-3 py-2 shrink-0"
+            style={{
+                borderBottom: "1px solid var(--vscode-panel-border)",
+                backgroundColor: "var(--vscode-sideBar-background)",
+            }}
+        >
+            {/* Left: Auth provider chip */}
+            <AuthProviderChip
+                hasApiKey={hasApiKey}
+                isAwsBedrock={isAwsBedrock}
+                remainingPercentage={tokenInfo.remainingPercentage}
+                isLessThanOne={tokenInfo.isLessThanOne}
+                timeToReset={tokenInfo.timeToReset}
+            />
 
-  return (
-      <Header>
-          <Badge>
-              {hasApiKey ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <Codicon name="key" />
-                          Copilot is using your API Key
-                      </div>
-                      <ResetsInBadge>Logout to clear the API key</ResetsInBadge>
-                  </div>
-              ) : (
-                  <>
-                      Remaining Free Usage:{" "}
-                      {tokenInfo.remainingPercentage === -1
-                          ? "Unlimited"
-                          : tokenInfo.isLessThanOne
-                          ? "<1%"
-                          : `${tokenInfo.remainingPercentage}%`}
-                      <br />
-                      <ResetsInBadge>
-                          {tokenInfo.remainingPercentage !== -1 &&
-                              `Resets in: ${
-                                  tokenInfo.timeToReset < 1 ? "< 1 day" : `${Math.round(tokenInfo.timeToReset)} days`
-                              }`}
-                      </ResetsInBadge>
-                  </>
-              )}
-          </Badge>
-          <HeaderButtons>
-              <Button
-                  appearance="icon"
-                  onClick={() => setChatClearEventTriggered(true)}
-                  tooltip="Clear Chat"
-                  disabled={isLoading}
-              >
-                  <Codicon name="clear-all" />
-                  &nbsp;&nbsp;Clear
-              </Button>
-              <Button appearance="icon" onClick={handleLogout} tooltip="Logout" disabled={isLoading}>
-                  <Codicon name="sign-out" />
-                  &nbsp;&nbsp;Logout
-              </Button>
-          </HeaderButtons>
-      </Header>
-  );
+            {/* Right: New Chat + Settings */}
+            <div className="flex items-center gap-1">
+                <SessionSwitcher
+                    currentSessionId={currentSessionId}
+                    sessions={sessions}
+                    currentSessionTitle={currentSessionTitle}
+                    isLoading={isLoading}
+                    disabled={ENABLE_SESSION_SWITCH_GUARD ? backendRequestTriggered : false}
+                    onSessionSwitch={switchToSession}
+                    onNewSession={createNewSession}
+                    onDeleteSession={deleteSession}
+                    onRefresh={refreshSessions}
+                />
+                <button
+                    className="flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors"
+                    style={{ color: "var(--vscode-foreground)", opacity: 0.8 }}
+                    onClick={onOpenSettings}
+                    onMouseEnter={(e) => {
+                        (e.currentTarget as HTMLElement).style.backgroundColor = "var(--vscode-list-hoverBackground)";
+                    }}
+                    onMouseLeave={(e) => {
+                        (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
+                    }}
+                    title="Settings"
+                >
+                    <Codicon name="settings-gear" />
+                    <span>Settings</span>
+                </button>
+            </div>
+        </header>
+    );
 };
 
 export default AIChatHeader;

@@ -5,6 +5,7 @@
   "prettier.printWidth": 120,
   "prettier.tabWidth": 4,
   "files.associations": {
-    "rush.json": "jsonc"
+    "rush.json": "jsonc",
+    "rush.bi.json": "jsonc"
   },
 }

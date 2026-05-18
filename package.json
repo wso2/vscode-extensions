@@ -26,6 +26,7 @@
       "picomatch": "4.0.4",
       "postcss": "8.5.10",
       "prismjs": "1.30.0",
+      "protobufjs": "7.5.5",
       "serialize-javascript": "7.0.5",
       "tmp": "0.2.4",
       "undici": "7.24.0",
@@ -33,6 +34,7 @@
       "vite": "6.0.14",
       "xmldom": "npm:@xmldom/xmldom@0.8.10",
       "yaml": "2.8.3",
+      "uuid": "14.0.0",
       "yauzl": "3.2.1"
     }
   },

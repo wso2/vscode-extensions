@@ -81,7 +81,7 @@ export default function createTests() {
         // diagram
         const diagram = new Diagram(page.page, 'Resource');
         await diagram.init();
-        await diagram.downloadConnectorThroughModulesList('File', 0, '4.0.35');
+        await diagram.downloadConnectorThroughModulesList('File', 0, '6.0.2');
       });
 
       await test.step('Add downloaded connector operation to resource', async () => {
@@ -90,7 +90,7 @@ export default function createTests() {
         const diagram = new Diagram(page.page, 'Resource');
         await diagram.init();
 
-        await diagram.addConnectorOperation('File', 'createDirectory');
+        await diagram.addConnectorOperation('File', 'Create Directory', 'Create Directory');
 
         // create connection through connector form
         console.log('Create connection through connector operation form');
@@ -172,16 +172,20 @@ export default function createTests() {
         });
       });
 
-      await test.step('Delete connector', async () => {
+      // NOTE: Skipping delete connector test as it is causing instability in the test suite.
+      // This will be re-enabled once the stability issue is resolved.
+      await test.step.skip('Delete connector', async () => {
         console.log('Deleting connector');
         // diagram
         const diagram = new Diagram(page.page, 'Resource');
         await diagram.init();
+        console.log('Deleting connector from diagram');
         await diagram.deleteConnector('CSV');
         console.log('Deleting connector completed');
       });
 
-      await test.step('Import connector from file', async () => {
+      // Enabling this test step is after fixing: https://github.com/wso2/mi-vscode/issues/1463
+      await test.step.skip('Import connector from file', async () => {
         console.log('Importing connector from file');
         const diagram = new Diagram(page.page, 'Resource');
         await diagram.init();

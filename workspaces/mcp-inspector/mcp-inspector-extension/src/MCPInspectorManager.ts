@@ -58,20 +58,20 @@ export class MCPInspectorManager {
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       // Spawn the process
-      const process = childProcess.spawn('node', [config.scriptPath], {
+      const child = childProcess.spawn(process.execPath, [config.scriptPath], {
         env: config.env,
         cwd: config.cwd,
         stdio: ['ignore', 'pipe', 'pipe'],
       });
 
-      this[processRef] = process;
+      this[processRef] = child;
       let resolved = false;
 
       // Set timeout for process startup
       const timeout = setTimeout(() => {
         if (!resolved) {
           resolved = true;
-          process.kill();
+          child.kill();
           this[processRef] = null;
           if (processRef === 'serverProcess') {
             this.isRunning = false;
@@ -81,7 +81,7 @@ export class MCPInspectorManager {
       }, ProcessConfig.STARTUP_TIMEOUT_MS);
 
       // Handle stdout - look for ready message
-      process.stdout?.on('data', (data: Buffer) => {
+      child.stdout?.on('data', (data: Buffer) => {
         const output = data.toString().trim();
 
         if (!resolved && output.includes(config.readyMessage)) {
@@ -93,13 +93,13 @@ export class MCPInspectorManager {
       });
 
       // Handle stderr - detect port conflicts
-      process.stderr?.on('data', (data: Buffer) => {
+      child.stderr?.on('data', (data: Buffer) => {
         const output = data.toString().trim();
 
         if (!resolved && output.includes(ProcessConfig.PORT_IN_USE_MESSAGE)) {
           resolved = true;
           clearTimeout(timeout);
-          process.kill();
+          child.kill();
           this[processRef] = null;
           if (processRef === 'serverProcess') {
             this.isRunning = false;
@@ -114,7 +114,7 @@ export class MCPInspectorManager {
       });
 
       // Handle process exit
-      process.on('exit', (code) => {
+      child.on('exit', (code) => {
         this[processRef] = null;
         if (processRef === 'serverProcess') {
           this.isRunning = false;
@@ -127,7 +127,7 @@ export class MCPInspectorManager {
       });
 
       // Handle process errors
-      process.on('error', (error) => {
+      child.on('error', (error) => {
         Logger.error(`${config.errorPrefix} process error`, error);
         this[processRef] = null;
         if (processRef === 'serverProcess') {

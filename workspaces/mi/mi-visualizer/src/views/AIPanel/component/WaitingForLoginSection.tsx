@@ -194,6 +194,15 @@ export const WaitingForLoginSection = ({ loginMethod, isValidating = false, erro
     const [apiKey, setApiKey] = useState("");
     const [showApiKey, setShowApiKey] = useState(false);
     const [clientError, setClientError] = useState<string>("");
+    const [awsCredentials, setAwsCredentials] = useState({
+        accessKeyId: "",
+        secretAccessKey: "",
+        region: "",
+        sessionToken: ""
+    });
+    const [showAwsSecretKey, setShowAwsSecretKey] = useState(false);
+    const [showAwsAccessKey, setShowAwsAccessKey] = useState(false);
+    const [showAwsSessionToken, setShowAwsSessionToken] = useState(false);
 
     const cancelLogin = () => {
         rpcClient.sendAIStateEvent(AI_EVENT_TYPE.CANCEL_LOGIN);
@@ -241,6 +250,42 @@ export const WaitingForLoginSection = ({ loginMethod, isValidating = false, erro
     const toggleApiKeyVisibility = () => {
         setShowApiKey(!showApiKey);
     };
+
+    const handleAwsCredentialChange = (field: string) => (e: any) => {
+        const value = e.target?.value ?? '';
+        setAwsCredentials(prev => ({ ...prev, [field]: value }));
+        if (clientError) {
+            setClientError("");
+        }
+    };
+
+    const connectWithAwsBedrock = () => {
+        setClientError("");
+        const { accessKeyId, secretAccessKey, region, sessionToken } = awsCredentials;
+
+        if (!accessKeyId.trim()) {
+            setClientError("Please enter your AWS Access Key ID");
+            return;
+        }
+        if (!secretAccessKey.trim()) {
+            setClientError("Please enter your AWS Secret Access Key");
+            return;
+        }
+        if (!region.trim()) {
+            setClientError("Please enter your AWS Region");
+            return;
+        }
+
+        rpcClient.sendAIStateEvent({
+            type: AI_EVENT_TYPE.SUBMIT_AWS_CREDENTIALS,
+            payload: {
+                accessKeyId: accessKeyId.trim(),
+                secretAccessKey: secretAccessKey.trim(),
+                region: region.trim(),
+                sessionToken: sessionToken.trim() || undefined
+            },
+        } as any);
+    };
     
     // Show either server error (from validation) or client error (from form validation)
     const displayError = errorMessage || clientError;
@@ -251,7 +296,7 @@ export const WaitingForLoginSection = ({ loginMethod, isValidating = false, erro
                 <AlertContainer variant="primary">
                     <Title>Connect with Anthropic API Key</Title>
                     <SubTitle>
-                        Enter your Anthropic API key to connect to MI Copilot. Your API key will be securely stored
+                        Enter your Anthropic API key to connect to WSO2 Integrator Copilot. Your API key will be securely stored
                         and used for authentication.
                     </SubTitle>
 
@@ -303,13 +348,31 @@ export const WaitingForLoginSection = ({ loginMethod, isValidating = false, erro
         );
     }
 
+    if (loginMethod === LoginMethod.AWS_BEDROCK) {
+        return (
+            <Container>
+                <AlertContainer variant="secondary">
+                    <Title>AWS Bedrock — Coming Soon</Title>
+                    <SubTitle>
+                        AWS Bedrock support for the agent mode is currently unavailable. Full support is coming in a future release.
+                    </SubTitle>
+                    <ButtonContainer>
+                        <VSCodeButton appearance="secondary" onClick={cancelLogin}>
+                            Back
+                        </VSCodeButton>
+                    </ButtonContainer>
+                </AlertContainer>
+            </Container>
+        );
+    }
+
     // Default: MI_INTEL login method
     return (
         <Container>
             <WaitingMessage>
                 <Title>Waiting for Login</Title>
                 <SubTitle>
-                    Waiting for the login credentials. Please sign in to your MI Copilot account in the browser window to continue.
+                    Please complete the WSO2 Integration Platform sign-in to continue using WSO2 Integrator Copilot.
                 </SubTitle>
                 <ButtonContainer>
                     <VSCodeButton appearance="secondary" onClick={cancelLogin}>
@@ -320,4 +383,3 @@ export const WaitingForLoginSection = ({ loginMethod, isValidating = false, erro
         </Container>
     );
 };
-

@@ -58,6 +58,9 @@ export type CopilotChatEntry = {
     role: Role.CopilotUser | Role.CopilotAssistant;
     content: string;
     type?: MessageType;
+    /** Full AI SDK messages (includes tool calls/results) - only for assistant messages */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    modelMessages?: any[];
 };
 
 export type ChatMessage = {
@@ -65,6 +68,8 @@ export type ChatMessage = {
     role: Role.MICopilot | Role.MIUser | Role.default;
     content: string;
     type: MessageType;
+    /** Checkpoint anchor shown immediately before this user message in the timeline */
+    checkpointAnchorId?: string;
     files?: FileObject[];
     images?: ImageObject[];
 };

@@ -106,11 +106,21 @@ const TextButton = styled.button`
     }
 `;
 
+const DisabledTextButton = styled.button`
+    background: none;
+    border: none;
+    color: var(--vscode-disabledForeground);
+    font-size: 13px;
+    cursor: not-allowed;
+    padding: 0;
+    margin-top: -6px;
+`;
+
 const LegalNotice: React.FC = () => {
     return (
         <PostLoginSection>
             <div>
-                MI Copilot uses AI to assist with integration. Please review all suggested content before adding it to
+                WSO2 Integrator Copilot uses AI to assist with integration. Please review all suggested content before adding it to
                 your integration.
             </div>
             <div>
@@ -149,7 +159,7 @@ export const SignInToCopilotMessage = (props: { showProjectHeader?: boolean }) =
                     sx={{ width: 54, height: 54 }}
                     iconSx={{ fontSize: "54px", color: "var(--vscode-foreground)", cursor: "default" }}
                 />
-                <Title>Welcome to MI Copilot</Title>
+                <Title>Welcome to WSO2 Integrator Copilot</Title>
                 <Typography
                     variant="body1"
                     sx={{
@@ -165,9 +175,10 @@ export const SignInToCopilotMessage = (props: { showProjectHeader?: boolean }) =
             <BottomSpacer />
             <FooterContent>
                 <LegalNotice />
-                <StyledButton onClick={signInToMIAI}>Login to MI Copilot</StyledButton>
+                <StyledButton onClick={signInToMIAI}>Login to WSO2 Integrator Copilot</StyledButton>
                 <Divider>or</Divider>
                 <TextButton onClick={handleAnthropicKeyClick}>Enter your Anthropic API key</TextButton>
+                <DisabledTextButton title="AWS Bedrock support is coming soon">AWS Bedrock (coming soon)</DisabledTextButton>
             </FooterContent>
         </PanelWrapper>
     );

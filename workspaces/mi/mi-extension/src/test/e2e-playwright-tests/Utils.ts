@@ -64,48 +64,23 @@ export async function stopRunningProject(page: ExtendedPage) {
     console.log('Stopped the project and closed the runtime services tab');
 }
 
-export async function createProject(page: ExtendedPage, projectName?: string, runtimeVersino?: string, addAdvancedConfig: boolean = false) {
-    console.log('Creating new project with runtime version ' + (runtimeVersino || '4.4.0'));
-    await page.selectSidebarItem('WSO2 Integrator: MI');
+export async function createProject(page: ExtendedPage, projectName?: string, runtimeVersion?: string, addAdvancedConfig: boolean = false) {
+    console.log('Creating new project with runtime version ' + (runtimeVersion || '4.4.0'));
+    await page.selectSidebarItem('WSO2 Integrator');
+    console.log('Selecting WSO2 Integrator');
+    const getStartedButton = page.page.getByRole('button', { name: 'Get Started' });
+    await getStartedButton.waitFor({ timeout: 45000 });
+    console.log('Clicking on Get Started button');
+    await getStartedButton.click();
+    console.log('Initializing Welcome page and creating new project');
     const welcomePage = new Welcome(page);
     await welcomePage.init();
+    console.log('Switching to MI Extension in Welcome page');
+    await welcomePage.switchToMIExtension();
+    console.log('Creating new project');
     await welcomePage.createNewProject();
-
-    const createNewProjectForm = new Form(page.page, 'Project Creation Form');
-    await createNewProjectForm.switchToFormView();
-    await createNewProjectForm.fill({
-        values: {
-            'Project Name*': {
-                type: 'input',
-                value: projectName || 'testProject',
-            },
-            'WSO2 Integrator: MI runtime version*': {
-                type: 'dropdown',
-                value: runtimeVersino || '4.4.0'
-            },
-            'Select Location': {
-                type: 'file',
-                value: newProjectPath
-            }
-        }
-    });
-    if (addAdvancedConfig) {
-        const webView = await switchToIFrame('Project Creation Form', page.page);
-        if (!webView) {
-            throw new Error("Failed to switch to Project Creation Form iframe");
-        }
-        await webView.locator('vscode-button[title="Expand"]').click();
-        await webView.getByRole('textbox', { name: 'Artifact Id*' }).fill('test');
-    }
-    await createNewProjectForm.submit();
-    await welcomePage.waitUntilDeattached();
-    await page.page.getByRole('button', { name: "No, Don't Ask Again" })
-        .click({ timeout: 30000 }).catch(() => {});
-    console.log('Project created');
-
-    const setupEnvPage = new Welcome(page);
-    await setupEnvPage.setupEnvironment();
-    console.log('Environment setup done');
+    console.log('Creating new integration');
+    await welcomePage.createNewIntegration(projectName, runtimeVersion, newProjectPath, addAdvancedConfig);
 }
 
 export async function resumeVSCode(groupName?: string, title?: string, attempt: number = 1) {
