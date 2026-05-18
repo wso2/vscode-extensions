@@ -29,8 +29,10 @@ const DiagnosticsInputSchema = z.object({
  */
 export function createDiagnosticsTool(
     tempProjectPath: string,
-    eventHandler: CopilotEventHandler
+    eventHandler: CopilotEventHandler,
+    skillName?: string
 ) {
+    let skillNotified = false;
     return tool({
         description: `Checks the compilation errors in the current Ballerina package.
 
@@ -50,6 +52,12 @@ The tool analyzes the entire Ballerina package and returns:
 `,
         inputSchema: DiagnosticsInputSchema,
         execute: async ({ packagePath }): Promise<DiagnosticsCheckResult> => {
+            // Emit skill notification once per run when a skill name is associated
+            if (skillName && !skillNotified) {
+                skillNotified = true;
+                eventHandler({ type: "chat_component", componentType: "skill", data: { name: skillName } } as any);
+            }
+
             // Emit tool_call event to visualizer (shows "Checking for errors..." in UI)
             eventHandler({
                 type: "tool_call",
