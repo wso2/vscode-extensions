@@ -114,7 +114,7 @@ export const COMMANDS = {
     MANAGE_REGISTRY_PROPERTIES_COMMAND: 'MI.manage-registry-property',
 
     BI_EXTENSION: 'WSO2.ballerina-integrator',
-    BI_OPEN_COMMAND: 'ballerina.open.bi.welcome',
+    SETUP_BALLERINA: 'ballerina.setup',
     INSTALL_EXTENSION_COMMAND: 'workbench.extensions.installExtension'
 };
 
@@ -209,3 +209,4 @@ export const ERROR_MESSAGES = {
 export const WI_EXTENSION_ID = 'wso2.wso2-integrator';
 export const WI_PROJECT_EXPLORER_VIEW_ID = 'wso2-integrator.explorer';
 export const MI_PROJECT_EXPLORER_VIEW_ID = 'MI.project-explorer';
+export const MI_RUNTIME_SERVICES_PANEL_ID = 'micro-integrator.runtime-services-panel';

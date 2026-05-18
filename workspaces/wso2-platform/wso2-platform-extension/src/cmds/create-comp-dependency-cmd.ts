@@ -49,11 +49,11 @@ export function createComponentDependencyCommand(context: ExtensionContext) {
 					if (components?.length === 0) {
 						window
 							.showInformationMessage(
-								`No ${extensionName === "Devant" ? "integrations" : "components"} available within the project directory`,
-								`Create ${extensionName === "Devant" ? "Integration" : "Component"}`,
+								`No ${ext.terminologies?.componentTermPlural} available within the project directory`,
+								`Create ${ext.terminologies?.componentTermCapitalized}`,
 							)
 							.then((res) => {
-								if (res === "Create Component" || res === "Create Integration") {
+								if (res === `Create ${ext.terminologies?.componentTermCapitalized}`) {
 									commands.executeCommand(CommandIds.CreateNewComponent);
 								}
 							});
@@ -63,7 +63,7 @@ export function createComponentDependencyCommand(context: ExtensionContext) {
 					const component = await getComponentStateOfPath(params?.componentFsPath, components);
 
 					if (!component?.component) {
-						throw new Error(`Failed to select ${extensionName === "Devant" ? "integration" : "component"}`);
+						throw new Error(`Failed to select ${ext.terminologies?.componentTerm}`);
 					}
 
 					showComponentDetailsView(

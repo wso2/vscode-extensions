@@ -17,21 +17,41 @@
  */
 
 import * as vscode from 'vscode';
-import { extension } from './biExtentionContext';
-import { StateMachine } from './stateMachine';
+
+const DEPRECATION_SHOWN_KEY = 'bi.deprecation.noticeShown';
+const BI_EXTENSION_ID = 'wso2.ballerina-integrator';
+const CMD_UNINSTALL_EXTENSION = 'workbench.extensions.uninstallExtension';
+const CMD_RELOAD_WINDOW = 'workbench.action.reloadWindow';
+const BTN_REMOVE = 'Remove BI Extension';
+const BTN_RELOAD = 'Reload Window';
 
 export function activate(context: vscode.ExtensionContext) {
-	const ballerinaExt = vscode.extensions.getExtension('wso2.ballerina');
-	if (ballerinaExt) {
-		extension.context = context;
-		extension.langClient = ballerinaExt.exports.ballerinaExtInstance.langClient;
-		extension.biSupported = ballerinaExt.exports.ballerinaExtInstance.biSupported;
-		extension.isNPSupported = ballerinaExt.exports.ballerinaExtInstance.isNPSupported;
-		extension.isWorkspaceSupported = ballerinaExt.exports.ballerinaExtInstance?.isWorkspaceSupported;
-		StateMachine.initialize();
-		return;
-	}
-	vscode.window.showErrorMessage('Ballerina extension is required to operate WSO2 Integrator: BI extension effectively. Please install it from the [Visual Studio Code Marketplace](https://marketplace.visualstudio.com/items?itemName=wso2.ballerina).');
+    const alreadyShown = context.globalState.get<boolean>(DEPRECATION_SHOWN_KEY);
+    if (!alreadyShown) {
+        vscode.window.showWarningMessage(
+            'WSO2 Integrator is now installed and ready to use. ' +
+            'This replaces the "WSO2 Integrator: BI extension" which is no longer needed. ' +
+            'You can safely remove the "WSO2 Integrator: BI extension" from VS Code Editor.',
+            BTN_REMOVE
+        ).then(async action => {
+            await context.globalState.update(DEPRECATION_SHOWN_KEY, true);
+            if (action === BTN_REMOVE) {
+                try {
+                    await vscode.commands.executeCommand(CMD_UNINSTALL_EXTENSION, BI_EXTENSION_ID);
+                    const reload = await vscode.window.showInformationMessage(
+                        'WSO2 Integrator: BI extension has been uninstalled. Please reload the window to complete the process.',
+                        BTN_RELOAD
+                    );
+                    if (reload === BTN_RELOAD) {
+                        await vscode.commands.executeCommand(CMD_RELOAD_WINDOW);
+                    }
+                } catch (error) {
+                    console.error('Failed to uninstall WSO2 Integrator: BI extension:', error);
+                    await vscode.window.showErrorMessage('Failed to uninstall "WSO2 Integrator: BI extension". Please uninstall it manually from the Extensions view.');
+                }
+            }
+        });
+    }
 }
 
 export function deactivate() { }

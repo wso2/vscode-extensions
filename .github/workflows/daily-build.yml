@@ -10,8 +10,10 @@ jobs:
     with:
       bi: true
       mi: true
+      ballerina: true
       runTests: true
       runMIE2ETests: true
+      runBalE2ETests: true
 
   NotifySuccess:
     name: Notify

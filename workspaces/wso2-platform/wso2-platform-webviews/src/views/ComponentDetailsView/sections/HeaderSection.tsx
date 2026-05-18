@@ -42,7 +42,7 @@ export const HeaderSection: FC<
 		onChangeDeploymentTrack: () => void;
 	}
 > = ({ allDeploymentTracks, onChangeDeploymentTrack, deploymentTrack, component, organization, project }) => {
-	const { extensionName } = useExtWebviewContext();
+	const { extensionName,terminologies } = useExtWebviewContext();
 	const openInConsole = () =>
 		ChoreoWebViewAPI.getInstance().triggerCmd(CommandIds.OpenInConsole, {
 			component,
@@ -96,7 +96,7 @@ export const HeaderSection: FC<
 					appearance="icon"
 					onClick={() => onDeleteComponent()}
 					disabled={deletingComponent}
-					title={`Delete ${extensionName === "Devant" ? "Integration" : "Component"}`}
+					title={`Delete ${terminologies?.componentTerm}`}
 					className="text-vsc-descriptionForeground duration-200 hover:text-vsc-errorForeground"
 				>
 					<Codicon name="trash" />

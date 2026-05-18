@@ -910,7 +910,7 @@ function getFolderStructure(
     runtimeVersion: string | undefined
 ): FileStructure {
     return {
-        'pom.xml': rootPomXmlContent(projectName, groupId, artifactId.toLowerCase(), projectUuid, version, runtimeVersion ?? LATEST_MI_VERSION, ""),
+        'pom.xml': rootPomXmlContent(projectName, groupId, artifactId, projectUuid, version, runtimeVersion ?? LATEST_MI_VERSION, ""),
         '.env': '',
         'src': {
             'main': {
@@ -1595,7 +1595,7 @@ function readPomDependencies(source: string, projectDirToResolvedPomMap: Map<str
         }
     }
 
-    const parser = new XMLParser({ ignoreAttributes: false });
+    const parser = new XMLParser({ ignoreAttributes: false, parseTagValue: false });
     const parsed = parser.parse(resolvedPomContent);
 
     const dependencies = parsed?.project?.dependencies?.dependency;

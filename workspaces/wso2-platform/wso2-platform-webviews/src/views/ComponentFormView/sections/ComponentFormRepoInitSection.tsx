@@ -18,8 +18,7 @@
 
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { RequiredFormInput } from "@wso2/ui-toolkit";
-import { GitProvider, type NewComponentWebviewProps, buildGitURL } from "@wso2/wso2-platform-core";
+import { type ComponentFormSectionProps, GitProvider, buildGitURL } from "@wso2/wso2-platform-core";
 import classNames from "classnames";
 import debounce from "lodash.debounce";
 import React, { type FC, useCallback, useEffect, useState } from "react";
@@ -36,7 +35,7 @@ import type { componentRepoInitSchema } from "../componentFormSchema";
 
 type ComponentRepoInitSchemaType = z.infer<typeof componentRepoInitSchema>;
 
-interface Props extends NewComponentWebviewProps {
+interface Props extends ComponentFormSectionProps {
 	onNextClick: () => void;
 	initializingRepo?: boolean;
 	initialFormValues?: ComponentRepoInitSchemaType;
@@ -51,7 +50,7 @@ const addOrganization = "Add";
 
 export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organization, form, initializingRepo }) => {
 	const [compDetailsSections] = useAutoAnimate();
-	const { extensionName } = useExtWebviewContext();
+	const { extensionName, terminologies } = useExtWebviewContext();
 	const [creatingRepo, setCreatingRepo] = useState(false);
 
 	const org = form.watch("org");
@@ -259,7 +258,7 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 						type="info"
 						className="col-span-full"
 						key="invalid-repo-banner"
-						title={`Please authorize ${extensionName} to access your GitHub repositories.`}
+						title={`Please authorize ${terminologies.cloudName} to access your GitHub repositories.`}
 						actionLink={{
 							title: "Authorize",
 							onClick: () => ChoreoWebViewAPI.getInstance().triggerGithubAuthFlow(organization.id?.toString()),
@@ -368,11 +367,11 @@ export const ComponentFormRepoInitSection: FC<Props> = ({ onNextClick, organizat
 				{repo && (
 					<div className="col-span-full" key="gen-details-name-wrap">
 						<TextField
-							label={extensionName === "Devant" ? "Integration Name" : "Component Name"}
+							label={`${terminologies?.componentTerm} Name`}
 							key="gen-details-name"
 							required
 							name="name"
-							placeholder={extensionName === "Devant" ? "integration-name" : "component-name"}
+							placeholder={`${terminologies?.componentTerm}-name`}
 							control={form.control}
 						/>
 					</div>

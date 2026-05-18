@@ -41,7 +41,7 @@ export const ComponentsEmptyView: FC<Props> = ({ items, loading, selected }) => 
 			{loading && <ProgressIndicator />}
 			<div className="flex w-full flex-col gap-[10px] px-6 py-2">
 				<p>
-					Choreo component directories associated with project <VSCodeLink onClick={manageContext}>{selected.project?.name}</VSCodeLink>, are not
+					WSO2 Developer Platform component directories associated with project <VSCodeLink onClick={manageContext}>{selected.project?.name}</VSCodeLink>, are not
 					detected within the current workspace.
 				</p>
 				<p>Create a new component.</p>
@@ -50,7 +50,7 @@ export const ComponentsEmptyView: FC<Props> = ({ items, loading, selected }) => 
 					onClick={() =>
 						ChoreoWebViewAPI.getInstance().triggerCmd(PlatformCommandIds.CreateNewComponent, { extName: "Choreo" } as ICreateComponentCmdParams)
 					}
-					title="Create a Choreo component linked to your local directory. Build and deploy it to the cloud effortlessly."
+					title="Create a WSO2 Developer Platform component linked to your local directory. Build and deploy it to the cloud effortlessly."
 				>
 					Create Component
 				</Button>

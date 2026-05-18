@@ -83,7 +83,7 @@ const markDownOverrides: { [key: string]: FC<PropsWithChildren<any>> } = {
 	),
 	// TODO: move into separate component
 	code: ({ children, className, node }) => {
-		const isInline = !className &&  node?.position?.end?.line === node?.position?.start?.line
+		const isInline = !className && node?.position?.end?.line === node?.position?.start?.line;
 		// Extract language from className
 		const match = /language-(\w+)/.exec(className || "");
 		const language: any = match != null ? match[1] : "markdown";
