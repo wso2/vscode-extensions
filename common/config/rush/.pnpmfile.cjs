@@ -50,9 +50,9 @@ module.exports = {
         if (deps['protobufjs']) {
           const currentVersion = deps['protobufjs'];
           if (currentVersion.startsWith('^8') || currentVersion.startsWith('8')) {
-            deps['protobufjs'] = '8.0.1';
+            deps['protobufjs'] = '8.0.2';
           } else {
-            deps['protobufjs'] = '7.5.5';
+            deps['protobufjs'] = '7.5.6';
           }
         }
         if (deps['vite']) deps['vite'] = '6.0.14';
