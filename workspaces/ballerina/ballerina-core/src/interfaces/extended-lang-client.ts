@@ -2042,6 +2042,7 @@ export interface CodeMapResolveModuleDependenciesRequest {
 export interface CodeMapResolveModuleDependenciesResponse {
     success: boolean;
     errorMsg?: string;
+    errorDetails?: string;
 }
 
 export interface ProjectInfoRequest {
