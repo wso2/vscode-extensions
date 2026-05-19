@@ -97,14 +97,13 @@ module.exports = {
           } else if (currentVersion.startsWith('^3') || currentVersion.startsWith('3')) {
             newVersion = '3.0.2';
           } else if (currentVersion.startsWith('^5') || currentVersion.startsWith('5')) {
-            newVersion = '5.0.6'; // CVE-2026-45149
+            newVersion = '5.0.5';
           } else {
             context.log(`Unexpected brace-expansion version: ${currentVersion}`);
             newVersion = currentVersion;
           }
           deps['brace-expansion'] = newVersion;
         }
-        if (deps['postcss']) deps['postcss'] = '8.5.10'; // CVE-2026-41305
         if (deps['path-to-regexp']) {
           const currentVersion = deps['path-to-regexp'];
           let newVersion;
