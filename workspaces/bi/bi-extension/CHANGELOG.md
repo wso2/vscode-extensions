@@ -4,10 +4,19 @@ All notable changes to the **WSO2 Integrator: BI** extension will be documented 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project adheres to [Semantic Versioning](https://semver.org/).
 
+
 ## [Unreleased]
+
+## [1.10.0](https://github.com/wso2/vscode-extensions/compare/ballerina-integrator-1.7.0...ballerina-integrator-1.10.0) - 2026-05-18
+
+### Deprecated
+
+- **Extension Deprecation Notice** — This extension will be officially deprecated in the next release. All features are migrating to the unified [**WSO2 Integrator**](https://marketplace.visualstudio.com/items?itemName=WSO2.wso2-integrator) extension.
 
 ### Added
 
+- **Automatic Upgrade & Migration Path** — Transition to the new extension is fully automated. The new **WSO2 Integrator** extension will be automatically installed in your VS Code.
+- **Manual Installation Fallback** — If the automatic lifecycle migration is blocked by your local environment, you can manually install the new extension from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=WSO2.wso2-integrator).
 - **Persist Database Support** — Added support for persist database workflows in BI, including multiple database connections.
 - **Library Projects** — Added end-to-end support for library projects, including creation improvements, new overview page, `lib.bal` validator import, publishing to Ballerina Central, and deployment enforcement when deploying workspaces to Devant.
 - **BI Copilot** — Added new agent capabilities including library search/get tools, ConfigCollector, test-runner integration, plan-mode toggle, new/old review preview, telemetry insights, and support for agent evaluations.
@@ -273,4 +282,3 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 ## [1.0.0]
 
 - Initial release
-
