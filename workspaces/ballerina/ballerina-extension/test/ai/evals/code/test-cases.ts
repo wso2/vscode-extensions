@@ -1,5 +1,7 @@
 // Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
 
+import { tests } from "vscode";
+
 // WSO2 LLC. licenses this file to you under the Apache License,
 // Version 2.0 (the "License"); you may not use this file except
 // in compliance with the License.
@@ -368,15 +370,15 @@ export const langlibTestCases = [
 export const testCasesForCodeIndexing = [
   // Covers: Adding a new feature
   {
-    prompt: "I want to add a new endpoint to our FHIR patient API that lets clients search for patients by their last name. It should accept a query parameter, look up matching records from the database, convert each one into the FHIR profile we use everywhere else, and return them as a FHIR Bundle. Make sure it follows the same style and error handling as the other read endpoints on that resource.",
+    prompt: "Add an endpoint to search patients by last name, return the results as a FHIR Bundle, following the same style as existing read endpoints.",
     projectPath: "healthcare_sample"
   },
   {
-    prompt: "For compliance reasons we need an audit trail every time a patient record or an encounter record gets deleted. Add structured logging at the point of deletion that captures the resource type, the ID, and a timestamp — using whatever logging we already use elsewhere in the service.",
+    prompt: "We need an audit trail whenever a patient or encounter is deleted. Add structured logging that captures the resource type, ID, and timestamp.",
     projectPath: "healthcare_sample"
   },
   {
-    prompt: "For compliance reasons we need a full audit trail every time a patient record or an encounter record gets deleted. Before the row is actually removed from the database, look up the record first and have the log entry capture the key identifying fields from the record itself — for a patient that means things like their name and birth date, for an encounter the status and the period it covered — along with the resource type and a timestamp. The log needs to contain enough detail to reconstruct who or what was deleted",
+    prompt: "I want a full audit trail before any patient or encounter is deleted. Before removing the record, fetch it and log the key fields — name and birthdate for patients, status and period for encounters — along with the resource type and timestamp.",
     projectPath: "healthcare_sample"
   },
   {
@@ -390,7 +392,7 @@ export const testCasesForCodeIndexing = [
 
   // Covers: Modifying an existing feature
   {
-    prompt: "Right now whenever we create a new patient, the system generates a fresh internal ID for them. I want to change this so the caller can optionally pass in their own external identifier (for example a hospital MRN), and we'll use that instead of auto-generating one. Only fall back to generating an ID if none is provided",
+    prompt: "I want callers to be able to pass their own patient ID (like a hospital MRN) on creation. Use it if provided, otherwise auto-generate one.",
     projectPath: "healthcare_sample"
   },
   {
@@ -398,13 +400,29 @@ export const testCasesForCodeIndexing = [
     projectPath: "healthcare_sample"
   },
   {
-    prompt: "We're standardizing all our backend services on PostgreSQL. Migrate the patient/encounter persistence layer off MySQL onto Postgres. That includes the driver, the connection setup, the config, and any datatype quirks that differ between the two. Everything else in the FHIR service should keep working without changes.",
+    prompt: "Migrate the patient and encounter persistence layer from MySQL to PostgreSQL, including the driver, connection setup, and config.",
     projectPath: "healthcare_sample"
+  },
+  {
+    prompt: "The date normalisation and RFC 3339 conversion always go together. Merge them into one function.",
+    projectPath: "salesforce_slack_integration"
+  },
+  {
+    prompt: "Move build lead conversion details logic into functions.bal file",
+    projectPath: "salesforce_slack_integration"
+  },
+  {
+    prompt: "Replace the order service REST API with GraphQL. Make sure the schema covers all the fields the current REST endpoints accept and return.",
+    projectPath: "order_management_system"
+  },
+  {
+    prompt: "The Shopify customer creation handler doesn't retry if Stripe returns a transient error. Add retry logic with up to 3 attempts before giving up.",
+    projectPath: "shopify_stripe_integration_errors"
   },
 
   // Covers: Removing an existing feature
   {
-    prompt: "Leadership decided that all lead-conversion notifications should go to a single shared channel, regardless of which team the owner belongs to. Strip out the team-routing feature entirely — the configuration for it, the lookup logic that picks a channel based on the owner's role, and any types that only exist to support that mapping. Every notification should just go to the default channel from now on.",
+    prompt: "Remove the team-routing feature — the config, the channel-selection logic, and any related types. All lead notifications should go to the default channel.",
     projectPath: "salesforce_slack_integration"
   },
   {
@@ -412,7 +430,7 @@ export const testCasesForCodeIndexing = [
     projectPath: "salesforce_slack_integration"
   },
 
-  // Covers: Understanding/Exploration (no code changes expected)
+  // Covers: Understanding/Exploration
   {
     prompt: "How does the current SMS flow implementation work?",
     projectPath: "healthcare_sample"
@@ -436,8 +454,31 @@ export const testCasesForCodeIndexing = [
   {
     prompt: "Add doc comments to all public functions",
     projectPath: "salesforce_slack_integration"
-  }
+  },
+  {
+    prompt: "There's an error on main.bal. Can you fix it?",
+    projectPath: "shopify_stripe_integration_errors"
+  },
 
+  // Covers: Overengineed tasks
+  {
+    prompt: "What's the difference between isolated and non-isolated functions in Ballerina?",
+    projectPath: "salesforce_slack_integration"
+  },
+
+  // Covers: Adding/Updating tests
+  {
+    prompt: "Add a test for the delete endpoint — create a reservation, delete it, then check that fetching reservations for that user returns an empty list.",
+    projectPath: "hotel_reservation"
+  },
+  {
+    prompt: "The existing test reservation test only checks the room number. Update it to also verify the checkin date, checkout date, and user details in the response match what was sent in the request.",
+    projectPath: "hotel_reservation"
+   },
+  {
+    prompt: "Write tests for the order utils module — ID generation, timestamp format, and line total calculation.",
+    projectPath: "order_management_system"
+  }
 ];
 
 export let testCases = [];
