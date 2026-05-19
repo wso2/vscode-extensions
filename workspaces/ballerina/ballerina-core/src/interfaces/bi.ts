@@ -512,6 +512,7 @@ export type NodeKind =
     | "ACTION_OR_EXPRESSION"
     | "AGENTS"
     | "AGENT"
+    | "AGENT_TYPE"
     | "AGENT_CALL"
     | "AGENT_ID_AUTH_CONFIG"
     | "AGENT_RUN"
