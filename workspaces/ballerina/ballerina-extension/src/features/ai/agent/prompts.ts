@@ -202,8 +202,6 @@ ${getLanglibInstructions()}
 - Do not manually add/modify Dependencies.toml. For Config.toml configuration management, use ${CONFIG_COLLECTOR_TOOL}.
 - NEVER read Config.toml or tests/Config.toml directly. Use ${CONFIG_COLLECTOR_TOOL} CHECK mode to inspect configuration status — actual values must never be visible to you.
 - Prefer modifying existing bal files over creating new files unless explicitly asked to create a new file in the query.
-- **[CRITICAL — do not skip]** After every code change, immediately run ${GREP_TOOL_NAME} for every symbol you added, modified, or removed. You MUST update every callsite to match the new signature or behavior before responding to the user. Failing to do this WILL break the codebase.
-- After each code change, **always**use ${DIAGNOSTICS_TOOL_NAME} to check for compilation errors and fix them before proceeding. If errors cannot be resolved after multiple attempts, bring the code to a good state and finish the task.
 
 ## Workspace Management
 When working with Ballerina workspace projects (projects with a root Ballerina.toml containing a [workspace] section):
