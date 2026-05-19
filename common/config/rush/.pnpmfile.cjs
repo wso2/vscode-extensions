@@ -34,13 +34,26 @@ module.exports = {
         if (deps['hono']) deps['hono'] = '4.12.18';
         if (deps['@hono/node-server']) deps['@hono/node-server'] = '1.19.13';
         if (deps['@tootallnate/once']) deps['@tootallnate/once'] = '3.0.1';
+        if (deps['ajv']) {
+          const currentVersion = deps['ajv'];
+          if (currentVersion.startsWith('^5') || currentVersion.startsWith('5')) {
+            deps['ajv'] = '6.12.3';
+          }
+        }
+        if (deps['cross-spawn']) {
+          const currentVersion = deps['cross-spawn'];
+          if (currentVersion.startsWith('^5') || currentVersion.startsWith('5')) {
+            deps['cross-spawn'] = '6.0.6';
+          }
+        }
         if (deps['dompurify']) deps['dompurify'] = '3.4.0';
         if (deps['axios']) deps['axios'] = '1.15.2';
         if (deps['ip-address']) deps['ip-address'] = '10.1.1';
         if (deps['follow-redirects']) deps['follow-redirects'] = '1.16.0';
         if (deps['express-rate-limit']) deps['express-rate-limit'] = '8.2.2';
         if (deps['file-type']) deps['file-type'] = '21.3.2';
-        if (deps['postcss']) deps['postcss'] = '8.5.10';
+        if (deps['postcss']) deps['postcss'] = '8.5.13'; // security fix: CVE-2026-41305 XSS via style closing tags
+        if (deps['webpack-dev-server']) deps['webpack-dev-server'] = '5.2.4'; // security fix: CVE-2026-6402 information disclosure
         if (deps['immutable']) deps['immutable'] = '3.8.3';
         if (deps['serialize-javascript']) deps['serialize-javascript'] = '7.0.5';
         if (deps['flatted']) deps['flatted'] = '3.4.2';
@@ -95,7 +108,7 @@ module.exports = {
           } else if (currentVersion.startsWith('^3') || currentVersion.startsWith('3')) {
             newVersion = '3.0.2';
           } else if (currentVersion.startsWith('^5') || currentVersion.startsWith('5')) {
-            newVersion = '5.0.5';
+            newVersion = '5.0.6';
           } else {
             context.log(`Unexpected brace-expansion version: ${currentVersion}`);
             newVersion = currentVersion;
@@ -142,6 +155,24 @@ module.exports = {
             newVersion = currentVersion;
           }
           deps['yaml'] = newVersion;
+        }
+        if (deps['json5']) {
+          const currentVersion = deps['json5'];
+          if (currentVersion.startsWith('^0') || currentVersion.startsWith('0')) {
+            deps['json5'] = '1.0.2';
+          }
+        }
+        if (deps['mem']) {
+          const currentVersion = deps['mem'];
+          if (currentVersion.startsWith('^1') || currentVersion.startsWith('1')) {
+            deps['mem'] = '4.0.0';
+          }
+        }
+        if (deps['yargs-parser']) {
+          const currentVersion = deps['yargs-parser'];
+          if (currentVersion.startsWith('^7') || currentVersion.startsWith('7')) {
+            deps['yargs-parser'] = '5.0.1';
+          }
         }
         if (deps['uuid']) {
           const ver = deps['uuid'];
