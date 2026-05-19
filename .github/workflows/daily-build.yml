@@ -13,6 +13,7 @@ jobs:
       ballerina: true
       runTests: true
       runMIE2ETests: true
+      runBalE2ETests: true
 
   NotifySuccess:
     name: Notify

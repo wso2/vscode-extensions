@@ -91,6 +91,7 @@ export interface DropdownButtonProps {
     options: DropdownOption[];
     dropDownAlign?: "top" | "bottom";
     tooltip?: string;
+    optionButtonTooltip?: string;
     iconName?: string;
     sx?: any;
     iconSx?: any;
@@ -99,12 +100,12 @@ export interface DropdownButtonProps {
     dropdownSx?: any;
     selectIconSx?: any;
     onOptionChange: (value: string) => void;
-    onClick: (selectedOption: string) => void;
+    onClick?: (selectedOption: string) => void;
 }
 
 export const DropdownButton: React.FC<DropdownButtonProps> = (props: DropdownButtonProps) => {
-    const { buttonContent, selecteOption, dropDownAlign = "bottom", tooltip, options, iconName, sx,
-        buttonSx, iconSx, optionButtonSx, onOptionChange, dropdownSx: dropDownSx, selectIconSx, onClick 
+    const { buttonContent, selecteOption, dropDownAlign = "bottom", tooltip, optionButtonTooltip, options, iconName, sx,
+        buttonSx, iconSx, optionButtonSx, onOptionChange, dropdownSx: dropDownSx, selectIconSx, onClick
     } = props;
     const [open, setOpen] = useState(false);
     const [buttonWidth, setButtonWidth] = useState<number>(0);
@@ -155,13 +156,22 @@ export const DropdownButton: React.FC<DropdownButtonProps> = (props: DropdownBut
                         appearance="secondary"
                         onClick={() => {
                             setOpen(false);
-                            onClick(selecteOption);
+                            onClick?.(selecteOption);
                         }}
                     >
                         {buttonContent}
                     </Button>
                 </div>
-                <OptionsButton sx={optionButtonSx} onClick={() => setOpen(!open)} height={buttonHeight}>
+                <OptionsButton
+                    sx={optionButtonSx}
+                    title={optionButtonTooltip}
+                    aria-label={optionButtonTooltip}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setOpen(!open)}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(!open); } }}
+                    height={buttonHeight}
+                >
                     <Codicon sx={{ color: "var(--button-secondary-foreground)", ...iconSx }} iconSx={iconSx} name={iconName || "chevron-down"} id={"dropdown-icon-" + selecteOption} />
                 </OptionsButton>
                 {open && (

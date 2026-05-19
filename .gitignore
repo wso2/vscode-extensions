@@ -70,6 +70,7 @@ playwright-report/
 workspaces/ballerina/ballerina-extension/e2e-test/data/test_project/**/*
 !workspaces/ballerina/ballerina-extension/e2e-test/data/test_project/.gitkeep
 workspaces/ballerina/ballerina-extension/e2e-test/test-results/**/*
+workspaces/ballerina/ballerina-extension/test-results/
 # ignore storybook build
 **/.out/
 
