@@ -32,6 +32,18 @@ module.exports = {
         if (deps['hono']) deps['hono'] = '4.12.18'; // CVE-2026-44455 (JSX injection), CVE-2026-44456 (bodyLimit bypass)
         if (deps['@hono/node-server']) deps['@hono/node-server'] = '1.19.13';
         if (deps['@tootallnate/once']) deps['@tootallnate/once'] = '3.0.1';
+        if (deps['ajv']) {
+          const currentVersion = deps['ajv'];
+          if (currentVersion.startsWith('^5') || currentVersion.startsWith('5')) {
+            deps['ajv'] = '6.12.3';
+          }
+        }
+        if (deps['cross-spawn']) {
+          const currentVersion = deps['cross-spawn'];
+          if (currentVersion.startsWith('^5') || currentVersion.startsWith('5')) {
+            deps['cross-spawn'] = '6.0.6';
+          }
+        }
         if (deps['dompurify']) deps['dompurify'] = '3.4.0'; // security fix: XSS vulnerability
         if (deps['axios']) deps['axios'] = '1.15.2'; // security fix: SSRF vulnerability
         if (deps['ip-address']) { // security fix: force patch within 10.x range only to avoid breaking consumers on earlier majors
@@ -158,6 +170,24 @@ module.exports = {
             deps['glob'] = '11.1.0'; // security fix: CVE-2025-64756 command injection via malicious filenames
           } else if (currentVersion.startsWith('^10') || currentVersion.startsWith('10')) {
             deps['glob'] = '10.5.0'; // security fix: CVE-2025-64756 command injection via malicious filenames
+          }
+        }
+        if (deps['json5']) {
+          const currentVersion = deps['json5'];
+          if (currentVersion.startsWith('^0') || currentVersion.startsWith('0')) {
+            deps['json5'] = '1.0.2';
+          }
+        }
+        if (deps['mem']) {
+          const currentVersion = deps['mem'];
+          if (currentVersion.startsWith('^1') || currentVersion.startsWith('1')) {
+            deps['mem'] = '4.0.0';
+          }
+        }
+        if (deps['yargs-parser']) {
+          const currentVersion = deps['yargs-parser'];
+          if (currentVersion.startsWith('^7') || currentVersion.startsWith('7')) {
+            deps['yargs-parser'] = '5.0.1';
           }
         }
       }
