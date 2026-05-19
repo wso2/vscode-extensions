@@ -6,7 +6,7 @@ settings:
 
 overrides:
   lodash: '>=4.18.0'
-  brace-expansion: '>=5.0.6'
+  brace-expansion@>=5.0.0 <6: 5.0.6
 
 pnpmfileChecksum: sha256-XTeZQwJtKk4dimqf7175GhJCXrnq3Yh7+kwb86Bwcdo=
 
@@ -12797,6 +12797,12 @@ packages:
   bplist-parser@0.1.1:
     resolution: {integrity: sha512-2AEM0FXy8ZxVLBuqX0hqt1gDwcnz2zygEkQ6zaD5Wko/sB9paUNwlpawrFtKeHUAQUOzjVy9AO4oeonqIHKA9Q==}
 
+  brace-expansion@1.1.13:
+    resolution: {integrity: sha512-9ZLprWS6EENmhEOpjCYW2c8VkmOvckIJZfkr7rBW6dObmfgJ/L1GpSYW5Hpo9lDz4D1+n0Ckz8rU7FwHDQiG/w==}
+
+  brace-expansion@2.0.3:
+    resolution: {integrity: sha512-MCV/fYJEbqx68aE58kv2cA/kiky1G8vux3OR6/jbS+jIMe/6fJWa0DTzJU7dqijOWYwHi1t29FlfYI9uytqlpA==}
+
   brace-expansion@5.0.6:
     resolution: {integrity: sha512-kLpxurY4Z4r9sgMsyG0Z9uzsBlgiU/EFKhj/h91/8yHu0edo7XuixOIH3VcJ8kkxs6/jPzoI6U9Vj3WqbMQ94g==}
     engines: {node: 18 || 20 || >=22}
@@ -13568,6 +13574,9 @@ packages:
 
   compute-scroll-into-view@2.0.4:
     resolution: {integrity: sha512-y/ZA3BGnxoM/QHHQ2Uy49CLtnWPbt4tTPpEEZiEmmiWBFKjej7nEyH8Ryz54jH0MLXflUYA3Er2zUxPSJu5R+g==}
+
+  concat-map@0.0.1:
+    resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
 
   concat-stream@1.6.2:
     resolution: {integrity: sha512-27HBghJxjiZtIk3Ycvn/4kbJk/1uZuJFfuPEns6LaEvpvG1f0hTea8lilrouyo9mVc2GWdcEZ8OLoGmSADlrCw==}
@@ -38780,8 +38789,8 @@ snapshots:
 
   '@webpack-cli/configtest@3.0.1(webpack-cli@6.0.1)(webpack@5.104.1)':
     dependencies:
-      webpack: 5.104.1(postcss@8.5.10)(webpack-cli@6.0.1)
-      webpack-cli: 6.0.1(webpack-dev-server@5.2.4)(webpack@5.104.1)
+      webpack: 5.104.1(webpack-cli@6.0.1)
+      webpack-cli: 6.0.1(webpack@5.104.1)
 
   '@webpack-cli/info@1.5.0(webpack-cli@4.10.0)':
     dependencies:
@@ -38795,8 +38804,8 @@ snapshots:
 
   '@webpack-cli/info@3.0.1(webpack-cli@6.0.1)(webpack@5.104.1)':
     dependencies:
-      webpack: 5.104.1(postcss@8.5.10)(webpack-cli@6.0.1)
-      webpack-cli: 6.0.1(webpack-dev-server@5.2.4)(webpack@5.104.1)
+      webpack: 5.104.1(webpack-cli@6.0.1)
+      webpack-cli: 6.0.1(webpack@5.104.1)
 
   '@webpack-cli/serve@1.7.0(webpack-cli@4.10.0)':
     dependencies:
@@ -40519,6 +40528,15 @@ snapshots:
       big-integer: 1.6.52
     optional: true
 
+  brace-expansion@1.1.13:
+    dependencies:
+      balanced-match: 1.0.2
+      concat-map: 0.0.1
+
+  brace-expansion@2.0.3:
+    dependencies:
+      balanced-match: 1.0.2
+
   brace-expansion@5.0.6:
     dependencies:
       balanced-match: 4.0.4
@@ -41424,6 +41442,8 @@ snapshots:
   compute-scroll-into-view@1.0.20: {}
 
   compute-scroll-into-view@2.0.4: {}
+
+  concat-map@0.0.1: {}
 
   concat-stream@1.6.2:
     dependencies:
@@ -49433,11 +49453,11 @@ snapshots:
 
   minimatch@3.1.5:
     dependencies:
-      brace-expansion: 5.0.6
+      brace-expansion: 1.1.13
 
   minimatch@5.1.8:
     dependencies:
-      brace-expansion: 5.0.6
+      brace-expansion: 2.0.3
 
   minimatch@9.0.7:
     dependencies:
