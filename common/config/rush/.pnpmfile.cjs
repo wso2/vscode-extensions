@@ -97,7 +97,7 @@ module.exports = {
           } else if (currentVersion.startsWith('^3') || currentVersion.startsWith('3')) {
             newVersion = '3.0.2';
           } else if (currentVersion.startsWith('^5') || currentVersion.startsWith('5')) {
-            newVersion = '5.0.5';
+            newVersion = '5.0.6';
           } else {
             context.log(`Unexpected brace-expansion version: ${currentVersion}`);
             newVersion = currentVersion;
@@ -144,6 +144,21 @@ module.exports = {
             newVersion = currentVersion;
           }
           deps['yaml'] = newVersion;
+        }
+        if (deps['postcss']) {
+          const currentVersion = deps['postcss'];
+          if (currentVersion.startsWith('^8') || currentVersion.startsWith('8')) {
+            deps['postcss'] = '8.5.13'; // security fix: CVE-2026-41305 XSS via style closing tags
+          }
+        }
+        if (deps['webpack-dev-server']) deps['webpack-dev-server'] = '5.2.4'; // security fix: CVE-2026-6402 information disclosure
+        if (deps['glob']) {
+          const currentVersion = deps['glob'];
+          if (currentVersion.startsWith('^11') || currentVersion.startsWith('11')) {
+            deps['glob'] = '11.1.0'; // security fix: CVE-2025-64756 command injection via malicious filenames
+          } else if (currentVersion.startsWith('^10') || currentVersion.startsWith('10')) {
+            deps['glob'] = '10.5.0'; // security fix: CVE-2025-64756 command injection via malicious filenames
+          }
         }
       }
 
