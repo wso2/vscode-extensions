@@ -32,7 +32,6 @@
       "vite": "6.0.14",
       "xmldom": "npm:@xmldom/xmldom@0.8.10",
       "yaml": "2.8.3",
-      "uuid": "14.0.0",
       "yauzl": "3.2.1"
     }
   },

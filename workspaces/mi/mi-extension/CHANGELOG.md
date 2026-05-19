@@ -24,6 +24,12 @@ All notable changes to the "micro-integrator" extension will be documented in th
 - Input and Output Mapping Generation Support for Data Services   
 - OpenTelemetry Span Filtering Support for Mediators   
 
+## [3.2.1] - 2026-05-07   
+
+### Fixed     
+
+Fixed: Issue in loading the project explorer view   
+
 ## [3.2.0] - 2026-04-28
 
 ### New Features   

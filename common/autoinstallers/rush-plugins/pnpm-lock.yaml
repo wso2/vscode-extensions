@@ -169,8 +169,8 @@ packages:
     resolution: {integrity: sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA==}
     hasBin: true
 
-  strnum@2.2.3:
-    resolution: {integrity: sha512-oKx6RUCuHfT3oyVjtnrmn19H1SiCqgJSg+54XqURKp5aCMbrXrhLjRN9TjuwMjiYstZ0MzDrHqkGZ5dFTKd+zg==}
+  strnum@2.3.0:
+    resolution: {integrity: sha512-ums3KNd42PGyx5xaoVTO1mjU1bH3NpY4vsrVlnv9PNGqQj8wd7rJ6nEypLrJ7z5vxK5RP0yMLo6J/Gsm62DI5Q==}
 
   tslib@2.8.1:
     resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
@@ -387,7 +387,7 @@ snapshots:
       '@nodable/entities': 2.1.0
       fast-xml-builder: 1.1.7
       path-expression-matcher: 1.5.0
-      strnum: 2.2.3
+      strnum: 2.3.0
 
   http-proxy-agent@7.0.2:
     dependencies:
@@ -413,7 +413,7 @@ snapshots:
 
   semver@6.3.1: {}
 
-  strnum@2.2.3: {}
+  strnum@2.3.0: {}
 
   tslib@2.8.1: {}
 
