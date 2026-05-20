@@ -52,9 +52,9 @@ module.exports = {
         if (deps['protobufjs']) {
           const currentVersion = deps['protobufjs'];
           if (currentVersion.startsWith('^8') || currentVersion.startsWith('8')) {
-            deps['protobufjs'] = '8.0.2';
+            deps['protobufjs'] = '8.2.0'; // security fix: CVE-2026-45740 (DoS via recursive JSON descriptor expansion)
           } else {
-            deps['protobufjs'] = '7.5.6';
+            deps['protobufjs'] = '7.5.8'; // security fix: CVE-2026-45740 (DoS via recursive JSON descriptor expansion)
           }
         }
         if (deps['vite']) deps['vite'] = '6.0.14';
