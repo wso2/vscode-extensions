@@ -27,7 +27,7 @@ import { CopilotEventHandler } from '../../utils/events';
 export const GLOB_TOOL_NAME = "glob";
 
 /** Directories to skip during traversal */
-const SKIP_DIRS = new Set(['.git', 'node_modules', 'target', '.ballerina']);
+const SKIP_DIRS = new Set(['.git', 'target']);
 
 // ============================================================================
 // Types
