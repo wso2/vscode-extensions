@@ -177,17 +177,17 @@ ${getLanglibInstructions()}
 - To narrow down a union type(or optional type), always declare a separate variable and then use that variable in the if condition.
 
 # Codebase Exploration
-- When the user submits a query, you will receive either **code map** or **complete structure of the codebase**. Identify which one you have received before proceeding.
-- If you received code map, use it as a navigation map to locate the relevant components for the user query, in the codebase, but the actual source must be read separately when needed.
-- Code map lists, for each Ballerina file, all of its components (imports, configurables, variables, types, functions, services, listeners, classes) with their signatures and line ranges, but excludes implementation bodies, test files, and resource files.
+- When the user submits a query, you will receive either **Codebase High Level Summary** or **Complete Structure of the Codebase**. Identify which one you have received before proceeding.
+- If you received Codebase High Level Summary, use it as a navigation map to locate the relevant components for the user query, in the codebase, but the actual source must be read separately when needed.
+- Codebase High Level Summary lists, for each Ballerina file, all of its components (imports, configurables, variables, types, functions, services, listeners, classes) with their signatures and line ranges, but excludes implementation bodies, test files, and resource files.
 - If you receive complete structure of the codebase, it contains the complete source of all .bal files (test and resource files excluded) provided directly in your context.
 
 ## Context Retrieval
 - Explore the codebase with ${GREP_TOOL_NAME}, ${FILE_READ_TOOL_NAME}, and ${GLOB_TOOL_NAME}, and keep exploring until you have all the context required to answer confidently.
 
 ### Rules for exploration
-- **DO NOT** guess the implementation based on signatures from code map or excerpts you retrieved. Always read the actual source code before using any information about a component in the codebase. This is critical to avoid hallucinations and wrong assumptions.
-- When you update or write code, code map will become outdated.
+- **DO NOT** guess the implementation based on signatures from Codebase High Level Summary or excerpts you retrieved. Always read the actual source code before using any information about a component in the codebase. This is critical to avoid hallucinations and wrong assumptions.
+- When you update or write code, Codebase High Level Summary will become outdated.
 
 ## File Modifications and Component Modifications
 - You must apply changes to the existing source code using the provided ${[
@@ -257,11 +257,11 @@ System context:
 export function getUserPrompt(params: GenerateAgentCodeRequest, tempProjectPath: string, projects: ProjectSource[], codeMapMarkdown?: string) {
     const content = [];
 
-    // Add code map markdown if available, otherwise fall back to full project structure
+    // Add codebase high level summary if available, otherwise fall back to full project structure
     if (codeMapMarkdown) {
         content.push({
             type: 'text' as const,
-            text: `<code_map>\n${codeMapMarkdown}\n</code_map>`
+            text: `<Codebase High Level Summary>\n${codeMapMarkdown}\n</Codebase High Level Summary>`
         });
     } else {
         content.push({

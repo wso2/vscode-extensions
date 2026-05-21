@@ -924,7 +924,7 @@ export function createReadTool(execute: ReadExecute) {
     NOTE: The following files are restricted and cannot be read: ${RESTRICTED_READ_FILES.join(", ")}.
     Usage:
     - For workspace projects, include the package directory prefix in the file path (e.g., "myPackage/main.bal").
-    - From the Code Map, If you know the line range of components to read, **ALWAYS** use the startLine and endLine parameters to read that components insted of files.
+    - From the Codebase High Level Summary, If you know the line range of components to read, **ALWAYS** use the startLine and endLine parameters to read that components insted of files.
     - The file content will be returned as string
     - Any lines longer than 2000 characters will be truncated
     - If you read a file that exists but has empty contents you will receive a system reminder warning in place of file contents`,
