@@ -17,11 +17,9 @@
 import { Command, ExecutionContext, GenerateAgentCodeRequest } from "@wso2/ballerina-core";
 import { StateMachine } from "../../../stateMachine";
 import { chatStateStorage } from '../../../views/ai-panel/chatStateStorage';
-import * as path from 'path';
-import * as fs from 'fs';
 import { AICommandConfig } from "../executors/base/AICommandExecutor";
 import { createWebviewEventHandler } from "../utils/events";
-import { sendDependencyPullProgressToAIPanel } from "../utils/ai-utils";
+import { sendDependencyPullProgressToAIPanel, clearDependencyPullProgressInAIPanel } from "../utils/ai-utils";
 import { AgentExecutor } from './AgentExecutor';
 import {
     sendTelemetryEvent,
@@ -141,18 +139,15 @@ export async function generateAgent(params: GenerateAgentCodeRequest): Promise<b
                 } catch (pullErr) {
                     console.warn('[generateAgent] Failed to resolve module dependencies, continuing:', pullErr);
                 } finally {
-                    sendDependencyPullProgressToAIPanel('');
+                    clearDependencyPullProgressInAIPanel();
                 }
 
                 const codeMapResponse = await langClient.getCodeMap({
                     projectPath: workspacePath,
                 });
 
-                const codeMapMarkdown = typeof codeMapResponse?.content === 'string'
-                    ? codeMapResponse.content
-                    : (codeMapResponse as any)?.markdown as string | undefined;
+                const codeMapMarkdown = codeMapResponse?.content;
                 if (codeMapMarkdown) {
-                    fs.writeFileSync(path.join(projectRootPath, 'bal.md'), codeMapMarkdown, 'utf-8');
                     config.codeMapMarkdown = codeMapMarkdown;
                 }
             } catch (err) {

@@ -44,6 +44,7 @@ import { AiPanelWebview } from "../../../views/ai-panel/webview";
 import { MigrationPanelWebview } from "../../../views/migration-panel/webview";
 import { VisualizerWebview } from "../../../views/visualizer/webview";
 import { GenerationType } from "./libs/libraries";
+import { send } from "xstate";
 // import { REQUIREMENTS_DOCUMENT_KEY } from "./code/np_prompts";
 
 export function populateHistory(chatHistory: ChatEntry[]): ModelMessage[] {
@@ -241,6 +242,10 @@ export function sendDependencyPullProgressToAIPanel(message: string): void {
         { type: "webview", webviewType: AiPanelWebview.viewType },
         message
     );
+}
+
+export function clearDependencyPullProgressInAIPanel(): void {
+    sendDependencyPullProgressToAIPanel("");
 }
 
 export function sendToolCallNotification(toolName: string, toolInput?: any, toolCallId?: string): void {

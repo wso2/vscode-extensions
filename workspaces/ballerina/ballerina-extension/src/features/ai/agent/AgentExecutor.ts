@@ -204,8 +204,6 @@ async function determineAffectedPackages(
     return result;
 }
 
-
-
 /**
  * AgentExecutor - Executes agent-based code generation with tools and streaming
  *

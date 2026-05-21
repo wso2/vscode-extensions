@@ -90,9 +90,7 @@ export function activateAIFeatures(ballerinaExternalInstance: BallerinaExtension
                 let codeMapMarkdown: string | undefined;
                 try {
                     const codeMapResponse = await langClient.getCodeMap({ projectPath: params.projectPath });
-                    const markdown = typeof codeMapResponse?.content === 'string'
-                        ? codeMapResponse.content
-                        : (codeMapResponse as any)?.markdown as string | undefined;
+                    const markdown = codeMapResponse?.content;
                     if (markdown) {
                         codeMapMarkdown = markdown;
                         console.log(`[Test Mode] Code Map fetched for project ${params.projectPath} (${markdown.length} chars)`);
