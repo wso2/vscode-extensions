@@ -124,10 +124,10 @@ export async function generateAgent(params: GenerateAgentCodeRequest): Promise<b
 // bal.md Generation for Agent Context
 // ==================================
 
-        // Fetch code map at query submission time to capture the current project state.
+        // Fetch Code Map at query submission time to capture the current project state.
         // TODO: The language server does not capture file delete events yet. Once that is fixed,
-        // we can use incremental updates — fetching the code map only for changed files and
-        // merging into the existing bal.md, instead of regenerating the full code map each time.
+        // we can use incremental updates — fetching the Code Map only for changed files and
+        // merging into the existing bal.md, instead of regenerating the full Code Map each time.
         const langClient = StateMachine.context().langClient;
         const workspacePath = StateMachine.context().workspacePath || projectRootPath;
         if (langClient) {
@@ -156,7 +156,7 @@ export async function generateAgent(params: GenerateAgentCodeRequest): Promise<b
                     config.codeMapMarkdown = codeMapMarkdown;
                 }
             } catch (err) {
-                console.warn('[generateAgent] Failed to fetch code map, continuing without it:', err);
+                console.warn('[generateAgent] Failed to fetch Code Map, continuing without it:', err);
             }
         }
 

@@ -86,7 +86,7 @@ export function activateAIFeatures(ballerinaExternalInstance: BallerinaExtension
                     workspacePath: params.projectPath
                 };
 
-                // Fetch code map for the test project
+                // Fetch Code Map for the test project
                 let codeMapMarkdown: string | undefined;
                 try {
                     const codeMapResponse = await langClient.getCodeMap({ projectPath: params.projectPath });
@@ -95,12 +95,12 @@ export function activateAIFeatures(ballerinaExternalInstance: BallerinaExtension
                         : (codeMapResponse as any)?.markdown as string | undefined;
                     if (markdown) {
                         codeMapMarkdown = markdown;
-                        console.log(`[Test Mode] Code map fetched for project ${params.projectPath} (${markdown.length} chars)`);
+                        console.log(`[Test Mode] Code Map fetched for project ${params.projectPath} (${markdown.length} chars)`);
                     } else {
-                        console.log(`[Test Mode] Code map response was empty for project ${params.projectPath}`);
+                        console.log(`[Test Mode] Code Map response was empty for project ${params.projectPath}`);
                     }
                 } catch (err) {
-                    console.warn(`[Test Mode] Failed to fetch code map, continuing without it:`, err);
+                    console.warn(`[Test Mode] Failed to fetch Code Map, continuing without it:`, err);
                 }
 
                 // Create config using new AICommandConfig pattern

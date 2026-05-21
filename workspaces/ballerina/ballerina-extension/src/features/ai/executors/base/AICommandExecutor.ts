@@ -102,7 +102,7 @@ export interface AICommandConfig<TParams = any> {
      * summaries to `.ballerina-ai-migration/debug.log` via this logger.
      */
     debugLogger?: MigrationDebugLogger;
-    /** Code map markdown captured at query submission time */
+    /** Code Map markdown captured at query submission time */
     codeMapMarkdown?: string;
 }
 
