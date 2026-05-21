@@ -45,6 +45,7 @@ export function AddAgentPopup(props: AddAgentPopupProps) {
     const { onClose, onNavigateToOverview, isPopup } = props;
     const [view, setView] = useState<AddAgentView>("gallery");
     const isScratch = view === "scratch";
+    const isForm = view === "scratch" || view === "configure";
 
     const handleClosePopup = () => {
         if (isPopup) {
@@ -59,13 +60,15 @@ export function AddAgentPopup(props: AddAgentPopupProps) {
             <PopupOverlay sx={{ background: `${ThemeColors.SURFACE_CONTAINER}`, opacity: `0.5` }} />
             <PopupContainer>
                 <PopupHeader>
-                    {isScratch && (
+                    {isForm && (
                         <BackButton appearance="icon" onClick={() => setView("gallery")}>
                             <Codicon name="chevron-left" />
                         </BackButton>
                     )}
                     <HeaderTitleContainer>
-                        <PopupTitle variant="h2">{isScratch ? "Create New Agent" : "Add Agent"}</PopupTitle>
+                        <PopupTitle variant="h2">
+                            {view === "configure" ? "Configure Agent" : isScratch ? "Create New Agent" : "Add Agent"}
+                        </PopupTitle>
                         {isScratch && <PopupSubtitle>{CUSTOM_AGENT_SUBTITLE}</PopupSubtitle>}
                     </HeaderTitleContainer>
                     <CloseButton appearance="icon" onClick={handleClosePopup}>
