@@ -18,13 +18,13 @@
 
 import React, { useEffect, useState } from "react";
 import { Codicon, Icon } from "@wso2/ui-toolkit";
-import { EVENT_TYPE, FOCUS_FLOW_DIAGRAM_VIEW, FlowNode, LineRange, MACHINE_VIEW } from "@wso2/ballerina-core";
+import { AvailableNode, EVENT_TYPE, FOCUS_FLOW_DIAGRAM_VIEW, FlowNode, LineRange, MACHINE_VIEW } from "@wso2/ballerina-core";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
-import { cloneDeep } from "lodash";
+import { cloneDeep, debounce } from "lodash";
 import ButtonCard from "../../../../components/ButtonCard";
 import { RelativeLoader } from "../../../../components/RelativeLoader";
 import { FlowNodeForm } from "../../Forms/FlowNodeForm";
-import { ensureModelProvider, fetchAgentNodeTemplate, getEndOfFileLineRange, toBaseName } from "../utils";
+import { ensureModelProvider, fetchAgentNodeTemplate, getEndOfFileLineRange, getNodeTemplate, toBaseName } from "../utils";
 import {
     AgentOptionCard,
     AgentOptionContent,
@@ -51,8 +51,9 @@ import {
 // New custom agents are written to the project's main file.
 const AGENT_FILE_NAME = "main.bal";
 
-type AgentFilter = "All" | "Local" | "Standard" | "Organization";
-export type AddAgentView = "gallery" | "scratch";
+type AgentFilter = "All" | "Local" | "Organization";
+// "scratch" = define a new agent from scratch; "configure" = initialize a selected pre-built agent.
+export type AddAgentView = "gallery" | "scratch" | "configure";
 
 export interface AddAgentPopupContentProps {
     projectPath: string;
@@ -61,38 +62,54 @@ export interface AddAgentPopupContentProps {
     onViewChange: (view: AddAgentView) => void;
 }
 
-interface PrebuiltAgent {
-    id: string;
-    label: string;
-    org: string;
-    module: string;
-}
-
-// Hardcoded for now. Will be replaced by a Ballerina Central agents API later.
-const PREBUILT_AGENTS: PrebuiltAgent[] = [
-    { id: "customer-support", label: "Customer Support", org: "ballerinax", module: "agents.customer" },
-    { id: "hr-assistant", label: "HR Assistant", org: "ballerinax", module: "agents.hr" },
-    { id: "blog-writer", label: "Blog Writer", org: "ballerinax", module: "agents.blogwriter" },
-    { id: "sales-assistant", label: "Sales Assistant", org: "wso2", module: "sales" },
-    { id: "onboarding-bot", label: "Onboarding Bot", org: "wso2", module: "agents.onboarding" },
-    { id: "data-analyst", label: "Data Analyst", org: "wso2", module: "analytics" },
-    { id: "code-review", label: "Code Review", org: "wso2", module: "agents.codereview" },
-];
+// Maps a UI filter tab to the backend AgentSearchCommand `source` parameter.
+const FILTER_TO_SOURCE: Record<AgentFilter, string> = {
+    All: "all",
+    Local: "local",
+    Organization: "organization",
+};
 
 export function AddAgentPopupContent(props: AddAgentPopupContentProps) {
     const { projectPath, onClose, view, onViewChange } = props;
     const { rpcClient } = useRpcContext();
     const [searchText, setSearchText] = useState<string>("");
     const [filterType, setFilterType] = useState<AgentFilter>("All");
+    const [agents, setAgents] = useState<AvailableNode[]>([]);
+    const [isSearching, setIsSearching] = useState<boolean>(false);
+    // "Local" agents come from sibling projects in the workspace, so the tab is only relevant in a workspace.
+    const [isWorkspace, setIsWorkspace] = useState<boolean>(false);
+
+    useEffect(() => {
+        let cancelled = false;
+        rpcClient
+            .getCommonRpcClient()
+            .getWorkspaceType()
+            .then((result) => {
+                if (cancelled) return;
+                setIsWorkspace(
+                    ["MULTIPLE_PROJECTS", "BALLERINA_WORKSPACE", "VSCODE_WORKSPACE"].includes(result?.type)
+                );
+            })
+            .catch(() => {
+                // Treat detection failures as a single project (hide the Local tab).
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [rpcClient]);
 
     const [agentNode, setAgentNode] = useState<FlowNode>();
     const [agentFilePath, setAgentFilePath] = useState<string>("");
     const [targetLineRange, setTargetLineRange] = useState<LineRange>();
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+    // The pre-built agent selected from the gallery, configured in the "configure" view.
+    const [pendingAgent, setPendingAgent] = useState<AvailableNode>();
 
-    // Load the AGENT node template when entering the custom-agent view; reset on returning to the gallery.
+    // Load the node template for the form views: the built-in AGENT template for "scratch", or the selected
+    // pre-built agent's class-init template for "configure". Reset on returning to the gallery.
     useEffect(() => {
-        if (view !== "scratch") {
+        const isFormView = view === "scratch" || view === "configure";
+        if (!isFormView) {
             setAgentNode(undefined);
             setTargetLineRange(undefined);
             setIsSubmitting(false);
@@ -101,7 +118,13 @@ export function AddAgentPopupContent(props: AddAgentPopupContentProps) {
         let cancelled = false;
         (async () => {
             try {
-                const template = await fetchAgentNodeTemplate(rpcClient, projectPath);
+                const template =
+                    view === "configure" && pendingAgent
+                        ? await getNodeTemplate(rpcClient, pendingAgent.codedata, projectPath)
+                        : await fetchAgentNodeTemplate(rpcClient, projectPath);
+                if (!template) {
+                    throw new Error("No agent node template returned");
+                }
                 const endOfFile = await getEndOfFileLineRange(AGENT_FILE_NAME, rpcClient);
                 template.codedata.lineRange = endOfFile as any;
                 if (cancelled) return;
@@ -115,9 +138,51 @@ export function AddAgentPopupContent(props: AddAgentPopupContentProps) {
         return () => {
             cancelled = true;
         };
-    }, [view, rpcClient, projectPath]);
+    }, [view, pendingAgent, rpcClient, projectPath]);
+
+    // Fetches the gallery agent list. An empty query returns the default (in-memory cached) view;
+    // a non-empty query triggers a local + central search for the selected source.
+    const runSearch = (text: string, filter: AgentFilter) => {
+        setIsSearching(true);
+        rpcClient
+            .getBIDiagramRpcClient()
+            .search({
+                filePath: projectPath,
+                queryMap: {
+                    ...(text ? { q: text } : {}),
+                    limit: 60,
+                    source: FILTER_TO_SOURCE[filter],
+                },
+                searchKind: "AGENT",
+            })
+            .then((model) => {
+                setAgents((model.categories ?? []).flatMap((category) => (category.items ?? []) as AvailableNode[]));
+            })
+            .finally(() => {
+                setIsSearching(false);
+            });
+    };
+
+    const debouncedSearch = debounce((text: string) => runSearch(text, filterType), 1100);
+
+    // Initial open and tab switches fetch immediately; typing in the search box is debounced.
+    useEffect(() => {
+        if (view !== "gallery") {
+            return;
+        }
+        runSearch(searchText, filterType);
+    }, [view, filterType, rpcClient, projectPath]);
+
+    useEffect(() => {
+        if (view !== "gallery") {
+            return;
+        }
+        debouncedSearch(searchText);
+        return () => debouncedSearch.cancel();
+    }, [searchText]);
 
     const handleCustomAgent = () => {
+        setPendingAgent(undefined);
         onViewChange("scratch");
     };
 
@@ -128,14 +193,18 @@ export function AddAgentPopupContent(props: AddAgentPopupContentProps) {
         setIsSubmitting(true);
         try {
             const baseName = toBaseName(String(updatedNode.properties?.variable?.value ?? ""));
-            const { modelVarName, usedDefaultModelProvider } = await ensureModelProvider(
-                rpcClient,
-                projectPath,
-                baseName
-            );
-
             const node = cloneDeep(updatedNode);
-            node.properties.model.value = modelVarName;
+
+            // The built-in "Create Agent" flow hides the model field and auto-provisions a default model
+            // provider. For a pre-built agent (configure view) the user supplies the model via the form, so
+            // we keep their value as-is.
+            let usedDefaultModelProvider = false;
+            if (view === "scratch" && node.properties?.model) {
+                const modelProvider = await ensureModelProvider(rpcClient, projectPath, baseName);
+                node.properties.model.value = modelProvider.modelVarName;
+                usedDefaultModelProvider = modelProvider.usedDefaultModelProvider;
+            }
+
             // Recompute the insertion point after the model provider was written.
             const endOfFile = await getEndOfFileLineRange(AGENT_FILE_NAME, rpcClient);
             node.codedata.lineRange = endOfFile as any;
@@ -175,15 +244,24 @@ export function AddAgentPopupContent(props: AddAgentPopupContentProps) {
         }
     };
 
-    const handleSelectAgent = (_agent: PrebuiltAgent) => {
-        // No-op for now. Wire up later.
+    // Initialize a pre-built agent: open the class-init config form for the selected agent's codedata.
+    const handleSelectAgent = (agent: AvailableNode) => {
+        setPendingAgent(agent);
+        onViewChange("configure");
     };
 
     const handleCreateNew = () => {
         // No-op for now. Wire up later.
     };
 
-    if (view === "scratch") {
+    if (view === "scratch" || view === "configure") {
+        const submitLabel = view === "configure" ? "Add Agent" : "Create Agent";
+        // Built-in agent: hide the auto-provisioned model and the predetermined result type.
+        // Pre-built agent: show the model field so the user can supply the ModelProvider; the result type is fixed.
+        const fieldOverrides =
+            view === "configure"
+                ? { type: { hidden: true } }
+                : { model: { hidden: true }, type: { hidden: true } };
         return (
             <FormContainer>
                 {agentNode && targetLineRange ? (
@@ -193,14 +271,11 @@ export function AddAgentPopupContent(props: AddAgentPopupContentProps) {
                         nodeFormTemplate={agentNode}
                         targetLineRange={targetLineRange}
                         onSubmit={handleCreateAgent}
-                        submitText={isSubmitting ? "Creating..." : "Create Agent"}
+                        submitText={isSubmitting ? "Creating..." : submitLabel}
                         showProgressIndicator={isSubmitting}
                         disableSaveButton={isSubmitting}
                         footerActionButton
-                        fieldOverrides={{
-                            model: { hidden: true },
-                            type: { hidden: true },
-                        }}
+                        fieldOverrides={fieldOverrides}
                     />
                 ) : (
                     <LoaderWrapper>
@@ -210,16 +285,6 @@ export function AddAgentPopupContent(props: AddAgentPopupContentProps) {
             </FormContainer>
         );
     }
-
-    const filteredAgents = PREBUILT_AGENTS.filter((agent) => {
-        if (!searchText) return true;
-        const q = searchText.toLowerCase();
-        return (
-            agent.label.toLowerCase().includes(q) ||
-            agent.module.toLowerCase().includes(q) ||
-            agent.org.toLowerCase().includes(q)
-        );
-    });
 
     return (
         <PopupContent>
@@ -269,18 +334,14 @@ export function AddAgentPopupContent(props: AddAgentPopupContentProps) {
                             >
                                 All
                             </FilterButton>
-                            <FilterButton
-                                active={filterType === "Local"}
-                                onClick={() => setFilterType("Local")}
-                            >
-                                Local
-                            </FilterButton>
-                            <FilterButton
-                                active={filterType === "Standard"}
-                                onClick={() => setFilterType("Standard")}
-                            >
-                                Standard
-                            </FilterButton>
+                            {isWorkspace && (
+                                <FilterButton
+                                    active={filterType === "Local"}
+                                    onClick={() => setFilterType("Local")}
+                                >
+                                    Local
+                                </FilterButton>
+                            )}
                             <FilterButton
                                 active={filterType === "Organization"}
                                 onClick={() => setFilterType("Organization")}
@@ -290,19 +351,28 @@ export function AddAgentPopupContent(props: AddAgentPopupContentProps) {
                         </FilterButtons>
                     </SectionHeaderRight>
                 </SectionHeader>
-                <AgentsGrid>
-                    {filteredAgents.map((agent) => (
-                        <ButtonCard
-                            id={`agent-${agent.id}`}
-                            key={agent.id}
-                            title={agent.label}
-                            description={`${agent.org} / ${agent.module}`}
-                            truncate={true}
-                            icon={<Codicon name="package" />}
-                            onClick={() => handleSelectAgent(agent)}
-                        />
-                    ))}
-                </AgentsGrid>
+                {isSearching && agents.length === 0 ? (
+                    <LoaderWrapper>
+                        <RelativeLoader />
+                    </LoaderWrapper>
+                ) : (
+                    <AgentsGrid>
+                        {agents.map((agent) => {
+                            const key = `${agent.codedata.org}/${agent.codedata.module}/${agent.metadata.label}`;
+                            return (
+                                <ButtonCard
+                                    id={`agent-${key}`}
+                                    key={key}
+                                    title={agent.metadata.label}
+                                    description={`${agent.codedata.org} / ${agent.codedata.module}`}
+                                    truncate={true}
+                                    icon={<Codicon name="package" />}
+                                    onClick={() => handleSelectAgent(agent)}
+                                />
+                            );
+                        })}
+                    </AgentsGrid>
+                )}
             </Section>
         </PopupContent>
     );

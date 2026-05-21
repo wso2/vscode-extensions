@@ -952,6 +952,7 @@ export type SearchQueryParams = {
     orgName?: string;
     includeAvailableFunctions?: string;
     filterByCurrentOrg?: boolean;
+    source?: string;
 }
 
 export type SearchKind =
