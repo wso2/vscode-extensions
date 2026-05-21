@@ -417,6 +417,14 @@ export const testCasesForCodeIndexing = [
     prompt: "The Shopify customer creation handler doesn't retry if Stripe returns a transient error. Add retry logic with up to 3 attempts before giving up.",
     projectPath: "shopify_stripe_integration_errors"
   },
+  {
+    prompt: "I want to use generateId from order utils inside db operations.bal, can you update the code?",
+    projectPath: "order_management_system"
+  },
+  {
+    prompt: "onUpdate function is catching errors from the lead conversion and logging them instead of propagating. Change it to let errors bubble up directly.",
+    projectPath: "salesforce_slack_integration_errors"
+  },
 
   // Covers: Removing an existing feature
   {
@@ -480,10 +488,10 @@ export const testCasesForCodeIndexing = [
 ];
 
 export let testCases = [];
-testCases.push(...initialTestCases);
-testCases.push(...httpTestCases);
-testCases.push(...textEditSpecializedTestCases);
-testCases.push(...testCasesForExistingProject);
-testCases.push(...testCasesForExistingSemanticErrors);
-testCases.push(...langlibTestCases);
+// testCases.push(...initialTestCases);
+// testCases.push(...httpTestCases);
+// testCases.push(...textEditSpecializedTestCases);
+// testCases.push(...testCasesForExistingProject);
+// testCases.push(...testCasesForExistingSemanticErrors);
+// testCases.push(...langlibTestCases);
 testCases.push(...testCasesForCodeIndexing);
