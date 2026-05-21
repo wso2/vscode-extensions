@@ -44,6 +44,7 @@ import Controls from "./Controls";
 import { CurrentBreakpointsResponse as BreakpointInfo, JoinProjectPathRequest, JoinProjectPathResponse, traverseFlow, VisualizerLocation } from "@wso2/ballerina-core";
 import { BreakpointVisitor } from "../visitors/BreakpointVisitor";
 import { BaseNodeModel } from "./nodes/BaseNode";
+import { AgentCallNodeModel } from "./nodes/AgentCallNode/AgentCallNodeModel";
 import { PopupOverlay } from "./PopupOverlay";
 
 export interface DiagramProps {
@@ -280,6 +281,15 @@ export function Diagram(props: DiagramProps) {
             .find((layer) => layer instanceof OverlayLayerModel);
         if (overlayLayer) {
             diagramEngine.getModel().removeLayer(overlayLayer);
+        }
+
+        // Agent focus view renders a lone AGENT_CALL node. Center the agent card (width = 2 * lw)
+        // on the diagram center line (x = 0), letting the tools/model branch out to the right; the
+        // shared reset/centering below then horizontally centers the card in the canvas.
+        if (nodes.length === 1 && nodes[0].getType() === NodeTypes.AGENT_CALL_NODE) {
+            const agentNode = nodes[0] as AgentCallNodeModel;
+            const { lw, y } = agentNode.node.viewState;
+            agentNode.setPosition(-lw, y);
         }
 
         if (nodes.length < 3 || !hasDiagramZoomAndPosition(model.fileName)) {

@@ -16,18 +16,23 @@
  * under the License.
  */
 
-import React from "react";
+import React, { useState } from "react";
 import { ParentPopupData } from "@wso2/ballerina-core";
 import { Codicon, ThemeColors } from "@wso2/ui-toolkit";
 import {
+    BackButton,
     CloseButton,
+    HeaderTitleContainer,
     PopupContainer,
     PopupHeader,
     PopupOverlay,
+    PopupSubtitle,
     PopupTitle,
 } from "../../Connection/styles";
-import { AddAgentPopupContent } from "./AddAgentPopupContent";
-import { PopupContent } from "./styles";
+import { AddAgentPopupContent, AddAgentView } from "./AddAgentPopupContent";
+
+const CUSTOM_AGENT_SUBTITLE =
+    "An AI agent uses a language model, prompts, and tools to understand requests and complete tasks.";
 
 export interface AddAgentPopupProps {
     projectPath: string;
@@ -38,6 +43,8 @@ export interface AddAgentPopupProps {
 
 export function AddAgentPopup(props: AddAgentPopupProps) {
     const { onClose, onNavigateToOverview, isPopup } = props;
+    const [view, setView] = useState<AddAgentView>("gallery");
+    const isScratch = view === "scratch";
 
     const handleClosePopup = () => {
         if (isPopup) {
@@ -52,14 +59,25 @@ export function AddAgentPopup(props: AddAgentPopupProps) {
             <PopupOverlay sx={{ background: `${ThemeColors.SURFACE_CONTAINER}`, opacity: `0.5` }} />
             <PopupContainer>
                 <PopupHeader>
-                    <PopupTitle variant="h2">Add Agent</PopupTitle>
+                    {isScratch && (
+                        <BackButton appearance="icon" onClick={() => setView("gallery")}>
+                            <Codicon name="chevron-left" />
+                        </BackButton>
+                    )}
+                    <HeaderTitleContainer>
+                        <PopupTitle variant="h2">{isScratch ? "Create New Agent" : "Add Agent"}</PopupTitle>
+                        {isScratch && <PopupSubtitle>{CUSTOM_AGENT_SUBTITLE}</PopupSubtitle>}
+                    </HeaderTitleContainer>
                     <CloseButton appearance="icon" onClick={handleClosePopup}>
                         <Codicon name="close" />
                     </CloseButton>
                 </PopupHeader>
-                <PopupContent>
-                    <AddAgentPopupContent />
-                </PopupContent>
+                <AddAgentPopupContent
+                    projectPath={props.projectPath}
+                    onClose={handleClosePopup}
+                    view={view}
+                    onViewChange={setView}
+                />
             </PopupContainer>
         </>
     );
