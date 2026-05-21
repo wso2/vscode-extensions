@@ -695,6 +695,7 @@ const stateMachine = createMachine<MachineContext>(
                             identifier: context.identifier,
                             parentIdentifier: context.parentIdentifier,
                             artifactType: context.artifactType,
+                            focusFlowDiagramView: context?.focusFlowDiagramView,
                             org: orgName || context.org,
                             package: packageName || context.package,
                             type: context?.type,

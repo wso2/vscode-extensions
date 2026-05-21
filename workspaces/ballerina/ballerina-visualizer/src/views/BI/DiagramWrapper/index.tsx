@@ -512,6 +512,7 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
 
     // Calculate title based on conditions
     const getTitle = () => {
+        if (view === FOCUS_FLOW_DIAGRAM_VIEW.AGENT) return "AI Agent";
         if (isNPFunction) return "Natural Function";
         if (isAutomation) return "Automation";
         if (parentCodedata?.sourceCode.includes("@ai:AgentTool")) return "Agent Tool";
@@ -628,7 +629,7 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
                     actions={loadingDiagram ? null : getActions()}
                 />
             )}
-            {enableSequenceDiagram && !isAgent &&
+            {enableSequenceDiagram && !isAgent && !view &&
                 (
                     !loadingDiagram ? (
                         <Switch
@@ -672,6 +673,7 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
                     <BIFocusFlowDiagram
                         projectPath={projectPath}
                         filePath={filePath}
+                        view={view}
                         onUpdate={handleUpdateDiagram}
                         onReady={handleReadyDiagram}
                     />

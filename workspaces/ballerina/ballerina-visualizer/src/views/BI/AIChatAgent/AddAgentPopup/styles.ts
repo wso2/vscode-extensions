@@ -17,7 +17,7 @@
  */
 
 import styled from "@emotion/styled";
-import { Typography, ThemeColors, SearchBox } from "@wso2/ui-toolkit";
+import { Button, Typography, ThemeColors, SearchBox } from "@wso2/ui-toolkit";
 
 export const PopupContent = styled.div`
     flex: 1;
@@ -26,6 +26,37 @@ export const PopupContent = styled.div`
     display: flex;
     flex-direction: column;
     gap: 16px;
+`;
+
+export const FormContainer = styled.div`
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 16px 20px 0;
+`;
+
+export const LoaderWrapper = styled.div`
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+`;
+
+export const Footer = styled.div`
+    padding: 16px 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+`;
+
+export const FooterButton = styled(Button)`
+    width: 100% !important;
+    min-width: 0 !important;
+    display: flex !important;
+    justify-content: center;
+    align-items: center;
 `;
 
 export const IntroText = styled(Typography)`
@@ -68,19 +99,6 @@ export const SectionHeaderRight = styled.div`
     display: flex;
     align-items: center;
     gap: 12px;
-`;
-
-export const CreateNewLink = styled.button`
-    background: transparent;
-    border: none;
-    padding: 0;
-    color: ${ThemeColors.PRIMARY};
-    font-size: 12px;
-    font-weight: 500;
-    cursor: pointer;
-    &:hover {
-        text-decoration: underline;
-    }
 `;
 
 export const CreateAgentOptions = styled.div`
@@ -178,3 +196,4 @@ export const AgentsGrid = styled.div`
     gap: 12px;
     margin-top: 8px;
 `;
+
