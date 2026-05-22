@@ -65,7 +65,7 @@ const Endpoint = ({ endpoint, handleEndpointChange, handleSave, onDeleteClick, i
             ];
             setEndpoints(endpointList);
         })();
-    }, [path]);
+    });
 
     const endpointTypes = [
         { content: 'INLINE', value: 'inline' },
