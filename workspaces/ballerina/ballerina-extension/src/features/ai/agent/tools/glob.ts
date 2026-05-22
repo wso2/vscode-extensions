@@ -58,6 +58,10 @@ interface FileEntry {
  * Supports: *, **, ?, {a,b}, [abc] and character classes.
  */
 function globToRegex(pattern: string): RegExp {
+    return new RegExp(`^${globToRegexStr(pattern)}$`);
+}
+
+function globToRegexStr(pattern: string): string {
     let regexStr = '';
     let i = 0;
 
@@ -66,12 +70,14 @@ function globToRegex(pattern: string): RegExp {
 
         if (ch === '*') {
             if (pattern[i + 1] === '*') {
-                // ** matches any path segment including separators
-                regexStr += '.*';
                 i += 2;
-                // Consume trailing slash after ** if present
                 if (pattern[i] === '/') {
+                    // **/ = optional any-depth directory prefix — must end at a separator
+                    regexStr += '(?:.*/)?';
                     i++;
+                } else {
+                    // ** at end — match everything including separators
+                    regexStr += '.*';
                 }
             } else {
                 // * matches anything except path separator
@@ -82,24 +88,31 @@ function globToRegex(pattern: string): RegExp {
             regexStr += '[^/]';
             i++;
         } else if (ch === '{') {
-            // {a,b,c} alternation
+            // {a,b,c} alternation — each alternative is itself a glob pattern
             const end = pattern.indexOf('}', i);
             if (end === -1) {
                 regexStr += '\\{';
                 i++;
             } else {
-                const alts = pattern.slice(i + 1, end).split(',').map(escapeRegex);
+                const alts = pattern.slice(i + 1, end).split(',').map(alt => globToRegexStr(alt.trim()));
                 regexStr += `(?:${alts.join('|')})`;
                 i = end + 1;
             }
         } else if (ch === '[') {
-            // Character class — pass through as-is until ]
+            // Character class — validate before passing through
             const end = pattern.indexOf(']', i);
             if (end === -1) {
                 regexStr += '\\[';
                 i++;
             } else {
-                regexStr += pattern.slice(i, end + 1);
+                const classStr = pattern.slice(i, end + 1);
+                try {
+                    new RegExp(classStr);
+                    regexStr += classStr;
+                } catch {
+                    // Invalid character class — treat as literal text
+                    regexStr += escapeRegex(classStr);
+                }
                 i = end + 1;
             }
         } else {
@@ -108,7 +121,7 @@ function globToRegex(pattern: string): RegExp {
         }
     }
 
-    return new RegExp(`^${regexStr}$`);
+    return regexStr;
 }
 
 function escapeRegex(s: string): string {
@@ -136,7 +149,7 @@ function walkDir(dir: string, baseDir: string, results: FileEntry[]): void {
                 continue;
             }
             walkDir(path.join(dir, entry.name), baseDir, results);
-        } else if (entry.isFile()) {
+        } else if (entry.isFile() && !entry.name.startsWith('.')) {
             const fullPath = path.join(dir, entry.name);
             const relativePath = path.relative(baseDir, fullPath);
             let mtimeMs = 0;
@@ -182,6 +195,18 @@ export function createGlobExecute(
         const resolvedPath = searchPath
             ? path.resolve(tempProjectPath, searchPath)
             : tempProjectPath;
+
+        // Prevent path traversal outside the project root
+        const normalizedRoot = tempProjectPath.endsWith(path.sep) ? tempProjectPath : tempProjectPath + path.sep;
+        if (resolvedPath !== tempProjectPath && !resolvedPath.startsWith(normalizedRoot)) {
+            const result: GlobResult = {
+                success: false,
+                message: `Search path must be within the project root.`,
+                error: 'Error: Path traversal detected'
+            };
+            eventHandler({ type: "tool_result", toolName: GLOB_TOOL_NAME, toolOutput: result });
+            return result;
+        }
 
         if (!fs.existsSync(resolvedPath)) {
             const result: GlobResult = {

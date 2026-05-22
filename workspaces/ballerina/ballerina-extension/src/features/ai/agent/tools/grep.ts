@@ -64,6 +64,7 @@ export interface GrepResult {
 interface FileMatch {
     filePath: string;
     matches: LineMatch[];
+    lines: string[];
 }
 
 interface LineMatch {
@@ -234,7 +235,8 @@ function searchFiles(
             const relativePath = path.relative(basePath, filePath);
             results.push({
                 filePath: relativePath,
-                matches: matchedLines
+                matches: matchedLines,
+                lines
             });
         }
     }
@@ -248,7 +250,6 @@ function searchFiles(
 
 function formatContentOutput(
     fileMatches: FileMatch[],
-    basePath: string,
     beforeContext: number,
     afterContext: number,
     showLineNumbers: boolean,
@@ -262,14 +263,7 @@ function formatContentOutput(
             break;
         }
 
-        const fullPath = path.join(basePath, fileMatch.filePath);
-        let lines: string[];
-        try {
-            lines = fs.readFileSync(fullPath, 'utf-8').split('\n');
-        } catch {
-            continue;
-        }
-
+        const lines = fileMatch.lines;
         outputLines.push(`\n${fileMatch.filePath}:`);
 
         // Collect all line numbers to display (matches + context)
@@ -387,6 +381,18 @@ export function createGrepExecute(
             ? path.resolve(tempProjectPath, searchPath)
             : tempProjectPath;
 
+        // Prevent path traversal outside the project root
+        const normalizedRoot = tempProjectPath.endsWith(path.sep) ? tempProjectPath : tempProjectPath + path.sep;
+        if (resolvedPath !== tempProjectPath && !resolvedPath.startsWith(normalizedRoot)) {
+            const result: GrepResult = {
+                success: false,
+                message: `Search path must be within the project root.`,
+                error: 'Error: Path traversal detected'
+            };
+            eventHandler({ type: "tool_result", toolName: GREP_TOOL_NAME, toolOutput: result });
+            return result;
+        }
+
         if (!fs.existsSync(resolvedPath)) {
             const result: GrepResult = {
                 success: false,
@@ -432,7 +438,6 @@ export function createGrepExecute(
             case 'content':
                 output = formatContentOutput(
                     fileMatches,
-                    tempProjectPath,
                     effectiveBefore,
                     effectiveAfter,
                     line_numbers,
@@ -468,13 +473,14 @@ export function createGrepExecute(
 export function createGrepTool(execute: (input: GrepInput) => Promise<GrepResult>) {
     return tool({
         description: `
-A powerful search tool built on ripgrep, optimized for Ballerina source code
+A powerful search tool optimized for Ballerina source code. Uses JavaScript RegExp for pattern matching.
 Usage:
  - ALWAYS use Grep for search tasks. NEVER invoke \`grep\` as a Bash command. The Grep tool has been optimized for correct permissions and access.
- - Supports full regex syntax (e.g., \`error.*message\`, \`function\\s+\\w+\`)
- - Filter files with glob parameter (e.g., \`*.bal\`, \`**/*.bal\`) or type parameter (e.g., \`bal\`)
+ - Supports full JavaScript RegExp syntax (e.g., \`error.*message\`, \`function\\s+\\w+\`)
+ - Filter files with glob parameter (e.g., \`*.bal\`, \`**/*.bal\`)
  - Output modes: "content" shows matching lines, "files_with_matches" shows only file paths (default), "count" shows match counts
- - Pattern syntax: Uses ripgrep (not grep) — literal braces need escaping (use \`record\\{\\}\` to find \`record{}\`, \`map\\<string\\>\` to find \`map<string>\`)
+ - Pattern syntax: Uses JavaScript RegExp — literal braces need escaping (use \`record\\{\\}\` to find \`record{}\`, \`map\\<string\\>\` to find \`map<string>\`)
+ - Glob support: simple patterns only — \`*.ext\`, \`*.{ext1,ext2}\`, \`**/*.ext\`, or exact filenames. Complex path patterns like \`src/**/*.bal\` are not supported.
  - Multiline matching: By default patterns match within single lines only. For cross-line patterns like \`service\\s+\\w+\\s+on[\\s\\S]*?{\`, use \`multiline: true\`
 `,
         inputSchema: z.object({
