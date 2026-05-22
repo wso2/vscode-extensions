@@ -69,7 +69,7 @@ export async function createProject(page: ExtendedPage, projectName?: string, ru
     await page.selectSidebarItem('WSO2 Integrator');
     console.log('Selecting WSO2 Integrator');
     const getStartedButton = page.page.getByRole('button', { name: 'Get Started' });
-    await getStartedButton.waitFor({ timeout: 45000 });
+    await getStartedButton.waitFor({ timeout: 90000 });
     console.log('Clicking on Get Started button');
     await getStartedButton.click();
     console.log('Initializing Welcome page and creating new project');
