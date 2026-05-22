@@ -98,7 +98,7 @@ module.exports = {
           } else if (currentVersion.startsWith('^3') || currentVersion.startsWith('3')) {
             newVersion = '3.0.2';
           } else if (currentVersion.startsWith('^5') || currentVersion.startsWith('5')) {
-            newVersion = '5.0.5';
+            newVersion = '5.0.6'; // security fix: CVE-2026-45149 (DoS numeric range)
           } else {
             context.log(`Unexpected brace-expansion version: ${currentVersion}`);
             newVersion = currentVersion;
