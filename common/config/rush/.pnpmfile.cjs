@@ -49,6 +49,7 @@ module.exports = {
         if (deps['tmp']) deps['tmp'] = '0.2.4'; // security fix
         if (deps['undici']) deps['undici'] = '7.24.0'; // security fix: header injection
         if (deps['uuid']) deps['uuid'] = '14.0.0'; // security fix
+        if (deps['@nevware21/ts-utils']) deps['@nevware21/ts-utils'] = '0.14.0'; // security fix: CVE-2026-46681 (prototype pollution)
         if (deps['protobufjs']) {
           const currentVersion = deps['protobufjs'];
           if (currentVersion.startsWith('^8') || currentVersion.startsWith('8')) {
