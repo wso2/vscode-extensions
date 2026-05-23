@@ -977,6 +977,8 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
             projectPath,
             breakpointInfo,
             readOnly: showProgressIndicator,
+            // Enables the single agent node's centering in Diagram.tsx (focus view only).
+            isAgentFocusView: true,
             agentNode: {
                 onModelSelect: handleEditAgentModel,
                 onAddTool: handleAddTool,

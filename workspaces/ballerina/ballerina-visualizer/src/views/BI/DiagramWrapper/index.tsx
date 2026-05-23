@@ -129,6 +129,8 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
     const [fileName, setFileName] = useState("");
     const [serviceType, setServiceType] = useState("");
     const [serviceName, setServiceName] = useState("");
+    // For the AGENT focus view: the agent's variable name (e.g. "libraryAgent"), shown as the title.
+    const [agentName, setAgentName] = useState("");
     const [basePath, setBasePath] = useState("");
     const [listener, setListener] = useState("");
     const [parentMetadata, setParentMetadata] = useState<ParentMetadata>();
@@ -167,6 +169,9 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
         rpcClient.getVisualizerLocation().then((location) => {
             if (location.metadata?.enableSequenceDiagram) {
                 setEnableSequenceDiagram(true);
+            }
+            if (location.identifier) {
+                setAgentName(location.identifier);
             }
 
             rpcClient
@@ -512,7 +517,7 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
 
     // Calculate title based on conditions
     const getTitle = () => {
-        if (view === FOCUS_FLOW_DIAGRAM_VIEW.AGENT) return "AI Agent";
+        if (view === FOCUS_FLOW_DIAGRAM_VIEW.AGENT) return agentName || "AI Agent";
         if (isNPFunction) return "Natural Function";
         if (isAutomation) return "Automation";
         if (parentCodedata?.sourceCode.includes("@ai:AgentTool")) return "Agent Tool";
@@ -625,8 +630,10 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
             ) : (
                 <TitleBar
                     title={getTitle()}
-                    subtitleElement={getSubtitleElement}
-                    actions={loadingDiagram ? null : getActions()}
+                    {...(view === FOCUS_FLOW_DIAGRAM_VIEW.AGENT
+                        ? { subtitle: "AI Agent" }
+                        : { subtitleElement: getSubtitleElement })}
+                    actions={getActions()}
                 />
             )}
             {enableSequenceDiagram && !isAgent && !view &&

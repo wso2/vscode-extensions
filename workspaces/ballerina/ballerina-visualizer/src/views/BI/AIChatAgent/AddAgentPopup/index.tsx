@@ -26,13 +26,10 @@ import {
     PopupContainer,
     PopupHeader,
     PopupOverlay,
-    PopupSubtitle,
     PopupTitle,
 } from "../../Connection/styles";
 import { AddAgentPopupContent, AddAgentView } from "./AddAgentPopupContent";
-
-const CUSTOM_AGENT_SUBTITLE =
-    "An AI agent uses a language model, prompts, and tools to understand requests and complete tasks.";
+import { NewAgentCanvas } from "./NewAgentCanvas";
 
 export interface AddAgentPopupProps {
     projectPath: string;
@@ -44,8 +41,7 @@ export interface AddAgentPopupProps {
 export function AddAgentPopup(props: AddAgentPopupProps) {
     const { onClose, onNavigateToOverview, isPopup } = props;
     const [view, setView] = useState<AddAgentView>("gallery");
-    const isScratch = view === "scratch";
-    const isForm = view === "scratch" || view === "configure";
+    const isForm = view === "configure";
 
     const handleClosePopup = () => {
         if (isPopup) {
@@ -54,6 +50,18 @@ export function AddAgentPopup(props: AddAgentPopupProps) {
             onNavigateToOverview();
         }
     };
+
+    // The "Create Agent" (from scratch) flow uses a dedicated canvas + side panel that only asks for a
+    // name; the prompt/model/tools are configured afterwards in the agent's focus diagram.
+    if (view === "scratch") {
+        return (
+            <NewAgentCanvas
+                projectPath={props.projectPath}
+                onBack={() => setView("gallery")}
+                onClose={handleClosePopup}
+            />
+        );
+    }
 
     return (
         <>
@@ -67,9 +75,8 @@ export function AddAgentPopup(props: AddAgentPopupProps) {
                     )}
                     <HeaderTitleContainer>
                         <PopupTitle variant="h2">
-                            {view === "configure" ? "Configure Agent" : isScratch ? "Create New Agent" : "Add Agent"}
+                            {view === "configure" ? "Configure Agent" : "Add Agent"}
                         </PopupTitle>
-                        {isScratch && <PopupSubtitle>{CUSTOM_AGENT_SUBTITLE}</PopupSubtitle>}
                     </HeaderTitleContainer>
                     <CloseButton appearance="icon" onClick={handleClosePopup}>
                         <Codicon name="close" />
