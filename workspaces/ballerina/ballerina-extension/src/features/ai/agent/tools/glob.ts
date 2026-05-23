@@ -26,8 +26,8 @@ import { CopilotEventHandler } from '../../utils/events';
 
 export const GLOB_TOOL_NAME = "glob";
 
-/** Directories to skip during traversal */
-const SKIP_DIRS = new Set(['.git', 'target']);
+/** Directories to skip during traversal. Entries starting with '.' are also skipped (dotfiles/dirs). */
+const SKIP_DIRS = new Set(['target']);
 
 // ============================================================================
 // Types
@@ -144,6 +144,11 @@ function walkDir(dir: string, baseDir: string, results: FileEntry[]): void {
     }
 
     for (const entry of entries) {
+        // Skip symlinks — Dirent methods don't follow them, but be explicit to prevent
+        // any future traversal if the readdirSync options change.
+        if (entry.isSymbolicLink()) {
+            continue;
+        }
         if (entry.isDirectory()) {
             if (SKIP_DIRS.has(entry.name) || entry.name.startsWith('.')) {
                 continue;
@@ -171,6 +176,19 @@ export function createGlobExecute(
     eventHandler: CopilotEventHandler,
     tempProjectPath: string
 ) {
+    // Resolve symlinks on the project root once at setup time
+    const realProjectRoot = (() => {
+        try { return fs.realpathSync(tempProjectPath); } catch { return tempProjectPath; }
+    })();
+    const normalizedRoot = realProjectRoot + path.sep;
+
+    // Helper to fire the tool_result event and return a failure result in one step.
+    function fail(message: string, error: string): GlobResult {
+        const result: GlobResult = { success: false, message, error };
+        eventHandler({ type: "tool_result", toolName: GLOB_TOOL_NAME, toolOutput: result });
+        return result;
+    }
+
     return async (input: GlobInput): Promise<GlobResult> => {
         const { pattern, path: searchPath } = input;
 
@@ -183,50 +201,39 @@ export function createGlobExecute(
         console.log(`[GlobTool] Pattern: "${pattern}" in ${searchPath || '.'}`);
 
         if (!pattern || pattern.trim().length === 0) {
-            const result: GlobResult = {
-                success: false,
-                message: 'Glob pattern cannot be empty.',
-                error: 'Error: Empty pattern'
-            };
-            eventHandler({ type: "tool_result", toolName: GLOB_TOOL_NAME, toolOutput: result });
-            return result;
+            return fail('Glob pattern cannot be empty.', 'Error: Empty pattern');
         }
 
         const resolvedPath = searchPath
             ? path.resolve(tempProjectPath, searchPath)
             : tempProjectPath;
 
-        // Prevent path traversal outside the project root
-        const normalizedRoot = tempProjectPath.endsWith(path.sep) ? tempProjectPath : tempProjectPath + path.sep;
+        // Prevent path traversal outside the project root (string-based, fast).
         if (resolvedPath !== tempProjectPath && !resolvedPath.startsWith(normalizedRoot)) {
-            const result: GlobResult = {
-                success: false,
-                message: `Search path must be within the project root.`,
-                error: 'Error: Path traversal detected'
-            };
-            eventHandler({ type: "tool_result", toolName: GLOB_TOOL_NAME, toolOutput: result });
-            return result;
+            return fail('Search path must be within the project root.', 'Error: Path traversal detected');
         }
 
         if (!fs.existsSync(resolvedPath)) {
-            const result: GlobResult = {
-                success: false,
-                message: `Search path not found: ${searchPath || '.'}`,
-                error: 'Error: Path not found'
-            };
-            eventHandler({ type: "tool_result", toolName: GLOB_TOOL_NAME, toolOutput: result });
-            return result;
+            return fail(`Search path not found: ${searchPath || '.'}`, 'Error: Path not found');
         }
 
-        const stat = fs.statSync(resolvedPath);
-        if (!stat.isDirectory()) {
-            const result: GlobResult = {
-                success: false,
-                message: `Path is not a directory: ${searchPath || '.'}`,
-                error: 'Error: Not a directory'
-            };
-            eventHandler({ type: "tool_result", toolName: GLOB_TOOL_NAME, toolOutput: result });
-            return result;
+        if (!fs.statSync(resolvedPath).isDirectory()) {
+            return fail(`Path is not a directory: ${searchPath || '.'}`, 'Error: Not a directory');
+        }
+
+        // Resolve symlinks and re-validate — catches a symlink inside the project that
+        // points outside (e.g. modules/evil -> /etc passes the string check above).
+        // Only needed when a custom searchPath is provided; realProjectRoot is already resolved.
+        if (searchPath) {
+            let realResolvedPath: string;
+            try {
+                realResolvedPath = fs.realpathSync(resolvedPath);
+            } catch {
+                return fail(`Cannot resolve search path: ${searchPath}`, 'Error: Path resolution failed');
+            }
+            if (realResolvedPath !== realProjectRoot && !realResolvedPath.startsWith(normalizedRoot)) {
+                return fail('Search path must be within the project root.', 'Error: Symlink traversal detected');
+            }
         }
 
         // Build regex from glob pattern
@@ -234,13 +241,7 @@ export function createGlobExecute(
         try {
             regex = globToRegex(pattern);
         } catch (e) {
-            const result: GlobResult = {
-                success: false,
-                message: `Invalid glob pattern: ${(e as Error).message}`,
-                error: 'Error: Invalid pattern'
-            };
-            eventHandler({ type: "tool_result", toolName: GLOB_TOOL_NAME, toolOutput: result });
-            return result;
+            return fail(`Invalid glob pattern: ${(e as Error).message}`, 'Error: Invalid pattern');
         }
 
         // Collect all files
@@ -282,19 +283,21 @@ export function createGlobExecute(
 export function createGlobTool(execute: (input: GlobInput) => Promise<GlobResult>) {
     return tool({
         description: `
-Fast file pattern matching tool for Ballerina projects.
+Fast file pattern matching tool that work inside the Ballerina projects.
 - Supports glob patterns like \`**/*.bal\`, \`modules/**/*.bal\`, \`Ballerina.toml\`, \`**/*.{bal,toml}\`, \`resources/**/*\`
-- Returns matching file paths sorted by modification time (most recent first)
-- Skips irrelevant directories automatically: \`.git\`, \`target\`
+- Returns matching file paths sorted by modification time
+- Use this tool when you need to find files by name patterns
 - Use this tool when you need to find files by name or path patterns
-- You can call multiple tools in a single response — speculative batched glob calls are encouraged
+- It is always better to speculatively perform multiple searches as a batch that are potentially useful.
 `,
         inputSchema: z.object({
             pattern: z.string().describe(
-                "The glob pattern to match files against (e.g. \"**/*.bal\", \"*.toml\", \"**/*.{bal,toml}\", \"resources/**/*\")"
+                "The glob pattern to match files against.\n" +
+                "ALLOWED patterns: **/*.bal, **/*.toml, Ballerina.toml, **/*.{bal,toml}, modules/**/*.bal, tests/**/*.bal, resources/**/*,  modules/*/main.bal, **/*_test.bal, modules/**/*.{bal,toml}, **/*.[bt]al, [Mm]ain.bal\n" +
+                "DO NOT use: nested braces like {bal,{toml,json}} (use simple list like {bal,toml}), escaped characters like \\*, negation patterns like !**/*.bal"
             ),
             path: z.string().optional().describe(
-                "Directory to search in, relative to the project root. Defaults to the project root. Omit this field for the default behaviour — do NOT pass \"undefined\" or \"null\"."
+                "The directory to search in. If not specified, the current working directory will be used. IMPORTANT: Omit this field to use the default directory. DO NOT enter \"undefined\" or \"null\" - simply omit it for the default behavior. Must be a valid directory path if provided."
             )
         }),
         execute
