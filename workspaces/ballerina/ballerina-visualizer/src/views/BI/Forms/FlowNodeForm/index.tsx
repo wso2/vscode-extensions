@@ -113,7 +113,7 @@ import { EditorContext, StackItem, TypeHelperItem } from "@wso2/type-editor";
 import DynamicModal from "../../../../components/Modal";
 import React from "react";
 import { SidePanelView } from "../../FlowDiagram/PanelManager";
-import { ConnectionKind } from "../../../../components/ConnectionSelector";
+import { ConnectionKind, useCreateConnection } from "../../../../components/ConnectionSelector";
 import { getFilteredTypesByKind } from "../../TypeEditor/utils";
 import { useModalStack } from "../../../../Context";
 import { getArraySubFormFieldFromTypes, stringToRawArrayElements, stringToRawObjectEntries } from "@wso2/ballerina-side-panel/lib/components/editors/utils";
@@ -180,6 +180,7 @@ interface FlowNodeFormProps {
     devantExpressionEditor?: ExpressionEditorDevantProps;
     customValidator?: (fieldKey: string, value: any, allValues: FormValues) => string | undefined; // Custom validation function for form fields
     defaultExpandAdvanced?: boolean;
+    onConnectionCreated?: () => void; // Notified when a connection (e.g. model provider) is created from a field
 }
 
 const EXPRESSION_FIELD_TYPES = new Set([
@@ -337,6 +338,7 @@ export const FlowNodeForm = forwardRef<FormExpressionEditorRef, FlowNodeFormProp
     }, [node]);
 
     const importsCodedataRef = useRef<any>(null); // To store codeData for getVisualizableFields
+    const formOpenedRef = useRef(false); // Tracks whether the expr:// form document has been opened (lazy)
     const typeResolutionId = useRef(0);
 
     //stack for recursive type creation
@@ -454,11 +456,14 @@ export const FlowNodeForm = forwardRef<FormExpressionEditorRef, FlowNodeFormProp
         if (node.codedata.node === "IF") {
             return;
         }
+        // Open the expr:// doc lazily (it forces a workspace recompile), so dropdown-only opens aren't blocked.
+        formOpenedRef.current = false;
         initForm(node);
-        handleFormOpen();
 
         return () => {
-            handleFormClose();
+            if (formOpenedRef.current) {
+                handleFormClose();
+            }
         };
     }, [node, showProgressIndicator]);
 
@@ -479,6 +484,14 @@ export const FlowNodeForm = forwardRef<FormExpressionEditorRef, FlowNodeFormProp
             .then(() => {
                 console.log(">>> Form closed");
             });
+    };
+
+    // Opens the expr:// form document on first demand (expression-editor focus or diagnostics). Idempotent.
+    const ensureFormOpened = () => {
+        if (!formOpenedRef.current) {
+            formOpenedRef.current = true;
+            handleFormOpen();
+        }
     };
 
     // Sorts form fields based on the fieldPriority prop.
@@ -1375,6 +1388,8 @@ export const FlowNodeForm = forwardRef<FormExpressionEditorRef, FlowNodeFormProp
         closePopup: closeModal
     }
 
+    const handleCreateConnection = useCreateConnection(fileName, targetLineRange, props.onConnectionCreated);
+
 
     // State to manage record config page modal
     const [recordConfigPageState, setRecordConfigPageState] = useState<{
@@ -1418,8 +1433,12 @@ export const FlowNodeForm = forwardRef<FormExpressionEditorRef, FlowNodeFormProp
             retrieveVisibleTypes: handleGetVisibleTypes,
             getHelperPane: handleGetHelperPane,
             getTypeHelper: handleGetTypeHelper,
-            getExpressionFormDiagnostics: handleExpressionFormDiagnostics,
+            getExpressionFormDiagnostics: (...args: Parameters<typeof handleExpressionFormDiagnostics>) => {
+                ensureFormOpened();
+                return handleExpressionFormDiagnostics(...args);
+            },
             onCompletionItemSelect: handleCompletionItemSelect,
+            onFocus: ensureFormOpened,
             onBlur: handleExpressionEditorBlur,
             onCancel: handleExpressionEditorCancel,
             onOpenRecordConfigPage: openRecordConfigPage,
@@ -1442,6 +1461,10 @@ export const FlowNodeForm = forwardRef<FormExpressionEditorRef, FlowNodeFormProp
     ]);
 
     const fetchVisualizableFields = async (filePath: string, typeName?: string) => {
+        // Agents are object instances, not data — skip the heavy data-mapper visualizable check.
+        if (node.codedata.node === "AGENT_TYPE" || node.codedata.node === "AGENT") {
+            return;
+        }
         const codedata = importsCodedataRef.current || { symbol: typeName };
         const res = await rpcClient
             .getDataMapperRpcClient()
@@ -2002,6 +2025,7 @@ export const FlowNodeForm = forwardRef<FormExpressionEditorRef, FlowNodeFormProp
                     openView={handleOpenView}
                     openSubPanel={openSubPanel}
                     subPanelView={subPanelView}
+                    onCreateConnection={handleCreateConnection}
                     expressionEditor={expressionEditor}
                     targetLineRange={targetLineRange}
                     fileName={fileName}
