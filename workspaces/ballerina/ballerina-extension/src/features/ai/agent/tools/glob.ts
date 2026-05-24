@@ -227,7 +227,13 @@ export function createGlobExecute(
             return fail(`Search path not found: ${searchPath || '.'}`, 'Error: Path not found');
         }
 
-        if (!fs.statSync(resolvedPath).isDirectory()) {
+        let isDir: boolean;
+        try {
+            isDir = fs.statSync(resolvedPath).isDirectory();
+        } catch (e) {
+            return fail(`Path is not a directory: ${searchPath || '.'}`, `Error: ${(e as Error).message}`);
+        }
+        if (!isDir) {
             return fail(`Path is not a directory: ${searchPath || '.'}`, 'Error: Not a directory');
         }
 
