@@ -76,7 +76,8 @@ function globToRegexStr(pattern: string): string {
                     regexStr += '(?:.*/)?';
                     i++;
                 } else {
-                    // ** at end — match everything including separators
+                    // ** at end or mid-pattern (e.g. foo**bar) — matches across separators.
+                    // Note: foo**bar is non-standard glob usage; treated as foo.*bar here.
                     regexStr += '.*';
                 }
             } else {
@@ -94,7 +95,11 @@ function globToRegexStr(pattern: string): string {
                 regexStr += '\\{';
                 i++;
             } else {
-                const alts = pattern.slice(i + 1, end).split(',').map(alt => globToRegexStr(alt.trim()));
+                        const alts = pattern.slice(i + 1, end)
+                    .split(',')
+                    .map(alt => alt.trim())
+                    .filter(alt => alt.length > 0)
+                    .map(alt => globToRegexStr(alt));
                 regexStr += `(?:${alts.join('|')})`;
                 i = end + 1;
             }
@@ -144,8 +149,7 @@ function walkDir(dir: string, baseDir: string, results: FileEntry[]): void {
     }
 
     for (const entry of entries) {
-        // Skip symlinks — Dirent methods don't follow them, but be explicit to prevent
-        // any future traversal if the readdirSync options change.
+        // Skip symlinks explicitly to prevent traversal if readdirSync options change.
         if (entry.isSymbolicLink()) {
             continue;
         }
@@ -176,11 +180,15 @@ export function createGlobExecute(
     eventHandler: CopilotEventHandler,
     tempProjectPath: string
 ) {
-    // Resolve symlinks on the project root once at setup time
+    // Resolve symlinks on the project root once at setup time.
+    // Keep both the real and raw roots so symlinked tempProjectPath doesn't cause false-positives.
     const realProjectRoot = (() => {
         try { return fs.realpathSync(tempProjectPath); } catch { return tempProjectPath; }
     })();
     const normalizedRoot = realProjectRoot + path.sep;
+    const normalizedRawRoot = tempProjectPath.endsWith(path.sep)
+        ? tempProjectPath
+        : tempProjectPath + path.sep;
 
     // Helper to fire the tool_result event and return a failure result in one step.
     function fail(message: string, error: string): GlobResult {
@@ -208,8 +216,10 @@ export function createGlobExecute(
             ? path.resolve(tempProjectPath, searchPath)
             : tempProjectPath;
 
-        // Prevent path traversal outside the project root (string-based, fast).
-        if (resolvedPath !== tempProjectPath && !resolvedPath.startsWith(normalizedRoot)) {
+        // Check both raw and realpath roots to prevent traversal and avoid symlink false-positives.
+        if (resolvedPath !== tempProjectPath
+            && !resolvedPath.startsWith(normalizedRoot)
+            && !resolvedPath.startsWith(normalizedRawRoot)) {
             return fail('Search path must be within the project root.', 'Error: Path traversal detected');
         }
 
@@ -221,9 +231,7 @@ export function createGlobExecute(
             return fail(`Path is not a directory: ${searchPath || '.'}`, 'Error: Not a directory');
         }
 
-        // Resolve symlinks and re-validate — catches a symlink inside the project that
-        // points outside (e.g. modules/evil -> /etc passes the string check above).
-        // Only needed when a custom searchPath is provided; realProjectRoot is already resolved.
+        // Re-validate after resolving symlinks — catches in-project symlinks pointing outside
         if (searchPath) {
             let realResolvedPath: string;
             try {
@@ -263,10 +271,16 @@ export function createGlobExecute(
         // Sort by modification time descending (most recently modified first)
         matched.sort((a, b) => b.mtimeMs - a.mtimeMs);
 
-        const fileList = matched.map(f => f.relativePath).join('\n');
+        const MAX_RESULTS = 500;
+        const truncated = matched.length > MAX_RESULTS;
+        const displayed = truncated ? matched.slice(0, MAX_RESULTS) : matched;
+        const fileList = displayed.map(f => f.relativePath).join('\n');
+        const truncationNote = truncated
+            ? `\n... (truncated, showing ${MAX_RESULTS} of ${matched.length} matches)`
+            : '';
         const result: GlobResult = {
             success: true,
-            message: `Found ${matched.length} file(s) matching "${pattern}":\n${fileList}`
+            message: `Found ${matched.length} file(s) matching "${pattern}":\n${fileList}${truncationNote}`
         };
 
         eventHandler({ type: "tool_result", toolName: GLOB_TOOL_NAME, toolOutput: result });
@@ -286,7 +300,6 @@ export function createGlobTool(execute: (input: GlobInput) => Promise<GlobResult
 Fast file pattern matching tool that work inside the Ballerina projects.
 - Supports glob patterns like \`**/*.bal\`, \`modules/**/*.bal\`, \`Ballerina.toml\`, \`**/*.{bal,toml}\`, \`resources/**/*\`
 - Returns matching file paths sorted by modification time
-- Use this tool when you need to find files by name patterns
 - Use this tool when you need to find files by name or path patterns
 - It is always better to speculatively perform multiple searches as a batch that are potentially useful.
 `,
