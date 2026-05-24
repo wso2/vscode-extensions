@@ -73,6 +73,7 @@ import { EXPRESSION_EXTRACTION_REGEX } from "../../../constants";
 import { ConnectionKind } from "../../../components/ConnectionSelector";
 import { SidePanelView } from "../FlowDiagram/PanelManager";
 import { PanelOverlayProvider } from "../FlowDiagram/context/PanelOverlayContext";
+import { PanelOverlayRenderer } from "../FlowDiagram/PanelOverlayRenderer";
 import { createPromptHelperPane } from "./utils";
 
 
@@ -125,6 +126,9 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
     const selectedToolRef = useRef<ToolData>();
     // The focused agent view shows just the node; the edit form opens only when the user clicks it.
     const [agentPanel, setAgentPanel] = useState<AgentPanel>("NONE");
+    // Set when a model provider is created from the open form; consumed to skip the one reload that
+    // creation triggers (which would remount the form and drop the unsaved selection). Saving clears it.
+    const suppressAgentTypeReloadRef = useRef(false);
     // Bumped on each agent model fetch so the edit form remounts with fresh values.
     const [agentFormKey, setAgentFormKey] = useState(0);
     // AGENT_TYPE box click shows the whole init form; model-circle click scopes it to the model param.
@@ -328,6 +332,11 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
     // Renders the AGENT_TYPE node directly (no AGENT_CALL transform). It carries the LS-resolved model
     // metadata + modelProviderParam, which drive the model-provider circle in the simplified widget.
     const getAgentTypeModel = async () => {
+        // Skip exactly one reload after creating a model provider from the open form (preserves the selection).
+        if (suppressAgentTypeReloadRef.current) {
+            suppressAgentTypeReloadRef.current = false;
+            return;
+        }
         setShowProgressIndicator(true);
         onUpdate();
         try {
@@ -453,6 +462,8 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
         if (!updatedNode) {
             return;
         }
+        // A save must always reflect in the diagram, so never let a pending suppression swallow its reload.
+        suppressAgentTypeReloadRef.current = false;
         setShowProgressIndicator(true);
         try {
             const fileName = model?.fileName;
@@ -1197,6 +1208,7 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
                         showProgressIndicator={showProgressIndicator}
                         disableSaveButton={showProgressIndicator}
                         fieldOverrides={buildAgentTypeFieldOverrides(agentFormNodeRef.current, agentTypeFormMode)}
+                        onConnectionCreated={() => { suppressAgentTypeReloadRef.current = true; }}
                     />
                 </PanelContainer>
             )}
@@ -1326,6 +1338,7 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
                     )}
                 </PanelContainer>
             )}
+            <PanelOverlayRenderer />
         </PanelOverlayProvider>
     );
 }
