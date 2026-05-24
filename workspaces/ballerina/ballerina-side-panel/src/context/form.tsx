@@ -56,6 +56,8 @@ export interface FormContext {
     nodeInfo: {
         kind: NodeKind
     }
+    // Host-provided "Create New" handler for connection-select fields; resolves with the new variable name.
+    onCreateConnection?: (kind: string, onCreated: (variableName: string) => void) => void;
 }
 
 const defaultState: any = {};

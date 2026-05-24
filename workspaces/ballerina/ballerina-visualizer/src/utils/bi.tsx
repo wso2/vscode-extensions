@@ -61,6 +61,7 @@ import {
     isTemplateType,
     DropdownType,
     isDropDownType,
+    InputType,
 } from "@wso2/ballerina-core";
 import {
     HelperPaneVariableInfo,
@@ -339,6 +340,29 @@ export function convertNodePropertiesToFormFields(
     return formFields;
 }
 
+const AI_MODEL_PROVIDER_TYPE = "ai:ModelProvider";
+const MODEL_PROVIDER_SEARCH_KIND = "MODEL_PROVIDER";
+
+// A bare identifier value points at an existing provider (dropdown mode); anything else is an inline expression.
+function isInlineExpressionValue(value: unknown): boolean {
+    return typeof value === "string" && value.trim() !== "" && !/^[a-zA-Z_][a-zA-Z0-9_']*$/.test(value.trim());
+}
+
+// Render an editable ai:ModelProvider field as the connection-select editor (dropdown + Select/Expression toggle).
+function enrichModelProviderField(formField: FormField, property: Property): void {
+    const isModelProvider = property.types?.some((t) => t.ballerinaType === AI_MODEL_PROVIDER_TYPE);
+    if (!isModelProvider || !formField.editable) {
+        return;
+    }
+    const expressionMode = isInlineExpressionValue(formField.value);
+    formField.type = expressionMode ? "EXPRESSION" : "ACTION_EXPRESSION";
+    formField.types = [
+        { fieldType: "ACTION_EXPRESSION", ballerinaType: AI_MODEL_PROVIDER_TYPE, selected: !expressionMode },
+        { fieldType: "EXPRESSION", selected: expressionMode },
+    ] as InputType[];
+    formField.codedata = { ...(formField.codedata || {}), searchNodesKind: MODEL_PROVIDER_SEARCH_KIND };
+}
+
 export function convertNodePropertyToFormField(
     key: string,
     property: Property,
@@ -368,6 +392,7 @@ export function convertNodePropertyToFormField(
         codedata: property.codedata,
         imports: property.imports
     };
+    enrichModelProviderField(formField, property);
     return formField;
 }
 

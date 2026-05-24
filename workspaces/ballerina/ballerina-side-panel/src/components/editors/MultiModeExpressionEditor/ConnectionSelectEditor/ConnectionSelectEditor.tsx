@@ -19,9 +19,18 @@
 import React, { useEffect, useState } from "react";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { CodeData } from "@wso2/ballerina-core";
+import { Codicon, LinkButton } from "@wso2/ui-toolkit";
 import { FormField } from "../../../Form/types";
 import { ConnectionIconSelect, ConnectionSelectItem } from "../../ConnectionIconSelect";
 import { useFormContext } from "../../../../context";
+
+// "MODEL_PROVIDER" -> "Model Provider"
+function humanizeKind(kind: string): string {
+    return kind
+        .split("_")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(" ");
+}
 
 interface ConnectionSelectEditorProps {
     value: string;
@@ -63,7 +72,7 @@ function ensureValueInItems(
 
 export const ConnectionSelectEditor: React.FC<ConnectionSelectEditorProps> = ({ value, field, onChange }) => {
     const { rpcClient } = useRpcContext();
-    const { targetLineRange, fileName } = useFormContext();
+    const { targetLineRange, fileName, onCreateConnection } = useFormContext();
 
     const searchNodesKind = field.codedata?.searchNodesKind;
     const initialItems: ConnectionSelectItem[] = field.codedata?.initialItems ?? [];
@@ -125,6 +134,8 @@ export const ConnectionSelectEditor: React.FC<ConnectionSelectEditorProps> = ({ 
         fetchItems();
     }, [value]);
 
+    const showCreateNew = !!onCreateConnection && !!searchNodesKind && field.editable;
+
     return (
         <>
             <ConnectionIconSelect
@@ -136,6 +147,15 @@ export const ConnectionSelectEditor: React.FC<ConnectionSelectEditorProps> = ({ 
                 loading={loading}
                 onChange={(val) => onChange(val, val?.length)}
             />
+            {showCreateNew && (
+                <LinkButton
+                    onClick={() => onCreateConnection(searchNodesKind, (varName) => onChange(varName, varName?.length))}
+                    sx={{ padding: "4px 6px", margin: 0, marginTop: "6px", fontSize: "13px" }}
+                >
+                    <Codicon name="add" />
+                    {`Create New ${humanizeKind(searchNodesKind)}`}
+                </LinkButton>
+            )}
         </>
     );
 };
