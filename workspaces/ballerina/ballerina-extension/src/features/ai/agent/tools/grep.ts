@@ -16,9 +16,27 @@
 
 import { tool } from 'ai';
 import { z } from 'zod';
-import * as fs from 'fs';
 import * as path from 'path';
+import * as fs from 'fs';
+import { spawnSync } from 'child_process';
+import { rgPath as builtinRgPath } from '@vscode/ripgrep';
 import { CopilotEventHandler } from '../../utils/events';
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
+function getRgExecutable(): string {
+    if (fs.existsSync(builtinRgPath)) {
+        return builtinRgPath;
+    }
+    // Fall back to system rg (e.g. in test environments where the bundled binary is not downloaded)
+    const result = spawnSync('which', ['rg'], { encoding: 'utf-8' });
+    if (result.status === 0 && result.stdout?.trim()) {
+        return result.stdout.trim();
+    }
+    return builtinRgPath;
+}
 
 // ============================================================================
 // Constants
@@ -26,10 +44,18 @@ import { CopilotEventHandler } from '../../utils/events';
 
 export const GREP_TOOL_NAME = "grep";
 
-/** File extensions to search by default in Ballerina projects */
-const DEFAULT_SEARCH_EXTENSIONS = ['.bal', '.toml', '.md', '.json', '.yaml', '.yml', '.sql'];
+/** File globs to search by default in Ballerina projects */
+const DEFAULT_GLOB_ARGS = [
+    '--glob', '*.bal',
+    '--glob', '*.toml',
+    '--glob', '*.md',
+    '--glob', '*.json',
+    '--glob', '*.yaml',
+    '--glob', '*.yml',
+    '--glob', '*.sql',
+];
 
-/** Maximum number of output entries to return to avoid overwhelming the model */
+/** Maximum number of output lines to return to avoid overwhelming the model */
 const DEFAULT_HEAD_LIMIT = 200;
 
 /** Maximum number of context lines allowed */
@@ -61,265 +87,6 @@ export interface GrepResult {
     error?: string;
 }
 
-interface FileMatch {
-    filePath: string;
-    matches: LineMatch[];
-    lines: string[];
-}
-
-interface LineMatch {
-    lineNumber: number;
-    lineContent: string;
-}
-
-// ============================================================================
-// File Discovery
-// ============================================================================
-
-/**
- * Recursively collects all files under a directory, respecting glob filters.
- */
-function collectFiles(dir: string, globPattern?: string): string[] {
-    const results: string[] = [];
-
-    if (!fs.existsSync(dir)) {
-        return results;
-    }
-
-    const stat = fs.statSync(dir);
-    if (stat.isFile()) {
-        if (matchesGlob(dir, globPattern)) {
-            results.push(dir);
-        }
-        return results;
-    }
-
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
-    for (const entry of entries) {
-        const fullPath = path.join(dir, entry.name);
-
-        // Skip hidden directories and common non-source directories
-        if (entry.isDirectory()) {
-            if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name === 'target') {
-                continue;
-            }
-            results.push(...collectFiles(fullPath, globPattern));
-        } else if (entry.isFile()) {
-            if (matchesGlob(entry.name, globPattern)) {
-                results.push(fullPath);
-            }
-        }
-    }
-
-    return results;
-}
-
-/**
- * Glob matching supporting *.ext and *.{ext1,ext2} patterns.
- */
-function matchesGlob(filePath: string, globPattern?: string): boolean {
-    if (!globPattern) {
-        const ext = path.extname(filePath).toLowerCase();
-        return DEFAULT_SEARCH_EXTENSIONS.includes(ext);
-    }
-
-    const fileName = path.basename(filePath);
-
-    // Handle *.{ext1,ext2} pattern
-    const braceMatch = globPattern.match(/^\*\.\{(.+)\}$/);
-    if (braceMatch) {
-        const extensions = braceMatch[1].split(',').map(e => e.trim());
-        const ext = path.extname(fileName).replace('.', '');
-        return extensions.includes(ext);
-    }
-
-    // Handle *.ext pattern
-    if (globPattern.startsWith('*.')) {
-        const ext = globPattern.slice(1); // e.g., ".bal"
-        return fileName.endsWith(ext);
-    }
-
-    // Handle **/*.ext pattern
-    if (globPattern.startsWith('**/')) {
-        return matchesGlob(filePath, globPattern.slice(3));
-    }
-
-    // Exact filename match
-    return fileName === globPattern;
-}
-
-// ============================================================================
-// Search Logic
-// ============================================================================
-
-/**
- * Searches files for a regex pattern and returns structured matches.
- */
-function searchFiles(
-    files: string[],
-    pattern: string,
-    basePath: string,
-    caseInsensitive: boolean,
-    multiline: boolean
-): FileMatch[] {
-    const flags = (caseInsensitive ? 'i' : '') + (multiline ? 'gms' : 'gm');
-    let regex: RegExp;
-    try {
-        regex = new RegExp(pattern, flags);
-    } catch {
-        return [];
-    }
-
-    const results: FileMatch[] = [];
-
-    for (const filePath of files) {
-        let content: string;
-        try {
-            content = fs.readFileSync(filePath, 'utf-8');
-        } catch {
-            continue;
-        }
-
-        const lines = content.split('\n');
-        const matchedLines: LineMatch[] = [];
-
-        if (multiline) {
-            // For multiline patterns, find which lines are part of matches
-            const matchedLineNumbers = new Set<number>();
-            let match: RegExpExecArray | null;
-            regex.lastIndex = 0;
-            while ((match = regex.exec(content)) !== null) {
-                const matchStart = match.index;
-                const matchEnd = matchStart + match[0].length;
-
-                // Find line numbers that this match spans
-                let charCount = 0;
-                for (let i = 0; i < lines.length; i++) {
-                    const lineStart = charCount;
-                    const lineEnd = charCount + lines[i].length;
-                    if (lineEnd >= matchStart && lineStart <= matchEnd) {
-                        matchedLineNumbers.add(i);
-                    }
-                    charCount = lineEnd + 1; // +1 for \n
-                    if (charCount > matchEnd) {
-                        break;
-                    }
-                }
-
-                // Prevent infinite loops on zero-length matches
-                if (match[0].length === 0) {
-                    regex.lastIndex++;
-                }
-            }
-
-            for (const lineNum of matchedLineNumbers) {
-                matchedLines.push({
-                    lineNumber: lineNum + 1,
-                    lineContent: lines[lineNum]
-                });
-            }
-        } else {
-            // Standard per-line matching
-            for (let i = 0; i < lines.length; i++) {
-                regex.lastIndex = 0;
-                if (regex.test(lines[i])) {
-                    matchedLines.push({
-                        lineNumber: i + 1,
-                        lineContent: lines[i]
-                    });
-                }
-            }
-        }
-
-        if (matchedLines.length > 0) {
-            const relativePath = path.relative(basePath, filePath);
-            results.push({
-                filePath: relativePath,
-                matches: matchedLines,
-                lines
-            });
-        }
-    }
-
-    return results;
-}
-
-// ============================================================================
-// Output Formatting
-// ============================================================================
-
-function formatContentOutput(
-    fileMatches: FileMatch[],
-    beforeContext: number,
-    afterContext: number,
-    showLineNumbers: boolean,
-    headLimit: number
-): string {
-    const outputLines: string[] = [];
-    let totalEntries = 0;
-
-    for (const fileMatch of fileMatches) {
-        if (headLimit > 0 && totalEntries >= headLimit) {
-            break;
-        }
-
-        const lines = fileMatch.lines;
-        outputLines.push(`\n${fileMatch.filePath}:`);
-
-        // Collect all line numbers to display (matches + context)
-        const linesToShow = new Set<number>();
-        for (const match of fileMatch.matches) {
-            const start = Math.max(1, match.lineNumber - beforeContext);
-            const end = Math.min(lines.length, match.lineNumber + afterContext);
-            for (let i = start; i <= end; i++) {
-                linesToShow.add(i);
-            }
-        }
-
-        const matchLineNumbers = new Set(fileMatch.matches.map(m => m.lineNumber));
-        const sortedLines = Array.from(linesToShow).sort((a, b) => a - b);
-
-        let prevLine = 0;
-        for (const lineNum of sortedLines) {
-            if (headLimit > 0 && totalEntries >= headLimit) {
-                break;
-            }
-
-            // Add separator for non-contiguous blocks
-            if (prevLine > 0 && lineNum > prevLine + 1) {
-                outputLines.push('--');
-            }
-
-            const lineContent = lines[lineNum - 1] || '';
-            const isMatch = matchLineNumbers.has(lineNum);
-
-            if (showLineNumbers) {
-                const separator = isMatch ? ':' : '-';
-                outputLines.push(`${lineNum}${separator}${lineContent}`);
-            } else {
-                outputLines.push(lineContent);
-            }
-
-            totalEntries++;
-            prevLine = lineNum;
-        }
-    }
-
-    return outputLines.join('\n');
-}
-
-function formatFilesOutput(fileMatches: FileMatch[], headLimit: number): string {
-    const files = fileMatches.map(fm => fm.filePath);
-    const limited = headLimit > 0 ? files.slice(0, headLimit) : files;
-    return limited.join('\n');
-}
-
-function formatCountOutput(fileMatches: FileMatch[], headLimit: number): string {
-    const entries = fileMatches.map(fm => `${fm.filePath}:${fm.matches.length}`);
-    const limited = headLimit > 0 ? entries.slice(0, headLimit) : entries;
-    return limited.join('\n');
-}
-
 // ============================================================================
 // Tool Execute Function
 // ============================================================================
@@ -328,6 +95,13 @@ export function createGrepExecute(
     eventHandler: CopilotEventHandler,
     tempProjectPath: string
 ) {
+    // Resolve symlinks on the project root once at setup time.
+    // Keep both the real and raw roots so a symlinked tempProjectPath doesn't cause false-positives.
+    const realProjectRoot = (() => {
+        try { return fs.realpathSync(tempProjectPath); } catch { return tempProjectPath; }
+    })();
+    const normalizedRoot = realProjectRoot + path.sep;
+
     return async (input: GrepInput): Promise<GrepResult> => {
         const {
             pattern,
@@ -343,7 +117,6 @@ export function createGrepExecute(
             multiline = false
         } = input;
 
-        // Emit tool_call event
         eventHandler({
             type: "tool_call",
             toolName: GREP_TOOL_NAME,
@@ -352,115 +125,144 @@ export function createGrepExecute(
 
         console.log(`[GrepTool] Searching for pattern: "${pattern}" in ${searchPath || '.'}, glob: ${globPattern || 'default'}, mode: ${output_mode}`);
 
-        // Validate pattern
         if (!pattern || pattern.trim().length === 0) {
-            const result: GrepResult = {
-                success: false,
-                message: 'Search pattern cannot be empty.',
-                error: 'Error: Empty pattern'
-            };
+            const result: GrepResult = { success: false, message: 'Search pattern cannot be empty.', error: 'Error: Empty pattern' };
             eventHandler({ type: "tool_result", toolName: GREP_TOOL_NAME, toolOutput: result });
             return result;
         }
 
-        // Validate regex
-        try {
-            new RegExp(pattern);
-        } catch (e) {
-            const result: GrepResult = {
-                success: false,
-                message: `Invalid regex pattern: ${(e as Error).message}`,
-                error: 'Error: Invalid regex'
-            };
-            eventHandler({ type: "tool_result", toolName: GREP_TOOL_NAME, toolOutput: result });
-            return result;
-        }
-
-        // Resolve search directory
+        // Resolve and validate search path.
         const resolvedPath = searchPath
             ? path.resolve(tempProjectPath, searchPath)
             : tempProjectPath;
 
-        // Prevent path traversal outside the project root
-        const normalizedRoot = tempProjectPath.endsWith(path.sep) ? tempProjectPath : tempProjectPath + path.sep;
-        if (resolvedPath !== tempProjectPath && !resolvedPath.startsWith(normalizedRoot)) {
-            const result: GrepResult = {
-                success: false,
-                message: `Search path must be within the project root.`,
-                error: 'Error: Path traversal detected'
-            };
+        const rel = path.relative(tempProjectPath, resolvedPath);
+        if (rel.startsWith('..') || path.isAbsolute(rel)) {
+            const result: GrepResult = { success: false, message: 'Search path must be within the project root.', error: 'Error: Path traversal detected' };
             eventHandler({ type: "tool_result", toolName: GREP_TOOL_NAME, toolOutput: result });
             return result;
         }
 
-        if (!fs.existsSync(resolvedPath)) {
-            const result: GrepResult = {
-                success: false,
-                message: `Search path not found: ${searchPath || '.'}`,
-                error: 'Error: Path not found'
-            };
+        if (searchPath && !fs.existsSync(resolvedPath)) {
+            const result: GrepResult = { success: false, message: `Path not found: ${searchPath}`, error: 'Error: Path not found' };
             eventHandler({ type: "tool_result", toolName: GREP_TOOL_NAME, toolOutput: result });
             return result;
         }
 
-        // Collect files
-        const files = collectFiles(resolvedPath, globPattern);
-        if (files.length === 0) {
-            const result: GrepResult = {
-                success: true,
-                message: 'No files found matching the search criteria.'
-            };
-            eventHandler({ type: "tool_result", toolName: GREP_TOOL_NAME, toolOutput: result });
-            return result;
+        // Re-validate after resolving symlinks — catches in-project symlinks pointing outside.
+        if (searchPath) {
+            let realResolvedPath: string;
+            try {
+                realResolvedPath = fs.realpathSync(resolvedPath);
+            } catch {
+                const result: GrepResult = { success: false, message: `Cannot resolve search path: ${searchPath}`, error: 'Error: Path resolution failed' };
+                eventHandler({ type: "tool_result", toolName: GREP_TOOL_NAME, toolOutput: result });
+                return result;
+            }
+            if (realResolvedPath !== realProjectRoot && !realResolvedPath.startsWith(normalizedRoot)) {
+                const result: GrepResult = { success: false, message: 'Search path must be within the project root.', error: 'Error: Symlink traversal detected' };
+                eventHandler({ type: "tool_result", toolName: GREP_TOOL_NAME, toolOutput: result });
+                return result;
+            }
         }
 
-        // Search
-        const fileMatches = searchFiles(files, pattern, tempProjectPath, case_insensitive, multiline);
+        // Build ripgrep args
+        const args: string[] = ['--engine', 'default'];
 
-        if (fileMatches.length === 0) {
-            const result: GrepResult = {
-                success: true,
-                message: `No matches found for pattern: "${pattern}"`
-            };
-            eventHandler({ type: "tool_result", toolName: GREP_TOOL_NAME, toolOutput: result });
-            return result;
-        }
-
-        // Compute effective context values
-        const effectiveBefore = Math.min(context > 0 ? context : before_context, MAX_CONTEXT_LINES);
-        const effectiveAfter = Math.min(context > 0 ? context : after_context, MAX_CONTEXT_LINES);
-
-        // Format output based on mode
-        let output: string;
-        const effectiveLimit = head_limit > 0 ? head_limit : 0;
-
+        // Output mode flags
         switch (output_mode) {
-            case 'content':
-                output = formatContentOutput(
-                    fileMatches,
-                    effectiveBefore,
-                    effectiveAfter,
-                    line_numbers,
-                    effectiveLimit
-                );
+            case 'files_with_matches':
+                args.push('--files-with-matches');
                 break;
             case 'count':
-                output = formatCountOutput(fileMatches, effectiveLimit);
+                args.push('--count');
                 break;
-            case 'files_with_matches':
+            case 'content':
             default:
-                output = formatFilesOutput(fileMatches, effectiveLimit);
+                // no special flag; ripgrep outputs content by default
                 break;
         }
 
-        const totalMatches = fileMatches.reduce((sum, fm) => sum + fm.matches.length, 0);
+        if (case_insensitive) {
+            args.push('--ignore-case');
+        }
+
+        if (multiline) {
+            args.push('--multiline');
+        }
+
+        if (output_mode === 'content') {
+            const effectiveBefore = Math.min(context > 0 ? context : before_context, MAX_CONTEXT_LINES);
+            const effectiveAfter = Math.min(context > 0 ? context : after_context, MAX_CONTEXT_LINES);
+            if (multiline && (effectiveBefore > 0 || effectiveAfter > 0)) {
+                console.warn('[GrepTool] Context lines with multiline mode may produce unexpected output: a single match can span many lines.');
+            }
+            if (effectiveBefore > 0) { args.push('--before-context', String(effectiveBefore)); }
+            if (effectiveAfter > 0) { args.push('--after-context', String(effectiveAfter)); }
+            if (line_numbers) { args.push('--line-number'); }
+        }
+
+        // Glob filters
+        if (globPattern) {
+            args.push('--glob', globPattern);
+        } else {
+            args.push(...DEFAULT_GLOB_ARGS);
+        }
+
+        // Always exclude common non-source directories
+        args.push('--glob', '!.git/**', '--glob', '--glob', '!target/**');
+
+        args.push('--', pattern, resolvedPath);
+
+        const proc = spawnSync(getRgExecutable(), args, { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 });
+
+        // ripgrep exit codes: 0 = matches found, 1 = no matches, 2 = error
+        if (proc.status === 2) {
+            const errMsg = (proc.stderr || '').trim();
+            const result: GrepResult = { success: false, message: `ripgrep error: ${errMsg}`, error: errMsg };
+            eventHandler({ type: "tool_result", toolName: GREP_TOOL_NAME, toolOutput: result });
+            return result;
+        }
+
+        if (proc.status === 1 || !proc.stdout || proc.stdout.trim().length === 0) {
+            const result: GrepResult = { success: true, message: `No matches found for pattern: "${pattern}"` };
+            eventHandler({ type: "tool_result", toolName: GREP_TOOL_NAME, toolOutput: result });
+            return result;
+        }
+
+        let lines = proc.stdout.split('\n').filter(l => l.length > 0);
+
+        // Make paths relative to project root (always strip from tempProjectPath, not resolvedPath,
+        // so scoped searches like path:'order_service' still return 'order_service/file.bal')
+        const rootPrefix = tempProjectPath.endsWith(path.sep) ? tempProjectPath : tempProjectPath + path.sep;
+        lines = lines.map(line => {
+            if (line.startsWith(rootPrefix)) {
+                // e.g. "/project/order_service/file.bal:42:..." -> "order_service/file.bal:42:..."
+                return line.slice(rootPrefix.length);
+            }
+            if (line.startsWith(tempProjectPath + ':')) {
+                // e.g. "/project:42:..." -> "42:..." (skip path and the colon separator)
+                return line.slice(tempProjectPath.length + 1);
+            }
+            return line;
+        });
+
+        // head_limit > 0 caps output; head_limit = 0 means unlimited.
+        const effectiveLimit = head_limit > 0 ? head_limit : 0;
+        const truncated = effectiveLimit > 0 && lines.length > effectiveLimit;
+        if (truncated) {
+            lines = lines.slice(0, effectiveLimit);
+            lines.push(`... (results truncated at ${effectiveLimit} lines; narrow your search or increase head_limit)`);
+        }
+
+        const output = lines.join('\n');
         const result: GrepResult = {
             success: true,
-            message: `Found ${totalMatches} match(es) across ${fileMatches.length} file(s).\n${output}`
+            message: output
         };
 
         eventHandler({ type: "tool_result", toolName: GREP_TOOL_NAME, toolOutput: result });
-        console.log(`[GrepTool] Found ${totalMatches} matches across ${fileMatches.length} files.`);
+        console.log(`[GrepTool] ripgrep returned ${lines.length} lines.`);
 
         return result;
     };
@@ -473,15 +275,13 @@ export function createGrepExecute(
 export function createGrepTool(execute: (input: GrepInput) => Promise<GrepResult>) {
     return tool({
         description: `
-A powerful search tool optimized for Ballerina source code. Uses JavaScript RegExp for pattern matching.
+A powerful search tool optimized for Ballerina source code. Uses ripgrep for fast pattern matching.
 Usage:
  - ALWAYS use Grep for search tasks. NEVER invoke \`grep\` as a Bash command. The Grep tool has been optimized for correct permissions and access.
- - Supports full JavaScript RegExp syntax (e.g., \`error.*message\`, \`function\\s+\\w+\`)
+ - Supports full ripgrep regex syntax (e.g., \`error.*message\`, \`function\\s+\\w+\`)
  - Filter files with glob parameter (e.g., \`*.bal\`, \`**/*.bal\`)
  - Output modes: "content" shows matching lines, "files_with_matches" shows only file paths (default), "count" shows match counts
- - Pattern syntax: Uses JavaScript RegExp — literal braces need escaping (use \`record\\{\\}\` to find \`record{}\`, \`map\\<string\\>\` to find \`map<string>\`)
- - Glob support: simple patterns only — \`*.ext\`, \`*.{ext1,ext2}\`, \`**/*.ext\`, or exact filenames. Complex path patterns like \`src/**/*.bal\` are not supported.
- - Multiline matching: By default patterns match within single lines only. For cross-line patterns like \`service\\s+\\w+\\s+on[\\s\\S]*?{\`, use \`multiline: true\`
+ - Multiline matching: By default patterns match within single lines only. For cross-line patterns, use \`multiline: true\`
 `,
         inputSchema: z.object({
             pattern: z.string().describe(
@@ -512,10 +312,10 @@ Usage:
                 "Case insensitive search. Defaults to false."
             ),
             head_limit: z.number().optional().describe(
-                "Limit output to first N lines/entries. Works across all output modes."
+                "Limit output to first N lines/entries. Works across all output modes. Defaults to 200. Pass 0 for unlimited output (use with caution on large repos)."
             ),
             multiline: z.boolean().optional().describe(
-                "Enable multiline mode where . matches newlines and patterns can span lines. Default: false."
+                "Enable multiline mode where patterns can span lines. Default: false."
             )
         }),
         execute
