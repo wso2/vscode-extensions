@@ -18,7 +18,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Codicon, Icon } from "@wso2/ui-toolkit";
-import { AvailableNode, EVENT_TYPE, FOCUS_FLOW_DIAGRAM_VIEW, FlowNode, LineRange, MACHINE_VIEW } from "@wso2/ballerina-core";
+import { AvailableNode, EVENT_TYPE, FlowNode, LineRange } from "@wso2/ballerina-core";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { cloneDeep, debounce } from "lodash";
 import ButtonCard from "../../../../components/ButtonCard";
@@ -48,8 +48,8 @@ import {
     StyledSearchBox,
 } from "./styles";
 
-// New custom agents are written to the project's main file.
-const AGENT_FILE_NAME = "main.bal";
+// Pre-built agent declarations are written to the project's dedicated agents file.
+const AGENT_FILE_NAME = "agents.bal";
 
 type AgentFilter = "All" | "Local" | "Organization";
 // "scratch" = define a new agent from scratch; "configure" = initialize a selected pre-built agent.
@@ -116,11 +116,19 @@ export function AddAgentPopupContent(props: AddAgentPopupContentProps) {
         let cancelled = false;
         (async () => {
             try {
-                const template = await getNodeTemplate(rpcClient, pendingAgent.codedata, projectPath);
+                // Resolve the target file (agents.bal) first and use it as the template context: passing the
+                // project directory breaks symbol resolution (no unique result name) and crashes same-package
+                // creation (documentId on a directory). The file may not exist yet — the LS tolerates that.
+                const endOfFile = await getEndOfFileLineRange(AGENT_FILE_NAME, rpcClient);
+                const template = await getNodeTemplate(
+                    rpcClient,
+                    pendingAgent.codedata,
+                    endOfFile.fileName,
+                    endOfFile.startLine
+                );
                 if (!template) {
                     throw new Error("No agent node template returned");
                 }
-                const endOfFile = await getEndOfFileLineRange(AGENT_FILE_NAME, rpcClient);
                 template.codedata.lineRange = endOfFile as any;
                 if (cancelled) return;
                 setAgentFilePath(endOfFile.fileName);
@@ -205,15 +213,15 @@ export function AddAgentPopupContent(props: AddAgentPopupContentProps) {
                 sourceResponse?.artifacts?.find((artifact) => artifact.name === agentVarName);
 
             if (agentArtifact?.path && agentArtifact?.position) {
+                // Pass only documentUri + position and let getView classify the artifact: a custom AgentType
+                // class (module !== "ai") resolves to the AGENT_TYPE focus diagram, the built-in to AGENT.
+                // Passing an explicit focus view would desync the post-save VIEW_UPDATE (see agent focus spec).
                 await rpcClient.getVisualizerRpcClient().openView({
                     type: EVENT_TYPE.OPEN_VIEW,
                     location: {
-                        view: MACHINE_VIEW.BIDiagram,
-                        focusFlowDiagramView: FOCUS_FLOW_DIAGRAM_VIEW.AGENT,
                         documentUri: agentArtifact.path,
                         position: agentArtifact.position,
                         identifier: agentVarName,
-                        artifactType: agentArtifact.type as any,
                     },
                 });
                 return;
