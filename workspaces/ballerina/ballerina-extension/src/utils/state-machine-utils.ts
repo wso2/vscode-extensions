@@ -403,26 +403,18 @@ function findViewByArtifact(
                     dataMapperDepth: 0
                 };
             case DIRECTORY_MAP.AGENT:
-                // Custom AgentType agents (user/imported classes including *ai:FixedReturnAgent /
-                // *ai:InferredReturnAgent) are reusable black boxes configured only through their
-                // constructor, so they reuse the connection config form. Only the built-in ai:Agent
-                // (module "ai") opens the rich focus diagram.
-                if (dir.moduleName !== "ai") {
-                    return {
-                        location: {
-                            view: MACHINE_VIEW.EditConnectionWizard,
-                            identifier: dir.name,
-                            artifactType: dir.type
-                        },
-                    };
-                }
+                // The built-in ai:Agent (module "ai") opens the rich focus diagram; custom AgentType classes
+                // (including *ai:FixedReturnAgent / *ai:InferredReturnAgent) open the simplified AGENT_TYPE focus
+                // diagram (agent box + conditional model-provider circle).
                 return {
                     location: {
                         view: MACHINE_VIEW.BIDiagram,
                         documentUri: currentDocumentUri,
                         position: dir.position,
                         identifier: dir.name,
-                        focusFlowDiagramView: FOCUS_FLOW_DIAGRAM_VIEW.AGENT,
+                        focusFlowDiagramView: dir.moduleName === "ai"
+                            ? FOCUS_FLOW_DIAGRAM_VIEW.AGENT
+                            : FOCUS_FLOW_DIAGRAM_VIEW.AGENT_TYPE,
                         artifactType: DIRECTORY_MAP.AGENT,
                     },
                     dataMapperDepth: 0

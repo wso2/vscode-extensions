@@ -759,10 +759,10 @@ export const getEndOfFileLineRange = async (
     fileName: string,
     rpcClient: BallerinaRpcClient
 ): Promise<LineRange> => {
+    // Resolve the absolute path first so it's available even if the file doesn't exist yet (the end-of-file
+    // lookup throws for a missing file, but callers still need the absolute path to create/write it).
+    const filePath = (await rpcClient.getVisualizerRpcClient().joinProjectPath({ segments: [fileName] })).filePath;
     try {
-        // Get the full file path by joining with project path
-        const filePath = (await rpcClient.getVisualizerRpcClient().joinProjectPath({ segments: [fileName] })).filePath;
-
         // Get the end of file position using the BIDiagram RPC client
         const endPosition = await rpcClient.getBIDiagramRpcClient().getEndOfFile({
             filePath: filePath
@@ -776,9 +776,9 @@ export const getEndOfFileLineRange = async (
         };
     } catch (error) {
         console.error(`Error getting end of file line range for ${fileName}:`, error);
-        // Return a default LineRange at position 0,0 if there's an error
+        // File likely doesn't exist yet — return the absolute path at position 0,0 so it can be created.
         return {
-            fileName: fileName,
+            fileName: filePath,
             startLine: { line: 0, offset: 0 },
             endLine: { line: 0, offset: 0 }
         };

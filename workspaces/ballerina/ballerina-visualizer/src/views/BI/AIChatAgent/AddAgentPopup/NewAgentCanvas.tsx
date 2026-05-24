@@ -26,8 +26,8 @@ import { TopNavigationBar } from "../../../../components/TopNavigationBar";
 import { TitleBar } from "../../../../components/TitleBar";
 import { ensureModelProvider, fetchAgentNodeTemplate, getEndOfFileLineRange, toBaseName } from "../utils";
 
-// New custom agents are written to the project's main file.
-const AGENT_FILE_NAME = "main.bal";
+// New agents are written to the project's dedicated agents file.
+const AGENT_FILE_NAME = "agents.bal";
 
 // Dotted-grid backdrop mirroring the diagram canvas; hosts the centered "New Agent" modal.
 const EmptyCanvas = styled.div`

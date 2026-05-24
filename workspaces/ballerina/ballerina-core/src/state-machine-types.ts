@@ -119,6 +119,7 @@ export interface CommandProps {
 export const FOCUS_FLOW_DIAGRAM_VIEW = {
     NP_FUNCTION: "NP_FUNCTION",
     AGENT: "AGENT",
+    AGENT_TYPE: "AGENT_TYPE",
 } as const;
 
 export type FocusFlowDiagramView = typeof FOCUS_FLOW_DIAGRAM_VIEW[keyof typeof FOCUS_FLOW_DIAGRAM_VIEW];

@@ -44,6 +44,7 @@ import {
     NodePosition,
     LinePosition,
     ToolData,
+    NodeMetadata,
     FOCUS_FLOW_DIAGRAM_VIEW,
     FocusFlowDiagramView
 } from "@wso2/ballerina-core";
@@ -112,6 +113,8 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
     const { projectPath, filePath, view, onUpdate, onReady } = props;
     const { rpcClient } = useRpcContext();
     const isAgent = view === FOCUS_FLOW_DIAGRAM_VIEW.AGENT;
+    // Custom AgentType classes render a simplified node (box + conditional model-provider circle).
+    const isAgentType = view === FOCUS_FLOW_DIAGRAM_VIEW.AGENT_TYPE;
 
     // AGENT focus view: the declaration node is the edit target; the diagram renders a single
     // synthetic AGENT_CALL node derived from it (see ./agent.buildAgentRenderNode).
@@ -124,6 +127,8 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
     const [agentPanel, setAgentPanel] = useState<AgentPanel>("NONE");
     // Bumped on each agent model fetch so the edit form remounts with fresh values.
     const [agentFormKey, setAgentFormKey] = useState(0);
+    // AGENT_TYPE box click shows the whole init form; model-circle click scopes it to the model param.
+    const [agentTypeFormMode, setAgentTypeFormMode] = useState<"ALL" | "MODEL">("ALL");
 
     const [model, setModel] = useState<Flow>();
     const [suggestedModel, setSuggestedModel] = useState<Flow>();
@@ -153,6 +158,8 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
     useEffect(() => {
         if (isAgent) {
             getAgentModel();
+        } else if (isAgentType) {
+            getAgentTypeModel();
         } else {
             debouncedGetFlowModel();
         }
@@ -165,12 +172,20 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
                 debouncedGetAgentModel();
                 return;
             }
+            if (isAgentType) {
+                debouncedGetAgentTypeModel();
+                return;
+            }
             fetchNodes(topNodeRef.current, targetRef.current, true);
         });
         rpcClient.onParentPopupSubmitted((parent: ParentPopupData) => {
             console.log(">>> on parent popup submitted", parent);
             if (isAgent) {
                 debouncedGetAgentModel();
+                return;
+            }
+            if (isAgentType) {
+                debouncedGetAgentTypeModel();
                 return;
             }
             const toNode = topNodeRef.current;
@@ -191,6 +206,13 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
     const debouncedGetAgentModel = useCallback(
         debounce(() => {
             getAgentModel();
+        }, 300),
+        [rpcClient]
+    );
+
+    const debouncedGetAgentTypeModel = useCallback(
+        debounce(() => {
+            getAgentTypeModel();
         }, 300),
         [rpcClient]
     );
@@ -299,6 +321,96 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
             setShowProgressIndicator(false);
             onReady(undefined, undefined, undefined);
         }
+    };
+
+    // ---------- AGENT_TYPE focus view ----------
+
+    // Renders the AGENT_TYPE node directly (no AGENT_CALL transform). It carries the LS-resolved model
+    // metadata + modelProviderParam, which drive the model-provider circle in the simplified widget.
+    const getAgentTypeModel = async () => {
+        setShowProgressIndicator(true);
+        onUpdate();
+        try {
+            const location = await rpcClient.getVisualizerLocation();
+            const pos = location?.position;
+            if (!pos) {
+                console.error(">>> agent-type focus: no position in visualizer location", location);
+                return;
+            }
+            const response = await rpcClient.getBIDiagramRpcClient().getFlowModel({
+                filePath,
+                startLine: { line: pos.startLine, offset: pos.startColumn },
+                endLine: { line: pos.endLine, offset: pos.endColumn },
+            });
+            const fetchedFlow = response?.flowModel;
+            const agentDecl = fetchedFlow?.nodes?.find((node) => node.codedata?.node === "AGENT_TYPE");
+            if (!agentDecl) {
+                console.error(">>> agent-type focus: AGENT_TYPE node not found", { filePath, pos });
+                setAgentPanel("NONE");
+                return;
+            }
+            agentDeclRef.current = agentDecl;
+            agentFormNodeRef.current = agentDecl;
+            setAgentFormKey((key) => key + 1);
+
+            const connections = fetchedFlow?.connections || [];
+            const renderNode: FlowNode = {
+                ...agentDecl,
+                id: agentDecl.id || "agent-type-focus-node",
+                branches: [],
+                flags: agentDecl.flags ?? 0,
+                // Leaf node: prevents InitVisitor from appending a trailing EMPTY "end" node + link.
+                returning: true,
+            };
+            const flow: Flow = { fileName: filePath, nodes: [renderNode], connections };
+            setModel(flow);
+
+            const breakpointResponse = await rpcClient.getBIDiagramRpcClient().getBreakpointInfo();
+            setBreakpointInfo(breakpointResponse);
+            onReady(filePath, undefined, pos);
+        } catch (error) {
+            console.error(">>> agent-type focus: error building model", error);
+        } finally {
+            setShowProgressIndicator(false);
+            onReady(undefined, undefined, undefined);
+        }
+    };
+
+    // Box click -> full init form with the model param hidden (it's edited via the circle).
+    const handleEditAgentTypeForm = (_node: FlowNode) => {
+        if (!agentDeclRef.current) {
+            return;
+        }
+        agentFormNodeRef.current = agentDeclRef.current;
+        setAgentTypeFormMode("ALL");
+        setAgentPanel("FORM");
+    };
+
+    // Model-circle click -> the same form scoped to just the model-provider param.
+    const handleEditAgentTypeModel = (_node: FlowNode) => {
+        if (!agentDeclRef.current) {
+            return;
+        }
+        agentFormNodeRef.current = agentDeclRef.current;
+        setAgentTypeFormMode("MODEL");
+        setAgentPanel("FORM");
+    };
+
+    // ALL: hide the model param (shown as the circle). MODEL: show only the model param.
+    const buildAgentTypeFieldOverrides = (node: FlowNode, mode: "ALL" | "MODEL") => {
+        const modelParam = (node.metadata?.data as NodeMetadata)?.modelProviderParam;
+        const overrides: Record<string, { hidden?: boolean }> = { type: { hidden: true } };
+        if (mode === "MODEL") {
+            Object.keys(node.properties || {}).forEach((key) => {
+                overrides[key] = { hidden: key !== modelParam };
+            });
+            if (modelParam) {
+                overrides[modelParam] = { hidden: false };
+            }
+        } else if (modelParam) {
+            overrides[modelParam] = { hidden: true };
+        }
+        return overrides;
     };
 
     // Closing/saving any agent panel returns to just the node. No manual refetch here: a save writes
@@ -994,7 +1106,35 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
         [flowModel, projectPath, breakpointInfo, showProgressIndicator]
     );
 
-    const diagramProps = isAgent ? agentDiagramProps : memoizedDiagramProps;
+    const agentTypeDiagramProps = useMemo(
+        () => ({
+            model: flowModel,
+            onNodeSelect: handleEditAgentTypeForm,
+            onAddNode: noop,
+            onDeleteNode: noop,
+            goToSource: handleOnGoToSource,
+            openView: handleOpenView,
+            projectPath,
+            breakpointInfo,
+            readOnly: showProgressIndicator,
+            isAgentFocusView: true,
+            // The simplified node only edits the model provider; tool/memory affordances aren't rendered.
+            agentNode: {
+                onModelSelect: handleEditAgentTypeModel,
+                onAddTool: noop,
+                onAddMcpServer: noop,
+                onSelectTool: noop,
+                onSelectMcpToolkit: noop,
+                onDeleteTool: noop,
+                goToTool: noop,
+                onSelectMemoryManager: noop,
+                onDeleteMemoryManager: noop,
+            },
+        }),
+        [flowModel, projectPath, breakpointInfo, showProgressIndicator]
+    );
+
+    const diagramProps = isAgentType ? agentTypeDiagramProps : isAgent ? agentDiagramProps : memoizedDiagramProps;
 
     return (
         <PanelOverlayProvider>
@@ -1034,6 +1174,29 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
                             model: { hidden: true },
                             type: { hidden: true },
                         }}
+                    />
+                </PanelContainer>
+            )}
+
+            {isAgentType && agentPanel === "FORM" && agentFormNodeRef.current && (
+                <PanelContainer
+                    title={agentTypeFormMode === "MODEL" ? "Configure Model Provider" : "Configure Agent"}
+                    show={true}
+                    onClose={handleCloseForm}
+                >
+                    <FlowNodeForm
+                        key={agentFormKey}
+                        fileName={model?.fileName || ""}
+                        node={agentFormNodeRef.current}
+                        nodeFormTemplate={agentFormNodeRef.current}
+                        targetLineRange={agentFormNodeRef.current.codedata?.lineRange as any}
+                        projectPath={projectPath}
+                        editForm={true}
+                        onSubmit={handleSubmitAgentForm}
+                        submitText={showProgressIndicator ? "Saving..." : "Save"}
+                        showProgressIndicator={showProgressIndicator}
+                        disableSaveButton={showProgressIndicator}
+                        fieldOverrides={buildAgentTypeFieldOverrides(agentFormNodeRef.current, agentTypeFormMode)}
                     />
                 </PanelContainer>
             )}
