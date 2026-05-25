@@ -17,7 +17,7 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import { spawnSync } from 'child_process';
-import { CopilotEventHandler } from '../../utils/events';
+import type { CopilotEventHandler } from '../../utils/events';
 import { getRgExecutable, resolveProjectRoots, validateSearchPath } from './utils/rg-utils';
 
 // ============================================================================

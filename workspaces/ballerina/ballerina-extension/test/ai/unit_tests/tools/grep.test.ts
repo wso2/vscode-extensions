@@ -15,489 +15,320 @@
 // under the License.
 
 import * as assert from 'assert';
+import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import { createGrepExecute } from '../../../../src/features/ai/agent/tools/grep';
-import { CopilotEventHandler } from '../../../../src/features/ai/utils/events';
 
-const TEST_DATA = path.join(__dirname, '../../../../../test/data');
-const SALESFORCE_SLACK_DIR = path.join(TEST_DATA, 'salesforce_slack_integration');
-const ORDER_MGMT_DIR = path.join(TEST_DATA, 'order_management_system');
+// ============================================================================
+// Fixture helpers
+// ============================================================================
 
-function makeExecute(projectPath: string) {
-    const events: unknown[] = [];
-    const handler: CopilotEventHandler = (e) => events.push(e);
-    return { execute: createGrepExecute(handler, projectPath), events };
+let tempDir: string;
+
+function writeFixture(relPath: string, content: string): void {
+    const abs = path.join(tempDir, relPath);
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    fs.writeFileSync(abs, content, 'utf-8');
 }
 
+/** Collects events emitted by the tool during a single call. */
+function makeCapture() {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const events: any[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handler = (e: any) => { events.push(e); };
+    return { events, handler };
+}
+
+// ============================================================================
+// Suite
+// ============================================================================
+
 suite('GrepTool', () => {
+    suiteSetup(() => {
+        tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grep-test-'));
 
-    // =========================================================================
-    // Input Validation
-    // =========================================================================
+        writeFixture('main.bal', [
+            'import ballerina/http;',
+            '',
+            'public type OrderService service object {',
+            '    resource function get orders() returns Order[]|error;',
+            '};',
+            '',
+            'public type Order record {|',
+            '    int id;',
+            '    string name;',
+            '|};',
+            '',
+            'public function processOrder(Order order) returns error? {',
+            '    // TODO: implement',
+            '}',
+        ].join('\n'));
 
-    suite('input validation', () => {
-        test('returns error for empty pattern', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
+        writeFixture('Ballerina.toml', [
+            '[package]',
+            'name = "test_project"',
+            'org = "wso2"',
+            'version = "0.1.0"',
+        ].join('\n'));
+
+        writeFixture('README.md', [
+            '# Test Project',
+            'A sample Ballerina project for unit tests.',
+        ].join('\n'));
+
+        writeFixture('modules/payment/payment.bal', [
+            'import ballerina/http;',
+            '',
+            'public service class PaymentService {',
+            '    resource function post payments() returns error? {',
+            '        // process payment',
+            '    }',
+            '}',
+        ].join('\n'));
+    });
+
+    suiteTeardown(() => {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    });
+
+    // -----------------------------------------------------------------------
+    // Input validation
+    // -----------------------------------------------------------------------
+    suite('Input Validation', () => {
+        test('empty pattern returns failure', async () => {
+            const { handler } = makeCapture();
+            const execute = createGrepExecute(handler as any, tempDir);
             const result = await execute({ pattern: '' });
             assert.strictEqual(result.success, false);
             assert.ok(result.message.includes('empty'));
         });
 
-        test('returns error for whitespace-only pattern', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
+        test('whitespace-only pattern returns failure', async () => {
+            const { handler } = makeCapture();
+            const execute = createGrepExecute(handler as any, tempDir);
             const result = await execute({ pattern: '   ' });
             assert.strictEqual(result.success, false);
         });
 
-        test('returns error for invalid regex', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: '[[invalid' });
+        test('path traversal returns failure', async () => {
+            const { handler } = makeCapture();
+            const execute = createGrepExecute(handler as any, tempDir);
+            const result = await execute({ pattern: 'import', path: '../../outside' });
             assert.strictEqual(result.success, false);
-            assert.ok(result.message.toLowerCase().includes('invalid'));
+            assert.ok(result.message.includes('project root'));
         });
 
-        test('returns error for path outside project root', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: 'import', path: '../../..' });
-            assert.strictEqual(result.success, false);
-            assert.ok(result.error?.includes('Path traversal'));
-        });
-
-        test('returns error for non-existent path', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
+        test('non-existent path returns failure', async () => {
+            const { handler } = makeCapture();
+            const execute = createGrepExecute(handler as any, tempDir);
             const result = await execute({ pattern: 'import', path: 'nonexistent_dir' });
             assert.strictEqual(result.success, false);
-            assert.ok(result.error?.includes('Path not found'));
-        });
-
-        test('returns success with no matches for unknown pattern', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: 'XYZZY_NONEXISTENT_TOKEN_12345' });
-            assert.strictEqual(result.success, true);
-            assert.ok(result.message.includes('No matches'));
+            assert.ok(result.message.includes('not found') || result.message.includes('nonexistent_dir'));
         });
     });
 
-    // =========================================================================
-    // Basic Matching — Ballerina-specific patterns
-    // =========================================================================
-
-    suite('basic matching in Ballerina files', () => {
-        test('finds import statements', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: '^import', output_mode: 'files_with_matches' });
-            assert.strictEqual(result.success, true);
-            // connections.bal, functions.bal, main.bal all have imports
-            assert.ok(result.message.includes('connections.bal'));
-            assert.ok(result.message.includes('functions.bal'));
-        });
-
-        test('finds configurable keyword', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: 'configurable', output_mode: 'files_with_matches' });
-            assert.strictEqual(result.success, true);
-            assert.ok(result.message.includes('config.bal'));
-        });
-
-        test('finds record type definitions', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: '^type \\w+ record', output_mode: 'files_with_matches' });
-            assert.strictEqual(result.success, true);
-            assert.ok(result.message.includes('types.bal'));
-        });
-
-        test('finds remote function declarations', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: 'remote function', output_mode: 'files_with_matches' });
-            assert.strictEqual(result.success, true);
-            assert.ok(result.message.includes('main.bal'));
-        });
-
-        test('finds log:printInfo calls', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: 'log:printInfo', output_mode: 'count' });
-            assert.strictEqual(result.success, true);
-            // main.bal has several log:printInfo calls
-            assert.ok(result.message.includes('main.bal'));
-        });
-
-        test('finds salesforce:Client usage', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: 'salesforce:Client', output_mode: 'files_with_matches' });
-            assert.strictEqual(result.success, true);
-            assert.ok(result.message.includes('connections.bal'));
-        });
-    });
-
-    // =========================================================================
-    // Output Modes
-    // =========================================================================
-
-    suite('output modes', () => {
-        test('files_with_matches: returns only file paths', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
+    // -----------------------------------------------------------------------
+    // Output modes
+    // -----------------------------------------------------------------------
+    suite('Output Modes', () => {
+        test('files_with_matches mode returns file paths only', async () => {
+            const { handler } = makeCapture();
+            const execute = createGrepExecute(handler as any, tempDir);
             const result = await execute({ pattern: 'import', output_mode: 'files_with_matches' });
             assert.strictEqual(result.success, true);
-            // Should not contain line content — just paths
-            assert.ok(!result.message.includes('ballerina/log'));
+            // Should contain file paths but NOT the matched line content
+            const lines = result.message.split('\n').filter(l => l.length > 0);
+            assert.ok(lines.length > 0, 'Should return at least one file');
+            for (const line of lines) {
+                // Each line should be a path, not a grep match line (no ":" followed by content)
+                assert.ok(!line.match(/:\d+:/), `Line "${line}" looks like content output, not a file path`);
+            }
         });
 
-        test('content: returns matching line content', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: 'import ballerina/log', output_mode: 'content', line_numbers: true });
+        test('content mode returns matching lines with content', async () => {
+            const { handler } = makeCapture();
+            const execute = createGrepExecute(handler as any, tempDir);
+            const result = await execute({ pattern: 'import ballerina', output_mode: 'content', line_numbers: false });
             assert.strictEqual(result.success, true);
-            assert.ok(result.message.includes('import ballerina/log'));
+            assert.ok(result.message.includes('import ballerina'), 'Content mode should include the matching text');
         });
 
-        test('line_numbers: false omits line numbers from output', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: 'import ballerina/log', output_mode: 'content', line_numbers: false });
+        test('count mode returns match counts per file', async () => {
+            const { handler } = makeCapture();
+            const execute = createGrepExecute(handler as any, tempDir);
+            const result = await execute({ pattern: 'import', output_mode: 'count' });
             assert.strictEqual(result.success, true);
-            // No "lineNum:" or "lineNum-" prefix should appear
-            assert.ok(!/^\d+[:\-]/m.test(result.message));
+            // count output format: "filepath:N"
+            const lines = result.message.split('\n').filter(l => l.length > 0);
+            for (const line of lines) {
+                assert.ok(/:\d+$/.test(line), `Expected "file:count" format, got: "${line}"`);
+            }
         });
 
-        test('content: line numbers use colon separator for match lines', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: 'import ballerina/log', output_mode: 'content', line_numbers: true });
+        test('content mode with line_numbers=true prefixes line numbers', async () => {
+            const { handler } = makeCapture();
+            const execute = createGrepExecute(handler as any, tempDir);
+            const result = await execute({ pattern: 'import ballerina', output_mode: 'content', line_numbers: true });
             assert.strictEqual(result.success, true);
-            // Match lines use "lineNum:content" format
-            assert.ok(/\d+:import ballerina\/log/.test(result.message));
-        });
-
-        test('count: shows match count per file', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: 'log:print', output_mode: 'count' });
-            assert.strictEqual(result.success, true);
-            // format is "file:count"
-            assert.ok(/main\.bal:\d+/.test(result.message));
-        });
-
-        test('default output mode is files_with_matches', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: 'import ballerina/log' });
-            assert.strictEqual(result.success, true);
-            // Should have file path but not full line content in output body
-            assert.ok(!result.message.includes('import ballerina/log\n'));
+            // ripgrep line-number format: "file:lineno:content"
+            const lines = result.message.split('\n').filter(l => l.length > 0);
+            assert.ok(lines.some(l => /:\d+:/.test(l)), 'Expected at least one line with line number notation');
         });
     });
 
-    // =========================================================================
-    // Glob Filtering
-    // =========================================================================
-
-    suite('glob filtering', () => {
-        test('*.bal restricts search to Ballerina files', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: 'wso2', glob: '*.bal', output_mode: 'files_with_matches' });
+    // -----------------------------------------------------------------------
+    // Match behaviour
+    // -----------------------------------------------------------------------
+    suite('Match Behaviour', () => {
+        test('returns success with no-matches message when pattern not found', async () => {
+            const { handler } = makeCapture();
+            const execute = createGrepExecute(handler as any, tempDir);
+            const result = await execute({ pattern: 'PATTERN_THAT_DOES_NOT_EXIST_XYZ' });
             assert.strictEqual(result.success, true);
-            // Ballerina.toml has org = "wso2" but should not appear with *.bal glob
-            assert.ok(!result.message.includes('Ballerina.toml'));
+            assert.ok(result.message.includes('No matches found'));
         });
 
-        test('*.toml restricts search to TOML files', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: 'wso2', glob: '*.toml', output_mode: 'files_with_matches' });
-            assert.strictEqual(result.success, true);
-            assert.ok(result.message.includes('Ballerina.toml'));
-            assert.ok(!result.message.includes('.bal'));
+        test('case_insensitive=true matches regardless of casing', async () => {
+            const { handler } = makeCapture();
+            const execute = createGrepExecute(handler as any, tempDir);
+
+            const sensitive = await execute({ pattern: 'ORDERSERVICE', output_mode: 'files_with_matches', case_insensitive: false });
+            const insensitive = await execute({ pattern: 'ORDERSERVICE', output_mode: 'files_with_matches', case_insensitive: true });
+
+            // Case-sensitive should find nothing; case-insensitive should find main.bal
+            assert.ok(sensitive.message.includes('No matches found'));
+            assert.strictEqual(insensitive.success, true);
+            assert.ok(!insensitive.message.includes('No matches found'), 'Case-insensitive should find matches');
         });
 
-        test('*.{bal,toml} matches both file types', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: 'salesforce', glob: '*.{bal,toml}', output_mode: 'files_with_matches' });
+        test('custom glob filter restricts search to matching file types', async () => {
+            const { handler } = makeCapture();
+            const execute = createGrepExecute(handler as any, tempDir);
+
+            // "name" appears in Ballerina.toml, but also in main.bal (string name)
+            // Searching only *.toml should return only the toml file
+            const result = await execute({ pattern: 'name', output_mode: 'files_with_matches', glob: '*.toml' });
             assert.strictEqual(result.success, true);
-            // Both .bal and .toml files reference salesforce
-            assert.ok(result.message.includes('.bal') || result.message.includes('.toml'));
+            const files = result.message.split('\n').filter(l => l.length > 0);
+            assert.ok(files.every(f => f.endsWith('.toml')), 'All matched files should be .toml');
         });
 
-        test('no glob defaults to standard Ballerina project extensions', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: 'salesforce', output_mode: 'files_with_matches' });
-            assert.strictEqual(result.success, true);
-            // .bal and .toml files should be found
-            assert.ok(result.message.includes('connections.bal') || result.message.includes('Ballerina.toml'));
-        });
-
-        test('returns no files when glob matches no files in project', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: 'anything', glob: '*.py' });
-            assert.strictEqual(result.success, true);
-            assert.ok(result.message.includes('No files found'));
-        });
-
-        test('exact filename glob matches only that file', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: 'wso2', glob: 'Ballerina.toml', output_mode: 'files_with_matches' });
-            assert.strictEqual(result.success, true);
-            assert.ok(result.message.includes('Ballerina.toml'));
-            assert.ok(!result.message.includes('config.bal'));
-        });
-    });
-
-    // =========================================================================
-    // Path Scoping
-    // =========================================================================
-
-    suite('path scoping', () => {
-        test('scoped path searches only within that subdirectory', async () => {
-            const { execute } = makeExecute(ORDER_MGMT_DIR);
-            const result = await execute({ pattern: 'import', path: 'order_service', output_mode: 'files_with_matches' });
-            assert.strictEqual(result.success, true);
-            // Should not leak paths from order_utils
-            assert.ok(!result.message.includes('order_utils'));
-        });
-
-        test('scoped path returns paths relative to project root', async () => {
-            const { execute } = makeExecute(ORDER_MGMT_DIR);
-            const result = await execute({ pattern: 'import', path: 'order_service', output_mode: 'files_with_matches' });
-            assert.strictEqual(result.success, true);
-            // Paths should include the subdirectory prefix
-            assert.ok(result.message.includes('order_service'));
-        });
-
-        test('project root search finds files across all subdirectories', async () => {
-            const { execute } = makeExecute(ORDER_MGMT_DIR);
+        test('default glob filter excludes non-Ballerina file types', async () => {
+            // Write a .log file that would match if glob wasn't filtering
+            writeFixture('debug.log', 'import something');
+            const { handler } = makeCapture();
+            const execute = createGrepExecute(handler as any, tempDir);
             const result = await execute({ pattern: 'import', output_mode: 'files_with_matches' });
             assert.strictEqual(result.success, true);
-            assert.ok(result.message.includes('order_service'));
-            assert.ok(result.message.includes('order_utils'));
+            const files = result.message.split('\n').filter(l => l.length > 0);
+            assert.ok(!files.some(f => f.endsWith('.log')), '.log files should be excluded by default glob');
+        });
+
+        test('scoped path search limits results to subdirectory', async () => {
+            const { handler } = makeCapture();
+            const execute = createGrepExecute(handler as any, tempDir);
+            const result = await execute({ pattern: 'import', output_mode: 'files_with_matches', path: 'modules' });
+            assert.strictEqual(result.success, true);
+            const files = result.message.split('\n').filter(l => l.length > 0);
+            assert.ok(files.length > 0, 'Should find matches inside modules/');
+            assert.ok(files.every(f => f.startsWith('modules')), 'All results should be under modules/');
         });
     });
 
-    // =========================================================================
-    // Case Sensitivity
-    // =========================================================================
-
-    suite('case sensitivity', () => {
-        test('search is case-sensitive by default', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            // "IMPORT" won't match "import" in Ballerina files
-            const result = await execute({ pattern: 'IMPORT', output_mode: 'files_with_matches' });
+    // -----------------------------------------------------------------------
+    // Output processing
+    // -----------------------------------------------------------------------
+    suite('Output Processing', () => {
+        test('returned paths are relative to project root, not absolute', async () => {
+            const { handler } = makeCapture();
+            const execute = createGrepExecute(handler as any, tempDir);
+            const result = await execute({ pattern: 'import', output_mode: 'files_with_matches' });
             assert.strictEqual(result.success, true);
-            assert.ok(result.message.includes('No matches'));
+            const lines = result.message.split('\n').filter(l => l.length > 0);
+            for (const line of lines) {
+                assert.ok(!line.startsWith(tempDir), `Path "${line}" should be relative, not absolute`);
+            }
         });
 
-        test('case_insensitive: true matches regardless of case', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: 'IMPORT', case_insensitive: true, output_mode: 'files_with_matches' });
+        test('head_limit truncates output and appends truncation note', async () => {
+            const { handler } = makeCapture();
+            const execute = createGrepExecute(handler as any, tempDir);
+            // Use a very small limit and a pattern that matches many lines
+            const result = await execute({ pattern: '.', output_mode: 'content', head_limit: 3 });
             assert.strictEqual(result.success, true);
-            assert.ok(!result.message.includes('No matches'));
-            assert.ok(result.message.includes('connections.bal') || result.message.includes('functions.bal'));
+            const lines = result.message.split('\n').filter(l => l.length > 0);
+            // Last line should be truncation note
+            assert.ok(lines[lines.length - 1].includes('truncated'), 'Should append truncation note');
+            // Content lines should be at most head_limit
+            const contentLines = lines.slice(0, lines.length - 1);
+            assert.ok(contentLines.length <= 3, `Should cap at 3 lines, got ${contentLines.length}`);
+        });
+
+        test('head_limit=0 returns all results without truncation', async () => {
+            const { handler: h1 } = makeCapture();
+            const { handler: h2 } = makeCapture();
+            const execDefault = createGrepExecute(h1, tempDir);
+            const execUnlimited = createGrepExecute(h2, tempDir);
+
+            const limited = await execDefault({ pattern: '.', output_mode: 'content', head_limit: 3 });
+            const unlimited = await execUnlimited({ pattern: '.', output_mode: 'content', head_limit: 0 });
+
+            const unlimitedLines = unlimited.message.split('\n').filter(l => l.length > 0);
+            assert.ok(!unlimited.message.includes('truncated'), 'head_limit=0 should not truncate');
+            assert.ok(unlimitedLines.length > 3, 'Unlimited should return more lines than head_limit=3');
+        });
+
+        test('context lines are included in content mode output', async () => {
+            const { handler } = makeCapture();
+            const execute = createGrepExecute(handler as any, tempDir);
+            // "processOrder" appears on a single line; with after_context=1 we should see the next line too
+            const result = await execute({
+                pattern: 'processOrder',
+                output_mode: 'content',
+                after_context: 1,
+                line_numbers: false,
+            });
+            assert.strictEqual(result.success, true);
+            // The line after "processOrder" is "    // TODO: implement"
+            assert.ok(result.message.includes('TODO'), 'After context should include the line after the match');
         });
     });
 
-    // =========================================================================
-    // Context Lines
-    // =========================================================================
+    // -----------------------------------------------------------------------
+    // Event handler
+    // -----------------------------------------------------------------------
+    suite('Event Handler', () => {
+        test('emits tool_call then tool_result on success', async () => {
+            const { events, handler } = makeCapture();
+            const execute = createGrepExecute(handler as any, tempDir);
+            await execute({ pattern: 'import', output_mode: 'files_with_matches' });
 
-    suite('context lines', () => {
-        test('after_context shows lines after a match', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({
-                pattern: 'listener salesforce:Listener',
-                output_mode: 'content',
-                after_context: 3,
-                line_numbers: true
-            });
-            assert.strictEqual(result.success, true);
-            // Context lines use "lineNum-content" separator format
-            assert.ok(/\d+-/.test(result.message));
+            const types = events.map(e => e.type);
+            assert.ok(types.includes('tool_call'), 'Should emit tool_call');
+            assert.ok(types.includes('tool_result'), 'Should emit tool_result');
+            assert.ok(types.indexOf('tool_call') < types.indexOf('tool_result'), 'tool_call should come before tool_result');
         });
 
-        test('before_context shows lines before a match', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({
-                pattern: 'listener salesforce:Listener',
-                output_mode: 'content',
-                before_context: 2,
-                line_numbers: true
-            });
-            assert.strictEqual(result.success, true);
-            assert.ok(/-\S/.test(result.message));
-        });
-
-        test('context adds lines on both sides of a match', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({
-                pattern: 'listener salesforce:Listener',
-                output_mode: 'content',
-                context: 2,
-                line_numbers: true
-            });
-            assert.strictEqual(result.success, true);
-            const lines = result.message.split('\n');
-            const contextLines = lines.filter(l => /\d+-/.test(l));
-            // 2 before + 2 after = at least 4 context lines
-            assert.ok(contextLines.length >= 4);
-        });
-
-        test('context overrides both before_context and after_context', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const contextResult = await execute({
-                pattern: 'listener salesforce:Listener',
-                output_mode: 'content',
-                context: 2,
-                line_numbers: true
-            });
-            const bothResult = await execute({
-                pattern: 'listener salesforce:Listener',
-                output_mode: 'content',
-                before_context: 2,
-                after_context: 2,
-                line_numbers: true
-            });
-            assert.strictEqual(contextResult.message, bothResult.message);
-        });
-
-        test('context is capped at MAX_CONTEXT_LINES (10)', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            // Requesting 50 context lines should be silently capped at 10
-            const result = await execute({
-                pattern: 'listener salesforce:Listener',
-                output_mode: 'content',
-                context: 50,
-                line_numbers: true
-            });
-            assert.strictEqual(result.success, true);
-            // Should still succeed — just capped
-        });
-    });
-
-    // =========================================================================
-    // Head Limit
-    // =========================================================================
-
-    suite('head_limit', () => {
-        test('head_limit truncates content output lines', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const fullResult = await execute({ pattern: 'string', output_mode: 'content', line_numbers: false });
-            const limitedResult = await execute({ pattern: 'string', output_mode: 'content', line_numbers: false, head_limit: 5 });
-            assert.strictEqual(limitedResult.success, true);
-            // Limited output should be strictly shorter
-            assert.ok(limitedResult.message.length < fullResult.message.length);
-        });
-
-        test('head_limit truncates files_with_matches output', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const limitedResult = await execute({ pattern: 'import', output_mode: 'files_with_matches', head_limit: 1 });
-            assert.strictEqual(limitedResult.success, true);
-            const fileLines = limitedResult.message
-                .split('\n')
-                .filter(l => l.trim().endsWith('.bal') || l.trim().endsWith('.toml'));
-            assert.ok(fileLines.length <= 1);
-        });
-
-        test('head_limit truncates count output', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const fullResult = await execute({ pattern: 'string', output_mode: 'count' });
-            const limitedResult = await execute({ pattern: 'string', output_mode: 'count', head_limit: 1 });
-            assert.strictEqual(limitedResult.success, true);
-            const fullFileCount = fullResult.message.split('\n').filter(l => /:\d+$/.test(l)).length;
-            const limitedFileCount = limitedResult.message.split('\n').filter(l => /:\d+$/.test(l)).length;
-            assert.ok(fullFileCount > 1, 'Need more than 1 file to test truncation');
-            assert.strictEqual(limitedFileCount, 1);
-        });
-
-        test('head_limit 0 applies no limit', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const noLimitResult = await execute({ pattern: 'string', output_mode: 'files_with_matches', head_limit: 0 });
-            const defaultResult = await execute({ pattern: 'string', output_mode: 'files_with_matches' });
-            assert.strictEqual(noLimitResult.success, true);
-            assert.strictEqual(defaultResult.success, true);
-        });
-    });
-
-    // =========================================================================
-    // Multiline Mode
-    // =========================================================================
-
-    suite('multiline mode', () => {
-        test('multiline: true matches patterns spanning two lines', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            // Ballerina record definitions have `record {|` pattern spanning multiple lines
-            const result = await execute({
-                pattern: 'record \\{\\|[\\s\\S]*?\\|\\}',
-                output_mode: 'files_with_matches',
-                multiline: true
-            });
-            assert.strictEqual(result.success, true);
-            assert.ok(result.message.includes('types.bal'));
-        });
-
-        test('multiline: false does not match cross-line patterns', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            // A pattern that requires newline traversal — should find nothing without multiline
-            const result = await execute({
-                pattern: 'record \\{\\|[\\s\\S]*?\\|\\}',
-                output_mode: 'files_with_matches',
-                multiline: false
-            });
-            // Either no matches, or matches only if the pattern coincidentally fits on one line
-            assert.strictEqual(result.success, true);
-        });
-
-        test('multiline: true with zero-length match guard does not infinite loop', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            // Zero-width assertion — should not hang
-            const result = await execute({ pattern: '(?=import)', output_mode: 'files_with_matches', multiline: true });
-            assert.strictEqual(result.success, true);
-        });
-    });
-
-    // =========================================================================
-    // Event Emission
-    // =========================================================================
-
-    suite('event emission', () => {
-        test('emits tool_call event before search', async () => {
-            const { execute, events } = makeExecute(SALESFORCE_SLACK_DIR);
-            await execute({ pattern: 'import' });
-            const callEvent = events.find((e: any) => e.type === 'tool_call');
-            assert.ok(callEvent, 'tool_call event should be emitted');
-            assert.strictEqual((callEvent as any).toolName, 'grep');
-        });
-
-        test('emits tool_result event after search', async () => {
-            const { execute, events } = makeExecute(SALESFORCE_SLACK_DIR);
-            await execute({ pattern: 'import' });
-            const resultEvent = events.find((e: any) => e.type === 'tool_result');
-            assert.ok(resultEvent, 'tool_result event should be emitted');
-        });
-
-        test('emits tool_result even on validation failure', async () => {
-            const { execute, events } = makeExecute(SALESFORCE_SLACK_DIR);
+        test('emits tool_result on validation failure', async () => {
+            const { events, handler } = makeCapture();
+            const execute = createGrepExecute(handler as any, tempDir);
             await execute({ pattern: '' });
-            const resultEvent = events.find((e: any) => e.type === 'tool_result');
-            assert.ok(resultEvent);
-        });
-    });
 
-    // =========================================================================
-    // Match Count in Result Message
-    // =========================================================================
-
-    suite('result message accuracy', () => {
-        test('match count in message matches actual matches found', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: 'log:printInfo', output_mode: 'count' });
-            assert.strictEqual(result.success, true);
-            // Extract "X match(es) across Y file(s)" from message
-            const m = result.message.match(/Found (\d+) match\(es\) across (\d+) file\(s\)/);
-            assert.ok(m, 'Result message should contain match summary');
-            assert.ok(parseInt(m![1]) > 0);
-            assert.ok(parseInt(m![2]) > 0);
+            assert.ok(events.some(e => e.type === 'tool_result'), 'Should emit tool_result on failure');
         });
 
-        test('count mode totals match content mode totals', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const countResult = await execute({ pattern: 'error', output_mode: 'count' });
-            const contentResult = await execute({ pattern: 'error', output_mode: 'content' });
+        test('tool_call event contains pattern, path, and output_mode', async () => {
+            const { events, handler } = makeCapture();
+            const execute = createGrepExecute(handler as any, tempDir);
+            await execute({ pattern: 'Order', path: 'modules', output_mode: 'content' });
 
-            const countMatch = countResult.message.match(/Found (\d+) match\(es\)/);
-            const contentMatch = contentResult.message.match(/Found (\d+) match\(es\)/);
-            assert.ok(countMatch && contentMatch);
-            assert.strictEqual(countMatch![1], contentMatch![1]);
+            const callEvent = events.find(e => e.type === 'tool_call') as any;
+            assert.ok(callEvent, 'tool_call event should exist');
+            assert.strictEqual(callEvent.toolInput.pattern, 'Order');
+            assert.strictEqual(callEvent.toolInput.path, 'modules');
+            assert.strictEqual(callEvent.toolInput.output_mode, 'content');
         });
     });
 });

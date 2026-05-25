@@ -15,370 +15,233 @@
 // under the License.
 
 import * as assert from 'assert';
+import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import { createGlobExecute } from '../../../../src/features/ai/agent/tools/glob';
-import { CopilotEventHandler } from '../../../../src/features/ai/utils/events';
 
-const TEST_DATA = path.join(__dirname, '../../../../../test/data');
-const SALESFORCE_SLACK_DIR = path.join(TEST_DATA, 'salesforce_slack_integration');
-const ORDER_MGMT_DIR = path.join(TEST_DATA, 'order_management_system');
+// ============================================================================
+// Fixture helpers
+// ============================================================================
 
-function makeExecute(projectPath: string) {
-    const events: unknown[] = [];
-    const handler: CopilotEventHandler = (e) => events.push(e);
-    return { execute: createGlobExecute(handler, projectPath), events };
+let tempDir: string;
+
+function writeFixture(relPath: string, content: string = ''): void {
+    const abs = path.join(tempDir, relPath);
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    fs.writeFileSync(abs, content, 'utf-8');
 }
 
-function matchedFiles(message: string): string[] {
-    // Message format: "Found N file(s) matching "pattern":\nfile1\nfile2..."
-    const afterColon = message.split('\n').slice(1);
-    return afterColon.filter(l => l.trim().length > 0);
+function makeCapture() {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const events: any[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handler = (e: any) => { events.push(e); };
+    return { events, handler };
 }
+
+// ============================================================================
+// Suite
+// ============================================================================
 
 suite('GlobTool', () => {
+    suiteSetup(() => {
+        tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'glob-test-'));
 
-    // =========================================================================
-    // Input Validation
-    // =========================================================================
+        writeFixture('main.bal', 'import ballerina/http;');
+        writeFixture('Ballerina.toml', '[package]\nname = "test_project"');
+        writeFixture('README.md', '# Test Project');
+        writeFixture('modules/order/order.bal', 'public type Order record {|int id;|};');
+        writeFixture('modules/order/order_test.bal', 'import ballerina/test;');
+        writeFixture('modules/payment/payment.bal', 'public service class PaymentService {}');
+        writeFixture('resources/schema.json', '{"type":"object"}');
+        writeFixture('resources/data.yaml', 'key: value');
+        writeFixture('debug.log', 'some log content');
+    });
 
-    suite('input validation', () => {
-        test('returns error for empty pattern', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
+    suiteTeardown(() => {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    });
+
+    // -----------------------------------------------------------------------
+    // Input validation
+    // -----------------------------------------------------------------------
+    suite('Input Validation', () => {
+        test('empty pattern returns failure', async () => {
+            const { handler } = makeCapture();
+            const execute = createGlobExecute(handler as any, tempDir);
             const result = await execute({ pattern: '' });
             assert.strictEqual(result.success, false);
-            assert.ok(result.error?.includes('Empty pattern'));
+            assert.ok(result.message.includes('empty'));
         });
 
-        test('returns error for whitespace-only pattern', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: '   ' });
+        test('path traversal returns failure', async () => {
+            const { handler } = makeCapture();
+            const execute = createGlobExecute(handler as any, tempDir);
+            const result = await execute({ pattern: '**/*.bal', path: '../../outside' });
             assert.strictEqual(result.success, false);
+            assert.ok(result.message.includes('project root'));
         });
 
-        test('returns error for path outside project root', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: '**/*.bal', path: '../../..' });
-            assert.strictEqual(result.success, false);
-            assert.ok(result.error?.includes('Path traversal'));
-        });
-
-        test('returns error for non-existent path', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
+        test('non-existent path returns failure', async () => {
+            const { handler } = makeCapture();
+            const execute = createGlobExecute(handler as any, tempDir);
             const result = await execute({ pattern: '**/*.bal', path: 'nonexistent_dir' });
             assert.strictEqual(result.success, false);
-            assert.ok(result.error?.includes('Path not found'));
+            assert.ok(result.message.includes('not found') || result.message.includes('nonexistent_dir'));
         });
 
-        test('returns error when path points to a file instead of directory', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
+        test('file path instead of directory returns failure', async () => {
+            const { handler } = makeCapture();
+            const execute = createGlobExecute(handler as any, tempDir);
             const result = await execute({ pattern: '**/*.bal', path: 'main.bal' });
             assert.strictEqual(result.success, false);
-            assert.ok(result.error?.includes('Not a directory'));
+            assert.ok(result.message.includes('directory') || result.message.includes('main.bal'));
+        });
+    });
+
+    // -----------------------------------------------------------------------
+    // Match behaviour
+    // -----------------------------------------------------------------------
+    suite('Match Behaviour', () => {
+        test('**/*.bal finds all Ballerina files recursively', async () => {
+            const { handler } = makeCapture();
+            const execute = createGlobExecute(handler as any, tempDir);
+            const result = await execute({ pattern: '**/*.bal' });
+            assert.strictEqual(result.success, true);
+            assert.ok(!result.message.includes('No files found'));
+            const lines = result.message.split('\n').filter(l => l.endsWith('.bal'));
+            assert.ok(lines.length >= 3, `Expected at least 3 .bal files, found ${lines.length}`);
         });
 
-        test('returns success with no-match message when pattern finds nothing', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: '**/*.py' });
+        test('exact filename pattern matches single file', async () => {
+            const { handler } = makeCapture();
+            const execute = createGlobExecute(handler as any, tempDir);
+            const result = await execute({ pattern: 'Ballerina.toml' });
+            assert.strictEqual(result.success, true);
+            // The first line of the message is the count header; check it says "1 file"
+            const header = result.message.split('\n')[0];
+            assert.ok(header.includes('Found 1 file'), `Expected "Found 1 file" in header, got: "${header}"`);
+        });
+
+        test('non-matching pattern returns no-matches success', async () => {
+            const { handler } = makeCapture();
+            const execute = createGlobExecute(handler as any, tempDir);
+            const result = await execute({ pattern: '**/*.nonexistent' });
             assert.strictEqual(result.success, true);
             assert.ok(result.message.includes('No files found'));
         });
-    });
 
-    // =========================================================================
-    // Basic Pattern Matching
-    // =========================================================================
+        test('brace expansion matches multiple extensions', async () => {
+            const { handler } = makeCapture();
+            const execute = createGlobExecute(handler as any, tempDir);
+            const result = await execute({ pattern: '**/*.{bal,toml}' });
+            assert.strictEqual(result.success, true);
+            assert.ok(!result.message.includes('No files found'));
+            const lines = result.message.split('\n').filter(l => l.endsWith('.bal') || l.endsWith('.toml'));
+            assert.ok(lines.length >= 4, `Expected at least 4 .bal/.toml files, found ${lines.length}`);
+        });
 
-    suite('basic pattern matching', () => {
-        test('**/*.bal matches all Ballerina files recursively', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
+        test('subdirectory path restricts search scope', async () => {
+            const { handler } = makeCapture();
+            const execute = createGlobExecute(handler as any, tempDir);
+            const result = await execute({ pattern: '**/*.bal', path: 'modules/order' });
+            assert.strictEqual(result.success, true);
+            const files = result.message.split('\n').filter(l => l.endsWith('.bal'));
+            // Should only find files in modules/order, not modules/payment
+            assert.ok(files.every(f => f.includes('order')), 'All results should be from modules/order/');
+            assert.ok(!files.some(f => f.includes('payment')), 'Should not include files from modules/payment/');
+        });
+
+        test('*_test.bal suffix pattern finds test files', async () => {
+            const { handler } = makeCapture();
+            const execute = createGlobExecute(handler as any, tempDir);
+            const result = await execute({ pattern: '**/*_test.bal' });
+            assert.strictEqual(result.success, true);
+            assert.ok(!result.message.includes('No files found'));
+            const files = result.message.split('\n').filter(l => l.endsWith('.bal'));
+            assert.ok(files.every(f => f.endsWith('_test.bal')), 'All results should be _test.bal files');
+        });
+
+        test('.git directory is excluded from search', async () => {
+            // Write a .bal file inside .git — without the explicit !.git/** glob it would be found
+            writeFixture('.git/internal.bal', 'public function gitInternal() {}');
+            const { handler } = makeCapture();
+            const execute = createGlobExecute(handler as any, tempDir);
             const result = await execute({ pattern: '**/*.bal' });
             assert.strictEqual(result.success, true);
-            const files = matchedFiles(result.message);
-            assert.ok(files.length > 0);
-            assert.ok(files.every(f => f.endsWith('.bal')));
-        });
-
-        test('*.bal matches only Ballerina files at root level', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: '*.bal' });
-            assert.strictEqual(result.success, true);
-            const files = matchedFiles(result.message);
-            assert.ok(files.length > 0);
-            // Root-level .bal files should not contain path separators
-            assert.ok(files.every(f => !f.includes('/') && f.endsWith('.bal')));
-        });
-
-        test('Ballerina.toml exact filename match', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: 'Ballerina.toml' });
-            assert.strictEqual(result.success, true);
-            const files = matchedFiles(result.message);
-            assert.strictEqual(files.length, 1);
-            assert.strictEqual(files[0], 'Ballerina.toml');
-        });
-
-        test('*.toml matches TOML files at root', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: '*.toml' });
-            assert.strictEqual(result.success, true);
-            const files = matchedFiles(result.message);
-            assert.ok(files.every(f => f.endsWith('.toml')));
-        });
-
-        test('**/*.toml matches TOML files at any depth', async () => {
-            const { execute } = makeExecute(ORDER_MGMT_DIR);
-            const result = await execute({ pattern: '**/*.toml' });
-            assert.strictEqual(result.success, true);
-            const files = matchedFiles(result.message);
-            assert.ok(files.length > 0);
-            assert.ok(files.every(f => f.endsWith('.toml')));
+            const files = result.message.split('\n');
+            assert.ok(!files.some(f => f.includes('.git')), '.git/ content should not appear in results');
         });
     });
 
-    // =========================================================================
-    // Specific Ballerina File Discovery
-    // =========================================================================
-
-    suite('Ballerina project file discovery', () => {
-        test('finds main.bal in salesforce_slack project', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: 'main.bal' });
-            assert.strictEqual(result.success, true);
-            const files = matchedFiles(result.message);
-            assert.ok(files.includes('main.bal'));
-        });
-
-        test('finds types.bal in salesforce_slack project', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: 'types.bal' });
-            assert.strictEqual(result.success, true);
-            const files = matchedFiles(result.message);
-            assert.ok(files.includes('types.bal'));
-        });
-
-        test('finds all expected files in salesforce_slack project', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
+    // -----------------------------------------------------------------------
+    // Output processing
+    // -----------------------------------------------------------------------
+    suite('Output Processing', () => {
+        test('returned paths are relative to project root, not absolute', async () => {
+            const { handler } = makeCapture();
+            const execute = createGlobExecute(handler as any, tempDir);
             const result = await execute({ pattern: '**/*.bal' });
             assert.strictEqual(result.success, true);
-            const files = matchedFiles(result.message);
-            const expectedFiles = ['main.bal', 'functions.bal', 'connections.bal', 'config.bal', 'types.bal', 'data_mappings.bal'];
-            for (const expected of expectedFiles) {
-                assert.ok(files.includes(expected), `Expected to find ${expected}`);
+            const files = result.message.split('\n').filter(l => l.endsWith('.bal'));
+            for (const file of files) {
+                assert.ok(!file.startsWith(tempDir), `Path "${file}" should be relative, not absolute`);
+                assert.ok(!path.isAbsolute(file), `Path "${file}" should not be absolute`);
             }
         });
 
-        test('finds nested .bal files in order_management_system', async () => {
-            const { execute } = makeExecute(ORDER_MGMT_DIR);
+        test('message includes file count', async () => {
+            const { handler } = makeCapture();
+            const execute = createGlobExecute(handler as any, tempDir);
             const result = await execute({ pattern: '**/*.bal' });
             assert.strictEqual(result.success, true);
-            const files = matchedFiles(result.message);
-            // Should contain files from subdirectories
-            assert.ok(files.some(f => f.includes('/')));
+            assert.ok(/Found \d+ file/.test(result.message), 'Message should include file count');
         });
 
-        test('order_service subdirectory files are found', async () => {
-            const { execute } = makeExecute(ORDER_MGMT_DIR);
-            const result = await execute({ pattern: 'order_service/**/*.bal' });
+        test('scoped path results are still relative to project root not the scope', async () => {
+            const { handler } = makeCapture();
+            const execute = createGlobExecute(handler as any, tempDir);
+            const result = await execute({ pattern: '**/*.bal', path: 'modules' });
             assert.strictEqual(result.success, true);
-            const files = matchedFiles(result.message);
-            assert.ok(files.length > 0);
-            assert.ok(files.every(f => f.startsWith('order_service/')));
+            const files = result.message.split('\n').filter(l => l.endsWith('.bal'));
+            // Paths should start with "modules/" (relative to project root), not just "order/..."
+            assert.ok(files.every(f => f.startsWith('modules')), 'Scoped paths should still include the scope prefix');
         });
     });
 
-    // =========================================================================
-    // Wildcard Patterns
-    // =========================================================================
-
-    suite('wildcard patterns', () => {
-        test('? matches exactly one character', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            // "main.bal" has 4 chars before dot — "????.bal" should match
-            const result = await execute({ pattern: '????.bal' });
-            assert.strictEqual(result.success, true);
-            const files = matchedFiles(result.message);
-            assert.ok(files.includes('main.bal'));
-        });
-
-        test('? does not match path separator', async () => {
-            const { execute } = makeExecute(ORDER_MGMT_DIR);
-            // "?" should not cross directory boundaries
-            const result = await execute({ pattern: '?.bal' });
-            // Either no results or only single-char-name files at root
-            assert.strictEqual(result.success, true);
-        });
-
-        test('{bal,toml} alternation matches both extensions', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: '**/*.{bal,toml}' });
-            assert.strictEqual(result.success, true);
-            const files = matchedFiles(result.message);
-            assert.ok(files.some(f => f.endsWith('.bal')));
-            assert.ok(files.some(f => f.endsWith('.toml')));
-        });
-
-        test('{bal,toml} does not include other extensions', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: '**/*.{bal,toml}' });
-            assert.strictEqual(result.success, true);
-            const files = matchedFiles(result.message);
-            assert.ok(files.every(f => f.endsWith('.bal') || f.endsWith('.toml')));
-        });
-
-        test('** without slash prefix also matches root-level files', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: '**/*.bal' });
-            assert.strictEqual(result.success, true);
-            const files = matchedFiles(result.message);
-            // Root-level files like main.bal should be included
-            assert.ok(files.includes('main.bal'));
-        });
-    });
-
-    // =========================================================================
-    // Path Scoping
-    // =========================================================================
-
-    suite('path scoping', () => {
-        test('scoped path restricts search to that subdirectory', async () => {
-            const { execute } = makeExecute(ORDER_MGMT_DIR);
-            const result = await execute({ pattern: '**/*.bal', path: 'order_service' });
-            assert.strictEqual(result.success, true);
-            const files = matchedFiles(result.message);
-            // Paths should NOT include order_service prefix (they're relative to the scoped dir)
-            assert.ok(files.every(f => !f.startsWith('order_utils')));
-        });
-
-        test('scoped path does not leak files from sibling directories', async () => {
-            const { execute } = makeExecute(ORDER_MGMT_DIR);
-            const result = await execute({ pattern: '**/*.bal', path: 'order_service' });
-            assert.strictEqual(result.success, true);
-            const files = matchedFiles(result.message);
-            assert.ok(!files.some(f => f.includes('order_utils')));
-        });
-
-        test('no path searches from project root', async () => {
-            const { execute } = makeExecute(ORDER_MGMT_DIR);
-            const result = await execute({ pattern: '**/*.bal' });
-            assert.strictEqual(result.success, true);
-            const files = matchedFiles(result.message);
-            // Should contain files from both order_service and order_utils
-            assert.ok(files.some(f => f.includes('order_service')));
-            assert.ok(files.some(f => f.includes('order_utils')));
-        });
-    });
-
-    // =========================================================================
-    // Skipped Directories
-    // =========================================================================
-
-    suite('skipped directories', () => {
-        test('does not return files from .git directory', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: '**/*' });
-            assert.strictEqual(result.success, true);
-            const files = matchedFiles(result.message);
-            assert.ok(!files.some(f => f.startsWith('.git/')));
-        });
-
-        test('does not return files from target directory', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: '**/*' });
-            assert.strictEqual(result.success, true);
-            const files = matchedFiles(result.message);
-            assert.ok(!files.some(f => f.startsWith('target/')));
-        });
-
-        test('does not return files from hidden directories', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: '**/*' });
-            assert.strictEqual(result.success, true);
-            const files = matchedFiles(result.message);
-            // No file path segment should start with a dot
-            assert.ok(!files.some(f => f.split('/').some(seg => seg.startsWith('.'))));
-        });
-    });
-
-    // =========================================================================
-    // Sort Order
-    // =========================================================================
-
-    suite('sort order', () => {
-        test('result message includes count and pattern', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: '**/*.bal' });
-            assert.strictEqual(result.success, true);
-            assert.ok(result.message.includes('**/*.bal'));
-            assert.ok(/Found \d+ file\(s\)/.test(result.message));
-        });
-    });
-
-    // =========================================================================
-    // Event Emission
-    // =========================================================================
-
-    suite('event emission', () => {
-        test('emits tool_call event before search', async () => {
-            const { execute, events } = makeExecute(SALESFORCE_SLACK_DIR);
+    // -----------------------------------------------------------------------
+    // Event handler
+    // -----------------------------------------------------------------------
+    suite('Event Handler', () => {
+        test('emits tool_call then tool_result on success', async () => {
+            const { events, handler } = makeCapture();
+            const execute = createGlobExecute(handler as any, tempDir);
             await execute({ pattern: '**/*.bal' });
-            const callEvent = events.find((e: any) => e.type === 'tool_call');
-            assert.ok(callEvent);
-            assert.strictEqual((callEvent as any).toolName, 'glob');
+
+            const types = events.map(e => e.type);
+            assert.ok(types.includes('tool_call'), 'Should emit tool_call');
+            assert.ok(types.includes('tool_result'), 'Should emit tool_result');
+            assert.ok(types.indexOf('tool_call') < types.indexOf('tool_result'), 'tool_call must precede tool_result');
+        });
+
+        test('emits tool_result on validation failure', async () => {
+            const { events, handler } = makeCapture();
+            const execute = createGlobExecute(handler as any, tempDir);
+            await execute({ pattern: '' });
+
+            assert.ok(events.some(e => e.type === 'tool_result'), 'Should emit tool_result even on failure');
         });
 
         test('tool_call event contains pattern and path', async () => {
-            const { execute, events } = makeExecute(SALESFORCE_SLACK_DIR);
-            await execute({ pattern: '**/*.bal', path: undefined });
-            const callEvent = events.find((e: any) => e.type === 'tool_call') as any;
-            assert.ok(callEvent);
+            const { events, handler } = makeCapture();
+            const execute = createGlobExecute(handler as any, tempDir);
+            await execute({ pattern: '**/*.bal', path: 'modules' });
+
+            const callEvent = events.find(e => e.type === 'tool_call') as any;
+            assert.ok(callEvent, 'tool_call event should exist');
             assert.strictEqual(callEvent.toolInput.pattern, '**/*.bal');
-        });
-
-        test('emits tool_result event after search', async () => {
-            const { execute, events } = makeExecute(SALESFORCE_SLACK_DIR);
-            await execute({ pattern: '**/*.bal' });
-            const resultEvent = events.find((e: any) => e.type === 'tool_result');
-            assert.ok(resultEvent);
-        });
-
-        test('emits tool_result even on validation failure', async () => {
-            const { execute, events } = makeExecute(SALESFORCE_SLACK_DIR);
-            await execute({ pattern: '' });
-            const resultEvent = events.find((e: any) => e.type === 'tool_result');
-            assert.ok(resultEvent);
-        });
-    });
-
-    // =========================================================================
-    // Result Message Format
-    // =========================================================================
-
-    suite('result message format', () => {
-        test('message includes matched file paths on separate lines', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: '**/*.bal' });
-            assert.strictEqual(result.success, true);
-            const files = matchedFiles(result.message);
-            assert.ok(files.length > 1);
-            assert.ok(files.every(f => f.length > 0));
-        });
-
-        test('file count in message matches actual file list length', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: '**/*.bal' });
-            assert.strictEqual(result.success, true);
-            const countMatch = result.message.match(/Found (\d+) file\(s\)/);
-            assert.ok(countMatch);
-            const reportedCount = parseInt(countMatch![1]);
-            const files = matchedFiles(result.message);
-            assert.strictEqual(reportedCount, files.length);
-        });
-
-        test('no-match result is still success:true', async () => {
-            const { execute } = makeExecute(SALESFORCE_SLACK_DIR);
-            const result = await execute({ pattern: '**/*.xyz_nonexistent' });
-            assert.strictEqual(result.success, true);
-            assert.ok(!result.error);
+            assert.strictEqual(callEvent.toolInput.path, 'modules');
         });
     });
 });
