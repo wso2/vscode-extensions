@@ -18,6 +18,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Codicon, Icon } from "@wso2/ui-toolkit";
+import { ConnectorIcon } from "@wso2/bi-diagram";
 import { AvailableNode, EVENT_TYPE, FlowNode, LineRange } from "@wso2/ballerina-core";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { cloneDeep, debounce } from "lodash";
@@ -361,7 +362,17 @@ export function AddAgentPopupContent(props: AddAgentPopupContentProps) {
                                     title={agent.metadata.label}
                                     description={`${agent.codedata.org} / ${agent.codedata.module}`}
                                     truncate={true}
-                                    icon={<Codicon name="package" />}
+                                    icon={
+                                        <ConnectorIcon
+                                            url={agent.metadata.icon}
+                                            fallbackIcon={
+                                                <Icon
+                                                    name="bi-ai-agent"
+                                                    sx={{ fontSize: 24, width: 24, height: 24 }}
+                                                />
+                                            }
+                                        />
+                                    }
                                     onClick={() => handleSelectAgent(agent)}
                                 />
                             );
