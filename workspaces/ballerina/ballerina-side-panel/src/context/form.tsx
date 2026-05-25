@@ -56,9 +56,8 @@ export interface FormContext {
     nodeInfo: {
         kind: NodeKind
     }
-    // Host-provided "Create New" handler for connection-select fields; resolves with the new variable name.
-    // `connectorCodeData` (the connector identity for a generic client-connection field) routes creation through
-    // the standard connector wizard instead of the AI connection kinds.
+    // Host "Create New" handler for connection-select fields; resolves with the new variable name.
+    // `connectorCodeData` routes a generic client connection through the standard connector wizard.
     onCreateConnection?: (
         kind: string,
         onCreated: (variableName: string) => void,

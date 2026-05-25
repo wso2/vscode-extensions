@@ -75,8 +75,7 @@ export const ConnectionSelectEditor: React.FC<ConnectionSelectEditorProps> = ({ 
     const { targetLineRange, fileName, onCreateConnection } = useFormContext();
 
     const searchNodesKind = field.codedata?.searchNodesKind;
-    // A generic client-connection field also carries the required type; narrow the search and key the cache by it
-    // so different client types sharing kind "NEW_CONNECTION" don't collide.
+    // Narrows the search and keys the cache so different client types sharing "NEW_CONNECTION" don't collide.
     const connectionType = field.codedata?.connectionType;
     const cacheKey = connectionType ? `${searchNodesKind}:${connectionType}` : searchNodesKind;
     const initialItems: ConnectionSelectItem[] = field.codedata?.initialItems ?? [];
@@ -139,8 +138,7 @@ export const ConnectionSelectEditor: React.FC<ConnectionSelectEditorProps> = ({ 
     }, [value]);
 
     const showCreateNew = !!onCreateConnection && !!searchNodesKind && field.editable;
-    // The LS stashes the backing connector's complete codedata (org/module/object/version/symbol + isGenerated:false,
-    // the latter required so NewConnectionBuilder.toSource emits the import) under data.connection; pass it through.
+    // The backing connector codedata for the create-new flow.
     const connectorCodeData = field.codedata?.data?.connection as CodeData | undefined;
     const createNewLabel = connectionType
         ? field.label || "Connection"
