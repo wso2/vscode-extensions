@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { AvailableNode, CodeData, ConfigVariable, FlowNode, LinePosition, LineRange, NodeKind, Property, SearchNodesQueryParams } from "@wso2/ballerina-core";
+import { AvailableNode, CodeData, ConfigVariable, FlowNode, LinePosition, LineRange, NodeKind, ProjectStructureArtifactResponse, Property, SearchNodesQueryParams } from "@wso2/ballerina-core";
 import { BallerinaRpcClient } from "@wso2/ballerina-rpc-client";
 import { cloneDeep } from "lodash";
 import { URI, Utils } from "vscode-uri";
@@ -42,6 +42,26 @@ const OPENAI_PROVIDER_CODEDATA: CodeData = {
     object: "OpenAiProvider",
     symbol: "init",
 };
+
+/**
+ * Refreshes a flow node's line range in place from the matching artifact in a getSourceCode/deleteFlowNode response.
+ * A preceding edit/delete can shift file lines; re-writing the node on its now-stale range would duplicate it instead
+ * of replacing it. Call this with the response artifacts before the follow-up getSourceCode. No-op if not found.
+ */
+export function refreshNodeLineRangeFromArtifacts(
+    node: FlowNode,
+    artifacts: ProjectStructureArtifactResponse[] | undefined,
+    name: string
+): void {
+    const artifact = artifacts?.find((a) => a.name === name);
+    if (!artifact?.position) {
+        return;
+    }
+    node.codedata.lineRange.startLine.line = artifact.position.startLine;
+    node.codedata.lineRange.startLine.offset = artifact.position.startColumn;
+    node.codedata.lineRange.endLine.line = artifact.position.endLine;
+    node.codedata.lineRange.endLine.offset = artifact.position.endColumn;
+}
 
 export function toCamelCase(name: string): string {
     const words = name.trim().split(/[\s_]+/).filter(Boolean);

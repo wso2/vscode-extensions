@@ -93,6 +93,7 @@ export type NodeMetadata = {
     module?: string;
     type?: string;
     modelProviderParam?: string; // AGENT_TYPE: init param key wired to the model provider (drives the circle)
+    memoryParam?: string; // AGENT_TYPE: init param key wired to the inner agent's memory (drives the memory affordance)
     agentDescription?: string; // AGENT_TYPE: the custom agent class's doc-comment description
 };
 

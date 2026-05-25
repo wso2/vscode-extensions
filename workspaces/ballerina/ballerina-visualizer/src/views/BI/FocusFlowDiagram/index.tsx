@@ -56,7 +56,7 @@ import { AddTool } from "../AIChatAgent/AddTool";
 import { NewTool, NewToolSelectionMode } from "../AIChatAgent/NewTool";
 import { AddMcpServer } from "../AIChatAgent/AddMcpServer";
 import { ToolConfig } from "../AIChatAgent/ToolConfig";
-import { findFlowNode, findFlowNodeByModuleVarName, removeToolFromAgentNode } from "../AIChatAgent/utils";
+import { findFlowNode, findFlowNodeByModuleVarName, refreshNodeLineRangeFromArtifacts, removeToolFromAgentNode } from "../AIChatAgent/utils";
 import { buildAgentRenderNode } from "./agent";
 
 import {
@@ -277,12 +277,14 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
 
     // ---------- AGENT focus view ----------
 
-    const getAgentModel = async () => {
+    // posOverride: refetch over a known position instead of the stored visualizer location, which goes stale after a
+    // webview edit shifts the agent (the auto-refresh path doesn't re-resolve it). See handleDeleteAgentMemory.
+    const getAgentModel = async (posOverride?: NodePosition) => {
         setShowProgressIndicator(true);
         onUpdate();
         try {
             const location = await rpcClient.getVisualizerLocation();
-            const pos = location?.position;
+            const pos = posOverride ?? location?.position;
             if (!pos) {
                 console.error(">>> agent focus: no position in visualizer location", location);
                 return;
@@ -299,8 +301,10 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
             const fetchedFlow = response?.flowModel;
             const agentDecl = fetchedFlow?.nodes?.find((node) => node.codedata?.node === "AGENT");
             if (!agentDecl) {
+                // Usually a transient stale-position reload: an in-progress edit (e.g. creating a memory store, which
+                // is declared above the agent) shifts the agent, so the stored position no longer hits it. Keep the
+                // current model and any open panel — don't tear down the user's side panel — and let it re-resolve.
                 console.error(">>> agent focus: AGENT node not found in flow model", { filePath, pos });
-                setAgentPanel("NONE");
                 return;
             }
             agentDeclRef.current = agentDecl;
@@ -331,7 +335,7 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
 
     // Renders the AGENT_TYPE node directly (no AGENT_CALL transform). It carries the LS-resolved model
     // metadata + modelProviderParam, which drive the model-provider circle in the simplified widget.
-    const getAgentTypeModel = async () => {
+    const getAgentTypeModel = async (posOverride?: NodePosition) => {
         // Skip exactly one reload after creating a model provider from the open form (preserves the selection).
         if (suppressAgentTypeReloadRef.current) {
             suppressAgentTypeReloadRef.current = false;
@@ -341,7 +345,8 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
         onUpdate();
         try {
             const location = await rpcClient.getVisualizerLocation();
-            const pos = location?.position;
+            // posOverride wins over the stored location, which is stale after a delete shifts the agent up.
+            const pos = posOverride ?? location?.position;
             if (!pos) {
                 console.error(">>> agent-type focus: no position in visualizer location", location);
                 return;
@@ -354,8 +359,10 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
             const fetchedFlow = response?.flowModel;
             const agentDecl = fetchedFlow?.nodes?.find((node) => node.codedata?.node === "AGENT_TYPE");
             if (!agentDecl) {
+                // Usually a transient stale-position reload: an in-progress edit (e.g. creating a memory store, which
+                // is declared above the agent) shifts the agent, so the stored position no longer hits it. Keep the
+                // current model and any open panel — don't tear down the user's side panel — and let it re-resolve.
                 console.error(">>> agent-type focus: AGENT_TYPE node not found", { filePath, pos });
-                setAgentPanel("NONE");
                 return;
             }
             agentDeclRef.current = agentDecl;
@@ -431,6 +438,16 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
         setAgentPanel("NONE");
     };
 
+    // Memory save closes the panel and refetches over the agent's post-save position. The new memory/store vars are
+    // declared above the agent, shifting it, so the auto-reload's stored position is stale and misses the node;
+    // refetching with the explicit position keeps the diagram in sync.
+    const handleAgentMemorySaved = (agentPosition?: NodePosition) => {
+        handleCloseAgentPanel();
+        if (agentPosition) {
+            void (isAgentType ? getAgentTypeModel(agentPosition) : getAgentModel(agentPosition));
+        }
+    };
+
     // The edit form's own close button (no refresh needed — nothing changed).
     const handleCloseForm = () => {
         setAgentPanel("NONE");
@@ -476,13 +493,19 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
         }
     };
 
+    // Built-in ai:Agent stores memory under the fixed `memory` constructor arg; a custom AGENT_TYPE agent stores it
+    // under the wired init param (LS-detected `memoryParam`). Fall back to "memory" when unset.
+    const getMemoryPropertyKey = (): string =>
+        (agentDeclRef.current?.metadata?.data as NodeMetadata)?.memoryParam || "memory";
+
     const handleSelectAgentMemory = async (_node: FlowNode) => {
         const agentDecl = agentDeclRef.current;
         if (!agentDecl) {
             return;
         }
         setShowConnectionPanel(false);
-        const memoryValue = agentDecl.properties?.memory?.value;
+        const memoryKey = getMemoryPropertyKey();
+        const memoryValue = (agentDecl.properties as any)?.[memoryKey]?.value;
         let existingMemoryNode: FlowNode | undefined;
         if (typeof memoryValue === "string" && memoryValue.trim() && memoryValue.trim() !== "()") {
             const startLine = agentDecl.codedata?.lineRange?.startLine;
@@ -506,7 +529,10 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
         }
         setShowProgressIndicator(true);
         try {
-            const memoryVar = agentDecl.properties?.memory?.value;
+            const memoryKey = getMemoryPropertyKey();
+            const agentVarName = agentDecl.properties?.variable?.value as string;
+            const memoryVar = (agentDecl.properties as any)?.[memoryKey]?.value;
+            const updatedAgent = structuredClone(agentDecl);
             if (typeof memoryVar === "string" && memoryVar.trim() && memoryVar.trim() !== "()") {
                 const memoryNode = await findFlowNodeByModuleVarName(memoryVar.trim(), rpcClient);
                 if (memoryNode) {
@@ -515,21 +541,29 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
                             .getVisualizerRpcClient()
                             .joinProjectPath({ segments: [memoryNode.codedata.lineRange.fileName] })
                     ).filePath;
-                    await rpcClient
+                    const deleteResponse = await rpcClient
                         .getBIDiagramRpcClient()
                         .deleteFlowNode({ filePath: memoryFilePath, flowNode: memoryNode });
+                    // Deleting the memory variable shifts subsequent lines, so the agent's original line range is now
+                    // stale; re-writing on it would duplicate the agent. Refresh from the returned artifacts first.
+                    refreshNodeLineRangeFromArtifacts(updatedAgent, deleteResponse?.artifacts, agentVarName);
                 }
             }
-            const updatedAgent = structuredClone(agentDecl);
-            updatedAgent.properties.memory.value = "()";
+            (updatedAgent.properties as any)[memoryKey].value = "()";
             const agentFilePath = (
                 await rpcClient
                     .getVisualizerRpcClient()
-                    .joinProjectPath({ segments: [agentDecl.codedata.lineRange.fileName] })
+                    .joinProjectPath({ segments: [updatedAgent.codedata.lineRange.fileName] })
             ).filePath;
-            await rpcClient
+            const agentResponse = await rpcClient
                 .getBIDiagramRpcClient()
                 .getSourceCode({ filePath: agentFilePath, flowNode: updatedAgent });
+            // The auto-refresh refetches over the stored visualizer position, which is now stale (deleting the memory
+            // variable shifted the agent up) and would miss the node. Refetch explicitly over the agent's new position.
+            const newPos = agentResponse?.artifacts?.find((a) => a.name === agentVarName)?.position;
+            if (newPos) {
+                await (isAgentType ? getAgentTypeModel(newPos) : getAgentModel(newPos));
+            }
         } catch (error) {
             console.error(">>> agent focus: error deleting memory", error);
         } finally {
@@ -1129,7 +1163,8 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
             breakpointInfo,
             readOnly: showProgressIndicator,
             isAgentFocusView: true,
-            // The simplified node only edits the model provider; tool/memory affordances aren't rendered.
+            // The simplified node edits the model provider, and — when the class wires an ai:Memory param — memory via
+            // the same Configure Memory panel as the built-in agent. Tool affordances aren't rendered.
             agentNode: {
                 onModelSelect: handleEditAgentTypeModel,
                 onAddTool: noop,
@@ -1138,8 +1173,8 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
                 onSelectMcpToolkit: noop,
                 onDeleteTool: noop,
                 goToTool: noop,
-                onSelectMemoryManager: noop,
-                onDeleteMemoryManager: noop,
+                onSelectMemoryManager: handleSelectAgentMemory,
+                onDeleteMemoryManager: handleDeleteAgentMemory,
             },
         }),
         [flowModel, projectPath, breakpointInfo, showProgressIndicator]
@@ -1213,7 +1248,7 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
                 </PanelContainer>
             )}
 
-            {isAgent && agentPanel === "MEMORY" && agentDeclRef.current && (
+            {(isAgent || isAgentType) && agentPanel === "MEMORY" && agentDeclRef.current && (
                 <PanelContainer
                     title="Configure Memory"
                     show={true}
@@ -1222,7 +1257,8 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
                     <MemoryManagerConfig
                         agentNode={agentDeclRef.current}
                         memoryNode={memoryNodeRef.current as FlowNode}
-                        onSave={handleCloseAgentPanel}
+                        memoryPropertyKey={getMemoryPropertyKey()}
+                        onSave={handleAgentMemorySaved}
                     />
                 </PanelContainer>
             )}

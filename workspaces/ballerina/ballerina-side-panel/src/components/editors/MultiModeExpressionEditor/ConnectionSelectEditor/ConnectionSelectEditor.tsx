@@ -137,7 +137,9 @@ export const ConnectionSelectEditor: React.FC<ConnectionSelectEditorProps> = ({ 
         fetchItems();
     }, [value]);
 
-    const showCreateNew = !!onCreateConnection && !!searchNodesKind && field.editable;
+    // Suppress the generic create-new action when the field supplies its own (e.g. the memory `store` field, which
+    // has a dedicated create flow via actionCallback/actionLabel) — otherwise both render as duplicate buttons.
+    const showCreateNew = !!onCreateConnection && !!searchNodesKind && field.editable && !field.actionCallback;
     // The backing connector codedata for the create-new flow.
     const connectorCodeData = field.codedata?.data?.connection as CodeData | undefined;
     const createNewLabel = connectionType

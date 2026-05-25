@@ -269,9 +269,12 @@ export class SizingVisitor implements BaseVisitor {
         const containerLeftWidth = halfNodeWidth;
         // Reserve room to the right for the model-provider circle (same as AGENT_CALL, minus the tools section).
         const containerRightWidth = halfNodeWidth + NODE_GAP_X + NODE_HEIGHT + LABEL_HEIGHT + LABEL_WIDTH;
-        // Grow the box to fit the doc-comment description block (divider + up to 4 clamped lines) when present.
+        // Grow the box to fit the memory affordance (button/card) and the doc-comment description block (divider +
+        // up to 4 clamped lines) when present.
         const nodeMetadata = node.metadata.data as NodeMetadata;
-        const containerHeight = nodeMetadata?.agentDescription ? NODE_HEIGHT + 95 : NODE_HEIGHT;
+        const memoryHeight = nodeMetadata?.memoryParam ? 52 : 0;
+        const descriptionHeight = nodeMetadata?.agentDescription ? 95 : 0;
+        const containerHeight = NODE_HEIGHT + memoryHeight + descriptionHeight;
         this.setNodeSize(node, containerLeftWidth, containerRightWidth, containerHeight);
     }
 
