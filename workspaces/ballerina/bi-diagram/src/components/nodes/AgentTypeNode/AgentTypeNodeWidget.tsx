@@ -20,7 +20,7 @@ import React, { ReactNode, useState } from "react";
 import styled from "@emotion/styled";
 import { css } from "@emotion/react";
 import { DiagramEngine, PortWidget } from "@projectstorm/react-diagrams-core";
-import { Button, Item, Menu, MenuItem, Popover, ThemeColors, getAIModuleIcon, DefaultLlmIcon } from "@wso2/ui-toolkit";
+import { Button, Icon, Item, Menu, MenuItem, Popover, ThemeColors, getAIModuleIcon, DefaultLlmIcon } from "@wso2/ui-toolkit";
 import { NodeMetadata } from "@wso2/ballerina-core";
 import { FlowNode } from "../../../utils/types";
 import { AgentTypeNodeModel } from "./AgentTypeNodeModel";
@@ -54,6 +54,7 @@ namespace Styles {
         display: flex;
         flex-direction: column;
         justify-content: center;
+        align-items: center;
         width: ${NODE_WIDTH}px;
         min-height: ${NODE_HEIGHT}px;
         padding: 0 ${NODE_PADDING}px;
@@ -78,6 +79,15 @@ namespace Styles {
         z-index: 2;
     `;
 
+    export const Column = styled.div`
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: flex-start;
+        gap: 8px;
+        width: 100%;
+    `;
+
     export const Icon = styled.div`
         padding: 4px;
         svg {
@@ -93,6 +103,7 @@ namespace Styles {
         gap: 2px;
         flex: 1;
         padding: 8px;
+        margin-top: 2px;
     `;
 
     export const Title = styled.div`
@@ -123,14 +134,13 @@ namespace Styles {
     `;
 
     export const Divider = styled.div`
-        width: calc(100% - 16px);
-        margin: 2px 8px 6px;
+        width: 100%;
         border-top: 1px dashed ${ThemeColors.OUTLINE_VARIANT};
     `;
 
     export const DescriptionBlock = styled.div<{ readOnly: boolean }>`
         width: 100%;
-        padding: 0 8px 8px;
+        padding: 4px 4px 12px;
         cursor: ${(props: { readOnly: boolean }) => (props.readOnly ? "default" : "pointer")};
         z-index: 2;
     `;
@@ -155,6 +165,61 @@ namespace Styles {
 
     export const MenuButton = styled(Button)`
         border-radius: 5px;
+    `;
+
+    export const MemoryContainer = styled.div`
+        width: 100%;
+        border-bottom: 1px dashed ${ThemeColors.OUTLINE_VARIANT};
+        padding-bottom: 10px;
+        z-index: 2;
+    `;
+
+    export const MemoryButton = styled.div<{ readOnly: boolean }>`
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        padding: 8px 0;
+        border: 1px solid ${ThemeColors.OUTLINE_VARIANT};
+        border-radius: 4px;
+        background-color: transparent;
+        color: ${ThemeColors.ON_SURFACE};
+        font-size: 14px;
+        font-family: "GilmerRegular";
+        cursor: ${(props: { readOnly: boolean }) => (props.readOnly ? "default" : "pointer")};
+        &:hover {
+            background-color: ${ThemeColors.SURFACE_BRIGHT};
+            border-color: ${(props: { readOnly: boolean }) =>
+            props.readOnly ? ThemeColors.OUTLINE_VARIANT : ThemeColors.SECONDARY};
+        }
+    `;
+
+    export const MemoryCard = styled.div<{ readOnly: boolean }>`
+        width: 100%;
+        padding: 8px 6px 8px 12px;
+        border: 1px solid ${ThemeColors.OUTLINE_VARIANT};
+        border-radius: 4px;
+        background-color: transparent;
+        color: ${ThemeColors.ON_SURFACE};
+        cursor: ${(props: { readOnly: boolean }) => (props.readOnly ? "default" : "pointer")};
+        &:hover {
+            border-color: ${(props: { readOnly: boolean }) =>
+            props.readOnly ? ThemeColors.OUTLINE_VARIANT : ThemeColors.SECONDARY};
+        }
+    `;
+
+    export const MemoryTitle = styled.div`
+        font-size: 14px;
+        font-family: "GilmerMedium";
+        font-weight: bold;
+        margin-bottom: 4px;
+    `;
+
+    export const MemoryMeta = styled.div`
+        font-size: 12px;
+        font-family: monospace;
+        color: ${ThemeColors.ON_SURFACE};
+        opacity: 0.7;
     `;
 
     export const TopPortWidget = styled(PortWidget)`
@@ -183,6 +248,10 @@ export function AgentTypeNodeWidget(props: AgentTypeNodeWidgetProps) {
     const [menuButtonElement, setMenuButtonElement] = useState<HTMLElement | null>(null);
     const isMenuOpen = Boolean(anchorEl);
 
+    const [memoryMenuAnchorEl, setMemoryMenuAnchorEl] = useState<HTMLElement | SVGSVGElement>(null);
+    const [memoryMenuButtonElement, setMemoryMenuButtonElement] = useState<HTMLElement | null>(null);
+    const isMemoryMenuOpen = Boolean(memoryMenuAnchorEl);
+
     const isSelected = selectedNodeId === model.node.id;
     const hasError = nodeHasError(model.node);
     const nodeMetadata = model.node.metadata?.data as NodeMetadata;
@@ -190,6 +259,10 @@ export function AgentTypeNodeWidget(props: AgentTypeNodeWidgetProps) {
     // the inner agent (see CodeAnalyzer.applyCustomAgentMetadata).
     const showModelCircle = Boolean(nodeMetadata?.modelProviderParam);
     const nodeModelIconUrl = nodeMetadata?.model?.path;
+    // The memory affordance is rendered only when the LS confirmed an ai:Memory param is wired into the inner agent
+    // (mirrors the model-provider circle). When present, render the same button/card UX as the AGENT_CALL node.
+    const showMemory = Boolean(nodeMetadata?.memoryParam);
+    const memory = nodeMetadata?.memory;
     // The custom agent class's doc-comment description, shown like the system prompt on the AGENT_CALL node.
     const description = nodeMetadata?.agentDescription;
 
@@ -211,6 +284,45 @@ export function AgentTypeNodeWidget(props: AgentTypeNodeWidgetProps) {
         }
         agentNode?.onModelSelect?.(model.node);
     };
+
+    const onMemoryClick = () => {
+        if (readOnly) {
+            return;
+        }
+        agentNode?.onSelectMemoryManager?.(model.node);
+        setMemoryMenuAnchorEl(null);
+    };
+
+    const onMemoryDeleteClick = () => {
+        if (readOnly) {
+            return;
+        }
+        agentNode?.onDeleteMemoryManager?.(model.node);
+        setMemoryMenuAnchorEl(null);
+    };
+
+    const handleOnMemoryMenuClick = (event: React.MouseEvent<HTMLElement | SVGSVGElement>) => {
+        if (readOnly) {
+            return;
+        }
+        event.stopPropagation();
+        setMemoryMenuAnchorEl(event.currentTarget);
+    };
+
+    const handleMemoryContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
+        event.preventDefault();
+        event.stopPropagation();
+        setMemoryMenuAnchorEl(memoryMenuButtonElement || event.currentTarget);
+    };
+
+    const handleMemoryMenuClose = () => {
+        setMemoryMenuAnchorEl(null);
+    };
+
+    const memoryMenuItems: Item[] = [
+        { id: "edit", label: "Edit", onClick: () => onMemoryClick() },
+        { id: "delete", label: "Delete", onClick: () => onMemoryDeleteClick() },
+    ];
 
     const onGoToSource = () => {
         goToSource?.(model.node);
@@ -249,55 +361,105 @@ export function AgentTypeNodeWidget(props: AgentTypeNodeWidgetProps) {
                 title="Configure Agent"
             >
                 <Styles.TopPortWidget port={model.getPort("in")!} engine={engine} />
-                <Styles.Row>
-                    <Styles.Icon onClick={onNodeClick}>
-                        <NodeIcon type={model.node.codedata.node} size={24} />
-                    </Styles.Icon>
-                    <Styles.Header onClick={onNodeClick}>
-                        <Styles.Title>{title}</Styles.Title>
-                        <Styles.Description>{variableName}</Styles.Description>
-                    </Styles.Header>
-                    <Styles.ActionButtonGroup>
-                        {hasError && <DiagnosticsPopUp node={model.node} />}
-                        <Styles.MenuButton
-                            ref={setMenuButtonElement}
-                            buttonSx={readOnly ? { cursor: "not-allowed" } : {}}
-                            appearance="icon"
-                            onClick={handleOnMenuClick}
+                <Styles.Column>
+                    <Styles.Row>
+                        <Styles.Icon onClick={onNodeClick}>
+                            <NodeIcon type={model.node.codedata.node} size={24} />
+                        </Styles.Icon>
+                        <Styles.Header onClick={onNodeClick}>
+                            <Styles.Title>{title}</Styles.Title>
+                            <Styles.Description>{variableName}</Styles.Description>
+                        </Styles.Header>
+                        <Styles.ActionButtonGroup>
+                            {hasError && <DiagnosticsPopUp node={model.node} />}
+                            <Styles.MenuButton
+                                ref={setMenuButtonElement}
+                                buttonSx={readOnly ? { cursor: "not-allowed" } : {}}
+                                appearance="icon"
+                                onClick={handleOnMenuClick}
+                            >
+                                <MoreVertIcon />
+                            </Styles.MenuButton>
+                        </Styles.ActionButtonGroup>
+                        <Popover
+                            open={isMenuOpen}
+                            anchorEl={anchorEl}
+                            handleClose={() => setAnchorEl(null)}
+                            sx={{ padding: 0, borderRadius: 0 }}
                         >
-                            <MoreVertIcon />
-                        </Styles.MenuButton>
-                    </Styles.ActionButtonGroup>
-                </Styles.Row>
-                <Popover
-                    open={isMenuOpen}
-                    anchorEl={anchorEl}
-                    handleClose={() => setAnchorEl(null)}
-                    sx={{ padding: 0, borderRadius: 0 }}
-                >
-                    <Menu>
-                        <>
-                            {menuItems.map((item) => (
-                                <MenuItem key={item.id} item={item} />
-                            ))}
-                        </>
-                    </Menu>
-                </Popover>
-                {description && (
-                    <>
-                        <Styles.Divider />
-                        <Styles.DescriptionBlock readOnly={readOnly} onClick={onNodeClick}>
-                            <Styles.AgentDescription>
-                                <ReactMarkdown
-                                    disallowedElements={["script", "iframe", "object", "embed", "link", "style"]}
-                                    unwrapDisallowed={true}
+                            <Menu>
+                                <>
+                                    {menuItems.map((item) => (
+                                        <MenuItem key={item.id} item={item} />
+                                    ))}
+                                </>
+                            </Menu>
+                        </Popover>
+                    </Styles.Row>
+                    {showMemory && (
+                        <Styles.MemoryContainer>
+                            {memory ? (
+                                <Styles.MemoryCard
+                                    readOnly={readOnly}
+                                    onClick={onMemoryClick}
+                                    title="Configure Memory"
+                                    onContextMenu={!readOnly ? handleMemoryContextMenu : undefined}
                                 >
-                                    {description}
-                                </ReactMarkdown>
-                            </Styles.AgentDescription>
-                        </Styles.DescriptionBlock>
-                    </>
-                )}
+                                    <Styles.Row>
+                                        <div style={{ flex: 1 }}>
+                                            <Styles.MemoryTitle>Memory</Styles.MemoryTitle>
+                                            <Styles.MemoryMeta>
+                                                {(memory?.type || "MessageWindowChatMemory").replace(/^ai:/, "")}
+                                            </Styles.MemoryMeta>
+                                        </div>
+                                        <Styles.MenuButton
+                                            ref={setMemoryMenuButtonElement}
+                                            buttonSx={readOnly ? { cursor: "not-allowed" } : {}}
+                                            appearance="icon"
+                                            onClick={handleOnMemoryMenuClick}
+                                        >
+                                            <MoreVertIcon />
+                                        </Styles.MenuButton>
+                                    </Styles.Row>
+                                </Styles.MemoryCard>
+                            ) : (
+                                <Styles.MemoryButton readOnly={readOnly} onClick={onMemoryClick} title="Add Memory">
+                                    <Icon name="bi-plus" sx={{ fontSize: "16px", marginRight: "4px" }} />
+                                    Add Memory
+                                </Styles.MemoryButton>
+                            )}
+                            <Popover
+                                open={isMemoryMenuOpen}
+                                anchorEl={memoryMenuAnchorEl}
+                                handleClose={handleMemoryMenuClose}
+                                sx={{ padding: 0, borderRadius: 0 }}
+                            >
+                                <Menu>
+                                    <>
+                                        {memoryMenuItems.map((item) => (
+                                            <MenuItem key={item.id} item={item} />
+                                        ))}
+                                    </>
+                                </Menu>
+                            </Popover>
+                        </Styles.MemoryContainer>
+                    )}
+                    {description && (
+                        <>
+                            {!showMemory && <Styles.Divider />}
+                            <Styles.DescriptionBlock readOnly={readOnly} onClick={onNodeClick}>
+                                <Styles.AgentDescription>
+                                    <ReactMarkdown
+                                        disallowedElements={["script", "iframe", "object", "embed", "link", "style"]}
+                                        unwrapDisallowed={true}
+                                    >
+                                        {description}
+                                    </ReactMarkdown>
+                                </Styles.AgentDescription>
+                            </Styles.DescriptionBlock>
+                        </>
+                    )}
+                </Styles.Column>
                 <Styles.BottomPortWidget port={model.getPort("out")!} engine={engine} />
             </Styles.Box>
 
