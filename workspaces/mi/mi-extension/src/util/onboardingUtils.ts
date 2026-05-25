@@ -47,6 +47,7 @@ export const LATEST_MI_VERSION = "4.6.0";
 const COMPATIBLE_JDK_VERSION = "11";
 const miDownloadUrls: { [key: string]: string } = {
     '4.6.0': 'https://mi-distribution.wso2.com/4.6.0/wso2mi-4.6.0.zip',
+    '4.6.0-EULA': 'https://mi-distribution.wso2.com/4.6.0/updated/wso2mi-4.6.0.zip',
     '4.5.0': 'https://mi-distribution.wso2.com/4.5.0/wso2mi-4.5.0.zip',
     '4.4.0-UPDATED': 'https://mi-distribution.wso2.com/4.4.0/wso2mi-4.4.0-UPDATED.zip',
     '4.4.0': 'https://mi-distribution.wso2.com/4.4.0/wso2mi-4.4.0.zip',
@@ -538,7 +539,14 @@ export async function downloadMI(projectUri: string, miVersion: string, isUpdate
         if (!fs.existsSync(miPath)) {
             fs.mkdirSync(miPath, { recursive: true });
         }
-        const miDownloadUrl = isUpdatedPack ? miDownloadUrls[miVersion + '-UPDATED'] : miDownloadUrls[miVersion];
+        let miDownloadUrl: string;
+        if (isUpdatedPack) {
+            miDownloadUrl = miDownloadUrls[miVersion + '-UPDATED'];
+        } else if (miVersion === '4.6.0' && isWso2IntegratorRuntime() && isEulaPack()) {
+            miDownloadUrl = miDownloadUrls['4.6.0-EULA'];
+        } else {
+            miDownloadUrl = miDownloadUrls[miVersion];
+        }
         const zipName = miDownloadUrl.split('/').pop();
         const miDownloadPath = path.join(miPath, zipName!);
 
@@ -1714,6 +1722,22 @@ export function isConsolidatedProject(filePath: string): boolean {
         return match[1].toLowerCase() === 'true';
 
     } catch (error) {
+        return false;
+    }
+}
+
+function isEulaPack(): boolean {
+    try {
+        if (!process.env.WSO2_INTEGRATOR_BALLERINA_HOME) {
+            return false;
+        }
+        const componentsDir = path.join(process.env.WSO2_INTEGRATOR_BALLERINA_HOME, '..');
+        if (!componentsDir) {
+            return false;
+        }
+        return fs.existsSync(path.join(componentsDir, 'distribution.txt')) ||
+            fs.existsSync(path.join(componentsDir, 'distribution'));
+    } catch {
         return false;
     }
 }

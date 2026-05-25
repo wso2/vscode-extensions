@@ -252,9 +252,7 @@ export function Modules(props: ModuleProps) {
                     <div style={{ display: 'flex', justifyContent: 'center', paddingTop: '20px' }}>
                         <ProgressRing />
                     </div>
-                ) : (
-                    <ModuleList />
-                )
+                ) : ModuleList()
             }
         </div >
     );

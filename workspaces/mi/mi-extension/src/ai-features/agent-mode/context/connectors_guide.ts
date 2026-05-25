@@ -49,9 +49,9 @@ noInitializationNeeded? (HIGHEST PRECEDENCE — check this first)
 <localEntry key="EMAIL_CONN" xmlns="http://ws.apache.org/ns/synapse">
     <email.init>
         <connectionType>IMAP</connectionType>
+        <name>EMAIL_CONN</name>
         <host>gmail.com</host>
         <port>993</port>
-        <name>EMAIL_CONN</name>
         <username>joe</username>
     </email.init>
 </localEntry>
@@ -76,10 +76,39 @@ noInitializationNeeded? (HIGHEST PRECEDENCE — check this first)
 5. Connector-specific timeouts (e.g., HTTP \`connectionTimeout\`) override global endpoint timeouts. Set them explicitly for long-running operations.
 6. Variables set by \`responseVariable\` are available immediately after the connector operation in the same flow scope.
 7. Do not use the utility connector unless absolutely necessary.
+
+### 3) Parameter values: dynamic vs static
+Inside a connector operation child element, a value is treated as **static text** unless wrapped in \`{\${ ... }}\`. The outer \`{...}\` is the dynamic-value trigger; the inner \`\${...}\` is the Synapse Expression evaluated at runtime. Bare \`\${...}\` (no outer \`{}\`) is NOT evaluated in connector child elements — it becomes literal characters.
+
+\`\`\`xml
+<!-- WRONG: bare \${...} → literal text "\${vars.objectKey}" sent to S3 -->
+<objectKey>\${vars.objectKey}</objectKey>
+<fileContent>\${payload}</fileContent>
+
+<!-- Static literal — leave bare, no wrapping needed -->
+<bucketName>my-bucket</bucketName>
+
+<!-- RIGHT — single variable/payload reference -->
+<objectKey>{\${vars.objectKey}}</objectKey>
+<fileContent>{\${payload}}</fileContent>
+
+<!-- RIGHT — concat / computed values: keep the whole expression INSIDE \${ ... }
+     so it parses as Synapse Expression Language (SEL). -->
+<bucketName>{\${"prod-" + vars.region}}</bucketName>
+<objectKey>{\${"users/" + vars.userId + "/profile.json"}}</objectKey>
+\`\`\`
+
+Outer \`{...}\` *without* inner \`\${...}\` (e.g. \`{vars.region}\` or \`{"prod-" + vars.region}\`) falls into the legacy XPath branch (\`SynapseXPath\`) and will NOT evaluate as SEL — always keep the inner \`\${...}\`.
+
+This wrapping rule applies to **connector child elements only**. Other XML contexts use different parsers and don't need outer \`{...}\`:
+- Attribute-level expressions on mediators: \`<variable name="x" expression="\${payload.value}"/>\`, \`<filter xpath="\${payload.count > 0}">\` — bare \`\${...}\` evaluated directly.
+- Inline templates inside text: \`<log><message>User \${payload.name}</message></log>\` — bare \`\${...}\` placeholders interpolated.
+
+For deep details on expression contexts, load \`synapse-expression-spec:contexts\`.
 `;
 
 const CONNECTOR_DOCUMENTATION_REVAMPED_RESPONSE_HANDLING = `
-### 3) Revamped response handling (supported only by certain connectors)
+### 4) Revamped response handling (supported only by certain connectors)
 Now some connectors support two additional operation parameters ( ongoing connector improvement by WSO2 team ) :
 1. \`responseVariable\`
     - Stores connector response in a named variable.
@@ -94,7 +123,7 @@ Now some connectors support two additional operation parameters ( ongoing connec
 
 For other connectors, use the older response-handling approach instead.
 
-### 4) Connector Response Structure
+### 5) Connector Response Structure
 When a connector stores its response in a variable (via \`responseVariable\`), the variable is a **Map** with these keys:
 - \`payload\` — the response body (JSON, XML, or text depending on the connector)
 - \`headers\` — response headers as a map
@@ -113,7 +142,7 @@ Access patterns:
 \${vars.myResponse.headers["Content-Type"]}
 \`\`\`
 
-### 5) Error Handling with Connectors
+### 6) Error Handling with Connectors
 - First check for transport errors (e.g. connection timeout, DNS failure) where no HTTP status code exists:
 \`\`\`xml
 <filter xpath="\${not(exists(vars.myResponse.attributes.statusCode))}">
@@ -126,6 +155,7 @@ Access patterns:
     </payloadFactory>
     <respond/>
   </then>
+  <else/>
 </filter>
 \`\`\`
 - Then check for HTTP 4xx/5xx errors when a status code is present:
@@ -140,6 +170,7 @@ Access patterns:
     </payloadFactory>
     <respond/>
   </then>
+  <else/>
 </filter>
 \`\`\`
 - Connectors that don't support \`responseVariable\` replace the message body directly. Use a fault sequence for error handling.

@@ -26,7 +26,7 @@ import { discoverTests, gatherTestItems } from "./discover";
 import { testController } from "./activator";
 import path = require("path");
 import { getProjectRoot } from "./helper";
-import { getServerPath, setJavaHomeInEnvironmentAndPath } from "../debugger/debugHelper";
+import { getServerPath, setJavaHomeInEnvironmentAndPath, promptAndWriteCipherToolPassword } from "../debugger/debugHelper";
 import { TestRunnerConfig } from "./config";
 import { ChildProcess } from "child_process";
 import treeKill = require("tree-kill");
@@ -241,6 +241,12 @@ async function startTestServer(serverPath: string, projectRoot: string, printToO
             const filePath = path.resolve(projectRoot, '.env');
             if (fs.existsSync(filePath)) {
                 loadEnvVariables(filePath)
+            }
+
+            const passwordWritten = await promptAndWriteCipherToolPassword(serverPath);
+            if (!passwordWritten) {
+                reject('Server startup cancelled: cipher tool decrypt password was not provided.');
+                return;
             }
 
             const scriptFile = process.platform === "win32" ? "micro-integrator.bat" : "micro-integrator.sh";

@@ -210,6 +210,7 @@ For the full property reference (70+ properties with exact names, scopes, and us
 
 ## Filter mediator (prefer xpath for new code):
     - The \`xpath\` attribute accepts Synapse Expressions (despite the attribute name). The expression must evaluate to a boolean.
+    - **Always include \`<else>\` (empty if not needed)**. The diagram view renders \`<filter>\` as a two-branch construct; omitting \`<else>\` causes the diagram to show only the Then branch, even though the runtime accepts the bare form. Use \`<else/>\` (self-closing) when there is no else logic — guard / early-return patterns ending in \`<respond/>\` or \`<throwError/>\` still need it for diagram correctness.
 \`\`\`xml
 <filter xpath="\${payload.age &gt; 18}">
     <then>
@@ -218,6 +219,14 @@ For the full property reference (70+ properties with exact names, scopes, and us
     <else>
         <!-- minor flow -->
     </else>
+</filter>
+
+<!-- Guard / early-return — still include empty <else/> for the diagram -->
+<filter xpath="\${not(exists(payload.userId))}">
+    <then>
+        <throwError type="VALIDATION" errorMessage="userId is required"/>
+    </then>
+    <else/>
 </filter>
 \`\`\`
 
@@ -265,7 +274,7 @@ For the full property reference (70+ properties with exact names, scopes, and us
                 <relativePath>/api/pet</relativePath>
                 <headers>[]</headers>
                 <requestBodyType>JSON</requestBodyType>
-                <requestBodyJson>\${payload}</requestBodyJson>
+                <requestBodyJson>{\${payload}}</requestBodyJson>
             </http.post>
         </sequence>
 
@@ -413,6 +422,33 @@ Data mappers transform data between input and output schemas using TypeScript. T
     outputSchema="resources:/datamapper/{name}/{name}_outputSchema.json"
     outputType="JSON"/>
 \`\`\`
+
+## Scheduled Task (\`<task>\`)
+For triggering a sequence/proxy on a schedule. Default class: \`org.apache.synapse.startup.tasks.MessageInjector\`. File path: \`src/main/wso2mi/artifacts/tasks/<Name>.xml\`.
+
+\`\`\`xml
+<task xmlns="http://ws.apache.org/ns/synapse"
+      name="MyTask"
+      class="org.apache.synapse.startup.tasks.MessageInjector"
+      group="synapse.simple.quartz">
+  <trigger cron="0 0/5 * * * ?"/>
+  <!-- or simple trigger: <trigger interval="30" count="-1"/>  (count=-1 = forever) -->
+  <property name="injectTo" value="sequence"/>
+  <property name="sequenceName" value="MySequence"/>
+  <property name="message">
+    <payload xmlns=""><trigger>scheduled</trigger></payload>
+  </property>
+</task>
+\`\`\`
+
+**Required properties** (every \`MessageInjector\` task must have these):
+- \`injectTo\` — \`sequence\` | \`proxy\` | \`main\`
+- \`sequenceName\` (when \`injectTo=sequence\`) or \`proxyName\` (when \`injectTo=proxy\`)
+- **Exactly one** of \`message\` (inline payload, child element wraps the body) or \`registry-key\` (registry path to payload, e.g. \`<property name="registry-key" value="conf:/myMessage"/>\`). Omitting both produces a runtime-broken task even though the XML parses.
+
+**Cron**: Quartz cron — **6+ fields** with seconds first (\`sec min hour dom mon dow [year]\`). \`0 0/5 * * * ?\` = every 5 minutes; \`0 * * * * ?\` = every minute. Not Unix 5-field cron.
+
+For full attribute reference (pinnedServers, format, soapAction, to) and pitfalls, load \`synapse-artifact-reference:scheduled_task\`.
 
 ## Registry Resources
 When creating supportive resources that are needed for the Integration inside src/main/wso2mi/resources, an entry should be added to the src/main/wso2mi/resources/artifact.xml. If an artifact.xml doesn't exist, then create one and add the entry. The format should be as follows:

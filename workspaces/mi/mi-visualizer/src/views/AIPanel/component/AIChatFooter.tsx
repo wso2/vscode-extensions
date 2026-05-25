@@ -725,12 +725,22 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             case "error":
                 clearWorkingOnItTimer();
                 clearWorkingOnItPlaceholder();
-                setMessages((prevMessages) => [...prevMessages, {
-                    id: generateId(),
-                    role: Role.MICopilot,
-                    content: `Error: ${event.error || "An error occurred"}`,
-                    type: MessageType.Error
-                }]);
+                setMessages((prevMessages) => {
+                    // Guard against the opposite arrival order: if the rejected
+                    // sendAgentMessage RPC already converted the in-progress
+                    // assistant message into a terminal Error, don't push a
+                    // second Error card from this streaming event.
+                    const lastIdx = prevMessages.length - 1;
+                    if (lastIdx >= 0 && prevMessages[lastIdx].type === MessageType.Error) {
+                        return prevMessages;
+                    }
+                    return [...prevMessages, {
+                        id: generateId(),
+                        role: Role.MICopilot,
+                        content: `Error: ${event.error || "An error occurred"}`,
+                        type: MessageType.Error
+                    }];
+                });
                 setBackendRequestTriggered(false);
                 setToolStatus("");
                 break;
@@ -1298,11 +1308,17 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 console.error("Error sending agent message (stale run, suppressed UI):", error);
             } else {
                 setMessages((prevMessages) => {
+                    // Skip if the streaming 'error' event already surfaced this failure
+                    // as a terminal Error message. Without this guard the rejected RPC
+                    // appends the same text to that message, producing "Error: X.X."
+                    const lastIdx = prevMessages.length - 1;
+                    if (lastIdx >= 0 && prevMessages[lastIdx].type === MessageType.Error) {
+                        return prevMessages;
+                    }
                     const newMessages = [...prevMessages];
-                    const lastIdx = newMessages.length - 1;
                     const cleanedContent = removeWorkingOnItToolCallTag(newMessages[lastIdx].content);
                     newMessages[lastIdx].content = cleanedContent + errorMessage;
-                    newMessages[newMessages.length - 1].type = MessageType.Error;
+                    newMessages[lastIdx].type = MessageType.Error;
                     return newMessages;
                 });
                 console.error("Error sending agent message:", error);

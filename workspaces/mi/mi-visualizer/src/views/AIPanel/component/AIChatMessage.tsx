@@ -39,6 +39,7 @@ import TodoListSegment from "./TodoListSegment";
 import BashOutputSegment from "./BashOutputSegment";
 import CompactSummarySegment from "./CompactSummarySegment";
 import ThinkingSegment from "./ThinkingSegment";
+import ErrorSegment from "./ErrorSegment";
 
 // Styled markdown container
 const StyledMarkdown = styled.div`
@@ -346,11 +347,7 @@ const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
             } else if (segment.isThinking) {
                 return <ThinkingSegment key={i} text={segment.text} loading={segment.loading} />;
             } else if (message.type === "Error") {
-                return (
-                    <div style={{ color: "red", marginTop: "10px" }} key={i}>
-                        {segment.text}
-                    </div>
-                );
+                return <ErrorSegment key={i} text={segment.text} />;
             } else {
                 return <MarkdownRenderer key={i} markdownContent={segment.text} />;
             }

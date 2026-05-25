@@ -24,20 +24,28 @@ import { RPCLayer } from '../RPCLayer';
 import { extension } from '../MIExtensionContext';
 import { StateMachineAI } from './aiMachine';
 import { AI_EVENT_TYPE } from '@wso2/mi-core';
+import { disposeProjectResourcesIfOrphaned } from '../util/projectResources';
 
 export class AiPanelWebview {
     public static currentPanel: AiPanelWebview | undefined;
     public static readonly viewType = 'micro-integrator.ai-panel';
-    private static webviewName: string = 'AIPanel';
     private _panel: vscode.WebviewPanel | undefined;
     private _disposables: vscode.Disposable[] = [];
+    private projectUri: string | undefined;
 
     constructor() {
         this._panel = AiPanelWebview.createWebview();
         this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
         this._panel.webview.html = this.getWebviewContent(this._panel.webview);
         // TODO: Fix projectUri handling for multiple workspaces
-        RPCLayer.create(this._panel, workspace.workspaceFolders?.[0].uri.fsPath!);
+        this.projectUri = workspace.workspaceFolders?.[0].uri.fsPath;
+        RPCLayer.create(this._panel, this.projectUri!);
+    }
+
+    // Sibling-cleanup check used by other panels' dispose paths to avoid
+    // tearing down shared per-project resources while the AI panel is alive.
+    public static isOpenForProject(projectUri: string): boolean {
+        return AiPanelWebview.currentPanel?.projectUri === projectUri;
     }
 
     private static createWebview(): vscode.WebviewPanel {
@@ -115,7 +123,13 @@ export class AiPanelWebview {
             }
         }
 
-        RPCLayer._messengers.delete(AiPanelWebview.webviewName);
+        // The per-project state machines and shared messenger are reused by sibling
+        // webviews (visualizer, runtime services panel). Delegate cleanup to the helper
+        // which self-skips while siblings remain — whichever panel closes last performs
+        // the teardown.
+        if (this.projectUri) {
+            disposeProjectResourcesIfOrphaned(this.projectUri);
+        }
         this._panel = undefined;
     }
 }
