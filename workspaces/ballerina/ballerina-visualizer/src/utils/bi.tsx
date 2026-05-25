@@ -363,6 +363,29 @@ function enrichModelProviderField(formField: FormField, property: Property): voi
     formField.codedata = { ...(formField.codedata || {}), searchNodesKind: MODEL_PROVIDER_SEARCH_KIND };
 }
 
+const NEW_CONNECTION_SEARCH_KIND = "NEW_CONNECTION";
+
+// Render an editable client-connection param as the connection-select editor — existing connections of that exact
+// type + "Create New ...". The LS marks such a param by stashing the backing connector's codedata under
+// `codedata.data.connection`; that object rides along on formField.codedata for the create-new flow.
+function enrichClientConnectionField(formField: FormField, property: Property): void {
+    if (!property.codedata?.data?.connection || !formField.editable) {
+        return;
+    }
+    const connectionType = property.types?.find((t) => t.ballerinaType)?.ballerinaType;
+    const expressionMode = isInlineExpressionValue(formField.value);
+    formField.type = expressionMode ? "EXPRESSION" : "ACTION_EXPRESSION";
+    formField.types = [
+        { fieldType: "ACTION_EXPRESSION", ballerinaType: connectionType, selected: !expressionMode },
+        { fieldType: "EXPRESSION", selected: expressionMode },
+    ] as InputType[];
+    formField.codedata = {
+        ...(formField.codedata || {}),
+        searchNodesKind: NEW_CONNECTION_SEARCH_KIND,
+        connectionType,
+    };
+}
+
 export function convertNodePropertyToFormField(
     key: string,
     property: Property,
@@ -393,6 +416,7 @@ export function convertNodePropertyToFormField(
         imports: property.imports
     };
     enrichModelProviderField(formField, property);
+    enrichClientConnectionField(formField, property);
     return formField;
 }
 

@@ -75,9 +75,13 @@ export const ConnectionSelectEditor: React.FC<ConnectionSelectEditorProps> = ({ 
     const { targetLineRange, fileName, onCreateConnection } = useFormContext();
 
     const searchNodesKind = field.codedata?.searchNodesKind;
+    // A generic client-connection field also carries the required type; narrow the search and key the cache by it
+    // so different client types sharing kind "NEW_CONNECTION" don't collide.
+    const connectionType = field.codedata?.connectionType;
+    const cacheKey = connectionType ? `${searchNodesKind}:${connectionType}` : searchNodesKind;
     const initialItems: ConnectionSelectItem[] = field.codedata?.initialItems ?? [];
     const staticItems: ConnectionSelectItem[] = field.codedata?.staticItems ?? [];
-    const cachedItems = searchNodesKind ? itemsCache.get(searchNodesKind) : undefined;
+    const cachedItems = cacheKey ? itemsCache.get(cacheKey) : undefined;
     const resolvedItems = [...staticItems, ...(cachedItems ?? enrichWithCachedIcons(initialItems))];
     const [selectItems, setSelectItems] = useState<ConnectionSelectItem[]>(
         ensureValueInItems(resolvedItems, value, searchNodesKind)
@@ -87,13 +91,13 @@ export const ConnectionSelectEditor: React.FC<ConnectionSelectEditorProps> = ({ 
     const fetchItems = () => {
         if (!searchNodesKind) return;
         // Show loading only if we have no cached items to display
-        if (!itemsCache.has(searchNodesKind)) {
+        if (!itemsCache.has(cacheKey)) {
             setLoading(true);
         }
         rpcClient.getBIDiagramRpcClient().searchNodes({
             filePath: fileName,
             position: targetLineRange.startLine,
-            queryMap: { kind: searchNodesKind }
+            queryMap: { kind: searchNodesKind, ...(connectionType ? { connectionType } : {}) }
         }).then((response) => {
             const nodes = response?.output ?? [];
             const items: ConnectionSelectItem[] = nodes
@@ -112,7 +116,7 @@ export const ConnectionSelectEditor: React.FC<ConnectionSelectEditorProps> = ({ 
                         iconUrl,
                     };
                 });
-            itemsCache.set(searchNodesKind, items);
+            itemsCache.set(cacheKey, items);
             setSelectItems([...staticItems, ...items]);
         }).finally(() => {
             setLoading(false);
@@ -121,20 +125,26 @@ export const ConnectionSelectEditor: React.FC<ConnectionSelectEditorProps> = ({ 
 
     useEffect(() => {
         fetchItems();
-    }, [searchNodesKind, fileName]);
+    }, [searchNodesKind, connectionType, fileName]);
 
     // When value changes to something not in the current items (e.g. after creating
     // a new connection via an overlay), inject a placeholder and re-fetch
     useEffect(() => {
         if (!value || selectItems.some(item => item.value === value)) return;
         setSelectItems(prev => ensureValueInItems(prev, value, searchNodesKind));
-        if (searchNodesKind) {
-            itemsCache.delete(searchNodesKind);
+        if (cacheKey) {
+            itemsCache.delete(cacheKey);
         }
         fetchItems();
     }, [value]);
 
     const showCreateNew = !!onCreateConnection && !!searchNodesKind && field.editable;
+    // The LS stashes the backing connector's complete codedata (org/module/object/version/symbol + isGenerated:false,
+    // the latter required so NewConnectionBuilder.toSource emits the import) under data.connection; pass it through.
+    const connectorCodeData = field.codedata?.data?.connection as CodeData | undefined;
+    const createNewLabel = connectionType
+        ? field.label || "Connection"
+        : humanizeKind(searchNodesKind);
 
     return (
         <>
@@ -149,11 +159,15 @@ export const ConnectionSelectEditor: React.FC<ConnectionSelectEditorProps> = ({ 
             />
             {showCreateNew && (
                 <LinkButton
-                    onClick={() => onCreateConnection(searchNodesKind, (varName) => onChange(varName, varName?.length))}
+                    onClick={() => onCreateConnection(
+                        searchNodesKind,
+                        (varName) => onChange(varName, varName?.length),
+                        connectorCodeData
+                    )}
                     sx={{ padding: "4px 6px", margin: 0, marginTop: "6px", fontSize: "13px" }}
                 >
                     <Codicon name="add" />
-                    {`Create New ${humanizeKind(searchNodesKind)}`}
+                    {`Create New ${createNewLabel}`}
                 </LinkButton>
             )}
         </>
