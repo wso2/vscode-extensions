@@ -18,7 +18,7 @@
 
 import { useContext } from "react";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
-import { FlowNode, LineRange } from "@wso2/ballerina-core";
+import { CodeData, FlowNode, LineRange } from "@wso2/ballerina-core";
 import { PanelOverlayContext } from "../../views/BI/FlowDiagram/context/PanelOverlayContext";
 import { getNodeTemplateForConnection } from "../../views/BI/FlowDiagram/utils";
 import { useModalStack } from "../../Context";
@@ -51,7 +51,71 @@ export function useCreateConnection(
         onCreated(variableName);
     };
 
-    return (kind: string, onCreated: (variableName: string) => void) => {
+    // Generic client connection (e.g. calendar:Client): the standard connector creation form, pre-scoped to the
+    // connector this field needs. The new connection's variable is read from the created artifact (not the AI
+    // `model`/`modelProvider` property).
+    const createGenericConnection = async (connectorCodeData: CodeData, onCreated: (variableName: string) => void) => {
+        const title = `Create ${connectorCodeData.object || "Connection"}`;
+        const dummyNode = { codedata: {}, properties: {} } as unknown as FlowNode;
+        const renderCreator = (flowNode: FlowNode, close: () => void) => (
+            <ConnectionCreator
+                connectionKind={(connectorCodeData.node || "NEW_CONNECTION") as ConnectionKind}
+                selectedNode={dummyNode}
+                nodeFormTemplate={flowNode}
+                onSave={(_node, artifacts) => {
+                    const created = artifacts?.find((artifact) => artifact.isNew);
+                    if (created?.name) {
+                        handleCreated(created.name, onCreated);
+                    }
+                    close();
+                }}
+            />
+        );
+        const fetchTemplate = async (): Promise<FlowNode> => {
+            const response = await rpcClient.getBIDiagramRpcClient().getNodeTemplate({
+                position: targetLineRange?.startLine || { line: 0, offset: 0 },
+                filePath: fileName,
+                id: connectorCodeData,
+            });
+            return response.flowNode;
+        };
+
+        if (panelOverlay) {
+            const createId = panelOverlay.openOverlay({
+                title,
+                content: (
+                    <LoaderContainer>
+                        <RelativeLoader />
+                    </LoaderContainer>
+                ),
+                onBack: panelOverlay.closeTopOverlay,
+            });
+            try {
+                const flowNode = await fetchTemplate();
+                panelOverlay.updateOverlay(createId, {
+                    content: renderCreator(flowNode, panelOverlay.clearAllOverlays),
+                });
+            } catch (error) {
+                console.error("Error preparing connection creation:", error);
+                panelOverlay.closeTopOverlay();
+            }
+            return;
+        }
+
+        const modalId = `create-connection-${connectorCodeData.org}-${connectorCodeData.object}`;
+        try {
+            const flowNode = await fetchTemplate();
+            addModal(renderCreator(flowNode, () => closeModal(modalId)), modalId, title, 600, 520);
+        } catch (error) {
+            console.error("Error preparing connection creation:", error);
+        }
+    };
+
+    return (kind: string, onCreated: (variableName: string) => void, connectorCodeData?: CodeData) => {
+        if (connectorCodeData) {
+            createGenericConnection(connectorCodeData, onCreated);
+            return;
+        }
         const connectionKind = kind as ConnectionKind;
         const displayName = getConnectionKindDisplayName(connectionKind);
 

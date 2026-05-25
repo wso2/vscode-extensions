@@ -127,6 +127,10 @@ export const fetchConnectionValueForNode = async (
 
 export const updateNodeWithConnectionVariable = (connectionKind: ConnectionKind, selectedNode: FlowNode, connectionVariable: string): void => {
     const config = getConnectionKindConfig(connectionKind);
+    // Generic client connections aren't one of the AI kinds; the new variable is read from the created artifact.
+    if (!config) {
+        return;
+    }
     const propertyKey = getValidPropertyKey(selectedNode, config.nodePropertyKey) || (Array.isArray(config.nodePropertyKey) ? config.nodePropertyKey[0] : config.nodePropertyKey);
     const property = selectedNode.properties[propertyKey as keyof typeof selectedNode.properties];
 

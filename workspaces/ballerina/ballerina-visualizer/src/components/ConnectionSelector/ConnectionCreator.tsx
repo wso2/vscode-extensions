@@ -112,7 +112,11 @@ export function ConnectionCreator(props: ConnectionCreatorProps): JSX.Element {
         try {
             const response = await rpcClient
                 .getBIDiagramRpcClient()
-                .getSourceCode({ filePath: projectPath.current, flowNode: nodeTemplate });
+                .getSourceCode({
+                    filePath: projectPath.current,
+                    flowNode: nodeTemplate,
+                    isConnector: nodeTemplate?.codedata?.node === "NEW_CONNECTION",
+                });
             // Update the selected node with the new connection variable
             updateNodeWithConnectionVariable(connectionKind, selectedNode, nodeTemplate?.properties?.variable?.value as string);
             // Update the line range for the selected node if it was updated
