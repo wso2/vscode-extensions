@@ -62,7 +62,6 @@ export async function addToIntegration(workspaceFolderPath: string, fileChanges:
             ),
             fileChange.content
         );
-
     }
 
     // Apply all formatted changes at once

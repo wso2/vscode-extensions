@@ -75,6 +75,7 @@ export function createGlobExecute(
         }
 
         const validation = validateSearchPath(tempProjectPath, searchPath, roots, { requireDirectory: true });
+
         if (validation.ok === false) {
             return fail(validation.message, validation.error);
         }
@@ -136,17 +137,14 @@ export function createGlobExecute(
 export function createGlobTool(execute: (input: GlobInput) => Promise<GlobResult>) {
     return tool({
         description: `
-Fast file pattern matching tool that work inside the Ballerina projects.
-- Supports glob patterns like \`**/*.bal\`, \`modules/**/*.bal\`, \`Ballerina.toml\`, \`**/*.{bal,toml}\`, \`resources/**/*\`
+Fast file pattern matching tool
 - Returns matching file paths
 - Use this tool when you need to find files by name or path patterns
 - It is always better to speculatively perform multiple searches as a batch that are potentially useful.
 `,
         inputSchema: z.object({
             pattern: z.string().describe(
-                "The glob pattern to match files against.\n" +
-                "ALLOWED patterns: **/*.bal, **/*.toml, Ballerina.toml, **/*.{bal,toml}, modules/**/*.bal, tests/**/*.bal, resources/**/*,  modules/*/main.bal, **/*_test.bal, modules/**/*.{bal,toml}, **/*.[bt]al, [Mm]ain.bal\n" +
-                "DO NOT use: nested braces like {bal,{toml,json}} (use simple list like {bal,toml}), escaped characters like \\*, negation patterns like !**/*.bal"
+                "The glob pattern to match files against."
             ),
             path: z.string().optional().describe(
                 "The directory to search in. If not specified, the current working directory will be used. IMPORTANT: Omit this field to use the default directory. DO NOT enter \"undefined\" or \"null\" - simply omit it for the default behavior. Must be a valid directory path if provided."

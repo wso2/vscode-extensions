@@ -161,8 +161,8 @@ export function createGrepExecute(
             args.push(...DEFAULT_GLOB_ARGS);
         }
 
-        // Always exclude common non-source directories
-        args.push('--glob', '!.git/**', '--glob', '!target/**');
+        // Always exclude common non-source directories and sensitive config files
+        args.push('--glob', '!.git/**', '--glob', '!target/**', '--glob', '!Config.toml');
 
         args.push('--', pattern, resolvedPath);
 
@@ -216,11 +216,11 @@ export function createGrepExecute(
 export function createGrepTool(execute: (input: GrepInput) => Promise<GrepResult>) {
     return tool({
         description: `
-A powerful search tool optimized for Ballerina source code. Uses ripgrep for fast pattern matching.
+A powerful search tool build on ripgrep.
 Usage:
- - ALWAYS use Grep for search tasks. NEVER invoke \`grep\` as a Bash command. The Grep tool has been optimized for correct permissions and access.
- - Supports full ripgrep regex syntax (e.g., \`error.*message\`, \`function\\s+\\w+\`)
- - Filter files with glob parameter (e.g., \`*.bal\`, \`**/*.bal\`)
+ - ALWAYS use Grep for search tasks. NEVER invoke \`grep\` as a Bash command.
+ - Supports full ripgrep regex syntax
+ - Filter files with glob parameter
  - Output modes: "content" shows matching lines, "files_with_matches" shows only file paths (default), "count" shows match counts
  - Multiline matching: By default patterns match within single lines only. For cross-line patterns, use \`multiline: true\`
 `,
