@@ -74,7 +74,7 @@ export function createGlobExecute(
             return fail('Glob pattern cannot be empty.', 'Error: Empty pattern');
         }
 
-        const validation = validateSearchPath(tempProjectPath, searchPath, roots, { requireDirectory: true });
+        const validation = validateSearchPath(tempProjectPath, searchPath, { requireDirectory: true });
 
         if (validation.ok === false) {
             return fail(validation.message, validation.error);

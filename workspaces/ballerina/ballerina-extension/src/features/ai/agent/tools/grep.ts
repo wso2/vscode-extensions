@@ -112,7 +112,7 @@ export function createGrepExecute(
             return fail('Search pattern cannot be empty.', 'Error: Empty pattern');
         }
 
-        const validation = validateSearchPath(tempProjectPath, searchPath, roots);
+        const validation = validateSearchPath(tempProjectPath, searchPath);
         if (validation.ok === false) {
             return fail(validation.message, validation.error);
         }
