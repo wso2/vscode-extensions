@@ -16,27 +16,9 @@
 
 import { tool } from 'ai';
 import { z } from 'zod';
-import * as path from 'path';
-import * as fs from 'fs';
 import { spawnSync } from 'child_process';
-import { rgPath as builtinRgPath } from '@vscode/ripgrep';
 import { CopilotEventHandler } from '../../utils/events';
-
-// ============================================================================
-// Helpers
-// ============================================================================
-
-function getRgExecutable(): string {
-    if (fs.existsSync(builtinRgPath)) {
-        return builtinRgPath;
-    }
-    // Fall back to system rg (e.g. in test environments where the bundled binary is not downloaded)
-    const result = spawnSync('which', ['rg'], { encoding: 'utf-8' });
-    if (result.status === 0 && result.stdout?.trim()) {
-        return result.stdout.trim();
-    }
-    return builtinRgPath;
-}
+import { getRgExecutable, resolveProjectRoots, validateSearchPath, stripRootPrefix } from './utils/rg-utils';
 
 // ============================================================================
 // Constants
@@ -95,12 +77,13 @@ export function createGrepExecute(
     eventHandler: CopilotEventHandler,
     tempProjectPath: string
 ) {
-    // Resolve symlinks on the project root once at setup time.
-    // Keep both the real and raw roots so a symlinked tempProjectPath doesn't cause false-positives.
-    const realProjectRoot = (() => {
-        try { return fs.realpathSync(tempProjectPath); } catch { return tempProjectPath; }
-    })();
-    const normalizedRoot = realProjectRoot + path.sep;
+    const roots = resolveProjectRoots(tempProjectPath);
+
+    function fail(message: string, error: string): GrepResult {
+        const result: GrepResult = { success: false, message, error };
+        eventHandler({ type: "tool_result", toolName: GREP_TOOL_NAME, toolOutput: result });
+        return result;
+    }
 
     return async (input: GrepInput): Promise<GrepResult> => {
         const {
@@ -126,45 +109,14 @@ export function createGrepExecute(
         console.log(`[GrepTool] Searching for pattern: "${pattern}" in ${searchPath || '.'}, glob: ${globPattern || 'default'}, mode: ${output_mode}`);
 
         if (!pattern || pattern.trim().length === 0) {
-            const result: GrepResult = { success: false, message: 'Search pattern cannot be empty.', error: 'Error: Empty pattern' };
-            eventHandler({ type: "tool_result", toolName: GREP_TOOL_NAME, toolOutput: result });
-            return result;
+            return fail('Search pattern cannot be empty.', 'Error: Empty pattern');
         }
 
-        // Resolve and validate search path.
-        const resolvedPath = searchPath
-            ? path.resolve(tempProjectPath, searchPath)
-            : tempProjectPath;
-
-        const rel = path.relative(tempProjectPath, resolvedPath);
-        if (rel.startsWith('..') || path.isAbsolute(rel)) {
-            const result: GrepResult = { success: false, message: 'Search path must be within the project root.', error: 'Error: Path traversal detected' };
-            eventHandler({ type: "tool_result", toolName: GREP_TOOL_NAME, toolOutput: result });
-            return result;
+        const validation = validateSearchPath(tempProjectPath, searchPath, roots);
+        if (validation.ok === false) {
+            return fail(validation.message, validation.error);
         }
-
-        if (searchPath && !fs.existsSync(resolvedPath)) {
-            const result: GrepResult = { success: false, message: `Path not found: ${searchPath}`, error: 'Error: Path not found' };
-            eventHandler({ type: "tool_result", toolName: GREP_TOOL_NAME, toolOutput: result });
-            return result;
-        }
-
-        // Re-validate after resolving symlinks — catches in-project symlinks pointing outside.
-        if (searchPath) {
-            let realResolvedPath: string;
-            try {
-                realResolvedPath = fs.realpathSync(resolvedPath);
-            } catch {
-                const result: GrepResult = { success: false, message: `Cannot resolve search path: ${searchPath}`, error: 'Error: Path resolution failed' };
-                eventHandler({ type: "tool_result", toolName: GREP_TOOL_NAME, toolOutput: result });
-                return result;
-            }
-            if (realResolvedPath !== realProjectRoot && !realResolvedPath.startsWith(normalizedRoot)) {
-                const result: GrepResult = { success: false, message: 'Search path must be within the project root.', error: 'Error: Symlink traversal detected' };
-                eventHandler({ type: "tool_result", toolName: GREP_TOOL_NAME, toolOutput: result });
-                return result;
-            }
-        }
+        const { resolvedPath } = validation;
 
         // Build ripgrep args
         const args: string[] = ['--engine', 'default'];
@@ -210,7 +162,7 @@ export function createGrepExecute(
         }
 
         // Always exclude common non-source directories
-        args.push('--glob', '!.git/**', '--glob', '--glob', '!target/**');
+        args.push('--glob', '!.git/**', '--glob', '!target/**');
 
         args.push('--', pattern, resolvedPath);
 
@@ -234,18 +186,7 @@ export function createGrepExecute(
 
         // Make paths relative to project root (always strip from tempProjectPath, not resolvedPath,
         // so scoped searches like path:'order_service' still return 'order_service/file.bal')
-        const rootPrefix = tempProjectPath.endsWith(path.sep) ? tempProjectPath : tempProjectPath + path.sep;
-        lines = lines.map(line => {
-            if (line.startsWith(rootPrefix)) {
-                // e.g. "/project/order_service/file.bal:42:..." -> "order_service/file.bal:42:..."
-                return line.slice(rootPrefix.length);
-            }
-            if (line.startsWith(tempProjectPath + ':')) {
-                // e.g. "/project:42:..." -> "42:..." (skip path and the colon separator)
-                return line.slice(tempProjectPath.length + 1);
-            }
-            return line;
-        });
+        lines = lines.map(line => stripRootPrefix(line, roots.normalizedRawRoot, tempProjectPath));
 
         // head_limit > 0 caps output; head_limit = 0 means unlimited.
         const effectiveLimit = head_limit > 0 ? head_limit : 0;
