@@ -29,7 +29,7 @@ module.exports = {
         if (deps['esbuild']) deps['esbuild'] = '0.25.12';
         if (deps['lodash']) deps['lodash'] = '4.18.0';
         if (deps['qs']) deps['qs'] = '6.14.2';
-        if (deps['hono']) deps['hono'] = '4.12.16'; // CVE-2026-44455 (JSX injection), CVE-2026-44456 (bodyLimit bypass)
+        if (deps['hono']) deps['hono'] = '4.12.18'; // CVE-2026-44455 (JSX injection), CVE-2026-44456 (bodyLimit bypass)
         if (deps['@hono/node-server']) deps['@hono/node-server'] = '1.19.13';
         if (deps['@tootallnate/once']) deps['@tootallnate/once'] = '3.0.1';
         if (deps['dompurify']) deps['dompurify'] = '3.4.0'; // security fix: XSS vulnerability
@@ -49,12 +49,13 @@ module.exports = {
         if (deps['tmp']) deps['tmp'] = '0.2.4'; // security fix
         if (deps['undici']) deps['undici'] = '7.24.0'; // security fix: header injection
         if (deps['uuid']) deps['uuid'] = '14.0.0'; // security fix
+        if (deps['@nevware21/ts-utils']) deps['@nevware21/ts-utils'] = '0.14.0'; // security fix: CVE-2026-46681 (prototype pollution)
         if (deps['protobufjs']) {
           const currentVersion = deps['protobufjs'];
           if (currentVersion.startsWith('^8') || currentVersion.startsWith('8')) {
-            deps['protobufjs'] = '8.0.1';
+            deps['protobufjs'] = '8.2.0'; // security fix: CVE-2026-45740 (DoS via recursive JSON descriptor expansion)
           } else {
-            deps['protobufjs'] = '7.5.5';
+            deps['protobufjs'] = '7.5.8'; // security fix: CVE-2026-45740 (DoS via recursive JSON descriptor expansion)
           }
         }
         if (deps['vite']) deps['vite'] = '6.0.14';
@@ -97,7 +98,7 @@ module.exports = {
           } else if (currentVersion.startsWith('^3') || currentVersion.startsWith('3')) {
             newVersion = '3.0.2';
           } else if (currentVersion.startsWith('^5') || currentVersion.startsWith('5')) {
-            newVersion = '5.0.5';
+            newVersion = '5.0.6'; // security fix: CVE-2026-45149 (DoS numeric range)
           } else {
             context.log(`Unexpected brace-expansion version: ${currentVersion}`);
             newVersion = currentVersion;

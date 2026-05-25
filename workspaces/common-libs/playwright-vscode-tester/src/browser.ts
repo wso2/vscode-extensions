@@ -82,7 +82,6 @@ export class VSBrowser {
         let defaultSettings = {
             "workbench.editor.enablePreview": false,
             "workbench.startupEditor": "none",
-            "workbench.welcomePage.experimentalOnboarding": false,
             "window.titleBarStyle": "custom",
             "window.commandCenter": false,
             "window.dialogStyle": "custom",
@@ -101,7 +100,8 @@ export class VSBrowser {
             "ballerina.traceLog": true,
             "ballerina.enableTelemetry": true,
             "ballerina.debugLog": true,
-            "ballerina-vscode.trace.server": "verbose"
+            "ballerina-vscode.trace.server": "verbose",
+            "workbench.welcomePage.experimentalOnboarding": false
         };
         if (Object.keys(this.customSettings).length > 0) {
             console.log('Detected user defined code settings');
