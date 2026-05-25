@@ -144,17 +144,11 @@ export function validateSearchPath(
 /**
  * Strips the absolute project root prefix from a ripgrep output line so paths
  * are relative to the project root.
- *
- * Handles two forms:
- *  - "/project/pkg/file.bal:42:..."  →  "pkg/file.bal:42:..."
- *  - "/project/file.bal:42:..."      →  "file.bal:42:..."  (root-level file)
  */
 export function stripRootPrefix(line: string, rootPrefix: string, tempProjectPath: string): string {
     if (line.startsWith(rootPrefix)) {
         return line.slice(rootPrefix.length);
     }
-    // Edge case: rg omits the trailing sep when the searched path is a single
-    // root-level file, so the line starts with the bare project path + ':'.
     if (line.startsWith(tempProjectPath + ':')) {
         return line.slice(tempProjectPath.length + 1);
     }

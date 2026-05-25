@@ -488,10 +488,10 @@ export const testCasesForCodeIndexing = [
 ];
 
 export let testCases = [];
-// testCases.push(...initialTestCases);
-// testCases.push(...httpTestCases);
-// testCases.push(...textEditSpecializedTestCases);
-// testCases.push(...testCasesForExistingProject);
-// testCases.push(...testCasesForExistingSemanticErrors);
-// testCases.push(...langlibTestCases);
+testCases.push(...initialTestCases);
+testCases.push(...httpTestCases);
+testCases.push(...textEditSpecializedTestCases);
+testCases.push(...testCasesForExistingProject);
+testCases.push(...testCasesForExistingSemanticErrors);
+testCases.push(...langlibTestCases);
 testCases.push(...testCasesForCodeIndexing);
