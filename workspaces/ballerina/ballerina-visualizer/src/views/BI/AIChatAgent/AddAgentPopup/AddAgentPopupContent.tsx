@@ -34,12 +34,14 @@ import {
     AgentsGrid,
     ArrowIcon,
     CreateAgentOptions,
+    EmptyState,
     FilterButton,
     FilterButtons,
     FormContainer,
     IntroText,
     LoaderWrapper,
     PopupContent,
+    ResultsSection,
     Section,
     SectionHeader,
     SectionHeaderRight,
@@ -51,7 +53,7 @@ import {
 // Pre-built agent declarations are written to the project's dedicated agents file.
 const AGENT_FILE_NAME = "agents.bal";
 
-type AgentFilter = "All" | "Local" | "Organization";
+type AgentFilter = "All" | "Project" | "Organization";
 // "scratch" = define a new agent from scratch; "configure" = initialize a selected pre-built agent.
 export type AddAgentView = "gallery" | "scratch" | "configure";
 
@@ -65,7 +67,7 @@ export interface AddAgentPopupContentProps {
 // Maps a UI filter tab to the backend AgentSearchCommand `source` parameter.
 const FILTER_TO_SOURCE: Record<AgentFilter, string> = {
     All: "all",
-    Local: "local",
+    Project: "local",
     Organization: "organization",
 };
 
@@ -76,7 +78,7 @@ export function AddAgentPopupContent(props: AddAgentPopupContentProps) {
     const [filterType, setFilterType] = useState<AgentFilter>("All");
     const [agents, setAgents] = useState<AvailableNode[]>([]);
     const [isSearching, setIsSearching] = useState<boolean>(false);
-    // "Local" agents come from sibling projects in the workspace, so the tab is only relevant in a workspace.
+    // "Project" agents come from sibling projects in the workspace, so the tab is only relevant in a workspace.
     const [isWorkspace, setIsWorkspace] = useState<boolean>(false);
 
     useEffect(() => {
@@ -91,7 +93,7 @@ export function AddAgentPopupContent(props: AddAgentPopupContentProps) {
                 );
             })
             .catch(() => {
-                // Treat detection failures as a single project (hide the Local tab).
+                // Treat detection failures as a single project (hide the Project tab).
             });
         return () => {
             cancelled = true;
@@ -308,7 +310,7 @@ export function AddAgentPopupContent(props: AddAgentPopupContentProps) {
                 </CreateAgentOptions>
             </Section>
 
-            <Section>
+            <ResultsSection>
                 <SectionHeader>
                     <SectionTitle variant="h4">Pre-built Agents</SectionTitle>
                     <SectionHeaderRight>
@@ -321,10 +323,10 @@ export function AddAgentPopupContent(props: AddAgentPopupContentProps) {
                             </FilterButton>
                             {isWorkspace && (
                                 <FilterButton
-                                    active={filterType === "Local"}
-                                    onClick={() => setFilterType("Local")}
+                                    active={filterType === "Project"}
+                                    onClick={() => setFilterType("Project")}
                                 >
-                                    Local
+                                    Project
                                 </FilterButton>
                             )}
                             <FilterButton
@@ -340,6 +342,14 @@ export function AddAgentPopupContent(props: AddAgentPopupContentProps) {
                     <LoaderWrapper>
                         <RelativeLoader />
                     </LoaderWrapper>
+                ) : agents.length === 0 ? (
+                    <EmptyState>
+                        {filterType === "Project"
+                            ? "No agents found in this project."
+                            : filterType === "Organization"
+                            ? "No agents found in your organization."
+                            : "No agents found."}
+                    </EmptyState>
                 ) : (
                     <AgentsGrid>
                         {agents.map((agent) => {
@@ -358,7 +368,7 @@ export function AddAgentPopupContent(props: AddAgentPopupContentProps) {
                         })}
                     </AgentsGrid>
                 )}
-            </Section>
+            </ResultsSection>
         </PopupContent>
     );
 }

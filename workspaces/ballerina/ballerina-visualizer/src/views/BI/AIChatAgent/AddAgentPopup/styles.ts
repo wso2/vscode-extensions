@@ -41,7 +41,18 @@ export const LoaderWrapper = styled.div`
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100%;
+    flex: 1;
+`;
+
+export const EmptyState = styled.div`
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 16px;
+    text-align: center;
+    color: var(--vscode-descriptionForeground);
+    font-size: 13px;
 `;
 
 export const Footer = styled.div`
@@ -78,6 +89,11 @@ export const Section = styled.div`
     display: flex;
     flex-direction: column;
     gap: 12px;
+`;
+
+// Pre-built agents section: fills the remaining popup height so the loader / empty state center vertically.
+export const ResultsSection = styled(Section)`
+    flex: 1;
 `;
 
 export const SectionTitle = styled(Typography)`
