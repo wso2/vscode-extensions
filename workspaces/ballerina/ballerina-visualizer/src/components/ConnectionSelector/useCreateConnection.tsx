@@ -51,9 +51,7 @@ export function useCreateConnection(
         onCreated(variableName);
     };
 
-    // Generic client connection (e.g. calendar:Client): the standard connector creation form, pre-scoped to the
-    // connector this field needs. The new connection's variable is read from the created artifact (not the AI
-    // `model`/`modelProvider` property).
+    // Standard connector creation, pre-scoped to this field's connector; new var read from the created artifact.
     const createGenericConnection = async (connectorCodeData: CodeData, onCreated: (variableName: string) => void) => {
         const title = `Create ${connectorCodeData.object || "Connection"}`;
         const dummyNode = { codedata: {}, properties: {} } as unknown as FlowNode;

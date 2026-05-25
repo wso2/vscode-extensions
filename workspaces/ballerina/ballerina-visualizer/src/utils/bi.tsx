@@ -365,9 +365,7 @@ function enrichModelProviderField(formField: FormField, property: Property): voi
 
 const NEW_CONNECTION_SEARCH_KIND = "NEW_CONNECTION";
 
-// Render an editable client-connection param as the connection-select editor — existing connections of that exact
-// type + "Create New ...". The LS marks such a param by stashing the backing connector's codedata under
-// `codedata.data.connection`; that object rides along on formField.codedata for the create-new flow.
+// Render a client-connection param (LS marks it via codedata.data.connection) as the connection-select editor.
 function enrichClientConnectionField(formField: FormField, property: Property): void {
     if (!property.codedata?.data?.connection || !formField.editable) {
         return;
