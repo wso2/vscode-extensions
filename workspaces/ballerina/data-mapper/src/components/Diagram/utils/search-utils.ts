@@ -26,7 +26,7 @@ export const getSearchFilteredInput = (dmType: IOType, varName?: string) => {
 
 	if (varName?.toLowerCase()?.includes(searchValue.toLowerCase())) {
 		return dmType
-	} else if (dmType.kind === TypeKind.Record || dmType.kind === TypeKind.Array) {
+	} else if (dmType.kind === TypeKind.Record || dmType.kind === TypeKind.Array || dmType.kind === TypeKind.Tuple) {
 		const filteredType = getFilteredSubFields(dmType, searchValue);
 		if (filteredType) {
 			return filteredType
@@ -66,8 +66,17 @@ export const getSearchFilteredOutput = (outputType: IOType) => {
 			...searchType,
 			fields: subFields || []
 		}
+	} else if (searchType.kind === TypeKind.Tuple) {
+		const subMembers = searchType.members
+			?.map(item => getFilteredSubFields(item, searchValue))
+			.filter(item => item);
+
+		return {
+			...searchType,
+			members: subMembers || []
+		}
 	}
-	return  null;
+	return null;
 }
 
 export const getFilteredSubFields = (field: IOType, searchValue: string) => {
@@ -89,6 +98,18 @@ export const getFilteredSubFields = (field: IOType, searchValue: string) => {
 			return {
 				...field,
 				fields: matchingName ? field?.fields : matchedSubFields
+			}
+		}
+	} else if (field?.kind === TypeKind.Tuple) {
+		const matchedSubMembers: IOType[] = field?.members
+			?.map((member) => getFilteredSubFields(member, searchValue))
+			.filter((member): member is IOType => member !== null);
+
+		const matchingName = field?.name?.toLowerCase().includes(searchValue.toLowerCase());
+		if (matchingName || matchedSubMembers?.length > 0) {
+			return {
+				...field,
+				members: matchingName ? field?.members : matchedSubMembers
 			}
 		}
 	} else if (field?.kind === TypeKind.Array) {
@@ -120,6 +141,8 @@ export function hasNoOutputMatchFound(outputType: IOType, filteredOutputType: IO
 		return false;
 	} else if (outputType.kind === TypeKind.Record && filteredOutputType.kind === TypeKind.Record) {
 		return filteredOutputType?.fields.length === 0;
+	} else if (outputType.kind === TypeKind.Tuple && filteredOutputType.kind === TypeKind.Tuple) {
+		return filteredOutputType?.members.length === 0;
 	} else if (outputType.kind === TypeKind.Array && filteredOutputType.kind === TypeKind.Array) {
 		// Handle array output
 	}

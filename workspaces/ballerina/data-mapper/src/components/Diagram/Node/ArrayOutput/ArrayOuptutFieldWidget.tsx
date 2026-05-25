@@ -204,6 +204,7 @@ export function ArrayOutputFieldWidget(props: ArrayOutputFieldWidgetProps) {
                                     fieldIndex={index}
                                     treeDepth={0}
                                     hasHoveredParent={isHovered || hasHoveredParent}
+                                    parentFieldKind={field?.kind}
                                 />
                             </TreeBody>
                             <br />
