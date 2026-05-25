@@ -32,11 +32,12 @@ export function getRgExecutable(): string {
     if (fs.existsSync(builtinRgPath)) {
         return builtinRgPath;
     }
-    const result = spawnSync('which', ['rg'], { encoding: 'utf-8' });
+    const whichCmd = process.platform === 'win32' ? 'where' : 'which';
+    const result = spawnSync(whichCmd, ['rg'], { encoding: 'utf-8' });
     if (result.status === 0 && result.stdout?.trim()) {
         return result.stdout.trim();
     }
-    return builtinRgPath;
+    throw new Error('ripgrep binary not found. Install `@vscode/ripgrep` or ensure `rg` is on PATH.');
 }
 
 // ============================================================================
