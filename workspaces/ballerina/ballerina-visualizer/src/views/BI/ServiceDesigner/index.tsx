@@ -360,7 +360,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
             }
 
             setReadonlyProperties(readonlyProps);
-            setIsFtpService(service.moduleName === "ftp");
+            setIsFtpService(service.moduleName === "ftp" || service.moduleName === "smb");
             setIsHttpService(service.moduleName === "http");
             setIsMcpService(service.moduleName === "mcp");
             setIsCdcService(service.moduleName === "mssql" || service.moduleName === "postgresql");
