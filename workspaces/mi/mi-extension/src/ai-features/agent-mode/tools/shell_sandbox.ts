@@ -20,6 +20,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { analyzePowerShellCommand } from './shell_sandbox_powershell';
+import { hasBlockedBinaryExtension } from './types';
 
 /**
  * Shell sandbox policy summary:
@@ -1259,6 +1260,12 @@ function analyzeSegment(
     const disallowedMutationPaths = isMutation
         ? findDisallowedMutationPaths(projectPath, allowedMutationRoots, writePathTokens)
         : [];
+    // Block mutations whose destination is a binary file (matches the file_tool deny-list).
+    // Skip tokens that still contain unresolved shell expansion — those are handled by
+    // dynamicMutationPathTokens above, and naive endsWith checks would miss them anyway.
+    const blockedBinaryMutationPaths = writePathTokens.filter(
+        (token) => !hasDynamicShellExpansion(token) && hasBlockedBinaryExtension(path.basename(token))
+    );
     const resolvedMutationPaths = isMutation ? resolveMutationPaths(projectPath, writePathTokens) : [];
     const writesOnlyToExternalAllowedRoots = resolvedMutationPaths.length > 0
         && resolvedMutationPaths.every((resolvedPath) =>
@@ -1284,6 +1291,13 @@ function analyzeSegment(
         reasons.push(
             `Mutating paths outside allowed roots is blocked. Disallowed path(s): ${disallowedMutationPaths.join(', ')}. ` +
             `Allowed roots: project root${outsideRoots ? `, ${outsideRoots}` : ''}.`
+        );
+    } else if (blockedBinaryMutationPaths.length > 0) {
+        blocked = true;
+        reasons.push(
+            `Writing to binary file paths is blocked (matches the file-tool deny-list). ` +
+            `Blocked path(s): ${blockedBinaryMutationPaths.join(', ')}. ` +
+            `Use directory-level operations (e.g. \`rm -rf dist\`) instead of targeting binary files by name.`
         );
     } else if (isMutation && !writesOnlyToExternalAllowedRoots) {
         reasons.push('Commands that may modify files or system state require approval.');

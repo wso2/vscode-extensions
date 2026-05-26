@@ -115,8 +115,9 @@ export async function validateXmlFile(
     projectPath: string,
     includeCodeActions: boolean = false
 ): Promise<ValidationDiagnostics | null> {
-    // Only validate XML files
-    if (!absolutePath.toLowerCase().endsWith('.xml')) {
+    // Only validate XML files (incl. .dbs data services, which are XML in the SynapseXml language).
+    const lowerPath = absolutePath.toLowerCase();
+    if (!lowerPath.endsWith('.xml') && !lowerPath.endsWith('.dbs')) {
         return null;
     }
 

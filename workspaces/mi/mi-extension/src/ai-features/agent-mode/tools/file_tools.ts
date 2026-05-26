@@ -26,8 +26,7 @@ import * as vscode from 'vscode';
 import {
     ValidationResult,
     ToolResult,
-    VALID_FILE_EXTENSIONS,
-    VALID_SPECIAL_FILE_NAMES,
+    hasBlockedBinaryExtension,
     MAX_LINE_LENGTH,
     ErrorMessages,
     FILE_READ_TOOL_NAME,
@@ -119,40 +118,22 @@ function getPdfDocumentStatic(): PdfDocumentStaticLike {
     }
 }
 
+/**
+ * Returns true if a path is safe to read or write as text — anything not in
+ * the binary deny-list. This includes files with no extension (Dockerfile,
+ * Makefile, .gitignore, etc.).
+ */
 function isTextAllowedFilePath(filePath: string): boolean {
     const normalizedPath = filePath.trim();
     if (!normalizedPath) {
         return false;
     }
-
-    const fileName = path.basename(normalizedPath);
-    const lowerFileName = fileName.toLowerCase();
-    const hasValidExtension = VALID_FILE_EXTENSIONS.some(ext =>
-        lowerFileName.endsWith(ext)
-    );
-    if (hasValidExtension) {
-        return true;
-    }
-
-    return VALID_SPECIAL_FILE_NAMES.some(
-        (specialName) => specialName.toLowerCase() === lowerFileName
-    );
-}
-
-function getAllowedFileTypesDescription(): string {
-    return [...VALID_FILE_EXTENSIONS, ...VALID_SPECIAL_FILE_NAMES].join(', ');
-}
-
-function getReadAllowedFileTypesDescription(): string {
-    return [...VALID_FILE_EXTENSIONS, ...VALID_SPECIAL_FILE_NAMES, READ_PDF_EXTENSION, ...READ_IMAGE_EXTENSIONS].join(', ');
+    return !hasBlockedBinaryExtension(path.basename(normalizedPath));
 }
 
 function getReadFileKind(filePath: string): ReadFileKind {
-    if (isTextAllowedFilePath(filePath)) {
-        return 'text';
-    }
-
     const lowerExt = path.extname(filePath).toLowerCase();
+
     if (lowerExt === READ_PDF_EXTENSION) {
         return 'pdf';
     }
@@ -161,7 +142,12 @@ function getReadFileKind(filePath: string): ReadFileKind {
         return 'image';
     }
 
-    return 'unsupported';
+    // For everything else, the deny-list is authoritative — anything not
+    // blocked is treated as text (including extensionless files).
+    if (hasBlockedBinaryExtension(path.basename(filePath))) {
+        return 'unsupported';
+    }
+    return 'text';
 }
 
 function getImageMediaType(filePath: string): string | undefined {
@@ -333,11 +319,11 @@ function validateTextFilePath(projectPath: string, filePath: string): Validation
         return securityValidation;
     }
 
-    // Reject non-text files (images, PDFs, binaries) to prevent corrupt overwrites
+    // Reject binary files (images, PDFs, archives, native binaries, etc.) to prevent corrupt overwrites.
     if (!isTextAllowedFilePath(filePath)) {
         return {
             valid: false,
-            error: `Cannot write/edit binary or non-text file '${filePath}'. Allowed text file types: ${getAllowedFileTypesDescription()}`
+            error: `Cannot write/edit binary file '${filePath}'. The extension is on the blocked-binary list (archives, executables, images, PDFs, office docs, fonts, media, etc.).`
         };
     }
 
@@ -359,7 +345,7 @@ function validateReadableFilePath(projectPath: string, filePath: string): Valida
     if (getReadFileKind(filePath) === 'unsupported') {
         return {
             valid: false,
-            error: `File must use an allowed read type: ${getReadAllowedFileTypesDescription()}`
+            error: `Cannot read binary file '${filePath}'. The extension is on the blocked-binary list (archives, executables, native libraries, office docs, fonts, audio/video, etc.). Use shell tools for binary inspection if needed.`
         };
     }
 
