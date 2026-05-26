@@ -61,9 +61,16 @@ export function ConnectionCreateWizard(props: ConnectionCreateWizardProps): JSX.
     };
 
     // ConnectionCreator sets the new variable name on the throwaway node's model property; read it back.
-    const handleSave = (selectedNode: FlowNode, _artifacts?: ProjectStructureArtifactResponse[]) => {
+    // Kinds whose variable isn't model/modelProvider (e.g. a memory store, under `store`) fall back to the
+    // newly created artifact's name.
+    const handleSave = (selectedNode: FlowNode, artifacts?: ProjectStructureArtifactResponse[]) => {
         const properties = selectedNode?.properties as Record<string, { value?: string }> | undefined;
-        const varName = properties?.model?.value ?? properties?.modelProvider?.value;
+        // Use || (not ??): the throwaway node seeds model.value = "" (empty string), which ?? wouldn't skip,
+        // so a store (whose var isn't under model/modelProvider) would never reach the artifact fallback.
+        const varName =
+            properties?.model?.value ||
+            properties?.modelProvider?.value ||
+            artifacts?.find((artifact) => artifact.isNew)?.name;
         if (typeof varName === "string" && varName) {
             onCreated(varName);
         }

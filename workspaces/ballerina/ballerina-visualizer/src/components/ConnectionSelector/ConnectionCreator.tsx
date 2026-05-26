@@ -16,9 +16,10 @@
  * under the License.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { FormField, FormValues, FormImports } from "@wso2/ballerina-side-panel";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
+import { PanelOverlayContext } from "../../views/BI/FlowDiagram/context/PanelOverlayContext";
 import { convertConfig } from "../../utils/bi";
 import { ArtifactForm } from "../../views/BI/Forms/ArtifactForm";
 import { RelativeLoader } from "../RelativeLoader";
@@ -40,6 +41,9 @@ export function ConnectionCreator(props: ConnectionCreatorProps): JSX.Element {
     const shouldShowInfo = useMemo(() => specialConfig.shouldShowInfo?.(connectionSymbol) ?? false, [specialConfig, connectionSymbol]);
 
     const { rpcClient } = useRpcContext();
+    // Use the full-width footer save button only in popups. Overlays (side panels) render inside a
+    // PanelOverlayProvider, so a present context means we're NOT in a popup and keep the compact button.
+    const isInPopup = !useContext(PanelOverlayContext);
     const [connectionFields, setConnectionFields] = useState<FormField[]>([]);
     const [recordTypeFields, setRecordTypeFields] = useState<RecordTypeField[]>([]);
     const [loading, setLoading] = useState<boolean>(false);
@@ -147,6 +151,7 @@ export function ConnectionCreator(props: ConnectionCreatorProps): JSX.Element {
                         onSubmit={handleOnSave}
                         submitText={savingForm ? "Saving..." : "Save"}
                         disableSaveButton={savingForm}
+                        footerActionButton={isInPopup}
                         targetLineRange={targetLineRangeRef.current}
                         helperPaneSide="left"
                         isSaving={savingForm}
