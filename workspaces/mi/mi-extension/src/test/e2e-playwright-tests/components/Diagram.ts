@@ -490,8 +490,8 @@ export class SidePanel {
         if (!resourceView) {
             throw new Error("Failed to switch to Resource View iframe");
         }
-        await resourceView.getByRole('button', { name: ' Connections' }).waitFor();
-        await resourceView.getByRole('button', { name: ' Connections' }).click();
+        await resourceView.getByRole('button', { name: ' Connections' }).waitFor();
+        await resourceView.getByRole('button', { name: ' Connections' }).click();
     }
 
     public async addNewConnection() {
