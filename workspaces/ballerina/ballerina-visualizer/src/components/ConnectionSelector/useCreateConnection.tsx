@@ -16,12 +16,15 @@
  * under the License.
  */
 
-import { useContext } from "react";
+import { Suspense, lazy, useContext } from "react";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { CodeData, FlowNode, LineRange } from "@wso2/ballerina-core";
 import { PanelOverlayContext } from "../../views/BI/FlowDiagram/context/PanelOverlayContext";
 import { getNodeTemplateForConnection } from "../../views/BI/FlowDiagram/utils";
 import { useModalStack } from "../../Context";
+
+// Lazy-imported to break the import cycle (CreateMemoryForm -> FlowNodeForm -> useCreateConnection).
+const CreateMemoryForm = lazy(() => import("../../views/BI/AIChatAgent/AddAgentPopup/CreateMemoryForm"));
 import { ConnectionSelectionList } from "./ConnectionSelectionList";
 import { ConnectionCreator } from "./ConnectionCreator";
 import { ConnectionCreateWizard, getConnectionKindDisplayName } from "./ConnectionCreateWizard";
@@ -112,6 +115,26 @@ export function useCreateConnection(
     return (kind: string, onCreated: (variableName: string) => void, connectorCodeData?: CodeData) => {
         if (connectorCodeData) {
             createGenericConnection(connectorCodeData, onCreated);
+            return;
+        }
+        if (kind === "MEMORY") {
+            // ai:Memory isn't a generic ConnectionKind. Open the lean memory-creation form in a centered
+            // sub-modal (consistent with how model providers/clients create here); its store sub-creation
+            // stacks as a further sub-modal. onCreated sets the field value in place (same as other kinds).
+            const modalId = "create-memory";
+            const handleMemoryCreated = (variableName: string) => {
+                handleCreated(variableName, onCreated);
+                closeModal(modalId);
+            };
+            addModal(
+                <Suspense fallback={<LoaderContainer><RelativeLoader /></LoaderContainer>}>
+                    <CreateMemoryForm onCreated={handleMemoryCreated} />
+                </Suspense>,
+                modalId,
+                "Create Memory",
+                600,
+                600
+            );
             return;
         }
         const connectionKind = kind as ConnectionKind;

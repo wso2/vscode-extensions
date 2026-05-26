@@ -384,6 +384,25 @@ function enrichClientConnectionField(formField: FormField, property: Property): 
     };
 }
 
+const AI_MEMORY_TYPE = "ai:Memory";
+const MEMORY_SEARCH_KIND = "MEMORY";
+
+// Render an editable ai:Memory field as the connection-select editor (dropdown of existing memory variables +
+// Create New). Mirrors enrichModelProviderField; the "Create New Memory" action is handled by useCreateConnection.
+function enrichMemoryField(formField: FormField, property: Property): void {
+    const isMemory = property.types?.some((t) => t.ballerinaType === AI_MEMORY_TYPE);
+    if (!isMemory || !formField.editable) {
+        return;
+    }
+    const expressionMode = isInlineExpressionValue(formField.value);
+    formField.type = expressionMode ? "EXPRESSION" : "ACTION_EXPRESSION";
+    formField.types = [
+        { fieldType: "ACTION_EXPRESSION", ballerinaType: AI_MEMORY_TYPE, selected: !expressionMode },
+        { fieldType: "EXPRESSION", selected: expressionMode },
+    ] as InputType[];
+    formField.codedata = { ...(formField.codedata || {}), searchNodesKind: MEMORY_SEARCH_KIND };
+}
+
 export function convertNodePropertyToFormField(
     key: string,
     property: Property,
@@ -415,6 +434,7 @@ export function convertNodePropertyToFormField(
     };
     enrichModelProviderField(formField, property);
     enrichClientConnectionField(formField, property);
+    enrichMemoryField(formField, property);
     return formField;
 }
 

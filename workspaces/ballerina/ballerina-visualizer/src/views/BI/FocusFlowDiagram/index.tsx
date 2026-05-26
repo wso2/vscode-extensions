@@ -170,7 +170,7 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
     }, []);
 
     useEffect(() => {
-        rpcClient.onProjectContentUpdated((state: boolean) => {
+        const unsubscribeContentUpdated = rpcClient.onProjectContentUpdated((state: boolean) => {
             console.log(">>> on project content updated", state);
             if (isAgent) {
                 debouncedGetAgentModel();
@@ -196,6 +196,11 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
             const target = targetRef.current;
             fetchNodes(toNode, target, false);
         });
+        // Unsubscribe on unmount so a left-behind focus diagram doesn't react to content updates from another
+        // view (e.g. the Add Agent popup creating a memory/store) and call getAgentTypeModel with no position.
+        return () => {
+            unsubscribeContentUpdated();
+        };
     }, [rpcClient]);
 
     const debouncedGetFlowModel = useCallback(
