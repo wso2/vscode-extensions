@@ -138,9 +138,10 @@ export function createGlobTool(execute: (input: GlobInput) => Promise<GlobResult
     return tool({
         description: `
 Fast file pattern matching tool
+- Support glob patterns
 - Returns matching file paths
-- Use this tool when you need to find files by name or path patterns
-- It is always better to speculatively perform multiple searches as a batch that are potentially useful.
+- Use this tool when you need to find files by name patterns
+- When you are doing an open ended search that may require multiple rounds of globbing and grepping
 `,
         inputSchema: z.object({
             pattern: z.string().describe(

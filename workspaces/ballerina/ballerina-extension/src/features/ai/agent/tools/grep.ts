@@ -222,6 +222,7 @@ Usage:
  - Supports full ripgrep regex syntax
  - Filter files with glob parameter
  - Output modes: "content" shows matching lines, "files_with_matches" shows only file paths (default), "count" shows match counts
+ - Pattern syntax: Uses ripgrep (not grep)
  - Multiline matching: By default patterns match within single lines only. For cross-line patterns, use \`multiline: true\`
 `,
         inputSchema: z.object({
@@ -229,10 +230,10 @@ Usage:
                 "The regular expression pattern to search for in file contents"
             ),
             path: z.string().optional().describe(
-                "File or directory to search in, relative to the project root. Defaults to searching the entire project."
+                "File or directory to search in (rg PATH), Defaults to searching the entire project."
             ),
             glob: z.string().optional().describe(
-                "Glob pattern to filter files (e.g., \"*.bal\", \"*.{bal,toml}\"). Defaults to common Ballerina project file types."
+                "Glob pattern to filter files - maps to rg --glob."
             ),
             output_mode: z.enum(['content', 'files_with_matches', 'count']).optional().describe(
                 "Output mode: \"content\" shows matching lines with optional context, \"files_with_matches\" shows only file paths (default), \"count\" shows match counts per file."
