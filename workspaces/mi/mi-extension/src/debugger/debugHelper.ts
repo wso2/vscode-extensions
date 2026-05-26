@@ -19,7 +19,7 @@
 
 import * as vscode from 'vscode';
 import * as childprocess from 'child_process';
-import { COMMANDS, MVN_COMMANDS } from '../constants';
+import { COMMANDS, MVN_COMMANDS, DEPLOY_BASE_ARGS } from '../constants';
 import { loadEnvVariables, getBuildCommand, getRunCommand, getStopCommand } from './tasks';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -324,18 +324,31 @@ export async function executeBuildTask(projectUri: string, serverPath: string, s
     }
 }
 
-export async function executeRemoteDeployTask(projectUri: string, postBuildTask?: Function) {
-    return new Promise<void>(async (resolve, reject) => {
+export function buildDeployExtraArgs(values: Record<string, string>): string[] {
+    const args: string[] = [];
+    for (const [key, value] of Object.entries(values)) {
+        if (value !== '') {
+            args.push(`-D${key}=${value}`);
+        }
+    }
+    return args;
+}
 
+export function executeRemoteDeployTask(projectUri: string, postBuildTask?: Function, extraArgs: string[] = []) {
+    return new Promise<void>((resolve, reject) => {
         const config = workspace.getConfiguration('MI', Uri.file(projectUri));
         const mvnCmd = config.get("useLocalMaven") ? "mvn" : (process.platform === "win32" ?
             MVN_COMMANDS.MVN_WRAPPER_WIN_COMMAND : MVN_COMMANDS.MVN_WRAPPER_COMMAND);
-        const buildCommand = mvnCmd + MVN_COMMANDS.DEPLOY_COMMAND;
         const envVariables = {
             ...process.env,
             ...setJavaHomeInEnvironmentAndPath(projectUri)
         };
-        const buildProcess = await child_process.spawn(buildCommand, [], { shell: true, cwd: projectUri, env: envVariables });
+
+        const allArgs = [...DEPLOY_BASE_ARGS, ...extraArgs];
+        const spawnCmd = process.platform === "win32" ? 'cmd.exe' : mvnCmd;
+        const spawnArgs = process.platform === "win32" ? ['/d', '/s', '/c', mvnCmd, ...allArgs] : allArgs;
+
+        const buildProcess = child_process.spawn(spawnCmd, spawnArgs, {shell: false, cwd: projectUri, env: envVariables});
         showServerOutputChannel();
 
         buildProcess.stdout.on('data', (data) => {
@@ -346,16 +359,24 @@ export async function executeRemoteDeployTask(projectUri: string, postBuildTask?
             serverLog(`Build error:\n${data.toString('utf8')}`);
         });
 
-        if (postBuildTask) {
-            buildProcess.on('exit', async (code) => {
-                if (code === 0) {
-                    postBuildTask();
-                    resolve();
-                } else {
-                    reject(`Build process failed`);
+        buildProcess.on('error', (err: Error) => {
+            reject(err);
+        });
+
+        buildProcess.on('exit', async (code: number | null) => {
+            if (code !== 0) {
+                reject(`Build process failed`);
+                return;
+            }
+            try {
+                if (postBuildTask) {
+                    await postBuildTask();
                 }
-            });
-        }
+                resolve();
+            } catch (err) {
+                reject(err);
+            }
+        });
     });
 }
 

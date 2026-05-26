@@ -313,9 +313,9 @@ export const Keylookup = (props: IKeylookup) => {
             ...(props.additionalItems ? props.additionalItems : []),
             ...workspaceItems, ...registryItems];
 
-        // Add the initial value to the start of the list if provided
-        if (!!getValue(value) && getValue(value).length > 0) {
-            items.unshift((initialItem || getValue(value)));
+        // Only unshift real resources; special values (ex:NONE, INLINE) must not be duplicated.
+        if (!!getValue(value) && getValue(value).length > 0 && initialItem) {
+            items.unshift(initialItem);
         }
 
         if (filter) {

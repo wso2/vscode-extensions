@@ -110,7 +110,11 @@ import {
     removeDeployPlugin,
     MavenDeployPluginDetails,
     getDependencyStatusList,
-    DependencyStatusResponse
+    DependencyStatusResponse,
+    executeRemoteDeployWithParams,
+    ExecuteRemoteDeployParams,
+    getRemoteDeployConfigs,
+    DeployConfigParam
 } from "@wso2/mi-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -313,5 +317,13 @@ export class MiVisualizerRpcClient implements MIVisualizerAPI {
     }
     updateAiDependencies(params: UpdateAiDependenciesRequest): Promise<boolean> {
         return this._messenger.sendRequest(updateAiDependencies, HOST_EXTENSION, params);
+    }
+
+    executeRemoteDeployWithParams(params: ExecuteRemoteDeployParams): Promise<void> {
+        return this._messenger.sendRequest(executeRemoteDeployWithParams, HOST_EXTENSION, params);
+    }
+
+    getRemoteDeployConfigs(): Promise<DeployConfigParam[]> {
+        return this._messenger.sendRequest(getRemoteDeployConfigs, HOST_EXTENSION);
     }
 }
