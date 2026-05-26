@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { debounce } from "lodash";
+import { cloneDeep, debounce } from "lodash";
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { Category as PanelCategory } from "@wso2/ballerina-side-panel";
@@ -1187,6 +1187,17 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
 
     const diagramProps = isAgentType ? agentTypeDiagramProps : isAgent ? agentDiagramProps : memoizedDiagramProps;
 
+    const agentTypeFormNode = (() => {
+        if (!agentFormNodeRef.current || agentTypeFormMode !== "MODEL") {
+            return agentFormNodeRef.current;
+        }
+        const node = cloneDeep(agentFormNodeRef.current);
+        if (node.metadata?.description) {
+            delete node.metadata.description;
+        }
+        return node;
+    })();
+
     return (
         <PanelOverlayProvider>
             <View>
@@ -1238,8 +1249,8 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
                     <FlowNodeForm
                         key={agentFormKey}
                         fileName={model?.fileName || ""}
-                        node={agentFormNodeRef.current}
-                        nodeFormTemplate={agentFormNodeRef.current}
+                        node={agentTypeFormNode}
+                        nodeFormTemplate={agentTypeFormNode}
                         targetLineRange={agentFormNodeRef.current.codedata?.lineRange as any}
                         projectPath={projectPath}
                         editForm={true}
