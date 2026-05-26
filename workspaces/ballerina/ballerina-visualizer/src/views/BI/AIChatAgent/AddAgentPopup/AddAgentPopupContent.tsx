@@ -26,6 +26,7 @@ import ButtonCard from "../../../../components/ButtonCard";
 import { RelativeLoader } from "../../../../components/RelativeLoader";
 import { FlowNodeForm } from "../../Forms/FlowNodeForm";
 import { getEndOfFileLineRange, getNodeTemplate } from "../utils";
+import { AgentInfoCard } from "./AgentInfoCard";
 import {
     AgentOptionCard,
     AgentOptionContent,
@@ -250,21 +251,35 @@ export function AddAgentPopupContent(props: AddAgentPopupContentProps) {
         // Pre-built agent: show the model field so the user can supply the ModelProvider; the
         // predetermined result type is hidden.
         const fieldOverrides = { type: { hidden: true } };
+        // Show the agent identity (icon + name + description) in a header card, and strip the description from the
+        // form node so it isn't duplicated below the card (mirrors the connector configure popup).
+        const formNode = agentNode ? cloneDeep(agentNode) : undefined;
+        if (formNode?.metadata?.description) {
+            delete formNode.metadata.description;
+        }
+        const cardDescription = pendingAgent?.metadata?.description || agentNode?.metadata?.description;
         return (
             <FormContainer>
-                {agentNode && targetLineRange ? (
-                    <FlowNodeForm
-                        fileName={agentFilePath}
-                        node={agentNode}
-                        nodeFormTemplate={agentNode}
-                        targetLineRange={targetLineRange}
-                        onSubmit={handleCreateAgent}
-                        submitText={isSubmitting ? "Adding..." : "Add Agent"}
-                        showProgressIndicator={isSubmitting}
-                        disableSaveButton={isSubmitting}
-                        footerActionButton
-                        fieldOverrides={fieldOverrides}
-                    />
+                {formNode && targetLineRange ? (
+                    <>
+                        <AgentInfoCard
+                            label={pendingAgent?.metadata?.label || ""}
+                            description={cardDescription}
+                            icon={pendingAgent?.metadata?.icon}
+                        />
+                        <FlowNodeForm
+                            fileName={agentFilePath}
+                            node={formNode}
+                            nodeFormTemplate={formNode}
+                            targetLineRange={targetLineRange}
+                            onSubmit={handleCreateAgent}
+                            submitText={isSubmitting ? "Adding..." : "Add Agent"}
+                            showProgressIndicator={isSubmitting}
+                            disableSaveButton={isSubmitting}
+                            footerActionButton
+                            fieldOverrides={fieldOverrides}
+                        />
+                    </>
                 ) : (
                     <LoaderWrapper>
                         <RelativeLoader />
