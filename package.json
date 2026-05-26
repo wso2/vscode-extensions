@@ -26,6 +26,8 @@
       "prismjs": "1.30.0",
       "@nevware21/ts-utils": "0.14.0",
       "protobufjs": "7.5.8",
+      "qs": "6.15.2",
+      "protobufjs": "7.5.8",
       "serialize-javascript": "7.0.5",
       "tmp": "0.2.4",
       "undici": "7.24.0",
