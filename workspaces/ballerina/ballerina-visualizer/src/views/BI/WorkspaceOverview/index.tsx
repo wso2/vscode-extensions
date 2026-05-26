@@ -38,6 +38,8 @@ import { UndoRedoGroup } from "../../../components/UndoRedoGroup";
 import { PackageListView } from "./PackageListView";
 import { getWorkspaceProjectScopes } from "../PackageOverview/utils";
 import { usePlatformExtContext } from "../../../providers/platform-ext-ctx-provider";
+import { usePreDeployScan } from "../ScannerOverview/usePreDeployScan";
+import { ScanBanner } from "../ScannerOverview/ScanBanner";
 
 const SpinnerContainer = styled.div`
     display: flex;
@@ -633,6 +635,7 @@ export function WorkspaceOverview() {
 
     const [showAlert, setShowAlert] = React.useState(false);
     const [icpActionLoading, setIcpActionLoading] = React.useState<IcpAction | null>(null);
+    const preDeploy = usePreDeployScan();
 
     const { data: devantMetadata } = useQuery({
         queryKey: ["project-devant-metadata"],
@@ -855,6 +858,16 @@ export function WorkspaceOverview() {
         });
     };
 
+    const handleDeployWithScan = async () => {
+        // Only scan the projects that actually need to be deployed
+        const scanTargets = undeployedProjectScopes.map(scope => ({
+            projectPath: scope.projectPath || "",
+            projectName: (scope as any).projectName || scope.projectTitle || scope.projectPath?.split(/[\\/]/).pop() || "Project"
+        }));
+
+        await preDeploy.triggerScanAndDeploy(scanTargets, handleDeploy);
+    };
+
     const handleDockerBuild = () => {
         rpcClient.getBIDiagramRpcClient().buildProject(BuildMode.DOCKER);
     };
@@ -922,6 +935,14 @@ export function WorkspaceOverview() {
 
     return (
         <PageLayout>
+            <ScanBanner
+                isScanning={preDeploy.isScanning}
+                scanningLabel={preDeploy.scanningLabel}
+                scanResult={preDeploy.scanResult}
+                scanError={preDeploy.scanError}
+                visible={preDeploy.bannerVisible}
+                onDismiss={preDeploy.dismissBanner}
+            />
             <HeaderRow>
                 <TitleContainer>
                     <EditableTitle
@@ -1037,7 +1058,7 @@ export function WorkspaceOverview() {
                         <DeploymentOptions
                             handleDockerBuild={handleDockerBuild}
                             handleJarBuild={handleJarBuild}
-                            handleDeploy={handleDeploy}
+                            handleDeploy={handleDeployWithScan}
                             goToDevant={goToDevant}
                             devantMetadata={devantMetadata}
                             hasDeployableIntegration={projectScopes.length > 0}

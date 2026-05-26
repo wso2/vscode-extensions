@@ -48,7 +48,8 @@ export function activateAiPanel(ballerinaExtInstance: BallerinaExtension) {
 
 // --- AI Panel Command Helpers ---
 
-async function handleOpenAIPanel(defaultPrompt?: AIPanelPrompt): Promise<void> {
+async function handleOpenAIPanel(...args: unknown[]): Promise<void> {
+    const defaultPrompt = resolveDefaultPromptArg(args);
     const { projectInfo, projectPath, view, workspacePath } = StateMachine.context();
     const isWebviewOpen = VisualizerWebview.currentPanel !== undefined;
     const hasActiveTextEditor = !!vscode.window.activeTextEditor;
@@ -82,6 +83,21 @@ async function handleOpenAIPanel(defaultPrompt?: AIPanelPrompt): Promise<void> {
     }
 
     openAIWebviewWithPrompt(defaultPrompt);
+}
+
+function resolveDefaultPromptArg(args: unknown[]): AIPanelPrompt | undefined {
+    for (const arg of args) {
+        if (!arg || typeof arg !== 'object' || arg instanceof vscode.Uri) {
+            continue;
+        }
+
+        const _prompt = arg as Partial<AIPanelPrompt> & { type?: string };
+        if (_prompt.type === 'text' || _prompt.type === 'command-template') {
+            return _prompt as AIPanelPrompt;
+        }
+    }
+
+    return undefined;
 }
 
 async function handleWorkspaceLevelAIPanel(projectInfo: ProjectInfo): Promise<boolean> {

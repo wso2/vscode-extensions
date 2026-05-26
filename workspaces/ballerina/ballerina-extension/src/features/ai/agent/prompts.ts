@@ -30,6 +30,7 @@ import { getRequirementAnalysisCodeGenPrefix, getRequirementAnalysisTestGenPrefi
 import { extractResourceDocumentContent, flattenProjectToFiles } from "../utils/ai-utils";
 import { BALLERINA_RUN_TOOL_NAME } from "./tools/ballerina-run";
 import { BALLERINA_STOP_TOOL_NAME } from "./tools/ballerina-stop";
+import { AddSecurityToolPrompt, SECURITY_TOOL_NAME } from "./tools/security-diagnostics";
 
 /**
  * Generates the system prompt for the design agent
@@ -92,7 +93,9 @@ This plan will be visible to the user and the execution will be guided on the ta
      - First use ${LIBRARY_SEARCH_TOOL} with relevant keywords to discover available libraries
      - Then use ${LIBRARY_GET_TOOL} to fetch full details for the discovered libraries
      - If you think user is refering to an ambiguous API, or internal API, call ${CONNECTOR_GENERATOR_TOOL} to request for the API spec from the user and to generate a connector for it.
-   - Before marking the task as completed, use ${DIAGNOSTICS_TOOL_NAME} to check for compilation errors and fix them.
+    - Before marking the task as completed, use ${DIAGNOSTICS_TOOL_NAME} to check for compilation errors and fix them.
+${AddSecurityToolPrompt(`    - If the user provides security issues to fix, first run ${SECURITY_TOOL_NAME} to verify each provided issue before applying fixes.
+    - After each code generation or modification step, run ${SECURITY_TOOL_NAME} to verify whether new security issues exist, and address them before task completion.`)}
    - Mark task as completed using ${TASK_WRITE_TOOL_NAME} (send ALL tasks, no approval flags) — the agent continues automatically. **IMPORTANT: When marking a task as completed in a message with other tool calls, ${TASK_WRITE_TOOL_NAME} MUST always be the LAST tool call in the message.**
    - After completing a logical unit of work (a set of related tasks), set **requestReview: true** on the TaskWrite call to let the user review before continuing. Do NOT set this after every single task.
    - Repeat until ALL tasks are done
@@ -118,6 +121,8 @@ Write/modify the Ballerina code to implement the user requirement. Use the ${FIL
 
 ### Step 4: Validate the code
 Once the code is written, always use ${DIAGNOSTICS_TOOL_NAME} to check for compilation errors and fix them. You may call it multiple times after making changes.
+${AddSecurityToolPrompt(`After each code generation or modification, run ${SECURITY_TOOL_NAME} to verify whether there are security issues and fix them before finalizing.
+If the user provides issues (especially security-related), run ${SECURITY_TOOL_NAME} first to verify those issues before applying fixes.`)}
 If errors cannot be resolved after multiple attempts, bring the code to a good state and finish the task.
 Once compilation is clean and if the project contains test cases, run the tests.
 
@@ -207,6 +212,19 @@ When working with Ballerina workspace projects (projects with a root Ballerina.t
 - Providing values to configurables is a runtime task and should only do it before running or executing the tests.
 - For Config.toml configuration value management, use ${CONFIG_COLLECTOR_TOOL} to request for values. Check the different modes of the tool for various usecases.
 - You can call ${BALLERINA_STOP_TOOL_NAME} when you need to restart a service (e.g. after code changes) or when the user explicitly asks to stop it.
+${AddSecurityToolPrompt(`- Security verification is mandatory: after every code generation/modification cycle, run ${SECURITY_TOOL_NAME} to verify security posture.`)}
+
+${AddSecurityToolPrompt(`# Security Scan Workflow
+- ALWAYS run getSecurityVulnerabilities after EVERY code generation or modification, no exceptions — even for trivial changes like adding a print statement.
+- Run getSecurityVulnerabilities in the SAME message as getCompilationErrors whenever code is modified (they can run in parallel).
+- Security scans are package-only. Pass packagePath whenever a specific package is known.
+- In workspace projects without packagePath, run package scans one by one for each workspace package.
+- Security scan timeout policy follows the scanner default timeout.
+- Do NOT mark any task as completed or provide a summary until getSecurityVulnerabilities has been called and its results addressed.
+- If the user reports issues that may be security-related, call ${SECURITY_TOOL_NAME} first to verify and reproduce those issues before fixing.
+- After each code generation/modification step, call ${SECURITY_TOOL_NAME} to detect any security issues introduced by the latest changes.
+- If security issues are found, fix them and run ${SECURITY_TOOL_NAME} again until the generated changes are verified.
+- If a security diagnostic has requiresExplicitUserInput=true, do NOT auto-fix it. Clearly explain why, ask the user for the required data, and wait for confirmation/input before applying changes.`)}
 
 ## Test Runner
 When running tests:

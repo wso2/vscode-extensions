@@ -67,6 +67,7 @@ const TOOL_ICON_MAP: Record<string, ToolIconEntry> = {
     getServiceLogs:                { loading: "codicon-output" },
     stopBallerinaService:          { loading: "codicon-debug-stop" },
     getCompilationErrors:          { loading: "codicon-pulse", done: "codicon-pass-filled" },
+    getSecurityVulnerabilities:    { loading: "codicon-shield", done: "codicon-pass-filled" },
     TaskWrite:                     { loading: "codicon-checklist" },
     ConfigCollector:               { loading: "codicon-settings-gear" },
     ConnectorGeneratorTool:        { loading: "codicon-plug" },
@@ -82,6 +83,13 @@ function getToolIcon(toolName: string | undefined, state: "loading" | "done" = "
 function getToolResultIcon(toolName: string | undefined, toolOutput: any): string {
     if (toolName === "getCompilationErrors") {
         const count = toolOutput?.diagnostics?.length ?? 0;
+        return count > 0 ? "codicon-warning" : "codicon-pass-filled";
+    }
+    if (toolName === "getSecurityVulnerabilities") {
+        if (toolOutput?.success === false) {
+            return "codicon-error";
+        }
+        const count = toolOutput?.count ?? 0;
         return count > 0 ? "codicon-warning" : "codicon-pass-filled";
     }
     return getToolIcon(toolName, "done");
@@ -109,6 +117,7 @@ function getToolCallDisplay(toolName: string | undefined, toolInput: any): { lab
         case "LibraryGetTool": return { label: "Fetching library details..." };
         case "HealthcareLibraryProviderTool": return { label: "Analyzing healthcare libraries..." };
         case "getCompilationErrors": return { label: "Checking for errors..." };
+        case "getSecurityVulnerabilities": return { label: "Running security scan..." };
         case "ConfigCollector": return { label: "Reading config..." };
         case "Clarify": return { label: "Waiting for answers..." };
         case "ConnectorGeneratorTool": return { label: "Generating connector..." };
@@ -145,6 +154,13 @@ function getToolResultDisplay(toolName: string | undefined, toolOutput: any, hin
         case "getCompilationErrors": {
             const count = toolOutput?.diagnostics?.length ?? 0;
             return { label: count > 0 ? `Found ${count} error(s)` : "No issues found" };
+        }
+        case "getSecurityVulnerabilities": {
+            if (toolOutput?.success === false) {
+                return { label: toolOutput?.message || "Security scan failed" };
+            }
+            const count = toolOutput?.count ?? 0;
+            return { label: count > 0 ? `Found ${count} security issue(s)` : "No security issues found" };
         }
         case "ConfigCollector": return { label: "Config loaded" };
         case "Clarify": return { label: toolOutput?.skipped ? "Questions skipped" : "Questions answered" };

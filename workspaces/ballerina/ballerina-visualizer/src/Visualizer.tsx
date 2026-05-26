@@ -42,6 +42,8 @@ const EvaluationReport = React.lazy(() =>
 const MigrationPanel = React.lazy(() =>
     import("./views/MigrationPanel/MigrationPanel").then((module) => ({ default: module.MigrationPanel }))
 );
+const ScannerOverview = React.lazy(() =>
+    import("./views/BI/ScannerOverview/index"));
 
 const ProgressRing = styled(VSCodeProgressRing)`
     height: 36px;
@@ -107,6 +109,7 @@ const MODES = {
     MIGRATION: "migration",
     EVALUATION_HISTORY: "evaluation-history",
     EVALUATION_REPORT: "evaluation-report",
+    SCANNER: "scanner",
 };
 
 export function Visualizer({ mode }: { mode: string }) {
@@ -155,6 +158,8 @@ export function Visualizer({ mode }: { mode: string }) {
                             return <EvaluationHistory />
                         case MODES.EVALUATION_REPORT:
                             return <EvaluationReport />
+                        case MODES.SCANNER:
+                            return <ScannerOverview />
                         default:
                             return <MainPanel />
                     }

@@ -48,6 +48,7 @@ import { ArtifactsUpdated, ArtifactNotificationHandler } from './utils/project-a
 import { registerMigrateIntegrationRpcHandlers } from './rpc-managers/migrate-integration/rpc-handler';
 import { registerPlatformExtRpcHandlers } from './rpc-managers/platform-ext/rpc-handler';
 import { MigrationPanelWebview } from './views/migration-panel/webview';
+import { registerScannerRpcHandlers } from './rpc-managers/scanner/rpc-handler';
 
 export class RPCLayer {
     static _messenger: Messenger = new Messenger();
@@ -122,6 +123,9 @@ export class RPCLayer {
                 RPCLayer._messenger.sendNotification(onArtifactUpdatedNotification, { type: 'webview', webviewType: VisualizerWebview.viewType }, payload.data);
             });
         });
+
+        // ----- Register Scanner RPC Methods
+        registerScannerRpcHandlers(RPCLayer._messenger);
     }
 
 }

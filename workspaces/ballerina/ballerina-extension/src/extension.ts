@@ -53,6 +53,7 @@ import { activateAgentChatPanel } from './views/agent-chat/activate';
 import { activateTracing } from './features/tracing';
 import { activateICP } from './features/icp';
 import { onWizardChatNotify, setWizardProjectRoot, runWizardMigrationEnhancement, abortMigrationAgent, openMigratedProject, isAIAuthenticated, signInForAI } from './features/ai/migration/orchestrator';
+import { activate as activateScanner } from './features/scanner/activator';
 
 let langClient: ExtendedLangClient;
 export let isPluginStartup = true;
@@ -234,6 +235,9 @@ export async function activateBallerina(): Promise<BallerinaExtension> {
 
         // Activate ICP (Integration Control Plane)
         activateICP(ballerinaExtInstance);
+
+        // Activate Scanner service
+        activateScanner(ballerinaExtInstance);
 
         langClient = <ExtendedLangClient>ballerinaExtInstance.langClient;
         // Register showTextDocument listener

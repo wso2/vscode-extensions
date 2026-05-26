@@ -146,6 +146,7 @@ function getGroupCategory(toolNames: (string | undefined)[]): ToolCategory {
     const hasLibraryFetch = names.some(n => LIBRARY_FETCH_TOOLS.includes(n));
     const hasLibrary = hasLibrarySearch || hasLibraryFetch;
     const hasDiagnostics = names.includes("getCompilationErrors");
+    const hasSecurityDiagnostics = names.includes("getSecurityVulnerabilities");
     const hasConfig = names.includes("ConfigCollector");
     const hasConnector = names.includes("ConnectorGeneratorTool");
     const hasTestRunner = names.includes("runTests");
@@ -157,6 +158,9 @@ function getGroupCategory(toolNames: (string | undefined)[]): ToolCategory {
     }
     if (hasDiagnostics && !hasFile && !hasLibrary) {
         return { running: "Checking for errors...", done: "No issues found" };
+    }
+    if (hasSecurityDiagnostics && !hasFile && !hasDiagnostics) {
+        return { running: "Running security scan...", done: "Security scan completed" };
     }
     if (hasLibrarySearch && !hasLibraryFetch && !hasFile && !hasDiagnostics) {
         return { running: "Searching libraries...", done: "Libraries found" };
