@@ -30,7 +30,7 @@ module.exports = {
         if (deps['fast-uri']) deps['fast-uri'] = '3.1.2';
         if (deps['esbuild']) deps['esbuild'] = '0.25.12';
         if (deps['lodash']) deps['lodash'] = '4.18.0';
-        if (deps['qs']) deps['qs'] = '6.14.2';
+        if (deps['qs']) deps['qs'] = '6.15.2'; // security fix: CVE-2026-8723
         if (deps['hono']) deps['hono'] = '4.12.18'; // CVE-2026-44455 (JSX injection), CVE-2026-44456 (bodyLimit bypass)
         if (deps['@hono/node-server']) deps['@hono/node-server'] = '1.19.13';
         if (deps['@tootallnate/once']) deps['@tootallnate/once'] = '3.0.1';
@@ -53,12 +53,6 @@ module.exports = {
         if (deps['undici']) deps['undici'] = '7.24.0'; // security fix: header injection
         if (deps['uuid']) deps['uuid'] = '14.0.0'; // security fix
         if (deps['@nevware21/ts-utils']) deps['@nevware21/ts-utils'] = '0.14.0'; // security fix: CVE-2026-46681 (prototype pollution)
-        if (deps['webpack-dev-server']) deps['webpack-dev-server'] = '5.2.4'; // security fix: CVE-2026-6402 (info disclosure)
-        if (deps['ws']) {
-          if (/^[\s\^~><=]*8[.\s]/.test(deps['ws'])) {
-            deps['ws'] = '8.20.1'; // security fix: CVE-2026-45736
-          }
-        }
         if (deps['protobufjs']) {
           const currentVersion = deps['protobufjs'];
           if (currentVersion.startsWith('^8') || currentVersion.startsWith('8')) {
