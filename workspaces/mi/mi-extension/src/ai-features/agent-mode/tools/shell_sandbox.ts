@@ -1295,7 +1295,7 @@ function analyzeSegment(
     } else if (blockedBinaryMutationPaths.length > 0) {
         blocked = true;
         reasons.push(
-            `Writing to binary file paths is blocked (matches the file-tool deny-list). ` +
+            `Mutating binary file paths is blocked (write/edit/delete/rename; matches the file-tool deny-list). ` +
             `Blocked path(s): ${blockedBinaryMutationPaths.join(', ')}. ` +
             `Use directory-level operations (e.g. \`rm -rf dist\`) instead of targeting binary files by name.`
         );

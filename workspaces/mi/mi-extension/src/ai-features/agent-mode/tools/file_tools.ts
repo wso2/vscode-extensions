@@ -132,7 +132,8 @@ function isTextAllowedFilePath(filePath: string): boolean {
 }
 
 function getReadFileKind(filePath: string): ReadFileKind {
-    const lowerExt = path.extname(filePath).toLowerCase();
+    const trimmed = filePath.trim();
+    const lowerExt = path.extname(trimmed).toLowerCase();
 
     if (lowerExt === READ_PDF_EXTENSION) {
         return 'pdf';
@@ -144,7 +145,7 @@ function getReadFileKind(filePath: string): ReadFileKind {
 
     // For everything else, the deny-list is authoritative — anything not
     // blocked is treated as text (including extensionless files).
-    if (hasBlockedBinaryExtension(path.basename(filePath))) {
+    if (hasBlockedBinaryExtension(path.basename(trimmed))) {
         return 'unsupported';
     }
     return 'text';
