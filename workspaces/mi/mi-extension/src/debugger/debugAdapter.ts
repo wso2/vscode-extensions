@@ -19,7 +19,7 @@
 import { Breakpoint, BreakpointEvent, Handles, InitializedEvent, LoggingDebugSession, Scope, StoppedEvent, TerminatedEvent, Thread } from 'vscode-debugadapter';
 import { DebugProtocol } from 'vscode-debugprotocol';
 import * as vscode from 'vscode';
-import { checkServerReadiness, deleteCopiedCapAndLibs, executeTasks, getServerPath, isADiagramView, readPortOffset, removeTempDebugBatchFile, setManagementCredentials, stopServer } from './debugHelper';
+import { checkServerReadiness, deleteCopiedCapAndLibs, executeTasks, getServerPath, isADiagramView, readPortOffset, removeTempDebugBatchFile, setManagementCredentials, stopServer, abortBuildAndRun } from './debugHelper';
 import { Subject } from 'await-notify';
 import { Debugger } from './debugger';
 import { getStateMachine, openView, refreshUI } from '../stateMachine';
@@ -34,17 +34,17 @@ import { DebuggerConfig } from './config';
 import { openRuntimeServicesWebview } from '../runtime-services-panel/activate';
 import { RPCLayer } from '../RPCLayer';
 import { getWSO2AIEnvVariables } from '../ai-features/configUtils';
-import path = require("path");
-import { isConsolidatedProject } from '../util/onboardingUtils';
 
 interface ILaunchRequestArguments extends DebugProtocol.LaunchRequestArguments {
     /** Env variables setup through launch.json */
     env?: any;
     vmArgs?: string[];
+    projectList?: string[];
 }
 
 export class MiDebugAdapter extends LoggingDebugSession {
     private _configurationDone = new Subject();
+    private _isDisconnecting = false;
     private debuggerHandler: Debugger | undefined;
     // we don't support multiple threads, so we can use a hardcoded ID for the default thread
     private static threadID = 1;
@@ -296,53 +296,23 @@ export class MiDebugAdapter extends LoggingDebugSession {
 
     private currentServerPath;
     protected launchRequest(response: DebugProtocol.LaunchResponse, args?: ILaunchRequestArguments, request?: DebugProtocol.Request): void {
-        this._configurationDone.wait().then(async () => {
-            const workspaceFolders = vscode.workspace.workspaceFolders;
-            const folderPaths = workspaceFolders?.map(f => f.uri.fsPath) || [];
-
-            let selectedOptions: string[] = [];
-
-            // Show an error when no project is opened
-            if (folderPaths.length === 0) {
-                const message = 'No workspace folder is opened';
+        this._configurationDone.wait().then(() => {
+            // Project selection is resolved upstream by MiConfigurationProvider.resolveDebugConfiguration
+            // before the session is created, so the toolbar doesn't appear during selection.
+            if (!args?.projectList || args.projectList.length === 0) {
+                const message = 'No project selected';
                 this.sendError(response, 1, message);
                 vscode.window.showErrorMessage(message);
                 return;
             }
-
-            // Auto select when a single project is opened
-            if (folderPaths.length === 1) {
-                selectedOptions = [folderPaths[0]];
-                DebuggerConfig.setProjectList(selectedOptions);
-                this.continueLaunch(response, args);
-                return;
-            }
-
-            if (isConsolidatedProject(path.dirname(folderPaths[0]))) {
-                selectedOptions = folderPaths;
-                DebuggerConfig.setProjectList(selectedOptions);
-                this.continueLaunch(response, args);
-                return;
-            }
-
-            // Give user quick pick options when multiple projects are opened
-            vscode.window.showQuickPick(
-                folderPaths.map(p => ({ label: p })),
-                { canPickMany: true, placeHolder: 'Select the projects to build and run' }
-            ).then(selectedItems => {
-                if (!selectedItems || selectedItems.length === 0) {
-                    this.sendError(response, 1, 'No project selected');
-                    return;
-                }
-
-                selectedOptions = selectedItems.map(item => item.label);
-                DebuggerConfig.setProjectList(selectedOptions);
-                this.continueLaunch(response, args);
-            });
+            DebuggerConfig.setProjectList(args.projectList);
+            this.continueLaunch(response, args);
         });
     }
 
     protected async disconnectRequest(response: DebugProtocol.DisconnectResponse, args?: DebugProtocol.DisconnectArguments, request?: DebugProtocol.Request): Promise<void> {
+        this._isDisconnecting = true;
+        abortBuildAndRun();
         this.debuggerHandler?.closeDebugger();
         vscode.commands.executeCommand('setContext', 'MI.isRunning', 'false');
         try {
@@ -577,6 +547,8 @@ export class MiDebugAdapter extends LoggingDebugSession {
                         });
                     } else {
                         await setManagementCredentials(serverPath);
+                        response.success = true;
+                        this.sendResponse(response);
                         executeTasks(this.projectUri, serverPath, isDebugAllowed)
                             .then(async () => {
                                 if (args?.noDebug) {
@@ -584,30 +556,28 @@ export class MiDebugAdapter extends LoggingDebugSession {
                                         openRuntimeServicesWebview(this.projectUri);
                                         extension.isServerStarted = true;
                                         RPCLayer._messengers.get(this.projectUri)?.sendNotification(miServerRunStateChanged, { type: 'webview', webviewType: MI_RUNTIME_SERVICES_PANEL_ID }, 'Running');
-
-                                        response.success = true;
-                                        this.sendResponse(response);
                                     }).catch(error => {
                                         vscode.window.showErrorMessage(error);
-                                        this.sendError(response, 1, error);
                                         vscode.commands.executeCommand('setContext', 'MI.isRunning', 'false');
+                                        this.sendEvent(new TerminatedEvent());
                                     });
                                 } else {
                                     this.debuggerHandler?.initializeDebugger().then(() => {
                                         openRuntimeServicesWebview(this.projectUri);
                                         extension.isServerStarted = true;
                                         RPCLayer._messengers.get(this.projectUri)?.sendNotification(miServerRunStateChanged, { type: 'webview', webviewType: MI_RUNTIME_SERVICES_PANEL_ID }, 'Running');
-                                        response.success = true;
-                                        this.sendResponse(response);
                                     }).catch(error => {
                                         const completeError = `Error while initializing the Debugger: ${error}`;
                                         vscode.window.showErrorMessage(completeError);
-                                        this.sendError(response, 1, completeError);
                                         vscode.commands.executeCommand('setContext', 'MI.isRunning', 'false');
+                                        this.sendEvent(new TerminatedEvent());
                                     });
                                 }
                             })
                             .catch(error => {
+                                if (this._isDisconnecting) {
+                                    return;
+                                }
                                 vscode.commands.executeCommand('setContext', 'MI.isRunning', 'false');
                                 deleteCopiedCapAndLibs();
                                 const completeError = `Error while launching run and debug: ${error}`;
@@ -616,7 +586,7 @@ export class MiDebugAdapter extends LoggingDebugSession {
                                 } else {
                                     vscode.window.showErrorMessage(completeError);
                                 }
-                                this.sendError(response, 1, completeError);
+                                this.sendEvent(new TerminatedEvent());
                             });
                     }
                 });
