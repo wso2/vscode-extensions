@@ -40,6 +40,7 @@ export const createConnectionSelectField = (
             label: varName,
             value: varName,
             codedata: node.codedata,
+            iconUrl: node.metadata?.icon,
         })) : undefined;
     return {
         "key": "connection",
