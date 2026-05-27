@@ -28,6 +28,13 @@ export const GLOB_TOOL_NAME = "glob";
 
 const MAX_RESULTS = 500;
 
+/** Paths and files always excluded from search */
+const EXCLUDE_GLOB_ARGS = [
+    '--glob', '!.git/**',
+    '--glob', '!target/**',
+    '--ignore-file', '.gitignore',
+];
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -84,8 +91,7 @@ export function createGlobExecute(
         const args = [
             '--files',
             '--glob', pattern,
-            '--glob', '!.git/**',
-            '--glob', '!target/**',
+            ...EXCLUDE_GLOB_ARGS,
             '--',
             resolvedPath,
         ];
