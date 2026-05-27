@@ -57,6 +57,7 @@ import {
 import {
     convertBICategoriesToSidePanelCategories,
     convertFunctionCategoriesToSidePanelCategories,
+    convertAgentCategoriesToSidePanelCategories,
     convertModelProviderCategoriesToSidePanelCategories,
     convertVectorStoreCategoriesToSidePanelCategories,
     convertEmbeddingProviderCategoriesToSidePanelCategories,
@@ -1364,10 +1365,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                     })
                     .then((response) => {
                         setCategories(
-                            convertFunctionCategoriesToSidePanelCategories(
-                                response.categories as Category[],
-                                FUNCTION_TYPE.REGULAR
-                            )
+                            convertAgentCategoriesToSidePanelCategories(response.categories as Category[])
                         );
                         setSidePanelView(SidePanelView.AGENT_LIST);
                         setShowSidePanel(true);

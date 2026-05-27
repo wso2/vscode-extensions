@@ -74,7 +74,7 @@ import { cloneDeep } from "lodash";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import hljs from "highlight.js";
-import { COMPLETION_ITEM_KIND, CompletionItem, CompletionItemKind, convertCompletionItemKind, FnSignatureDocumentation } from "@wso2/ui-toolkit";
+import { COMPLETION_ITEM_KIND, CompletionItem, CompletionItemKind, convertCompletionItemKind, FnSignatureDocumentation, Icon } from "@wso2/ui-toolkit";
 import { FunctionDefinition, STNode } from "@wso2/syntax-tree";
 import { DocSection } from "../components/ExpressionEditor";
 
@@ -230,6 +230,17 @@ export function convertFunctionCategoriesToSidePanelCategories(
         functionCategory.description = "No functions defined. Click below to create a new function.";
     }
     return panelCategories;
+}
+
+export function convertAgentCategoriesToSidePanelCategories(categories: Category[]): PanelCategory[] {
+    return convertCategoriesToSidePanelCategoriesWithIcon(categories, (codedata, iconUrl) => (
+        <ConnectorIcon
+            url={iconUrl}
+            codedata={codedata}
+            fallbackIcon={<Icon name="bi-ai-agent" sx={{ width: 20, height: 20, fontSize: 20 }} />}
+            style={{ width: "20px", height: "20px", fontSize: "20px" }}
+        />
+    ));
 }
 
 export function convertModelProviderCategoriesToSidePanelCategories(categories: Category[]): PanelCategory[] {

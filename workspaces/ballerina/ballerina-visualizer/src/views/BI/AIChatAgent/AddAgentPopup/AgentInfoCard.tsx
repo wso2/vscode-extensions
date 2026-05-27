@@ -88,7 +88,7 @@ export function AgentInfoCard({ label, description, icon }: AgentInfoCardProps) 
             <IconWrap>
                 <ConnectorIcon
                     url={icon}
-                    fallbackIcon={<Icon name="bi-ai-agent" sx={{ fontSize: 32, width: 32, height: 32 }} />}
+                    fallbackIcon={<Icon name="bi-ai-agent" sx={{ fontSize: 28, width: 28, height: 28 }} />}
                 />
             </IconWrap>
             <Content>
