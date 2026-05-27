@@ -19,14 +19,13 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Dropdown, Button, TextField, FormView, FormActions, RadioButtonGroup, Icon, Typography } from "@wso2/ui-toolkit";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
-import { EVENT_TYPE, MACHINE_VIEW, CreateRegistryResourceRequest, POPUP_EVENT_TYPE, getProjectDetails } from "@wso2/mi-core";
+import { EVENT_TYPE, MACHINE_VIEW, CreateRegistryResourceRequest, POPUP_EVENT_TYPE, getProjectDetails, Platform } from "@wso2/mi-core";
 import { yupResolver } from "@hookform/resolvers/yup"
 import * as yup from "yup";
 import { useForm } from "react-hook-form";
 import { colors } from "@wso2/ui-toolkit";
 import { RUNTIME_VERSION_440 } from "../../constants";
 import { compareVersions } from "@wso2/mi-diagram/lib/utils/commons";
-import path from "path";
 
 export interface RegistryWizardProps {
     path: string;
@@ -42,6 +41,13 @@ const templates = [{ value: "Data Mapper" }, { value: "Javascript File" }, { val
 const policyTypes = [{ value: "Username Token" }, { value: "Non-repudiation" }, { value: "Integrity" }, { value: "Confidentiality" },
     { value: "Sign and Encrypt - X509 Authentication" }, { value: "Sign and Encrypt - Anonymous Clients" },
     { value: "Encrypt Only - Username Token Authentication" }, { value: "Sign and Encrypt - Username Token Authentication" }];
+
+const REGISTRY_ROOT_ALIASES = ['registry', '_system'];
+
+const REGISTRY_SUB_ROOT_ALIASES: Record<'gov' | 'conf', string[]> = {
+            gov: ['gov', 'governance'],
+            conf: ['conf', 'config'],
+        };
 
 type InputsFields = {
     templateType?: string;
@@ -162,21 +168,27 @@ export function RegistryResourceForm(props: RegistryWizardProps) {
     const [resourcePaths, setResourcePaths] = useState([]);
     const [artifactNames, setArtifactNames] = useState([]);
     const [isResourceContentVisible, setIsResourceContentVisible] = useState(false);
+    const [isWindows, setIsWindows] = useState(false);
     const templateCreatableTypes = filterTemplateCreatableTypes(props.type);
     const initialResourceType = templateCreatableTypes.length > 0 ? templateCreatableTypes[0] : props.type ? props.type[0] : undefined;
 
     const schema = yup
         .object({
             createOption: yup.mixed<"new" | "import">().oneOf(["new", "import"]),
-            registryPath: yup.string().test('validateRegistryPath', 'Resource already exists', value => {
-                if (isResourceContentVisible) {
-                    const formattedPath = formatResourcePath(value);
-                    return !resourcePaths.includes(formattedPath);
-                } else {
-                    const formattedPath = formatRegistryPath(value);
-                    return !registryPaths.includes(formattedPath);
-                }
-            }),
+            registryPath: yup.string()
+                .test('validatePathSeparator', 'Use "/" as the path separator', value => !value || isWindows || !value.includes('\\'))
+                .test('noLeadingSeparator', 'Path must not start with a separator', value => !value || !/^[\\/]/.test(value))
+                .test('noTrailingSeparator', 'Path must not end with a separator', value => !value || !/[\\/]$/.test(value))
+                .test('noConsecutiveSeparators', 'Path must not contain consecutive separators', value => !value || !/[\\/]{2,}/.test(value))
+                .test('validateRegistryPath', 'Resource already exists', value => {
+                    if (isResourceContentVisible) {
+                        const formattedPath = formatResourcePath(value);
+                        return !resourcePaths.includes(formattedPath);
+                    } else {
+                        const formattedPath = formatRegistryPath(value);
+                        return !registryPaths.includes(formattedPath);
+                    }
+                }),
             registryType: yup.string().test('validateRegistryType', 'Invalid registry type', value => {
                 if (!isResourceContentVisible) {
                     return ['gov', 'conf'].includes(value);
@@ -246,6 +258,8 @@ export function RegistryResourceForm(props: RegistryWizardProps) {
                 const response = await rpcClient.getMiVisualizerRpcClient().getProjectDetails();
                 const runtimeVersion = response.primaryDetails.runtimeVersion.value;
                 setIsResourceContentVisible(compareVersions(runtimeVersion, RUNTIME_VERSION_440) >= 0);
+                const visualizerState = await rpcClient.getVisualizerState();
+                setIsWindows(visualizerState.platform === Platform.WINDOWS);
                 const tempArtifactNames = await rpcClient.getMiDiagramRpcClient().getAvailableRegistryResources(request);
                 setRegArtifactNames(tempArtifactNames.artifacts);
                 const res = await rpcClient.getMiDiagramRpcClient().getAllRegistryPaths(request);
@@ -327,11 +341,18 @@ export function RegistryResourceForm(props: RegistryWizardProps) {
         return false;
     }
 
+    const startsWithRegistryRoot = (registryPath: string, subRoot: 'gov' | 'conf'): boolean => {
+        const segments = registryPath.split(/[\\/]/).filter(Boolean);
+        return segments.length >= 2 &&
+            REGISTRY_ROOT_ALIASES.includes(segments[0].toLowerCase()) &&
+            REGISTRY_SUB_ROOT_ALIASES[subRoot].includes(segments[1].toLowerCase());
+    };
+
     const getRegistryRoot = (registryType: string, registryPath: string): string => {
         if (isResourceContentVisible) {
-            if (registryPath && registryPath.includes(path.join('registry', 'gov'))) {
+            if (registryPath && startsWithRegistryRoot(registryPath, 'gov')) {
                 return 'gov';
-            } else if (registryPath && registryPath.includes(path.join('registry', 'conf'))) {
+            } else if (registryPath && startsWithRegistryRoot(registryPath, 'conf')) {
                 return 'conf';
             } else {
                 return '';
@@ -341,9 +362,12 @@ export function RegistryResourceForm(props: RegistryWizardProps) {
     };
 
     const handleRegistryPathPrefix = (registryPath: string): string => {
-        let handledRegistryPath = registryPath.replaceAll(path.join('registry', 'gov'), '');
-        handledRegistryPath = handledRegistryPath.replaceAll(path.join('registry', 'conf'), '');
-        return handledRegistryPath;
+        const segments = registryPath.split(/[\\/]/).filter(Boolean);
+        const allSubRootAliases = [...REGISTRY_SUB_ROOT_ALIASES.gov, ...REGISTRY_SUB_ROOT_ALIASES.conf];
+        if (segments.length >= 2 && REGISTRY_ROOT_ALIASES.includes(segments[0].toLowerCase()) && allSubRootAliases.includes(segments[1].toLowerCase())) {
+            return segments.slice(2).join('/');
+        }
+        return segments.join('/');
     }
 
     const handleCreateRegResource = async (values: InputsFields) => {

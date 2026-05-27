@@ -67,7 +67,9 @@ import {
     MavenDeployPluginDetails,
     ProjectConfig,
     ReloadDependenciesRequest,
-    DependencyStatusResponse
+    DependencyStatusResponse,
+    ExecuteRemoteDeployParams,
+    DeployConfigParam
 } from "@wso2/mi-core";
 import * as https from "https";
 import Mustache from "mustache";
@@ -94,6 +96,7 @@ import { extractCAppDependenciesAsProjects, loadCAppResources } from "../../visu
 import { findMultiModuleProjectsInWorkspaceDir } from "../../util/migrationUtils";
 import { MILanguageClient } from "../../lang-client/activator";
 import { reorderModulesByBuildOrder } from "../../debugger/pomResolver";
+import { buildDeployExtraArgs, executeRemoteDeployTask } from "../../debugger/debugHelper";
 
 Mustache.escape = escapeXml;
 
@@ -188,6 +191,50 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
             }
             resolve(res);
         });
+    }
+
+    async getRemoteDeployConfigs(): Promise<DeployConfigParam[]> {
+        const details = await this.getDeployPluginDetails();
+        const configs: DeployConfigParam[] = [];
+        for (const [key, value] of Object.entries(details)) {
+            if (key === "range" || key === "content" || typeof value !== "string" || value === "") { continue; }
+            const paramMatch = value.match(/^\$\{([^}]+)\}$/);
+            if (paramMatch) {
+                configs.push({ key, value: "", isParameterized: true, paramName: paramMatch[1] });
+            } else {
+                configs.push({ key, value, isParameterized: false });
+            }
+        }
+        return configs;
+    }
+
+    async executeRemoteDeployWithParams(params: ExecuteRemoteDeployParams): Promise<void> {
+        const details = await this.getDeployPluginDetails();
+
+        const updatedDetails: MavenDeployPluginDetails = { ...details };
+        const paramValues: Record<string, string> = {};
+        let hasPermanentUpdates = false;
+
+        for (const [key, value] of Object.entries(details)) {
+            if (key === "range" || key === "content" || typeof value !== "string") { continue; }
+            const userVal = params.values[key];
+            if (userVal === undefined) { continue; }
+
+            const paramMatch = value.match(/^\$\{([^}]+)\}$/);
+            if (paramMatch) {
+                if (userVal) { paramValues[paramMatch[1]] = userVal; }
+            } else if (userVal !== value) {
+                (updatedDetails as any)[key] = userVal;
+                hasPermanentUpdates = true;
+            }
+        }
+
+        if (hasPermanentUpdates) {
+            await this.setDeployPlugin(updatedDetails);
+        }
+
+        const extraArgs = buildDeployExtraArgs(paramValues);
+        await executeRemoteDeployTask(this.projectUri, undefined, extraArgs);
     }
 
     /**

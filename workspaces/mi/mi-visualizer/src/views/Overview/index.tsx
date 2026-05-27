@@ -17,7 +17,8 @@
  */
 
 import React, { useEffect } from "react";
-import { DeployProjectRequest, EVENT_TYPE, MACHINE_VIEW, ProjectOverviewResponse, ProjectStructureResponse, WorkspaceFolder } from "@wso2/mi-core";
+import { DeployConfigParam, DeployProjectRequest, EVENT_TYPE, MACHINE_VIEW, ProjectOverviewResponse, ProjectStructureResponse, WorkspaceFolder } from "@wso2/mi-core";
+import { RemoteDeployConfigForm } from "../Forms/RemoteDeployConfigForm";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
 import { ViewHeader } from "../../components/View";
 import { Alert, Button, Codicon, colors, Icon, PanelContent, ProgressRing, Typography } from "@wso2/ui-toolkit";
@@ -118,6 +119,7 @@ export function Overview(props: OverviewProps) {
     const [pomTimestamp, setPomTimestamp] = React.useState<number>(0);
     const [errors, setErrors] = React.useState({});
     const [isConsolidatedProject, setIsConsolidatedProject] = React.useState<boolean>(false);
+    const [remoteDeployConfigs, setRemoteDeployConfigs] = React.useState<DeployConfigParam[] | null>(null);
     const { data: devantMetadata } = useQuery({
         queryKey: ["devant-metadata", workspaces],
         queryFn: () => rpcClient.getMiDiagramRpcClient().getDevantMetadata(),
@@ -222,8 +224,23 @@ export function Overview(props: OverviewProps) {
         rpcClient.getMiDiagramRpcClient().buildProject({ buildType: "consolidated" });
     };
 
-    const handleRemoteDeploy = () => {
-        rpcClient.getMiDiagramRpcClient().remoteDeploy();
+    const handleRemoteDeploy = async () => {
+        try {
+            const isEnabled = await rpcClient.getMiVisualizerRpcClient().isSupportEnabled("REMOTE_DEPLOYMENT_ENABLED");
+            if (!isEnabled) {
+                rpcClient.getMiDiagramRpcClient().remoteDeploy();
+                return;
+            }
+            const configs = await rpcClient.getMiVisualizerRpcClient().getRemoteDeployConfigs();
+            if (configs.length > 0) {
+                setRemoteDeployConfigs(configs);
+            } else {
+                rpcClient.getMiDiagramRpcClient().remoteDeploy();
+            }
+        } catch (error) {
+            console.error('Error handling remote deploy:', error);
+            rpcClient.getMiDiagramRpcClient().remoteDeploy();
+        }
     };
 
     const goToDevant = () => {
@@ -395,6 +412,12 @@ export function Overview(props: OverviewProps) {
                     </div>
                 </Columns>
             </Body>
+            {remoteDeployConfigs && (
+                <RemoteDeployConfigForm
+                    configs={remoteDeployConfigs}
+                    onClose={() => setRemoteDeployConfigs(null)}
+                />
+            )}
         </div>
     );
 }

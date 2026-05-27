@@ -133,6 +133,14 @@ export const MVN_COMMANDS = {
     GEN_POM_COMMAND: "help:effective-pom",
 }
 
+export const DEPLOY_BASE_ARGS = [
+    'clean',
+    'deploy',
+    '-Dmaven.deploy.skip=true',
+    '-Dmaven.car.deploy.skip=false',
+    '-Dstyle.color=never',
+];
+
 export const DEFAULT_PROJECT_VERSION = "1.0.0";
 
 export const BALLERINA_VERSION = "2201.13.3";

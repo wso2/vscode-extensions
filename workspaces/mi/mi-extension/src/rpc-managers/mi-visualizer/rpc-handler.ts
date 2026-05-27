@@ -93,6 +93,9 @@ import {
     setDeployPlugin,
     getDeployPluginDetails,
     removeDeployPlugin,
+    executeRemoteDeployWithParams,
+    ExecuteRemoteDeployParams,
+    getRemoteDeployConfigs,
     ReloadDependenciesRequest,
     getDependencyStatusList
 } from "@wso2/mi-core";
@@ -153,5 +156,6 @@ export function registerMiVisualizerRpcHandlers(messenger: Messenger, projectUri
     messenger.onRequest(getDeployPluginDetails, () => rpcManger.getDeployPluginDetails());
     messenger.onRequest(removeDeployPlugin, () => rpcManger.removeDeployPlugin());
     messenger.onRequest(updateAiDependencies, (args: UpdateAiDependenciesRequest) => rpcManger.updateAiDependencies(args));
-    messenger.onRequest(updateAiDependencies, (args: UpdateAiDependenciesRequest) => rpcManger.updateAiDependencies(args));
+    messenger.onRequest(executeRemoteDeployWithParams, (args: ExecuteRemoteDeployParams) => rpcManger.executeRemoteDeployWithParams(args));
+    messenger.onRequest(getRemoteDeployConfigs, () => rpcManger.getRemoteDeployConfigs());
 }

@@ -1710,7 +1710,7 @@ export function FormGenerator(props: FormGeneratorProps) {
             if (conditionKey.includes('.')) {
                 const [key, subKey] = conditionKey.split('.');
                 const parentValue = watch(getNameForController(key));
-                const subKeyValue = parentValue?.[subKey] || currentVal;
+                const subKeyValue = parentValue?.[subKey] ?? currentVal;
                 return isTypeAwareEqual(subKeyValue, expectedValue);
             }
             return isTypeAwareEqual(currentVal, condition[conditionKey]);

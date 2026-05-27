@@ -118,6 +118,13 @@ const MainPanel = (props: MainPanelProps) => {
     }, [props]);
 
     useEffect(() => {
+        // Close any open popup views when the view changes
+        if (typeof formState === 'object' && 'open' in formState) {
+            rpcClient?.getMiVisualizerRpcClient().openView({ type: POPUP_EVENT_TYPE.CLOSE_VIEW, location: { view: null }, isPopup: true });
+        }
+    }, [visualizerState.view]);
+
+    useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
             if (event.key === 'i' && (event.metaKey || event.ctrlKey)) {
                 rpcClient.getMiDiagramRpcClient().executeCommand({ commands: ["MI.openAiPanel"] });

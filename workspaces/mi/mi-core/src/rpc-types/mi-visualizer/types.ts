@@ -496,3 +496,14 @@ export interface ReloadDependenciesRequest {
     newDependencies?: DependencyDetails[];
     isProjectDependenciesUpdated?: boolean;
 }
+
+export interface DeployConfigParam {
+    key: string;
+    value: string;
+    isParameterized: boolean;
+    paramName?: string;
+}
+
+export interface ExecuteRemoteDeployParams {
+    values: Record<string, string>;
+}
