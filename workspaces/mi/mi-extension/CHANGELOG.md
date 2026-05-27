@@ -2,7 +2,15 @@
 
 All notable changes to the "micro-integrator" extension will be documented in this file.
 
-## [4.0.0]   
+## [4.0.1] - 2026-05-26    
+
+### Fixed    
+
+Fixed: Resource path corrupts when creating a registry resource([#1491](https://github.com/wso2/mi-vscode/issues/1491))   
+Fixed: Support parsing parameterized values to the maven-car-deploy-plugin ([#1490](https://github.com/wso2/mi-vscode/issues/1490))   
+Fixed: Call Endpoint mediator Endpoint list doesn't show INLINE option ([#1126](https://github.com/wso2/mi-vscode/issues/1126))  
+
+## [4.0.0] - 2026-05-18
 
 ### Improvements
 
