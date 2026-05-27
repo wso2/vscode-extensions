@@ -80,12 +80,13 @@ export const ConnectionSelectEditor: React.FC<ConnectionSelectEditorProps> = ({ 
     const cacheKey = connectionType ? `${searchNodesKind}:${connectionType}` : searchNodesKind;
     const initialItems: ConnectionSelectItem[] = field.codedata?.initialItems ?? [];
     const staticItems: ConnectionSelectItem[] = field.codedata?.staticItems ?? [];
+    const itemsPreloaded = field.codedata?.initialItems !== undefined;
     const cachedItems = cacheKey ? itemsCache.get(cacheKey) : undefined;
     const resolvedItems = [...staticItems, ...(cachedItems ?? enrichWithCachedIcons(initialItems))];
     const [selectItems, setSelectItems] = useState<ConnectionSelectItem[]>(
         ensureValueInItems(resolvedItems, value, searchNodesKind)
     );
-    const [loading, setLoading] = useState<boolean>(!!searchNodesKind && !cachedItems);
+    const [loading, setLoading] = useState<boolean>(!!searchNodesKind && !cachedItems && !itemsPreloaded);
 
     const fetchItems = () => {
         if (!searchNodesKind) return;
@@ -123,6 +124,8 @@ export const ConnectionSelectEditor: React.FC<ConnectionSelectEditorProps> = ({ 
     };
 
     useEffect(() => {
+        // Parent already provided the list (initialItems) — skip the redundant mount fetch.
+        if (itemsPreloaded) return;
         fetchItems();
     }, [searchNodesKind, connectionType, fileName]);
 
