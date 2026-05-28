@@ -505,7 +505,13 @@ export interface SessionContextBlockHashes {
     webAvailability: string;
     modePolicy: AgentMode;
     payloads: string | undefined;
-    /** sha256-16 of full untruncated AGENTS.md raw bytes, or `undefined` when no AGENTS.md exists. */
+    /**
+     * sha256-16 over the bytes we actually surface to the model (i.e. the
+     * possibly truncated AGENTS.md content) combined with the truncation
+     * metadata (`truncated`, `originalSize`). `undefined` when no AGENTS.md
+     * exists at the project root, which is what drives the `cleared` notice
+     * on deletion.
+     */
     agentsMd: string | undefined;
 }
 
@@ -885,6 +891,19 @@ ${list}`;
 }
 
 /**
+ * Neutralize prompt-envelope tags embedded inside user-authored content
+ * (AGENTS.md) so a malicious or accidental `</system-reminder>` or
+ * `<user_query>` can't break out of the surrounding wrapper. Replaces the
+ * angle brackets of those specific tag sequences with mathematical-angle
+ * lookalikes (U+27E8 / U+27E9): visually obvious to humans, the model can
+ * still read the surrounding text fine, but the regex/parser our envelope
+ * relies on no longer matches.
+ */
+function neutralizePromptEnvelopeTags(content: string): string {
+    return content.replace(/<(\/?)(system-reminder|user_query)>/g, '⟨$1$2⟩');
+}
+
+/**
  * Render the AGENTS.md block. The user authors `AGENTS.md` at the project
  * root to pin custom project-level instructions (analogous to CLAUDE.md for
  * Claude Code). Treat its contents as user-authored guidance that augments
@@ -904,10 +923,11 @@ The user has deleted AGENTS.md. Discard any prior project-level instructions sou
     const truncationFooter = snapshot.agentsMdTruncated
         ? `\n\n[file truncated — original size: ${Math.round(snapshot.agentsMdOriginalSize / 1024)} KB, showing first ${Math.round(AGENTS_MD_MAX_BYTES / 1024)} KB. Inform the user that their AGENTS.md exceeds the size limit and any rules beyond this point are NOT in your context.]`
         : '';
+    const safeContent = neutralizePromptEnvelopeTags(snapshot.agentsMdContent);
     return `# Project AGENTS.md${headerSuffix}
 The user has provided custom project-level instructions at AGENTS.md (project root). Follow these in addition to the system prompt; on conflict, these take precedence.
 
-${snapshot.agentsMdContent}${truncationFooter}`;
+${safeContent}${truncationFooter}`;
 }
 
 // ============================================================================

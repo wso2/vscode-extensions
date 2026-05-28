@@ -355,7 +355,7 @@ export function convertEventsToMessages(
                 messages.push({
                     id: generateId(),
                     role: Role.MICopilot,
-                    content: `<agents-md-warning>${(event as any).warningMessage || event.content || ''}</agents-md-warning>`,
+                    content: `<agents-md-warning>${event.warningMessage || event.content || ''}</agents-md-warning>`,
                     type: MessageType.AssistantMessage,
                 });
                 break;

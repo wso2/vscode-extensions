@@ -814,14 +814,30 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 // assistant message so the warning renders even before the model starts
                 // streaming text for this turn. Persisted to JSONL by the extension so
                 // it also reappears on reload via the converter.
-                const warningText = (event as any).warningMessage || event.content || '';
+                const warningText = event.warningMessage || event.content || '';
                 if (warningText) {
-                    setMessages((prev) => [...prev, {
+                    const warningMsg: ChatMessage = {
                         id: generateId(),
                         role: Role.MICopilot,
                         content: `<agents-md-warning>${warningText}</agents-md-warning>`,
                         type: MessageType.AssistantMessage,
-                    }]);
+                    };
+                    // sendAgentMessage optimistically appends an empty assistant
+                    // placeholder before the stream starts, and content_block /
+                    // thinking_* events target that placeholder via
+                    // updateLastMessage. If we append the warning at the end we'd
+                    // displace the placeholder and subsequent stream updates would
+                    // land on the warning bubble instead. Splice the warning
+                    // just before the active placeholder so the placeholder stays
+                    // last and remains the streaming target.
+                    setMessages((prev) => {
+                        if (prev.length > 0
+                            && prev[prev.length - 1].role === Role.MICopilot
+                            && backendRequestTriggeredRef.current) {
+                            return [...prev.slice(0, -1), warningMsg, prev[prev.length - 1]];
+                        }
+                        return [...prev, warningMsg];
+                    });
                 }
                 break;
             }

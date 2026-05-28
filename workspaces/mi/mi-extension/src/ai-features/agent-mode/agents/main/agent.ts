@@ -706,8 +706,18 @@ export async function executeAgent(
             const originalKb = Math.round(sessionContextResult.snapshot.agentsMdOriginalSize / 1024);
             const cappedKb = Math.round(AGENTS_MD_MAX_BYTES / 1024);
             const warningMessage = `Your AGENTS.md is ${originalKb} KB; only the first ${cappedKb} KB is included in the model's context. Rules in the truncated portion will NOT be followed. Shorten the file or split sections out into prose to fit within ${cappedKb} KB.`;
+            // Persistence is a non-fatal side-effect — a JSONL write failure
+            // must not abort the agent run. The warning is purely informational
+            // (the truncation banner inside the prompt block tells the model
+            // separately), so on persistence failure we still emit the live
+            // event so the user sees it this turn; only the cross-reconnect
+            // replay is sacrificed.
             if (request.chatHistoryManager) {
-                await request.chatHistoryManager.saveAgentsMdWarning(warningMessage);
+                try {
+                    await request.chatHistoryManager.saveAgentsMdWarning(warningMessage);
+                } catch (error) {
+                    logError('[Agent] Failed to persist AGENTS.md warning to history', error);
+                }
             }
             emitEvent({ type: 'context_warning', warningMessage, content: warningMessage });
         }
