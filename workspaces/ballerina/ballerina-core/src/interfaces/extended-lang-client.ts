@@ -2035,7 +2035,7 @@ export interface CodeMapRequest {
 }
 
 export interface CodeMapResponse {
-    content?: string;
+    content: string;
 }
 
 export interface ProjectInfoRequest {
