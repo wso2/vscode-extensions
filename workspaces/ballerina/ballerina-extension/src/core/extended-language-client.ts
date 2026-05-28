@@ -295,8 +295,6 @@ import {
     GetSimpleTypeOfExpressionRequest,
     AIGetPackageVersionRequest,
     AIGetPackageVersionResponse,
-    CodeMapResolveModuleDependenciesRequest,
-    CodeMapResolveModuleDependenciesResponse
 } from "@wso2/ballerina-core";
 import { BallerinaExtension } from "./index";
 import { debug, handlePullModuleProgress } from "../utils";
@@ -496,7 +494,6 @@ enum EXTENDED_APIS {
     COPILOT_FILTER_LIBRARIES = 'copilotLibraryManager/getFilteredLibraries',
     COPILOT_SEARCH_LIBRARIES = 'copilotLibraryManager/getLibrariesBySearch',
     COPILOT_GET_CODE_MAP = 'designModelService/codeMap',
-    COPILOT_CODE_MAP_RESOLVE_MODULE_DEPENDENCIES = 'designModelService/codeMapResolveModuleDependencies',
     GET_MIGRATION_TOOLS = 'projectService/getMigrationTools',
     TIBCO_TO_BI = 'projectService/importTibco',
     MULE_TO_BI = 'projectService/importMule',
@@ -1510,10 +1507,6 @@ export class ExtendedLangClient extends LanguageClient implements ExtendedLangCl
 
     async getCodeMap(params: CodeMapRequest): Promise<CodeMapResponse> {
         return this.sendRequest<CodeMapResponse>(EXTENDED_APIS.COPILOT_GET_CODE_MAP, params);
-    }
-
-    async codeMapResolveModuleDependencies(params: CodeMapResolveModuleDependenciesRequest): Promise<CodeMapResolveModuleDependenciesResponse> {
-        return this.sendRequest<CodeMapResolveModuleDependenciesResponse>(EXTENDED_APIS.COPILOT_CODE_MAP_RESOLVE_MODULE_DEPENDENCIES, params);
     }
 
     // <------------ BI APIS END --------------->

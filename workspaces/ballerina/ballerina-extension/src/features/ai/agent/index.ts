@@ -19,7 +19,6 @@ import { StateMachine } from "../../../stateMachine";
 import { chatStateStorage } from '../../../views/ai-panel/chatStateStorage';
 import { AICommandConfig } from "../executors/base/AICommandExecutor";
 import { createWebviewEventHandler } from "../utils/events";
-import { sendDependencyPullProgressToAIPanel, clearDependencyPullProgressInAIPanel } from "../utils/ai-utils";
 import { AgentExecutor } from './AgentExecutor';
 import {
     sendTelemetryEvent,
@@ -130,18 +129,6 @@ export async function generateAgent(params: GenerateAgentCodeRequest): Promise<b
         const workspacePath = StateMachine.context().workspacePath || projectRootPath;
         if (langClient) {
             try {
-                try {
-                    sendDependencyPullProgressToAIPanel('Pulling module dependencies...');
-                    const pullResponse = await langClient.codeMapResolveModuleDependencies({
-                        projectPath: workspacePath
-                    });
-                    console.debug('[generateAgent] resolveModuleDependencies response:', JSON.stringify(pullResponse, null, 2));
-                } catch (pullErr) {
-                    console.warn('[generateAgent] Failed to resolve module dependencies, continuing:', pullErr);
-                } finally {
-                    clearDependencyPullProgressInAIPanel();
-                }
-
                 const codeMapResponse = await langClient.getCodeMap({
                     projectPath: workspacePath,
                 });

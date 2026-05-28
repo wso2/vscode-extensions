@@ -20,7 +20,6 @@ import {
     ChatNotify,
     ChatStart,
     DiagnosticEntry,
-    dependencyPullProgress,
     IntermidaryState,
     onChatNotify,
     ProjectSource,
@@ -44,7 +43,6 @@ import { AiPanelWebview } from "../../../views/ai-panel/webview";
 import { MigrationPanelWebview } from "../../../views/migration-panel/webview";
 import { VisualizerWebview } from "../../../views/visualizer/webview";
 import { GenerationType } from "./libs/libraries";
-import { send } from "xstate";
 // import { REQUIREMENTS_DOCUMENT_KEY } from "./code/np_prompts";
 
 export function populateHistory(chatHistory: ChatEntry[]): ModelMessage[] {
@@ -234,18 +232,6 @@ export function sendIntermidateStateNotification(intermediaryState: Documentatio
         state: intermediaryState,
     };
     sendAIPanelNotification(msg);
-}
-
-export function sendDependencyPullProgressToAIPanel(message: string): void {
-    RPCLayer._messenger.sendNotification(
-        dependencyPullProgress,
-        { type: "webview", webviewType: AiPanelWebview.viewType },
-        message
-    );
-}
-
-export function clearDependencyPullProgressInAIPanel(): void {
-    sendDependencyPullProgressToAIPanel("");
 }
 
 export function sendToolCallNotification(toolName: string, toolInput?: any, toolCallId?: string): void {
