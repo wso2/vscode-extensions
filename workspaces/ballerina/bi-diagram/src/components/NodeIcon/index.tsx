@@ -81,6 +81,8 @@ const NODE_COLOR_GROUPS = {
     CYAN_FUNCTION_GROUP: [
         "AGENT_CALL",
         "AGENT_TYPE",
+        "AGENT_RUN",
+        "AGENT",
         "AGENTS",
         "NP_FUNCTION",
         "NP_FUNCTION_CALL",

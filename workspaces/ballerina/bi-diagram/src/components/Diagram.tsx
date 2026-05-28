@@ -61,6 +61,7 @@ export interface DiagramProps {
     onConnectionSelect?: (connectionName: string) => void;
     goToSource?: (node: FlowNode) => void;
     openView?: (location: VisualizerLocation) => void;
+    goToAgent?: (node: FlowNode) => void;
     draftNode?: DraftNodeConfig;
     selectedNodeId?: string;
     // agent node callbacks
@@ -119,6 +120,7 @@ export function Diagram(props: DiagramProps) {
         onConnectionSelect,
         goToSource,
         openView,
+        goToAgent,
         draftNode,
         selectedNodeId,
         agentNode,
@@ -360,6 +362,7 @@ export function Diagram(props: DiagramProps) {
         onConnectionSelect: onConnectionSelect,
         goToSource: goToSource,
         openView: openView,
+        goToAgent: goToAgent,
         draftNode: draftNode,
         selectedNodeId: selectedNodeId,
         agentNode: agentNode,

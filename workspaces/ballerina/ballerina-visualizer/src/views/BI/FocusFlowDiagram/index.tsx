@@ -56,7 +56,7 @@ import { AddTool } from "../AIChatAgent/AddTool";
 import { NewTool, NewToolSelectionMode } from "../AIChatAgent/NewTool";
 import { AddMcpServer } from "../AIChatAgent/AddMcpServer";
 import { ToolConfig } from "../AIChatAgent/ToolConfig";
-import { findFlowNode, findFlowNodeByModuleVarName, refreshNodeLineRangeFromArtifacts, removeToolFromAgentNode } from "../AIChatAgent/utils";
+import { findFlowNode, findFlowNodeByModuleVarName, goToAgentFromRunNode, refreshNodeLineRangeFromArtifacts, removeToolFromAgentNode } from "../AIChatAgent/utils";
 import { buildAgentRenderNode } from "./agent";
 
 import {
@@ -863,6 +863,8 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
         await rpcClient.getVisualizerRpcClient().openView({ type: EVENT_TYPE.OPEN_VIEW, location: context });
     };
 
+    const handleGoToAgent = (node: FlowNode) => goToAgentFromRunNode(node, rpcClient);
+
     const flowModel = originalFlowModel.current && suggestedModel ? suggestedModel : model;
 
     /* expression editor related */
@@ -1104,6 +1106,7 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
             addBreakpoint: handleAddBreakpoint,
             removeBreakpoint: handleRemoveBreakpoint,
             openView: handleOpenView,
+            goToAgent: handleGoToAgent,
             projectPath,
             breakpointInfo,
             expressionContext: {
@@ -1136,6 +1139,7 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
             onDeleteNode: noop,
             goToSource: handleOnGoToSource,
             openView: handleOpenView,
+            goToAgent: handleGoToAgent,
             projectPath,
             breakpointInfo,
             readOnly: showProgressIndicator,
@@ -1164,6 +1168,7 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
             onDeleteNode: noop,
             goToSource: handleOnGoToSource,
             openView: handleOpenView,
+            goToAgent: handleGoToAgent,
             projectPath,
             breakpointInfo,
             readOnly: showProgressIndicator,
