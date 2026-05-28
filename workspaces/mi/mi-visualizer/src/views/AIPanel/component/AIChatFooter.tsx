@@ -809,6 +809,23 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                 }
                 break;
 
+            case "context_warning": {
+                // AGENTS.md (or similar) was truncated. Show as a standalone synthetic
+                // assistant message so the warning renders even before the model starts
+                // streaming text for this turn. Persisted to JSONL by the extension so
+                // it also reappears on reload via the converter.
+                const warningText = (event as any).warningMessage || event.content || '';
+                if (warningText) {
+                    setMessages((prev) => [...prev, {
+                        id: generateId(),
+                        role: Role.MICopilot,
+                        content: `<agents-md-warning>${warningText}</agents-md-warning>`,
+                        type: MessageType.AssistantMessage,
+                    }]);
+                }
+                break;
+            }
+
             case "usage":
                 // Update context usage via shared context state
                 if (event.totalInputTokens !== undefined) {

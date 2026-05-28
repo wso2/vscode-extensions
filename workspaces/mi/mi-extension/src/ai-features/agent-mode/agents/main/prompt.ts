@@ -33,6 +33,7 @@ import { getStateMachine } from '../../../../stateMachine';
 
 const MAX_PROJECT_STRUCTURE_FILES = 50;
 const MAX_PROJECT_STRUCTURE_CHARS = 10000;
+export const AGENTS_MD_MAX_BYTES = 30 * 1024;
 
 // ============================================================================
 // User Prompt Template
@@ -109,6 +110,12 @@ The user has opened the file {{currentlyOpenedFile}} in the IDE. This may or may
 </system-reminder>
 {{/if}}
 
+{{#if agents_md_block}}
+<system-reminder>
+{{{agents_md_block}}}
+</system-reminder>
+{{/if}}
+
 {{#if runtime_version_detection_warning}}
 <system-reminder>
 # Runtime Version Warning
@@ -179,6 +186,7 @@ export interface BlockInjectionStatuses {
     /** Plan-only. For Ask/Edit, the full policy is always rendered regardless of this status. */
     modePolicy: BlockInjectionStatus;
     payloads: BlockInjectionStatus;
+    agentsMd: BlockInjectionStatus;
 }
 
 /**
@@ -467,6 +475,15 @@ export interface SessionContextSnapshot {
      * every turn. Empty array = no `.tryout/` folder or no payload files.
      */
     tryoutPayloads: TryoutPayloadEntry[];
+    /**
+     * Raw AGENTS.md content (already truncated to AGENTS_MD_MAX_BYTES when
+     * needed). `undefined` when no AGENTS.md exists at the project root.
+     */
+    agentsMdContent: string | undefined;
+    /** True when AGENTS.md was larger than AGENTS_MD_MAX_BYTES and was cut. */
+    agentsMdTruncated: boolean;
+    /** Original (untruncated) raw byte size of AGENTS.md, or 0 when absent. */
+    agentsMdOriginalSize: number;
 }
 
 interface SessionContextWithCatalog {
@@ -488,6 +505,8 @@ export interface SessionContextBlockHashes {
     webAvailability: string;
     modePolicy: AgentMode;
     payloads: string | undefined;
+    /** sha256-16 of full untruncated AGENTS.md raw bytes, or `undefined` when no AGENTS.md exists. */
+    agentsMd: string | undefined;
 }
 
 /**
@@ -548,6 +567,49 @@ function scanTryoutPayloads(projectPath: string): TryoutPayloadEntry[] {
     }
 }
 
+/**
+ * Read `AGENTS.md` from the project root. Returns the raw content (truncated
+ * to `AGENTS_MD_MAX_BYTES` when oversized) along with the original byte size
+ * so the model and the user can both be told the file was cut. Returns
+ * `undefined` when the file is missing or unreadable — the block is then
+ * omitted entirely on the next turn (same shape as an empty `.tryout/`).
+ */
+function readAgentsMd(projectPath: string): { content: string; truncated: boolean; originalSize: number } | undefined {
+    const agentsMdPath = path.join(projectPath, 'AGENTS.md');
+    if (!fs.existsSync(agentsMdPath)) {
+        return undefined;
+    }
+    try {
+        const stat = fs.statSync(agentsMdPath);
+        if (!stat.isFile()) {
+            return undefined;
+        }
+        const originalSize = stat.size;
+        if (originalSize <= AGENTS_MD_MAX_BYTES) {
+            const content = fs.readFileSync(agentsMdPath, 'utf8');
+            return { content, truncated: false, originalSize };
+        }
+        // Oversized — read only the first AGENTS_MD_MAX_BYTES bytes. Open as
+        // a file descriptor so we don't pull the whole file into memory just
+        // to slice it.
+        const fd = fs.openSync(agentsMdPath, 'r');
+        try {
+            const buffer = Buffer.allocUnsafe(AGENTS_MD_MAX_BYTES);
+            const bytesRead = fs.readSync(fd, buffer, 0, AGENTS_MD_MAX_BYTES, 0);
+            const content = buffer.subarray(0, bytesRead).toString('utf8');
+            return { content, truncated: true, originalSize };
+        } finally {
+            fs.closeSync(fd);
+        }
+    } catch (error) {
+        logDebug(
+            `[Prompt] Failed to read AGENTS.md for project ${projectPath}: ` +
+            `${error instanceof Error ? error.message : String(error)}`
+        );
+        return undefined;
+    }
+}
+
 async function buildSessionContextSnapshot(params: SessionContextParams): Promise<SessionContextWithCatalog> {
     const isGitRepo = fs.existsSync(path.join(params.projectPath, '.git'));
     let gitBranch: string | null = null;
@@ -572,6 +634,7 @@ async function buildSessionContextSnapshot(params: SessionContextParams): Promis
     const runtimeVersion = params.runtimeVersion ?? await getRuntimeVersionFromPom(params.projectPath);
     const runtimePaths = getRuntimePaths(params.projectPath);
     const catalog = await getAvailableConnectorCatalog(params.projectPath);
+    const agentsMd = readAgentsMd(params.projectPath);
 
     return {
         snapshot: {
@@ -596,6 +659,9 @@ async function buildSessionContextSnapshot(params: SessionContextParams): Promis
             webSearchUnavailable: params.webSearchUnavailable === true,
             mode: params.mode || 'edit',
             tryoutPayloads: scanTryoutPayloads(params.projectPath),
+            agentsMdContent: agentsMd?.content,
+            agentsMdTruncated: agentsMd?.truncated ?? false,
+            agentsMdOriginalSize: agentsMd?.originalSize ?? 0,
         },
         catalogWarnings: catalog.warnings,
         catalogStoreStatus: catalog.storeStatus,
@@ -639,6 +705,19 @@ function deriveBlockHashes(snapshot: SessionContextSnapshot): SessionContextBloc
         // `undefined` when the folder is empty so 'cleared' fires correctly
         // when the user wipes all saved payloads.
         payloads: snapshot.tryoutPayloads.length > 0 ? hashJson(snapshot.tryoutPayloads) : undefined,
+        // Hash over what we actually surface to the model: the (possibly
+        // truncated) bytes plus the truncation banner inputs. Edits inside the
+        // truncated tail are intentionally invisible — if the bytes we ship
+        // and the banner are unchanged, the model has no new information to
+        // see. `undefined` when no AGENTS.md exists so 'cleared' fires when
+        // the user deletes it.
+        agentsMd: snapshot.agentsMdContent !== undefined
+            ? hashJson({
+                content: snapshot.agentsMdContent,
+                truncated: snapshot.agentsMdTruncated,
+                originalSize: snapshot.agentsMdOriginalSize,
+            })
+            : undefined,
     };
 }
 
@@ -686,6 +765,7 @@ const DEFAULT_BLOCK_STATUSES: BlockInjectionStatuses = {
     webAvailability: 'first-injection',
     modePolicy: 'first-injection',
     payloads: 'first-injection',
+    agentsMd: 'first-injection',
 };
 
 function buildEnvBlockText(snapshot: SessionContextSnapshot, status: BlockInjectionStatus): string | undefined {
@@ -804,6 +884,32 @@ The user has saved sample request payloads in .tryout/ (one file per artifact). 
 ${list}`;
 }
 
+/**
+ * Render the AGENTS.md block. The user authors `AGENTS.md` at the project
+ * root to pin custom project-level instructions (analogous to CLAUDE.md for
+ * Claude Code). Treat its contents as user-authored guidance that augments
+ * and (on conflict) overrides the system prompt defaults. When the file is
+ * too large to ship verbatim we cut it at AGENTS_MD_MAX_BYTES and tell the
+ * model the rest is missing so it doesn't claim to follow rules it never saw.
+ */
+function buildAgentsMdBlockText(snapshot: SessionContextSnapshot, status: BlockInjectionStatus): string | undefined {
+    if (status === 'cleared') {
+        return `# Project AGENTS.md [removed]
+The user has deleted AGENTS.md. Discard any prior project-level instructions sourced from it.`;
+    }
+    if (status === 'omit' || snapshot.agentsMdContent === undefined) {
+        return undefined;
+    }
+    const headerSuffix = status === 're-injection' ? ` ${CONTEXT_UPDATED}` : '';
+    const truncationFooter = snapshot.agentsMdTruncated
+        ? `\n\n[file truncated — original size: ${Math.round(snapshot.agentsMdOriginalSize / 1024)} KB, showing first ${Math.round(AGENTS_MD_MAX_BYTES / 1024)} KB. Inform the user that their AGENTS.md exceeds the size limit and any rules beyond this point are NOT in your context.]`
+        : '';
+    return `# Project AGENTS.md${headerSuffix}
+The user has provided custom project-level instructions at AGENTS.md (project root). Follow these in addition to the system prompt; on conflict, these take precedence.
+
+${snapshot.agentsMdContent}${truncationFooter}`;
+}
+
 // ============================================================================
 // User Prompt Generation
 // ============================================================================
@@ -864,6 +970,7 @@ export async function getUserPrompt(params: UserPromptParams): Promise<UserPromp
     const connectorsBlock = buildConnectorsBlockText(snapshot, blockStatuses.connectors);
     const webAvailabilityBlock = buildWebAvailabilityBlockText(snapshot, blockStatuses.webAvailability);
     const payloadsBlock = buildPayloadsBlockText(snapshot.tryoutPayloads, blockStatuses.payloads);
+    const agentsMdBlock = buildAgentsMdBlockText(snapshot, blockStatuses.agentsMd);
     const fullModePolicyBlock = buildFullModePolicyBlockText(
         mode,
         fullModePolicy,
@@ -885,6 +992,7 @@ export async function getUserPrompt(params: UserPromptParams): Promise<UserPromp
         connectors_block: connectorsBlock,
         web_availability_block: webAvailabilityBlock,
         payloads_block: payloadsBlock,
+        agents_md_block: agentsMdBlock,
         full_mode_policy_block: fullModePolicyBlock,
         runtime_version_detection_warning: runtimeVersionDetectionWarning,
         mode_upper: mode.toUpperCase(),

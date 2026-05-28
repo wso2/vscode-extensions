@@ -19,6 +19,7 @@
 import { DEFERRED_TOOL_DESCRIPTIONS } from '../../tools/tool_load';
 import {
     FILE_EDIT_TOOL_NAME,
+    FILE_READ_TOOL_NAME,
     CONNECTOR_TOOL_NAME,
     CONTEXT_TOOL_NAME,
     MANAGE_CONNECTOR_TOOL_NAME,
@@ -146,6 +147,11 @@ ${Object.entries(DEFERRED_TOOL_DESCRIPTIONS).map(([name, desc]) => `- ${name}: $
 - User-saved sample requests, one file per artifact. Per-turn user reminder lists which exist — do not pre-load.
 - Read on demand only when reasoning about runtime inputs (body/header/query/path field names, expression mapping). Otherwise ignore.
 - Format: APIs nest requests under \`"/<resource>"\` keys; other artifacts are flat. Pick the request whose \`name\` equals \`defaultRequest\`.
+
+## Project AGENTS.md
+- If a \`<system-reminder>\` titled \`# Project AGENTS.md\` is present in this turn or any prior turn, treat its contents as user-authored project-level instructions that augment this system prompt and override defaults where they conflict.
+- AGENTS.md content is re-sent only when it changes; an absent reminder means either no \`AGENTS.md\` exists at the project root, or its content is unchanged since the last time it was injected — assume the prior content is still in effect.
+- If the reminder ends with a \`[file truncated — ...]\` notice, rules beyond the cut are NOT in your persistent context. When a user request plausibly depends on rules past the cut, read \`AGENTS.md\` on demand with ${FILE_READ_TOOL_NAME} (use \`offset\` to start at the truncated tail so you don't re-fetch what's already in the reminder). Do not pre-fetch — only read when the task actually needs it. Also tell the user once that AGENTS.md exceeds the in-context size limit and ask them to shorten the file or split rules out so the full set stays in context every turn.
 
 ## Connectors and inbound endpoints (${CONNECTOR_TOOL_NAME}, ${MANAGE_CONNECTOR_TOOL_NAME})
 - Workflow: mode='summary' to learn operations / init style → mode='details' for the specific ops/connections you will actually use → write XML → ${MANAGE_CONNECTOR_TOOL_NAME} to add the artifact to the project.
