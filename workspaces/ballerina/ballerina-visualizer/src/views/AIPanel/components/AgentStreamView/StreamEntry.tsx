@@ -62,6 +62,8 @@ const TOOL_ICON_MAP: Record<string, ToolIconEntry> = {
     HealthcareLibraryProviderTool: { loading: "codicon-package" },
     web_search:                    { loading: "codicon-search" },
     web_fetch:                     { loading: "codicon-globe" },
+    grep:                          { loading: "codicon-search" },
+    glob:                          { loading: "codicon-folder-opened" },
     runTests:                      { loading: "codicon-beaker" },
     runBallerinaPackage:           { loading: "codicon-play" },
     getServiceLogs:                { loading: "codicon-output" },
@@ -119,6 +121,8 @@ function getToolCallDisplay(toolName: string | undefined, toolInput: any): { lab
         case "stopBallerinaService": return { label: "Stopping service..." };
         case "web_search": return { label: toolInput?.query ? "Searching the web:" : "Searching the web...", detail: toolInput?.query };
         case "web_fetch":  return { label: toolInput?.url ? "Fetching from web:" : "Fetching from web...", detail: toolInput?.url };
+        case "grep": return { label: toolInput?.pattern ? "Searching for:" : "Searching...", detail: toolInput?.pattern };
+        case "glob": return { label: toolInput?.pattern ? "Finding files:" : "Finding files...", detail: toolInput?.pattern };
         default: return { label: "Working..." };
     }
 }
@@ -165,6 +169,16 @@ function getToolResultDisplay(toolName: string | undefined, toolOutput: any, hin
         }
         case "web_search": return { label: hint ? "Web search:" : "Web search completed", detail: hint };
         case "web_fetch":  return { label: hint ? "Web fetch:" : "Web fetch completed",  detail: hint };
+        case "grep": {
+            if (!toolOutput?.success) return { label: "Search failed" };
+            const noMatch = toolOutput?.message?.startsWith("No matches");
+            return { label: noMatch ? "No matches found" : "Search completed" };
+        }
+        case "glob": {
+            if (!toolOutput?.success) return { label: "File search failed" };
+            const noMatch = toolOutput?.message?.startsWith("No files found");
+            return { label: noMatch ? "No files found" : "Files found" };
+        }
         default: return { label: "Done" };
     }
 }
