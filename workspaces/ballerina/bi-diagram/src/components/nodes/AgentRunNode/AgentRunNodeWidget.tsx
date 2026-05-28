@@ -18,7 +18,7 @@
 
 import React, { ReactNode, useState } from "react";
 import { DiagramEngine } from "@projectstorm/react-diagrams-core";
-import { Item, Menu, MenuItem, Popover } from "@wso2/ui-toolkit";
+import { Icon, Item, Menu, MenuItem, Popover, Tooltip } from "@wso2/ui-toolkit";
 import { MoreVertIcon } from "../../../resources";
 import NodeIcon from "../../NodeIcon";
 import { useDiagramContext } from "../../DiagramContext";
@@ -49,6 +49,7 @@ export function AgentRunNodeWidget(props: AgentRunNodeWidgetProps) {
     const {
         onNodeSelect,
         goToSource,
+        goToAgent,
         onDeleteNode,
         removeBreakpoint,
         addBreakpoint,
@@ -57,6 +58,8 @@ export function AgentRunNodeWidget(props: AgentRunNodeWidgetProps) {
     } = useDiagramContext();
 
     const isSelected = selectedNodeId === model.node.id;
+    // Hide the redirect when navigation isn't wired or the receiver is unresolved.
+    const canViewAgent = Boolean(goToAgent) && typeof model.node.properties?.connection?.value === "string";
 
     const [isHovered, setIsHovered] = useState(false);
     const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLElement | SVGSVGElement>(null);
@@ -84,6 +87,14 @@ export function AgentRunNodeWidget(props: AgentRunNodeWidgetProps) {
 
     const onGoToSource = () => {
         goToSource && goToSource(model.node);
+        setMenuAnchorEl(null);
+    };
+
+    const handleOnViewAgentClick = () => {
+        if (readOnly || !goToAgent) {
+            return;
+        }
+        goToAgent(model.node);
         setMenuAnchorEl(null);
     };
 
@@ -176,6 +187,21 @@ export function AgentRunNodeWidget(props: AgentRunNodeWidgetProps) {
                     </NodeStyles.Header>
                     <NodeStyles.ActionButtonGroup>
                         {hasError && <DiagnosticsPopUp node={model.node} />}
+                        {canViewAgent && (
+                            <Tooltip content="View agent flow">
+                                <NodeStyles.MenuButton
+                                    buttonSx={readOnly ? { cursor: "not-allowed" } : {}}
+                                    appearance="icon"
+                                    onClick={handleOnViewAgentClick}
+                                >
+                                    <Icon
+                                        name="bi-function-flow"
+                                        sx={{ width: 16, height: 16 }}
+                                        iconSx={{ fontSize: 16 }}
+                                    />
+                                </NodeStyles.MenuButton>
+                            </Tooltip>
+                        )}
                         <NodeStyles.MenuButton
                             ref={setMenuButtonElement}
                             buttonSx={readOnly ? { cursor: "not-allowed" } : {}}

@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { AvailableNode, CodeData, ConfigVariable, FlowNode, LinePosition, LineRange, NodeKind, ProjectStructureArtifactResponse, Property, SearchNodesQueryParams } from "@wso2/ballerina-core";
+import { AvailableNode, CodeData, ConfigVariable, EVENT_TYPE, FlowNode, LinePosition, LineRange, NodeKind, ProjectStructureArtifactResponse, Property, SearchNodesQueryParams } from "@wso2/ballerina-core";
 import { BallerinaRpcClient } from "@wso2/ballerina-rpc-client";
 import { cloneDeep } from "lodash";
 import { URI, Utils } from "vscode-uri";
@@ -383,6 +383,38 @@ export const findAgentNodeFromAgentCallNode = async (agentCallNode: FlowNode, rp
     }
 
     return;
+};
+
+// Opens the focus diagram of the agent variable an AGENT_RUN node calls.
+export const goToAgentFromRunNode = async (agentRunNode: FlowNode, rpcClient: BallerinaRpcClient) => {
+    const agentName = agentRunNode.properties?.connection?.value;
+    const callSiteFile = agentRunNode.codedata?.lineRange?.fileName;
+    if (typeof agentName !== "string" || !callSiteFile) {
+        return;
+    }
+    const visualizerRpc = rpcClient.getVisualizerRpcClient();
+    const { filePath: callSitePath } = await visualizerRpc.joinProjectPath({ segments: [callSiteFile] });
+    const nodes = await findFlowNode(rpcClient, callSitePath, agentRunNode.codedata?.lineRange?.startLine, {
+        kind: "AGENT_TYPE",
+        exactMatch: agentName,
+    });
+    const declRange = nodes?.[0]?.codedata?.lineRange;
+    if (!declRange) {
+        return;
+    }
+    const { filePath: declPath } = await visualizerRpc.joinProjectPath({ segments: [declRange.fileName] });
+    await visualizerRpc.openView({
+        type: EVENT_TYPE.OPEN_VIEW,
+        location: {
+            documentUri: declPath,
+            position: {
+                startLine: declRange.startLine.line,
+                startColumn: declRange.startLine.offset,
+                endLine: declRange.endLine.line,
+                endColumn: declRange.endLine.offset,
+            },
+        },
+    });
 };
 
 export const removeToolFromAgentNode = async (agentNode: FlowNode, toolName: string) => {
