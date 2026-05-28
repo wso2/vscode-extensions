@@ -17,8 +17,9 @@
  */
 
 import React, { ReactNode, useState } from "react";
+import styled from "@emotion/styled";
 import { DiagramEngine } from "@projectstorm/react-diagrams-core";
-import { Icon, Item, Menu, MenuItem, Popover, Tooltip } from "@wso2/ui-toolkit";
+import { Icon, Item, Menu, MenuItem, Popover, ThemeColors, Tooltip } from "@wso2/ui-toolkit";
 import { MoreVertIcon } from "../../../resources";
 import NodeIcon from "../../NodeIcon";
 import { useDiagramContext } from "../../DiagramContext";
@@ -28,6 +29,91 @@ import { DiagnosticsPopUp } from "../../DiagnosticsPopUp";
 import { nodeHasError } from "../../../utils/node";
 import { BreakpointMenu } from "../../BreakNodeMenu/BreakNodeMenu";
 import { NodeStyles } from "../BaseNode/BaseNodeWidget";
+import {
+    DRAFT_NODE_BORDER_WIDTH,
+    NODE_BORDER_WIDTH,
+    NODE_HEIGHT,
+    NODE_PADDING,
+    NODE_WIDTH,
+} from "../../../resources/constants";
+
+// Mirrors AgentCallNodeWidget so AGENT_RUN reads as a smaller sibling of the AI Agent card.
+type BoxProps = {
+    disabled: boolean;
+    hovered: boolean;
+    hasError: boolean;
+    readOnly: boolean;
+    isActiveBreakpoint: boolean;
+    isSelected?: boolean;
+};
+
+const Box = styled.div<BoxProps>`
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: ${NODE_WIDTH}px;
+    min-height: ${NODE_HEIGHT}px;
+    padding: 0 ${NODE_PADDING}px;
+    opacity: ${(p: BoxProps) => (p.disabled ? 0.7 : 1)};
+    border: ${(p: BoxProps) => (p.disabled ? DRAFT_NODE_BORDER_WIDTH : NODE_BORDER_WIDTH)}px;
+    border-style: ${(p: BoxProps) => (p.disabled ? "dashed" : "solid")};
+    border-color: ${(p: BoxProps) =>
+        p.hasError
+            ? ThemeColors.ERROR
+            : p.isSelected && !p.disabled
+                ? ThemeColors.SECONDARY
+                : p.hovered && !p.disabled && !p.readOnly
+                    ? ThemeColors.SECONDARY
+                    : ThemeColors.OUTLINE_VARIANT};
+    border-radius: 10px;
+    background-color: ${(p: BoxProps) =>
+        p.isActiveBreakpoint ? ThemeColors.DEBUGGER_BREAKPOINT_BACKGROUND : ThemeColors.SURFACE_DIM};
+    color: ${ThemeColors.ON_SURFACE};
+    cursor: ${(p: BoxProps) => (p.readOnly ? "default" : "pointer")};
+`;
+
+const Column = styled.div`
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 8px;
+`;
+
+const HeaderSection = styled.div<{ withDivider: boolean }>`
+    width: 100%;
+    ${(props: { withDivider: boolean }) =>
+        props.withDivider ? `border-bottom: 1px dashed ${ThemeColors.OUTLINE_VARIANT}; padding-bottom: 8px;` : ""}
+`;
+
+const TitleArrow = styled.span`
+    font-size: 11px;
+    opacity: 0.6;
+    margin: 0 4px;
+    vertical-align: 1px;
+`;
+
+const AgentRow = styled.div`
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 4px 8px 8px;
+`;
+
+const AgentName = styled.div`
+    flex: 1;
+    min-width: 0;
+    color: ${ThemeColors.ON_SURFACE};
+    opacity: 0.7;
+    font-family: monospace;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+`;
 
 export interface AgentRunNodeWidgetProps {
     model: AgentRunNodeModel;
@@ -35,14 +121,11 @@ export interface AgentRunNodeWidgetProps {
     onClick?: (node: FlowNode) => void;
 }
 
-// Compose the primary label as "{connection} → Run" using the receiver variable
-// (Property.CONNECTION_KEY). When the connection is absent (e.g. a palette-added
-// node before the user picks a variable), fall back to just "Run".
-function getAgentRunTitle(node: FlowNode): string {
-    const connection = node.properties?.connection?.value;
-    const receiver = typeof connection === "string" ? connection.trim() : "";
-    return receiver ? `${receiver} : Run` : "Run";
-}
+const NODE_TITLE = (
+    <>
+        AI Agent<TitleArrow>→</TitleArrow>Run
+    </>
+);
 
 export function AgentRunNodeWidget(props: AgentRunNodeWidgetProps) {
     const { model, engine, onClick } = props;
@@ -73,7 +156,12 @@ export function AgentRunNodeWidget(props: AgentRunNodeWidgetProps) {
             return;
         }
         if (event.metaKey) {
-            onGoToSource();
+            // Match the function-call node: ⌘+click jumps to the target's flow (here, the agent's focus diagram).
+            if (canViewAgent) {
+                goToAgent?.(model.node);
+            } else {
+                onGoToSource();
+            }
         } else {
             onNodeClick();
         }
@@ -140,23 +228,19 @@ export function AgentRunNodeWidget(props: AgentRunNodeWidgetProps) {
         { id: "delete", label: "Delete", onClick: () => deleteNode() },
     ];
 
-    const nodeTitle = getAgentRunTitle(model.node);
-
-    const hasFullAssignment = model.node.properties?.variable?.value && model.node.properties?.expression?.value;
-
-    const nodeDescription = hasFullAssignment
-        ? `${model.node.properties.variable?.value} = ${model.node.properties?.expression?.value}`
-        : model.node.properties?.variable?.value || model.node.properties?.expression?.value;
+    const connection = model.node.properties?.connection?.value;
+    const agentVarName = typeof connection === "string" ? connection.trim() : "";
+    const resultVar = model.node.properties?.variable?.value as ReactNode | undefined;
 
     const hasError = nodeHasError(model.node);
 
     return (
-        <NodeStyles.Node
+        <Box
             hovered={isHovered}
-            disabled={model.node.suggested}
+            disabled={model.node.suggested ?? false}
             hasError={hasError}
-            readOnly={readOnly}
-            isActiveBreakpoint={isActiveBreakpoint}
+            readOnly={readOnly ?? false}
+            isActiveBreakpoint={isActiveBreakpoint ?? false}
             isSelected={isSelected}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
@@ -176,19 +260,36 @@ export function AgentRunNodeWidget(props: AgentRunNodeWidgetProps) {
                 />
             )}
             <NodeStyles.TopPortWidget port={model.getPort("in")!} engine={engine} />
-            <NodeStyles.Row>
-                <NodeStyles.Icon onClick={handleOnClick}>
-                    <NodeIcon type={model.node.codedata.node} size={24} />
-                </NodeStyles.Icon>
-                <NodeStyles.Row>
-                    <NodeStyles.Header onClick={handleOnClick}>
-                        <NodeStyles.Title>{nodeTitle}</NodeStyles.Title>
-                        <NodeStyles.Description>{nodeDescription as ReactNode}</NodeStyles.Description>
-                    </NodeStyles.Header>
-                    <NodeStyles.ActionButtonGroup>
-                        {hasError && <DiagnosticsPopUp node={model.node} />}
+            <Column style={{ height: `${model.node.viewState?.ch}px` }}>
+                <HeaderSection withDivider={Boolean(agentVarName)}>
+                    <NodeStyles.Row>
+                        <NodeStyles.Icon onClick={handleOnClick}>
+                            <NodeIcon type={model.node.codedata.node} size={24} />
+                        </NodeStyles.Icon>
+                        <NodeStyles.Header onClick={handleOnClick}>
+                            <NodeStyles.Title>{NODE_TITLE}</NodeStyles.Title>
+                            {resultVar && (
+                                <NodeStyles.Description>{resultVar}</NodeStyles.Description>
+                            )}
+                        </NodeStyles.Header>
+                        <NodeStyles.ActionButtonGroup>
+                            {hasError && <DiagnosticsPopUp node={model.node} />}
+                            <NodeStyles.MenuButton
+                                ref={setMenuButtonElement}
+                                buttonSx={readOnly ? { cursor: "not-allowed" } : {}}
+                                appearance="icon"
+                                onClick={handleOnMenuClick}
+                            >
+                                <MoreVertIcon />
+                            </NodeStyles.MenuButton>
+                        </NodeStyles.ActionButtonGroup>
+                    </NodeStyles.Row>
+                </HeaderSection>
+                {agentVarName && (
+                    <AgentRow>
+                        <AgentName onClick={handleOnClick}>{agentVarName}</AgentName>
                         {canViewAgent && (
-                            <Tooltip content="View agent flow">
+                            <Tooltip content="View agent">
                                 <NodeStyles.MenuButton
                                     buttonSx={readOnly ? { cursor: "not-allowed" } : {}}
                                     appearance="icon"
@@ -202,40 +303,29 @@ export function AgentRunNodeWidget(props: AgentRunNodeWidgetProps) {
                                 </NodeStyles.MenuButton>
                             </Tooltip>
                         )}
-                        <NodeStyles.MenuButton
-                            ref={setMenuButtonElement}
-                            buttonSx={readOnly ? { cursor: "not-allowed" } : {}}
-                            appearance="icon"
-                            onClick={handleOnMenuClick}
-                        >
-                            <MoreVertIcon />
-                        </NodeStyles.MenuButton>
-                    </NodeStyles.ActionButtonGroup>
-                </NodeStyles.Row>
-                <Popover
-                    open={isMenuOpen}
-                    anchorEl={menuAnchorEl}
-                    handleClose={handleOnMenuClose}
-                    sx={{
-                        padding: 0,
-                        borderRadius: 0,
-                    }}
-                >
-                    <Menu>
-                        <>
-                            {menuItems.map((item) => (
-                                <MenuItem key={item.id} item={item} />
-                            ))}
-                            <BreakpointMenu
-                                hasBreakpoint={hasBreakpoint}
-                                onAddBreakpoint={onAddBreakpoint}
-                                onRemoveBreakpoint={onRemoveBreakpoint}
-                            />
-                        </>
-                    </Menu>
-                </Popover>
-            </NodeStyles.Row>
+                    </AgentRow>
+                )}
+            </Column>
+            <Popover
+                open={isMenuOpen}
+                anchorEl={menuAnchorEl}
+                handleClose={handleOnMenuClose}
+                sx={{ padding: 0, borderRadius: 0 }}
+            >
+                <Menu>
+                    <>
+                        {menuItems.map((item) => (
+                            <MenuItem key={item.id} item={item} />
+                        ))}
+                        <BreakpointMenu
+                            hasBreakpoint={hasBreakpoint}
+                            onAddBreakpoint={onAddBreakpoint}
+                            onRemoveBreakpoint={onRemoveBreakpoint}
+                        />
+                    </>
+                </Menu>
+            </Popover>
             <NodeStyles.BottomPortWidget port={model.getPort("out")!} engine={engine} />
-        </NodeStyles.Node>
+        </Box>
     );
 }
