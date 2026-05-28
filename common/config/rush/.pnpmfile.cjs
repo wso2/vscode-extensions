@@ -45,7 +45,7 @@ module.exports = {
         if (deps['serialize-javascript']) deps['serialize-javascript'] = '7.0.5';
         if (deps['flatted']) deps['flatted'] = '3.4.2';
         if (deps['handlebars']) deps['handlebars'] = '4.7.9';
-        if (deps['tmp']) deps['tmp'] = '0.2.4';
+        if (deps['tmp']) deps['tmp'] = '0.2.6';
         if (deps['undici']) deps['undici'] = '7.24.0';
         if (deps['@nevware21/ts-utils']) deps['@nevware21/ts-utils'] = '0.14.0'; // security fix: CVE-2026-46681 (prototype pollution)
         if (deps['protobufjs']) {
