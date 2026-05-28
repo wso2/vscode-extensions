@@ -54,7 +54,9 @@ import {
     ProjectConfig,
     MavenDeployPluginDetails,
     ReloadDependenciesRequest,
-    DependencyStatusResponse
+    DependencyStatusResponse,
+    ExecuteRemoteDeployParams,
+    DeployConfigParam
 } from "./types";
 import { GettingStartedData, SampleDownloadRequest } from "./types";
 
@@ -97,6 +99,7 @@ export interface MIVisualizerAPI {
     updatePomValues: (params: UpdatePomValuesRequest) => Promise<boolean>;
     updateConfigFileValues: (params: UpdateConfigValuesRequest) => Promise<boolean>;
     updateConnectorDependencies: () => Promise<string>;
+    refetchIntegrationProjectDependencies: () => Promise<string>;
     getDependencyStatusList: () => Promise<DependencyStatusResponse>;
     updateDependenciesFromOverview: (params: UpdateDependenciesRequest) => Promise<boolean>;
     importOpenAPISpec: (params: ImportOpenAPISpecRequest) => Promise<void>;
@@ -110,4 +113,6 @@ export interface MIVisualizerAPI {
     getDeployPluginDetails: () => Promise<MavenDeployPluginDetails>;
     removeDeployPlugin: () => Promise<MavenDeployPluginDetails>;
     updateAiDependencies: (params: UpdateAiDependenciesRequest) => Promise<boolean>;
+    executeRemoteDeployWithParams: (params: ExecuteRemoteDeployParams) => Promise<void>;
+    getRemoteDeployConfigs: () => Promise<DeployConfigParam[]>;
 }

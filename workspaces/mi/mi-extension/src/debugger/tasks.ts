@@ -49,29 +49,40 @@ export function getBuildCommand(projectUri: string): string {
     return mvnCmd + MVN_COMMANDS.BUILD_COMMAND;
 }
 
-export function getDockerTask(projectUri: string): vscode.Task | undefined {
+export function getDockerTask(projectUri: string, consolidatedProjectRoot?: string): vscode.Task | undefined {
     const config = workspace.getConfiguration('MI', Uri.file(projectUri));
     const mvnCmd = config.get("useLocalMaven") ? "mvn" : (process.platform === "win32" ?
         MVN_COMMANDS.MVN_WRAPPER_WIN_COMMAND : MVN_COMMANDS.MVN_WRAPPER_COMMAND);
     const commandToExecute = mvnCmd + MVN_COMMANDS.DOCKER_COMMAND;
-    const env = setJavaHomeInEnvironmentAndPath(projectUri);  
+    const env = setJavaHomeInEnvironmentAndPath(projectUri);
+    let dockerTask;
 
-    const workspaceFolder = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(projectUri));
-    if (!workspaceFolder) {
-        console.error(`Workspace folder not found for projectUri: ${projectUri}`);
-        return undefined;
+    if (consolidatedProjectRoot) {
+        dockerTask = new vscode.Task(
+            { type: 'mi-docker' },
+            vscode.TaskScope.Workspace,
+            'docker',
+            'mi',
+            new vscode.ShellExecution(commandToExecute,
+                { cwd: consolidatedProjectRoot, env }
+            )
+        );
+    } else {
+        const workspaceFolder = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(consolidatedProjectRoot ?? projectUri));
+        if (!workspaceFolder) {
+            console.error(`Workspace folder not found for projectUri: ${projectUri}`);
+            return undefined;
+        }
+        dockerTask = new vscode.Task(
+            { type: 'mi-docker' },
+            workspaceFolder,
+            'docker',
+            'mi',
+            new vscode.ShellExecution(commandToExecute,
+                { env }
+            )
+        );
     }
-
-    const dockerTask = new vscode.Task(
-        { type: 'mi-docker' },
-        workspaceFolder,
-        'docker',
-        'mi',
-        new vscode.ShellExecution(commandToExecute,
-            { env }
-        )
-    );
-
     return dockerTask;
 }
 
@@ -192,9 +203,9 @@ export function loadEnvVariables(filePath: string): void {
         const trimmedLine = line.trim();
         // Ignore empty lines or comments
         if (trimmedLine && trimmedLine[0] !== '#') {
-            const [key, value] = trimmedLine.split('=');
+            const [key, ...value] = trimmedLine.split('=');
             if (key && value) {
-                process.env[key.trim()] = value.trim();
+                process.env[key.trim()] = value.join('=').trim();
             }
         }
     });

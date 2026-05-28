@@ -125,8 +125,10 @@ export function CallNodeWidget(props: CallNodeWidgetProps) {
     const sidePanelContext = React.useContext(SidePanelContext);
     const { rpcClient, setIsLoading: setDiagramLoading } = useVisualizerContext();
     const hasDiagnotics = node.hasDiagnotics();
+    const hasErrors = node.hasErrors();
     const tooltip = hasDiagnotics ? node.getDiagnostics().map(diagnostic => diagnostic.message).join("\n") : undefined;
     const endpointHasDiagnotics = node.endpointHasDiagnostics();
+    const endpointHasErrors = node.endpointHasErrors();
     const endpointTooltip = endpointHasDiagnotics ? node.getEndpointDiagnostics().map(diagnostic => diagnostic.message).join("\n") : undefined;
     const nodeDescription = getNodeDescription(node.stNode);
     const hasBreakpoint = node.hasBreakpoint();
@@ -208,7 +210,7 @@ export function CallNodeWidget(props: CallNodeWidgetProps) {
             <Tooltip content={!isPopoverOpen && tooltip ? <TooltipEl /> : ""} position={'bottom'} containerPosition={'absolute'}>
                 <S.Node
                     selected={node.isSelected()}
-                    hasError={hasDiagnotics}
+                    hasError={hasErrors}
                     hovered={isHovered || isActiveBreakpoint}
                     isActiveBreakpoint={isActiveBreakpoint}
                     onMouseEnter={() => setIsHovered(true)}
@@ -255,7 +257,7 @@ export function CallNodeWidget(props: CallNodeWidgetProps) {
                             cy="20"
                             r="22"
                             fill={Colors.SURFACE_BRIGHT}
-                            stroke={endpointHasDiagnotics ? Colors.ERROR : (isHoveredEndpoint || isEndpointSelected) ? Colors.SECONDARY : Colors.OUTLINE_VARIANT}
+                            stroke={endpointHasErrors ? Colors.ERROR : (isHoveredEndpoint || isEndpointSelected) ? Colors.SECONDARY : Colors.OUTLINE_VARIANT}
                             strokeWidth={2}
                         />
                         {node.endpoint && <g transform="translate(80,20)">

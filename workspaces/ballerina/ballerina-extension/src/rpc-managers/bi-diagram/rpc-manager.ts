@@ -49,6 +49,8 @@ import {
     BISearchNodesResponse,
     BISearchRequest,
     BISearchResponse,
+    WorkflowDataRequest,
+    WorkflowDataResponse,
     BISourceCodeRequest,
     BISourceCodeResponse,
     BISuggestedFlowModelRequest,
@@ -267,30 +269,14 @@ function setTomlSectionField(filePath: string, section: string, field: string, v
 export class BiDiagramRpcManager implements BIDiagramAPI {
     OpenConfigTomlRequest: (params: OpenConfigTomlRequest) => Promise<void>;
 
-    private toRawPath(input: string): string {
-        if (input.includes('://')) {
-            return Uri.parse(input).fsPath;
+    private convertAiToFileScheme(uri: string): string {
+        if (uri.startsWith('ai://')) {
+            const fileUri = Uri.parse(uri).with({ scheme: 'file' }).toString();
+            return fileUri;
         }
-        return input;
+        return uri;
     }
 
-    private mapTempPathToOriginal(tempFilePath: string): string {
-        const rawPath = this.toRawPath(tempFilePath);
-        const context = StateMachine.context();
-        const originalRoot = context.workspacePath || context.projectPath;
-        const workspaceId = context.workspacePath || context.projectPath;
-        const threadId = 'default';
-        const pendingReview = chatStateStorage.getPendingReviewGeneration(workspaceId, threadId);
-        if (pendingReview?.reviewState?.tempProjectPath && originalRoot) {
-            const normalizedTempRoot = pendingReview.reviewState.tempProjectPath.replace(/\\/g, '/');
-            const normalizedFilePath = rawPath.replace(/\\/g, '/');
-            if (normalizedFilePath.startsWith(normalizedTempRoot)) {
-                const relativePath = normalizedFilePath.substring(normalizedTempRoot.length);
-                return originalRoot + relativePath;
-            }
-        }
-        return rawPath;
-    }
 
     async getFlowModel(params: BIFlowModelRequest): Promise<BIFlowModelResponse> {
         console.log(">>> requesting bi flow model from ls", params);
@@ -301,9 +287,9 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
             if (params?.filePath && params?.startLine && params?.endLine) {
                 console.log(">>> using params to create request");
                 let filePath = params.filePath;
-                // When useFileSchema is set, map temp path to original project path
+                // When useFileSchema is set, use file:// scheme to show original content
                 if (params.useFileSchema) {
-                    filePath = this.mapTempPathToOriginal(filePath);
+                    filePath = this.convertAiToFileScheme(filePath);
                 }
                 request = {
                     filePath,
@@ -421,6 +407,10 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                 return { artifactType: DIRECTORY_MAP.DATA_MAPPER };
             case 'NP_FUNCTION_DEFINITION':
                 return { artifactType: DIRECTORY_MAP.NP_FUNCTION };
+            case 'WORKFLOW':
+                return { artifactType: DIRECTORY_MAP.WORKFLOW };
+            case 'ACTIVITY':
+                return { artifactType: DIRECTORY_MAP.ACTIVITY };
             // Add other cases as needed
             default:
                 return undefined;
@@ -800,8 +790,8 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                 // Refresh project info to update UI with newly added project
                 StateMachine.refreshProjectInfo();
             } catch (error) {
-                window.showErrorMessage("Error converting integration to workspace");
-                console.error("Error converting integration to workspace:", error);
+                window.showErrorMessage("Error converting integration to project");
+                console.error("Error converting integration to project:", error);
                 return;
             }
         } else {
@@ -810,8 +800,8 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
                 // Refresh project info to update UI with newly added project
                 StateMachine.refreshProjectInfo();
             } catch (error) {
-                window.showErrorMessage("Error adding integration to existing workspace");
-                console.error("Error adding integration to existing workspace:", error);
+                window.showErrorMessage("Error adding integration to existing project");
+                console.error("Error adding integration to existing project:", error);
             }
         }
     }
@@ -1194,13 +1184,17 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
 
             if (params.isWorkspaceReadme) {
                 const workspaceName = projectInfo?.title || projectInfo?.name;
-                content = `# ${workspaceName} Workspace\n\nAdd your workspace description here.`;
+                content = `# ${workspaceName} Project\n\nAdd your project description here.`;
             } else {
                 const project = projectInfo?.children && projectInfo?.children.length > 0
                     ? projectInfo?.children.find((child) => child.projectPath === params.projectPath)
                     : projectInfo;
                 const projectName = project?.title || project?.name;
-                content = `# ${projectName} Integration\n\nAdd your integration description here.`;
+                const isLibrary = StateMachine.context().projectStructure?.projects?.find(
+                    p => p.projectPath === params.projectPath
+                )?.isLibrary ?? false;
+                const kind = isLibrary ? "Library" : "Integration";
+                content = `# ${projectName} ${kind}\n\nAdd your ${kind.toLowerCase()} description here.`;
             }
 
             fs.writeFileSync(readmePath, content);
@@ -1246,10 +1240,9 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
     }
 
     async deployWorkspace(params: WorkspaceDeploymentRequest): Promise<DeploymentResponse> {
-        const projectInfo = StateMachine.context().projectInfo;
         const projectScopes = params.projectScopes;
         if (!projectScopes?.length) {
-            window.showWarningMessage("No deployable projects found in the workspace.");
+            window.showWarningMessage("No deployable integrations found in the project.");
             return { isCompleted: true };
         }
         const integrations: ICreateNewIntegrationCmdIntegrations[] = [];
@@ -1588,7 +1581,7 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
             StateMachine.langClient()
                 .getVisibleTypes(params)
                 .then((visibleTypes) => {
-                    resolve(visibleTypes);
+                    resolve(visibleTypes?.filter((item) => item.label !== "record"));
                 })
                 .catch((error) => {
                     reject("Error fetching visible types from ls");
@@ -1739,10 +1732,10 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
 
     async getEnclosedFunction(params: BIGetEnclosedFunctionRequest): Promise<BIGetEnclosedFunctionResponse> {
         console.log(">>> requesting parent functin definition", params);
-        // When useFileSchema is set, map temp path to original project path
+        // When useFileSchema is set, use file:// scheme to show original content
         let filePath = params.filePath;
         if (params.useFileSchema) {
-            filePath = this.mapTempPathToOriginal(filePath);
+            filePath = this.convertAiToFileScheme(filePath);
         }
         const request = { filePath, position: params.position, findClass: params.findClass };
         return new Promise((resolve) => {
@@ -1828,8 +1821,8 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
             let projectPath: string;
             if (params?.projectPath) {
                 if (params.useFileSchema) {
-                    // Map temp project path to original project raw path
-                    projectPath = this.mapTempPathToOriginal(params.projectPath);
+                    // Use file:// scheme to show original content
+                    projectPath = Uri.file(params.projectPath).toString();
                 } else {
                     const uri = Uri.file(params.projectPath);
                     projectPath = uri.with({ scheme: 'ai' }).toString();
@@ -1870,9 +1863,9 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
             });
         }
 
-        // When useFileSchema is set, map temp path to original project path
+        // When useFileSchema is set, use file:// scheme to show original content
         if (params.useFileSchema) {
-            filePath = this.mapTempPathToOriginal(filePath);
+            filePath = this.convertAiToFileScheme(filePath);
         }
 
         return new Promise((resolve, reject) => {
@@ -2150,6 +2143,19 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
         });
     }
 
+    async getAllData(params: WorkflowDataRequest): Promise<WorkflowDataResponse> {
+        return new Promise((resolve, reject) => {
+            console.log(">>> requesting workflowManager/getAllData from ls", params);
+            StateMachine.langClient().getAllData(params).then((res) => {
+                console.log(">>> workflowManager/getAllData response from ls", res);
+                resolve(res);
+            }).catch((error) => {
+                console.log(">>> error fetching workflow data", error);
+                reject(error);
+            });
+        });
+    }
+
     async getRecordNames(): Promise<RecordsInWorkspaceMentions> {
         const projectComponents = await this.getProjectComponents();
 
@@ -2224,11 +2230,17 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
         try {
             // Get workspace structure
             const workspaceStructure = await this.getProjectStructure();
-            if (!workspaceStructure || !workspaceStructure.workspacePath) {
+            if (!workspaceStructure) {
                 return { isLoggedIn: false, hasAnyComponent: false, hasLocalChanges: false };
             }
 
-            const repoRoot = getRepoRoot(workspaceStructure.workspacePath);
+            // For standalone integrations workspacePath is undefined; fall back to the single project's path
+            const pathForRepoRoot = workspaceStructure.workspacePath ?? workspaceStructure.projects?.[0]?.projectPath;
+            if (!pathForRepoRoot) {
+                return { isLoggedIn: false, hasAnyComponent: false, hasLocalChanges: false };
+            }
+
+            const repoRoot = getRepoRoot(pathForRepoRoot);
             if (!repoRoot) {
                 return { isLoggedIn: false, hasAnyComponent: false, hasLocalChanges: false };
             }

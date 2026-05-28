@@ -21,6 +21,7 @@ import { AI_EVENT_TYPE } from '@wso2/mi-core';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
 
 import { AlertBox } from "../AlertBox/AlertBox";
+import { gitIssueUrl } from "../../constants";
 
 const Container = styled.div`
     display: flex;
@@ -60,7 +61,7 @@ const TroubleshootingList = styled.ol`
 
 export const DisabledMessage = (props: { showProjectHeader?: boolean }) => {
     const { rpcClient } = useVisualizerContext();
-    const issueUrl = "https://github.com/wso2/mi-vscode/issues";
+    const issueUrl = "https://github.com/wso2/product-integrator/issues";
     const Retry = () => {
         rpcClient.sendAIStateEvent(AI_EVENT_TYPE.RETRY);
     };
@@ -75,16 +76,16 @@ export const DisabledMessage = (props: { showProjectHeader?: boolean }) => {
                 buttonTitle="Retry"
                 onClick={Retry}
                 subTitle={
-                    "An error occurred while trying to establish a connection with the MI Copilot server. Please click retry to try again."
+                    "An error occurred while trying to establish a connection with the WSO2 Integrator Copilot server. Please click retry to try again."
                 }
                 title={"Error in establishing Connection"}
             />
             <AlertBox
                 variant="secondary"
-                buttonTitle="Logout"
+                buttonTitle="Sign out of Copilot"
                 onClick={handleLogout}
                 subTitle={
-                    "Try logging out and logging back in again."
+                    "Try signing out of MI Copilot and signing back in. Your WSO2 platform session stays active."
                 }
                 title={"Still having trouble?"}
             />
@@ -92,7 +93,7 @@ export const DisabledMessage = (props: { showProjectHeader?: boolean }) => {
                 <TroubleshootingHeader>Troubleshooting Guide</TroubleshootingHeader>
                 <TroubleshootingList>
                     <li>Check your internet connection</li>
-                    <li>Try logging out and logging in again</li>
+                    <li>Try signing out of MI Copilot and signing in again</li>
                     <li>Try restarting VSCode</li>
                 </TroubleshootingList>
                 <IssueTrackerLink>

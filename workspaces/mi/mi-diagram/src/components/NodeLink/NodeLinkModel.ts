@@ -21,7 +21,7 @@ import { DefaultLinkModel } from "@projectstorm/react-diagrams";
 import { Colors, NODE_DIMENSIONS, NODE_LINK, NodeTypes } from "../../resources/constants";
 import { SourceNodeModel, TargetNodeModel } from "../../utils/diagram";
 import { Position, Range } from "@wso2/mi-syntax-tree/lib/src";
-import { Diagnostic } from "vscode-languageserver-types";
+import { Diagnostic, DiagnosticSeverity } from "vscode-languageserver-types";
 import { EmptyNodeModel } from "../nodes/EmptyNode/EmptyNodeModel";
 
 export const LINK_BOTTOM_OFFSET = 10;
@@ -255,6 +255,10 @@ export class NodeLinkModel extends DefaultLinkModel {
 
     hasDiagnotics(): boolean {
         return this.diagnostics !== undefined && this.diagnostics.length > 0;
+    }
+
+    hasErrors(): boolean {
+        return this.diagnostics?.some(d => d.severity === DiagnosticSeverity.Error) ?? false;
     }
 
     getDiagnostics(): Diagnostic[] {

@@ -16,7 +16,7 @@
  * under the License.
  */
 import React, { useEffect, useState } from "react";
-import { Button, Dropdown, FormActions, FormGroup, FormView, LocationSelector, OptionProps, TextField, ProgressRing } from "@wso2/ui-toolkit";
+import { Button, Dropdown, FormActions, FormGroup, FormView, LocationSelector, OptionProps, TextField, ProgressRing, CheckBox, Tooltip, Icon } from "@wso2/ui-toolkit";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
 import { EVENT_TYPE, MACHINE_VIEW } from "@wso2/mi-core";
 import { yupResolver } from "@hookform/resolvers/yup"
@@ -24,6 +24,7 @@ import * as yup from "yup";
 import { useForm } from "react-hook-form";
 import styled from "@emotion/styled";
 import { Range } from '../../../../syntax-tree/lib/src';
+import { ParamConfig, ParamManager } from "@wso2/mi-diagram";
 
 
 type InputsFields = {
@@ -55,9 +56,35 @@ export function ProjectWizard({ cancelView }: { cancelView: MACHINE_VIEW }) {
     const { rpcClient } = useVisualizerContext();
 
     const [dirContent, setDirContent] = useState([]);
+    const [canCreateConsolidatedProject, setCanCreateConsolidatedProject] = useState(false);
+    const [isConsolidatedProject, setIsConsolidatedProject] = useState(false);
+    const [isSubProjectsAdded, setIsSubProjectsAdded] = useState(false);
+    const [addToConsolidatedProject, setAddToConsolidatedProject] = useState(false);
+    const [viewAddToConsolidatedProject, setViewAddToConsolidatedProject] = useState(false);
 
     const [supportedMIVersions, setSupportedMIVersions] = useState<OptionProps[]>([]);
     const [formSaved, setFormSaved] = useState(false);
+
+    const consolidatedHelpTip = <Tooltip
+                content="A consolidated project allows you to manage multiple related integration projects as a single unit"
+                position='right'
+            >
+                <Icon name="question" isCodicon iconSx={{ fontSize: '18px' }} sx={{ marginLeft: '5px', cursor: 'help' }} />
+            </Tooltip>;
+
+    const subProjectConfigs: ParamConfig = {
+        paramValues: [],
+        paramFields: [
+            {
+                id: 0,
+                type: "TextField",
+                label: "Module Name",
+                defaultValue: "",
+                placeholder: "Module Name",
+                isRequired: true
+            }]
+    }
+    const [subProjects, setSubProjects] = useState(subProjectConfigs);
 
     const loweCasedDirContent = dirContent.map((folder: string) => folder.toLowerCase());
     const schema = yup.object({
@@ -96,12 +123,25 @@ export function ProjectWizard({ cancelView }: { cancelView: MACHINE_VIEW }) {
             setValue("miVersion", supportedVersions[0]); // Set the first supported version as the default, it is the latest version
             const response = await rpcClient.getMiDiagramRpcClient().getSubFolderNames({ path: currentDir.path });
             setDirContent(response.folders);
+            const canCreate = await rpcClient.getMiDiagramRpcClient().canCreateConsolidatedProject();
+            setCanCreateConsolidatedProject(canCreate.canCreateConsolidatedProject);
+            setAddToConsolidatedProject(canCreate.isConsolidatedProject);
+            setViewAddToConsolidatedProject(canCreate.isConsolidatedProject);
         })();
     }, []);
 
     useEffect(() => {
         setValue("artifactID", getValues("name"));
     }, [watch("name")]);
+
+    useEffect(() => {
+        if (viewAddToConsolidatedProject) {
+            (async () => {
+                const currentDir = await rpcClient.getMiDiagramRpcClient().getWorkspaceRoot(!addToConsolidatedProject);
+                setValue("directory", currentDir.path);
+            })();
+        }
+    }, [addToConsolidatedProject]);
 
     const handleProjecDirSelection = async () => {
         const projectDirectory = await rpcClient.getMiDiagramRpcClient().askProjectDirPath();
@@ -115,6 +155,8 @@ export function ProjectWizard({ cancelView }: { cancelView: MACHINE_VIEW }) {
         const createProjectParams = {
             ...values,
             open: true,
+            isConsolidatedProject: isConsolidatedProject || addToConsolidatedProject,
+            subProjects: subProjects.paramValues.map((param: any) => param.value)
         }
         setFormSaved(true);
         const response = await rpcClient.getMiDiagramRpcClient().createProject(createProjectParams);
@@ -123,6 +165,21 @@ export function ProjectWizard({ cancelView }: { cancelView: MACHINE_VIEW }) {
         } else {
             rpcClient.getMiDiagramRpcClient().closeWebView();
         }
+    };
+
+    const handleSubProjectsOnChange = (params: any) => {
+        let i = 1;
+        const modifiedParams = {
+            ...params, paramValues: params.paramValues.map((param: any) => {
+                return {
+                    ...param,
+                    key: i++,
+                    value: param.paramValues[0].value
+                }
+            })
+        };
+        setSubProjects(modifiedParams);
+        setIsSubProjectsAdded(modifiedParams.paramValues.map((param: any) => param.value).filter(Boolean).length > 0);
     };
 
     const handleCancel = () => {
@@ -148,6 +205,14 @@ export function ProjectWizard({ cancelView }: { cancelView: MACHINE_VIEW }) {
                 {...register("name")}
                 onKeyDown={onKeyDown}
             />
+            {viewAddToConsolidatedProject &&
+                <CheckBox
+                    label="Add to current Consolidated Project"
+                    value="addToConsolidated"
+                    checked={addToConsolidatedProject}
+                    onChange={(isChecked: boolean) => setAddToConsolidatedProject(isChecked)}
+                />
+            }
             <Dropdown
                 id='miVersion'
                 label="WSO2 Integrator: MI runtime version"
@@ -163,31 +228,47 @@ export function ProjectWizard({ cancelView }: { cancelView: MACHINE_VIEW }) {
                 onSelect={handleProjecDirSelection}
                 {...register("directory")}
             />
-            <FormGroup title="Advanced Options">
-                <React.Fragment>
-                    <TextField
-                        id='groupID'
-                        label="Group Id"
-                        required
-                        errorMsg={errors.groupID?.message.toString()}
-                        {...register("groupID")}
-                    />
-                    <TextField
-                        id='artifactID'
-                        label="Artifact Id"
-                        required
-                        errorMsg={errors.artifactID?.message.toString()}
-                        {...register("artifactID")}
-                    />
-                    <TextField
-                        id='version'
-                        label="Version"
-                        required
-                        errorMsg={errors.version?.message.toString()}
-                        {...register("version")}
-                    />
-                </React.Fragment>
-            </FormGroup>
+            {!addToConsolidatedProject &&
+                <FormGroup title="Advanced Options">
+                    <React.Fragment>
+                        {canCreateConsolidatedProject &&
+                            <FormGroup title="Project Configurations" sx={{ marginBottom: -20 }}>
+                                <CheckBox
+                                    label="Consolidated Project"
+                                    value="consolidated"
+                                    checked={isConsolidatedProject}
+                                    onChange={(isChecked: boolean) => setIsConsolidatedProject(isChecked)}
+                                    labelAdornment={consolidatedHelpTip}
+                                />
+                                {isConsolidatedProject &&
+                                    <ParamManager paramConfigs={subProjects} onChange={handleSubProjectsOnChange} addParamText="Add Module" sx={{ margin: -10 }} />
+                                }
+                            </FormGroup>
+                        }
+                        <TextField
+                            id='groupID'
+                            label="Group Id"
+                            required
+                            errorMsg={errors.groupID?.message.toString()}
+                            {...register("groupID")}
+                        />
+                        <TextField
+                            id='artifactID'
+                            label="Artifact Id"
+                            required
+                            errorMsg={errors.artifactID?.message.toString()}
+                            {...register("artifactID")}
+                        />
+                        <TextField
+                            id='version'
+                            label="Version"
+                            required
+                            errorMsg={errors.version?.message.toString()}
+                            {...register("version")}
+                        />
+                    </React.Fragment>
+                </FormGroup>
+            }
             <DownloadLabel>If the necessary WSO2 Integrator: MI runtime and tools are not available, you will be prompted to download them after project creation.</DownloadLabel>
             <FormActions>
                 <Button
@@ -199,7 +280,7 @@ export function ProjectWizard({ cancelView }: { cancelView: MACHINE_VIEW }) {
                 <Button
                     appearance="primary"
                     onClick={handleSubmit(handleCreateProject)}
-                    disabled={(!isDirty) || Object.keys(errors).length > 0 || formSaved}
+                    disabled={(!isDirty) || Object.keys(errors).length > 0 || formSaved || (isConsolidatedProject && !isSubProjectsAdded)}
                 >
                     {formSaved ? (
                         <>

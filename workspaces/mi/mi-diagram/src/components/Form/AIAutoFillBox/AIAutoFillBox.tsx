@@ -16,7 +16,7 @@
  * under the License.
  */
 import React from "react";
-import { Button, Codicon } from "@wso2/ui-toolkit";
+import { Button, Codicon, Icon } from "@wso2/ui-toolkit";
 import EditableDiv from "../EditableDiv/EditableDiv";
 import { ThemeColors } from "@wso2/ui-toolkit";
 import { VSCodeColors } from "../../../resources/constants";
@@ -139,8 +139,8 @@ const AIAutoFillBox: React.FC<Props> = ({
                                         appearance="secondary"
                                         tooltip="Auto Fill"
                                         onClick={handleGenerateAi}>
-                                        <Codicon
-                                            name="wand"
+                                        <Icon
+                                            name="bi-ai-chat"
                                             iconSx={{ color: "var(--vscode-editor-foreground)" }}
                                         />
                                     </Button>

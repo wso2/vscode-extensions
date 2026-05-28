@@ -1,0 +1,174 @@
+/**
+ * rush.bi.json — Ballerina Integrator Rush configuration
+ *
+ * This file is the canonical Rush configuration for Ballerina Integrator–specific
+ * setups. It contains only the projects required for the BI development workflow.
+ */
+
+ {
+    "$schema": "https://developer.microsoft.com/json-schemas/rush/v5/rush.schema.json",
+    "rushVersion": "5.155.1",
+    "pnpmVersion": "10.11.0",
+    "nodeSupportedVersionRange": ">=20.0.0 <23.0.0",
+    "projectFolderMinDepth": 2,
+    "projectFolderMaxDepth": 3,
+    "gitPolicy": {},
+    "repository": {},
+    "eventHooks": {
+        "preRushInstall": [],
+        "postRushInstall": [
+            "node common/scripts/install-git-hooks.js"
+        ],
+        "preRushBuild": [
+            "npm run init-submodules"
+        ],
+        "postRushBuild": [
+            "cd workspaces/ballerina/ballerina-extension && pnpm run copyVSIXToRoot",
+            "cd workspaces/wso2-platform/wso2-platform-extension && pnpm run copyVSIXToRoot",
+            "cd workspaces/bi/bi-extension && pnpm run copyVSIXToRoot"
+        ]
+    },
+    "variants": [],
+    "projects": [
+        {
+            "packageName": "@wso2/font-wso2-vscode",
+            "projectFolder": "workspaces/common-libs/font-wso2-vscode",
+            "versionPolicyName": "font-wso2-vscode"
+        },
+        {
+            "packageName": "@wso2/ui-toolkit",
+            "projectFolder": "workspaces/common-libs/ui-toolkit",
+            "versionPolicyName": "ui-toolkit"
+        },
+        {
+            "packageName": "@wso2/service-designer",
+            "projectFolder": "workspaces/common-libs/service-designer",
+            "versionPolicyName": "service-designer"
+        },
+        {
+            "packageName": "@wso2/wso2-platform-core",
+            "projectFolder": "workspaces/wso2-platform/wso2-platform-core",
+            "versionPolicyName": "wso2-platform-extension"
+        },
+        {
+            "packageName": "wso2-platform",
+            "projectFolder": "workspaces/wso2-platform/wso2-platform-extension",
+            "versionPolicyName": "wso2-platform-extension"
+        },
+        {
+            "packageName": "@wso2/wso2-platform-vscode-webviews",
+            "projectFolder": "workspaces/wso2-platform/wso2-platform-webviews",
+            "versionPolicyName": "wso2-platform-extension"
+        },
+        {
+            "packageName": "@wso2/playwright-vscode-tester",
+            "projectFolder": "workspaces/common-libs/playwright-vscode-tester",
+            "versionPolicyName": "choreo-extension"
+        },
+        {
+            "packageName": "graphqlview-lib",
+            "projectFolder": "workspaces/ballerina/graphql",
+            "versionPolicyName": "ballerina-extension"
+        },
+        {
+            "packageName": "@wso2/ballerina-graphql-design-diagram",
+            "projectFolder": "workspaces/ballerina/graphql-design-diagram",
+            "versionPolicyName": "ballerina-extension"
+        },
+        {
+            "packageName": "@wso2/ballerina-low-code-diagram",
+            "projectFolder": "workspaces/ballerina/ballerina-low-code-diagram",
+            "versionPolicyName": "ballerina-extension"
+        },
+        {
+            "packageName": "@wso2/ballerina-side-panel",
+            "projectFolder": "workspaces/ballerina/ballerina-side-panel",
+            "versionPolicyName": "ballerina-extension"
+        },
+        {
+            "packageName": "@wso2/ballerina-core",
+            "projectFolder": "workspaces/ballerina/ballerina-core",
+            "versionPolicyName": "ballerina-extension"
+        },
+        {
+            "packageName": "@wso2/ballerina-rpc-client",
+            "projectFolder": "workspaces/ballerina/ballerina-rpc-client",
+            "versionPolicyName": "ballerina-extension"
+        },
+        {
+            "packageName": "@wso2/ballerina-visualizer",
+            "projectFolder": "workspaces/ballerina/ballerina-visualizer",
+            "versionPolicyName": "ballerina-extension"
+        },
+        {
+            "packageName": "@wso2/trace-visualizer",
+            "projectFolder": "workspaces/ballerina/trace-visualizer",
+            "versionPolicyName": "ballerina-extension"
+        },
+        {
+            "packageName": "@wso2/overview-view",
+            "projectFolder": "workspaces/ballerina/overview-view",
+            "versionPolicyName": "ballerina-extension"
+        },
+        {
+            "packageName": "@wso2/ballerina-data-mapper",
+            "projectFolder": "workspaces/ballerina/data-mapper",
+            "versionPolicyName": "ballerina-extension"
+        },
+        {
+            "packageName": "@wso2/persist-layer-diagram",
+            "projectFolder": "workspaces/ballerina/persist-layer-diagram",
+            "versionPolicyName": "ballerina-extension"
+        },
+        {
+            "packageName": "@wso2/type-diagram",
+            "projectFolder": "workspaces/ballerina/type-diagram",
+            "versionPolicyName": "ballerina-extension"
+        },
+        {
+            "packageName": "@wso2/ballerina-statement-editor",
+            "projectFolder": "workspaces/ballerina/statement-editor",
+            "versionPolicyName": "ballerina-extension"
+        },
+        {
+            "packageName": "@wso2/syntax-tree",
+            "projectFolder": "workspaces/ballerina/syntax-tree",
+            "versionPolicyName": "ballerina-extension"
+        },
+        {
+            "packageName": "ballerina",
+            "projectFolder": "workspaces/ballerina/ballerina-extension",
+            "versionPolicyName": "ballerina-extension"
+        },
+        {
+            "packageName": "ballerina-integrator",
+            "projectFolder": "workspaces/bi/bi-extension",
+            "versionPolicyName": "ballerina-extension"
+        },
+        {
+            "packageName": "@wso2/bi-diagram",
+            "projectFolder": "workspaces/ballerina/bi-diagram",
+            "versionPolicyName": "ballerina-extension"
+        },
+        {
+            "packageName": "@wso2/sequence-diagram",
+            "projectFolder": "workspaces/ballerina/sequence-diagram",
+            "versionPolicyName": "ballerina-extension"
+        },
+        {
+            "packageName": "@wso2/component-diagram",
+            "projectFolder": "workspaces/ballerina/component-diagram",
+            "versionPolicyName": "ballerina-extension"
+        },
+        {
+            "packageName": "@wso2/record-creator",
+            "projectFolder": "workspaces/ballerina/record-creator",
+            "versionPolicyName": "ballerina-extension"
+        },
+        {
+            "packageName": "@wso2/type-editor",
+            "projectFolder": "workspaces/ballerina/type-editor",
+            "versionPolicyName": "ballerina-extension"
+        }
+    ]
+}

@@ -18,7 +18,7 @@ import { DIAGNOSTICS_TOOL_NAME } from "./tools/diagnostics";
 import { LIBRARY_GET_TOOL } from "./tools/library-get";
 import { LIBRARY_SEARCH_TOOL } from "./tools/library-search";
 import { TASK_WRITE_TOOL_NAME } from "./tools/task-writer";
-import { FILE_BATCH_EDIT_TOOL_NAME, FILE_SINGLE_EDIT_TOOL_NAME, FILE_WRITE_TOOL_NAME } from "./tools/text-editor";
+import { FILE_BATCH_EDIT_TOOL_NAME, FILE_READ_TOOL_NAME, FILE_SINGLE_EDIT_TOOL_NAME, FILE_WRITE_TOOL_NAME } from "./tools/text-editor";
 import { CONNECTOR_GENERATOR_TOOL } from "./tools/connector-generator";
 import { CONFIG_COLLECTOR_TOOL } from "./tools/config-collector";
 import { CLARIFY_TOOL } from "./tools/clarify";
@@ -143,12 +143,15 @@ When generating Ballerina code strictly follow these syntax and structure guidel
 - A submodule MUST BE imported before being used. The import statement should only contain the package name and submodule name. For package my_pkg, folder structure generated/fooApi, the import should be \`import my_pkg.fooApi;\`.
 - For GraphQL service related queries, if the user hasn't specified their own GraphQL Schema, write the proposed GraphQL schema for the user query right after the explanation before generating the Ballerina code. Use the same names as the GraphQL Schema when defining record types.
 - Some libaries has instructions fields in their API documentation. Follow those instructions strictly when using those libraries.
+- You should only generate tests if the user explicitly asks for them in the query. You must use the 'ballerina/test' and whatever services associated when writing tests. Respect the instructions field in ballerina/test library and testGenerationInstruction field in whatever library associated with the service in the library API documentation when writing tests.
+- For workflow-based requirements involving long-running processes, state management, or orchestration of multiple steps, use the 'ballerina/workflow' module.
 - When writing tests, use the 'ballerina/test' module and any service-specific test libraries. Respect the instructions field in ballerina/test library and the testGenerationInstruction field in the associated service library API documentation when writing tests.
 - Some libraries may contain Readme field. This is generic information about the library. Avoid following links from the readme contents.
 ${getLanglibInstructions()}
 
 ### Local Connectors
 - If the codebase structure shows connector modules in generated/moduleName, import using: import packageName.moduleName
+- Generated connector files appear under a \`<generated_files>\` block in the codebase structure as path-only entries (e.g. \`<file path="generated/moduleName/client.bal"/>\`) — no source content is included. Use the \`${FILE_READ_TOOL_NAME}\` tool with the listed path to fetch the content when needed.
 
 ## Code Structure
 - In WSO2 Integrator, Automation is simply an app with a main method unless user specifically mentions a service. Cron Job kind of requirements are handled in the deployment level for Kubernetes or Integration platform level.
@@ -175,12 +178,12 @@ ${getLanglibInstructions()}
 
 ## File modifications
 - You must apply changes to the existing source code using the provided ${[
-        FILE_BATCH_EDIT_TOOL_NAME,
-        FILE_SINGLE_EDIT_TOOL_NAME,
-        FILE_WRITE_TOOL_NAME,
-    ].join(
-        ", "
-    )} tools. The complete existing source code will be provided in the <existing_code> section of the user prompt.
+            FILE_BATCH_EDIT_TOOL_NAME,
+            FILE_SINGLE_EDIT_TOOL_NAME,
+            FILE_WRITE_TOOL_NAME,
+        ].join(
+            ", "
+        )} tools. The complete existing source code will be provided in the <existing_code> section of the user prompt.
 - When making replacements inside an existing file, provide the **exact old string** and the **exact new string** with all newlines, spaces, and indentation, being mindful to replace nearby occurrences together to minimize the number of tool calls.
 - Do NOT create a new markdown file to document each change or summarize your work unless specifically requested by the user.
 - Do not manually add/modify Dependencies.toml. For Config.toml configuration management, use ${CONFIG_COLLECTOR_TOOL}.
@@ -189,6 +192,10 @@ ${getLanglibInstructions()}
 
 ## Workspace Management
 When working with Ballerina workspace projects (projects with a root Ballerina.toml containing a [workspace] section):
+
+### Terminology
+In WSO2 Integrator, a Ballerina workspace is called a **project** and a Ballerina package is called an **integration**.
+- You MUST always use "project" and "integration" in all responses and clarifying questions. Never use "workspace" or "package" when communicating with the user.
 
 ### Creating a new package
 1. Create the package directory with a Ballerina.toml containing the [package] section (name, org, version).
@@ -199,11 +206,12 @@ When working with Ballerina workspace projects (projects with a root Ballerina.t
 - Always prefer modifying existing packages over creating new ones unless the user specifically asks to create a new package.
 - The root workspace Ballerina.toml should only contain a [workspace] section with a packages array.
 - Avoid modifying existing package Ballerina.toml files for dependency management.
+- A library package must include a \`lib.bal\` file containing \`import wso2/strict.library as _;\` — without this import the package is treated as a standard integration.
 
 # Running, invoking and tests
 - You should only Run or write tests if the user explicitly asks to do so.
 - Providing values to configurables is a runtime task and should only do it before running or executing the tests.
-- For Config.toml configuration value management, use ${CONFIG_COLLECTOR_TOOL} to request for values. Check the different modes of the tool for various usecases.
+- For Config.toml configuration value management, use ${CONFIG_COLLECTOR_TOOL}. The codebase listing shows <config_files main="present|absent" tests="present|absent"/> per project indicating whether Config.toml files exist.
 - You can call ${BALLERINA_STOP_TOOL_NAME} when you need to restart a service (e.g. after code changes) or when the user explicitly asks to stop it.
 
 ## Test Runner
@@ -254,16 +262,25 @@ export function getUserPrompt(params: GenerateAgentCodeRequest, tempProjectPath:
 
     // Add file attachments if available
     if (params.fileAttachmentContents && params.fileAttachmentContents.length > 0) {
-        const attachmentsText = params.fileAttachmentContents.map((attachment) =>
-            `## File: ${attachment.fileName}\n\`\`\`\n${attachment.content}\n\`\`\``
-        ).join('\n\n');
-
-        content.push({
-            type: 'text' as const,
-            text: `<User Attachments>
-${attachmentsText}
-</User Attachments>`
-        });
+        for (const attachment of params.fileAttachmentContents) {
+            if (attachment.mimeType?.startsWith('image/')) {
+                // Add image attachment
+                content.push({
+                    type: 'image' as const,
+                    image: attachment.content,
+                });
+            } else {
+                // Add text file attachment
+                const attachmentsText = params.fileAttachmentContents.map((attachment) =>
+                    `## File: ${attachment.fileName}\n\`\`\`\n${attachment.content}\n\`\`\``).join('\n\n');
+                content.push({
+                    type: 'text' as const,
+                    text: `<User Attachments>
+                            ${attachmentsText}
+                        </User Attachments>`
+                });
+            }
+        }
     }
 
     const queryParts = [params.usecase];
@@ -302,7 +319,7 @@ export function getWebToolsHint(): string {
     return `<system-reminder>The user has enabled web tools. Use web_search for live or up-to-date information. Use web_fetch when the user provides a URL. Invoke these tools proactively when the query suggests current data or external content is needed.</system-reminder>`;
 }
 
-function getGenerationType(isPlanMode:boolean):string {
+function getGenerationType(isPlanMode: boolean): string {
     if (isPlanMode) {
         return `<system-reminder> Plan Mode is enabled. Make sure to use task management using ${TASK_WRITE_TOOL_NAME} </system-reminder>`;
     }
@@ -310,7 +327,7 @@ function getGenerationType(isPlanMode:boolean):string {
 }
 
 function getNPSuffix(projects: ProjectSource[], op?: OperationType): string {
-    let basePrompt:string = "Note: You are in a special Natural Programming mode. Follow the NP guidelines strictly in addition to what you've given. \n";
+    let basePrompt: string = "Note: You are in a special Natural Programming mode. Follow the NP guidelines strictly in addition to what you've given. \n";
     if (!op) {
         return "";
     } else if (op === "CODE_FOR_USER_REQUIREMENT") {

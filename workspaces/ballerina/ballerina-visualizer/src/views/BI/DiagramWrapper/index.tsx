@@ -24,7 +24,7 @@ import { BISequenceDiagram } from "../SequenceDiagram";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { TopNavigationBar } from "../../../components/TopNavigationBar";
 import { TitleBar } from "../../../components/TitleBar";
-import { CodeData, EVENT_TYPE, FOCUS_FLOW_DIAGRAM_VIEW, FocusFlowDiagramView, FunctionModel, LineRange, ParentMetadata, SHARED_COMMANDS } from "@wso2/ballerina-core";
+import { CodeData, DIRECTORY_MAP, EVENT_TYPE, FOCUS_FLOW_DIAGRAM_VIEW, FocusFlowDiagramView, FunctionModel, LineRange, ParentMetadata, ProjectStructureArtifactResponse, Protocol, SHARED_COMMANDS } from "@wso2/ballerina-core";
 import { VisualizerLocation, NodePosition } from "@wso2/ballerina-core";
 import { MACHINE_VIEW } from "@wso2/ballerina-core";
 import styled from "@emotion/styled";
@@ -42,6 +42,8 @@ const ActionButton = styled(Button)`
     align-items: center;
     gap: 4px;
 `;
+
+const TRACING_LABEL_BREAKPOINT = 600;
 
 const SubTitleWrapper = styled.div`
     display: flex;
@@ -87,6 +89,26 @@ const Path = styled.span`
     line-height: 1.3;
 `;
 
+function servicePositionWithinArtifact(artifactPos: NodePosition | undefined, svcPos: NodePosition | undefined): boolean {
+    if (!artifactPos || !svcPos) {
+        return false;
+    }
+    const oStart = artifactPos.startLine ?? 0;
+    const oEnd = artifactPos.endLine ?? oStart;
+    const iStart = svcPos.startLine ?? 0;
+    const iEnd = svcPos.endLine ?? iStart;
+    if (iStart < oStart || iEnd > oEnd) {
+        return false;
+    }
+    if (iStart === oStart && (svcPos.startColumn ?? 0) < (artifactPos.startColumn ?? 0)) {
+        return false;
+    }
+    if (iEnd === oEnd && (svcPos.endColumn ?? 0) > (artifactPos.endColumn ?? 0)) {
+        return false;
+    }
+    return true;
+}
+
 
 export interface DiagramWrapperProps {
     projectPath: string;
@@ -113,10 +135,14 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
     const [parentCodedata, setParentCodedata] = useState<CodeData>();
 
     const [functionModel, setFunctionModel] = useState<FunctionModel>();
+    const [resources, setResources] = useState<ProjectStructureArtifactResponse[]>([]);
     const [servicePosition, setServicePosition] = useState<NodePosition>();
     const [isSaving, setIsSaving] = useState(false);
     const [isTracingEnabled, setIsTracingEnabled] = useState(false);
     const [isToggling, setIsToggling] = useState(false);
+    const [isNarrowViewport, setIsNarrowViewport] = useState(
+        typeof window !== "undefined" && window.innerWidth < TRACING_LABEL_BREAKPOINT
+    );
     const [selectedTryItOption, setSelectedTryItOption] = useState<TryItOptionValue>(TryItOptionValue.TRY_IT);
     const [isTryItInProgress, setIsTryItInProgress] = useState(false);
     const isMountedRef = useRef(true);
@@ -126,6 +152,14 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
         return () => {
             isMountedRef.current = false;
         };
+    }, []);
+
+    useEffect(() => {
+        const handleResize = () => {
+            setIsNarrowViewport(window.innerWidth < TRACING_LABEL_BREAKPOINT);
+        };
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
     }, []);
 
     useEffect(() => {
@@ -261,7 +295,8 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
     };
 
     const getFunctionModel = async () => {
-        const location = (await rpcClient.getVisualizerLocation()).position;
+        const visualizerLocation = await rpcClient.getVisualizerLocation();
+        const location = visualizerLocation.position;
         const codeData: CodeData = {
             lineRange: {
                 fileName: filePath,
@@ -270,6 +305,13 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
             }
         }
         const functionModel = await rpcClient.getServiceDesignerRpcClient().getFunctionFromSource({ filePath: filePath, codedata: codeData });
+        const projectStructure = await rpcClient.getBIDiagramRpcClient().getProjectStructure();
+        const project = projectStructure.projects.find(project => project.projectPath === visualizerLocation.projectPath);
+        const services = project?.directoryMap[DIRECTORY_MAP.SERVICE] || [];
+        const selectedService = services.find(
+            service => service.path === filePath && servicePositionWithinArtifact(service.position, servicePosition)
+        ) || services.find(service => service.name === serviceName);
+        setResources(selectedService?.resources || []);
         setFunctionModel(functionModel.function);
     }
 
@@ -327,6 +369,32 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
             return;
         }
 
+        if (isWorkflow) {
+            rpcClient.getVisualizerRpcClient().openView({
+                type: EVENT_TYPE.OPEN_VIEW,
+                location: {
+                    view: MACHINE_VIEW.BIWorkflowForm,
+                    identifier: parentMetadata?.label || "",
+                    documentUri: fileUri,
+                    position: position || currentPosition,
+                }
+            });
+            return;
+        }
+
+        if (isActivity) {
+            rpcClient.getVisualizerRpcClient().openView({
+                type: EVENT_TYPE.OPEN_VIEW,
+                location: {
+                    view: MACHINE_VIEW.BIActivityForm,
+                    identifier: parentMetadata?.label || "",
+                    documentUri: fileUri,
+                    position: position || currentPosition,
+                }
+            });
+            return;
+        }
+
         const context: VisualizerLocation = {
             view:
                 view === FOCUS_FLOW_DIAGRAM_VIEW.NP_FUNCTION
@@ -345,6 +413,8 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
     let isRemote = parentMetadata?.kind === "Remote Function";
     let isAgent = parentMetadata?.kind === "AI Chat Agent" && parentMetadata?.label === "chat";
     let isInitFunction = parentMetadata?.kind === "Function" && parentMetadata?.label === "init";
+    let isWorkflow = parentMetadata?.kind === "Workflow";
+    let isActivity = parentMetadata?.kind === "Activity";
     let isNPFunction = view === FOCUS_FLOW_DIAGRAM_VIEW.NP_FUNCTION;
 
     const handleResourceTryIt = async (methodValue: string, pathValue: string) => {
@@ -434,7 +504,7 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
                 if (isMountedRef.current) {
                     setSelectedTryItOption(optionToRun);
                 }
-                await rpcClient.getCommonRpcClient().setPreferredTryItOption(optionToRun); 
+                await rpcClient.getCommonRpcClient().setPreferredTryItOption(optionToRun);
             }
 
             switch (optionToRun) {
@@ -458,10 +528,28 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
     const activeTryItOption =
         tryItDropdownOptions.find((option) => option.value === selectedTryItOption) ?? tryItDropdownOptions[0];
 
+    // HACK: This need to be fixed from getFlowModel API 
+    const getWorkflowTitleFromSource = () => {
+        if (parentMetadata?.kind !== "Function" || !parentMetadata?.sourceCode) {
+            return undefined;
+        }
+
+        const normalizedSource = parentMetadata.sourceCode.trimStart();
+        if (normalizedSource.startsWith("@workflow:Activity")) {
+            return "Workflow Activity";
+        }
+        if (normalizedSource.startsWith("@workflow:Process")) {
+            return "Workflow";
+        }
+        return undefined;
+    };
+
     // Calculate title based on conditions
     const getTitle = () => {
         if (isNPFunction) return "Natural Function";
         if (isAutomation) return "Automation";
+        const workflowTitle = getWorkflowTitleFromSource();
+        if (workflowTitle) return workflowTitle;
         if (parentCodedata?.sourceCode.includes("@ai:AgentTool")) return "Agent Tool";
         if ((parentCodedata?.sourceCode.includes("@test:Config")) && parentCodedata?.sourceCode.includes("\"evaluations\"")) return "AI Evaluation";
         if (parentCodedata?.sourceCode.includes("@test:Config")) return "Test";
@@ -483,13 +571,14 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
                 appearance={isTracingEnabled ? "primary" : "secondary"}
                 onClick={handleToggleTracing}
                 disabled={isToggling}
+                tooltip={isTracingEnabled ? "Tracing is on. Click to disable." : "Tracing is off. Click to enable."}
             >
                 <Icon
                     name={isTracingEnabled ? "telescope" : "circle-slash"}
                     isCodicon={true}
                     sx={{ marginRight: 5, width: 16, height: 16, fontSize: 14 }}
                 />
-                {isTracingEnabled ? "Tracing: On" : "Tracing: Off"}
+                {isNarrowViewport ? "Tracing" : isTracingEnabled ? "Tracing: On" : "Tracing: Off"}
             </ActionButton>
         );
 
@@ -636,13 +725,22 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
                 width={400}
                 overlay={true}
             >
-                <ResourceForm
-                    model={functionModel}
-                    isSaving={isSaving}
-                    filePath={filePath}
-                    onSave={handleResourceSubmit}
-                    onClose={handleFunctionClose}
-                />
+                {functionModel && (
+                    <ResourceForm
+                        model={functionModel}
+                        isSaving={isSaving}
+                        isNew={false}
+                        filePath={filePath}
+                        onSave={handleResourceSubmit}
+                        onClose={handleFunctionClose}
+                        existingResources={resources}
+                        payloadContext={{
+                            protocol: Protocol.HTTP,
+                            serviceName: serviceName ?? "",
+                            serviceBasePath: basePath ?? "",
+                        }}
+                    />
+                )}
             </PanelContainer>
         </View >
     );

@@ -5,7 +5,6 @@
  * This fixes the path resolution issue when the client is bundled by webpack
  */
 
-const open = require("open");
 const { join } = require("path");
 const handler = require("serve-handler");
 const http = require("http");
@@ -58,7 +57,8 @@ server.on("listening", () => {
   console.log(`\n🚀 MCP Inspector is up and running at:\n   ${url}\n`);
   if (process.env.MCP_AUTO_OPEN_ENABLED !== "false") {
     console.log(`🌐 Opening browser...`);
-    open(url);
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require("open")(url);
   }
 });
 server.on("error", (err) => {

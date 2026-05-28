@@ -17,6 +17,7 @@
  */
 
 import React, { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { EditableTitle } from "../../../components/EditableTitle";
 import {
     ProjectStructure,
@@ -414,6 +415,7 @@ interface DeploymentOptionsProps {
     handleDeploy: () => Promise<void>;
     goToDevant: () => void;
     hasDeployableIntegration: boolean;
+    projectPath: string;
 }
 
 function DeploymentOptions({
@@ -421,9 +423,11 @@ function DeploymentOptions({
     handleJarBuild,
     handleDeploy,
     goToDevant,
-    hasDeployableIntegration
+    hasDeployableIntegration,
+    projectPath
 }: DeploymentOptionsProps) {
     const [expandedOptions, setExpandedOptions] = useState<Set<string>>(new Set(['cloud', 'devant']));
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const { rpcClient } = useRpcContext();
     const { platformExtState } = usePlatformExtContext();
 
@@ -439,30 +443,52 @@ function DeploymentOptions({
         });
     };
 
-    const isDeployed = platformExtState?.isLoggedIn ? !!platformExtState?.selectedComponent : platformExtState?.hasPossibleComponent;
+    const { data: devantMetadata, isLoading: isDevantLoading, refetch: refetchDevantMetadata } = useQuery({
+        queryKey: ["project-devant-metadata", projectPath],
+        queryFn: () => rpcClient.getBIDiagramRpcClient().getWorkspaceDevantMetadata(),
+        enabled: platformExtState.isExtInstalled,
+        refetchInterval: 5000,
+    });
+    const currentProjectMeta = devantMetadata?.projectsMetadata?.find(p => p.projectPath === projectPath);
+    const isDeployed = devantMetadata?.isLoggedIn
+        ? (currentProjectMeta?.hasComponent ?? false)
+        : false;
+
+    const stopRefreshing = useCallback(() => {
+        setIsRefreshing(false);
+    }, []);
+
+    const handleRefreshDeploymentStatus = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setIsRefreshing(true);
+        try {
+            await rpcClient.getCommonRpcClient().executeCommand({
+                commands: [WICommandIds.RefreshDirectoryContext],
+            });
+            await refetchDevantMetadata();
+        } finally {
+            stopRefreshing();
+        }
+    };
 
     return (
         <>
             <div>
                 <Title variant="h3">Deployment Options</Title>
 
-                {platformExtState.isExtInstalled && (
+                {platformExtState.isExtInstalled && !isDevantLoading && (
                     <DeploymentOption
                         title={
                             isDeployed ? (
                                 <DevantHeaderWrap>
                                     <span>Deployed in WSO2 Cloud</span>
-                                    <Button
-                                        appearance="icon"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            rpcClient.getCommonRpcClient().executeCommand({
-                                                commands: [WICommandIds.RefreshDirectoryContext],
-                                            });
-                                        }}
-                                    >
-                                        <Codicon name="refresh" />
-                                    </Button>
+                                    {isRefreshing ? (
+                                        <ProgressRing sx={{ width: 16, height: 16 }} />
+                                    ) : (
+                                        <Button appearance="icon" tooltip="Refresh deployment status" onClick={handleRefreshDeploymentStatus}>
+                                            <Codicon name="refresh" />
+                                        </Button>
+                                    )}
                                 </DevantHeaderWrap>
                             ) : (
                                 "Deploy to WSO2 Cloud"
@@ -478,9 +504,9 @@ function DeploymentOptions({
                         onToggle={() => toggleOption("devant")}
                         onDeploy={isDeployed ? () => goToDevant() : handleDeploy}
                         learnMoreLink={"https://wso2.com/devant/docs/"}
-                        hasDeployableIntegration={hasDeployableIntegration}
+                        hasDeployableIntegration={hasDeployableIntegration && !isRefreshing}
                         secondaryAction={
-                            isDeployed && platformExtState?.hasLocalChanges
+                            isDeployed && currentProjectMeta?.hasLocalChanges
                                 ? {
                                     description: "To redeploy in WSO2 Cloud, please commit and push your changes.",
                                     buttonText: "Open Source Control",
@@ -579,6 +605,12 @@ function LocalICPDeployment() {
         const interval = setInterval(refreshStatus, 3000);
         return () => clearInterval(interval);
     }, []);
+
+    useEffect(() => {
+        if (serverRunning) {
+            setIsExpanded(true);
+        }
+    }, [serverRunning]);
 
     const handleServerToggle = async (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -887,13 +919,13 @@ export function PackageOverview(props: PackageOverviewProps) {
     const handleICP = (icpEnabled: boolean) => {
         if (icpEnabled) {
             rpcClient.getICPRpcClient().addICP({ projectPath: '' })
-                .then((res) => {
+                .then(() => {
                     setEnableICP(true);
                 }
                 );
         } else {
             rpcClient.getICPRpcClient().disableICP({ projectPath: '' })
-                .then((res) => {
+                .then(() => {
                     setEnableICP(false);
                 }
                 );
@@ -955,7 +987,7 @@ export function PackageOverview(props: PackageOverviewProps) {
         })
     };
 
-    async function handleSettings() {
+    function handleSettings() {
         rpcClient.getAiPanelRpcClient().openAIPanel({
             type: 'text',
             planMode: false,
@@ -1143,6 +1175,7 @@ export function PackageOverview(props: PackageOverviewProps) {
                                         handleDeploy={handleDeploy}
                                         goToDevant={goToDevant}
                                         hasDeployableIntegration={deployableIntegrationTypes.length > 0}
+                                        projectPath={projectPath}
                                     />
                                     <Divider sx={{ margin: "16px 0" }} />
                                     <IntegrationControlPlane enabled={enabled} handleICP={handleICP} />

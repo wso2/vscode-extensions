@@ -21,6 +21,7 @@ import React, { useEffect, useState } from 'react';
 import { FirstCharToUpperCase } from '../../../utils/commons';
 import { ConnectorOperation } from '@wso2/mi-core';
 import { OperationsWrapper } from '../mediators/ModuleSuggestions';
+import { useVisualizerContext } from '@wso2/mi-rpc-client';
 
 interface OperationsListProps {
     connector: any;
@@ -33,6 +34,7 @@ export function OperationsList(props: OperationsListProps) {
     const [operations, setOperations] = useState<[]>(undefined);
     const [selectedVersion, setSelectedVersion] = useState<string>("");
     const [isFetchingOperations, setIsFetchingOperations] = useState<boolean>(false);
+    const { rpcClient } = useVisualizerContext();
 
     useEffect(() => {
         setSelectedVersion(connector.version.tagName);
@@ -49,7 +51,12 @@ export function OperationsList(props: OperationsListProps) {
                 if (isLatestVersion) {
                     operations = connector.version.operations;
                 } else {
-                    const response = await fetch(`${process.env.MI_CONNECTOR_STORE_BACKEND_GETBYVERSION.replace('${repoName}', connector.repoName).replace('${versionId}', connector.otherVersions[version])}`);
+                    const runtimeVersion = await rpcClient.getMiDiagramRpcClient().getMIVersionFromPom();
+                    const url = process.env.MI_CONNECTOR_STORE_BACKEND_GETBYVERSION
+                        .replace('${repoName}', connector.repoName)
+                        .replace('${versionId}', connector.otherVersions[version])
+                        .replace('${version}', runtimeVersion.version);
+                    const response = await fetch(url);
                     const data = await response.json();
                     operations = data.version.operations;
                 }
@@ -81,7 +88,7 @@ export function OperationsList(props: OperationsListProps) {
                                 items={[
                                     connector.version.tagName,
                                     ...(Object.keys(connector.otherVersions || {}).map(version => (version)))
-                                ]}
+                                ].sort((a, b) => b.localeCompare(a, undefined, { numeric: true, sensitivity: "base" }))}
                                 value={selectedVersion}
                                 onValueChange={(e) => setVersion(e)}
                                 allowItemCreate={false}

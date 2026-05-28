@@ -37,7 +37,18 @@ const OverlayContainer = styled.div<OverlayProps>`
 export const Overlay: React.FC<OverlayProps> = (props: OverlayProps) => {
     const { id, className, sx, onClose } = props;
 
+    const handleClick = (event: React.MouseEvent<HTMLElement, MouseEvent>) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onClose?.(event);
+    };
+
     return (
-        <OverlayContainer id={id} className={className} sx={sx} onClick={onClose} />
+        <OverlayContainer
+            id={id}
+            className={className}
+            sx={sx}
+            onClick={handleClick}
+        />
     );
 };

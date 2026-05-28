@@ -159,6 +159,14 @@ runs:
         isPreRelease: ${{ inputs.isPreRelease }}
         version: ${{ inputs.version }}
 
+    - name: Update version - Hurl Client
+      if: ${{ inputs.hurl-client == 'true' }}
+      uses: ./.github/actions/updateVersion
+      with:
+        path: "hurl-client/hurl-client-extension"
+        isPreRelease: ${{ inputs.isPreRelease }}
+        version: ${{ inputs.version }}
+
     - name: Copy .env.example to .env
       shell: bash
       run: |
@@ -200,6 +208,7 @@ runs:
       run: |
         node common/scripts/install-run-rush.js build --verbose
       env:
+        NODE_OPTIONS: --max-old-space-size=6144
         isPreRelease: ${{ inputs.isPreRelease == 'true' }}
         BALLERINA_LS_TAG: ${{ inputs.enableLSCache == 'true' && steps.resolve-ballerina-ls-version.outputs.version || (inputs.ballerinaLsTag != '' && inputs.ballerinaLsTag || (inputs.isPreRelease == 'true' && 'prerelease' || 'latest')) }}
         BALLERINA_AUTH_ORG: ${{ inputs.BALLERINA_AUTH_ORG }}

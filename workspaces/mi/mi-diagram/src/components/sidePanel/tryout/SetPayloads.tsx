@@ -55,8 +55,9 @@ export function SetPayloads(props: SetPayloadsProps) {
     useEffect(() => {
         rpcClient.getMiDiagramRpcClient().getInputPayloads({ documentUri, artifactModel }).then(async (res) => {
             const requests = Array.isArray(res.payloads)
-                ? res.payloads.map(payload => ({
+                ? res.payloads.map((payload: any) => ({
                     name: payload.name,
+                    sharePayload: payload?.sharePayload ?? false,
                     contentType: payload.contentType,
                     content: payload.contentType == 'application/json' ? JSON.stringify(payload.content, null, 2) : payload.content,
                     queryParams: payload.queryParams && typeof payload.queryParams === 'object'
@@ -72,7 +73,7 @@ export function SetPayloads(props: SetPayloadsProps) {
                         }))
                         : []
                 }))
-                : [{ name: "Default", content: JSON.stringify(res.payloads) }];
+                : [{ name: "Default", content: JSON.stringify(res.payloads), sharePayload: false }];
             setRequests(requests);
             setDefaultPayload(res.defaultPayload);
             setRequestsNames(requests.map((request) => request.name));
@@ -95,7 +96,7 @@ export function SetPayloads(props: SetPayloadsProps) {
     }, [requests]);
 
     const onSavePayload = async () => {
-        const content = requests.map(({ name, contentType, content, queryParams, pathParams }) => {
+        const content = requests.map(({ name, contentType, content, queryParams, pathParams, sharePayload }) => {
             const result: any = { name };
 
             if (supportPayload) {
@@ -109,6 +110,7 @@ export function SetPayloads(props: SetPayloadsProps) {
                 result.pathParams = Array.isArray(pathParams)
                     ? Object.fromEntries(pathParams.map(({ pathParamName, pathParamValue }) => [pathParamName, pathParamValue]))
                     : {};
+                result.sharePayload = sharePayload;
             }
             return result;
         });
@@ -143,6 +145,15 @@ export function SetPayloads(props: SetPayloadsProps) {
                     inputType: "string",
                     required: true,
                     helpTip: "",
+                },
+            },
+            {
+                type: "attribute",
+                value: {
+                    name: "sharePayload",
+                    displayName: "Share payload across resources in the API",
+                    inputType: "checkbox",
+                    hidden: !isAPI
                 },
             },
             {

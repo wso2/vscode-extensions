@@ -21,6 +21,8 @@ import React, { useEffect, useState } from "react";
 import { AvailableNode, MACHINE_VIEW, NodeKind, ParentPopupData, PopupMachineStateValue, PopupVisualizerLocation } from "@wso2/ballerina-core";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { ThemeColors, Overlay } from "@wso2/ui-toolkit";
+import { URI, Utils } from "vscode-uri";
+import { CONNECTIONS_FILE } from "./constants";
 import { FunctionForm } from "./views/BI";
 import { DataMapper } from "./views/DataMapper";
 import AddConnectionPopup from "./views/BI/Connection/AddConnectionPopup";
@@ -86,7 +88,7 @@ const PopupPanel = (props: PopupPanelProps) => {
                         setViewComponent(
                             <AddConnectionPopup
                                 projectPath={location.projectPath}
-                                fileName={location.documentUri || location.projectPath}
+                                fileName={location.documentUri || Utils.joinPath(URI.file(location.projectPath), CONNECTIONS_FILE).fsPath}
                                 target={machineState.metadata?.target || undefined}
                                 onClose={onClose}
                                 onNavigateToOverview={handleNavigateToOverview}
@@ -166,6 +168,36 @@ const PopupPanel = (props: PopupPanelProps) => {
                             functionName={undefined}
                             isAgentTool={true}
                             isPopup={true} />
+                        );
+                    });
+                    break;
+                case MACHINE_VIEW.BIWorkflowForm:
+                    setIsFullScreen(true);
+                    rpcClient.getVisualizerLocation().then(async (location) => {
+                        const defaultFunctionsFile = (await rpcClient.getVisualizerRpcClient().joinProjectPath({ segments: ['functions.bal'] })).filePath;
+                        setViewComponent(
+                            <FunctionForm
+                                projectPath={location.projectPath}
+                                filePath={defaultFunctionsFile}
+                                functionName={undefined}
+                                isWorkflow={true}
+                                isPopup={true}
+                            />
+                        );
+                    });
+                    break;
+                case MACHINE_VIEW.BIActivityForm:
+                    setIsFullScreen(true);
+                    rpcClient.getVisualizerLocation().then(async (location) => {
+                        const defaultFunctionsFile = (await rpcClient.getVisualizerRpcClient().joinProjectPath({ segments: ['functions.bal'] })).filePath;
+                        setViewComponent(
+                            <FunctionForm
+                                projectPath={location.projectPath}
+                                filePath={defaultFunctionsFile}
+                                functionName={undefined}
+                                isActivity={true}
+                                isPopup={true}
+                            />
                         );
                     });
                     break;

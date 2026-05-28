@@ -17,7 +17,8 @@
  */
 
 import React, { useEffect } from "react";
-import { DeployProjectRequest, EVENT_TYPE, MACHINE_VIEW, ProjectOverviewResponse, ProjectStructureResponse, WorkspaceFolder } from "@wso2/mi-core";
+import { DeployConfigParam, DeployProjectRequest, EVENT_TYPE, MACHINE_VIEW, ProjectOverviewResponse, ProjectStructureResponse, WorkspaceFolder } from "@wso2/mi-core";
+import { RemoteDeployConfigForm } from "../Forms/RemoteDeployConfigForm";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
 import { ViewHeader } from "../../components/View";
 import { Alert, Button, Codicon, colors, Icon, PanelContent, ProgressRing, Typography } from "@wso2/ui-toolkit";
@@ -29,7 +30,7 @@ import { ProjectInformation } from "./ProjectInformation";
 import { ERROR_MESSAGES } from "@wso2/mi-diagram/lib/resources/constants";
 import { DeploymentOptions } from "./DeploymentStatus";
 import { useQuery } from "@tanstack/react-query";
-import { IOpenInConsoleCmdParams, CommandIds as PlatformExtCommandIds } from "@wso2/wso2-platform-core";
+import { IOpenInConsoleCmdParams, WICommandIds as PlatformExtCommandIds } from "@wso2/wso2-platform-core";
 import ProjectStructureView from "./ProjectStructureView";
 import { COMMANDS } from "../../constants";
 
@@ -117,6 +118,8 @@ export function Overview(props: OverviewProps) {
     const [isLoading, setIsLoading] = React.useState<boolean>(true);
     const [pomTimestamp, setPomTimestamp] = React.useState<number>(0);
     const [errors, setErrors] = React.useState({});
+    const [isConsolidatedProject, setIsConsolidatedProject] = React.useState<boolean>(false);
+    const [remoteDeployConfigs, setRemoteDeployConfigs] = React.useState<DeployConfigParam[] | null>(null);
     const { data: devantMetadata } = useQuery({
         queryKey: ["devant-metadata", workspaces],
         queryFn: () => rpcClient.getMiDiagramRpcClient().getDevantMetadata(),
@@ -133,6 +136,10 @@ export function Overview(props: OverviewProps) {
                 const activeWorkspaceUri = response.workspaces.find((workspace) => workspace.fsPath === projectUri);
                 changeWorkspace(activeWorkspaceUri.fsPath);
                 setActiveWorkspace(response.workspaces.find((workspace) => workspace.fsPath === projectUri));
+                const consolidated = await rpcClient.getMiDiagramRpcClient().canCreateConsolidatedProject();
+                if (consolidated?.isConsolidatedProject) {
+                    setIsConsolidatedProject(consolidated.isConsolidatedProject);
+                }
 
                 rpcClient.getMiVisualizerRpcClient().getProjectOverview({}).then((response) => {
                     setProjectOverview(response);
@@ -213,8 +220,27 @@ export function Overview(props: OverviewProps) {
         rpcClient.getMiDiagramRpcClient().buildProject({ buildType: "capp" });
     };
 
-    const handleRemoteDeploy = () => {
-        rpcClient.getMiDiagramRpcClient().remoteDeploy();
+    const handleConsolidatedBuild = () => {
+        rpcClient.getMiDiagramRpcClient().buildProject({ buildType: "consolidated" });
+    };
+
+    const handleRemoteDeploy = async () => {
+        try {
+            const isEnabled = await rpcClient.getMiVisualizerRpcClient().isSupportEnabled("REMOTE_DEPLOYMENT_ENABLED");
+            if (!isEnabled) {
+                rpcClient.getMiDiagramRpcClient().remoteDeploy();
+                return;
+            }
+            const configs = await rpcClient.getMiVisualizerRpcClient().getRemoteDeployConfigs();
+            if (configs.length > 0) {
+                setRemoteDeployConfigs(configs);
+            } else {
+                rpcClient.getMiDiagramRpcClient().remoteDeploy();
+            }
+        } catch (error) {
+            console.error('Error handling remote deploy:', error);
+            rpcClient.getMiDiagramRpcClient().remoteDeploy();
+        }
     };
 
     const goToDevant = () => {
@@ -368,10 +394,12 @@ export function Overview(props: OverviewProps) {
                                 handleDockerBuild={handleDockerBuild}
                                 handleConfigureKubernetes={handleConfigureKubernetes}
                                 handleCAPPBuild={handleCappBuild}
+                                handleConsolidatedBuild={handleConsolidatedBuild}
                                 handleRemoteDeploy={handleRemoteDeploy}
                                 handleDeploy={handleDeploy}
                                 goToDevant={goToDevant}
-                                devantMetadata={devantMetadata} />
+                                devantMetadata={devantMetadata}
+                                isConsolidatedProject={isConsolidatedProject} />
                         </ProjectInfoColumn>
                         <ProjectInfoColumn style={{ marginTop: '10px' }}>
                             <Typography variant="h3" sx={{ margin: '0 0 16px 0', display: 'flex', alignItems: 'center', opacity: 0.8 }}>
@@ -384,6 +412,12 @@ export function Overview(props: OverviewProps) {
                     </div>
                 </Columns>
             </Body>
+            {remoteDeployConfigs && (
+                <RemoteDeployConfigForm
+                    configs={remoteDeployConfigs}
+                    onClose={() => setRemoteDeployConfigs(null)}
+                />
+            )}
         </div>
     );
 }

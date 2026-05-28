@@ -67,7 +67,9 @@ import {
     MavenDeployPluginDetails,
     ProjectConfig,
     ReloadDependenciesRequest,
-    DependencyStatusResponse
+    DependencyStatusResponse,
+    ExecuteRemoteDeployParams,
+    DeployConfigParam
 } from "@wso2/mi-core";
 import * as https from "https";
 import Mustache from "mustache";
@@ -79,7 +81,7 @@ import { extension } from "../../MIExtensionContext";
 import { DebuggerConfig } from "../../debugger/config";
 import { history } from "../../history";
 import { getStateMachine, navigate, openView, refreshUI } from "../../stateMachine";
-import { goToSource, handleOpenFile, appendContent, selectFolderDialog } from "../../util/fileOperations";
+import { formatAndSavePomDocument, goToSource, handleOpenFile, appendContent, selectFolderDialog } from "../../util/fileOperations";
 import { openPopupView } from "../../stateMachinePopup";
 import { SwaggerServer } from "../../swagger/server";
 import { log, outputChannel } from "../../util/logger";
@@ -89,10 +91,12 @@ import { copy } from 'fs-extra';
 
 const fs = require('fs');
 import { TextEdit } from "vscode-languageclient";
-import { downloadJavaFromMI, downloadMI, getProjectSetupDetails, getSupportedMIVersionsHigherThan, setPathsInWorkSpace, updateRuntimeVersionsInPom, getMIVersionFromPom } from '../../util/onboardingUtils';
-import { extractCAppDependenciesAsProjects } from "../../visualizer/activate";
+import { downloadJavaFromMI, downloadMI, getProjectSetupDetails, getSupportedMIVersionsHigherThan, setPathsInWorkSpace, updateRuntimeVersionsInPom, getMIVersionFromPom, isConsolidatedProject } from '../../util/onboardingUtils';
+import { extractCAppDependenciesAsProjects, loadCAppResources } from "../../visualizer/activate";
 import { findMultiModuleProjectsInWorkspaceDir } from "../../util/migrationUtils";
 import { MILanguageClient } from "../../lang-client/activator";
+import { reorderModulesByBuildOrder } from "../../debugger/pomResolver";
+import { buildDeployExtraArgs, executeRemoteDeployTask } from "../../debugger/debugHelper";
 
 Mustache.escape = escapeXml;
 
@@ -189,6 +193,50 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
         });
     }
 
+    async getRemoteDeployConfigs(): Promise<DeployConfigParam[]> {
+        const details = await this.getDeployPluginDetails();
+        const configs: DeployConfigParam[] = [];
+        for (const [key, value] of Object.entries(details)) {
+            if (key === "range" || key === "content" || typeof value !== "string" || value === "") { continue; }
+            const paramMatch = value.match(/^\$\{([^}]+)\}$/);
+            if (paramMatch) {
+                configs.push({ key, value: "", isParameterized: true, paramName: paramMatch[1] });
+            } else {
+                configs.push({ key, value, isParameterized: false });
+            }
+        }
+        return configs;
+    }
+
+    async executeRemoteDeployWithParams(params: ExecuteRemoteDeployParams): Promise<void> {
+        const details = await this.getDeployPluginDetails();
+
+        const updatedDetails: MavenDeployPluginDetails = { ...details };
+        const paramValues: Record<string, string> = {};
+        let hasPermanentUpdates = false;
+
+        for (const [key, value] of Object.entries(details)) {
+            if (key === "range" || key === "content" || typeof value !== "string") { continue; }
+            const userVal = params.values[key];
+            if (userVal === undefined) { continue; }
+
+            const paramMatch = value.match(/^\$\{([^}]+)\}$/);
+            if (paramMatch) {
+                if (userVal) { paramValues[paramMatch[1]] = userVal; }
+            } else if (userVal !== value) {
+                (updatedDetails as any)[key] = userVal;
+                hasPermanentUpdates = true;
+            }
+        }
+
+        if (hasPermanentUpdates) {
+            await this.setDeployPlugin(updatedDetails);
+        }
+
+        const extraArgs = buildDeployExtraArgs(paramValues);
+        await executeRemoteDeployTask(this.projectUri, undefined, extraArgs);
+    }
+
     /**
      * Updates project-level properties in the `pom.xml` file.
      *
@@ -217,14 +265,21 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
             const updateDependenciesResult = await langClient?.updateConnectorDependencies();
             if (!updateDependenciesResult.toLowerCase().startsWith("success")) {              
                 const connectorsNotDownloaded: string[] = [];
+                const connectorsFromIntegrationProjectDeps: string[] = [];
                 const unavailableDependencies: string[] = [];
                 const missingDescriptorDependencies: string[] = [];
                 const versioningMismatchDependencies: string[] = [];
-                
+
                 // Extract connectors not downloaded
                 connectorsNotDownloaded.push(...extractDependenciesFromError(
                     updateDependenciesResult,
                     /Some connectors were not downloaded:\s*(.+?)(?:\.\s+(?:[A-Z]|$)|$)/
+                ));
+
+                // Extract connectors provided by integration project dependencies
+                connectorsFromIntegrationProjectDeps.push(...extractDependenciesFromError(
+                    updateDependenciesResult,
+                    /Following connectors are provided by integration project dependencies and cannot be downloaded:\s*(.+?)(?:\.\s+(?:[A-Z]|$)|$)/
                 ));
                 
                 // Extract unavailable integration project dependencies
@@ -247,6 +302,7 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
                 
                 const allFailedDependencies = [
                     ...connectorsNotDownloaded,
+                    ...connectorsFromIntegrationProjectDeps,
                     ...unavailableDependencies,
                     ...missingDescriptorDependencies,
                     ...versioningMismatchDependencies
@@ -285,6 +341,8 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
                         let warningMessage = "";
                         if (connectorsNotDownloaded.includes(dependencyString)) {
                             warningMessage = "Connector downloading failed.";
+                        } else if (connectorsFromIntegrationProjectDeps.includes(dependencyString)) {
+                            warningMessage = "This connector is provided by an integration project dependency and cannot be downloaded separately.";
                         } else if (unavailableDependencies.includes(dependencyString)) {
                             warningMessage = "Dependency downloading failed.";
                         } else if (missingDescriptorDependencies.includes(dependencyString)) {
@@ -306,18 +364,11 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
                     }
                 }
             }
-            
-            try {
-                await extractCAppDependenciesAsProjects(this.projectUri);
-                const loadResult = await langClient?.loadDependentCAppResources();
-                if (loadResult.startsWith("DUPLICATE ARTIFACTS")) {
-                    await window.showWarningMessage(
-                        loadResult,
-                        { modal: true }
-                    );
-                }
-            } catch (error) {
-                console.error("Error extracting CApp dependencies:", error);
+
+            await loadCAppResources(this.projectUri, langClient);
+            const parentDir = path.dirname(this.projectUri)
+            if (isConsolidatedProject(parentDir) && params?.isProjectDependenciesUpdated) {
+                await reorderModulesByBuildOrder(path.join(parentDir, 'pom.xml'));
             }
             resolve(reloadDependenciesResult);
         });
@@ -429,6 +480,13 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
             await extractCAppDependenciesAsProjects(this.projectUri);
             resolve(res);
         });
+    }
+
+    async refetchIntegrationProjectDependencies(): Promise<string> {
+        const langClient = await MILanguageClient.getInstance(this.projectUri);
+        const res = await langClient.refetchIntegrationProjectDependencies();
+        await loadCAppResources(this.projectUri, langClient);
+        return res;
     }
 
     async updateDependenciesFromOverview(params: UpdateDependenciesRequest): Promise<boolean> {
@@ -845,31 +903,16 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
 
             edit.replace(Uri.file(pomPath), range, content);
         }
-        const success = await workspace.applyEdit(edit);
-        // Make sure to save the document after applying the edits
-        if (success) {
-            const document = await workspace.openTextDocument(pomPath);
-            await document.save();
-            // Format the pom content
-            const editorConfig = workspace.getConfiguration('editor');
-            let formattingOptions = {
-                    tabSize: editorConfig.get("tabSize") ?? 4,
-                    insertSpaces: editorConfig.get("insertSpaces") ?? false,
-                    trimTrailingWhitespace: editorConfig.get("trimTrailingWhitespace") ?? false
-                };
-            const edits = await vscode.commands.executeCommand<vscode.TextEdit[]>("vscode.executeFormatDocumentProvider",
-                            vscode.Uri.file(pomPath), formattingOptions);
-            if (edits && edits.length > 0) {
-                const edit = new vscode.WorkspaceEdit();
-                edit.set(vscode.Uri.file(pomPath), edits);
-                await vscode.workspace.applyEdit(edit);
-                await vscode.workspace.openTextDocument(pomPath).then(doc => doc.save());
-            }
-            if (getStateMachine(this.projectUri).context().view === MACHINE_VIEW.Overview) {
-                refreshUI(this.projectUri);
-            }
-        } else {
+        if (!await workspace.applyEdit(edit)) {
             throw new Error("Failed to apply edits to pom.xml");
+        }
+
+        const document = await workspace.openTextDocument(pomPath);
+        await document.save();
+        await formatAndSavePomDocument(pomPath);
+
+        if (getStateMachine(this.projectUri).context().view === MACHINE_VIEW.Overview) {
+            refreshUI(this.projectUri);
         }
     }
 

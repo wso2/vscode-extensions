@@ -160,6 +160,7 @@ export function AiAgentNodeWidget(props: CallNodeWidgetProps) {
     const sidePanelContext = React.useContext(SidePanelContext);
     const { rpcClient, setIsLoading: setDiagramLoading } = useVisualizerContext();
     const hasDiagnotics = node.hasDiagnotics();
+    const hasErrors = node.hasErrors();
     const hasBreakpoint = node.hasBreakpoint();
     const isActiveBreakpoint = node.isActiveBreakpoint();
     const stNode = node.getStNode() as AIConnector;
@@ -415,7 +416,7 @@ export function AiAgentNodeWidget(props: CallNodeWidgetProps) {
                 <S.Node
                     width={stNode.viewState.fw} height={stNode.viewState.fh} left={stNode.viewState.l} right={stNode.viewState.r}
                     selected={isSelected}
-                    hasError={hasDiagnotics}
+                    hasError={hasErrors}
                     hovered={isHovered.node || isActiveBreakpoint}
                     isActiveBreakpoint={isActiveBreakpoint}
                     onMouseEnter={() => setIsHovered({ ...isHovered, node: true })}

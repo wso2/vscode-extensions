@@ -56,6 +56,7 @@ export class ProjectExplorerEntry extends vscode.TreeItem {
 
 export class ProjectExplorerEntryProvider implements vscode.TreeDataProvider<ProjectExplorerEntry> {
 	private _data: ProjectExplorerEntry[];
+	private viewId: string;
 	private _onDidChangeTreeData: vscode.EventEmitter<ProjectExplorerEntry | undefined | null | void>
 		= new vscode.EventEmitter<ProjectExplorerEntry | undefined | null | void>();
 	readonly onDidChangeTreeData: vscode.Event<ProjectExplorerEntry | undefined | null | void>
@@ -63,7 +64,7 @@ export class ProjectExplorerEntryProvider implements vscode.TreeDataProvider<Pro
 
 	refresh = debounce(async () => {
 		return window.withProgress({
-			location: { viewId: 'MI.project-explorer' },
+			location: { viewId: this.viewId },
 			title: 'Loading project structure'
 		}, async () => {
 			try {
@@ -75,8 +76,9 @@ export class ProjectExplorerEntryProvider implements vscode.TreeDataProvider<Pro
 		});
 	}, 300);
 
-	constructor(private context: vscode.ExtensionContext) {
+	constructor(private context: vscode.ExtensionContext, viewId: string) {
 		this._data = [];
+		this.viewId = viewId;
 		extensionContext = context;
 	}
 

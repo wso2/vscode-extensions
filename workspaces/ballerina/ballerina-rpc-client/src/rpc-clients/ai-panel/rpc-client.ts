@@ -79,7 +79,6 @@ import {
     generateOpenAPI,
     getAIMachineSnapshot,
     getActiveTempDir,
-    getAffectedPackages,
     getChatMessages,
     getCheckpoints,
     getDefaultPrompt,
@@ -117,6 +116,7 @@ import {
     StopRunningServiceRequest,
     RunServiceRequest,
     runService,
+    getDefaultVertexCredsPath,
 } from "@wso2/ballerina-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -235,10 +235,6 @@ export class AiPanelRpcClient implements AIPanelAPI {
 
     getSemanticDiff(params: SemanticDiffRequest): Promise<SemanticDiffResponse> {
         return this._messenger.sendRequest(getSemanticDiff, HOST_EXTENSION, params);
-    }
-
-    getAffectedPackages(): Promise<string[]> {
-        return this._messenger.sendRequest(getAffectedPackages, HOST_EXTENSION);
     }
 
     isWorkspaceProject(): Promise<boolean> {
@@ -360,5 +356,9 @@ export class AiPanelRpcClient implements AIPanelAPI {
 
     runService(params: RunServiceRequest): Promise<boolean> {
         return this._messenger.sendRequest(runService, HOST_EXTENSION, params);
+    }
+
+    getDefaultVertexCredsPath(): Promise<string> {
+        return this._messenger.sendRequest(getDefaultVertexCredsPath, HOST_EXTENSION);
     }
 }

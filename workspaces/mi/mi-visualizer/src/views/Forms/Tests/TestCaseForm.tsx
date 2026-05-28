@@ -641,7 +641,7 @@ export function TestCaseForm(props: TestCaseFormProps) {
                         appearance="primary"
                         onClick={() => setShowAIDialog(true)}
                     >
-                        <Icon name="wand-magic-sparkles-solid" sx="marginRight:5px" />&nbsp;
+                        <Icon name="bi-ai-chat" sx="marginRight:5px" />&nbsp;
                         Generate Test Case with AI
                     </Button>
                 )}
@@ -704,7 +704,7 @@ export function TestCaseForm(props: TestCaseFormProps) {
                                 onClick={() => handleAIGeneration()}
                                 disabled={!aiPrompt.trim()}
                             >
-                                <Icon name="wand-magic-sparkles-solid" sx="marginRight:5px" />&nbsp;
+                                <Icon name="bi-ai-chat" sx="marginRight:5px" />&nbsp;
                                 Generate
                             </Button>
                         </div>
@@ -717,7 +717,7 @@ export function TestCaseForm(props: TestCaseFormProps) {
                 isOpen={showSignInConfirm}
                 operationType="generateTestCase"
                 sessionStorageKey="pendingTestCaseOperation"
-                signInMessage="You need to sign in to MI Copilot to use AI features. Would you like to sign in?"
+                signInMessage="You need to sign in to WSO2 Integrator Copilot to use AI features. Would you like to sign in?"
                 waitingMessage="Please complete the sign-in process. Your unit test generation will continue automatically after successful authentication."
                 dependencies={[isLoaded]}
                 onCancel={closeSignInView}

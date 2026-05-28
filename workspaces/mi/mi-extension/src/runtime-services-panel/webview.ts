@@ -23,6 +23,7 @@ import { getComposerJSFiles } from '../util';
 import { RPCLayer } from '../RPCLayer';
 import { extension } from '../MIExtensionContext';
 import { miServerRunStateChanged } from '@wso2/mi-core';
+import { disposeProjectResourcesIfOrphaned } from '../util/projectResources';
 
 export class RuntimeServicesWebview {
     public static webviews: Map<string, RuntimeServicesWebview> = new Map();
@@ -121,6 +122,10 @@ export class RuntimeServicesWebview {
                 disposable.dispose();
             }
         }
+
+        // Clean up shared per-project resources only if no sibling webview remains —
+        // the visualizer's dispose may have skipped this when this panel was alive.
+        disposeProjectResourcesIfOrphaned(this.projectUri);
 
         this._panel = undefined;
     }

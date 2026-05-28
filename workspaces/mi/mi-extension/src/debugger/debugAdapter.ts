@@ -33,6 +33,9 @@ import { EVENT_TYPE, miServerRunStateChanged } from '@wso2/mi-core';
 import { DebuggerConfig } from './config';
 import { openRuntimeServicesWebview } from '../runtime-services-panel/activate';
 import { RPCLayer } from '../RPCLayer';
+import { getWSO2AIEnvVariables } from '../ai-features/configUtils';
+import path = require("path");
+import { isConsolidatedProject } from '../util/onboardingUtils';
 
 interface ILaunchRequestArguments extends DebugProtocol.LaunchRequestArguments {
     /** Env variables setup through launch.json */
@@ -293,84 +296,48 @@ export class MiDebugAdapter extends LoggingDebugSession {
 
     private currentServerPath;
     protected launchRequest(response: DebugProtocol.LaunchResponse, args?: ILaunchRequestArguments, request?: DebugProtocol.Request): void {
-        this._configurationDone.wait().then(() => {
-            getServerPath(this.projectUri).then((serverPath) => {
-                if (!serverPath) {
-                    const message = `Unable to locate the server path`;
-                    this.showErrorAndExecuteChangeServerPath(message);
-                    this.sendError(response, 1, message);
-                } else {
-                    this.currentServerPath = serverPath;
-                    const isDebugAllowed = !(args?.noDebug ?? false);
-                    readPortOffset(serverPath).then(async (portOffset) => {
-                        DebuggerConfig.setConfigPortOffset(this.projectUri);
-                        DebuggerConfig.setPortOffset(portOffset);
+        this._configurationDone.wait().then(async () => {
+            const workspaceFolders = vscode.workspace.workspaceFolders;
+            const folderPaths = workspaceFolders?.map(f => f.uri.fsPath) || [];
 
-                        DebuggerConfig.setEnvVariables(args?.env || {});
-                        DebuggerConfig.setVmArgs(args?.vmArgs ? args?.vmArgs : []);
+            let selectedOptions: string[] = [];
 
-                        DebuggerConfig.setVmArgs(args?.vmArgs ? args?.vmArgs : []);
+            // Show an error when no project is opened
+            if (folderPaths.length === 0) {
+                const message = 'No workspace folder is opened';
+                this.sendError(response, 1, message);
+                vscode.window.showErrorMessage(message);
+                return;
+            }
 
-                        vscode.commands.executeCommand('setContext', 'MI.isRunning', 'true');
-                        if (DebuggerConfig.isRemoteDebuggingEnabled()) {
-                            this.debuggerHandler?.initializeDebugger().then(() => {
-                                openRuntimeServicesWebview(this.projectUri);
-                                extension.isServerStarted = true;
-                                RPCLayer._messengers.get(this.projectUri)?.sendNotification(miServerRunStateChanged, { type: 'webview', webviewType: MI_RUNTIME_SERVICES_PANEL_ID }, 'Running');
-                                response.success = true;
-                                this.sendResponse(response);
-                            }).catch(error => {
-                                const completeError = `Error while initializing the Debugger: ${error}`;
-                                vscode.window.showErrorMessage(completeError);
-                                this.sendError(response, 1, completeError);
-                                vscode.commands.executeCommand('setContext', 'MI.isRunning', 'false');
-                            });
-                        } else {
-                            await setManagementCredentials(serverPath);
-                            executeTasks(this.projectUri, serverPath, isDebugAllowed)
-                            .then(async () => {
-                                if (args?.noDebug) {
-                                    checkServerReadiness(this.projectUri).then(() => {
-                                        openRuntimeServicesWebview(this.projectUri);
-                                        extension.isServerStarted = true;
-                                        RPCLayer._messengers.get(this.projectUri)?.sendNotification(miServerRunStateChanged, { type: 'webview', webviewType: MI_RUNTIME_SERVICES_PANEL_ID }, 'Running');
+            // Auto select when a single project is opened
+            if (folderPaths.length === 1) {
+                selectedOptions = [folderPaths[0]];
+                DebuggerConfig.setProjectList(selectedOptions);
+                this.continueLaunch(response, args);
+                return;
+            }
 
-                                        response.success = true;
-                                        this.sendResponse(response);
-                                    }).catch(error => {
-                                        vscode.window.showErrorMessage(error);
-                                        this.sendError(response, 1, error);
-                                        vscode.commands.executeCommand('setContext', 'MI.isRunning', 'false');
-                                    });
-                                } else {
-                                    this.debuggerHandler?.initializeDebugger().then(() => {
-                                        openRuntimeServicesWebview(this.projectUri);
-                                        extension.isServerStarted = true;
-                                        RPCLayer._messengers.get(this.projectUri)?.sendNotification(miServerRunStateChanged, { type: 'webview', webviewType: MI_RUNTIME_SERVICES_PANEL_ID }, 'Running');
-                                        response.success = true;
-                                        this.sendResponse(response);
-                                    }).catch(error => {
-                                        const completeError = `Error while initializing the Debugger: ${error}`;
-                                        vscode.window.showErrorMessage(completeError);
-                                        this.sendError(response, 1, completeError);
-                                        vscode.commands.executeCommand('setContext', 'MI.isRunning', 'false');
-                                    });
-                                }
-                            })
-                            .catch(error => {
-                                vscode.commands.executeCommand('setContext', 'MI.isRunning', 'false');
-                                deleteCopiedCapAndLibs();
-                                const completeError = `Error while launching run and debug: ${error}`;
-                                if (error === INCORRECT_SERVER_PATH_MSG) {
-                                    this.showErrorAndExecuteChangeServerPath(completeError);
-                                } else {
-                                    vscode.window.showErrorMessage(completeError);
-                                }
-                                this.sendError(response, 1, completeError);
-                            });
-                        }
-                    });
+            if (isConsolidatedProject(path.dirname(folderPaths[0]))) {
+                selectedOptions = folderPaths;
+                DebuggerConfig.setProjectList(selectedOptions);
+                this.continueLaunch(response, args);
+                return;
+            }
+
+            // Give user quick pick options when multiple projects are opened
+            vscode.window.showQuickPick(
+                folderPaths.map(p => ({ label: p })),
+                { canPickMany: true, placeHolder: 'Select the projects to build and run' }
+            ).then(selectedItems => {
+                if (!selectedItems || selectedItems.length === 0) {
+                    this.sendError(response, 1, 'No project selected');
+                    return;
                 }
+
+                selectedOptions = selectedItems.map(item => item.label);
+                DebuggerConfig.setProjectList(selectedOptions);
+                this.continueLaunch(response, args);
             });
         });
     }
@@ -562,6 +529,97 @@ export class MiDebugAdapter extends LoggingDebugSession {
         vscode.window.showErrorMessage(completeError, 'Change Server Path').then((selection) => {
             if (selection) {
                 vscode.commands.executeCommand(COMMANDS.CHANGE_SERVER_PATH);
+            }
+        });
+    }
+
+    private continueLaunch(
+        response: DebugProtocol.LaunchResponse,
+        args: ILaunchRequestArguments | undefined
+    ) {
+        getServerPath(this.projectUri).then((serverPath) => {
+            if (!serverPath) {
+                const message = `Unable to locate the server path`;
+                this.showErrorAndExecuteChangeServerPath(message);
+                this.sendError(response, 1, message);
+            } else {
+                this.currentServerPath = serverPath;
+                const isDebugAllowed = !(args?.noDebug ?? false);
+                readPortOffset(serverPath).then(async (portOffset) => {
+                    DebuggerConfig.setConfigPortOffset(this.projectUri);
+                    DebuggerConfig.setPortOffset(portOffset);
+
+                    let envVars = args?.env || {};
+                    try {
+                        const wso2AiEnvVars = await getWSO2AIEnvVariables();
+                        if (Object.keys(wso2AiEnvVars).length > 0) {
+                            envVars = { ...wso2AiEnvVars, ...envVars };
+                        }
+                    } catch (error) {
+                        // Silently ignore - user may not be logged in
+                    }
+                    DebuggerConfig.setEnvVariables(envVars);
+                    DebuggerConfig.setVmArgs(args?.vmArgs ? args?.vmArgs : []);
+
+                    vscode.commands.executeCommand('setContext', 'MI.isRunning', 'true');
+                    if (DebuggerConfig.isRemoteDebuggingEnabled()) {
+                        this.debuggerHandler?.initializeDebugger().then(() => {
+                            openRuntimeServicesWebview(this.projectUri);
+                            extension.isServerStarted = true;
+                            RPCLayer._messengers.get(this.projectUri)?.sendNotification(miServerRunStateChanged, { type: 'webview', webviewType: MI_RUNTIME_SERVICES_PANEL_ID }, 'Running');
+                            response.success = true;
+                            this.sendResponse(response);
+                        }).catch(error => {
+                            const completeError = `Error while initializing the Debugger: ${error}`;
+                            vscode.window.showErrorMessage(completeError);
+                            this.sendError(response, 1, completeError);
+                            vscode.commands.executeCommand('setContext', 'MI.isRunning', 'false');
+                        });
+                    } else {
+                        await setManagementCredentials(serverPath);
+                        executeTasks(this.projectUri, serverPath, isDebugAllowed)
+                            .then(async () => {
+                                if (args?.noDebug) {
+                                    checkServerReadiness(this.projectUri).then(() => {
+                                        openRuntimeServicesWebview(this.projectUri);
+                                        extension.isServerStarted = true;
+                                        RPCLayer._messengers.get(this.projectUri)?.sendNotification(miServerRunStateChanged, { type: 'webview', webviewType: MI_RUNTIME_SERVICES_PANEL_ID }, 'Running');
+
+                                        response.success = true;
+                                        this.sendResponse(response);
+                                    }).catch(error => {
+                                        vscode.window.showErrorMessage(error);
+                                        this.sendError(response, 1, error);
+                                        vscode.commands.executeCommand('setContext', 'MI.isRunning', 'false');
+                                    });
+                                } else {
+                                    this.debuggerHandler?.initializeDebugger().then(() => {
+                                        openRuntimeServicesWebview(this.projectUri);
+                                        extension.isServerStarted = true;
+                                        RPCLayer._messengers.get(this.projectUri)?.sendNotification(miServerRunStateChanged, { type: 'webview', webviewType: MI_RUNTIME_SERVICES_PANEL_ID }, 'Running');
+                                        response.success = true;
+                                        this.sendResponse(response);
+                                    }).catch(error => {
+                                        const completeError = `Error while initializing the Debugger: ${error}`;
+                                        vscode.window.showErrorMessage(completeError);
+                                        this.sendError(response, 1, completeError);
+                                        vscode.commands.executeCommand('setContext', 'MI.isRunning', 'false');
+                                    });
+                                }
+                            })
+                            .catch(error => {
+                                vscode.commands.executeCommand('setContext', 'MI.isRunning', 'false');
+                                deleteCopiedCapAndLibs();
+                                const completeError = `Error while launching run and debug: ${error}`;
+                                if (error === INCORRECT_SERVER_PATH_MSG) {
+                                    this.showErrorAndExecuteChangeServerPath(completeError);
+                                } else {
+                                    vscode.window.showErrorMessage(completeError);
+                                }
+                                this.sendError(response, 1, completeError);
+                            });
+                    }
+                });
             }
         });
     }

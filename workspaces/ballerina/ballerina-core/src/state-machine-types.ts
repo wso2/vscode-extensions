@@ -85,6 +85,8 @@ export enum MACHINE_VIEW {
     BIMainFunctionForm = "Add Automation SKIP",
     BIFunctionForm = "Add Function SKIP",
     BIAgentToolForm = "Add Agent Tool SKIP",
+    BIWorkflowForm = "Add Workflow SKIP",
+    BIActivityForm = "Add Workflow Activity SKIP",
     BINPFunctionForm = "Add Natural Function SKIP",
     BITestFunctionForm = "Add Test Function SKIP",
     BIAIEvaluationForm = "AI Evaluation SKIP",
@@ -166,7 +168,7 @@ export interface ConfigurationCollectorMetadata {
     variables: Array<{
         name: string;
         description: string;
-        type?: "string" | "int";
+        type?: string;
         secret?: boolean;
     }>;
     existingValues?: Record<string, string>;
@@ -181,6 +183,7 @@ export interface AgentMetadata {
 export interface ApprovalOverlayState {
     show: boolean;
     message?: string;
+    requestId?: string;
 }
 
 export interface VisualizerMetadata {
@@ -501,7 +504,7 @@ export interface ConfigurationCollectionEvent {
     variables?: Array<{
         name: string;
         description: string;
-        type?: "string" | "int";
+        type?: string;
         secret?: boolean;
     }>;
     existingValues?: Record<string, string>;
@@ -634,8 +637,7 @@ export type AIMachineEventMap = {
     [AIMachineEventType.SUBMIT_VERTEX_AI_CREDENTIALS]: {
         projectId: string;
         location: string;
-        clientEmail: string;
-        privateKey: string;
+        keyFile: string;
     };
     [AIMachineEventType.LOGOUT]: undefined;
     [AIMachineEventType.SILENT_LOGOUT]: undefined;
@@ -867,8 +869,7 @@ interface AwsBedrockSecrets {
 export interface VertexAiSecrets {
     projectId: string;
     location: string;
-    clientEmail: string;
-    privateKey: string;
+    keyFile: string;
 }
 
 export type AuthCredentials =

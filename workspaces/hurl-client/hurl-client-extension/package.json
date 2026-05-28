@@ -151,6 +151,12 @@
           "type": "string",
           "default": "7.1.0",
           "description": "Managed hurl version to install."
+        },
+        "hurl-client.fileRoot": {
+          "type": "string",
+          "default": "",
+          "scope": "resource",
+          "description": "Default file root directory for Hurl notebook execution. If set, overrides the notebook's directory. Used as the base path for file references in Hurl requests."
         }
       }
     }
@@ -159,7 +165,7 @@
     "clean": "rimraf ./dist",
     "compile": "webpack",
     "watch": "webpack --watch",
-    "package": "node ../../common-libs/scripts/package-vsix.js",
+    "package": "node ../../common-libs/scripts/package-vsix.js --baseImagesUrl https://raw.githubusercontent.com/wso2/vscode-extensions/main/workspaces/hurl-client/hurl-client-extension/",
     "lint": "eslint src --ext ts",
     "build": "pnpm clean && webpack --mode production --devtool hidden-source-map && pnpm run package && pnpm run copyVSIX",
     "copyVSIX": "copyfiles *.vsix ./vsix",

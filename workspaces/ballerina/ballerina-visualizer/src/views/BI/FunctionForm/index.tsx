@@ -62,27 +62,41 @@ const SectionDescription = styled.span`
 /**
  * Parse auth values from a Ballerina @ai:AgentTool annotation string.
  * Expected format within the annotation:
- *   auth: { baseAuthUrl: string `val`, scopes: [string `a`, string `b`], isPkceEnabled: true }
+ *   auth: { baseAuthUrl: string `val`, scopes: [string `a`, string `b`], isPkceEnabled: true,
+ *           secureSocket: { enable: false } }
  */
 interface ParsedConfigValue {
     value: string;
     isExpression: boolean;
 }
 
+// Match `re` (which must end with `{`) and extend to its balanced `}`.
+// Returns the full span and the inner body (without outer braces), or null.
+function matchBraced(str: string, re: RegExp): { start: number; end: number; body: string } | null {
+    const m = re.exec(str);
+    if (!m) return null;
+    const open = m.index + m[0].length - 1;
+    let depth = 0;
+    for (let i = open; i < str.length; i++) {
+        if (str[i] === "{") depth++;
+        else if (str[i] === "}" && --depth === 0) {
+            return { start: m.index, end: i + 1, body: str.substring(open + 1, i) };
+        }
+    }
+    return null;
+}
+
 function parseAuth(annotationValue: string, oauthKeys: string[]): Record<string, ParsedConfigValue> {
     const result: Record<string, ParsedConfigValue> = {};
-    const configMatch = annotationValue.match(/auth\s*:\s*\{([^}]*)\}/s);
-    if (!configMatch) {
-        return result;
-    }
-    const configBlock = configMatch[1];
+    const auth = matchBraced(annotationValue, /auth\s*:\s*\{/);
+    if (!auth) return result;
+    const configBlock = auth.body;
 
     for (const key of oauthKeys) {
         if (key === "scopes") {
             const scopesMatch = configBlock.match(/scopes\s*:\s*\[([^\]]*)\]/);
             if (scopesMatch) {
                 const items = scopesMatch[1].split(",").map((s) => s.trim()).filter(Boolean);
-                // Check if all items are string templates or quoted strings
                 const unwrapped = items.map((item) => {
                     const strTemplate = item.match(/^string\s*`([^`]*)`$/);
                     if (strTemplate) return { val: strTemplate[1], isLiteral: true };
@@ -96,30 +110,35 @@ function parseAuth(annotationValue: string, oauthKeys: string[]): Record<string,
                     isExpression: !allLiteral,
                 };
             }
-        } else if (key === "isPkceEnabled") {
+            continue;
+        }
+        if (key === "isPkceEnabled") {
             const boolMatch = configBlock.match(/isPkceEnabled\s*:\s*(true|false)/);
             if (boolMatch) {
                 result.isPkceEnabled = { value: boolMatch[1], isExpression: false };
             }
-        } else {
-            const valueMatch = configBlock.match(new RegExp(`${key}\\s*:\\s*(.+?)\\s*(?:,|$)`, "m"));
-            if (valueMatch) {
-                const raw = valueMatch[1].trim();
-                // Check if value is a string template or double-quoted string
-                const strTemplate = raw.match(/^string\s*`([^`]*)`$/);
-                if (strTemplate) {
-                    result[key] = { value: strTemplate[1], isExpression: false };
-                    continue;
-                }
-                const quoted = raw.match(/^"([^"]*)"$/);
-                if (quoted) {
-                    result[key] = { value: quoted[1], isExpression: false };
-                    continue;
-                }
-                // Bare expression
-                result[key] = { value: raw, isExpression: true };
-            }
+            continue;
         }
+        // Record value: key: { ... } with balanced-brace matching
+        const rec = matchBraced(configBlock, new RegExp(`(?:^|,)\\s*${key}\\s*:\\s*\\{`));
+        if (rec) {
+            result[key] = { value: `{${rec.body}}`, isExpression: false };
+            continue;
+        }
+        const valueMatch = configBlock.match(new RegExp(`${key}\\s*:\\s*(.+?)\\s*(?:,|$)`, "m"));
+        if (!valueMatch) continue;
+        const raw = valueMatch[1].trim();
+        const strTemplate = raw.match(/^string\s*`([^`]*)`$/);
+        if (strTemplate) {
+            result[key] = { value: strTemplate[1], isExpression: false };
+            continue;
+        }
+        const quoted = raw.match(/^"([^"]*)"$/);
+        if (quoted) {
+            result[key] = { value: quoted[1], isExpression: false };
+            continue;
+        }
+        result[key] = { value: raw, isExpression: true };
     }
     return result;
 }
@@ -148,8 +167,12 @@ function buildAuthAnnotation(config: Record<string, string>, expressionKeys: Set
         if (expressionKeys.has(key)) {
             return `${key}: ${value}`;
         }
-        // Don't double-wrap if already quoted or a string template
-        if (/^".*"$/.test(value) || /^string\s*`.*`$/.test(value)) {
+        // Don't double-wrap if already quoted, a string template, or a record literal
+        if (
+            /^".*"$/.test(value) ||
+            /^string\s*`.*`$/.test(value) ||
+            /^\{[\s\S]*\}$/.test(value)
+        ) {
             return `${key}: ${value}`;
         }
         return `${key}: "${value}"`;
@@ -163,6 +186,8 @@ interface FunctionFormProps {
     functionName: string;
     isDataMapper?: boolean;
     isNpFunction?: boolean;
+    isWorkflow?: boolean;
+    isActivity?: boolean;
     isAutomation?: boolean;
     isAgentTool?: boolean;
     isPopup?: boolean;
@@ -170,7 +195,7 @@ interface FunctionFormProps {
 
 export function FunctionForm(props: FunctionFormProps) {
     const { rpcClient } = useRpcContext();
-    const { projectPath, functionName, filePath, isDataMapper, isNpFunction, isAutomation, isAgentTool, isPopup } = props;
+    const { projectPath, functionName, filePath, isDataMapper, isNpFunction, isWorkflow, isActivity, isAutomation, isAgentTool, isPopup } = props;
 
     const [functionFields, setFunctionFields] = useState<FormField[]>([]);
     const [functionNode, setFunctionNode] = useState<FunctionNode>(undefined);
@@ -199,6 +224,13 @@ export function FunctionForm(props: FunctionFormProps) {
         functionNodeRef.current = functionNode;
     }, [functionNode]);
 
+    const hideTypeDescriptionField = (flowNode: FunctionNode): FunctionNode => {
+        if (flowNode?.properties?.typeDescription) {
+            flowNode.properties.typeDescription.hidden = true;
+        }
+        return flowNode;
+    };
+
     useEffect(() => {
         let nodeKind: NodeKind;
         if (isAutomation || functionName === "main") {
@@ -221,6 +253,16 @@ export function FunctionForm(props: FunctionFormProps) {
             formType.current = 'Agent Tool';
             setTitleSubtitle('Build a tool that can be invoked by AI agents');
             setFormSubtitle('Define the inputs and outputs the agent will use to call this tool');
+        } else if (isWorkflow) {
+            nodeKind = 'WORKFLOW';
+            formType.current = 'Workflow';
+            setTitleSubtitle('Build reusable workflow processes');
+            setFormSubtitle('Define a workflow process with a strongly typed input payload');
+        } else if (isActivity) {
+            nodeKind = 'ACTIVITY';
+            formType.current = 'Workflow Activity';
+            setTitleSubtitle('Build reusable workflow activities');
+            setFormSubtitle('Define an activity that can be invoked within a workflow');
         } else {
             nodeKind = 'FUNCTION_DEFINITION';
             formType.current = 'Function';
@@ -232,7 +274,7 @@ export function FunctionForm(props: FunctionFormProps) {
         } else {
             getFunctionNode(nodeKind);
         }
-    }, [isDataMapper, isNpFunction, isAutomation, isAgentTool, functionName]);
+    }, [isDataMapper, isNpFunction, isWorkflow, isActivity, isAutomation, isAgentTool, functionName]);
 
     useEffect(() => {
         let cancelled = false;
@@ -467,7 +509,7 @@ export function FunctionForm(props: FunctionFormProps) {
                 fileName,
                 projectPath
             });
-        let flowNode = res.functionDefinition;
+        let flowNode = hideTypeDescriptionField(res.functionDefinition);
         if (isNpFunction) {
             /* 
             * TODO: Remove this once the LS is updated
@@ -489,6 +531,17 @@ export function FunctionForm(props: FunctionFormProps) {
                 ...flowNode.properties.parameters,
                 advanceProperties: advancedProperties
             }
+        }
+
+        // Override the node kind so the correct builder (WorkflowBuilder / ActivityBuilder)
+        // is used when generating source code for an existing workflow or activity function.
+        // ModuleNodeAnalyzer returns FUNCTION_DEFINITION for these; using the wrong kind causes
+        // the artifact-update subscription to filter for FUNCTION instead of WORKFLOW/ACTIVITY,
+        // resulting in a 10-second timeout and incorrect source generation (e.g. adds `public`).
+        if (isWorkflow) {
+            flowNode = { ...flowNode, codedata: { ...flowNode.codedata, node: 'WORKFLOW' as NodeKind } };
+        } else if (isActivity) {
+            flowNode = { ...flowNode, codedata: { ...flowNode.codedata, node: 'ACTIVITY' as NodeKind } };
         }
 
         setFunctionNode(flowNode);
@@ -558,6 +611,44 @@ export function FunctionForm(props: FunctionFormProps) {
                     }
                     const imports = getImportsForProperty(key, formImports);
                     property.imports = imports;
+
+                    // Reconstruct dynamicFormFields from form values
+                    // Reverse the mapping done in convertNodePropertyToFormField
+                    if (property.dynamicFormFields) {
+                        const reconstructedDynamicFormFields: Record<string, NodeProperties> = {};
+                        for (const optKey in property.dynamicFormFields) {
+                            if (property.dynamicFormFields.hasOwnProperty(optKey)) {
+                                const dynamicProps: NodeProperties = {};
+
+                                // For each field in dynamicFormFields[optKey], look up its value in the form state
+                                if (typeof dataValue === "object" && dataValue !== null) {
+                                    const dynamicFormValues = (dataValue as any)[optKey];
+                                    if (dynamicFormValues && typeof dynamicFormValues === "object") {
+                                        // Reconstruct the nested property structure
+                                        for (const fieldKey in dynamicFormValues) {
+                                            if (dynamicFormValues.hasOwnProperty(fieldKey)) {
+                                                // Find the original property template from functionNode
+                                                const originalProp = functionNode.properties[key as NodePropertyKey]?.dynamicFormFields?.[optKey]?.[fieldKey as NodePropertyKey];
+                                                if (originalProp) {
+                                                    dynamicProps[fieldKey as NodePropertyKey] = {
+                                                        ...originalProp,
+                                                        value: dynamicFormValues[fieldKey],
+                                                    };
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (Object.keys(dynamicProps).length > 0) {
+                                    reconstructedDynamicFormFields[optKey] = dynamicProps;
+                                }
+                            }
+                        }
+                        if (Object.keys(reconstructedDynamicFormFields).length > 0) {
+                            property.dynamicFormFields = reconstructedDynamicFormFields;
+                        }
+                    }
                 }
             }
         }
@@ -592,15 +683,18 @@ export function FunctionForm(props: FunctionFormProps) {
             let annotationStr = functionNodeCopy.properties.annotations.value as string;
             if (annotationStr.includes("@ai:AgentTool")) {
                 const configBlock = buildAuthAnnotation(oauthConfig, expressionKeys);
-                if (annotationStr.match(/auth\s*:\s*\{[^}]*\}/s)) {
+                const auth = matchBraced(annotationStr, /auth\s*:\s*\{/);
+                if (auth) {
+                    let { start: s, end: e } = auth;
                     if (configBlock) {
-                        // Replace existing auth block
-                        annotationStr = annotationStr.replace(/auth\s*:\s*\{[^}]*\}/s, configBlock);
+                        annotationStr = annotationStr.slice(0, s) + configBlock + annotationStr.slice(e);
                     } else {
-                        // Remove auth block along with surrounding comma
-                        annotationStr = annotationStr.replace(/,\s*auth\s*:\s*\{[^}]*\}/s, "");
-                        annotationStr = annotationStr.replace(/auth\s*:\s*\{[^}]*\}\s*,?/s, "");
-                        // Clean up empty braces: "@ai:AgentTool { }" -> "@ai:AgentTool"
+                        // Also consume a leading or trailing comma so siblings don't dangle
+                        const lead = annotationStr.slice(0, s).match(/,\s*$/);
+                        const trail = annotationStr.slice(e).match(/^\s*,/);
+                        if (lead) s -= lead[0].length;
+                        else if (trail) e += trail[0].length;
+                        annotationStr = annotationStr.slice(0, s) + annotationStr.slice(e);
                         annotationStr = annotationStr.replace(/@ai:AgentTool\s*\{\s*\}/, "@ai:AgentTool");
                     }
                     functionNodeCopy.properties.annotations.value = annotationStr;
@@ -623,6 +717,7 @@ export function FunctionForm(props: FunctionFormProps) {
                     (functionNodeCopy.properties.annotations.value as string).replace(/\s+$/, "\n");
             }
         }
+
 
         console.log("Updated function node: ", functionNodeCopy);
         const sourceCode = await rpcClient
@@ -690,6 +785,10 @@ export function FunctionForm(props: FunctionFormProps) {
             return "Data Mapper";
         } else if (isNpFunction) {
             return "Natural Function";
+        } else if (isWorkflow) {
+            return "Workflow";
+        } else if (isActivity) {
+            return "Workflow Activity";
         } else if (isAutomation || functionName === "main") {
             return "Automation";
         }
@@ -699,7 +798,15 @@ export function FunctionForm(props: FunctionFormProps) {
     const handleClosePopup = (functionName?: string) => {
         rpcClient
             .getVisualizerRpcClient()
-            .openView({ type: EVENT_TYPE.CLOSE_VIEW, location: { view: null, recentIdentifier: functionName, artifactType: isAgentTool ? DIRECTORY_MAP.AGENT_TOOL : DIRECTORY_MAP.FUNCTION }, isPopup: true });
+            .openView({
+                type: EVENT_TYPE.CLOSE_VIEW,
+                location: {
+                    view: null,
+                    recentIdentifier: functionName,
+                    artifactType: isAgentTool ? DIRECTORY_MAP.AGENT_TOOL : isWorkflow ? DIRECTORY_MAP.WORKFLOW : isActivity ? DIRECTORY_MAP.ACTIVITY : DIRECTORY_MAP.FUNCTION
+                },
+                isPopup: true
+            });
     }
 
     useEffect(() => {
@@ -747,7 +854,9 @@ export function FunctionForm(props: FunctionFormProps) {
                             <BodyText>
                                 {isAgentTool
                                     ? "Create a new agent tool that can be invoked by AI agents."
-                                    : "Create a new function to define reusable logic."}
+                                    : (isWorkflow
+                                    ? "Create a new workflow process with a configurable input type."
+                                    : "Create a new function to define reusable logic.")}
                             </BodyText>
                         </>
                     )}

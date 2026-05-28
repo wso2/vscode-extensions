@@ -48,7 +48,8 @@ import {
     TriggerKind,
     TypeKind,
     Type,
-    Imports
+    Imports,
+    DMFormImports
 } from "@wso2/ballerina-core";
 import { CompletionItem, ProgressIndicator } from "@wso2/ui-toolkit";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
@@ -407,6 +408,7 @@ export function DataMapperView(props: DataMapperViewProps) {
         type: string,
         index: number,
         targetField: string,
+        formImports?: DMFormImports,
         importsCodedata?: CodeData
     ) => {
         try {
@@ -427,7 +429,8 @@ export function DataMapperView(props: DataMapperViewProps) {
                 subMappingName,
                 type,
                 name,
-                defaultValue
+                defaultValue,
+                formImports?.type
             );
 
             console.log(">>> [Data Mapper] addSubMapping request:", request);
@@ -637,12 +640,13 @@ export function DataMapperView(props: DataMapperViewProps) {
         }
     };
 
-    const createConvertedVariable = async (variableName: string, isInput: boolean, typeName?: string, parentTypeName?: string) => {
-        const initialTypeName = typeName || variableName.charAt(0).toUpperCase() + variableName.slice(1);
+    const createConvertedVariable = async (variableName: string, isInput: boolean, parentName: string, parentTypeName?: string) => {
+        const initialTypeName = parentName.charAt(0).toUpperCase() + parentName.slice(1);
         initialTypeNameRef.current = await genUniqueName(initialTypeName, viewState.viewId);
 
         onTypeCreateRef.current = (type: Type | string, imports?: Imports) => {
-            const newTypeName = typeof type === 'string' ? type : (type as Type).name;
+            const typeName = typeof type === 'string' ? type : (type as Type).name;
+            const isArray = (type as Type).codedata?.node === "ARRAY" || typeName.endsWith("[]");
             requestRefreshDMModel();
             rpcClient
                 .getDataMapperRpcClient()
@@ -650,14 +654,16 @@ export function DataMapperView(props: DataMapperViewProps) {
                     filePath,
                     codedata: {
                         ...viewState.codedata,
-                        isNew: !typeName
+                        isNew: !!parentTypeName
                     },
                     varName: name,
                     targetField: viewState.viewId,
                     subMappingName: viewState.subMappingName,
-                    typeName: newTypeName,
-                    isInput,
+
                     variableName,
+                    isInput,
+                    typeName,
+                    isArray,
                     parentTypeName,
                     imports
                 }).then(res => {

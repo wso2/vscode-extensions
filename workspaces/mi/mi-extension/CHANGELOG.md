@@ -2,11 +2,86 @@
 
 All notable changes to the "micro-integrator" extension will be documented in this file.
 
-## [3.1.3] - 2026-02-05
+## [4.0.1] - 2026-05-26    
+
+### Fixed    
+
+Fixed: Resource path corrupts when creating a registry resource([#1491](https://github.com/wso2/mi-vscode/issues/1491))   
+Fixed: Support parsing parameterized values to the maven-car-deploy-plugin ([#1490](https://github.com/wso2/mi-vscode/issues/1490))   
+Fixed: Call Endpoint mediator Endpoint list doesn't show INLINE option ([#1126](https://github.com/wso2/mi-vscode/issues/1126))  
+
+## [4.0.0] - 2026-05-18
+
+### Improvements
+
+- Agent Memory Trim and Summarization Support   
+- Agent Mode in Integration Copilot   
+- New Vector Database Support   
+- Azure OpenAI Embeddings Support   
+- AWS Bedrock Login Support   
+- MCP Tool Support for Agents in AI Connector   
+- JDK 25 support   
+- Remote Debugging Support   
+- Unit Test Coverage Report Generation   
+- Consolidated Project Support   
+- Improvements to the Ballerina Module Generation Tool   
+- Newly Introduced Connectors - Database, RabbitMQ, Solace   
+- Import Project from CApp Support   
+- Support Connectors from Integration Project Dependencies   
+- Workspace Build and Run Support
+- Input and Output Mapping Generation Support for Data Services   
+- OpenTelemetry Span Filtering Support for Mediators   
+
+## [3.2.1] - 2026-05-07   
+
+### Fixed     
+
+Fixed: Issue in loading the project explorer view   
+
+## [3.2.0] - 2026-04-28
+
+### New Features   
+
+Added: Allow referencing connector operations in projects that depend on projects that has connectors ([#1430](https://github.com/wso2/mi-vscode/issues/1430))   
+Added: Share tryout payloads across resources ([#1475](https://github.com/wso2/mi-vscode/issues/1475))   
 
 ### Fixed
 
-Fixed: Minor issues in the project migration flow
+Fixed: Connector display name is not showing in the connections tab ([#1473](https://github.com/wso2/mi-vscode/issues/1473))   
+Fixed: Round function is missing in the expression editor ([#1474](https://github.com/wso2/mi-vscode/issues/1474))   
+Fixed: "MI 4.4.0 Project is Not Properly Set Up" Warning Appearing Repeatedly ([#1476](https://github.com/wso2/mi-vscode/issues/1476))   
+Fixed: When trying to import an existing connector it is not notified to the user ([#1477](https://github.com/wso2/mi-vscode/issues/1477))  
+
+## [3.1.6] - 2026-03-24
+
+### Fixed
+
+Fixed: Editing Switch Mediator Cases Loses Statements and Appends New Case Incorrectly ([#1424](https://github.com/wso2/mi-vscode/issues/1424))   
+Fixed: Add an option to import and export projects as ZIP archives ([#1425](https://github.com/wso2/mi-vscode/issues/1425))   
+Fixed: Unable to Create Endpoint via Call Mediator “Add New” endpoint on Windows ([#1426](https://github.com/wso2/mi-vscode/issues/1426))   
+Fixed: Partially migrating the old project when using the project migration feature in VS Code ([#1427](https://github.com/wso2/mi-vscode/issues/1427))   
+
+
+## [3.1.5] - 2026-03-11
+
+### Fixed
+
+Fixed: Enforcing Java naming convention for class mediators ([#1395](https://github.com/wso2/mi-vscode/issues/1395))   
+Fixed: Cannot use a CApp to open a project in Windows OS ([#1411](https://github.com/wso2/mi-vscode/issues/1411))   
+Fixed: Update the XSD of the HTTP endpoint ([#1412](https://github.com/wso2/mi-vscode/issues/1412))   
+Fixed: Migration fails on Windows when moving .vscode directory ([#1417](https://github.com/wso2/mi-vscode/issues/1417))   
+
+## [3.1.4] - 2026-02-16
+
+### Fixed
+
+Fixed: UI issues in the data services side panel forms    
+
+## [3.1.3] - 2026-02-10
+
+### Fixed
+
+Fixed: Minor issues in the project migration flow   
 
 ## [3.1.2] - 2026-01-22
 

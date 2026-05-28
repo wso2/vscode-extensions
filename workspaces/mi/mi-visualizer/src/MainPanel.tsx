@@ -9,7 +9,6 @@ import { EndpointWizard } from './views/Forms/EndpointForm';
 import { SequenceWizard } from './views/Forms/SequenceForm';
 import { NavigationBar } from './components/NavigationBar';
 import { ProjectWizard } from './views/Forms/ProjectForm';
-import { ImportProjectWizard } from './views/Forms/ImportProjectForm';
 import { TaskForm } from './views/Forms/TaskForm';
 import { MessageStoreWizard } from './views/Forms/MessageStoreForm/index';
 import { MessageProcessorWizard } from "./views/Forms/MessageProcessorForm";
@@ -61,6 +60,7 @@ import { ImportArtfactForm } from './views/Forms/ImportArtifactForm';
 import { IdpConnectorSchemaGenerateForm }from './views/Forms/IDPConnectorForm/IdpConnectorSchemaGenerateForm';
 import { KubernetesConfigurationForm } from "./views/Forms/KubernetesConfigurationForm";
 import { RegistryPropertyForm } from "./views/Forms/RegistryPropertyForm";
+import { ConvertToConsolidatedWizard } from './views/Forms/ConvertToConsolidated';
 
 const MainContainer = styled.div`
     display: flex;
@@ -116,6 +116,13 @@ const MainPanel = (props: MainPanelProps) => {
     useEffect(() => {
         fetchContext();
     }, [props]);
+
+    useEffect(() => {
+        // Close any open popup views when the view changes
+        if (typeof formState === 'object' && 'open' in formState) {
+            rpcClient?.getMiVisualizerRpcClient().openView({ type: POPUP_EVENT_TYPE.CLOSE_VIEW, location: { view: null }, isPopup: true });
+        }
+    }, [visualizerState.view]);
 
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
@@ -317,11 +324,12 @@ const MainPanel = (props: MainPanelProps) => {
                 setViewComponent(<ProjectWizard cancelView={MACHINE_VIEW.Overview} />);
                 shouldShowNavigator = false;
                 break;
+            case MACHINE_VIEW.ConvertToConsolidatedForm:
+                setViewComponent(<ConvertToConsolidatedWizard cancelView={MACHINE_VIEW.Overview} />);
+                shouldShowNavigator = false;
+                break;
             case MACHINE_VIEW.LocalEntryForm:
                 setViewComponent(<LocalEntryWizard path={visualizerState.documentUri} />);
-                break;
-            case MACHINE_VIEW.ImportProjectForm:
-                setViewComponent(<ImportProjectWizard />);
                 break;
             case MACHINE_VIEW.MessageStoreForm:
                 setViewComponent(<MessageStoreWizard path={visualizerState.documentUri} />);

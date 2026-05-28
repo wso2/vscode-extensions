@@ -169,20 +169,19 @@ export interface ExtractMappingDetailsRequest {
     functionContents: Record<string, string>;        
 }
 
-export interface ExistingFunctionMatchResult {
-    match: boolean;
-    matchingFunctionFile: string | null;
-    functionDefNode: FunctionDefinition | null;
+export interface MatchedFunction {
+    matchingFunctionFilePath: string;
+    functionDefNode: FunctionDefinition;
 }
 
 export interface ExtractMappingDetailsResponse {
-    inputs: DataMappingRecord[];    
-    output: DataMappingRecord; 
+    inputs: DataMappingRecord[];
+    output: DataMappingRecord;
     inputParams: string[];
-    outputParam: string;   
+    outputParam: string;
     imports: ImportInfo[];
     inputNames: string[];
-    existingFunctionMatch: ExistingFunctionMatchResult;       
+    matchedFunction: MatchedFunction | null;
 }
 
 export interface RepairCodeParams {
@@ -243,9 +242,10 @@ export interface ExistingFunction {
 // ==================================
 export interface Attachment {
     name: string;
-    path?: string
+    path?: string;
     content?: string;
     status: AttachmentStatus;
+    mimeType?: string;
 }
 
 export enum AttachmentStatus {
@@ -291,6 +291,7 @@ export interface ChatEntry {
 export interface FileAttatchment {
     fileName: string;
     content: string;
+    mimeType?: string;
 }
 
 export type CodeContext =
@@ -520,6 +521,7 @@ export interface UsageResponse {
 
 export interface OpenFileDiffRequest {
     relativePath: string;
+    generationId: string;
 }
 
 // ==================================
@@ -594,3 +596,4 @@ export interface PromptEnhancementRequest {
 export interface PromptEnhancementResponse {
     enhancedPrompt: string;
 }
+

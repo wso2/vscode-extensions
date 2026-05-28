@@ -75,6 +75,7 @@ import {
     UpdateConfigValuesRequest,
     importOpenAPISpec,
     updateConnectorDependencies,
+    refetchIntegrationProjectDependencies,
     ImportOpenAPISpecRequest,
     updateRuntimeVersionsInPom,
     getProjectSetupDetails,
@@ -92,6 +93,9 @@ import {
     setDeployPlugin,
     getDeployPluginDetails,
     removeDeployPlugin,
+    executeRemoteDeployWithParams,
+    ExecuteRemoteDeployParams,
+    getRemoteDeployConfigs,
     ReloadDependenciesRequest,
     getDependencyStatusList
 } from "@wso2/mi-core";
@@ -138,6 +142,7 @@ export function registerMiVisualizerRpcHandlers(messenger: Messenger, projectUri
     messenger.onRequest(updatePomValues, (args: UpdatePomValuesRequest) => rpcManger.updatePomValues(args));
     messenger.onRequest(updateConfigFileValues, (args: UpdateConfigValuesRequest) => rpcManger.updateConfigFileValues(args));
     messenger.onRequest(updateConnectorDependencies, () => rpcManger.updateConnectorDependencies());
+    messenger.onRequest(refetchIntegrationProjectDependencies, () => rpcManger.refetchIntegrationProjectDependencies());
     messenger.onRequest(getDependencyStatusList, () => rpcManger.getDependencyStatusList());
     messenger.onRequest(updateDependenciesFromOverview, (args: UpdateDependenciesRequest) => rpcManger.updateDependenciesFromOverview(args));
     messenger.onRequest(importOpenAPISpec, (args: ImportOpenAPISpecRequest) => rpcManger.importOpenAPISpec(args));
@@ -151,5 +156,6 @@ export function registerMiVisualizerRpcHandlers(messenger: Messenger, projectUri
     messenger.onRequest(getDeployPluginDetails, () => rpcManger.getDeployPluginDetails());
     messenger.onRequest(removeDeployPlugin, () => rpcManger.removeDeployPlugin());
     messenger.onRequest(updateAiDependencies, (args: UpdateAiDependenciesRequest) => rpcManger.updateAiDependencies(args));
-    messenger.onRequest(updateAiDependencies, (args: UpdateAiDependenciesRequest) => rpcManger.updateAiDependencies(args));
+    messenger.onRequest(executeRemoteDeployWithParams, (args: ExecuteRemoteDeployParams) => rpcManger.executeRemoteDeployWithParams(args));
+    messenger.onRequest(getRemoteDeployConfigs, () => rpcManger.getRemoteDeployConfigs());
 }

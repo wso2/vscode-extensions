@@ -55,7 +55,9 @@ import {
     ProjectConfig,
     MavenDeployPluginDetails,
     ReloadDependenciesRequest,
-    DependencyStatusResponse
+    DependencyStatusResponse,
+    ExecuteRemoteDeployParams,
+    DeployConfigParam
 } from "./types";
 import { GettingStartedData, SampleDownloadRequest } from "./types";
 import { RequestType, NotificationType } from "vscode-messenger-common";
@@ -102,6 +104,7 @@ export const updatePomValues: RequestType<UpdatePomValuesRequest, boolean> = { m
 export const updateConfigFileValues: RequestType<UpdateConfigValuesRequest, boolean> = { method: `${_preFix}/updateConfigFileValues` };
 export const updateConnectorDependencies: RequestType<void, string> = { method: `${_preFix}/updateConnectorDependencies` };
 export const getDependencyStatusList: RequestType<void, DependencyStatusResponse> = { method: `${_preFix}/getDependencyStatusList` };
+export const refetchIntegrationProjectDependencies: RequestType<void, string> = { method: `${_preFix}/refetchIntegrationProjectDependencies` };
 export const updateDependenciesFromOverview: RequestType<UpdateDependenciesRequest, boolean> = { method: `${_preFix}/updateDependenciesFromOverview` };
 export const getProjectSetupDetails: RequestType<void, SetupDetails> = { method: `${_preFix}/getProjectSetupDetails` };
 export const updateRuntimeVersionsInPom: RequestType<string, boolean> = { method: `${_preFix}/updateRuntimeVersionsInPom` };
@@ -113,3 +116,5 @@ export const setDeployPlugin: RequestType<MavenDeployPluginDetails, MavenDeployP
 export const getDeployPluginDetails: RequestType<void, MavenDeployPluginDetails> = { method: `${_preFix}/getDeployPluginDetails` };
 export const removeDeployPlugin: RequestType<void, MavenDeployPluginDetails> = { method: `${_preFix}/removeDeployPlugin` };
 export const updateAiDependencies: RequestType<UpdateAiDependenciesRequest, boolean> = { method: `${_preFix}/updateAiDependencies` };
+export const executeRemoteDeployWithParams: RequestType<ExecuteRemoteDeployParams, void> = { method: `${_preFix}/executeRemoteDeployWithParams` };
+export const getRemoteDeployConfigs: RequestType<void, DeployConfigParam[]> = { method: `${_preFix}/getRemoteDeployConfigs` };

@@ -41,7 +41,7 @@ import {
 } from "@wso2/ballerina-core";
 
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
-import { Button, Codicon, Icon } from "@wso2/ui-toolkit";
+import { Button, Codicon, Icon, Tooltip } from "@wso2/ui-toolkit";
 
 import { AIChatInputRef } from "../AIChatInput";
 import ToolCallSegment from "../ToolCallSegment";
@@ -55,7 +55,7 @@ import { ConfigurationCollectorSegment, ConfigurationCollectionData } from "../C
 import CheckpointSeparator from "../CheckpointSeparator";
 import { Attachment, AttachmentStatus, TaskApprovalRequest } from "@wso2/ballerina-core";
 
-import { AIChatView, Header, HeaderButtons, ChatMessage, TurnGroup, AuthProviderChip, UsageBadge, ApprovalOverlay, OverlayMessage } from "../../styles";
+import { AIChatView, Header, HeaderButtons, ChatMessage, TurnGroup, AuthProviderChip, UsageBadge, ApprovalOverlay, OverlayMessage, OverlayCloseButton } from "../../styles";
 import ReferenceDropdown from "../ReferenceDropdown";
 import { VSCodeButton } from "@vscode/webview-ui-toolkit/react";
 import MarkdownRenderer from "../MarkdownRenderer";
@@ -1458,6 +1458,7 @@ const AIChat: React.FC = () => {
         const fileAttatchments = attachments.map((file) => ({
             fileName: file.name,
             content: file.content,
+            mimeType: file?.mimeType,
         }));
 
         const currentCodeContext = codeContextRef.current;
@@ -1729,7 +1730,22 @@ const AIChat: React.FC = () => {
                 <AIChatView style={{ position: "relative" }}>
                     {approvalOverlay.show && (
                         <ApprovalOverlay>
-                            <OverlayMessage>{approvalOverlay.message || 'Processing...'}</OverlayMessage>
+                            <OverlayMessage>
+                                <span>{approvalOverlay.message || 'Processing...'}</span>
+                                {approvalOverlay.requestId && (
+                                    <OverlayCloseButton
+                                        title="Close"
+                                        aria-label="Close"
+                                        onClick={() => {
+                                            rpcClient
+                                                .getVisualizerRpcClient()
+                                                .handleApprovalPopupClose({ requestId: approvalOverlay.requestId! });
+                                        }}
+                                    >
+                                        <span className="codicon codicon-close" />
+                                    </OverlayCloseButton>
+                                )}
+                            </OverlayMessage>
                         </ApprovalOverlay>
                     )}
                     <Header>
@@ -1745,12 +1761,17 @@ const AIChat: React.FC = () => {
                         ) : (
                             <AuthProviderChip>
                                 Remaining Usage:
-                                <UsageBadge>
-                                    {!usage ? "N/A"
-                                        : usage.resetsIn === -1 ? "Unlimited"
-                                        : isUsageExceeded ? "Exceeded"
-                                        : `${Math.round(usage.remainingUsagePercentage)}%`}
-                                </UsageBadge>
+                                {usage?.resetsIn === -1 ? (
+                                    <Tooltip content="Subject to fair usage policy.">
+                                        <UsageBadge>Unlimited</UsageBadge>
+                                    </Tooltip>
+                                ) : (
+                                    <UsageBadge>
+                                        {!usage ? "N/A"
+                                            : isUsageExceeded ? "Exceeded"
+                                            : `${Math.round(usage.remainingUsagePercentage)}%`}
+                                    </UsageBadge>
+                                )}
                                 {usage && usage.resetsIn !== -1 && (
                                     <span style={{ fontSize: 10, opacity: 0.7 }} title={formatResetsInExact(usage.resetsIn)}>
                                         Resets in: {formatResetsIn(usage.resetsIn)}
@@ -1875,6 +1896,7 @@ const AIChat: React.FC = () => {
                                                                 loadDesignDiagrams={(reviewItem as any).data.loadDesignDiagrams}
                                                                 isWorkspace={(reviewItem as any).data.isWorkspace}
                                                                 diffPackageMap={(reviewItem as any).data.diffPackageMap}
+                                                                generationId={(reviewItem as any).data.generationId}
                                                                 isDiscarded={(reviewItem as any)?.data?.status === "discarded"}
                                                                 rpcClient={isLatestAssistantMessage ? rpcClient : undefined}
                                                                 isActive={isLatestAssistantMessage && !isLoading && hasActiveReview}

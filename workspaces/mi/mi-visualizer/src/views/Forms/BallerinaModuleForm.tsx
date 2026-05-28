@@ -15,12 +15,26 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { Button, TextField, FormView, FormActions } from "@wso2/ui-toolkit";
+import { Button, TextField, FormView, FormActions, Codicon } from "@wso2/ui-toolkit";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
 import { EVENT_TYPE, MACHINE_VIEW } from "@wso2/mi-core";
 import { yupResolver } from "@hookform/resolvers/yup"
 import * as yup from "yup";
 import { useForm } from "react-hook-form";
+import { useEffect, useState } from "react";
+import styled from "@emotion/styled";
+
+const WarningBanner = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    margin-bottom: 8px;
+    background-color: var(--vscode-inputValidation-warningBackground);
+    border: 1px solid var(--vscode-inputValidation-warningBorder);
+    color: var(--vscode-inputValidation-warningForeground);
+    font-size: 12px;
+`;
 
 export interface BallerinaModuleProps {
     path: string;
@@ -48,6 +62,20 @@ const schema = yup.object({
 export function BallerinaModuleForm(props: BallerinaModuleProps) {
 
     const { rpcClient } = useVisualizerContext();
+    const [javaVersionWarning, setJavaVersionWarning] = useState(false);
+
+    useEffect(() => {
+        const checkJavaVersion = async () => {
+            const miVersionResponse = await rpcClient.getMiDiagramRpcClient().getMIVersionFromPom();
+            if (miVersionResponse.javaVersion) {
+                const majorVersion = parseInt(miVersionResponse.javaVersion, 10);
+                if (!isNaN(majorVersion) && majorVersion < 21) {
+                    setJavaVersionWarning(true);
+                }
+            }
+        };
+        checkJavaVersion();
+    }, [rpcClient]);
 
     const {
         register,
@@ -86,6 +114,12 @@ export function BallerinaModuleForm(props: BallerinaModuleProps) {
 
     return (
         <FormView title="Create Ballerina Module" onClose={handleBackButtonClick}>
+            {javaVersionWarning && (
+                <WarningBanner>
+                    <Codicon name="warning" />
+                    Java 21 or higher is required for Ballerina module support. Please update the Java version configured in the MI extension settings.
+                </WarningBanner>
+            )}
             <TextField
                 id='name-input'
                 label="Module Name"

@@ -49,7 +49,8 @@ import {
     FormExpressionEditorProps,
     FormImports,
     HelperpaneOnChangeOptions,
-    InputMode
+    InputMode,
+    getTypeCompletionSearchText
 } from "@wso2/ballerina-side-panel";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { CompletionItem, FormExpressionEditorRef, HelperPaneHeight, Overlay, ThemeColors } from "@wso2/ui-toolkit";
@@ -71,11 +72,13 @@ import { getTypeHelper } from "../../TypeHelper";
 import { EXPRESSION_EXTRACTION_REGEX, TypeHelperContext } from "../../../../constants";
 import { getHelperPaneNew } from "../../HelperPaneNew";
 import { ConfigureRecordPage } from "../../HelperPaneNew/Views/RecordConfigModal";
+import { EntryPointTypeCreator } from "../../../../components/EntryPointTypeCreator";
 import React from "react";
 import { BreadcrumbContainer, BreadcrumbItem, BreadcrumbSeparator } from "../FlowNodeForm";
 import { EditorContext, StackItem } from "@wso2/type-editor";
 import DynamicModal from "../../../../components/Modal";
 import { useModalStack } from "../../../../Context";
+import { deserializeForDiagnosticsAPI } from "../form-utils";
 
 interface ArtifactTypeEditorState {
     isOpen: boolean;
@@ -184,6 +187,7 @@ export function ArtifactForm(props: ArtifactFormProps) {
     const fieldsRef = useRef<FormField[]>(fields);
     const fieldsValuesRef = useRef<FormField[]>(fields);
     const [formImports, setFormImports] = useState<FormImports>({});
+    const formImportsRef = useRef<FormImports>({});
     const [refetchStates, setRefetchStates] = useState<boolean[]>([false]);
     const [valueTypeConstraints, setValueTypeConstraints] = useState<string>();
 
@@ -209,7 +213,11 @@ export function ArtifactForm(props: ArtifactFormProps) {
     const [isTypeEditorOpen, setIsTypeEditorOpen] = useState<boolean>(false);
     const [editingTypeName, setEditingTypeName] = useState<string>("");
 
-    const handleOpenFormTypeEditor = (open: boolean, typeName?: string) => {
+    const handleOpenFormTypeEditor = (open: boolean, typeName?: string, editingField?: FormField) => {
+        setTypeEditorState((prevState) => ({
+            ...prevState,
+            field: editingField,
+        }));
         setIsTypeEditorOpen(open);
         if (typeName) {
             setEditingTypeName(typeName);
@@ -220,9 +228,11 @@ export function ArtifactForm(props: ArtifactFormProps) {
 
     const handleTypeEditorClose = () => {
         setIsTypeEditorOpen(false);
+        setEditingTypeName("");
+        setTypeEditorState((prevState) => ({ ...prevState, field: undefined }));
     };
 
-    const handleTypeCreated = (type: Type | string) => {
+    const handleTypeCreated = (type: Type | string, imports?: Imports) => {
         setIsTypeEditorOpen(false);
         setEditingTypeName("");
         if (type) {
@@ -233,6 +243,10 @@ export function ArtifactForm(props: ArtifactFormProps) {
                 }
                 return field;
             }));
+            if (imports) {
+                const targetFieldKey = typeEditorState.field?.key || "type";
+                handleUpdateImports(targetFieldKey, imports);
+            }
         }
     };
 
@@ -440,7 +454,9 @@ export function ArtifactForm(props: ArtifactFormProps) {
             setFields(fields);
             fieldsRef.current = fields;
             fieldsValuesRef.current = fields;
-            setFormImports(getImportsForFormFields(fields));
+            const initialImports = getImportsForFormFields(fields);
+            formImportsRef.current = initialImports;
+            setFormImports(initialImports);
         }
     }, [fields]);
 
@@ -623,7 +639,7 @@ export function ArtifactForm(props: ArtifactFormProps) {
                 setTypes(visibleTypes);
 
                 if (!fetchReferenceTypes) {
-                    const effectiveText = value.slice(0, cursorPosition);
+                    const effectiveText = getTypeCompletionSearchText(value, cursorPosition);
                     let filteredTypes = visibleTypes.filter((type) => {
                         const lowerCaseText = effectiveText.toLowerCase();
                         const lowerCaseLabel = type.label.toLowerCase();
@@ -706,7 +722,7 @@ export function ArtifactForm(props: ArtifactFormProps) {
                         const response = await rpcClient.getBIDiagramRpcClient().getExpressionDiagnostics({
                             filePath: fileName,
                             context: {
-                                expression: expression,
+                                expression: deserializeForDiagnosticsAPI(expression),
                                 startLine: getAdjustedStartLine(targetLineRange, expressionOffsetRef.current),
                                 lineOffset: 0,
                                 offset: 0,
@@ -893,10 +909,12 @@ export function ArtifactForm(props: ArtifactFormProps) {
         if (Object.keys(formImports).includes(key)) {
             if (importKey && !Object.keys(formImports[key]).includes(importKey)) {
                 const updatedImports = { ...formImports, [key]: { ...formImports[key], ...imports } };
+                formImportsRef.current = updatedImports;
                 setFormImports(updatedImports);
             }
         } else {
             const updatedImports = { ...formImports, [key]: imports };
+            formImportsRef.current = updatedImports;
             setFormImports(updatedImports);
         }
     }
@@ -953,6 +971,13 @@ export function ArtifactForm(props: ArtifactFormProps) {
 
     const extractArgsFromFunction = async (value: string, property: ExpressionProperty, cursorPosition: number) => {
         const { lineOffset, charOffset } = calculateExpressionOffsets(value, cursorPosition);
+        // Merge the latest imports from formImportsRef to avoid stale field.imports when a
+        // helper pane item is selected (formImportsRef is updated synchronously before onChange
+        // fires, but the field prop hasn't re-rendered yet with the new imports).
+        const latestImports = Object.values(formImportsRef.current).reduce<Imports>(
+            (acc, fieldImports) => ({ ...acc, ...fieldImports }),
+            {}
+        );
         const signatureHelp = await rpcClient.getBIDiagramRpcClient().getSignatureHelp({
             filePath: fileName,
             context: {
@@ -961,7 +986,7 @@ export function ArtifactForm(props: ArtifactFormProps) {
                 lineOffset: lineOffset,
                 offset: charOffset,
                 codedata: undefined,
-                property: property,
+                property: { ...property, imports: { ...(property.imports || {}), ...latestImports } },
             },
             signatureHelpContext: {
                 isRetrigger: false,
@@ -1116,6 +1141,15 @@ export function ArtifactForm(props: ArtifactFormProps) {
                     </div>
                 </DynamicModal>)
             }
+            <EntryPointTypeCreator
+                isOpen={isTypeEditorOpen}
+                onClose={handleTypeEditorClose}
+                onTypeCreate={handleTypeCreated}
+                initialTypeName={editingTypeName || "WorkflowInput"}
+                modalTitle="Define Workflow Input Type"
+                modalWidth={650}
+                modalHeight={600}
+            />
             {recordConfigPageState.isOpen &&
                 recordConfigPageState.fieldKey &&
                 recordConfigPageState.recordTypeField &&
