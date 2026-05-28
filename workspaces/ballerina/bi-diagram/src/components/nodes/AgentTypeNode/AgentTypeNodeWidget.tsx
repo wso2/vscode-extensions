@@ -329,6 +329,11 @@ export function AgentTypeNodeWidget(props: AgentTypeNodeWidgetProps) {
         setAnchorEl(null);
     };
 
+    const onChatWithAgent = () => {
+        agentNode?.onChatWithAgent?.(model.node);
+        setAnchorEl(null);
+    };
+
     const handleOnMenuClick = (event: React.MouseEvent<HTMLElement | SVGSVGElement>) => {
         if (readOnly) {
             return;
@@ -342,6 +347,11 @@ export function AgentTypeNodeWidget(props: AgentTypeNodeWidgetProps) {
     };
 
     const menuItems: Item[] = [
+        ...(agentNode?.onChatWithAgent ? [{
+            id: "chat",
+            label: "Chat",
+            onClick: () => onChatWithAgent(),
+        }] : []),
         { id: "edit", label: "Edit", onClick: () => onNodeClick() },
         { id: "goToSource", label: "Source", onClick: () => onGoToSource() },
     ];
