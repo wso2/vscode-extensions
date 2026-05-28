@@ -121,8 +121,6 @@ function getToolCallDisplay(toolName: string | undefined, toolInput: any): { lab
         case "stopBallerinaService": return { label: "Stopping service..." };
         case "web_search": return { label: toolInput?.query ? "Searching the web:" : "Searching the web...", detail: toolInput?.query };
         case "web_fetch":  return { label: toolInput?.url ? "Fetching from web:" : "Fetching from web...", detail: toolInput?.url };
-        case "grep": return { label: toolInput?.pattern ? "Searching for:" : "Searching...", detail: toolInput?.pattern };
-        case "glob": return { label: toolInput?.pattern ? "Finding files:" : "Finding files...", detail: toolInput?.pattern };
         default: return { label: "Working..." };
     }
 }
@@ -171,13 +169,15 @@ function getToolResultDisplay(toolName: string | undefined, toolOutput: any, hin
         case "web_fetch":  return { label: hint ? "Web fetch:" : "Web fetch completed",  detail: hint };
         case "grep": {
             if (!toolOutput?.success) return { label: "Search failed" };
-            const noMatch = toolOutput?.message?.startsWith("No matches");
-            return { label: noMatch ? "No matches found" : "Search completed" };
+            if (toolOutput?.matchCount === 0) return { label: "No matches found" };
+            const count = toolOutput?.matchCount;
+            return { label: count != null ? `Found ${count} match${count !== 1 ? "es" : ""}` : "Search completed" };
         }
         case "glob": {
             if (!toolOutput?.success) return { label: "File search failed" };
-            const noMatch = toolOutput?.message?.startsWith("No files found");
-            return { label: noMatch ? "No files found" : "Files found" };
+            if (toolOutput?.fileCount === 0) return { label: "No files found" };
+            const count = toolOutput?.fileCount;
+            return { label: count != null ? `Found ${count} file${count !== 1 ? "s" : ""}` : "Files found" };
         }
         default: return { label: "Done" };
     }
@@ -200,6 +200,7 @@ function renderItem(item: StreamItem, idx: number, streamActive: boolean, rpcCli
             if (item.toolName === "hurlRunnerTool") {
                 return <TryItCard key={idx} input={item.toolInput} rpcClient={rpcClient} />;
             }
+            if (item.toolName === "grep" || item.toolName === "glob") return null;
             if (COMMAND_OUTPUT_TOOLS.has(item.toolName ?? "")) {
                 return <CommandOutputCard key={idx} toolName={item.toolName} toolInput={item.toolInput} />;
             }

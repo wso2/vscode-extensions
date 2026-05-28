@@ -49,6 +49,8 @@ interface GlobInput {
 export interface GlobResult {
     success: boolean;
     message: string;
+    pattern?: string;
+    fileCount?: number;
     error?: string;
 }
 
@@ -101,6 +103,8 @@ export function createGlobExecute(eventHandler: CopilotEventHandler, tempProject
             const result: GlobResult = {
                 success: true,
                 message: `No files found matching pattern: "${pattern}"`,
+                pattern,
+                fileCount: 0,
             };
             eventHandler({ type: "tool_result", toolName: GLOB_TOOL_NAME, toolOutput: result });
             return result;
@@ -119,6 +123,8 @@ export function createGlobExecute(eventHandler: CopilotEventHandler, tempProject
         const result: GlobResult = {
             success: true,
             message: `Found ${files.length} file(s) matching "${pattern}":\n${displayed.join("\n")}${truncationNote}`,
+            pattern,
+            fileCount: files.length,
         };
 
         eventHandler({ type: "tool_result", toolName: GLOB_TOOL_NAME, toolOutput: result });

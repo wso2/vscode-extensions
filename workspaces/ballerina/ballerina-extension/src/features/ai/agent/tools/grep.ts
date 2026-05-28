@@ -71,6 +71,8 @@ interface GrepInput {
 export interface GrepResult {
     success: boolean;
     message: string;
+    pattern?: string;
+    matchCount?: number;
     error?: string;
 }
 
@@ -132,7 +134,7 @@ export function createGrepExecute(eventHandler: CopilotEventHandler, tempProject
         }
 
         if (proc.status === RgExitCode.NoMatches || !proc.stdout || proc.stdout.trim().length === 0) {
-            const result: GrepResult = { success: true, message: `No matches found for pattern: "${pattern}"` };
+            const result: GrepResult = { success: true, message: `No matches found for pattern: "${pattern}"`, pattern, matchCount: 0 };
             eventHandler({ type: "tool_result", toolName: GREP_TOOL_NAME, toolOutput: result });
             return result;
         }
@@ -146,10 +148,13 @@ export function createGrepExecute(eventHandler: CopilotEventHandler, tempProject
         const truncated = lines.length > MAX_LINES;
         const displayed = truncated ? lines.slice(0, MAX_LINES) : lines;
         const truncationNote = truncated ? `\n... (truncated, showing ${MAX_LINES} of ${lines.length} lines)` : "";
+        const matchLines = lines.filter((l) => /^\d+[:\-]/.test(l));
 
         const result: GrepResult = {
             success: true,
             message: displayed.join("\n") + truncationNote,
+            pattern,
+            matchCount: matchLines.length,
         };
 
         eventHandler({ type: "tool_result", toolName: GREP_TOOL_NAME, toolOutput: result });
