@@ -42,6 +42,8 @@ const policyTypes = [{ value: "Username Token" }, { value: "Non-repudiation" }, 
     { value: "Sign and Encrypt - X509 Authentication" }, { value: "Sign and Encrypt - Anonymous Clients" },
     { value: "Encrypt Only - Username Token Authentication" }, { value: "Sign and Encrypt - Username Token Authentication" }];
 
+const PATH_SEPARATORS = ['/', '\\'];
+
 const REGISTRY_ROOT_ALIASES = ['registry', '_system'];
 
 const REGISTRY_SUB_ROOT_ALIASES: Record<'gov' | 'conf', string[]> = {
@@ -274,13 +276,13 @@ export function RegistryResourceForm(props: RegistryWizardProps) {
 
     const formatResourcePath = (resourceDirPath: string) => {
         let resPath = 'resources:';
-        resPath = resourceDirPath.startsWith('/') ? resPath + resourceDirPath.substring(1) : resPath + resourceDirPath;
+        resPath = PATH_SEPARATORS.some(sep => resourceDirPath.startsWith(sep)) ? resPath + resourceDirPath.substring(1) : resPath + resourceDirPath;
         if (createOptionValue) {
-            resPath.endsWith('/') ? resPath = resPath + getValues("resourceName") + getFileExtension(getValues('templateType'))
+            PATH_SEPARATORS.some(sep => resPath.endsWith(sep)) ? resPath = resPath + getValues("resourceName") + getFileExtension(getValues('templateType'))
                 : resPath = resPath + '/' + getValues("resourceName") + getFileExtension(getValues('templateType'));
         } else {
-            const filename = getValues("filePath").split('/').pop();
-            resPath.endsWith('/') ? resPath = resPath + filename : resPath = resPath + '/' + filename;
+            const filename = getValues("filePath").split(/[/\\]/).pop();
+            PATH_SEPARATORS.some(sep => resPath.endsWith(sep)) ? resPath = resPath + filename : resPath = resPath + '/' + filename;
         }
         return resPath;
     }
@@ -292,13 +294,13 @@ export function RegistryResourceForm(props: RegistryWizardProps) {
         } else {
             regPath = 'conf:';
         }
-        path.startsWith('/') ? regPath = regPath + path.substring(1) : regPath = regPath + path;
+        PATH_SEPARATORS.some(sep => path.startsWith(sep)) ? regPath = regPath + path.substring(1) : regPath = regPath + path;
         if (createOptionValue) {
-            regPath.endsWith('/') ? regPath = regPath + getValues("resourceName") + getFileExtension(getValues('templateType'))
+            PATH_SEPARATORS.some(sep => regPath.endsWith(sep)) ? regPath = regPath + getValues("resourceName") + getFileExtension(getValues('templateType'))
                 : regPath = regPath + '/' + getValues("resourceName") + getFileExtension(getValues('templateType'));
         } else {
-            const filename = getValues("filePath").split('/').pop();
-            regPath.endsWith('/') ? regPath = regPath + filename : regPath = regPath + '/' + filename;
+            const filename = getValues("filePath").split(/[/\\]/).pop();
+            PATH_SEPARATORS.some(sep => regPath.endsWith(sep)) ? regPath = regPath + filename : regPath = regPath + '/' + filename;
         }
         return regPath;
     }
