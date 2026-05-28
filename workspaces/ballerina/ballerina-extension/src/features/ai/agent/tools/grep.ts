@@ -30,20 +30,13 @@ const MAX_LINES = 1000;
 
 /** File globs to search by default in Ballerina projects */
 const DEFAULT_GLOB_ARGS = [
-    "--glob",
-    "*.bal",
-    "--glob",
-    "*.toml",
-    "--glob",
-    "*.md",
-    "--glob",
-    "*.json",
-    "--glob",
-    "*.yaml",
-    "--glob",
-    "*.yml",
-    "--glob",
-    "*.sql",
+    "--glob", "*.bal",
+    "--glob", "*.toml",
+    "--glob", "*.md",
+    "--glob", "*.json",
+    "--glob", "*.yaml",
+    "--glob", "*.yml",
+    "--glob", "*.sql",
 ];
 
 /** Paths and files always excluded from search */
