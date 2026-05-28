@@ -117,9 +117,9 @@ export async function generateAgent(params: GenerateAgentCodeRequest): Promise<b
             }
         );
 
-// ==================================
-// bal.md Generation for Agent Context
-// ==================================
+// ======================================
+// Code Map Generation for Agent Context
+// ======================================
 
         // Fetch Code Map at query submission time to capture the current project state.
         // TODO: The language server does not capture file delete events yet. Once that is fixed,

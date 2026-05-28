@@ -196,7 +196,7 @@ ${getLanglibInstructions()}
             FILE_WRITE_TOOL_NAME,
         ].join(
             ", "
-        )} tools. The complete existing source code will be provided in the <existing_code> section of the user prompt.
+        )} tools. The complete existing source code will be provided in the <codebase_structure> section of the user prompt.
 - When making replacements inside an existing file, provide the **exact old string** and the **exact new string** with all newlines, spaces, and indentation, being mindful to replace nearby occurrences together to minimize the number of tool calls.
 - Do NOT create a new markdown file to document each change or summarize your work unless specifically requested by the user.
 - Do not manually add/modify Dependencies.toml. For Config.toml configuration management, use ${CONFIG_COLLECTOR_TOOL}.

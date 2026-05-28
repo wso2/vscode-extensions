@@ -196,11 +196,6 @@ export abstract class AICommandExecutor<TParams = any> {
             return;
         }
         try {
-            if (!this.config.chatStorage) {
-                console.log('[AICommandExecutor] Chat storage not configured, skipping initialization');
-                return;
-            }
-
             const { projectRootPath, threadId } = this.config.chatStorage;
 
             // Initialize workspace and thread
