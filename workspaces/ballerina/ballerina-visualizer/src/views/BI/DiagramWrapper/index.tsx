@@ -403,6 +403,18 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
     let isAgent = parentMetadata?.kind === "AI Chat Agent" && parentMetadata?.label === "chat";
     let isInitFunction = parentMetadata?.kind === "Function" && parentMetadata?.label === "init";
     let isNPFunction = view === FOCUS_FLOW_DIAGRAM_VIEW.NP_FUNCTION;
+    let isAgentFocus = view === FOCUS_FLOW_DIAGRAM_VIEW.AGENT || view === FOCUS_FLOW_DIAGRAM_VIEW.AGENT_TYPE;
+
+    const handleAgentFocusChat = () => {
+        if (!agentName || !filePath) {
+            console.error("Cannot start inline agent chat: missing agent variable name or file path");
+            return;
+        }
+        rpcClient.getBIDiagramRpcClient().startInlineAgentChat({
+            agentVarName: agentName,
+            filePath,
+        });
+    };
 
     const handleResourceTryIt = async (methodValue: string, pathValue: string) => {
         if (serviceType !== "http") { return; }
@@ -573,6 +585,23 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
                         Chat
                     </ActionButton>
                 </>
+            );
+        }
+
+        if (isAgentFocus) {
+            return (
+                <ActionButton
+                    appearance="secondary"
+                    onClick={handleAgentFocusChat}
+                    tooltip="Generate a chat service for this agent"
+                >
+                    <Icon
+                        name="comment-discussion"
+                        isCodicon={true}
+                        sx={{ marginRight: 5, width: 16, height: 16, fontSize: 14 }}
+                    />
+                    Chat
+                </ActionButton>
             );
         }
 

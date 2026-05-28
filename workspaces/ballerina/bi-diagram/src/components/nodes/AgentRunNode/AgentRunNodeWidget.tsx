@@ -138,6 +138,7 @@ export function AgentRunNodeWidget(props: AgentRunNodeWidgetProps) {
         addBreakpoint,
         readOnly,
         selectedNodeId,
+        agentNode,
     } = useDiagramContext();
 
     const isSelected = selectedNodeId === model.node.id;
@@ -175,6 +176,11 @@ export function AgentRunNodeWidget(props: AgentRunNodeWidgetProps) {
 
     const onGoToSource = () => {
         goToSource && goToSource(model.node);
+        setMenuAnchorEl(null);
+    };
+
+    const onChatWithAgent = () => {
+        agentNode?.onChatWithAgent?.(model.node);
         setMenuAnchorEl(null);
     };
 
@@ -219,6 +225,11 @@ export function AgentRunNodeWidget(props: AgentRunNodeWidgetProps) {
     };
 
     const menuItems: Item[] = [
+        ...(agentNode?.onChatWithAgent ? [{
+            id: "chat",
+            label: "Chat",
+            onClick: () => onChatWithAgent(),
+        }] : []),
         {
             id: "edit",
             label: "Edit",
