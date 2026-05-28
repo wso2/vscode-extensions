@@ -37,6 +37,8 @@ export interface TextAreaProps extends ComponentProps<"textarea"> {
     autoFocus?: boolean;
     icon?: IconProps;
     required?: boolean;
+    readOnly?: boolean;
+    readonly?: boolean;
     errorMsg?: string;
     placeholder?: string;
     cols?: number;
@@ -71,8 +73,10 @@ const LabelContainer = styled.div<ContainerProps>`
 export const TextArea = React.forwardRef<HTMLTextAreaElement, TextAreaProps>(
     function TextArea(props: TextAreaProps, ref: React.ForwardedRef<HTMLTextAreaElement>) {
         const { label, id, className, autoFocus, required, validationMessage, cols = 40,
-            rows, resize, errorMsg, sx, onTextChange, labelAdornment, icon, "aria-label": ariaLabel, disabled, ...rest
+            rows, resize, errorMsg, sx, onTextChange, labelAdornment, icon, "aria-label": ariaLabel, disabled,
+            readOnly, readonly, ...rest
         } = props;
+        const resolvedReadOnly = readOnly ?? readonly;
 
         const { iconComponent, onClick: iconClick } = icon || {};
 
@@ -93,6 +97,7 @@ export const TextArea = React.forwardRef<HTMLTextAreaElement, TextAreaProps>(
                     ref={ref}
                     autoFocus={autoFocus}
                     disabled={disabled || undefined}
+                    readonly={resolvedReadOnly || undefined}
                     validationMessage={validationMessage}
                     cols={cols}
                     rows={rows}

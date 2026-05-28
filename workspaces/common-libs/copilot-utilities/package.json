@@ -6,11 +6,13 @@
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "exports": {
-    "./context-management": "./lib/context-management/index.js"
+    "./context-management": "./lib/context-management/index.js",
+    "./chat-persistence": "./lib/chat-persistence/index.js"
   },
   "typesVersions": {
     "*": {
-      "context-management": ["lib/context-management/index.d.ts"]
+      "context-management": ["lib/context-management/index.d.ts"],
+      "chat-persistence": ["lib/chat-persistence/index.d.ts"]
     }
   },
   "scripts": {

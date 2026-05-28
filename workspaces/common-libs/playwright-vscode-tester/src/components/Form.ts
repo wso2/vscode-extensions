@@ -100,8 +100,20 @@ export class Form {
                         break;
                     }
                     case 'textarea': {
-                        const input = this.container.locator(`textarea[aria-label="${key}"]`);
-                        await input.fill(data.value);
+                        let input = this.container.locator(
+                            `textarea[aria-label="${key}"], ` +
+                            `textarea[ariaLabel="${key}"], ` +
+                            `vscode-text-area[aria-label="${key}"] textarea, ` +
+                            `vscode-text-area[ariaLabel="${key}"] textarea`
+                        );
+
+                        // Fallback: some fields are label-associated but don't expose aria attributes on the inner textarea.
+                        if (await input.count() === 0) {
+                            const labeledParent = this.container.locator(`label:text("${key}")`).first().locator('../..');
+                            input = labeledParent.locator(`textarea, vscode-text-area textarea`);
+                        }
+
+                        await input.first().fill(data.value);
                         if (data.additionalProps?.clickLabel) {
                             await this.container.locator(`label:text("${key}")`).click();
                         }

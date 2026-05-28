@@ -40,7 +40,7 @@ const RadioButtonContainer = styled.div<RadioButtonContainerProps>`
 export interface RadioButtonGroupProps extends ComponentProps<"input"> {
     id?: string;
     className?: string;
-	label?: string;
+    label?: string;
     sx?: any;
     options?: OptionProps[];
     orientation?: "vertical" | "horizontal";
@@ -51,7 +51,7 @@ export const RadioButtonGroup = React.forwardRef<HTMLInputElement, RadioButtonGr
 
     return (
         <RadioButtonContainer id={id} className={className} sx={sx}>
-            <div style={{color: "var(--vscode-editor-foreground	)"}}>
+            <div style={{ color: "var(--vscode-editor-foreground	)" }}>
                 <label htmlFor={`${id}-label`}>{label}</label>
             </div>
             <VSCodeRadioGroup

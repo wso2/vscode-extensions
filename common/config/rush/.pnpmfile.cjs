@@ -26,6 +26,8 @@ module.exports = {
         if (deps['diff']) deps['diff'] = '8.0.3';
         if (deps['eslint']) deps['eslint'] = '^9.27.0';
         if (deps['fast-xml-parser']) deps['fast-xml-parser'] = '5.7.0';
+        if (deps['fast-xml-builder']) deps['fast-xml-builder'] = '1.1.7';
+        if (deps['fast-uri']) deps['fast-uri'] = '3.1.2';
         if (deps['esbuild']) deps['esbuild'] = '0.25.12';
         if (deps['lodash']) deps['lodash'] = '4.18.0';
         if (deps['qs']) deps['qs'] = '6.15.2'; // security fix: CVE-2026-8723
@@ -42,6 +44,7 @@ module.exports = {
         if (deps['follow-redirects']) deps['follow-redirects'] = '1.16.0'; // security fix: redirect bypass vulnerability
         if (deps['express-rate-limit']) deps['express-rate-limit'] = '8.2.2'; // security fix
         if (deps['file-type']) deps['file-type'] = '21.3.2'; // security fix
+        if (deps['postcss']) deps['postcss'] = '8.5.10';
         if (deps['immutable']) deps['immutable'] = '3.8.3'; // security fix
         if (deps['serialize-javascript']) deps['serialize-javascript'] = '7.0.5'; // security fix: XSS/code injection
         if (deps['flatted']) deps['flatted'] = '3.4.2'; // security fix
@@ -145,6 +148,14 @@ module.exports = {
             newVersion = currentVersion;
           }
           deps['yaml'] = newVersion;
+        }
+        if (deps['uuid']) {
+          const ver = deps['uuid'];
+          if (ver.startsWith('^8') || ver.startsWith('8')) {
+            deps['uuid'] = '14.0.0';
+          } else if (ver.startsWith('^11') || ver.startsWith('11')) {
+            deps['uuid'] = '14.0.0';
+          }
         }
       }
 
