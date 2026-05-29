@@ -613,7 +613,7 @@ export interface ExecutorPositions {
     executorPositions?: ExecutorPosition[];
 }
 
-// Test Manager related interfaces 
+// Test Manager related interfaces
 
 export interface TestsDiscoveryRequest {
     projectPath: string;
@@ -2055,6 +2055,14 @@ export interface ProjectArtifacts {
     artifacts: Artifacts;
 }
 
+export interface CodeMapRequest {
+    projectPath: string;
+}
+
+export interface CodeMapResponse {
+    content: string;
+}
+
 export interface ProjectInfoRequest {
     projectPath: string;
 }
@@ -2168,6 +2176,7 @@ export interface ExtendedLangClientInterface extends BIInterface {
     updateStatusBar(): void;
     getDidOpenParams(): DidOpenParams;
     getProjectArtifacts(params: ProjectArtifactsRequest): Promise<ProjectArtifacts>;
+    getCodeMap(params: CodeMapRequest): Promise<CodeMapResponse>;
     getProjectInfo(params: ProjectInfoRequest): Promise<ProjectInfo>;
     getSimpleTypeOfExpression(params: GetSimpleTypeOfExpressionRequest): Promise<GetSimpleTypeOfExpressionResponse>;
     openConfigToml(params: OpenConfigTomlRequest): Promise<void>;
