@@ -176,6 +176,7 @@ Usage:
  - ALWAYS use Grep for search tasks. NEVER invoke \`grep\` as a Bash command.
  - Supports full ripgrep regex syntax
  - Always returns matching lines with 2 lines of surrounding context and grouped by file
+ - Only searches these file types by default: .bal, .toml, .md, .json, .yaml, .yml, .sql — searches for other extensions will return no results
 `,
         inputSchema: z.object({
             pattern: z.string().describe("The regular expression pattern to search for in file contents"),
