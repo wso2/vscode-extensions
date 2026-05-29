@@ -62,46 +62,57 @@ export interface FileEditHunk {
 // Constants
 // ============================================================================
 
-// TODO: This should be checked. Some files might be in the project that are not in this list.
 /**
- * Valid file extensions for MI/Synapse projects
- * - .xml: Synapse configurations (APIs, sequences, endpoints, etc.)
- * - .yaml/.yml: Configuration files
- * - .properties: Property files
- * - .md: Documentation
- * - .json: JSON configurations
- * - .dmc: Data mapper configurations
- * - .ts: TypeScript files (for data mapper)
+ * Binary / non-text file extensions that the agent must not open or mutate
+ * as text. Anything else is treated as text-writable by file_write/file_edit
+ * and as text-readable by file_read (images and PDFs are routed to multimodal
+ * read paths separately and so are also listed here to block text writes).
+ *
+ * Keep entries lowercase, leading-dot. Order is informational only.
  */
-export const VALID_FILE_EXTENSIONS = [
-    '.xml',
-    '.yaml',
-    '.yml',
-    '.properties',
-    '.md',
-    '.json',
-    '.dmc',
-    '.ts',
-    '.toml',
-    '.txt',
-    '.log',
-    '.java',
-    '.xslt',
-    '.sql',
-    '.xsd',
-    '.wsdl',
-    '.csv',
-    '.html',
-    '.sh',
-    '.bat'
-];
+export const BLOCKED_BINARY_EXTENSIONS = [
+    // Archives / compressed
+    '.zip', '.tar', '.gz', '.tgz', '.bz2', '.tbz2', '.7z', '.rar', '.xz', '.lz', '.lzma', '.zst',
+    // JVM compiled artifacts
+    '.jar', '.war', '.ear', '.class',
+    // Native binaries / object files
+    '.exe', '.dll', '.so', '.dylib', '.bin', '.o', '.a', '.lib', '.obj', '.pdb',
+    // Compiled Python
+    '.pyc', '.pyo', '.pyd',
+    // Office documents (binary; the agent can't meaningfully edit these as text)
+    '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.odt', '.ods', '.odp',
+    // Image formats not handled by the multimodal read path
+    '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif', '.avif',
+    // Images handled by the multimodal read path — blocked for writes only.
+    // file_read special-cases these (see READ_IMAGE_EXTENSIONS in file_tools.ts).
+    '.png', '.jpg', '.jpeg', '.gif', '.webp',
+    // PDF — blocked for writes only; file_read routes to the PDF multimodal path.
+    '.pdf',
+    // Audio
+    '.mp3', '.wav', '.flac', '.ogg', '.aac', '.m4a', '.wma',
+    // Video
+    '.mp4', '.mov', '.avi', '.mkv', '.webm', '.flv', '.wmv', '.mpeg', '.mpg', '.m4v',
+    // Fonts
+    '.ttf', '.otf', '.woff', '.woff2', '.eot',
+    // Databases
+    '.db', '.sqlite', '.sqlite3', '.mdb', '.accdb',
+    // Installers / disk images
+    '.iso', '.dmg', '.deb', '.rpm', '.msi', '.pkg', '.apk', '.ipa',
+    // Design assets
+    '.psd', '.ai', '.sketch', '.fig'
+] as const;
 
 /**
- * Valid file names without extensions
+ * Returns true if `filePath` ends with an extension in {@link BLOCKED_BINARY_EXTENSIONS}.
+ * Case-insensitive; safe to call with a basename or a full path.
  */
-export const VALID_SPECIAL_FILE_NAMES = [
-    'Dockerfile',
-];
+export function hasBlockedBinaryExtension(filePath: string): boolean {
+    if (!filePath) {
+        return false;
+    }
+    const lower = filePath.toLowerCase();
+    return BLOCKED_BINARY_EXTENSIONS.some((ext) => lower.endsWith(ext));
+}
 
 export const MAX_LINE_LENGTH = 2000;
 export const DEFAULT_READ_LIMIT = 2000;

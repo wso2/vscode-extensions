@@ -20,6 +20,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { parsePowerShellAst, PowerShellAstCommand, PowerShellAstResult } from './shell_sandbox_powershell_ast';
+import { hasBlockedBinaryExtension } from './types';
 
 interface ShellSegmentAnalysisLike {
     raw: string;
@@ -895,6 +896,24 @@ export function analyzePowerShellCommand(
         reasons.push(
             `Mutating paths outside allowed roots is blocked. Disallowed path(s): ${dedupe(disallowedMutationPaths).join(', ')}. ` +
             `Allowed roots: project root, ${normalizedExternalAllowedRoots.join(', ')}.`
+        );
+    }
+
+    // Mirror the POSIX analyzer: block mutations targeting binary file paths
+    // (matches the file-tool deny-list). Basename is compared case-insensitively
+    // via `hasBlockedBinaryExtension`. We use `path.win32.basename` to handle
+    // both `/` and `\` separators in PowerShell tokens.
+    const blockedBinaryMutationPaths = dedupe(
+        extractedPathTokens.mutationPathTokens.filter(
+            (token) => hasBlockedBinaryExtension(path.win32.basename(stripWrappingQuotes(token)))
+        )
+    );
+    if (blockedBinaryMutationPaths.length > 0) {
+        blocked = true;
+        reasons.push(
+            `Mutating binary file paths is blocked (write/edit/delete/rename; matches the file-tool deny-list). ` +
+            `Blocked path(s): ${blockedBinaryMutationPaths.join(', ')}. ` +
+            `Use directory-level operations (e.g. \`Remove-Item -Recurse dist\`) instead of targeting binary files by name.`
         );
     }
 
