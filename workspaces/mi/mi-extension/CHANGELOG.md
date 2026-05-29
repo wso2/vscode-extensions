@@ -2,6 +2,12 @@
 
 All notable changes to the "micro-integrator" extension will be documented in this file.
 
+## [4.0.2] - 2026-05-29    
+
+### Fixed    
+
+Fixed: Add support for AGENTS.md([#1495](https://github.com/wso2/mi-vscode/issues/1495))   
+
 ## [4.0.1] - 2026-05-26    
 
 ### Fixed    
