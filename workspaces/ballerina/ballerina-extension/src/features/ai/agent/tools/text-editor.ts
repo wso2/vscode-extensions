@@ -34,35 +34,35 @@ import { normalizeToLf, readAndNormalize, restoreEol } from "../../utils/eol-uti
  * Emits tool_call event for file editing tools
  */
 function emitFileToolCall(
-    eventHandler: CopilotEventHandler,
-    toolName: string,
-    file_path: string
+  eventHandler: CopilotEventHandler,
+  toolName: string,
+  file_path: string
 ): void {
-    eventHandler({
-        type: "tool_call",
-        toolName,
-        toolInput: { fileName: file_path }
-    });
+  eventHandler({
+    type: "tool_call",
+    toolName,
+    toolInput: { fileName: file_path }
+  });
 }
 
 /**
  * Emits tool_result event for file editing tools
  */
 function emitFileToolResult(
-    eventHandler: CopilotEventHandler,
-    toolName: string,
-    result: TextEditorResult,
-    file_path?: string
+  eventHandler: CopilotEventHandler,
+  toolName: string,
+  result: TextEditorResult,
+  file_path?: string
 ): void {
-    eventHandler({
-        type: "tool_result",
-        toolName,
-        toolOutput: {
-            success: result.success,
-            action: result.action,
-            fileName: file_path
-        }
-    });
+  eventHandler({
+    type: "tool_result",
+    toolName,
+    toolOutput: {
+      success: result.success,
+      action: result.action,
+      fileName: file_path
+    }
+  });
 }
 
 // ============================================================================
@@ -132,7 +132,7 @@ function validateFilePath(filePath: string): ValidationResult {
     };
   }
 
-  const hasValidExtension = VALID_FILE_EXTENSIONS.some(ext => 
+  const hasValidExtension = VALID_FILE_EXTENSIONS.some(ext =>
     filePath.endsWith(ext)
   );
 
@@ -147,21 +147,21 @@ function validateFilePath(filePath: string): ValidationResult {
 }
 
 function validateLineRange(
-  offset: number,
-  limit: number,
+  startLine: number,
+  endLine: number,
   totalLines: number
 ): ValidationResult {
-  if (offset < 1 || offset > totalLines) {
+  if (startLine < 1 || startLine > totalLines) {
     return {
       valid: false,
-      error: `Invalid offset ${offset}. File has ${totalLines} lines.`
+      error: `Invalid startLine ${startLine}. File has ${totalLines} lines.`
     };
   }
 
-  if (limit < 1) {
+  if (endLine < startLine || endLine > totalLines) {
     return {
       valid: false,
-      error: `Invalid limit ${limit}. Must be at least 1.`
+      error: `Invalid endLine ${endLine}. Must be >= startLine (${startLine}) and <= ${totalLines}.`
     };
   }
 
@@ -193,12 +193,12 @@ function notifyLanguageServer(tempProjectPath: string, filePath: string): void {
     const fileContent = fs.readFileSync(fullPath, 'utf-8');
     const fileUri = Uri.file(fullPath).toString();
     StateMachine.langClient().didOpen({
-        textDocument: {
-            uri: fileUri,
-            languageId: 'ballerina',
-            version: 1,
-            text: fileContent
-        }
+      textDocument: {
+        uri: fileUri,
+        languageId: 'ballerina',
+        version: 1,
+        text: fileContent
+      }
     });
 
     console.log(`[TextEditorTool] Sent didChange notification for: ${filePath}`);
@@ -231,11 +231,11 @@ function updateOrCreateFile(
 
 function countOccurrences(text: string, searchString: string): number {
   if (searchString.trim().length === 0 && text.trim().length === 0) {
-        return 1;
+    return 1;
   }
 
   if (!searchString) { return 0; }
-  
+
   let count = 0;
   let position = 0;
 
@@ -379,7 +379,7 @@ export function createEditExecute(
     // Emit tool_call event
     emitFileToolCall(eventHandler, FILE_SINGLE_EDIT_TOOL_NAME, file_path);
 
-    console.log(`[FileEditTool] Editing ${file_path}, replacing '${old_string.substring(0, 50)}' with '${new_string.substring(0,50)}', replace_all: ${replace_all}`);
+    console.log(`[FileEditTool] Editing ${file_path}, replacing '${old_string.substring(0, 50)}' with '${new_string.substring(0, 50)}', replace_all: ${replace_all}`);
 
     // Validate file path
     const pathValidation = validateFilePath(file_path);
@@ -477,7 +477,7 @@ export function createEditExecute(
     // Perform replacement
     let newContent: string;
     if (workingContent.trim() === "" && workingOldString.trim() === "") {
-        newContent = workingNewString;
+      newContent = workingNewString;
     } else {
       if (replace_all) {
         newContent = workingContent.replaceAll(workingOldString, workingNewString);
@@ -690,10 +690,10 @@ export function createReadExecute(
 ) {
   return async (args: {
     file_path: string;
-    offset?: number;
-    limit?: number;
+    startLine?: number;
+    endLine?: number;
   }): Promise<TextEditorResult> => {
-    const { file_path, offset, limit } = args;
+    const { file_path, startLine, endLine } = args;
 
     // Validate file path
     const pathValidation = validateFilePath(file_path);
@@ -748,10 +748,10 @@ export function createReadExecute(
     const totalLines = lines.length;
 
     // Handle ranged read
-    if (offset !== undefined && limit !== undefined) {
-      const validation = validateLineRange(offset, limit, totalLines);
+    if (startLine !== undefined && endLine !== undefined) {
+      const validation = validateLineRange(startLine, endLine, totalLines);
       if (!validation.valid) {
-        console.error(`[FileReadTool] Invalid line range for file: ${file_path}, offset: ${offset}, limit: ${limit}`);
+        console.error(`[FileReadTool] Invalid line range for file: ${file_path}, startLine: ${startLine}, endLine: ${endLine}`);
         const result = {
           success: false,
           message: validation.error!,
@@ -761,15 +761,15 @@ export function createReadExecute(
         return result;
       }
 
-      const startIndex = offset - 1; // Convert to 0-based index
-      const endIndex = Math.min(startIndex + limit, totalLines);
+      const startIndex = startLine - 1; // Convert to 0-based index
+      const endIndex = Math.min(endLine, totalLines);
       const rangedLines = lines.slice(startIndex, endIndex);
       const rangedContent = truncateLongLines(rangedLines.join('\n'));
 
-      console.log(`[FileReadTool] Read lines ${offset} to ${endIndex} from file: ${file_path}`);
+      console.log(`[FileReadTool] Read lines ${startLine} to ${endIndex} from file: ${file_path}`);
       const result = {
         success: true,
-        message: `Read lines ${offset} to ${endIndex} from '${file_path}' (${endIndex - startIndex} lines). \nContent:${rangedContent}`,
+        message: `Read lines ${startLine} to ${endIndex} from '${file_path}' (${endIndex - startIndex} lines). \nContent:${rangedContent}`,
       };
       emitFileToolResult(eventHandler, FILE_READ_TOOL_NAME, result, file_path);
       return result;
@@ -821,8 +821,8 @@ type MultiEditExecute = (args: {
 
 type ReadExecute = (args: {
   file_path: string;
-  offset?: number;
-  limit?: number;
+  startLine?: number;
+  endLine?: number;
 }) => Promise<any>;
 
 // 1. Write Tool
@@ -849,15 +849,15 @@ export function createWriteTool(execute: WriteExecute) {
 // 2. Edit Tool
 export function createEditTool(execute: EditExecute) {
   return tool({
-    description: `Performs exact string replacements in files. 
+    description: `Performs exact string replacements in files.
     Usage:
-    - You must read the chat history at least once before editing, as the user’s message contains the content of the each source file. This tool will error if you attempt an edit without reading the chat history. 
+    - You must read the chat history at least once before editing, as the user’s message contains the content of the each source file. This tool will error if you attempt an edit without reading the chat history.
     - When editing text content of a file that you obtained from the chat history you read earlier, ensure you preserve the exact indentation (tabs/spaces) as it appears AFTER the line number prefix.
     - If there are multiple edits to be made to the same file, prefer using the ${FILE_BATCH_EDIT_TOOL_NAME} tool instead of this one.
     - Do not create new files using this tool. Only edit existing files. If the file does not exist, Use ${FILE_WRITE_TOOL_NAME} to create new files.
     - NEVER proactively edit documentation files (*.md) or README files. Only edit documentation files if explicitly requested by the User.
     - Only use emojis if the user explicitly requests it. Avoid adding emojis to files unless asked.
-    - The edit will FAIL if **old_string** is not unique in the file. Either provide a larger string with more surrounding context to make it unique or use **replace_all** to change every instance of **old_string**. 
+    - The edit will FAIL if **old_string** is not unique in the file. Either provide a larger string with more surrounding context to make it unique or use **replace_all** to change every instance of **old_string**.
     - Use **replace_all** for replacing and renaming strings across the file. This parameter is useful if you want to rename a variable for instance.`,
     inputSchema: z.object({
       file_path: z.string().describe(getFilePathDescription("edit")),
@@ -921,24 +921,23 @@ export function createBatchEditTool(execute: MultiEditExecute) {
 export function createReadTool(execute: ReadExecute) {
   return tool({
     description: `Reads a file from the local filesystem.
-    ALWAYS prefer reading files mentioned in the user’s message in the chat history first. Only use this tool if you need to read a file that is not present in the chat history.
     NOTE: The following files are restricted and cannot be read: ${RESTRICTED_READ_FILES.join(", ")}.
     Usage:
     - For workspace projects, include the package directory prefix in the file path (e.g., "myPackage/main.bal").
-    - You can optionally specify a line offset and limit (especially handy for long files).
-    - Any lines longer than 2000 characters will be truncated
+    - From the Codebase High Level Summary, If you know the line range of components to read, **ALWAYS** use the startLine and endLine parameters to read that components insted of files.
     - The file content will be returned as string
-    - If the file is very large, consider using the offset and limit parameters to read it in chunks.`,
+    - Any lines longer than 2000 characters will be truncated
+    - If you read a file that exists but has empty contents you will receive a system reminder warning in place of file contents`,
     inputSchema: z.object({
       file_path: z.string().describe(getFilePathDescription("read")),
-      offset: z.number().optional().describe("The line number to start reading from. Only provide if the file is too large to read at once"),
-      limit: z.number().optional().describe("The number of lines to read. Only provide if the file is too large to read at once.")
+      startLine: z.number().optional().describe("The line number to start reading from. Use to read a specific range of lines."),
+      endLine: z.number().optional().describe("The line number to stop reading at. Use to read a specific range of lines.")
     }),
     execute
   });
 }
 function insertIntoUpdateFileNames(updatedFileNames: string[], file_path: string) {
-    if (!updatedFileNames.includes(file_path)) {
-      updatedFileNames.push(file_path);
-    }
+  if (!updatedFileNames.includes(file_path)) {
+    updatedFileNames.push(file_path);
+  }
 }

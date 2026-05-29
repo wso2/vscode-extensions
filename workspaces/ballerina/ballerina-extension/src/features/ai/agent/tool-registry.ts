@@ -55,6 +55,8 @@ import { RunningServicesManager } from './tools/running-service-manager';
 import { createHurlTool, HURL_TOOL_NAME } from './tools/hurl-tool';
 import { createWebSearchTool, WEB_SEARCH_TOOL_NAME, createWebFetchTool, WEB_FETCH_TOOL_NAME } from './tools/web-tools';
 import { createClarifyTool, CLARIFY_TOOL } from './tools/clarify';
+import { createGrepTool, createGrepExecute, GREP_TOOL_NAME } from './tools/grep';
+import { createGlobTool, createGlobExecute, GLOB_TOOL_NAME } from './tools/glob';
 
 export interface ToolRegistryOptions {
     eventHandler: CopilotEventHandler;
@@ -122,6 +124,12 @@ export function createToolRegistry(opts: ToolRegistryOptions) {
         ),
         [FILE_READ_TOOL_NAME]: createReadTool(
             createReadExecute(eventHandler, tempProjectPath)
+        ),
+        [GREP_TOOL_NAME]: createGrepTool(
+            createGrepExecute(eventHandler, tempProjectPath)
+        ),
+        [GLOB_TOOL_NAME]: createGlobTool(
+            createGlobExecute(eventHandler, tempProjectPath)
         ),
         [DIAGNOSTICS_TOOL_NAME]: createDiagnosticsTool(tempProjectPath, eventHandler),
         [TEST_RUNNER_TOOL_NAME]: createTestRunnerTool(tempProjectPath, eventHandler, modifiedFiles, allModifiedFiles, ctx),
