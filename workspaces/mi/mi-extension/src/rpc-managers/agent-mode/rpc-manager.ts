@@ -502,6 +502,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             includeCompactSummaryEntry: true,
             includeUndoCheckpointEntry: true,
             includeCheckpointAnchorEntry: true,
+            includeContextWarningEntry: true,
         });
         const events = ChatHistoryManager.convertToEventFormat(messages);
         const normalizedEvents = this.applyLatestUndoAvailabilityToEvents(events);
