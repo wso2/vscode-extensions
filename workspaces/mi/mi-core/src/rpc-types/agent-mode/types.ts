@@ -162,6 +162,8 @@ export type AgentEventType =
     | "plan_approval_requested" // Agent requesting approval for plan (exit_plan_mode)
     // Compact event
     | "compact"                // Conversation was compacted (auto-summarized)
+    // Context warning event (e.g. AGENTS.md truncated to fit size limit)
+    | "context_warning"
     // Usage event
     | "usage";                 // Token usage update (emitted per step)
 
@@ -274,6 +276,8 @@ export interface AgentEvent {
     suggestedPrefixRule?: string[];
     /** Summary text for compact event */
     summary?: string;
+    /** Human-readable warning text for context_warning event (e.g. AGENTS.md truncated). */
+    warningMessage?: string;
 
     // Usage fields (for usage event)
     /** Total input tokens (input + cached) for context usage tracking */
@@ -316,7 +320,7 @@ export interface PlanApprovalRequestedEvent extends AgentEvent {
  * Frontend will convert these to UI messages with inline tool call formatting
  */
 export interface ChatHistoryEvent {
-    type: 'user' | 'assistant' | 'tool_call' | 'tool_result' | 'compact_summary' | 'undo_checkpoint' | 'checkpoint_anchor';
+    type: 'user' | 'assistant' | 'tool_call' | 'tool_result' | 'compact_summary' | 'context_warning' | 'undo_checkpoint' | 'checkpoint_anchor';
     /** Stable UI chat id for grouping a user turn and its assistant output */
     chatId?: number;
     content?: string;
@@ -333,6 +337,8 @@ export interface ChatHistoryEvent {
     checkpointAnchor?: CheckpointAnchorSummary;
     /** Assistant chat id this undo checkpoint should attach to during UI replay */
     targetChatId?: number;
+    /** Warning message body for context_warning events (e.g. AGENTS.md truncated) */
+    warningMessage?: string;
     timestamp: string;
 
     // Shell tool fields (for history display)
@@ -441,6 +447,8 @@ export interface SessionContextBlocksState {
     modePolicy?: string;
     /** sha256-16 of the canonicalized preconfigured-payloads JSON */
     payloads?: string;
+    /** sha256-16 of the (possibly truncated) AGENTS.md bytes + truncation banner inputs */
+    agentsMd?: string;
 }
 
 /**

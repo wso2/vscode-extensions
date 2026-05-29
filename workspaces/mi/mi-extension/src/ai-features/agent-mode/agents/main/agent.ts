@@ -35,6 +35,7 @@ import { getLoginMethod, getTavilyApiKey } from '../../../auth';
 import { getSystemPrompt } from '../main/system';
 import {
     BlockInjectionStatus,
+    AGENTS_MD_MAX_BYTES,
     BlockInjectionStatuses,
     computeSessionContextBlockHashes,
     getUserPrompt,
@@ -259,6 +260,7 @@ function buildUpdatedBlocksState(
     apply('webAvailability', statuses.webAvailability, current.webAvailability);
     apply('modePolicy', statuses.modePolicy, current.modePolicy);
     apply('payloads', statuses.payloads, current.payloads);
+    apply('agentsMd', statuses.agentsMd, current.agentsMd);
     return touched ? updated : undefined;
 }
 
@@ -285,6 +287,7 @@ function logBlockInjectionDrift(
     note('webAvailability', statuses.webAvailability, previous.webAvailability, current.webAvailability);
     note('mode', statuses.modePolicy, previous.modePolicy, current.modePolicy);
     note('payloads', statuses.payloads, previous.payloads, current.payloads);
+    note('agentsMd', statuses.agentsMd, previous.agentsMd, current.agentsMd);
     if (driftedBlocks.length > 0) {
         logInfo(`[Agent] Session-context drift — re-injecting: ${driftedBlocks.join(', ')}`);
     }
@@ -619,6 +622,7 @@ export async function executeAgent(
             webAvailability: decideBlockStatus(currentBlockHashes.webAvailability, previousBlocks.webAvailability, forceFirstInjection),
             modePolicy: decideBlockStatus(currentBlockHashes.modePolicy, previousBlocks.modePolicy, forceFirstInjection),
             payloads: decideBlockStatus(currentBlockHashes.payloads, previousBlocks.payloads, forceFirstInjection),
+            agentsMd: decideBlockStatus(currentBlockHashes.agentsMd, previousBlocks.agentsMd, forceFirstInjection),
         };
         const previousMode = previousBlocks.modePolicy as AgentMode | undefined;
 
@@ -690,6 +694,32 @@ export async function executeAgent(
                     }
                     : undefined,
             });
+        }
+
+        // Surface an AGENTS.md truncation warning to the user — only when the
+        // block is actually being injected this turn (not on quiet 'omit' turns
+        // where the model already has the same truncated content), so the
+        // warning isn't repeated every turn for an unchanged-but-large file.
+        const agentsMdInjected = blockStatuses.agentsMd === 'first-injection'
+            || blockStatuses.agentsMd === 're-injection';
+        if (agentsMdInjected && sessionContextResult.snapshot.agentsMdTruncated) {
+            const originalKb = Math.ceil(sessionContextResult.snapshot.agentsMdOriginalSize / 1024);
+            const cappedKb = Math.ceil(AGENTS_MD_MAX_BYTES / 1024);
+            const warningMessage = `Your AGENTS.md is ${originalKb} KB; only the first ${cappedKb} KB is included in the model's context. Rules in the truncated portion will NOT be followed. Please shorten AGENTS.md to fit within ${cappedKb} KB; move detailed rules into separate files and reference them from AGENTS.md so the agent can read them on demand.`;
+            // Persistence is a non-fatal side-effect — a JSONL write failure
+            // must not abort the agent run. The warning is purely informational
+            // (the truncation banner inside the prompt block tells the model
+            // separately), so on persistence failure we still emit the live
+            // event so the user sees it this turn; only the cross-reconnect
+            // replay is sacrificed.
+            if (request.chatHistoryManager) {
+                try {
+                    await request.chatHistoryManager.saveAgentsMdWarning(warningMessage);
+                } catch (error) {
+                    logError('[Agent] Failed to persist AGENTS.md warning to history', error);
+                }
+            }
+            emitEvent({ type: 'context_warning', warningMessage, content: warningMessage });
         }
 
         // Track how many messages have been saved from step.response.messages
