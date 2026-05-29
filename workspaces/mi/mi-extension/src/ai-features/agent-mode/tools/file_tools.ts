@@ -652,6 +652,22 @@ function trackModifiedFile(modifiedFiles: string[] | undefined, filePath: string
     }
 }
 
+/**
+ * Returns true for class mediator java sources under src/main/java/.
+ * Used to nudge the agent to keep root pom.xml packaging and deps consistent;
+ * the CApp will not pack the jar when packaging is still "pom".
+ */
+function isClassMediatorPath(filePath: string): boolean {
+    const normalized = filePath.replace(/\\/g, '/').toLowerCase();
+    return /(^|\/)src\/main\/java\//.test(normalized) && normalized.endsWith('.java');
+}
+
+const CLASS_MEDIATOR_POM_REMINDER =
+    '\n\n<system-reminder>You just wrote/edited a class mediator java source. ' +
+    'Verify the project root pom.xml has <packaging>jar</packaging> (default is "pom") ' +
+    'and that a synapse-core dependency is declared. Without both, the CApp will not ' +
+    'pack the jar and the class mediator will silently fail to deploy.</system-reminder>';
+
 
 // ============================================================================
 // Execute Functions (Business Logic)
@@ -780,9 +796,10 @@ export function createWriteExecute(
         console.log(`[FileWriteTool] Successfully ${action} and synced file: ${file_path} with ${lineCount} lines`);
 
         // Build result with structured validation data
+        const classMediatorReminder = isClassMediatorPath(file_path) ? CLASS_MEDIATOR_POM_REMINDER : '';
         const result: ToolResult = {
             success: true,
-            message: `Successfully ${action} file '${file_path}' with ${lineCount} line(s).${validation ? formatValidationMessage(validation, 15) : ''}`
+            message: `Successfully ${action} file '${file_path}' with ${lineCount} line(s).${validation ? formatValidationMessage(validation, 15) : ''}${classMediatorReminder}`
         };
 
         if (validation) {
@@ -1077,9 +1094,10 @@ export function createEditExecute(
         const replacedCount = replace_all ? occurrences : 1;
         logDebug(`[FileEditTool] Successfully replaced ${replacedCount} occurrence(s) in: ${file_path}`);
 
+        const classMediatorReminder = isClassMediatorPath(file_path) ? CLASS_MEDIATOR_POM_REMINDER : '';
         const result: ToolResult = {
             success: true,
-            message: `Replaced ${replacedCount} occurrence(s) in '${file_path}'.${validation ? formatValidationMessage(validation, 15) : ''}`
+            message: `Replaced ${replacedCount} occurrence(s) in '${file_path}'.${validation ? formatValidationMessage(validation, 15) : ''}${classMediatorReminder}`
         };
 
         if (validation) {
