@@ -35,22 +35,12 @@ For user-facing instructions and prompt examples, see `USER_GUIDE.md` in this sk
    bash e2e-test/e2e-authoring/scripts/run-steps.sh <scenario-name> e2e-test/e2e-authoring/scenarios/<scenario-name>/steps
    ```
 
-6. If a selector is unstable or an element cannot be found by `data-testid`, add a stable `data-testid` attribute to that element in the relevant `workspaces/ballerina/*/src` UI package. Do not use dynamic/generated class names as selectors, including Emotion class names.
-   After adding any `data-testid` — even a single attribute in one file — always rebuild the VSIX and install it before rerunning steps:
+6. If a selector is unstable, add a stable `data-testid` in the relevant `workspaces/ballerina/*/src` UI package. Do not use dynamic/generated class names as selectors, including Emotion class names.
+   After adding any `data-testid` — even a single attribute in one file — always rebuild the VSIX before rerunning steps:
 
    ```bash
    rush build -t ballerina
    ```
-
-   Then install the newly built VSIX into the test VS Code instance (the harness daemon picks up the VSIX from the workspace root). If the VS Code instance is already running the old extension version, stop it, reinstall the VSIX, and restart before retrying.
-
-   **If the installed version looks unchanged** (VS Code loads the cached build because the version string is identical): bump the version in `workspaces/ballerina/ballerina-extension/package.json` by appending a timestamp suffix, e.g. `"5.12.0"` → `"5.12.0-20260520"`. Then rebuild and reinstall:
-
-   ```bash
-   rush build -t ballerina
-   ```
-
-   This forces VS Code to treat it as a genuinely new extension version, bypassing any cached install. Once the selector is confirmed working you can revert the version string.
 
 7. Once the step flow is proven, promote the same UI flow into a new spec file. Place the spec in the subdirectory that best matches the integration category, following the existing layout:
 
@@ -74,7 +64,7 @@ For user-facing instructions and prompt examples, see `USER_GUIDE.md` in this sk
 - The committed source of truth is the normal Playwright spec.
 - Use `@wso2/playwright-vscode-tester` launch behavior through the authoring daemon.
 - Prefer existing helpers: `initTest`, `getWebview`, `addArtifact`, `ProjectExplorer`, and `Diagram`.
-- Extension webview action selectors should be `data-testid`, stable roles, or stable accessible names. If an element has no `data-testid`, do not work around it with fragile selectors — add the `data-testid`, rebuild, reinstall, and retry.
+- Extension webview action selectors should be `data-testid`, stable roles, or stable accessible names.
 - VS Code shell selectors may use stable workbench ARIA labels where needed.
 - Do not create or modify Ballerina flow files directly to build the scenario. Source files may be read for final verification only.
 - Build diagram flows top-to-bottom so each saved form leaves the project compilable for the next form.
