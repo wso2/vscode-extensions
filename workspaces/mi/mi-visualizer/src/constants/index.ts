@@ -130,6 +130,7 @@ export enum InboundEndpointTypes {
 
 export const connectorFailoverIconUrl = "https://mi-connectors.wso2.com/icons/wordpress.gif";
 export const RUNTIME_VERSION_440 = "4.4.0";
+export const RUNTIME_VERSION_410 = "4.1.0";
 
 export const DATASOURCE = {
     TYPE: {
