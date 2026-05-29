@@ -62,6 +62,8 @@ const TOOL_ICON_MAP: Record<string, ToolIconEntry> = {
     HealthcareLibraryProviderTool: { loading: "codicon-package" },
     web_search:                    { loading: "codicon-search" },
     web_fetch:                     { loading: "codicon-globe" },
+    grep:                          { loading: "codicon-search" },
+    glob:                          { loading: "codicon-folder-opened" },
     runTests:                      { loading: "codicon-beaker" },
     runBallerinaPackage:           { loading: "codicon-play" },
     getServiceLogs:                { loading: "codicon-output" },
@@ -165,6 +167,18 @@ function getToolResultDisplay(toolName: string | undefined, toolOutput: any, hin
         }
         case "web_search": return { label: hint ? "Web search:" : "Web search completed", detail: hint };
         case "web_fetch":  return { label: hint ? "Web fetch:" : "Web fetch completed",  detail: hint };
+        case "grep": {
+            if (!toolOutput?.success) return { label: "Search failed" };
+            if (toolOutput?.matchCount === 0) return { label: "No matches found" };
+            const count = toolOutput?.matchCount;
+            return { label: count != null ? `Found ${count} match${count !== 1 ? "es" : ""}` : "Search completed" };
+        }
+        case "glob": {
+            if (!toolOutput?.success) return { label: "File search failed" };
+            if (toolOutput?.fileCount === 0) return { label: "No files found" };
+            const count = toolOutput?.fileCount;
+            return { label: count != null ? `Found ${count} file${count !== 1 ? "s" : ""}` : "Files found" };
+        }
         default: return { label: "Done" };
     }
 }
@@ -186,6 +200,7 @@ function renderItem(item: StreamItem, idx: number, streamActive: boolean, rpcCli
             if (item.toolName === "hurlRunnerTool") {
                 return <TryItCard key={idx} input={item.toolInput} rpcClient={rpcClient} />;
             }
+            if (item.toolName === "grep" || item.toolName === "glob") return null;
             if (COMMAND_OUTPUT_TOOLS.has(item.toolName ?? "")) {
                 return <CommandOutputCard key={idx} toolName={item.toolName} toolInput={item.toolInput} />;
             }
