@@ -5,14 +5,16 @@ All notable changes to the "micro-integrator" extension will be documented in th
 ## [4.0.2] - 2026-05-29    
 
 ### Fixed    
-
-Fixed: Add support for AGENTS.md([#1495](https://github.com/wso2/mi-vscode/issues/1495))   
+    
+Fixed: Copilot created class mediators are not getting packed in the CApp ([#1631](https://github.com/wso2/product-integrator/issues/1631))    
+Fixed: MI Copilot cannot create a dbs and creates an XML file ([#1474](https://github.com/wso2/product-integrator/issues/1474))   
+Fixed: Add support for AGENTS.md ([#1495](https://github.com/wso2/mi-vscode/issues/1495))   
 
 ## [4.0.1] - 2026-05-26    
 
 ### Fixed    
 
-Fixed: Resource path corrupts when creating a registry resource([#1491](https://github.com/wso2/mi-vscode/issues/1491))   
+Fixed: Resource path corrupts when creating a registry resource ([#1491](https://github.com/wso2/mi-vscode/issues/1491))   
 Fixed: Support parsing parameterized values to the maven-car-deploy-plugin ([#1490](https://github.com/wso2/mi-vscode/issues/1490))   
 Fixed: Call Endpoint mediator Endpoint list doesn't show INLINE option ([#1126](https://github.com/wso2/mi-vscode/issues/1126))  
 
