@@ -34,11 +34,12 @@ export interface GetTaskTemplatesArgs {
     triggerCron: string;
     taskProperties: Property[];
     customProperties: any[];
+    startOnLoad?: string;
 }
 
 export function getTaskMustacheTemplate() {
     return `<?xml version="1.0" encoding="UTF-8"?>
-<task class="{{implementation}}" group="{{group}}" name="{{name}}"{{#pinnedServers}} pinnedServers="{{pinnedServers}}"{{/pinnedServers}} xmlns="http://ws.apache.org/ns/synapse">
+<task class="{{implementation}}" group="{{group}}" name="{{name}}"{{#startOnLoad}} startOnLoad="{{startOnLoad}}"{{/startOnLoad}}{{#pinnedServers}} pinnedServers="{{pinnedServers}}"{{/pinnedServers}} xmlns="http://ws.apache.org/ns/synapse">
     <trigger{{#cron}} cron="{{cron}}"{{/cron}}{{#once}} once="true"{{/once}}{{#count}} count="{{count}}"{{/count}}{{#interval}} interval="{{interval}}"{{/interval}}/>
     {{#taskProperties}}
     {{#key}}

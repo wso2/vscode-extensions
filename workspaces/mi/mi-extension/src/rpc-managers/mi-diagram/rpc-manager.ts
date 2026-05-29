@@ -1798,7 +1798,9 @@ ${endpointAttributes}
                     triggerCount: null,
                     triggerInterval: 1,
                     triggerCron: '',
-                    taskProperties: []
+                    taskProperties: [],
+                    startOnLoad: jsonData.task["@_"]["startOnLoad"] !== undefined ? 
+                        String(jsonData.task["@_"]["startOnLoad"]) : undefined
                 };
 
                 if (jsonData.task.trigger["@_"]["once"] !== undefined) {

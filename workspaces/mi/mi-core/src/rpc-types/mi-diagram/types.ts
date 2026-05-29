@@ -947,6 +947,7 @@ export interface CreateTaskRequest {
     taskProperties: taskProperty[];
     customProperties: any[];
     sequence: CreateSequenceRequest | undefined;
+    startOnLoad?: string;
 }
 
 export interface taskProperty {
@@ -973,6 +974,7 @@ export interface GetTaskResponse {
     triggerInterval: number;
     triggerCron: string;
     taskProperties: taskProperty[];
+    startOnLoad?: string;
 }
 
 export interface CreateTemplateRequest {
