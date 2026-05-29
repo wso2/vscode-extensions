@@ -831,6 +831,18 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                     // just before the active placeholder so the placeholder stays
                     // last and remains the streaming target.
                     setMessages((prev) => {
+                        // Dedup: on panel reconnect the warning is already in the
+                        // loaded JSONL history, but the same context_warning event
+                        // can also be replayed from the run buffer. Skip if an
+                        // identical assistant warning is already among the last
+                        // few messages.
+                        const lookback = Math.min(3, prev.length);
+                        for (let i = prev.length - 1; i >= prev.length - lookback; i--) {
+                            const m = prev[i];
+                            if (m.role === Role.MICopilot && m.content === warningMsg.content) {
+                                return prev;
+                            }
+                        }
                         if (prev.length > 0
                             && prev[prev.length - 1].role === Role.MICopilot
                             && backendRequestTriggeredRef.current) {

@@ -50,7 +50,7 @@ interface ContextWarningSegmentProps {
 const ContextWarningSegment: React.FC<ContextWarningSegmentProps> = ({ text }) => (
     <WarningContainer role="status" aria-live="polite">
         <WarningHeader>
-            <span className="codicon codicon-warning" />
+            <span className="codicon codicon-warning" aria-hidden="true" />
             AGENTS.md truncated
         </WarningHeader>
         <WarningBody>{text}</WarningBody>
