@@ -654,19 +654,45 @@ function trackModifiedFile(modifiedFiles: string[] | undefined, filePath: string
 
 /**
  * Returns true for class mediator java sources under src/main/java/.
- * Used to nudge the agent to keep root pom.xml packaging and deps consistent;
- * the CApp will not pack the jar when packaging is still "pom".
  */
 function isClassMediatorPath(filePath: string): boolean {
     const normalized = filePath.replace(/\\/g, '/').toLowerCase();
     return /(^|\/)src\/main\/java\//.test(normalized) && normalized.endsWith('.java');
 }
 
-const CLASS_MEDIATOR_POM_REMINDER =
-    '\n\n<system-reminder>You just wrote/edited a class mediator java source. ' +
-    'Verify the project root pom.xml has <packaging>jar</packaging> (default is "pom") ' +
-    'and that a synapse-core dependency is declared. Without both, the CApp will not ' +
-    'pack the jar and the class mediator will silently fail to deploy.</system-reminder>';
+/**
+ * Builds a `<system-reminder>` for class mediator writes/edits when the
+ * project root pom.xml is not yet configured to pack a jar. Returns ''
+ * when packaging is already "jar" so the model is not nagged unnecessarily.
+ * Falls back to a generic reminder if pom.xml cannot be read or parsed,
+ * since the safe default is to surface the requirement.
+ */
+function buildClassMediatorPomReminder(projectPath: string): string {
+    const pomPath = path.join(projectPath, 'pom.xml');
+    let currentPackaging: string | undefined;
+    try {
+        const pomContent = fs.readFileSync(pomPath, 'utf-8');
+        const match = pomContent.match(/<packaging>\s*([^<\s]+)\s*<\/packaging>/);
+        currentPackaging = match?.[1]?.toLowerCase();
+    } catch {
+        // pom.xml missing or unreadable; fall through to the generic reminder.
+    }
+
+    if (currentPackaging === 'jar') {
+        return '';
+    }
+
+    const currentDesc = currentPackaging
+        ? `currently <packaging>${currentPackaging}</packaging>`
+        : 'current packaging could not be determined';
+    return (
+        '\n\n<system-reminder>You just wrote/edited a class mediator java source, ' +
+        `but the project root pom.xml ${currentDesc}. ` +
+        'Change it to <packaging>jar</packaging> and ensure a synapse-core dependency ' +
+        'is declared, otherwise the CApp will not pack the jar and the class mediator ' +
+        'will silently fail to deploy.</system-reminder>'
+    );
+}
 
 
 // ============================================================================
@@ -796,7 +822,7 @@ export function createWriteExecute(
         console.log(`[FileWriteTool] Successfully ${action} and synced file: ${file_path} with ${lineCount} lines`);
 
         // Build result with structured validation data
-        const classMediatorReminder = isClassMediatorPath(file_path) ? CLASS_MEDIATOR_POM_REMINDER : '';
+        const classMediatorReminder = isClassMediatorPath(file_path) ? buildClassMediatorPomReminder(projectPath) : '';
         const result: ToolResult = {
             success: true,
             message: `Successfully ${action} file '${file_path}' with ${lineCount} line(s).${validation ? formatValidationMessage(validation, 15) : ''}${classMediatorReminder}`
@@ -1094,7 +1120,7 @@ export function createEditExecute(
         const replacedCount = replace_all ? occurrences : 1;
         logDebug(`[FileEditTool] Successfully replaced ${replacedCount} occurrence(s) in: ${file_path}`);
 
-        const classMediatorReminder = isClassMediatorPath(file_path) ? CLASS_MEDIATOR_POM_REMINDER : '';
+        const classMediatorReminder = isClassMediatorPath(file_path) ? buildClassMediatorPomReminder(projectPath) : '';
         const result: ToolResult = {
             success: true,
             message: `Replaced ${replacedCount} occurrence(s) in '${file_path}'.${validation ? formatValidationMessage(validation, 15) : ''}${classMediatorReminder}`
