@@ -48,13 +48,14 @@ export interface LinkButtonProps {
     className?: string;
     sx?: any;
     onClick?: () => void;
+    "data-testid"?: string;
 }
 
-export const LinkButton: React.FC<PropsWithChildren<LinkButtonProps>> = 
+export const LinkButton: React.FC<PropsWithChildren<LinkButtonProps>> =
     (props: PropsWithChildren<LinkButtonProps>) => {
         const { id, className, children, sx, onClick } = props;
         return (
-            <LinkContainer id={id} className={className} sx={sx} onClick={onClick}>
+            <LinkContainer id={id} className={className} sx={sx} onClick={onClick} data-testid={props["data-testid"]}>
                 {children}
             </LinkContainer>
         );
