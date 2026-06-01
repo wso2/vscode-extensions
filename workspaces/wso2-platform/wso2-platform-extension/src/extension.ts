@@ -52,6 +52,17 @@ export async function activate(context: vscode.ExtensionContext) {
 	getLogger().info(`Extension version: ${getExtVersion(context)}`);
 	getLogger().info(`CLI version: ${getCliVersion()}`);
 
+	window
+		.showWarningMessage(
+			"The WSO2 Platform extension is deprecated. Please install the WSO2 Integrator extension instead.",
+			"Install WSO2 Integrator",
+		)
+		.then((selection) => {
+			if (selection === "Install WSO2 Integrator") {
+				vscode.env.openExternal(vscode.Uri.parse("https://marketplace.visualstudio.com/items?itemName=WSO2.wso2-integrator"));
+			}
+		});
+
 	// Initialize stores
 	await contextStore.persist.rehydrate();
 	await dataCacheStore.persist.rehydrate();
