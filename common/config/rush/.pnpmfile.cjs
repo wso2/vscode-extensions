@@ -33,7 +33,7 @@ module.exports = {
         if (deps['@hono/node-server']) deps['@hono/node-server'] = '1.19.13';
         if (deps['@tootallnate/once']) deps['@tootallnate/once'] = '3.0.1';
         if (deps['dompurify']) deps['dompurify'] = '3.4.0'; // security fix: XSS vulnerability
-        if (deps['axios']) deps['axios'] = '1.15.2'; // security fix: SSRF vulnerability
+        if (deps['axios']) deps['axios'] = '1.16.0'; // security fix
         if (deps['ip-address']) { // security fix: force patch within 10.x range only to avoid breaking consumers on earlier majors
           if (/^[\s\^~><=]*10[.\s]/.test(deps['ip-address'])) {
             deps['ip-address'] = '10.1.1';
