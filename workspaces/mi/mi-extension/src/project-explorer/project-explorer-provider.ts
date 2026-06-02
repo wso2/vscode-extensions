@@ -201,7 +201,7 @@ async function generateTreeDataOfArtifacts(project: vscode.WorkspaceFolder, data
 			path.join(project.uri.fsPath, 'src', 'main', 'wso2mi', ...artifactConfig.folderName.split("/")) :
 			'';
 
-		artifacts[key].path = folderPath;
+		artifacts[key].path = folderPath || project.uri.fsPath;
 
 		const parentEntry = new ProjectExplorerEntry(
 			key,
@@ -871,10 +871,12 @@ function generateMcpServers(data: any[]): ProjectExplorerEntry[] {
 			'inbound-endpoint'
 		);
 		serverEntry.contextValue = 'mcpServer';
+		const localEntryFilename = path.basename(server.localEntry.path);
+		const serverDisplayName = localEntryFilename.replace('-mcp-config.xml', '') || server.name;
 		serverEntry.command = {
 			title: 'Show MCP Server',
 			command: COMMANDS.SHOW_MCP_SERVER,
-			arguments: [server.localEntry.path, server.name]
+			arguments: [server.localEntry.path, serverDisplayName]
 		};
 
 		result.push(serverEntry);

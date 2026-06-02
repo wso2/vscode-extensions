@@ -146,14 +146,16 @@ import {
     GetMcpServerEditDataResponse,
     BuildMcpToolsXmlRequest,
     BuildMcpToolsXmlResponse,
-    UpdateMcpInboundEndpointCorsRequest,
-    UpdateMcpInboundEndpointCorsResponse,
+    UpdateMcpInboundEndpointRequest,
+    UpdateMcpInboundEndpointResponse,
     CleanMcpToolNamesRequest,
     CleanMcpToolNamesResponse,
     ConvertMcpJsonSchemaRequest,
     ConvertMcpJsonSchemaResponse,
     PickMcpJsonFileResponse,
     GetMcpInboundListenerClassResponse,
+    GetAPIOperationInputSchemasRequest,
+    GetAPIOperationInputSchemasResponse,
     APITool,
     UnifiedTool,
     GetMessageStoreRequest,
@@ -388,7 +390,6 @@ import { addWSO2AIConfigProperties } from "../../ai-features/configUtils";
 import { reorderModulesByBuildOrder, updatePomModules } from "../../debugger/pomResolver";
 import {
     MCP_INBOUND_LISTENER_CLASS,
-    applyCorsParametersToInboundEndpointXml,
     buildInputSchemasForAPITools,
     cleanPathForToolName,
     convertToJsonSchema,
@@ -6742,12 +6743,35 @@ ${keyValuesXML}`;
         return { xml: generateToolsXml(params.tools, inputSchemas) };
     }
 
-    async updateMcpInboundEndpointCors(params: UpdateMcpInboundEndpointCorsRequest): Promise<UpdateMcpInboundEndpointCorsResponse> {
+    async updateMcpInboundEndpoint(params: UpdateMcpInboundEndpointRequest): Promise<UpdateMcpInboundEndpointResponse> {
         try {
             if (!fs.existsSync(params.inboundEndpointPath)) return { success: false };
-            const original = fs.readFileSync(params.inboundEndpointPath, "utf8");
-            const updated = applyCorsParametersToInboundEndpointXml(original, params.corsSettings);
-            await replaceFullContentToFile(params.inboundEndpointPath, updated);
+
+            const current = await this.getInboundEndpoint({ path: params.inboundEndpointPath });
+            const { class: endpointClass, ...currentParams } = current.parameters as any;
+
+            const updatedParams = {
+                ...currentParams,
+                'inbound.cors.allow.origin': params.corsSettings.corsAllowOrigin,
+                'inbound.cors.allow.methods': params.corsSettings.corsAllowMethods,
+                'inbound.cors.allow.headers': params.corsSettings.corsAllowHeaders,
+                'inbound.cors.expose.headers': params.corsSettings.corsExposeHeaders,
+                'inbound.sse.keepalive.interval': params.corsSettings.keepAliveInterval,
+                ...(params.port !== undefined && {
+                    'inbound.mcp.port': params.port,
+                    'inbound.http.port': params.port,
+                }),
+            };
+
+            const attributes: Record<string, string | number | boolean> = {
+                name: current.name,
+                sequence: current.sequence ?? '',
+                onError: current.errorSequence ?? '',
+                ...(endpointClass && { class: endpointClass }),
+            };
+
+            const xml = getInboundEndpointXmlWrapper({ attributes, parameters: updatedParams });
+            await replaceFullContentToFile(params.inboundEndpointPath, xml);
             return { success: true };
         } catch {
             return { success: false };
@@ -6774,6 +6798,31 @@ ${keyValuesXML}`;
 
     async getMcpInboundListenerClass(): Promise<GetMcpInboundListenerClassResponse> {
         return { className: MCP_INBOUND_LISTENER_CLASS };
+    }
+
+    async getAPIOperationInputSchemas(params: GetAPIOperationInputSchemasRequest): Promise<GetAPIOperationInputSchemasResponse> {
+        const apiDefDir = path.join(params.projectRoot, "src", "main", "wso2mi", "resources", "api-definitions");
+        const fakeTools: APITool[] = params.operations.map(op => ({
+            kind: 'api' as const,
+            id: op.id,
+            name: '',
+            description: '',
+            apiId: op.apiName,
+            apiName: op.apiName,
+            apiVersion: '',
+            apiRawVersion: op.apiRawVersion,
+            apiXmlPath: op.apiXmlPath,
+            operationId: op.id,
+            operationMethod: op.operationMethod,
+            operationPath: op.operationPath,
+            operationSummary: '',
+        }));
+        const rawSchemas = await buildInputSchemasForAPITools(fakeTools, apiDefDir);
+        const schemas: Record<string, string> = {};
+        for (const [id, schema] of Object.entries(rawSchemas)) {
+            schemas[id] = JSON.stringify(schema);
+        }
+        return { schemas };
     }
 }
 

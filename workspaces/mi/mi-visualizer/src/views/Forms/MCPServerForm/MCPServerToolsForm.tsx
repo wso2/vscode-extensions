@@ -135,11 +135,12 @@ export interface MCPServerToolsFormProps {
 export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) {
     const isEditMode = !!editData;
     const { rpcClient } = useVisualizerContext();
-    const { register, handleSubmit, setValue, setError: setFieldError, formState: { errors } } = useForm({
+    const { register, handleSubmit, setValue, getValues, trigger, setError: setFieldError, formState: { errors } } = useForm({
         resolver: yupResolver(schema),
         defaultValues: { serverName: editData?.serverName ?? '', port: 8300 },
     });
 
+    const [projectRoot, setProjectRoot] = useState<string>('');
     const [apis, setApis] = useState<API[]>([]);
     const [sequences, setSequences] = useState<Sequence[]>([]);
     const [tools, setTools] = useState<UnifiedTool[]>([]);
@@ -162,21 +163,17 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
     });
     const [showCorsSettings, setShowCorsSettings] = useState(false);
 
+    const deriveInboundEndpointPath = (localEntryPath: string): string => {
+        const dir = pathModule.dirname(localEntryPath);
+        const filename = pathModule.basename(localEntryPath);
+        const inboundDir = pathModule.join(pathModule.dirname(dir), 'inbound-endpoints');
+        const inboundFilename = filename.replace('-mcp-config.xml', '-endpoint.xml');
+        return pathModule.join(inboundDir, inboundFilename);
+    };
+
     // Serialize saves to prevent out-of-order writes
     const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
     const pendingToolsRef = useRef<UnifiedTool[] | null>(null);
-
-    // Save CORS settings to inbound endpoint
-    const saveCorsSettingsToEndpoint = async (inboundEndpointPath: string) => {
-        try {
-            await rpcClient.getMiDiagramRpcClient().updateMcpInboundEndpointCors({
-                inboundEndpointPath,
-                corsSettings,
-            });
-        } catch (err) {
-            console.error('Failed to save CORS settings:', err);
-        }
-    };
 
     // Auto-save helpers (edit mode only)
 
@@ -198,7 +195,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                 });
                 await rpcClient.getMiDiagramRpcClient().createLocalEntry({
                     directory: localEntriesDir,
-                    name: `${editData.serverName}-mcp-config`,
+                    name: pathModule.basename(editData.localEntryPath!, '.xml'),
                     type: 'In-Line XML Entry',
                     value: xml,
                     URL: '',
@@ -233,15 +230,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                     await rpcClient.getMiDiagramRpcClient().getMcpServerProjectArtifacts({ projectUri });
                 setApis(parsedAPIs);
                 setSequences(parsedSeqs);
-
-                // Helper function to derive inbound endpoint path from local entry path
-                const deriveInboundEndpointPath = (localEntryPath: string): string => {
-                    const dir = pathModule.dirname(localEntryPath);
-                    const filename = pathModule.basename(localEntryPath);
-                    const inboundDir = pathModule.join(pathModule.dirname(dir), 'inbound-endpoints');
-                    const inboundFilename = filename.replace('-mcp-config.xml', '-endpoint.xml');
-                    return pathModule.join(inboundDir, inboundFilename);
-                };
+                setProjectRoot(projectUri);
 
                 // Collect used ports from all inbound endpoints (exclude current server in edit mode)
                 const currentInboundPath = isEditMode && editData?.localEntryPath
@@ -283,7 +272,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
 
     const confirmAddAPITools = async (
         apiId: string,
-        selectedOperations: Array<{ id: string; customName: string; description: string }>
+        selectedOperations: Array<{ id: string; customName: string; description: string; inputSchema: string }>
     ) => {
         const api = apis.find(a => a.id === apiId);
         if (!api) return;
@@ -315,6 +304,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                 operationMethod: operation.method,
                 operationPath: operation.path,
                 operationSummary: operation.summary || '',
+                inputSchema: selectedOp.inputSchema,
             };
         });
 
@@ -456,29 +446,44 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
     };
 
 
-    // Submit
+    // Auto-save inbound endpoint (port + CORS) in edit mode
+
+    const autoSaveEndpoint = async (port?: number) => {
+        if (!editData?.localEntryPath) return;
+        const inboundPath = deriveInboundEndpointPath(editData.localEntryPath);
+        try {
+            await rpcClient.getMiDiagramRpcClient().updateMcpInboundEndpoint({
+                inboundEndpointPath: inboundPath,
+                corsSettings,
+                port,
+            });
+            if (port !== undefined) setOriginalPort(port);
+        } catch (err) {
+            console.error('Failed to auto-save endpoint:', err);
+        }
+    };
+
+    const handlePortBlur = async () => {
+        const isValid = await trigger('port');
+        if (!isValid) return;
+        const portValue = Number(getValues('port'));
+        if (usedPorts.has(portValue) && portValue !== originalPort) return;
+        if (portValue === originalPort) return;
+        await autoSaveEndpoint(portValue);
+    };
+
+    // Submit (create mode only)
 
     const onSubmit = async (data: any) => {
-        if (usedPorts.has(Number(data.port)) && Number(data.port) !== originalPort) {
-            setFieldError('port', { message: `Port ${data.port} is already in use by another inbound endpoint in this project` });
-            return;
-        }
         setSubmitting(true);
         setError(null);
         try {
             const projectRootResp = await rpcClient.getMiDiagramRpcClient().getProjectRoot({ path });
             const projectDir = projectRootResp.path;
-
             const localEntriesDir = pathModule.join(projectDir, 'src', 'main', 'wso2mi', 'artifacts', 'local-entries').toString();
             const inboundEndpointsDir = pathModule.join(projectDir, 'src', 'main', 'wso2mi', 'artifacts', 'inbound-endpoints').toString();
 
-            const { xml } = await rpcClient.getMiDiagramRpcClient().buildMcpToolsXml({
-                projectRoot: projectDir,
-                tools,
-            });
-            const { className: inboundListenerClass } =
-                await rpcClient.getMiDiagramRpcClient().getMcpInboundListenerClass();
-
+            const { xml } = await rpcClient.getMiDiagramRpcClient().buildMcpToolsXml({ projectRoot: projectDir, tools });
             const localEntryName = `${data.serverName}-mcp-config`;
 
             await rpcClient.getMiDiagramRpcClient().createLocalEntry({
@@ -490,6 +495,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                 getContentOnly: false,
             });
 
+            const { className: inboundListenerClass } = await rpcClient.getMiDiagramRpcClient().getMcpInboundListenerClass();
             await rpcClient.getMiDiagramRpcClient().createInboundEndpoint({
                 directory: inboundEndpointsDir,
                 attributes: {
@@ -513,18 +519,15 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
             });
 
             rpcClient.getMiVisualizerRpcClient().showNotification({
-                message: isEditMode
-                    ? `MCP Server "${data.serverName}" updated with ${tools.length} tool(s)`
-                    : `MCP Server "${data.serverName}" created with ${tools.length} tool(s)`,
+                message: `MCP Server "${data.serverName}" created with ${tools.length} tool(s)`,
                 type: 'info',
             });
-
             rpcClient.getMiVisualizerRpcClient().openView({
                 type: EVENT_TYPE.OPEN_VIEW,
                 location: { view: MACHINE_VIEW.Overview },
             });
         } catch (err) {
-            setError(`Failed to save MCP Server: ${err instanceof Error ? err.message : String(err)}`);
+            setError(`Failed to create MCP Server: ${err instanceof Error ? err.message : String(err)}`);
         } finally {
             setSubmitting(false);
         }
@@ -584,6 +587,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                                                 <TextField
                                                     placeholder="e.g., 8300"
                                                     {...register('port')}
+                                                    onBlur={handlePortBlur}
                                                 />
                                                 {errors.port && (
                                                     <ErrorMessageContainer style={{ marginTop: '6px' }}>
@@ -606,7 +610,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                                                     placeholder="e.g., *"
                                                     value={corsSettings.corsAllowOrigin}
                                                     onChange={(e: any) => setCorsSettings({ ...corsSettings, corsAllowOrigin: e.target.value })}
-                                                    onBlur={() => saveCorsSettingsToEndpoint(editData?.inboundEndpointPath || '')}
+                                                    onBlur={() => autoSaveEndpoint()}
                                                 />
                                             </div>
                                             <div>
@@ -615,7 +619,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                                                     placeholder="e.g., GET, POST, OPTIONS"
                                                     value={corsSettings.corsAllowMethods}
                                                     onChange={(e: any) => setCorsSettings({ ...corsSettings, corsAllowMethods: e.target.value })}
-                                                    onBlur={() => saveCorsSettingsToEndpoint(editData?.inboundEndpointPath || '')}
+                                                    onBlur={() => autoSaveEndpoint()}
                                                 />
                                             </div>
                                             <div>
@@ -624,7 +628,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                                                     placeholder="e.g., Content-Type, Mcp-Session-Id"
                                                     value={corsSettings.corsAllowHeaders}
                                                     onChange={(e: any) => setCorsSettings({ ...corsSettings, corsAllowHeaders: e.target.value })}
-                                                    onBlur={() => saveCorsSettingsToEndpoint(editData?.inboundEndpointPath || '')}
+                                                    onBlur={() => autoSaveEndpoint()}
                                                 />
                                             </div>
                                             <div>
@@ -633,7 +637,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                                                     placeholder="e.g., Mcp-Session-Id"
                                                     value={corsSettings.corsExposeHeaders}
                                                     onChange={(e: any) => setCorsSettings({ ...corsSettings, corsExposeHeaders: e.target.value })}
-                                                    onBlur={() => saveCorsSettingsToEndpoint(editData?.inboundEndpointPath || '')}
+                                                    onBlur={() => autoSaveEndpoint()}
                                                 />
                                             </div>
                                             <div>
@@ -643,7 +647,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                                                     placeholder="e.g., 30000"
                                                     value={corsSettings.keepAliveInterval}
                                                     onChange={(e: any) => setCorsSettings({ ...corsSettings, keepAliveInterval: parseInt(e.target.value, 10) || 30000 })}
-                                                    onBlur={() => saveCorsSettingsToEndpoint(editData?.inboundEndpointPath || '')}
+                                                    onBlur={() => autoSaveEndpoint()}
                                                 />
                                             </div>
                                         </div>
@@ -707,26 +711,36 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                             {error && <ErrorMessageContainer>{error}</ErrorMessageContainer>}
 
                             <ButtonGroup>
-                                <Button
-                                    appearance="secondary"
-                                    onClick={() => rpcClient.getMiVisualizerRpcClient().openView({
-                                        type: EVENT_TYPE.OPEN_VIEW,
-                                        location: { view: MACHINE_VIEW.Overview },
-                                    })}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    appearance="primary"
-                                    disabled={submitting || loading}
-                                    onClick={handleSubmit(onSubmit)}
-                                >
-                                    {submitting
-                                        ? 'Creating...'
-                                        : isEditMode
-                                            ? 'Done'
-                                            : `Create MCP Server (${tools.length} tool${tools.length !== 1 ? 's' : ''})`}
-                                </Button>
+                                {isEditMode ? (
+                                    <Button
+                                        appearance="secondary"
+                                        onClick={() => rpcClient.getMiVisualizerRpcClient().openView({
+                                            type: EVENT_TYPE.OPEN_VIEW,
+                                            location: { view: MACHINE_VIEW.Overview },
+                                        })}
+                                    >
+                                        Back
+                                    </Button>
+                                ) : (
+                                    <>
+                                        <Button
+                                            appearance="secondary"
+                                            onClick={() => rpcClient.getMiVisualizerRpcClient().openView({
+                                                type: EVENT_TYPE.OPEN_VIEW,
+                                                location: { view: MACHINE_VIEW.Overview },
+                                            })}
+                                        >
+                                            Cancel
+                                        </Button>
+                                        <Button
+                                            appearance="primary"
+                                            disabled={submitting || loading}
+                                            onClick={handleSubmit(onSubmit)}
+                                        >
+                                            {submitting ? 'Creating...' : `Create MCP Server (${tools.length} tool${tools.length !== 1 ? 's' : ''})`}
+                                        </Button>
+                                    </>
+                                )}
                             </ButtonGroup>
                         </form>
                     </Container>
@@ -736,6 +750,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                     isOpen={showAddAPIDialog}
                     apis={apis}
                     selectedAPIForTool={selectedAPIForTool}
+                    projectRoot={projectRoot}
                     onAPIChange={setSelectedAPIForTool}
                     onConfirmBulk={confirmAddAPITools}
                     onCancel={() => { setShowAddAPIDialog(false); setSelectedAPIForTool(''); }}

@@ -60,12 +60,11 @@ export function cleanPathForToolName(pathStr: string): string {
 export function convertToJsonSchema(input: string): string | null {
     if (!input.trim()) return null;
     try {
-        const sanitized = input.replace(/:\s*(string|number|integer|boolean|array|object|null)\b/g, ': "$1"');
-        const parsed = JSON.parse(sanitized);
-        if (parsed.type || parsed.properties) return JSON.stringify(parsed);
-        const properties: Record<string, { type: string }> = {};
-        for (const [k, v] of Object.entries(parsed)) properties[k] = { type: v as string };
-        return JSON.stringify({ type: "object", properties, additionalProperties: false });
+        const parsed = JSON.parse(input);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && (parsed.type || parsed.properties)) {
+            return JSON.stringify(parsed);
+        }
+        return null;
     } catch {
         return null;
     }
@@ -382,7 +381,7 @@ export const artifactParserConfig = {
                     const methods = Array.isArray(res.methods)
                         ? res.methods
                         : typeof res.methods === "string"
-                            ? res.methods.split(",")
+                            ? res.methods.split(/[\s,]+/).filter(Boolean)
                             : [];
                     const uri = res.path || res.uri || res["uri-template"] || res.uriTemplate || "";
                     for (const m of methods) {
@@ -426,30 +425,3 @@ export function parseSequencesFromProjectStructure(projectStructure: any): Seque
         .filter((s: Sequence) => s.id !== "");
 }
 
-export function applyCorsParametersToInboundEndpointXml(
-    xmlContent: string,
-    corsSettings: {
-        corsAllowOrigin: string;
-        corsAllowMethods: string;
-        corsAllowHeaders: string;
-        corsExposeHeaders: string;
-        keepAliveInterval: number;
-    }
-): string {
-    let xml = xmlContent;
-    const updateParam = (paramName: string, paramValue: string) => {
-        const paramRegex = new RegExp(`<parameter name="${paramName}"[^>]*>[^<]*</parameter>`, "g");
-        const newParam = `<parameter name="${paramName}">${paramValue}</parameter>`;
-        if (paramRegex.test(xml)) {
-            xml = xml.replace(paramRegex, newParam);
-        } else {
-            xml = xml.replace("</inboundEndpoint>", `    ${newParam}\n    </inboundEndpoint>`);
-        }
-    };
-    updateParam("inbound.cors.allow.origin", corsSettings.corsAllowOrigin);
-    updateParam("inbound.cors.allow.methods", corsSettings.corsAllowMethods);
-    updateParam("inbound.cors.allow.headers", corsSettings.corsAllowHeaders);
-    updateParam("inbound.cors.expose.headers", corsSettings.corsExposeHeaders);
-    updateParam("inbound.sse.keepalive.interval", String(corsSettings.keepAliveInterval));
-    return xml;
-}

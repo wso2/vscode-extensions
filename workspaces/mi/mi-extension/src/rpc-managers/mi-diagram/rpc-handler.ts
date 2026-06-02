@@ -356,14 +356,16 @@ import {
     GetMcpServerEditDataRequest,
     buildMcpToolsXml,
     BuildMcpToolsXmlRequest,
-    updateMcpInboundEndpointCors,
-    UpdateMcpInboundEndpointCorsRequest,
+    updateMcpInboundEndpoint,
+    UpdateMcpInboundEndpointRequest,
     cleanMcpToolNames,
     CleanMcpToolNamesRequest,
     convertMcpJsonSchema,
     ConvertMcpJsonSchemaRequest,
     pickMcpJsonFile,
     getMcpInboundListenerClass,
+    getAPIOperationInputSchemas,
+    GetAPIOperationInputSchemasRequest,
     // getBackendRootUrl - REMOVED: Backend URLs deprecated, all AI features use local LLM
 } from "@wso2/mi-core";
 import { Messenger } from "vscode-messenger";
@@ -569,9 +571,10 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(getMcpServerProjectArtifacts, (args: GetMcpServerProjectArtifactsRequest) => rpcManger.getMcpServerProjectArtifacts(args));
     messenger.onRequest(getMcpServerEditData, (args: GetMcpServerEditDataRequest) => rpcManger.getMcpServerEditData(args));
     messenger.onRequest(buildMcpToolsXml, (args: BuildMcpToolsXmlRequest) => rpcManger.buildMcpToolsXml(args));
-    messenger.onRequest(updateMcpInboundEndpointCors, (args: UpdateMcpInboundEndpointCorsRequest) => rpcManger.updateMcpInboundEndpointCors(args));
+    messenger.onRequest(updateMcpInboundEndpoint, (args: UpdateMcpInboundEndpointRequest) => rpcManger.updateMcpInboundEndpoint(args));
     messenger.onRequest(cleanMcpToolNames, (args: CleanMcpToolNamesRequest) => rpcManger.cleanMcpToolNames(args));
     messenger.onRequest(convertMcpJsonSchema, (args: ConvertMcpJsonSchemaRequest) => rpcManger.convertMcpJsonSchema(args));
     messenger.onRequest(pickMcpJsonFile, () => rpcManger.pickMcpJsonFile());
     messenger.onRequest(getMcpInboundListenerClass, () => rpcManger.getMcpInboundListenerClass());
+    messenger.onRequest(getAPIOperationInputSchemas, (args: GetAPIOperationInputSchemasRequest) => rpcManger.getAPIOperationInputSchemas(args));
 }

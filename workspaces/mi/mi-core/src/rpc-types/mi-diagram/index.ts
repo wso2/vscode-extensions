@@ -275,14 +275,16 @@ import {
     GetMcpServerEditDataResponse,
     BuildMcpToolsXmlRequest,
     BuildMcpToolsXmlResponse,
-    UpdateMcpInboundEndpointCorsRequest,
-    UpdateMcpInboundEndpointCorsResponse,
+    UpdateMcpInboundEndpointRequest,
+    UpdateMcpInboundEndpointResponse,
     CleanMcpToolNamesRequest,
     CleanMcpToolNamesResponse,
     ConvertMcpJsonSchemaRequest,
     ConvertMcpJsonSchemaResponse,
     PickMcpJsonFileResponse,
     GetMcpInboundListenerClassResponse,
+    GetAPIOperationInputSchemasRequest,
+    GetAPIOperationInputSchemasResponse,
     GenerateMappingsParamsRequest,
     ProjectCreationStatusResponse,
     LoadDriverAndTestConnectionRequest,
@@ -496,11 +498,12 @@ export interface MiDiagramAPI {
     getMcpServerProjectArtifacts: (params: GetMcpServerProjectArtifactsRequest) => Promise<GetMcpServerProjectArtifactsResponse>;
     getMcpServerEditData: (params: GetMcpServerEditDataRequest) => Promise<GetMcpServerEditDataResponse>;
     buildMcpToolsXml: (params: BuildMcpToolsXmlRequest) => Promise<BuildMcpToolsXmlResponse>;
-    updateMcpInboundEndpointCors: (params: UpdateMcpInboundEndpointCorsRequest) => Promise<UpdateMcpInboundEndpointCorsResponse>;
+    updateMcpInboundEndpoint: (params: UpdateMcpInboundEndpointRequest) => Promise<UpdateMcpInboundEndpointResponse>;
     cleanMcpToolNames: (params: CleanMcpToolNamesRequest) => Promise<CleanMcpToolNamesResponse>;
     convertMcpJsonSchema: (params: ConvertMcpJsonSchemaRequest) => Promise<ConvertMcpJsonSchemaResponse>;
     pickMcpJsonFile: () => Promise<PickMcpJsonFileResponse>;
     getMcpInboundListenerClass: () => Promise<GetMcpInboundListenerClassResponse>;
+    getAPIOperationInputSchemas: (params: GetAPIOperationInputSchemasRequest) => Promise<GetAPIOperationInputSchemasResponse>;
 }
 
 // Re-export LS-only types (consumed by the extension's LS client; not part of MiDiagramAPI).

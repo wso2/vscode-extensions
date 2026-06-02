@@ -494,9 +494,9 @@ import {
     buildMcpToolsXml,
     BuildMcpToolsXmlRequest,
     BuildMcpToolsXmlResponse,
-    updateMcpInboundEndpointCors,
-    UpdateMcpInboundEndpointCorsRequest,
-    UpdateMcpInboundEndpointCorsResponse,
+    updateMcpInboundEndpoint,
+    UpdateMcpInboundEndpointRequest,
+    UpdateMcpInboundEndpointResponse,
     cleanMcpToolNames,
     CleanMcpToolNamesRequest,
     CleanMcpToolNamesResponse,
@@ -507,6 +507,9 @@ import {
     PickMcpJsonFileResponse,
     getMcpInboundListenerClass,
     GetMcpInboundListenerClassResponse,
+    getAPIOperationInputSchemas,
+    GetAPIOperationInputSchemasRequest,
+    GetAPIOperationInputSchemasResponse,
 } from "@wso2/mi-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -1312,8 +1315,8 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
         return this._messenger.sendRequest(buildMcpToolsXml, HOST_EXTENSION, params);
     }
 
-    async updateMcpInboundEndpointCors(params: UpdateMcpInboundEndpointCorsRequest): Promise<UpdateMcpInboundEndpointCorsResponse> {
-        return this._messenger.sendRequest(updateMcpInboundEndpointCors, HOST_EXTENSION, params);
+    async updateMcpInboundEndpoint(params: UpdateMcpInboundEndpointRequest): Promise<UpdateMcpInboundEndpointResponse> {
+        return this._messenger.sendRequest(updateMcpInboundEndpoint, HOST_EXTENSION, params);
     }
 
     async cleanMcpToolNames(params: CleanMcpToolNamesRequest): Promise<CleanMcpToolNamesResponse> {
@@ -1330,5 +1333,9 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
 
     async getMcpInboundListenerClass(): Promise<GetMcpInboundListenerClassResponse> {
         return this._messenger.sendRequest(getMcpInboundListenerClass, HOST_EXTENSION, undefined);
+    }
+
+    async getAPIOperationInputSchemas(params: GetAPIOperationInputSchemasRequest): Promise<GetAPIOperationInputSchemasResponse> {
+        return this._messenger.sendRequest(getAPIOperationInputSchemas, HOST_EXTENSION, params);
     }
 }

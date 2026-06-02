@@ -18,11 +18,11 @@
 
 import { useEffect, useState } from 'react';
 import styled from '@emotion/styled';
-import { Dialog, Button, Typography, TextField, TextArea } from '@wso2/ui-toolkit';
+import { Dialog, Button, Icon, Typography, TextField, TextArea } from '@wso2/ui-toolkit';
 import { useForm } from 'react-hook-form';
 import { Sequence } from '@wso2/mi-core';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
-import { DialogField, DialogButtonGroup, FlexRow, DialogTitle } from '../Commons';
+import { DialogField, DialogButtonGroup, DialogTitle } from '../Commons';
 import { SelectAllRow, CustomInputsContainer, ItemsList, ListItem, ListItemHeader, ItemCheckbox } from './styles';
 import { EMPTY_MCP_SCHEMA, INVALID_MCP_SCHEMA_MESSAGE } from '../../../constants';
 
@@ -56,8 +56,7 @@ interface FormValues {
 export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }: AddSequenceToolDialogProps) {
     const { rpcClient } = useVisualizerContext();
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-    const [aiDescLoadingIds, setAiDescLoadingIds] = useState<Set<string>>(new Set());
-    const [aiSchemaLoadingIds, setAiSchemaLoadingIds] = useState<Set<string>>(new Set());
+    const [aiLoadingIds, setAiLoadingIds] = useState<Set<string>>(new Set());
 
     const { register, handleSubmit, watch, getValues, setValue, setError, clearErrors, reset, formState: { errors } } = useForm<FormValues>({
         defaultValues: { items: {} },
@@ -102,35 +101,27 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
         return true;
     };
 
-    const handleFillDescription = async (seq: Sequence) => {
-        setAiDescLoadingIds(prev => new Set(prev).add(seq.id));
+    const handleFillWithAI = async (seq: Sequence) => {
+        setAiLoadingIds(prev => new Set(prev).add(seq.id));
         try {
             const customName = getValues(`items.${seq.id}.customName` as const);
             const result = await rpcClient.getMiVisualizerRpcClient().getMcpToolSuggestion({
                 toolName: customName?.trim() || seq.name,
+                sequenceXmlPath: seq.xmlPath,
             });
+            if (result.name && !getValues(`items.${seq.id}.customName` as const)?.trim()) {
+                setValue(`items.${seq.id}.customName` as const, result.name);
+            }
             if (result.description) {
                 setValue(`items.${seq.id}.description` as const, result.description);
                 clearErrors(`items.${seq.id}.description` as const);
             }
-        } finally {
-            setAiDescLoadingIds(prev => { const n = new Set(prev); n.delete(seq.id); return n; });
-        }
-    };
-
-    const handleFillSchema = async (seq: Sequence) => {
-        setAiSchemaLoadingIds(prev => new Set(prev).add(seq.id));
-        try {
-            const customName = getValues(`items.${seq.id}.customName` as const);
-            const result = await rpcClient.getMiVisualizerRpcClient().getMcpToolSuggestion({
-                toolName: customName?.trim() || seq.name,
-            });
             if (result.inputSchema) {
                 setValue(`items.${seq.id}.inputSchema` as const, result.inputSchema);
                 validateSchema(seq.id, result.inputSchema);
             }
         } finally {
-            setAiSchemaLoadingIds(prev => { const n = new Set(prev); n.delete(seq.id); return n; });
+            setAiLoadingIds(prev => { const n = new Set(prev); n.delete(seq.id); return n; });
         }
     };
 
@@ -220,6 +211,16 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
                                 </ListItemHeader>
                                 {selectedIds.has(seq.id) && (
                                     <CustomInputsContainer>
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                            <Button
+                                                appearance="icon"
+                                                disabled={aiLoadingIds.has(seq.id)}
+                                                onClick={(e: any) => { e.stopPropagation(); handleFillWithAI(seq); }}
+                                                tooltip="Fill with AI"
+                                            >
+                                                <Icon name="bi-ai-chat" />
+                                            </Button>
+                                        </div>
                                         <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', marginTop: '2px', fontSize: '10px' }}>Tool name</Typography>
                                         <TextField
                                             id={`name-${seq.id}`}
@@ -228,31 +229,20 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
                                             onClick={e => e.stopPropagation()}
                                         />
                                         <Typography variant="caption" sx={{ fontSize: '10px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>Description *</Typography>
-                                        <FlexRow>
-                                            <TextField
-                                                id={`desc-${seq.id}`}
-                                                placeholder="Describe what this tool does"
-                                                {...register(`items.${seq.id}.description` as const, {
-                                                    onChange: e => { if (e.target.value.trim()) clearErrors(`items.${seq.id}.description` as const); },
-                                                    onBlur: e => { if (!e.target.value.trim()) setError(`items.${seq.id}.description` as const, { message: 'Description is required.' }); },
-                                                })}
-                                                onClick={e => e.stopPropagation()}
-                                                sx={{ flex: 1 }}
-                                            />
-                                            <Button
-                                                appearance="secondary"
-                                                disabled={aiDescLoadingIds.has(seq.id)}
-                                                onClick={(e: any) => { e.stopPropagation(); handleFillDescription(seq); }}
-                                                sx={{ padding: '4px 10px', fontSize: '12px', minWidth: 'auto' }}
-                                            >
-                                                {aiDescLoadingIds.has(seq.id) ? 'Filling...' : 'Fill With AI'}
-                                            </Button>
-                                        </FlexRow>
+                                        <TextField
+                                            id={`desc-${seq.id}`}
+                                            placeholder="Describe what this tool does"
+                                            {...register(`items.${seq.id}.description` as const, {
+                                                onChange: e => { if (e.target.value.trim()) clearErrors(`items.${seq.id}.description` as const); },
+                                                onBlur: e => { if (!e.target.value.trim()) setError(`items.${seq.id}.description` as const, { message: 'Description is required.' }); },
+                                            })}
+                                            onClick={e => e.stopPropagation()}
+                                        />
                                         {itemErrors?.description && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)', fontSize: '11px' }}>{String(itemErrors.description.message)}</Typography>}
                                         <Typography variant="caption" sx={{ fontSize: '10px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>Input Schema (JSON)</Typography>
                                         <SchemaRow>
                                             <TextArea
-                                                placeholder='e.g. {"amount": number, "name": string}'
+                                                placeholder='e.g. {"type":"object","properties":{"city":{"type":"string"}}}'
                                                 rows={4}
                                                 resize="vertical"
                                                 sx={{ flex: 1, fontFamily: 'var(--vscode-editor-font-family, monospace)' }}
@@ -261,14 +251,6 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
                                                 })}
                                                 onClick={e => e.stopPropagation()}
                                             />
-                                            <Button
-                                                appearance="secondary"
-                                                disabled={aiSchemaLoadingIds.has(seq.id)}
-                                                onClick={(e: any) => { e.stopPropagation(); handleFillSchema(seq); }}
-                                                sx={{ padding: '4px 10px', fontSize: '12px', minWidth: 'auto' }}
-                                            >
-                                                {aiSchemaLoadingIds.has(seq.id) ? 'Filling...' : 'Fill With AI'}
-                                            </Button>
                                             <Button
                                                 appearance="secondary"
                                                 onClick={(e: any) => { e.stopPropagation(); handleImportFile(seq.id); }}

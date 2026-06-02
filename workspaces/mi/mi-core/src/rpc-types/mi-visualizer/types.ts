@@ -512,9 +512,13 @@ export interface McpToolSuggestionRequest {
     operationMethod?: string;
     operationPath?: string;
     operationSummary?: string;
+    apiXmlPath?: string;
+    sequenceXmlPath?: string;
+    inputSchemaJson?: string;
 }
 
 export interface McpToolSuggestionResponse {
+    name: string;
     description: string;
     inputSchema: string;
 }

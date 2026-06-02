@@ -16,11 +16,13 @@
  * under the License.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import styled from '@emotion/styled';
-import { TextField, Button, Typography } from '@wso2/ui-toolkit';
-import { UnifiedTool, SequenceTool } from '@wso2/mi-core';
+import { Dialog, TextField, TextArea, Button, Typography } from '@wso2/ui-toolkit';
+import { UnifiedTool } from '@wso2/mi-core';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
+import { DialogField, DialogButtonGroup, DialogTitle } from '../Commons';
+import { INVALID_MCP_SCHEMA_MESSAGE } from '../../../constants';
 
 const ToolItem = styled.div`
     display: flex;
@@ -30,6 +32,7 @@ const ToolItem = styled.div`
     background: var(--vscode-editor-background);
     border: 1px solid var(--vscode-panel-border);
     border-radius: 3px;
+    cursor: pointer;
 `;
 
 const ToolInfo = styled.div`
@@ -37,46 +40,6 @@ const ToolInfo = styled.div`
     flex-direction: column;
     gap: 2px;
     flex: 1;
-`;
-
-const InlineEditContainer = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    flex: 1;
-`;
-
-const InlineInput = styled.input`
-    background: var(--vscode-input-background);
-    color: var(--vscode-input-foreground);
-    border: 1px solid var(--vscode-input-border);
-    border-radius: 3px;
-    padding: 4px 6px;
-    font-size: 12px;
-    width: 100%;
-    box-sizing: border-box;
-    &:focus { outline: 1px solid var(--vscode-focusBorder); border-color: var(--vscode-focusBorder); }
-`;
-
-const InlineTextarea = styled.textarea`
-    background: var(--vscode-input-background);
-    color: var(--vscode-input-foreground);
-    border: 1px solid var(--vscode-input-border);
-    border-radius: 3px;
-    padding: 4px 6px;
-    font-size: 12px;
-    width: 100%;
-    box-sizing: border-box;
-    resize: vertical;
-    min-height: 48px;
-    font-family: inherit;
-    &:focus { outline: 1px solid var(--vscode-focusBorder); border-color: var(--vscode-focusBorder); }
-`;
-
-const InlineEditActions = styled.div`
-    display: flex;
-    gap: 6px;
-    justify-content: flex-end;
 `;
 
 const ToolsList = styled.div`
@@ -102,24 +65,45 @@ export function ToolsListComponent({
     onGoToSource,
 }: ToolsListProps) {
     const { rpcClient } = useVisualizerContext();
-    const [editingToolId, setEditingToolId] = useState<string | null>(null);
+    const [editingTool, setEditingTool] = useState<UnifiedTool | null>(null);
     const [editToolName, setEditToolName] = useState('');
     const [editToolDescription, setEditToolDescription] = useState('');
     const [editToolInputSchema, setEditToolInputSchema] = useState('');
+    const [schemaError, setSchemaError] = useState<string | null>(null);
+    const [toolToDelete, setToolToDelete] = useState<UnifiedTool | null>(null);
 
-    const startEdit = (tool: UnifiedTool) => {
-        setEditingToolId(tool.id);
-        setEditToolName(tool.name);
-        setEditToolDescription(tool.description);
-        setEditToolInputSchema(tool.kind === 'sequence' ? tool.inputSchema : '');
+    useEffect(() => {
+        if (!editingTool) return;
+        setEditToolName(editingTool.name);
+        setEditToolDescription(editingTool.description);
+        setEditToolInputSchema(editingTool.kind === 'sequence' ? editingTool.inputSchema : '');
+        setSchemaError(null);
+    }, [editingTool]);
+
+    const validateSchema = async (value: string): Promise<boolean> => {
+        if (!value.trim()) {
+            setSchemaError(null);
+            return true;
+        }
+        const { schema } = await rpcClient.getMiDiagramRpcClient().convertMcpJsonSchema({ input: value });
+        if (schema === null) {
+            setSchemaError(INVALID_MCP_SCHEMA_MESSAGE);
+            return false;
+        }
+        setSchemaError(null);
+        return true;
     };
 
     const saveEdit = async () => {
+        if (!editingTool) return;
+        if (schemaError) return;
+
         const normalizedSchema = editToolInputSchema.trim()
             ? (await rpcClient.getMiDiagramRpcClient().convertMcpJsonSchema({ input: editToolInputSchema })).schema
             : null;
+
         const updatedTools = tools.map(t => {
-            if (t.id !== editingToolId) return t;
+            if (t.id !== editingTool.id) return t;
             const base = { ...t, name: editToolName.trim() || t.name, description: editToolDescription };
             if (t.kind === 'sequence') {
                 return { ...base, inputSchema: normalizedSchema || t.inputSchema };
@@ -127,87 +111,127 @@ export function ToolsListComponent({
             return base;
         });
         onSave(updatedTools);
-        setEditingToolId(null);
-    };
-
-    const cancelEdit = () => {
-        setEditingToolId(null);
+        setEditingTool(null);
     };
 
     return (
-        <ToolsList>
-            {tools.map(tool => (
-                <ToolItem
-                    key={tool.id}
-                    style={editingToolId === tool.id ? { flexDirection: 'column', alignItems: 'stretch', gap: '8px' } : { cursor: 'pointer' }}
-                    onClick={() => editingToolId !== tool.id && onGoToSource(tool)}
-                    title={tool.kind === 'api' ? `Open API: ${tool.apiName}` : `Open sequence: ${tool.sequenceName}`}
-                >
-                    {editingToolId === tool.id ? (
-                        <>
-                            <InlineEditContainer>
-                                <InlineInput
-                                    value={editToolName}
-                                    onChange={e => setEditToolName(e.target.value)}
-                                    placeholder="Tool name"
-                                    aria-label="Tool name"
-                                />
-                                <InlineTextarea
-                                    value={editToolDescription}
-                                    onChange={e => setEditToolDescription(e.target.value)}
-                                    placeholder="Tool description"
-                                    aria-label="Tool description"
-                                />
-                                {tool.kind === 'sequence' && (
-                                    <InlineTextarea
-                                        value={editToolInputSchema}
-                                        onChange={e => setEditToolInputSchema(e.target.value)}
-                                        placeholder='Input schema (JSON), e.g. {"type":"object","properties":{}}'
-                                        aria-label="Input schema"
-                                        style={{ minHeight: '72px', fontFamily: 'monospace' }}
-                                    />
-                                )}
-                            </InlineEditContainer>
-                            <InlineEditActions>
-                                <Button appearance="secondary" onClick={cancelEdit} sx={{ padding: '4px 10px', fontSize: '11px', minWidth: 'auto' }}>Cancel</Button>
-                                <Button appearance="primary" onClick={saveEdit} sx={{ padding: '4px 10px', fontSize: '11px', minWidth: 'auto' }}>Save</Button>
-                            </InlineEditActions>
-                        </>
-                    ) : (
-                        <>
-                            <ToolInfo>
-                                <Typography variant="body2" sx={{ fontWeight: 600 }}>{tool.name}</Typography>
-                                {tool.description && (
-                                    <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)' }}>{tool.description}</Typography>
-                                )}
-                            </ToolInfo>
-                            {tool.kind === 'api' ? (
-                                <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--vscode-descriptionForeground)' }}>
-                                    {tool.operationMethod} {tool.operationPath} ({tool.apiName})
-                                </Typography>
-                            ) : (
-                                <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--vscode-descriptionForeground)' }}>
-                                    SEQUENCE · {tool.sequenceName}
-                                </Typography>
+        <>
+            <ToolsList>
+                {tools.map(tool => (
+                    <ToolItem
+                        key={tool.id}
+                        onClick={() => onGoToSource(tool)}
+                        title={tool.kind === 'api' ? `Open API: ${tool.apiName}` : `Open sequence: ${tool.sequenceName}`}
+                    >
+                        <ToolInfo>
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>{tool.name}</Typography>
+                            {tool.description && (
+                                <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)' }}>{tool.description}</Typography>
                             )}
-                            <Button
-                                appearance="secondary"
-                                onClick={(e: any) => { e.stopPropagation(); startEdit(tool); }}
-                                sx={{ padding: '4px 8px', fontSize: '11px', minWidth: 'auto', marginRight: '4px' }}
-                            >
-                                Edit
-                            </Button>
-                            <Button
-                                appearance="secondary"
-                                onClick={(e: any) => { e.stopPropagation(); onRemove(tool.id); }}
-                                sx={{ padding: '4px 8px', fontSize: '11px', minWidth: 'auto' }}
-                            >
-                                ✕
-                            </Button>
-                        </>
-                    )}
-                </ToolItem>
-            ))}
-        </ToolsList>
+                        </ToolInfo>
+                        {tool.kind === 'api' ? (
+                            <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--vscode-descriptionForeground)' }}>
+                                {tool.operationMethod} {tool.operationPath} ({tool.apiName})
+                            </Typography>
+                        ) : (
+                            <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--vscode-descriptionForeground)' }}>
+                                SEQUENCE · {tool.sequenceName}
+                            </Typography>
+                        )}
+                        <Button
+                            appearance="secondary"
+                            onClick={(e: any) => { e.stopPropagation(); setEditingTool(tool); }}
+                            sx={{ padding: '4px 8px', fontSize: '11px', minWidth: 'auto', marginRight: '4px' }}
+                        >
+                            Edit
+                        </Button>
+                        <Button
+                            appearance="secondary"
+                            onClick={(e: any) => { e.stopPropagation(); setToolToDelete(tool); }}
+                            sx={{ padding: '4px 8px', fontSize: '11px', minWidth: 'auto' }}
+                        >
+                            ✕
+                        </Button>
+                    </ToolItem>
+                ))}
+            </ToolsList>
+
+            <Dialog
+                isOpen={!!toolToDelete}
+                onClose={() => setToolToDelete(null)}
+                sx={{ maxWidth: '400px', width: '90%', borderRadius: '8px', textAlign: 'left' }}
+            >
+                <DialogTitle>Delete Tool</DialogTitle>
+                <Typography variant="body2" sx={{ marginBottom: '16px' }}>
+                    Are you sure you want to delete the tool <strong>{toolToDelete?.name}</strong>? This action cannot be undone.
+                </Typography>
+                <DialogButtonGroup>
+                    <Button appearance="secondary" onClick={() => setToolToDelete(null)}>Cancel</Button>
+                    <Button
+                        appearance="primary"
+                        onClick={() => { onRemove(toolToDelete!.id); setToolToDelete(null); }}
+                    >
+                        Delete
+                    </Button>
+                </DialogButtonGroup>
+            </Dialog>
+
+            <Dialog
+                isOpen={!!editingTool}
+                onClose={() => setEditingTool(null)}
+                sx={{ maxWidth: '600px', width: '90%', maxHeight: '80vh', overflowY: 'auto', borderRadius: '8px', textAlign: 'left' }}
+            >
+                <DialogTitle>Edit Tool</DialogTitle>
+
+                <DialogField>
+                    <Typography variant="subtitle2">Tool Name *</Typography>
+                    <TextField
+                        placeholder="e.g., get_weather"
+                        value={editToolName}
+                        onChange={(e: any) => setEditToolName(e.target.value)}
+                    />
+                </DialogField>
+
+                <DialogField>
+                    <Typography variant="subtitle2">Description *</Typography>
+                    <TextField
+                        placeholder="Describe what this tool does"
+                        value={editToolDescription}
+                        onChange={(e: any) => setEditToolDescription(e.target.value)}
+                    />
+                </DialogField>
+
+                {editingTool?.kind === 'sequence' && (
+                    <DialogField>
+                        <Typography variant="subtitle2">Input Schema (JSON)</Typography>
+                        <TextArea
+                            placeholder='e.g. {"type":"object","properties":{"city":{"type":"string"}}}'
+                            rows={4}
+                            resize="vertical"
+                            sx={{ fontFamily: 'var(--vscode-editor-font-family, monospace)' }}
+                            value={editToolInputSchema}
+                            onChange={(e: any) => {
+                                setEditToolInputSchema(e.target.value);
+                                validateSchema(e.target.value);
+                            }}
+                        />
+                        {schemaError && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)' }}>{schemaError}</Typography>}
+                    </DialogField>
+                )}
+
+                <DialogButtonGroup>
+                    <Button appearance="secondary" onClick={() => setEditingTool(null)}>Cancel</Button>
+                    <Button
+                        appearance="primary"
+                        onClick={saveEdit}
+                        disabled={!editToolName.trim() || !editToolDescription.trim() || !!schemaError}
+                    >
+                        Save
+                    </Button>
+                </DialogButtonGroup>
+            </Dialog>
+        </>
     );
 }
+
+export default ToolsListComponent;

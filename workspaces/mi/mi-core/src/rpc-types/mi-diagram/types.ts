@@ -2533,12 +2533,13 @@ export interface BuildMcpToolsXmlResponse {
     xml: string;
 }
 
-export interface UpdateMcpInboundEndpointCorsRequest {
+export interface UpdateMcpInboundEndpointRequest {
     inboundEndpointPath: string;
     corsSettings: McpServerCorsSettings;
+    port?: number;
 }
 
-export interface UpdateMcpInboundEndpointCorsResponse {
+export interface UpdateMcpInboundEndpointResponse {
     success: boolean;
 }
 
@@ -2564,4 +2565,20 @@ export interface PickMcpJsonFileResponse {
 
 export interface GetMcpInboundListenerClassResponse {
     className: string;
+}
+
+export interface GetAPIOperationInputSchemasRequest {
+    projectRoot: string;
+    operations: Array<{
+        id: string;
+        apiName: string;
+        apiXmlPath: string;
+        apiRawVersion: string;
+        operationMethod: string;
+        operationPath: string;
+    }>;
+}
+
+export interface GetAPIOperationInputSchemasResponse {
+    schemas: { [operationId: string]: string };
 }

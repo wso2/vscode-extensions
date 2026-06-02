@@ -30,7 +30,7 @@ export const COPILOT_ERROR_MESSAGES = {
 
 // MCP Tool Schema
 export const EMPTY_MCP_SCHEMA = JSON.stringify({ type: 'object', properties: {}, additionalProperties: false });
-export const INVALID_MCP_SCHEMA_MESSAGE = 'Invalid JSON. Use shorthand like {"city": "string"} or full JSON Schema.';
+export const INVALID_MCP_SCHEMA_MESSAGE = 'Invalid JSON Schema. Expected a valid JSON Schema object with "type" or "properties".';
 
 // MI Copilot maximum allowed file size
 export const MAX_FILE_SIZE = 5 * 1024 * 1024; // Default to 5MB

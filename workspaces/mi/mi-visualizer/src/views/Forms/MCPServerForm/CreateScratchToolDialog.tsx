@@ -18,7 +18,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import styled from '@emotion/styled';
-import { Dialog, Button, Typography, TextField, TextArea } from '@wso2/ui-toolkit';
+import { Dialog, Button, Icon, Typography, TextField, TextArea } from '@wso2/ui-toolkit';
 import { useForm } from 'react-hook-form';
 import * as yup from 'yup';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -70,8 +70,7 @@ export function CreateScratchToolDialog({
     existingToolSequenceNames = []
 }: CreateScratchToolDialogProps) {
     const { rpcClient } = useVisualizerContext();
-    const [aiDescLoading, setAiDescLoading] = useState(false);
-    const [aiSchemaLoading, setAiSchemaLoading] = useState(false);
+    const [aiLoading, setAiLoading] = useState(false);
 
     const schema = useMemo(() => yup.object({
         name: yup.string()
@@ -118,30 +117,20 @@ export function CreateScratchToolDialog({
         return true;
     };
 
-    const handleFillDescription = async () => {
+    const handleFillWithAI = async () => {
         if (!name?.trim()) return;
-        setAiDescLoading(true);
+        setAiLoading(true);
         try {
             const result = await rpcClient.getMiVisualizerRpcClient().getMcpToolSuggestion({ toolName: name.trim() });
             if (result.description) {
                 setValue('description', result.description, { shouldValidate: true });
             }
-        } finally {
-            setAiDescLoading(false);
-        }
-    };
-
-    const handleFillSchema = async () => {
-        if (!name?.trim()) return;
-        setAiSchemaLoading(true);
-        try {
-            const result = await rpcClient.getMiVisualizerRpcClient().getMcpToolSuggestion({ toolName: name.trim() });
             if (result.inputSchema) {
                 setValue('inputSchema', result.inputSchema);
                 validateSchema(result.inputSchema);
             }
         } finally {
-            setAiSchemaLoading(false);
+            setAiLoading(false);
         }
     };
 
@@ -174,7 +163,17 @@ export function CreateScratchToolDialog({
 
     return (
         <Dialog isOpen={isOpen} onClose={onCancel} sx={{ maxWidth: '600px', width: '90%', maxHeight: '80vh', overflowY: 'auto', borderRadius: '8px', textAlign: 'left' }}>
-            <DialogTitle>Create New Tool</DialogTitle>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <DialogTitle>Create New Tool</DialogTitle>
+                <Button
+                    appearance="icon"
+                    disabled={!name?.trim() || aiLoading}
+                    onClick={handleFillWithAI}
+                    tooltip="Fill with AI"
+                >
+                    <Icon name="bi-ai-chat" />
+                </Button>
+            </div>
             <Typography variant="body2" sx={{ color: 'var(--vscode-descriptionForeground)', marginBottom: '16px' }}>
                 A new sequence will be created automatically. You can implement the logic inside it after.
             </Typography>
@@ -193,16 +192,10 @@ export function CreateScratchToolDialog({
 
             <DialogField>
                 <Typography variant="subtitle2">Description *</Typography>
-                <SchemaRow>
-                    <TextField
-                        placeholder="Describe what this tool does"
-                        {...register('description')}
-                        sx={{ flex: 1 }}
-                    />
-                    <Button appearance="secondary" onClick={handleFillDescription} disabled={!name?.trim() || aiDescLoading} sx={{ padding: '4px 10px', fontSize: '12px', minWidth: 'auto' }}>
-                        {aiDescLoading ? 'Filling...' : 'Fill With AI'}
-                    </Button>
-                </SchemaRow>
+                <TextField
+                    placeholder="Describe what this tool does"
+                    {...register('description')}
+                />
                 {errors.description && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)' }}>{String(errors.description.message)}</Typography>}
             </DialogField>
 
@@ -210,7 +203,7 @@ export function CreateScratchToolDialog({
                 <Typography variant="subtitle2">Input Schema (JSON)</Typography>
                 <SchemaRow>
                     <TextArea
-                        placeholder='e.g. {"city": "string", "units": "string"}'
+                        placeholder='e.g. {"type":"object","properties":{"city":{"type":"string"}}}'
                         rows={4}
                         resize="vertical"
                         sx={{ flex: 1, fontFamily: 'var(--vscode-editor-font-family, monospace)' }}
@@ -218,9 +211,6 @@ export function CreateScratchToolDialog({
                             onChange: e => validateSchema(e.target.value),
                         })}
                     />
-                    <Button appearance="secondary" onClick={handleFillSchema} disabled={!name?.trim() || aiSchemaLoading} sx={{ padding: '4px 10px', fontSize: '12px', minWidth: 'auto' }}>
-                        {aiSchemaLoading ? 'Filling...' : 'Fill With AI'}
-                    </Button>
                     <Button appearance="secondary" onClick={handleImportFile} sx={{ padding: '4px 10px', fontSize: '12px', minWidth: 'auto' }}>
                         Import JSON
                     </Button>

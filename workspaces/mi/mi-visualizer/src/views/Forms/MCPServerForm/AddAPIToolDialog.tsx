@@ -18,11 +18,12 @@
 
 import { useEffect, useState } from 'react';
 import styled from '@emotion/styled';
-import { Dialog, Button, Typography, TextField } from '@wso2/ui-toolkit';
+import { Dialog, Button, Icon, Typography, TextField, TextArea } from '@wso2/ui-toolkit';
 import { useForm } from 'react-hook-form';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
-import { DialogField, DialogButtonGroup, FlexRow, DialogTitle } from '../Commons';
+import { DialogField, DialogButtonGroup, DialogTitle } from '../Commons';
 import { SelectAllRow, CustomInputsContainer, ItemsList, ListItem, ListItemHeader, ItemCheckbox } from './styles';
+import { EMPTY_MCP_SCHEMA, INVALID_MCP_SCHEMA_MESSAGE } from '../../../constants';
 
 interface APIOperation {
     id: string;
@@ -36,6 +37,8 @@ interface API {
     name: string;
     context: string;
     version: string;
+    rawVersion: string;
+    xmlPath: string;
     operations: APIOperation[];
 }
 
@@ -43,14 +46,16 @@ interface AddAPIToolDialogProps {
     isOpen: boolean;
     apis: API[];
     selectedAPIForTool: string;
+    projectRoot: string;
     onAPIChange: (apiId: string) => void;
-    onConfirmBulk: (apiId: string, selectedOperations: Array<{ id: string; customName: string; description: string }>) => void;
+    onConfirmBulk: (apiId: string, selectedOperations: Array<{ id: string; customName: string; description: string; inputSchema: string }>) => void;
     onCancel: () => void;
 }
 
 interface OperationFormItem {
     customName: string;
     description: string;
+    inputSchema: string;
 }
 
 interface FormValues {
@@ -96,10 +101,17 @@ const OperationMethodRow = styled.div`
     align-items: center;
 `;
 
+const SchemaRow = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+`;
+
 export function AddAPIToolDialog({
     isOpen,
     apis,
     selectedAPIForTool,
+    projectRoot,
     onAPIChange,
     onConfirmBulk,
     onCancel,
@@ -107,6 +119,7 @@ export function AddAPIToolDialog({
     const { rpcClient } = useVisualizerContext();
     const [selectedOperationIds, setSelectedOperationIds] = useState<Set<string>>(new Set());
     const [aiLoadingIds, setAiLoadingIds] = useState<Set<string>>(new Set());
+    const [apiSchemas, setApiSchemas] = useState<Record<string, string>>({});
 
     const { register, handleSubmit, watch, getValues, setValue, setError, clearErrors, reset, formState: { errors } } = useForm<FormValues>({
         defaultValues: { items: {} },
@@ -119,10 +132,30 @@ export function AddAPIToolDialog({
         if (!isOpen) {
             reset({ items: {} });
             setSelectedOperationIds(new Set());
+            setApiSchemas({});
         }
     }, [isOpen, reset]);
 
     const selectedAPI = apis.find(a => a.id === selectedAPIForTool);
+
+    // Load input schemas from API definition when the selected API changes
+    useEffect(() => {
+        if (!selectedAPI || !projectRoot) {
+            setApiSchemas({});
+            return;
+        }
+        rpcClient.getMiDiagramRpcClient().getAPIOperationInputSchemas({
+            projectRoot,
+            operations: selectedAPI.operations.map(op => ({
+                id: op.id,
+                apiName: selectedAPI.name,
+                apiXmlPath: selectedAPI.xmlPath,
+                apiRawVersion: selectedAPI.rawVersion,
+                operationMethod: op.method,
+                operationPath: op.path,
+            })),
+        }).then(({ schemas }) => setApiSchemas(schemas)).catch(() => setApiSchemas({}));
+    }, [selectedAPIForTool, projectRoot]);
 
     const handleOperationToggle = (operationId: string) => {
         const newSet = new Set(selectedOperationIds);
@@ -131,6 +164,11 @@ export function AddAPIToolDialog({
             clearErrors(`items.${operationId}` as const);
         } else {
             newSet.add(operationId);
+            // Pre-populate schema from API definition if available
+            const existing = getValues(`items.${operationId}.inputSchema` as const);
+            if (!existing && apiSchemas[operationId]) {
+                setValue(`items.${operationId}.inputSchema` as const, apiSchemas[operationId]);
+            }
         }
         setSelectedOperationIds(newSet);
     };
@@ -140,7 +178,15 @@ export function AddAPIToolDialog({
         if (selectedOperationIds.size === selectedAPI.operations.length) {
             setSelectedOperationIds(new Set());
         } else {
-            setSelectedOperationIds(new Set(selectedAPI.operations.map((op: APIOperation) => op.id)));
+            const allIds = new Set(selectedAPI.operations.map((op: APIOperation) => op.id));
+            // Pre-populate schemas for all newly selected operations
+            for (const op of selectedAPI.operations) {
+                const existing = getValues(`items.${op.id}.inputSchema` as const);
+                if (!existing && apiSchemas[op.id]) {
+                    setValue(`items.${op.id}.inputSchema` as const, apiSchemas[op.id]);
+                }
+            }
+            setSelectedOperationIds(allIds);
         }
     };
 
@@ -148,6 +194,20 @@ export function AddAPIToolDialog({
         onAPIChange(apiId);
         setSelectedOperationIds(new Set());
         reset({ items: {} });
+    };
+
+    const validateSchema = async (id: string, value: string): Promise<boolean> => {
+        if (!value.trim()) {
+            clearErrors(`items.${id}.inputSchema` as const);
+            return true;
+        }
+        const { schema } = await rpcClient.getMiDiagramRpcClient().convertMcpJsonSchema({ input: value });
+        if (schema === null) {
+            setError(`items.${id}.inputSchema` as const, { message: INVALID_MCP_SCHEMA_MESSAGE });
+            return false;
+        }
+        clearErrors(`items.${id}.inputSchema` as const);
+        return true;
     };
 
     const handleFillWithAI = async (op: APIOperation) => {
@@ -159,20 +219,37 @@ export function AddAPIToolDialog({
                 operationMethod: op.method,
                 operationPath: op.path,
                 operationSummary: op.summary,
+                apiXmlPath: selectedAPI?.xmlPath,
+                inputSchemaJson: apiSchemas[op.id] || undefined,
             });
+            if (result.name && !getValues(`items.${op.id}.customName` as const)?.trim()) {
+                setValue(`items.${op.id}.customName` as const, result.name);
+            }
             if (result.description) {
                 setValue(`items.${op.id}.description` as const, result.description);
                 clearErrors(`items.${op.id}.description` as const);
+            }
+            if (result.inputSchema) {
+                setValue(`items.${op.id}.inputSchema` as const, result.inputSchema);
+                validateSchema(op.id, result.inputSchema);
             }
         } finally {
             setAiLoadingIds(prev => { const n = new Set(prev); n.delete(op.id); return n; });
         }
     };
 
-    const onSubmit = (data: FormValues) => {
+    const handleImportFile = async (id: string) => {
+        const { content } = await rpcClient.getMiDiagramRpcClient().pickMcpJsonFile();
+        if (content === null) return;
+        setValue(`items.${id}.inputSchema` as const, content);
+        validateSchema(id, content);
+    };
+
+    const onSubmit = async (data: FormValues) => {
         if (!selectedAPIForTool || selectedOperationIds.size === 0) return;
 
         const opIds = Array.from(selectedOperationIds);
+
         let hasMissingDesc = false;
         opIds.forEach(opId => {
             if (!data.items?.[opId]?.description?.trim()) {
@@ -182,16 +259,28 @@ export function AddAPIToolDialog({
         });
         if (hasMissingDesc) return;
 
-        const selectedOperations = opIds.flatMap(opId => {
+        const hasSchemaErrors = opIds.some(id => errors.items?.[id]?.inputSchema);
+        if (hasSchemaErrors) return;
+
+        const selectedOperations = await Promise.all(opIds.flatMap(opId => {
             const operation = selectedAPI?.operations.find((op: APIOperation) => op.id === opId);
             if (!operation) return [];
-            const item = data.items?.[opId];
-            return [{
-                id: opId,
-                customName: item?.customName || getDefaultName(operation),
-                description: item!.description.trim(),
+            return [async () => {
+                const item = data.items?.[opId];
+                const raw = item?.inputSchema?.trim() || '';
+                let converted: string | null = null;
+                if (raw) {
+                    const { schema } = await rpcClient.getMiDiagramRpcClient().convertMcpJsonSchema({ input: raw });
+                    converted = schema;
+                }
+                return {
+                    id: opId,
+                    customName: item?.customName || getDefaultName(operation),
+                    description: item!.description.trim(),
+                    inputSchema: converted || EMPTY_MCP_SCHEMA,
+                };
             }];
-        });
+        }).map(fn => fn()));
 
         onConfirmBulk(selectedAPIForTool, selectedOperations);
         reset({ items: {} });
@@ -202,7 +291,9 @@ export function AddAPIToolDialog({
         && selectedAPI.operations.length > 0
         && selectedOperationIds.size === selectedAPI.operations.length;
     const someSelected = selectedOperationIds.size > 0;
-    const hasMissingDescriptions = Array.from(selectedOperationIds).some(id => !items[id]?.description?.trim());
+    const selectedIdList = Array.from(selectedOperationIds);
+    const hasSchemaErrors = selectedIdList.some(id => !!errors.items?.[id]?.inputSchema);
+    const hasMissingDescriptions = selectedIdList.some(id => !items[id]?.description?.trim());
 
     return (
         <Dialog isOpen={isOpen} onClose={onCancel} sx={{ maxWidth: '600px', width: '90%', maxHeight: '80vh', overflowY: 'auto', borderRadius: '8px', textAlign: 'left' }}>
@@ -267,6 +358,16 @@ export function AddAPIToolDialog({
                                     </ListItemHeader>
                                     {selectedOperationIds.has(op.id) && (
                                         <CustomInputsContainer>
+                                            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                                <Button
+                                                    appearance="icon"
+                                                    disabled={aiLoadingIds.has(op.id)}
+                                                    onClick={(e: any) => { e.stopPropagation(); handleFillWithAI(op); }}
+                                                    tooltip="Fill with AI"
+                                                >
+                                                    <Icon name="bi-ai-chat" />
+                                                </Button>
+                                            </div>
                                             <Typography variant="caption" sx={{ fontSize: '10px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>Tool name</Typography>
                                             <TextField
                                                 id={`name-${op.id}`}
@@ -275,27 +376,37 @@ export function AddAPIToolDialog({
                                                 onClick={(e) => e.stopPropagation()}
                                             />
                                             <Typography variant="caption" sx={{ fontSize: '10px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>Description *</Typography>
-                                            <FlexRow>
-                                                <TextField
-                                                    id={`desc-${op.id}`}
-                                                    placeholder={op.summary || 'Describe what this tool does'}
-                                                    {...register(`items.${op.id}.description` as const, {
-                                                        onChange: e => { if (e.target.value.trim()) clearErrors(`items.${op.id}.description` as const); },
-                                                        onBlur: e => { if (!e.target.value.trim()) setError(`items.${op.id}.description` as const, { message: 'Description is required.' }); },
+                                            <TextField
+                                                id={`desc-${op.id}`}
+                                                placeholder={op.summary || 'Describe what this tool does'}
+                                                {...register(`items.${op.id}.description` as const, {
+                                                    onChange: e => { if (e.target.value.trim()) clearErrors(`items.${op.id}.description` as const); },
+                                                    onBlur: e => { if (!e.target.value.trim()) setError(`items.${op.id}.description` as const, { message: 'Description is required.' }); },
+                                                })}
+                                                onClick={(e) => e.stopPropagation()}
+                                            />
+                                            {itemErrors?.description && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)', fontSize: '11px' }}>{String(itemErrors.description.message)}</Typography>}
+                                            <Typography variant="caption" sx={{ fontSize: '10px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>Input Schema (JSON)</Typography>
+                                            <SchemaRow>
+                                                <TextArea
+                                                    placeholder='e.g. {"type":"object","properties":{"city":{"type":"string"}}}'
+                                                    rows={4}
+                                                    resize="vertical"
+                                                    sx={{ flex: 1, fontFamily: 'var(--vscode-editor-font-family, monospace)' }}
+                                                    {...register(`items.${op.id}.inputSchema` as const, {
+                                                        onChange: e => validateSchema(op.id, e.target.value),
                                                     })}
                                                     onClick={(e) => e.stopPropagation()}
-                                                    sx={{ flex: 1 }}
                                                 />
                                                 <Button
                                                     appearance="secondary"
-                                                    disabled={aiLoadingIds.has(op.id)}
-                                                    onClick={(e: any) => { e.stopPropagation(); handleFillWithAI(op); }}
+                                                    onClick={(e: any) => { e.stopPropagation(); handleImportFile(op.id); }}
                                                     sx={{ padding: '4px 10px', fontSize: '12px', minWidth: 'auto' }}
                                                 >
-                                                    {aiLoadingIds.has(op.id) ? 'Filling...' : 'Fill With AI'}
+                                                    Import JSON
                                                 </Button>
-                                            </FlexRow>
-                                            {itemErrors?.description && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)', fontSize: '11px' }}>{String(itemErrors.description.message)}</Typography>}
+                                            </SchemaRow>
+                                            {itemErrors?.inputSchema && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)', fontSize: '11px' }}>{String(itemErrors.inputSchema.message)}</Typography>}
                                         </CustomInputsContainer>
                                     )}
                                 </ListItem>
@@ -318,7 +429,7 @@ export function AddAPIToolDialog({
                 <Button
                     appearance="primary"
                     onClick={handleSubmit(onSubmit)}
-                    disabled={!selectedAPIForTool || !someSelected || hasMissingDescriptions}
+                    disabled={!selectedAPIForTool || !someSelected || hasMissingDescriptions || hasSchemaErrors}
                 >
                     Add Selected Tools ({selectedOperationIds.size})
                 </Button>
