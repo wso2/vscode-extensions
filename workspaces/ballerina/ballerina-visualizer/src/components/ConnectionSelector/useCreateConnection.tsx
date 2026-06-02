@@ -56,7 +56,7 @@ export function useCreateConnection(
 
     // Standard connector creation, pre-scoped to this field's connector; new var read from the created artifact.
     const createGenericConnection = async (connectorCodeData: CodeData, onCreated: (variableName: string) => void) => {
-        const title = `Create ${connectorCodeData.object || "Connection"}`;
+        const title = "Create Connection";
         const dummyNode = { codedata: {}, properties: {} } as unknown as FlowNode;
         const renderCreator = (flowNode: FlowNode, close: () => void) => (
             <ConnectionCreator
