@@ -146,7 +146,7 @@ export const ConnectionSelectEditor: React.FC<ConnectionSelectEditorProps> = ({ 
     // The backing connector codedata for the create-new flow.
     const connectorCodeData = field.codedata?.data?.connection as CodeData | undefined;
     const createNewLabel = connectionType
-        ? field.label || "Connection"
+        ? "Connection"
         : humanizeKind(searchNodesKind);
 
     return (
