@@ -106,18 +106,6 @@ function asArray<T>(value: T | T[] | undefined): T[] {
     return Array.isArray(value) ? value : [value];
 }
 
-function findFirstChild(obj: any, key: string): any {
-    if (!obj || typeof obj !== "object") return undefined;
-    if (obj[key] !== undefined) return obj[key];
-    for (const k of Object.keys(obj)) {
-        const v = obj[k];
-        if (v && typeof v === "object") {
-            const found = findFirstChild(v, key);
-            if (found !== undefined) return found;
-        }
-    }
-    return undefined;
-}
 
 function collectToolNodes(node: any): any[] {
     if (!node || typeof node !== "object") return [];

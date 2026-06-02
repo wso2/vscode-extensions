@@ -347,7 +347,7 @@ const MainPanel = (props: MainPanelProps) => {
                 setViewComponent(<DataSourceWizard path={visualizerState.documentUri} />);
                 break;
             case MACHINE_VIEW.MCPServerForm:
-                setViewComponent(<MCPServerWizard path={visualizerState.documentUri} forceCreate={visualizerState.customProps?.forceCreate} />);
+                setViewComponent(<MCPServerWizard path={visualizerState.documentUri} />);
                 break;
             case MACHINE_VIEW.MCPServerFromAPIsForm:
                 setViewComponent(<MCPServerToolsForm path={visualizerState.documentUri} editData={visualizerState.customProps?.editData} />);

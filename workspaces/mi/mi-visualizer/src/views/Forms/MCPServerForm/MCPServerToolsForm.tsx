@@ -416,11 +416,11 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
 
     const goToToolSource = (tool: UnifiedTool) => {
         if (tool.kind === 'api') {
-            const xmlPath = tool.apiXmlPath;
-            if (!xmlPath) return;
-
-            const api = apis.find(a => a.xmlPath === xmlPath);
-            if (!api) return;
+            // apiXmlPath is empty when a tool is loaded from XML (parseToolsFromXML sets it to ""),
+            // so fall back to matching by apiName from the loaded apis list.
+            const api = (tool.apiXmlPath ? apis.find(a => a.xmlPath === tool.apiXmlPath) : undefined)
+                ?? apis.find(a => a.name === tool.apiName);
+            if (!api?.xmlPath) return;
 
             const resourceIndex = api.operations.findIndex(
                 op => op.method === tool.operationMethod && op.path === tool.operationPath
@@ -429,8 +429,8 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
             rpcClient.getMiVisualizerRpcClient().openView({
                 type: EVENT_TYPE.OPEN_VIEW,
                 location: resourceIndex >= 0
-                    ? { view: MACHINE_VIEW.ResourceView, documentUri: xmlPath, identifier: resourceIndex.toString() }
-                    : { view: MACHINE_VIEW.ServiceDesigner, documentUri: xmlPath },
+                    ? { view: MACHINE_VIEW.ResourceView, documentUri: api.xmlPath, identifier: resourceIndex.toString() }
+                    : { view: MACHINE_VIEW.ServiceDesigner, documentUri: api.xmlPath },
             });
         } else {
             const xmlPath = tool.sequenceXmlPath || sequences.find(s => s.name === tool.sequenceName)?.xmlPath || '';
@@ -697,7 +697,6 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                                         ) : (
                                             <ToolsListComponent
                                                 tools={tools}
-                                                onEdit={() => {}}
                                                 onRemove={removeTool}
                                                 onSave={(updatedTools) => {
                                                     setTools(updatedTools);
@@ -752,7 +751,6 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                                         ) : (
                                             <ToolsListComponent
                                                 tools={tools}
-                                                onEdit={() => {}}
                                                 onRemove={removeTool}
                                                 onSave={(updatedTools) => {
                                                     setTools(updatedTools);

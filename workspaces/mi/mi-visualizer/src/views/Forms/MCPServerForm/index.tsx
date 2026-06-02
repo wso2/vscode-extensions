@@ -85,7 +85,6 @@ const schema = yup.object({
 
 export interface MCPServerWizardProps {
     path: string;
-    forceCreate?: boolean;
     editData?: {
         serverName?: string;
         port?: number;

@@ -51,7 +51,6 @@ const ToolsList = styled.div`
 
 interface ToolsListProps {
     tools: UnifiedTool[];
-    onEdit: (tool: UnifiedTool) => void;
     onRemove: (toolId: string) => void;
     onSave: (updatedTools: UnifiedTool[]) => void;
     onGoToSource: (tool: UnifiedTool) => void;
@@ -59,7 +58,6 @@ interface ToolsListProps {
 
 export function ToolsListComponent({
     tools,
-    onEdit,
     onRemove,
     onSave,
     onGoToSource,
