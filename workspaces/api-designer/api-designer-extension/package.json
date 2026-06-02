@@ -28,7 +28,11 @@
   ],
   "activationEvents": [
     "onStartupFinished",
-    "onLanguage:yaml"
+    "onLanguage:yaml",
+    "workspaceContains:**/*.apk-conf"
+  ],
+  "extensionDependencies": [
+    "redhat.vscode-yaml"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -145,7 +149,18 @@
         }
       }
     ],
+    "languages": [
+      {
+        "id": "yaml",
+        "extensions": [".apk-conf"]
+      }
+    ],
     "commands": [
+      {
+        "command": "APIDesigner.chooseTemplateApk",
+        "title": "Choose Template (APK)",
+        "category": "API Designer"
+      },
       {
         "command": "APIDesigner.openApiDesigner",
         "title": "Open in API Designer",

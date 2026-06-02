@@ -20,16 +20,13 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 
-export async function activate(context: vscode.ExtensionContext) {
-
-    // Register the "*.apk-conf" file association to the "yaml" language
-    // registerFileAssociation();
+export async function activateApkFeature(context: vscode.ExtensionContext) {
 
     // Check if "YAML Language Support by Red Hat" extension is installed
     const yamlExtension = vscode.extensions.getExtension('redhat.vscode-yaml');
     if (!yamlExtension) {
         vscode.window.showErrorMessage(
-            'The "YAML Language Support by Red Hat" extension is required for the APK Configuration extension to work properly. Please install it and reload the window.'
+            'The "YAML Language Support by Red Hat" extension is required for APK configuration support to work properly. Please install it and reload the window.'
         );
         return;
     }
@@ -37,7 +34,7 @@ export async function activate(context: vscode.ExtensionContext) {
     const SCHEMA = "apkschema";
 
     // Read the schema file content
-    const schemaFilePath = path.join(context.extensionPath, 'schema', 'apk-schema.json');
+    const schemaFilePath = path.join(context.extensionPath, 'resources', 'apk-schema.json');
 
     const schemaContent = fs.readFileSync(schemaFilePath, 'utf8');
     const schemaContentJSON = JSON.parse(schemaContent);
@@ -84,7 +81,7 @@ export async function activate(context: vscode.ExtensionContext) {
     /////////////////////////// template selection code ////////////////////////////
 
     const extensionRoot = context.extensionUri.fsPath;
-    const templatesFolderPath = vscode.Uri.file(path.join(extensionRoot, "templates"));
+    const templatesFolderPath = vscode.Uri.file(path.join(extensionRoot, "resources", "apk-templates"));
 
     /**
      * Register a command to handle the "choose a template" action
@@ -104,7 +101,7 @@ export async function activate(context: vscode.ExtensionContext) {
     });
 
     context.subscriptions.push(
-        vscode.commands.registerCommand("extension.chooseTemplateApk", async () => {
+        vscode.commands.registerCommand("APIDesigner.chooseTemplateApk", async () => {
             // Show a quick pick menu to let the user choose a template
             const selectedTemplate = await vscode.window.showQuickPick(templates);
             if (selectedTemplate) {
@@ -142,7 +139,7 @@ export async function activate(context: vscode.ExtensionContext) {
                         .showInformationMessage("Choose a template", "Select Template")
                         .then((choice) => {
                             if (choice === "Select Template") {
-                                vscode.commands.executeCommand("extension.chooseTemplateApk");
+                                vscode.commands.executeCommand("APIDesigner.chooseTemplateApk");
                             }
                         });
                 }
