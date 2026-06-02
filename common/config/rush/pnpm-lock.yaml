@@ -27550,6 +27550,17 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  '@babel/plugin-transform-typescript@7.28.6(@babel/core@7.27.1)':
+    dependencies:
+      '@babel/core': 7.27.1
+      '@babel/helper-annotate-as-pure': 7.29.7
+      '@babel/helper-create-class-features-plugin': 7.29.7(@babel/core@7.27.1)
+      '@babel/helper-plugin-utils': 7.29.7
+      '@babel/helper-skip-transparent-expression-wrappers': 7.29.7
+      '@babel/plugin-syntax-typescript': 7.29.7(@babel/core@7.27.1)
+    transitivePeerDependencies:
+      - supports-color
+
   '@babel/plugin-transform-unicode-escapes@7.29.7(@babel/core@7.27.1)':
     dependencies:
       '@babel/core': 7.27.1
@@ -27828,6 +27839,17 @@ snapshots:
       '@babel/plugin-syntax-jsx': 7.29.7(@babel/core@7.29.7)
       '@babel/plugin-transform-modules-commonjs': 7.29.7(@babel/core@7.29.7)
       '@babel/plugin-transform-typescript': 7.27.1(@babel/core@7.29.7)
+    transitivePeerDependencies:
+      - supports-color
+
+  '@babel/preset-typescript@7.28.5(@babel/core@7.27.1)':
+    dependencies:
+      '@babel/core': 7.27.1
+      '@babel/helper-plugin-utils': 7.29.7
+      '@babel/helper-validator-option': 7.29.7
+      '@babel/plugin-syntax-jsx': 7.29.7(@babel/core@7.27.1)
+      '@babel/plugin-transform-modules-commonjs': 7.29.7(@babel/core@7.27.1)
+      '@babel/plugin-transform-typescript': 7.28.6(@babel/core@7.27.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -28977,9 +28999,16 @@ snapshots:
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
 
-  '@headlessui/react@1.7.18(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
+  '@headlessui/react@1.7.18(react-dom@19.2.6(react@19.2.6))(react@19.2.6)':
     dependencies:
-      '@tanstack/react-virtual': 3.13.26(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      '@tanstack/react-virtual': 3.13.26(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      client-only: 0.0.1
+      react: 19.2.6
+      react-dom: 19.2.6(react@19.2.6)
+
+  '@headlessui/react@1.7.19(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
+    dependencies:
+      '@tanstack/react-virtual': 3.13.26(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       client-only: 0.0.1
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
@@ -34912,7 +34941,7 @@ snapshots:
       '@babel/plugin-transform-spread': 7.29.7(@babel/core@7.27.1)
       '@babel/preset-env': 7.27.2(@babel/core@7.27.1)
       '@babel/preset-react': 7.27.1(@babel/core@7.27.1)
-      '@babel/preset-typescript': 7.27.1(@babel/core@7.27.1)
+      '@babel/preset-typescript': 7.28.5(@babel/core@7.27.1)
       '@babel/register': 7.29.7(@babel/core@7.27.1)
       '@storybook/node-logger': 6.5.16
       '@storybook/semver': 7.3.2
@@ -34975,7 +35004,7 @@ snapshots:
       '@babel/plugin-transform-spread': 7.29.7(@babel/core@7.27.1)
       '@babel/preset-env': 7.27.2(@babel/core@7.27.1)
       '@babel/preset-react': 7.27.1(@babel/core@7.27.1)
-      '@babel/preset-typescript': 7.27.1(@babel/core@7.27.1)
+      '@babel/preset-typescript': 7.28.5(@babel/core@7.27.1)
       '@babel/register': 7.29.7(@babel/core@7.27.1)
       '@storybook/node-logger': 6.5.16
       '@storybook/semver': 7.3.2
@@ -36266,7 +36295,7 @@ snapshots:
       '@babel/preset-env': 7.27.2(@babel/core@7.27.1)
       '@babel/types': 7.29.7
       '@mdx-js/mdx': 1.6.22
-      '@types/lodash': 4.17.17
+      '@types/lodash': 4.17.24
       js-string-escape: 1.0.1
       loader-utils: 2.0.4
       lodash: 4.18.1
@@ -38139,11 +38168,11 @@ snapshots:
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
 
-  '@tanstack/react-virtual@3.13.26(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
+  '@tanstack/react-virtual@3.13.26(react-dom@19.2.6(react@19.2.6))(react@19.2.6)':
     dependencies:
       '@tanstack/virtual-core': 3.16.0
-      react: 19.1.0
-      react-dom: 19.1.0(react@19.1.0)
+      react: 19.2.6
+      react-dom: 19.2.6(react@19.2.6)
 
   '@tanstack/virtual-core@3.16.0': {}
 
@@ -47569,42 +47598,39 @@ snapshots:
       slash: 3.0.0
       strip-json-comments: 3.1.1
     optionalDependencies:
-      '@types/node': 22.15.24
-      ts-node: 10.9.2(@types/node@22.15.24)(typescript@5.8.3)
+      '@types/node': 25.9.1
+      ts-node: 10.9.2(@types/node@22.15.19)(typescript@5.8.3)
     transitivePeerDependencies:
       - babel-plugin-macros
       - supports-color
 
-  jest-config@30.0.0(@types/node@20.19.17)(babel-plugin-macros@3.1.0)(esbuild-register@3.6.0(esbuild@0.25.12))(ts-node@10.9.2(@types/node@22.15.21)(typescript@5.8.3)):
+  jest-config@29.7.0(@types/node@25.9.1)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@types/node@25.9.1)(typescript@5.8.3)):
     dependencies:
-      '@babel/core': 7.29.7
-      '@jest/get-type': 30.0.0
-      '@jest/pattern': 30.0.0
-      '@jest/test-sequencer': 30.0.0
-      '@jest/types': 30.0.0
-      babel-jest: 30.0.0(@babel/core@7.29.7)
+      '@babel/core': 7.27.1
+      '@jest/test-sequencer': 29.7.0
+      '@jest/types': 29.6.3
+      babel-jest: 29.7.0(@babel/core@7.27.1)
       chalk: 4.1.2
-      ci-info: 4.4.0
+      ci-info: 3.9.0
       deepmerge: 4.3.1
-      glob: 10.5.0
+      glob: 7.2.3
       graceful-fs: 4.2.11
-      jest-circus: 30.0.0(babel-plugin-macros@3.1.0)
-      jest-docblock: 30.0.0
-      jest-environment-node: 30.0.0
-      jest-regex-util: 30.0.0
-      jest-resolve: 30.0.0
-      jest-runner: 30.0.0
-      jest-util: 30.0.0
-      jest-validate: 30.0.0
+      jest-circus: 29.7.0(babel-plugin-macros@3.1.0)
+      jest-environment-node: 29.7.0
+      jest-get-type: 29.6.3
+      jest-regex-util: 29.6.3
+      jest-resolve: 29.7.0
+      jest-runner: 29.7.0
+      jest-util: 29.7.0
+      jest-validate: 29.7.0
       micromatch: 4.0.8
       parse-json: 5.2.0
-      pretty-format: 30.0.0
+      pretty-format: 29.7.0
       slash: 3.0.0
       strip-json-comments: 3.1.1
     optionalDependencies:
-      '@types/node': 20.19.17
-      esbuild-register: 3.6.0(esbuild@0.25.12)
-      ts-node: 10.9.2(@types/node@22.15.21)(typescript@5.8.3)
+      '@types/node': 25.9.1
+      ts-node: 10.9.2(@types/node@25.9.1)(typescript@5.8.3)
     transitivePeerDependencies:
       - babel-plugin-macros
       - supports-color
@@ -49052,7 +49078,7 @@ snapshots:
       '@babel/plugin-transform-optional-chaining': 7.29.7(@babel/core@7.27.1)
       '@babel/plugin-transform-private-methods': 7.29.7(@babel/core@7.27.1)
       '@babel/preset-flow': 7.29.7(@babel/core@7.27.1)
-      '@babel/preset-typescript': 7.27.1(@babel/core@7.27.1)
+      '@babel/preset-typescript': 7.28.5(@babel/core@7.27.1)
       '@babel/register': 7.29.7(@babel/core@7.27.1)
       babel-core: 7.0.0-bridge.0(@babel/core@7.27.1)
       chalk: 4.1.2
@@ -51771,6 +51797,13 @@ snapshots:
       - supports-color
 
   portfinder@1.0.37(supports-color@5.5.0):
+    dependencies:
+      async: 3.2.6
+      debug: 4.4.3(supports-color@5.5.0)
+    transitivePeerDependencies:
+      - supports-color
+
+  portfinder@1.0.38:
     dependencies:
       async: 3.2.6
       debug: 4.4.3(supports-color@5.5.0)
@@ -54804,7 +54837,7 @@ snapshots:
   sockjs@0.3.19:
     dependencies:
       faye-websocket: 0.10.0
-      uuid: 3.4.0
+      uuid: 14.0.0
 
   sockjs@0.3.24:
     dependencies:
@@ -55979,26 +56012,6 @@ snapshots:
       terser: 5.48.0
       webpack: 5.104.1(webpack-cli@6.0.1)
 
-  terser-webpack-plugin@5.3.14(esbuild@0.25.12)(webpack@5.104.1(esbuild@0.25.12)(postcss@8.5.10)):
-    dependencies:
-      '@jridgewell/trace-mapping': 0.3.31
-      jest-worker: 27.5.1
-      schema-utils: 4.3.3
-      serialize-javascript: 7.0.5
-      terser: 5.48.0
-      webpack: 5.104.1(esbuild@0.25.12)(postcss@8.5.10)
-    optionalDependencies:
-      esbuild: 0.25.12
-
-  terser-webpack-plugin@5.3.14(webpack@5.104.1(postcss@8.5.10)):
-    dependencies:
-      '@jridgewell/trace-mapping': 0.3.31
-      jest-worker: 27.5.1
-      schema-utils: 4.3.3
-      serialize-javascript: 7.0.5
-      terser: 5.48.0
-      webpack: 5.104.1(postcss@8.5.10)
-
   terser-webpack-plugin@5.3.14(webpack@5.104.1):
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
@@ -56030,7 +56043,7 @@ snapshots:
       esbuild: 0.25.12
       postcss: 8.5.10
 
-  terser-webpack-plugin@5.6.1(postcss@8.5.10)(webpack@5.104.1(postcss@8.5.10)):
+  terser-webpack-plugin@5.6.0(postcss@8.5.10)(webpack@5.104.1(postcss@8.5.10)):
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
       jest-worker: 27.5.1
@@ -58060,7 +58073,7 @@ snapshots:
       ip: 1.1.9
       killable: 1.0.1
       loglevel: 1.9.2
-      opn: 5.5.0
+      opn: 5.2.0
       portfinder: 1.0.37(supports-color@5.5.0)
       selfsigned: 1.10.14
       serve-index: 1.9.2
@@ -58636,7 +58649,7 @@ snapshots:
       neo-async: 2.6.2
       schema-utils: 4.3.3
       tapable: 2.3.3
-      terser-webpack-plugin: 5.6.1(postcss@8.5.10)(webpack@5.104.1)
+      terser-webpack-plugin: 5.6.0(postcss@8.5.10)(webpack@5.104.1)
       watchpack: 2.5.1
       webpack-sources: 3.5.0
     optionalDependencies:

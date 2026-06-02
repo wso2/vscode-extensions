@@ -35,7 +35,7 @@ module.exports = {
         if (deps['@hono/node-server']) deps['@hono/node-server'] = '1.19.13';
         if (deps['@tootallnate/once']) deps['@tootallnate/once'] = '3.0.1';
         if (deps['dompurify']) deps['dompurify'] = '3.4.0'; // security fix: XSS vulnerability
-        if (deps['axios']) deps['axios'] = '1.16.0'; // security fix: SSRF vulnerability, CVE-2026-44489/44490/44492/44494
+        if (deps['axios']) deps['axios'] = '1.16.0'; // security fix: SSRF + CVE-2026-44489/44490/44492/44494 (prototype pollution / proxy bypass)
         if (deps['ip-address']) { // security fix: force patch within 10.x range only to avoid breaking consumers on earlier majors
           if (/^[\s\^~><=]*10[.\s]/.test(deps['ip-address'])) {
             deps['ip-address'] = '10.1.1';
@@ -49,7 +49,7 @@ module.exports = {
         if (deps['serialize-javascript']) deps['serialize-javascript'] = '7.0.5'; // security fix: XSS/code injection
         if (deps['flatted']) deps['flatted'] = '3.4.2'; // security fix
         if (deps['handlebars']) deps['handlebars'] = '4.7.9'; // security fix: prototype pollution
-        if (deps['tmp']) deps['tmp'] = '0.2.6'; // security fix
+        if (deps['tmp']) deps['tmp'] = '0.2.6'; // security fix: CVE-2026-44705 (path traversal via prefix/postfix)
         if (deps['undici']) deps['undici'] = '7.24.0'; // security fix: header injection
         if (deps['@nevware21/ts-utils']) deps['@nevware21/ts-utils'] = '0.14.0'; // security fix: CVE-2026-46681 (prototype pollution)
         if (deps['protobufjs']) {
