@@ -68,7 +68,6 @@ import {
 } from '../../ai-features/agent-mode/tools/plan_mode_tools';
 import { cleanupPersistedToolResultsForProject } from '../../ai-features/agent-mode/tools/tool-result-persistence';
 import { validateAttachments } from '../../ai-features/agent-mode/attachment-utils';
-import { VALID_FILE_EXTENSIONS, VALID_SPECIAL_FILE_NAMES } from '../../ai-features/agent-mode/tools/types';
 import { cleanupRunningBackgroundShells } from '../../ai-features/agent-mode/tools/bash_tools';
 import { cleanupRunningBackgroundSubagents } from '../../ai-features/agent-mode/tools/subagent_tool';
 import { beginServerManagementRunTracking, cleanupServerManagementOnAgentEnd } from '../../ai-features/agent-mode/tools/runtime_tools';
@@ -92,6 +91,15 @@ const MENTION_MAX_CACHE_ITEMS = 5000;
 const SHELL_APPROVAL_RULES_FILE_NAME = 'shell-approval-rules.json';
 const MENTION_ROOT_DIRS = ['deployment', 'src'];
 const MENTION_POM_FILE = 'pom.xml';
+// Extensions surfaced in the @-mention picker. This is a UX allow-list (keep
+// it short to avoid noisy results), not a security boundary — file-tool
+// security uses the deny-list in tools/types.ts. Keep entries lowercase.
+const MENTIONABLE_FILE_EXTENSIONS = new Set([
+    '.xml', '.dbs', '.yaml', '.yml', '.properties', '.md', '.json',
+    '.dmc', '.ts', '.toml', '.txt', '.log', '.java', '.xslt', '.sql',
+    '.xsd', '.wsdl', '.csv', '.html', '.sh', '.bat'
+]);
+const MENTIONABLE_SPECIAL_FILE_NAMES = ['Dockerfile'];
 const MENTION_SKIP_DIRS = new Set([
     '.git',
     'node_modules',
@@ -494,6 +502,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             includeCompactSummaryEntry: true,
             includeUndoCheckpointEntry: true,
             includeCheckpointAnchorEntry: true,
+            includeContextWarningEntry: true,
         });
         const events = ChatHistoryManager.convertToEventFormat(messages);
         const normalizedEvents = this.applyLatestUndoAvailabilityToEvents(events);
@@ -1403,10 +1412,10 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
     private isMentionableFile(fileName: string): boolean {
         const lowerFileName = fileName.toLowerCase();
         const ext = path.extname(fileName).toLowerCase();
-        if (VALID_FILE_EXTENSIONS.includes(ext)) {
+        if (MENTIONABLE_FILE_EXTENSIONS.has(ext)) {
             return true;
         }
-        return VALID_SPECIAL_FILE_NAMES.some(
+        return MENTIONABLE_SPECIAL_FILE_NAMES.some(
             (specialName) => specialName.toLowerCase() === lowerFileName
         );
     }
@@ -1534,7 +1543,7 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             }
         };
 
-        const rootTopLevelFiles = [MENTION_POM_FILE, ...VALID_SPECIAL_FILE_NAMES];
+        const rootTopLevelFiles = [MENTION_POM_FILE, ...MENTIONABLE_SPECIAL_FILE_NAMES];
         for (const topLevelFile of rootTopLevelFiles) {
             if (mentionables.size >= MENTION_MAX_CACHE_ITEMS) {
                 break;

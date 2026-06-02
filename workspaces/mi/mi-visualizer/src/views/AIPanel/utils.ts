@@ -97,6 +97,7 @@ interface ContentSegment {
     isTodoList?: boolean;
     isBashOutput?: boolean;
     isCompactSummary?: boolean;
+    isContextWarning?: boolean;
     isFileChanges?: boolean;
     isPlan?: boolean;
     isThinking?: boolean;
@@ -121,7 +122,7 @@ export function splitContent(content: string): ContentSegment[] {
     // opening fence's \n already sits right before the closer, so we fall back
     // to a `(?<=\n)` lookbehind (which doesn't consume) — otherwise `\`\`\`\n\`\`\``
     // wouldn't match at all.
-    const regex = /```(\w*)\n([\s\S]*?)(?:\r?\n|(?<=\n))```(?=\r?\n|$)|<toolcall([^>]*)>([^<]*?)<\/toolcall>|<todolist>([\s\S]*?)<\/todolist>|<bashoutput(?:\s+[^>]*)?>([\s\S]*?)<\/bashoutput>|<compact>([\s\S]*?)<\/compact>|<filechanges>([\s\S]*?)<\/filechanges>|<plan>([\s\S]*?)<\/plan>|<thinking(\s+[^>]*)?>([\s\S]*?)<\/thinking>/g;
+    const regex = /```(\w*)\n([\s\S]*?)(?:\r?\n|(?<=\n))```(?=\r?\n|$)|<toolcall([^>]*)>([^<]*?)<\/toolcall>|<todolist>([\s\S]*?)<\/todolist>|<bashoutput(?:\s+[^>]*)?>([\s\S]*?)<\/bashoutput>|<compact>([\s\S]*?)<\/compact>|<filechanges>([\s\S]*?)<\/filechanges>|<plan>([\s\S]*?)<\/plan>|<thinking(\s+[^>]*)?>([\s\S]*?)<\/thinking>|<agents-md-warning>([\s\S]*?)<\/agents-md-warning>/g;
     let start = 0;
 
     // Helper function to mark the last toolcall segment as complete
@@ -183,6 +184,10 @@ export function splitContent(content: string): ContentSegment[] {
             const thinkingAttrs = match[10] || '';
             const isLoading = /data-loading="true"/.test(thinkingAttrs);
             segments.push({ isThinking: true, loading: isLoading, text: match[11] });
+        } else if (match[12] !== undefined) {
+            // <agents-md-warning> block matched
+            updateLastToolCallSegmentLoading();
+            segments.push({ isContextWarning: true, loading: false, text: match[12] });
         }
         start = regex.lastIndex;
     }
