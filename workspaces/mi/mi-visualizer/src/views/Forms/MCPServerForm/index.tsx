@@ -19,7 +19,7 @@
 import { useState, useEffect } from 'react';
 import styled from '@emotion/styled';
 import { TextField, Button, FormView, FormActions } from '@wso2/ui-toolkit';
-import { useForm, useWatch } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import * as yup from 'yup';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { MACHINE_VIEW, EVENT_TYPE } from '@wso2/mi-core';
@@ -100,7 +100,7 @@ export interface MCPServerWizardProps {
 export function MCPServerWizard({ path, editData }: MCPServerWizardProps) {
     const { rpcClient } = useVisualizerContext();
 
-    const { register, handleSubmit, formState: { errors }, watch, trigger, setError } = useForm({
+    const { register, handleSubmit, formState: { errors }, trigger, setError } = useForm({
         resolver: yupResolver(schema),
         defaultValues: {
             serverName: editData?.serverName || '',

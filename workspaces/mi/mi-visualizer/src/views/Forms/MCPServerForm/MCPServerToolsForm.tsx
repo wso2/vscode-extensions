@@ -72,23 +72,17 @@ const ButtonGroup = styled.div`
     margin-top: 20px;
 `;
 
-const InfoPanel = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding: 14px 16px;
-    background: var(--vscode-editor-background);
-    border: 1px solid var(--vscode-panel-border);
-    border-radius: 6px;
-    margin-bottom: 8px;
-`;
-
 const InfoRow = styled.div`
     display: flex;
     align-items: center;
     gap: 12px;
 `;
 
+const SectionDivider = styled.hr`
+    border: none;
+    border-top: 1px solid var(--vscode-panel-border);
+    margin: 8px 0 20px 0;
+`;
 
 // Form Schema
 
@@ -102,6 +96,14 @@ const schema = yup.object({
         .required('Port is required')
         .integer('Port must be an integer'),
 });
+
+const DEFAULT_CORS = {
+    corsAllowOrigin: '*',
+    corsAllowMethods: 'GET, POST, OPTIONS',
+    corsAllowHeaders: 'Content-Type, Mcp-Session-Id',
+    corsExposeHeaders: 'Mcp-Session-Id',
+    keepAliveInterval: 30000,
+};
 
 // Props
 
@@ -135,7 +137,7 @@ export interface MCPServerToolsFormProps {
 export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) {
     const isEditMode = !!editData;
     const { rpcClient } = useVisualizerContext();
-    const { register, handleSubmit, setValue, getValues, trigger, setError: setFieldError, formState: { errors } } = useForm({
+    const { register, handleSubmit, setValue, getValues, trigger, watch, setError: setFieldError, formState: { errors } } = useForm({
         resolver: yupResolver(schema),
         defaultValues: { serverName: editData?.serverName ?? '', port: 8300 },
     });
@@ -146,6 +148,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
     const [tools, setTools] = useState<UnifiedTool[]>([]);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+    const [updating, setUpdating] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [usedPorts, setUsedPorts] = useState<Set<number>>(new Set());
     const [originalPort, setOriginalPort] = useState<number | null>(null);
@@ -154,13 +157,8 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
     const [showCreateScratchDialog, setShowCreateScratchDialog] = useState(false);
     const [showToolTypeSelector, setShowToolTypeSelector] = useState(false);
     const [selectedAPIForTool, setSelectedAPIForTool] = useState<string>('');
-    const [corsSettings, setCorsSettings] = useState({
-        corsAllowOrigin: '*',
-        corsAllowMethods: 'GET, POST, OPTIONS',
-        corsAllowHeaders: 'Content-Type, Mcp-Session-Id',
-        corsExposeHeaders: 'Mcp-Session-Id',
-        keepAliveInterval: 30000,
-    });
+    const [corsSettings, setCorsSettings] = useState({ ...DEFAULT_CORS });
+    const [originalCorsSettings, setOriginalCorsSettings] = useState({ ...DEFAULT_CORS });
     const [showCorsSettings, setShowCorsSettings] = useState(false);
 
     const deriveInboundEndpointPath = (localEntryPath: string): string => {
@@ -171,11 +169,17 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
         return pathModule.join(inboundDir, inboundFilename);
     };
 
+    // Dirty check for the settings section
+    const watchedPort = watch('port');
+    const isPortDirty = Number(watchedPort) !== originalPort;
+    const isCorsDirty = JSON.stringify(corsSettings) !== JSON.stringify(originalCorsSettings);
+    const isSettingsDirty = isPortDirty || isCorsDirty;
+
     // Serialize saves to prevent out-of-order writes
     const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
     const pendingToolsRef = useRef<UnifiedTool[] | null>(null);
 
-    // Auto-save helpers (edit mode only)
+    // Auto-save tools to local entry (tools section always saves immediately)
 
     const saveToolsToLocalEntry = (currentTools: UnifiedTool[]) => {
         if (!isEditMode || !editData?.localEntryPath) return;
@@ -255,6 +259,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                         setOriginalPort(editDataResp.port);
                     }
                     setCorsSettings(editDataResp.corsSettings);
+                    setOriginalCorsSettings(editDataResp.corsSettings);
                 } else if (isEditMode && editData?.tools) {
                     setTools(editData.tools.map(t => ({ ...t, kind: 'api' as const })));
                 }
@@ -414,11 +419,9 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
             const xmlPath = tool.apiXmlPath;
             if (!xmlPath) return;
 
-            // Find the exact API using stable identifier (xmlPath)
             const api = apis.find(a => a.xmlPath === xmlPath);
             if (!api) return;
 
-            // Find resource index by matching both method and path
             const resourceIndex = api.operations.findIndex(
                 op => op.method === tool.operationMethod && op.path === tool.operationPath
             ) ?? -1;
@@ -445,31 +448,41 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
         saveToolsToLocalEntry(updatedTools);
     };
 
+    // Explicit update for settings section (port + CORS)
 
-    // Auto-save inbound endpoint (port + CORS) in edit mode
+    const handleUpdate = async () => {
+        const isValid = await trigger('port');
+        if (!isValid) return;
 
-    const autoSaveEndpoint = async (port?: number) => {
+        const portValue = Number(getValues('port'));
+        if (usedPorts.has(portValue) && portValue !== originalPort) {
+            setFieldError('port', { message: `Port ${portValue} is already in use by another inbound endpoint in this project` });
+            return;
+        }
+
         if (!editData?.localEntryPath) return;
-        const inboundPath = deriveInboundEndpointPath(editData.localEntryPath);
+        setUpdating(true);
         try {
+            const inboundPath = deriveInboundEndpointPath(editData.localEntryPath);
             await rpcClient.getMiDiagramRpcClient().updateMcpInboundEndpoint({
                 inboundEndpointPath: inboundPath,
                 corsSettings,
-                port,
+                port: portValue,
             });
-            if (port !== undefined) setOriginalPort(port);
+            setOriginalPort(portValue);
+            setOriginalCorsSettings({ ...corsSettings });
         } catch (err) {
-            console.error('Failed to auto-save endpoint:', err);
+            setError(`Failed to update settings: ${err instanceof Error ? err.message : String(err)}`);
+        } finally {
+            setUpdating(false);
         }
     };
 
-    const handlePortBlur = async () => {
-        const isValid = await trigger('port');
-        if (!isValid) return;
-        const portValue = Number(getValues('port'));
-        if (usedPorts.has(portValue) && portValue !== originalPort) return;
-        if (portValue === originalPort) return;
-        await autoSaveEndpoint(portValue);
+    const handleCancel = () => {
+        rpcClient.getMiVisualizerRpcClient().openView({
+            type: EVENT_TYPE.OPEN_VIEW,
+            location: { view: MACHINE_VIEW.Overview },
+        });
     };
 
     // Submit (create mode only)
@@ -563,96 +576,140 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                     />
                 ) : (
                     <Container>
-                        <div>
-                            <Typography variant="body2" sx={{ color: 'var(--vscode-descriptionForeground)' }}>
-                                {isEditMode
-                                    ? 'Add or remove tools from this MCP server. Tools can be backed by API operations or sequences.'
-                                    : 'Select API operations to expose as MCP tools.'}
-                            </Typography>
-                        </div>
+                        <Typography variant="body2" sx={{ color: 'var(--vscode-descriptionForeground)' }}>
+                            {isEditMode
+                                ? 'Add or remove tools from this MCP server. Tools can be backed by API operations or sequences.'
+                                : 'Select API operations to expose as MCP tools.'}
+                        </Typography>
 
                         <form onSubmit={handleSubmit(onSubmit)}>
+                            {/* ── Settings Section ── */}
                             {isEditMode ? (
-                                <InfoPanel>
-                                    <InfoRow>
-                                        <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', fontSize: '13px', fontWeight: 500, minWidth: '80px' }}>Server Name</Typography>
-                                        <Typography variant="body2" sx={{ fontSize: '13px', fontWeight: 600, fontFamily: 'monospace' }}>{editData!.serverName}</Typography>
-                                    </InfoRow>
-                                    <InfoRow>
-                                        <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', fontSize: '13px', fontWeight: 500, minWidth: '80px' }}>Port</Typography>
-                                        {loading ? (
-                                            <Typography variant="body2" sx={{ fontSize: '13px', fontWeight: 600, fontFamily: 'monospace' }}>...</Typography>
-                                        ) : (
-                                            <div style={{ flex: 1 }}>
-                                                <TextField
-                                                    placeholder="e.g., 8300"
-                                                    {...register('port')}
-                                                    onBlur={handlePortBlur}
-                                                />
-                                                {errors.port && (
-                                                    <ErrorMessageContainer style={{ marginTop: '6px' }}>
-                                                        {String(errors.port?.message)}
-                                                    </ErrorMessageContainer>
-                                                )}
+                                <>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '8px' }}>
+                                        <InfoRow>
+                                            <Typography variant="caption" sx={{ color: 'var(--vscode-foreground)', fontSize: '13px', fontWeight: 500, minWidth: '80px' }}>Server Name</Typography>
+                                            <Typography variant="body2" sx={{ fontSize: '13px', fontWeight: 600, fontFamily: 'monospace' }}>{editData!.serverName}</Typography>
+                                        </InfoRow>
+                                        <InfoRow>
+                                            <Typography variant="caption" sx={{ color: 'var(--vscode-foreground)', fontSize: '13px', fontWeight: 500, minWidth: '80px' }}>Port</Typography>
+                                            {loading ? (
+                                                <Typography variant="body2" sx={{ fontSize: '13px', fontWeight: 600, fontFamily: 'monospace' }}>...</Typography>
+                                            ) : (
+                                                <div style={{ flex: 1 }}>
+                                                    <TextField
+                                                        placeholder="e.g., 8300"
+                                                        {...register('port')}
+                                                    />
+                                                    {errors.port && (
+                                                        <ErrorMessageContainer style={{ marginTop: '6px' }}>
+                                                            {String(errors.port?.message)}
+                                                        </ErrorMessageContainer>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </InfoRow>
+                                        <InfoRow style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => setShowCorsSettings(!showCorsSettings)}>
+                                            <Typography variant="caption" sx={{ color: 'var(--vscode-foreground)', fontSize: '13px', fontWeight: 500 }}>
+                                                {showCorsSettings ? '▼' : '▶'} CORS Settings
+                                            </Typography>
+                                        </InfoRow>
+                                        {showCorsSettings && (
+                                            <div style={{ paddingLeft: '16px', borderLeft: '2px solid var(--vscode-panel-border)', marginLeft: '8px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                <div>
+                                                    <Typography variant="caption" sx={{ color: 'var(--vscode-foreground)', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Allow Origin</Typography>
+                                                    <TextField
+                                                        placeholder="e.g., *"
+                                                        value={corsSettings.corsAllowOrigin}
+                                                        onChange={(e: any) => setCorsSettings({ ...corsSettings, corsAllowOrigin: e.target.value })}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <Typography variant="caption" sx={{ color: 'var(--vscode-foreground)', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Allow Methods</Typography>
+                                                    <TextField
+                                                        placeholder="e.g., GET, POST, OPTIONS"
+                                                        value={corsSettings.corsAllowMethods}
+                                                        onChange={(e: any) => setCorsSettings({ ...corsSettings, corsAllowMethods: e.target.value })}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <Typography variant="caption" sx={{ color: 'var(--vscode-foreground)', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Allow Headers</Typography>
+                                                    <TextField
+                                                        placeholder="e.g., Content-Type, Mcp-Session-Id"
+                                                        value={corsSettings.corsAllowHeaders}
+                                                        onChange={(e: any) => setCorsSettings({ ...corsSettings, corsAllowHeaders: e.target.value })}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <Typography variant="caption" sx={{ color: 'var(--vscode-foreground)', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Expose Headers</Typography>
+                                                    <TextField
+                                                        placeholder="e.g., Mcp-Session-Id"
+                                                        value={corsSettings.corsExposeHeaders}
+                                                        onChange={(e: any) => setCorsSettings({ ...corsSettings, corsExposeHeaders: e.target.value })}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <Typography variant="caption" sx={{ color: 'var(--vscode-foreground)', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Keep-Alive Interval (ms)</Typography>
+                                                    <TextField
+                                                        type="number"
+                                                        placeholder="e.g., 30000"
+                                                        value={corsSettings.keepAliveInterval}
+                                                        onChange={(e: any) => setCorsSettings({ ...corsSettings, keepAliveInterval: parseInt(e.target.value, 10) || 30000 })}
+                                                    />
+                                                </div>
                                             </div>
                                         )}
-                                    </InfoRow>
-                                    <InfoRow style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => setShowCorsSettings(!showCorsSettings)}>
-                                        <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', fontSize: '13px', fontWeight: 500 }}>
-                                            {showCorsSettings ? '▼' : '▶'} CORS Settings
-                                        </Typography>
-                                    </InfoRow>
-                                    {showCorsSettings && (
-                                        <div style={{ paddingLeft: '16px', borderLeft: '2px solid var(--vscode-panel-border)', marginLeft: '8px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                            <div>
-                                                <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Allow Origin</Typography>
-                                                <TextField
-                                                    placeholder="e.g., *"
-                                                    value={corsSettings.corsAllowOrigin}
-                                                    onChange={(e: any) => setCorsSettings({ ...corsSettings, corsAllowOrigin: e.target.value })}
-                                                    onBlur={() => autoSaveEndpoint()}
-                                                />
-                                            </div>
-                                            <div>
-                                                <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Allow Methods</Typography>
-                                                <TextField
-                                                    placeholder="e.g., GET, POST, OPTIONS"
-                                                    value={corsSettings.corsAllowMethods}
-                                                    onChange={(e: any) => setCorsSettings({ ...corsSettings, corsAllowMethods: e.target.value })}
-                                                    onBlur={() => autoSaveEndpoint()}
-                                                />
-                                            </div>
-                                            <div>
-                                                <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Allow Headers</Typography>
-                                                <TextField
-                                                    placeholder="e.g., Content-Type, Mcp-Session-Id"
-                                                    value={corsSettings.corsAllowHeaders}
-                                                    onChange={(e: any) => setCorsSettings({ ...corsSettings, corsAllowHeaders: e.target.value })}
-                                                    onBlur={() => autoSaveEndpoint()}
-                                                />
-                                            </div>
-                                            <div>
-                                                <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Expose Headers</Typography>
-                                                <TextField
-                                                    placeholder="e.g., Mcp-Session-Id"
-                                                    value={corsSettings.corsExposeHeaders}
-                                                    onChange={(e: any) => setCorsSettings({ ...corsSettings, corsExposeHeaders: e.target.value })}
-                                                    onBlur={() => autoSaveEndpoint()}
-                                                />
-                                            </div>
-                                            <div>
-                                                <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Keep-Alive Interval (ms)</Typography>
-                                                <TextField
-                                                    type="number"
-                                                    placeholder="e.g., 30000"
-                                                    value={corsSettings.keepAliveInterval}
-                                                    onChange={(e: any) => setCorsSettings({ ...corsSettings, keepAliveInterval: parseInt(e.target.value, 10) || 30000 })}
-                                                    onBlur={() => autoSaveEndpoint()}
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
-                                </InfoPanel>
+                                    </div>
+                                    <ButtonGroup>
+                                        <Button
+                                            appearance="secondary"
+                                            onClick={handleCancel}
+                                        >
+                                            Cancel
+                                        </Button>
+                                        <Button
+                                            appearance="primary"
+                                            disabled={!isSettingsDirty || updating || loading}
+                                            onClick={handleUpdate}
+                                        >
+                                            {updating ? 'Updating...' : 'Update'}
+                                        </Button>
+                                    </ButtonGroup>
+
+                                    <SectionDivider />
+
+                                    {/* ── Tools Section ── */}
+                                    <FormSection>
+                                        <ToolsSectionHeader>
+                                            <Typography variant="subtitle2">Tools ({tools.length})</Typography>
+                                            <Button
+                                                appearance="primary"
+                                                onClick={() => setShowToolTypeSelector(true)}
+                                                disabled={loading}
+                                                sx={{ padding: '8px 16px', fontSize: '13px', fontWeight: 500 }}
+                                            >
+                                                + Add Tool
+                                            </Button>
+                                        </ToolsSectionHeader>
+
+                                        {tools.length === 0 ? (
+                                            <Typography variant="body2" sx={{ color: 'var(--vscode-descriptionForeground)', textAlign: 'center', padding: '15px', fontSize: '12px' }}>No tools added yet. Use the buttons above to add API or sequence tools.</Typography>
+                                        ) : (
+                                            <ToolsListComponent
+                                                tools={tools}
+                                                onEdit={() => {}}
+                                                onRemove={removeTool}
+                                                onSave={(updatedTools) => {
+                                                    setTools(updatedTools);
+                                                    saveToolsToLocalEntry(updatedTools);
+                                                }}
+                                                onGoToSource={goToToolSource}
+                                            />
+                                        )}
+                                    </FormSection>
+
+                                    {error && <ErrorMessageContainer style={{ marginTop: '16px' }}>{error}</ErrorMessageContainer>}
+                                </>
                             ) : (
                                 <>
                                     <FormSection>
@@ -676,53 +733,39 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                                             <ErrorMessageContainer>{String(errors.port?.message)}</ErrorMessageContainer>
                                         )}
                                     </FormSection>
-                                </>
-                            )}
 
-                            <FormSection>
-                                <ToolsSectionHeader>
-                                    <Typography variant="subtitle2">Tools ({tools.length})</Typography>
-                                    <Button
-                                        appearance="primary"
-                                        onClick={() => setShowToolTypeSelector(true)}
-                                        disabled={loading}
-                                        sx={{ padding: '8px 16px', fontSize: '13px', fontWeight: 500 }}
-                                    >
-                                        + Add Tool
-                                    </Button>
-                                </ToolsSectionHeader>
+                                    <FormSection>
+                                        <ToolsSectionHeader>
+                                            <Typography variant="subtitle2">Tools ({tools.length})</Typography>
+                                            <Button
+                                                appearance="primary"
+                                                onClick={() => setShowToolTypeSelector(true)}
+                                                disabled={loading}
+                                                sx={{ padding: '8px 16px', fontSize: '13px', fontWeight: 500 }}
+                                            >
+                                                + Add Tool
+                                            </Button>
+                                        </ToolsSectionHeader>
 
-                                {tools.length === 0 ? (
-                                    <Typography variant="body2" sx={{ color: 'var(--vscode-descriptionForeground)', textAlign: 'center', padding: '15px', fontSize: '12px' }}>No tools added yet. Use the buttons above to add API or sequence tools.</Typography>
-                                ) : (
-                                    <ToolsListComponent
-                                        tools={tools}
-                                        onEdit={() => {}}
-                                        onRemove={removeTool}
-                                        onSave={(updatedTools) => {
-                                            setTools(updatedTools);
-                                            saveToolsToLocalEntry(updatedTools);
-                                        }}
-                                        onGoToSource={goToToolSource}
-                                    />
-                                )}
-                            </FormSection>
+                                        {tools.length === 0 ? (
+                                            <Typography variant="body2" sx={{ color: 'var(--vscode-descriptionForeground)', textAlign: 'center', padding: '15px', fontSize: '12px' }}>No tools added yet. Use the buttons above to add API or sequence tools.</Typography>
+                                        ) : (
+                                            <ToolsListComponent
+                                                tools={tools}
+                                                onEdit={() => {}}
+                                                onRemove={removeTool}
+                                                onSave={(updatedTools) => {
+                                                    setTools(updatedTools);
+                                                    saveToolsToLocalEntry(updatedTools);
+                                                }}
+                                                onGoToSource={goToToolSource}
+                                            />
+                                        )}
+                                    </FormSection>
 
-                            {error && <ErrorMessageContainer>{error}</ErrorMessageContainer>}
+                                    {error && <ErrorMessageContainer>{error}</ErrorMessageContainer>}
 
-                            <ButtonGroup>
-                                {isEditMode ? (
-                                    <Button
-                                        appearance="secondary"
-                                        onClick={() => rpcClient.getMiVisualizerRpcClient().openView({
-                                            type: EVENT_TYPE.OPEN_VIEW,
-                                            location: { view: MACHINE_VIEW.Overview },
-                                        })}
-                                    >
-                                        Back
-                                    </Button>
-                                ) : (
-                                    <>
+                                    <ButtonGroup>
                                         <Button
                                             appearance="secondary"
                                             onClick={() => rpcClient.getMiVisualizerRpcClient().openView({
@@ -739,9 +782,9 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                                         >
                                             {submitting ? 'Creating...' : `Create MCP Server (${tools.length} tool${tools.length !== 1 ? 's' : ''})`}
                                         </Button>
-                                    </>
-                                )}
-                            </ButtonGroup>
+                                    </ButtonGroup>
+                                </>
+                            )}
                         </form>
                     </Container>
                 )}
