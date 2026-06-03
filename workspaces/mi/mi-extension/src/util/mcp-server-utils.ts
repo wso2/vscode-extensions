@@ -70,6 +70,36 @@ export function convertToJsonSchema(input: string): string | null {
     }
 }
 
+function resolveRef(spec: any, ref: string): any {
+    if (!ref.startsWith("#/")) return undefined;
+    const parts = ref.slice(2).split("/");
+    let node = spec;
+    for (const part of parts) {
+        if (node == null) return undefined;
+        node = node[part];
+    }
+    return node;
+}
+
+function derefSchema(spec: any, schema: any): any {
+    if (!schema || typeof schema !== "object") return schema;
+    if (schema.$ref) {
+        const resolved = resolveRef(spec, schema.$ref);
+        return resolved ? derefSchema(spec, resolved) : schema;
+    }
+    if (schema.allOf) {
+        return schema.allOf.reduce((acc: any, s: any) => {
+            const resolved = derefSchema(spec, s);
+            return {
+                ...acc,
+                properties: { ...acc.properties, ...resolved?.properties },
+                required: [...(acc.required || []), ...(resolved?.required || [])],
+            };
+        }, { type: "object", properties: {} });
+    }
+    return schema;
+}
+
 export function extractOperationDescription(spec: any, method: string, operationPath: string): string {
     const operation = spec?.paths?.[operationPath]?.[method.toLowerCase()];
     return operation?.description || operation?.summary || "";
@@ -87,16 +117,18 @@ export function extractInputSchema(spec: any, method: string, operationPath: str
     if (Array.isArray(operation.parameters)) {
         for (const param of operation.parameters) {
             if ((param.in === "path" || param.in === "query") && param.name && param.schema) {
-                properties[param.name] = { ...param.schema, ...(param.description ? { description: param.description } : {}) };
+                const paramSchema = derefSchema(spec, param.schema);
+                properties[param.name] = { ...paramSchema, ...(param.description ? { description: param.description } : {}) };
                 if (param.required) required.push(param.name);
             }
         }
     }
 
-    const bodySchema = operation.requestBody?.content?.["application/json"]?.schema;
+    const rawBodySchema = operation.requestBody?.content?.["application/json"]?.schema;
+    const bodySchema = derefSchema(spec, rawBodySchema);
     if (bodySchema?.properties) {
         for (const [key, value] of Object.entries(bodySchema.properties)) {
-            properties[key] = value;
+            properties[key] = derefSchema(spec, value);
         }
         if (Array.isArray(bodySchema.required)) required.push(...bodySchema.required);
     }
