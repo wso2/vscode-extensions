@@ -245,10 +245,8 @@
     * The list of shell commands to run after the Rush build command finishes
     */
     "postRushBuild": [
-      "cd workspaces/ballerina/ballerina-extension && pnpm run copyVSIXToRoot",
       "cd workspaces/wso2-platform/wso2-platform-extension && pnpm run copyVSIXToRoot",
       "cd workspaces/choreo/choreo-extension && pnpm run copyVSIXToRoot",
-      "cd workspaces/bi/bi-extension && pnpm run copyVSIXToRoot",
       "cd workspaces/apk/apk-extension && pnpm run copyVSIXToRoot",
       "cd workspaces/api-designer/api-designer-extension && pnpm run copyVSIXToRoot",
       "cd workspaces/mcp-inspector/mcp-inspector-extension && pnpm run copyVSIXToRoot",
@@ -457,114 +455,8 @@
       "versionPolicyName": "choreo-extension"
     },
     {
-      "packageName": "graphqlview-lib",
-      "projectFolder": "workspaces/ballerina/graphql",
-      "versionPolicyName": "ballerina-extension"
-    },
-    {
-      "packageName": "@wso2/ballerina-graphql-design-diagram",
-      "projectFolder": "workspaces/ballerina/graphql-design-diagram",
-      "versionPolicyName": "ballerina-extension"
-    },
-    {
-      "packageName": "@wso2/ballerina-low-code-diagram",
-      "projectFolder": "workspaces/ballerina/ballerina-low-code-diagram",
-      "versionPolicyName": "ballerina-extension"
-    },
-    {
-      "packageName": "@wso2/ballerina-side-panel",
-      "projectFolder": "workspaces/ballerina/ballerina-side-panel",
-      "versionPolicyName": "ballerina-extension"
-    },
-    {
-      "packageName": "@wso2/ballerina-core",
-      "projectFolder": "workspaces/ballerina/ballerina-core",
-      "versionPolicyName": "ballerina-extension"
-    },
-    {
-      "packageName": "@wso2/ballerina-rpc-client",
-      "projectFolder": "workspaces/ballerina/ballerina-rpc-client",
-      "versionPolicyName": "ballerina-extension"
-    },
-    {
-      "packageName": "@wso2/ballerina-visualizer",
-      "projectFolder": "workspaces/ballerina/ballerina-visualizer",
-      "versionPolicyName": "ballerina-extension"
-    },
-    {
-      "packageName": "@wso2/trace-visualizer",
-      "projectFolder": "workspaces/ballerina/trace-visualizer",
-      "versionPolicyName": "ballerina-extension"
-    },
-    {
-      "packageName": "@wso2/overview-view",
-      "projectFolder": "workspaces/ballerina/overview-view",
-      "versionPolicyName": "ballerina-extension"
-    },
-    {
-      "packageName": "@wso2/ballerina-data-mapper",
-      "projectFolder": "workspaces/ballerina/data-mapper",
-      "versionPolicyName": "ballerina-extension"
-    },
-    {
-      "packageName": "@wso2/persist-layer-diagram",
-      "projectFolder": "workspaces/ballerina/persist-layer-diagram",
-      "versionPolicyName": "ballerina-extension"
-    },
-    {
-      "packageName": "@wso2/type-diagram",
-      "projectFolder": "workspaces/ballerina/type-diagram",
-      "versionPolicyName": "ballerina-extension"
-    },
-    {
-      "packageName": "@wso2/ballerina-statement-editor",
-      "projectFolder": "workspaces/ballerina/statement-editor",
-      "versionPolicyName": "ballerina-extension"
-    },
-    {
-      "packageName": "@wso2/syntax-tree",
-      "projectFolder": "workspaces/ballerina/syntax-tree",
-      "versionPolicyName": "ballerina-extension"
-    },
-    {
-      "packageName": "ballerina",
-      "projectFolder": "workspaces/ballerina/ballerina-extension",
-      "versionPolicyName": "ballerina-extension"
-    },
-    {
       "packageName": "apk-config-language-support",
-      "projectFolder": "workspaces/apk/apk-extension",
-      "versionPolicyName": "ballerina-extension"
-    },
-    {
-      "packageName": "ballerina-integrator",
-      "projectFolder": "workspaces/bi/bi-extension",
-      "versionPolicyName": "ballerina-extension"
-    },
-    {
-      "packageName": "@wso2/bi-diagram",
-      "projectFolder": "workspaces/ballerina/bi-diagram",
-      "versionPolicyName": "ballerina-extension"
-    },
-    {
-      "packageName": "@wso2/sequence-diagram",
-      "projectFolder": "workspaces/ballerina/sequence-diagram",
-      "versionPolicyName": "ballerina-extension"
-    },
-    {
-      "packageName": "@wso2/component-diagram",
-      "projectFolder": "workspaces/ballerina/component-diagram",
-      "versionPolicyName": "ballerina-extension"
-    },
-    {
-      "packageName": "@wso2/record-creator",
-      "projectFolder": "workspaces/ballerina/record-creator",
-      "versionPolicyName": "ballerina-extension"
-    },
-    {
-      "packageName": "@wso2/type-editor",
-      "projectFolder": "workspaces/ballerina/type-editor",
-      "versionPolicyName": "ballerina-extension"
+      "projectFolder": "workspaces/apk/apk-extension"
     },
     {
       "packageName": "@wso2/api-designer-core",

@@ -1,1 +1,0 @@
-const Consname = 123;
