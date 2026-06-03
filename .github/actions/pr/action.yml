@@ -29,15 +29,6 @@ inputs:
   ref_name:
     description: 'Branch name'
     required: true  
-  ballerina:
-    description: 'Is Ballerina'    
-    type: boolean
-    default: false
-    required: true  
-  bi:
-    description: 'Is BI'    
-    type: boolean
-    default: false    
   apk:
     description: 'Is APK'
     type: boolean
@@ -60,16 +51,6 @@ runs:
         run: |
           git config --global user.name ${{ inputs.bot_username }}
           git config --global user.email ${{ inputs.bot_email }}
-
-      - name: Add Ballerina git changes
-        if: ${{ inputs.ballerina == 'true' }}
-        shell: bash
-        run: git add workspaces/ballerina/*/*.json
-
-      - name: Add BI git changes
-        if: ${{ inputs.bi == 'true' }}
-        shell: bash
-        run: git add workspaces/bi/*/*.json
 
       - name: Add WSO2 Platform git changes
         if: ${{ inputs.wso2-platform == 'true' }}
@@ -127,11 +108,7 @@ runs:
         id: pr
         run: |
           baseBranch=""
-          if [ "${{ inputs.ballerina }}" == 'true' ]; then
-            baseBranch="stable/ballerina"
-          elif [ "${{ inputs.bi }}" == 'true' ]; then
-            baseBranch="stable/bi"
-          elif [ "${{ inputs.wso2-platform }}" == 'true' ]; then
+          if [ "${{ inputs.wso2-platform }}" == 'true' ]; then
             baseBranch="stable/platform"
           elif [ "${{ inputs.choreo }}" == 'true' ]; then
             baseBranch="stable/choreo"
