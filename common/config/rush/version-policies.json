@@ -99,12 +99,6 @@
   //   // "includeEmailInChangeFile": true
   // }
   {
-    "policyName": "ballerina-extension",
-    "definitionName": "lockStepVersion",
-    "version": "3.3.9",
-    "nextBump": "prerelease"
-  },
-  {
     "policyName": "choreo-extension",
     "definitionName": "lockStepVersion",
     "version": "1.0.0",
