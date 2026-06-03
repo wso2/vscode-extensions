@@ -120,6 +120,7 @@ export function AddAPIToolDialog({
     const [selectedOperationIds, setSelectedOperationIds] = useState<Set<string>>(new Set());
     const [aiLoadingIds, setAiLoadingIds] = useState<Set<string>>(new Set());
     const [apiSchemas, setApiSchemas] = useState<Record<string, string>>({});
+    const [apiDescriptions, setApiDescriptions] = useState<Record<string, string>>({});
 
     const { register, handleSubmit, watch, getValues, setValue, setError, clearErrors, reset, formState: { errors } } = useForm<FormValues>({
         defaultValues: { items: {} },
@@ -133,6 +134,7 @@ export function AddAPIToolDialog({
             reset({ items: {} });
             setSelectedOperationIds(new Set());
             setApiSchemas({});
+            setApiDescriptions({});
         }
     }, [isOpen, reset]);
 
@@ -154,7 +156,10 @@ export function AddAPIToolDialog({
                 operationMethod: op.method,
                 operationPath: op.path,
             })),
-        }).then(({ schemas }) => setApiSchemas(schemas)).catch(() => setApiSchemas({}));
+        }).then(({ schemas, descriptions }) => {
+            setApiSchemas(schemas);
+            setApiDescriptions(descriptions ?? {});
+        }).catch(() => { setApiSchemas({}); setApiDescriptions({}); });
     }, [selectedAPIForTool, projectRoot]);
 
     const handleOperationToggle = (operationId: string) => {
@@ -164,7 +169,14 @@ export function AddAPIToolDialog({
             clearErrors(`items.${operationId}` as const);
         } else {
             newSet.add(operationId);
-            // Pre-populate schema from API definition if available
+            const op = selectedAPI?.operations.find((o: APIOperation) => o.id === operationId);
+            if (op && !getValues(`items.${operationId}.customName` as const)) {
+                setValue(`items.${operationId}.customName` as const, getDefaultName(op));
+            }
+            const description = apiDescriptions[operationId] || op?.summary || "";
+            if (description && !getValues(`items.${operationId}.description` as const)) {
+                setValue(`items.${operationId}.description` as const, description);
+            }
             const existing = getValues(`items.${operationId}.inputSchema` as const);
             if (!existing && apiSchemas[operationId]) {
                 setValue(`items.${operationId}.inputSchema` as const, apiSchemas[operationId]);
@@ -179,8 +191,14 @@ export function AddAPIToolDialog({
             setSelectedOperationIds(new Set());
         } else {
             const allIds = new Set(selectedAPI.operations.map((op: APIOperation) => op.id));
-            // Pre-populate schemas for all newly selected operations
             for (const op of selectedAPI.operations) {
+                if (!getValues(`items.${op.id}.customName` as const)) {
+                    setValue(`items.${op.id}.customName` as const, getDefaultName(op));
+                }
+                const description = apiDescriptions[op.id] || op.summary || "";
+                if (description && !getValues(`items.${op.id}.description` as const)) {
+                    setValue(`items.${op.id}.description` as const, description);
+                }
                 const existing = getValues(`items.${op.id}.inputSchema` as const);
                 if (!existing && apiSchemas[op.id]) {
                     setValue(`items.${op.id}.inputSchema` as const, apiSchemas[op.id]);
@@ -250,14 +268,18 @@ export function AddAPIToolDialog({
 
         const opIds = Array.from(selectedOperationIds);
 
-        let hasMissingDesc = false;
+        let hasErrors = false;
         opIds.forEach(opId => {
+            if (!data.items?.[opId]?.customName?.trim()) {
+                setError(`items.${opId}.customName` as const, { message: 'Tool name is required.' });
+                hasErrors = true;
+            }
             if (!data.items?.[opId]?.description?.trim()) {
                 setError(`items.${opId}.description` as const, { message: 'Description is required.' });
-                hasMissingDesc = true;
+                hasErrors = true;
             }
         });
-        if (hasMissingDesc) return;
+        if (hasErrors) return;
 
         const hasSchemaErrors = opIds.some(id => errors.items?.[id]?.inputSchema);
         if (hasSchemaErrors) return;
@@ -294,6 +316,7 @@ export function AddAPIToolDialog({
     const selectedIdList = Array.from(selectedOperationIds);
     const hasSchemaErrors = selectedIdList.some(id => !!errors.items?.[id]?.inputSchema);
     const hasMissingDescriptions = selectedIdList.some(id => !items[id]?.description?.trim());
+    const hasMissingNames = selectedIdList.some(id => !items[id]?.customName?.trim());
 
     return (
         <Dialog isOpen={isOpen} onClose={onCancel} sx={{ maxWidth: '600px', width: '90%', maxHeight: '80vh', overflowY: 'auto', borderRadius: '8px', textAlign: 'left' }}>
@@ -368,13 +391,16 @@ export function AddAPIToolDialog({
                                                     <Icon name="bi-ai-chat" />
                                                 </Button>
                                             </div>
-                                            <Typography variant="caption" sx={{ fontSize: '10px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>Tool name</Typography>
+                                            <Typography variant="caption" sx={{ fontSize: '10px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>Tool name *</Typography>
                                             <TextField
                                                 id={`name-${op.id}`}
-                                                placeholder={getDefaultName(op)}
-                                                {...register(`items.${op.id}.customName` as const)}
+                                                {...register(`items.${op.id}.customName` as const, {
+                                                    onChange: e => { if (e.target.value.trim()) clearErrors(`items.${op.id}.customName` as const); },
+                                                    onBlur: e => { if (!e.target.value.trim()) setError(`items.${op.id}.customName` as const, { message: 'Tool name is required.' }); },
+                                                })}
                                                 onClick={(e) => e.stopPropagation()}
                                             />
+                                            {itemErrors?.customName && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)', fontSize: '11px' }}>{String(itemErrors.customName.message)}</Typography>}
                                             <Typography variant="caption" sx={{ fontSize: '10px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>Description *</Typography>
                                             <TextField
                                                 id={`desc-${op.id}`}
@@ -429,7 +455,7 @@ export function AddAPIToolDialog({
                 <Button
                     appearance="primary"
                     onClick={handleSubmit(onSubmit)}
-                    disabled={!selectedAPIForTool || !someSelected || hasMissingDescriptions || hasSchemaErrors}
+                    disabled={!selectedAPIForTool || !someSelected || hasMissingNames || hasMissingDescriptions || hasSchemaErrors}
                 >
                     Add Selected Tools ({selectedOperationIds.size})
                 </Button>

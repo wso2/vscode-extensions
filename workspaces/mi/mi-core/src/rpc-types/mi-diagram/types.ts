@@ -2581,4 +2581,5 @@ export interface GetAPIOperationInputSchemasRequest {
 
 export interface GetAPIOperationInputSchemasResponse {
     schemas: { [operationId: string]: string };
+    descriptions: { [operationId: string]: string };
 }

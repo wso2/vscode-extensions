@@ -393,6 +393,7 @@ import {
     buildInputSchemasForAPITools,
     cleanPathForToolName,
     convertToJsonSchema,
+    extractOperationDescription,
     generateToolsXml,
     getUsedInboundPorts,
     parseApisFromProjectStructure,
@@ -6819,10 +6820,30 @@ ${keyValuesXML}`;
         }));
         const rawSchemas = await buildInputSchemasForAPITools(fakeTools, apiDefDir);
         const schemas: Record<string, string> = {};
-        for (const [id, schema] of Object.entries(rawSchemas)) {
-            schemas[id] = JSON.stringify(schema);
+        const descriptions: Record<string, string> = {};
+        for (const op of params.operations) {
+            const tool = fakeTools.find(t => t.id === op.id);
+            if (!tool) continue;
+            schemas[op.id] = JSON.stringify(rawSchemas[op.id]);
+            const xmlBaseName = op.apiXmlPath ? path.basename(op.apiXmlPath, path.extname(op.apiXmlPath)) : op.apiName;
+            const candidates = Array.from(new Set([xmlBaseName, op.apiName]))
+                .flatMap(base => op.apiRawVersion ? [`${base}_v${op.apiRawVersion}.yaml`, `${base}.yaml`] : [`${base}.yaml`])
+                .map(f => path.join(apiDefDir, f));
+            let spec: any = null;
+            for (const candidate of candidates) {
+                try {
+                    if (fs.existsSync(candidate)) {
+                        const { parse: parseYaml } = require("yaml");
+                        spec = parseYaml(fs.readFileSync(candidate, "utf8"));
+                        break;
+                    }
+                } catch { /* skip unreadable */ }
+            }
+            if (spec) {
+                descriptions[op.id] = extractOperationDescription(spec, op.operationMethod, op.operationPath);
+            }
         }
-        return { schemas };
+        return { schemas, descriptions };
     }
 }
 

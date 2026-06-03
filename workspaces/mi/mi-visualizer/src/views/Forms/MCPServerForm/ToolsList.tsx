@@ -74,7 +74,7 @@ export function ToolsListComponent({
         if (!editingTool) return;
         setEditToolName(editingTool.name);
         setEditToolDescription(editingTool.description);
-        setEditToolInputSchema(editingTool.kind === 'sequence' ? editingTool.inputSchema : '');
+        setEditToolInputSchema(editingTool.inputSchema ?? '');
         setSchemaError(null);
     }, [editingTool]);
 
@@ -102,11 +102,7 @@ export function ToolsListComponent({
 
         const updatedTools = tools.map(t => {
             if (t.id !== editingTool.id) return t;
-            const base = { ...t, name: editToolName.trim() || t.name, description: editToolDescription };
-            if (t.kind === 'sequence') {
-                return { ...base, inputSchema: normalizedSchema || t.inputSchema };
-            }
-            return base;
+            return { ...t, name: editToolName.trim() || t.name, description: editToolDescription, inputSchema: normalizedSchema || t.inputSchema };
         });
         onSave(updatedTools);
         setEditingTool(null);
@@ -199,8 +195,7 @@ export function ToolsListComponent({
                     />
                 </DialogField>
 
-                {editingTool?.kind === 'sequence' && (
-                    <DialogField>
+                <DialogField>
                         <Typography variant="subtitle2">Input Schema (JSON)</Typography>
                         <TextArea
                             placeholder='e.g. {"type":"object","properties":{"city":{"type":"string"}}}'
@@ -215,7 +210,6 @@ export function ToolsListComponent({
                         />
                         {schemaError && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)' }}>{schemaError}</Typography>}
                     </DialogField>
-                )}
 
                 <DialogButtonGroup>
                     <Button appearance="secondary" onClick={() => setEditingTool(null)}>Cancel</Button>

@@ -34,7 +34,6 @@ export const ListItem = styled.div`
     padding: 10px 12px;
     border-bottom: 1px solid var(--vscode-panel-border);
     &:last-child { border-bottom: none; }
-    &:hover { background: var(--vscode-list-hoverBackground); }
 `;
 
 export const ListItemHeader = styled.div`

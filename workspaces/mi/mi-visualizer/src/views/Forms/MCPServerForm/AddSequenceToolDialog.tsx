@@ -79,12 +79,25 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
             clearErrors(`items.${id}` as const);
         } else {
             next.add(id);
+            const seq = sequences.find(s => s.id === id);
+            if (seq && !getValues(`items.${id}.customName` as const)) {
+                setValue(`items.${id}.customName` as const, seq.name);
+            }
         }
         setSelectedIds(next);
     };
 
     const handleSelectAll = () => {
-        setSelectedIds(selectedIds.size === sequences.length ? new Set() : new Set(sequences.map(s => s.id)));
+        if (selectedIds.size === sequences.length) {
+            setSelectedIds(new Set());
+        } else {
+            for (const seq of sequences) {
+                if (!getValues(`items.${seq.id}.customName` as const)) {
+                    setValue(`items.${seq.id}.customName` as const, seq.name);
+                }
+            }
+            setSelectedIds(new Set(sequences.map(s => s.id)));
+        }
     };
 
     const validateSchema = async (id: string, value: string): Promise<boolean> => {
@@ -137,14 +150,18 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
 
         const ids = Array.from(selectedIds);
 
-        let hasMissingDesc = false;
+        let hasErrors = false;
         ids.forEach(id => {
+            if (!data.items?.[id]?.customName?.trim()) {
+                setError(`items.${id}.customName` as const, { message: 'Tool name is required.' });
+                hasErrors = true;
+            }
             if (!data.items?.[id]?.description?.trim()) {
                 setError(`items.${id}.description` as const, { message: 'Description is required.' });
-                hasMissingDesc = true;
+                hasErrors = true;
             }
         });
-        if (hasMissingDesc) return;
+        if (hasErrors) return;
 
         const hasSchemaErrors = ids.some(id => errors.items?.[id]?.inputSchema);
         if (hasSchemaErrors) return;
@@ -173,6 +190,7 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
     const selectedIdList = Array.from(selectedIds);
     const hasSchemaErrors = selectedIdList.some(id => !!errors.items?.[id]?.inputSchema);
     const hasMissingDescriptions = selectedIdList.some(id => !items[id]?.description?.trim());
+    const hasMissingNames = selectedIdList.some(id => !items[id]?.customName?.trim());
 
     return (
         <Dialog isOpen={isOpen} onClose={onCancel} sx={{ maxWidth: '600px', width: '90%', maxHeight: '80vh', overflowY: 'auto', borderRadius: '8px', textAlign: 'left' }}>
@@ -224,10 +242,13 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
                                         <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', marginTop: '2px', fontSize: '10px' }}>Tool name</Typography>
                                         <TextField
                                             id={`name-${seq.id}`}
-                                            placeholder={seq.name}
-                                            {...register(`items.${seq.id}.customName` as const)}
+                                            {...register(`items.${seq.id}.customName` as const, {
+                                                onChange: e => { if (e.target.value.trim()) clearErrors(`items.${seq.id}.customName` as const); },
+                                                onBlur: e => { if (!e.target.value.trim()) setError(`items.${seq.id}.customName` as const, { message: 'Tool name is required.' }); },
+                                            })}
                                             onClick={e => e.stopPropagation()}
                                         />
+                                        {itemErrors?.customName && <Typography variant="caption" sx={{ color: 'var(--vscode-errorForeground)', fontSize: '11px' }}>{String(itemErrors.customName.message)}</Typography>}
                                         <Typography variant="caption" sx={{ fontSize: '10px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>Description *</Typography>
                                         <TextField
                                             id={`desc-${seq.id}`}
@@ -273,7 +294,7 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
                 {selectedIds.size > 0 && (
                     <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', alignSelf: 'center' }}>{selectedIds.size} sequence{selectedIds.size !== 1 ? 's' : ''} selected</Typography>
                 )}
-                <Button appearance="primary" onClick={handleSubmit(onSubmit)} disabled={selectedIds.size === 0 || hasSchemaErrors || hasMissingDescriptions}>
+                <Button appearance="primary" onClick={handleSubmit(onSubmit)} disabled={selectedIds.size === 0 || hasMissingNames || hasSchemaErrors || hasMissingDescriptions}>
                     Add Selected ({selectedIds.size})
                 </Button>
             </DialogButtonGroup>

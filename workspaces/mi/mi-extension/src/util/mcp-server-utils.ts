@@ -70,6 +70,11 @@ export function convertToJsonSchema(input: string): string | null {
     }
 }
 
+export function extractOperationDescription(spec: any, method: string, operationPath: string): string {
+    const operation = spec?.paths?.[operationPath]?.[method.toLowerCase()];
+    return operation?.description || operation?.summary || "";
+}
+
 export function extractInputSchema(spec: any, method: string, operationPath: string): object {
     const pathItem = spec?.paths?.[operationPath];
     if (!pathItem) return { type: "object", properties: {}, additionalProperties: false };
