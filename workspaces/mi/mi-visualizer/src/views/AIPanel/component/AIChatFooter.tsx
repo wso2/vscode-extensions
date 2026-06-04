@@ -368,7 +368,7 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
         currentSessionId,
     } = useMICopilotContext();
 
-    const [, setFileUploadStatus] = useState({ type: "", text: "" });
+    const [fileUploadStatus, setFileUploadStatus] = useState<{ type: string; text: string }>({ type: "", text: "" });
     const isResponseReceived = useRef(false);
     const textAreaRef = useRef<HTMLTextAreaElement>(null);
     const abortedRef = useRef(false);
@@ -1390,6 +1390,14 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
             rpcClient.getMiDiagramRpcClient().executeCommand({ commands: ["MI.clearAIPrompt"] });
         }
     }, [isInitialPromptLoaded]);
+
+    // Auto-dismiss file upload errors so they don't linger once the user retries.
+    useEffect(() => {
+        if (fileUploadStatus.type === "error") {
+            const timer = setTimeout(() => setFileUploadStatus({ type: "", text: "" }), 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [fileUploadStatus]);
 
     // Auto-resize the textarea based on content
     useEffect(() => {
@@ -2793,6 +2801,21 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
                         rows={1}
                     />
                 </div>
+
+                {fileUploadStatus.type === "error" && (
+                    <FlexRow
+                        style={{
+                            gap: "6px",
+                            alignItems: "center",
+                            padding: "0 8px 4px 8px",
+                            color: "var(--vscode-errorForeground)",
+                            fontSize: "11px",
+                        }}
+                    >
+                        <Codicon name="error" iconSx={{ fontSize: "12px" }} />
+                        <span>{fileUploadStatus.text}</span>
+                    </FlexRow>
+                )}
 
                 {(files.length > 0 || images.length > 0) && !isInitialPromptLoaded && (
                     <FlexRow style={{ flexWrap: "wrap", gap: "4px", padding: "0 8px 4px 8px" }}>

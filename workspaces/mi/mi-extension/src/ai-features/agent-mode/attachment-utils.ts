@@ -79,6 +79,34 @@ function isValidImageDataUri(dataUri: string): boolean {
     return isValidBase64(match[2]);
 }
 
+/**
+ * Strips an optional `data:<mediaType>;base64,` prefix, returning the raw base64 payload.
+ *
+ * A full `data:` URI must never reach the AI SDK as inline `data`/`image`: the SDK
+ * parses it into a URL and, since Anthropic only declares `http(s)` URLs as supported,
+ * tries to `fetch()` the data URI, which Node rejects with "URL scheme must be http or
+ * https, got data:". Normalizing to raw base64 keeps the payload on the inline-data path.
+ * No-op when the input is already raw base64.
+ */
+function stripDataUriPrefix(content: string): string {
+    const match = content.match(/^data:[^;]+;base64,([\s\S]+)$/);
+    return match ? match[1] : content;
+}
+
+/**
+ * Converts an image data URI (or raw base64) into an AI SDK `image` content part,
+ * passing raw base64 + explicit `mediaType` to avoid the data-URI fetch path
+ * (see {@link stripDataUriPrefix}).
+ */
+function toImageContentPart(imageDataUri: string): { type: "image"; image: string; mediaType?: string } {
+    const match = imageDataUri.match(/^data:([^;]+);base64,([\s\S]+)$/);
+    if (match) {
+        return { type: "image", image: match[2], mediaType: match[1] };
+    }
+    // Fallback: pass through unchanged (already-raw base64 or unexpected format).
+    return { type: "image", image: imageDataUri };
+}
+
 export function filterFiles(files: FileObject[]): { textFiles: FileObject[]; pdfFiles: FileObject[] } {
     const textFiles: FileObject[] = [];
     const pdfFiles: FileObject[] = [];
@@ -124,7 +152,7 @@ export function buildMessageContent(promptBlocks: Array<{ type: 'text'; text: st
         for (const pdfFile of pdfFiles) {
             content.push({
                 type: "file",
-                data: pdfFile.content,
+                data: stripDataUriPrefix(pdfFile.content),
                 mediaType: "application/pdf",
             });
         }
@@ -145,10 +173,7 @@ export function buildMessageContent(promptBlocks: Array<{ type: 'text'; text: st
         });
 
         for (const image of images) {
-            content.push({
-                type: "image",
-                image: image.imageBase64,
-            });
+            content.push(toImageContentPart(image.imageBase64));
         }
     }
 
@@ -165,7 +190,7 @@ export function validateAttachments(files?: FileObject[], images?: ImageObject[]
         for (const file of files) {
             if (file.mimetype !== "application/pdf" && !TEXT_MIMETYPES.has(file.mimetype)) {
                 warnings.push(`Unsupported file type (${file.mimetype}): ${file.name}`);
-            } else if (file.mimetype === "application/pdf" && !isValidBase64(file.content)) {
+            } else if (file.mimetype === "application/pdf" && !isValidBase64(stripDataUriPrefix(file.content))) {
                 warnings.push(`Invalid base64 encoding: ${file.name}`);
             }
         }

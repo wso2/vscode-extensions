@@ -530,11 +530,21 @@ const FILE_EXTENSION_TO_MIME: Record<string, string> = {
 };
 
 function resolveMimeType(file: File): string {
-    if (file.type) {
+    const extension = file.name.split(".").pop()?.toLowerCase();
+    const extensionMime = extension ? FILE_EXTENSION_TO_MIME[extension] : undefined;
+
+    // Trust the browser-reported type only when it is one we actually support.
+    // Some platforms/webviews report supported files (notably PDFs) with a generic
+    // or empty type (e.g. "application/octet-stream" or ""), which would otherwise
+    // fail the supported-type check and be silently dropped. Fall back to the
+    // extension mapping in those cases.
+    const isSupported = (mime: string) =>
+        VALID_FILE_TYPES.files.includes(mime) || VALID_FILE_TYPES.images.includes(mime);
+
+    if (file.type && isSupported(file.type)) {
         return file.type;
     }
-    const extension = file.name.split(".").pop()?.toLowerCase();
-    return extension ? FILE_EXTENSION_TO_MIME[extension] || "" : "";
+    return extensionMime || file.type || "";
 }
 
 export const handleFileAttach = (e: any, existingFiles: FileObject[], setFiles: Function, existingImages: ImageObject[], setImages: Function, setFileUploadStatus: Function) => {
@@ -546,7 +556,7 @@ export const handleFileAttach = (e: any, existingFiles: FileObject[], setFiles: 
         const mimeType = resolveMimeType(file);
 
         if (file.size > MAX_FILE_SIZE) {
-            setFileUploadStatus({ type: "error", text: `File '${file.name}' exceeds the size limit of 5 MB.` });
+            setFileUploadStatus({ type: "error", text: `File '${file.name}' exceeds the size limit of ${Math.round(MAX_FILE_SIZE / (1024 * 1024))} MB.` });
             continue;
         }
         
