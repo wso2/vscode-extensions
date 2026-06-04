@@ -557,7 +557,13 @@ export const handleFileAttach = (e: any, existingFiles: FileObject[], setFiles: 
     // status. The error notice is set once, after the whole selection is processed.
     const errors: string[] = [];
     const reportReadError = (name: string) =>
-        setFileUploadStatus({ type: "error", text: `Failed to read file '${name}'.` });
+        setFileUploadStatus((prev: { type: string; text: string }) => {
+            const message = `Failed to read file '${name}'.`;
+            // Append so an async read failure doesn't overwrite synchronous
+            // validation errors (or an earlier read failure).
+            const text = prev.type === "error" && prev.text ? `${prev.text} ${message}` : message;
+            return { type: "error", text };
+        });
 
     for (const file of files) {
         const mimeType = resolveMimeType(file);
