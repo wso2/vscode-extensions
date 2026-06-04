@@ -207,12 +207,12 @@ export async function activateProjectExplorer(treeviewId: string, context: Exten
 		console.log('Add MCP Server');
 	});
 
-	commands.registerCommand(COMMANDS.SHOW_MCP_SERVER, (localEntryPath: string, serverName: string) => {
+	commands.registerCommand(COMMANDS.SHOW_MCP_SERVER, (localEntryPath: string, serverName: string, inboundEndpointPath?: string) => {
 		revealWebviewPanel(true);
 		openView(EVENT_TYPE.OPEN_VIEW, {
 			view: MACHINE_VIEW.MCPServerFromAPIsForm,
 			documentUri: localEntryPath,
-			customProps: { editData: { serverName, localEntryPath } }
+			customProps: { editData: { serverName, localEntryPath, inboundEndpointPath } }
 		});
 	});
 

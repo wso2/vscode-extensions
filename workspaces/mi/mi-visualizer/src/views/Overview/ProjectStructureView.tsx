@@ -272,13 +272,14 @@ const ProjectStructureView = (props: { projectStructure: any, workspaceDir: stri
 
         const filename = localEntryPath.split(/[/\\]/).pop() ?? '';
         const serverName = filename.replace('-mcp-config.xml', '') || entry.name;
+        const inboundEndpointPath = entry.inboundEndpoint?.path ?? '';
 
         rpcClient.getMiVisualizerRpcClient().openView({
             type: EVENT_TYPE.OPEN_VIEW,
             location: {
                 view: MACHINE_VIEW.MCPServerFromAPIsForm,
                 documentUri: localEntryPath,
-                customProps: { editData: { serverName, localEntryPath } },
+                customProps: { editData: { serverName, localEntryPath, inboundEndpointPath } },
             },
         });
     };

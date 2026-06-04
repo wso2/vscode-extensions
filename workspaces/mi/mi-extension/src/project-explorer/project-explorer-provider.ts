@@ -858,11 +858,13 @@ function generateMcpServers(data: any[]): ProjectExplorerEntry[] {
 			continue;
 		}
 
+		const localEntryFilename = path.basename(server.localEntry.path);
+		const serverDisplayName = localEntryFilename.replace('-mcp-config.xml', '') || server.name;
 		const serverEntry = new ProjectExplorerEntry(
-			server.name,
+			serverDisplayName,
 			isCollapsibleState(false),
 			{
-				name: server.name,
+				name: serverDisplayName,
 				type: 'MCP_SERVER',
 				path: server.localEntry.path,
 				localEntry: server.localEntry,
@@ -871,12 +873,10 @@ function generateMcpServers(data: any[]): ProjectExplorerEntry[] {
 			'inbound-endpoint'
 		);
 		serverEntry.contextValue = 'mcpServer';
-		const localEntryFilename = path.basename(server.localEntry.path);
-		const serverDisplayName = localEntryFilename.replace('-mcp-config.xml', '') || server.name;
 		serverEntry.command = {
 			title: 'Show MCP Server',
 			command: COMMANDS.SHOW_MCP_SERVER,
-			arguments: [server.localEntry.path, serverDisplayName]
+			arguments: [server.localEntry.path, serverDisplayName, server.inboundEndpoint?.path]
 		};
 
 		result.push(serverEntry);

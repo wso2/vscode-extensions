@@ -165,7 +165,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
         const dir = pathModule.dirname(localEntryPath);
         const filename = pathModule.basename(localEntryPath);
         const inboundDir = pathModule.join(pathModule.dirname(dir), 'inbound-endpoints');
-        const inboundFilename = filename.replace('-mcp-config.xml', '-endpoint.xml');
+        const inboundFilename = filename.replace('-mcp-config.xml', '.xml');
         return pathModule.join(inboundDir, inboundFilename);
     };
 
@@ -237,8 +237,8 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                 setProjectRoot(projectUri);
 
                 // Collect used ports from all inbound endpoints (exclude current server in edit mode)
-                const currentInboundPath = isEditMode && editData?.localEntryPath
-                    ? deriveInboundEndpointPath(editData.localEntryPath)
+                const currentInboundPath = isEditMode
+                    ? (editData?.inboundEndpointPath || (editData?.localEntryPath ? deriveInboundEndpointPath(editData.localEntryPath) : undefined))
                     : undefined;
                 const { ports } = await rpcClient.getMiDiagramRpcClient().getMcpUsedInboundPorts({
                     projectUri,
@@ -248,7 +248,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
 
                 // Load existing tools, port, and CORS from artifacts when editing
                 if (isEditMode && editData?.localEntryPath) {
-                    const inboundPath = deriveInboundEndpointPath(editData.localEntryPath);
+                    const inboundPath = editData.inboundEndpointPath || deriveInboundEndpointPath(editData.localEntryPath);
                     const editDataResp = await rpcClient.getMiDiagramRpcClient().getMcpServerEditData({
                         localEntryPath: editData.localEntryPath,
                         inboundEndpointPath: inboundPath,
@@ -463,7 +463,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
         if (!editData?.localEntryPath) return;
         setUpdating(true);
         try {
-            const inboundPath = deriveInboundEndpointPath(editData.localEntryPath);
+            const inboundPath = editData.inboundEndpointPath || deriveInboundEndpointPath(editData.localEntryPath);
             await rpcClient.getMiDiagramRpcClient().updateMcpInboundEndpoint({
                 inboundEndpointPath: inboundPath,
                 corsSettings,
@@ -512,7 +512,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
             await rpcClient.getMiDiagramRpcClient().createInboundEndpoint({
                 directory: inboundEndpointsDir,
                 attributes: {
-                    name: `${data.serverName}-endpoint`,
+                    name: `${data.serverName}`,
                     sequence: '',
                     onError: '',
                     class: inboundListenerClass,

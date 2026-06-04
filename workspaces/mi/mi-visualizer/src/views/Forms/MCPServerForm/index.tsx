@@ -183,7 +183,7 @@ export function MCPServerWizard({ path, editData }: MCPServerWizardProps) {
             await rpcClient.getMiDiagramRpcClient().createInboundEndpoint({
                 directory: inboundEndpointsDir,
                 attributes: {
-                    name: `${data.serverName}-endpoint`,
+                    name: `${data.serverName}`,
                     sequence: '',
                     onError: '',
                     class: inboundListenerClass,
