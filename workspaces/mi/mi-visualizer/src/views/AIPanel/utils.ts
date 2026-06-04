@@ -544,7 +544,7 @@ function resolveMimeType(file: File): string {
     if (file.type && isSupported(file.type)) {
         return file.type;
     }
-    return extensionMime || file.type || "";
+    return extensionMime || "";
 }
 
 export const handleFileAttach = (e: any, existingFiles: FileObject[], setFiles: Function, existingImages: ImageObject[], setImages: Function, setFileUploadStatus: Function) => {
@@ -552,19 +552,26 @@ export const handleFileAttach = (e: any, existingFiles: FileObject[], setFiles: 
     const validFileTypes = VALID_FILE_TYPES.files;
     const validImageTypes = VALID_FILE_TYPES.images;
 
+    // Collect rejection reasons synchronously so that async reader callbacks (which
+    // resolve later, in arbitrary order) cannot overwrite a rejection with a success
+    // status. The error notice is set once, after the whole selection is processed.
+    const errors: string[] = [];
+    const reportReadError = (name: string) =>
+        setFileUploadStatus({ type: "error", text: `Failed to read file '${name}'.` });
+
     for (const file of files) {
         const mimeType = resolveMimeType(file);
 
         if (file.size > MAX_FILE_SIZE) {
-            setFileUploadStatus({ type: "error", text: `File '${file.name}' exceeds the size limit of ${Math.round(MAX_FILE_SIZE / (1024 * 1024))} MB.` });
+            errors.push(`File '${file.name}' exceeds the size limit of ${Math.round(MAX_FILE_SIZE / (1024 * 1024))} MB.`);
             continue;
         }
-        
+
         if (existingFiles.some(existingFile => existingFile.name === file.name)) {
-            setFileUploadStatus({ type: "error", text: `File '${file.name}' already added.` });
+            errors.push(`File '${file.name}' already added.`);
             continue;
         } else if (existingImages.some(existingImage => existingImage.imageName === file.name)) {
-            setFileUploadStatus({ type: "error", text: `Image '${file.name}' already added.` });
+            errors.push(`Image '${file.name}' already added.`);
             continue;
         }
 
@@ -582,8 +589,8 @@ export const handleFileAttach = (e: any, existingFiles: FileObject[], setFiles: 
                     ...prevFiles,
                     { name: file.name, mimetype: mimeType, content: fileContents },
                 ]);
-                setFileUploadStatus({ type: "success", text: `File uploaded successfully.` });
             };
+            reader.onerror = () => reportReadError(file.name);
             if (mimeType === "application/pdf") {
                 reader.readAsDataURL(file); // Convert PDF to base64
             } else {
@@ -602,13 +609,15 @@ export const handleFileAttach = (e: any, existingFiles: FileObject[], setFiles: 
                     }
                 }
                 setImages((prevImages: any) => [...prevImages, { imageName: file.name, imageBase64: imageBase64 }]);
-                setFileUploadStatus({ type: "success", text: `File uploaded successfully.` });
             };
+            reader.onerror = () => reportReadError(file.name);
             reader.readAsDataURL(file);
         } else {
-            setFileUploadStatus({ type: "error", text: `File format not supported for '${file.name}'` });
+            errors.push(`File format not supported for '${file.name}'`);
         }
     }
+
+    setFileUploadStatus(errors.length > 0 ? { type: "error", text: errors.join(" ") } : { type: "", text: "" });
     e.target.value = "";
 };
 

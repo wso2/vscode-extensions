@@ -2804,6 +2804,8 @@ const AIChatFooter: React.FC<AIChatFooterProps> = ({ isUsageExceeded = false }) 
 
                 {fileUploadStatus.type === "error" && (
                     <FlexRow
+                        role="alert"
+                        aria-live="assertive"
                         style={{
                             gap: "6px",
                             alignItems: "center",
