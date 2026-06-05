@@ -107,7 +107,11 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Register MCP tools for Language Model API
 	registerMCPTools(context);
 
-	activateApkFeature(context);
+	try {
+		await activateApkFeature(context);
+	} catch (err) {
+		console.error('APK feature activation failed:', err);
+	}
 
 	// Register the showCode command
 	let showCodeDisposable = vscode.commands.registerCommand('APIDesigner.showCode', showCode);

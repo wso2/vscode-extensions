@@ -33,35 +33,24 @@ export async function activateApkFeature(context: vscode.ExtensionContext) {
     const yamlExtensionAPI = await yamlExtension.activate();
     const SCHEMA = "apkschema";
 
-    // Read the schema file content
-    const schemaFilePath = path.join(context.extensionPath, 'resources', 'apk-schema.json');
+    let schemaJSON: string;
+    try {
+        const schemaFilePath = path.join(context.extensionPath, 'resources', 'apk-schema.json');
+        schemaJSON = JSON.stringify(JSON.parse(fs.readFileSync(schemaFilePath, 'utf8')));
+    } catch (err) {
+        console.error('Failed to load APK schema:', err);
+        vscode.window.showErrorMessage('Failed to load APK configuration schema. Validation will not be available.');
+        return;
+    }
 
-    const schemaContent = fs.readFileSync(schemaFilePath, 'utf8');
-    const schemaContentJSON = JSON.parse(schemaContent);
-
-    const schemaJSON = JSON.stringify(schemaContentJSON);
-
-    /**
-     * 
-     * @param resource  The URI of the resource
-     * @returns  The URI of the schema file
-     * 
-     * This function is called when the YAML Language Support extension needs to know the URI of the schema file.
-     * The schema file is stored in the extension's "schema" folder.
-     * The schema file is named "apk-schema.json".
-     */
+    /** Returns the custom schema URI for any .apk-conf resource. */
     function onRequestSchemaURI(resource: string): string | undefined {
         if (resource.endsWith('.apk-conf')) {
             return `${SCHEMA}://schema/apk-conf`;
         }
         return undefined;
     }
-    /**
-     * 
-     * @param schemaUri  The URI of the schema
-     * @returns  The content of the schema file
-     *
-     */
+    /** Returns the schema JSON for the custom apkschema:// URI. */
     function onRequestSchemaContent(schemaUri: string): string | undefined {
         const parsedUri = vscode.Uri.parse(schemaUri);
         if (parsedUri.scheme !== SCHEMA) {
@@ -78,59 +67,47 @@ export async function activateApkFeature(context: vscode.ExtensionContext) {
     yamlExtensionAPI.registerContributor(SCHEMA, onRequestSchemaURI, onRequestSchemaContent);
 
 
-    /////////////////////////// template selection code ////////////////////////////
-
     const extensionRoot = context.extensionUri.fsPath;
     const templatesFolderPath = vscode.Uri.file(path.join(extensionRoot, "resources", "apk-templates"));
 
-    /**
-     * Register a command to handle the "choose a template" action
-     * Read the template files from the templates folder
-     * Process the template files
-     */
-    // vscode.workspace.onDidOpenTextDocument((document) => {
-
-    // Register a command to handle the "choose a template" action
-    // Read the template files from the templates folder
-    const templateFiles = fs.readdirSync(templatesFolderPath.fsPath);
-
-    // Process the template files
-    const templates: string[] = [];
-    templateFiles.forEach((file) => {
-        templates.push(file);
-    });
+    let templates: string[];
+    try {
+        templates = fs.readdirSync(templatesFolderPath.fsPath);
+    } catch (err) {
+        console.error('Failed to read APK templates directory:', err);
+        return;
+    }
 
     context.subscriptions.push(
-        vscode.commands.registerCommand("APIDesigner.chooseTemplateApk", async () => {
-            // Show a quick pick menu to let the user choose a template
+        vscode.commands.registerCommand("APIDesigner.chooseTemplateApk", async (targetUri?: vscode.Uri) => {
             const selectedTemplate = await vscode.window.showQuickPick(templates);
-            if (selectedTemplate) {
-                const activeEditor = vscode.window.activeTextEditor;
-                if (
-                    activeEditor &&
-                    activeEditor.document.fileName.endsWith(".apk-conf")
-                ) {
-                    // Insert the selected template into the currently open '*.apk-conf' file
-                    activeEditor.edit((editBuilder) => {
-                        const templatePath = vscode.Uri.file(
-                            path.join(templatesFolderPath.fsPath, selectedTemplate)
-                        );
-                        const templateContent = fs.readFileSync(
-                            templatePath.fsPath,
-                            "utf-8"
-                        );
-                        editBuilder.insert(activeEditor.selection.start, templateContent);
-                    });
-                } else {
-                    vscode.window.showErrorMessage('Please open an "apk-config.apk-conf" file.');
-                }
+            if (!selectedTemplate) {
+                return;
             }
 
+            let editor: vscode.TextEditor | undefined;
+            if (targetUri) {
+                const doc = await vscode.workspace.openTextDocument(targetUri);
+                editor = await vscode.window.showTextDocument(doc);
+            } else {
+                editor = vscode.window.activeTextEditor;
+            }
+
+            if (editor && editor.document.fileName.endsWith(".apk-conf")) {
+                const templateContent = fs.readFileSync(
+                    path.join(templatesFolderPath.fsPath, selectedTemplate),
+                    "utf-8"
+                );
+                editor.edit((editBuilder) => {
+                    editBuilder.insert(editor!.selection.start, templateContent);
+                });
+            } else {
+                vscode.window.showErrorMessage('Please open an ".apk-conf" file.');
+            }
         })
     );
 
-    // Show the "choose a template" message when the user creates a new file named "apk-config.yaml"
-    // in the workspace
+    // Prompt for a template when a new .apk-conf file is created in the workspace.
     context.subscriptions.push(
         vscode.workspace.onDidCreateFiles((e) => {
             e.files.forEach((file) => {
@@ -139,14 +116,12 @@ export async function activateApkFeature(context: vscode.ExtensionContext) {
                         .showInformationMessage("Choose a template", "Select Template")
                         .then((choice) => {
                             if (choice === "Select Template") {
-                                vscode.commands.executeCommand("APIDesigner.chooseTemplateApk");
+                                vscode.commands.executeCommand("APIDesigner.chooseTemplateApk", file);
                             }
                         });
                 }
             });
         })
     );
-    // });
-    ////////////////////////// end template selection code ///////////////////////////
 }
 

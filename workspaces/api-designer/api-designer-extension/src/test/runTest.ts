@@ -18,6 +18,7 @@
 
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
 
 import { runTests } from '@vscode/test-electron';
 
@@ -29,12 +30,13 @@ async function main() {
 		const extensionTestsPath = path.resolve(__dirname, './suite/index');
 
 		const useLocalVSCode = fs.existsSync(VSCODE_MACOS);
+		const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vsc-apk-test-'));
 
 		await runTests({
 			...(useLocalVSCode ? { vscodeExecutablePath: VSCODE_MACOS } : {}),
 			extensionDevelopmentPath,
 			extensionTestsPath,
-			launchArgs: ['--disable-gpu', '--no-sandbox', '--user-data-dir=/tmp/vsc-apk-test']
+			launchArgs: ['--disable-gpu', '--no-sandbox', `--user-data-dir=${userDataDir}`]
 		});
 	} catch (err) {
 		console.error('Failed to run tests', err);
