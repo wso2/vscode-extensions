@@ -39,6 +39,7 @@ const xmlParserOptions = {
 };
 
 export const MCP_INBOUND_LISTENER_CLASS = "org.wso2.carbon.inbound.sse.McpInboundListener";
+export const MCP_INBOUND_CONNECTOR_ARTIFACT_ID = 'mi-inbound-mcp';
 
 function escapeXml(str: string): string {
     return str
