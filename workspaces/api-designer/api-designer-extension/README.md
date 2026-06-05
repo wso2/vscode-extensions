@@ -29,6 +29,11 @@ API Designer is an OpenAPI-first extension for designing and analyzing API speci
   - WSO2 REST API Design Guidelines
   - OWASP API Security Top 10
 
+### APK Configuration Support
+- Schema validation, auto-completion, and error checking for APK configuration files (`.apk-conf`).
+- Create new APK configuration files from built-in templates (Basic, Petstore, Pizza Shack) via the Command Palette: `API Designer: Choose Template (APK)`.
+- Requires the [YAML Language Support by Red Hat](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml) extension (installed automatically if not present).
+
 ## Resources
 
 - [OpenAPI Specification](https://spec.openapis.org/oas/latest.html)
