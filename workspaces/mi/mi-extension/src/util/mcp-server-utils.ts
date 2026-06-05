@@ -62,7 +62,16 @@ export function convertToJsonSchema(input: string): string | null {
     if (!input.trim()) return null;
     try {
         const parsed = JSON.parse(input);
-        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && (parsed.type || parsed.properties)) {
+        const schemaKeywords = [
+            "$ref", "type", "properties", "items", "required",
+            "allOf", "anyOf", "oneOf", "enum", "const", "not"
+        ];
+        const isSchemaObject =
+            parsed &&
+            typeof parsed === "object" &&
+            !Array.isArray(parsed) &&
+            schemaKeywords.some((key) => key in parsed);
+        if (typeof parsed === "boolean" || isSchemaObject) {
             return JSON.stringify(parsed);
         }
         return null;

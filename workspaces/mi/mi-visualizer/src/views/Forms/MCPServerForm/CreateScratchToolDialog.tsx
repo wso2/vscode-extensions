@@ -127,8 +127,10 @@ export function CreateScratchToolDialog({
             }
             if (result.inputSchema) {
                 setValue('inputSchema', result.inputSchema);
-                validateSchema(result.inputSchema);
+                await validateSchema(result.inputSchema);
             }
+        } catch {
+            setError('inputSchema', { message: INVALID_MCP_SCHEMA_MESSAGE });
         } finally {
             setAiLoading(false);
         }

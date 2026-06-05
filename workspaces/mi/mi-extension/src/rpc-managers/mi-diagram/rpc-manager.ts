@@ -6766,8 +6766,10 @@ ${keyValuesXML}`;
 
             const attributes: Record<string, string | number | boolean> = {
                 name: current.name,
+                type: current.type,
                 sequence: current.sequence ?? '',
                 onError: current.errorSequence ?? '',
+                suspend: current.suspend,
                 ...(endpointClass && { class: endpointClass }),
             };
 
@@ -6824,7 +6826,12 @@ ${keyValuesXML}`;
         for (const op of params.operations) {
             const tool = fakeTools.find(t => t.id === op.id);
             if (!tool) continue;
-            schemas[op.id] = JSON.stringify(rawSchemas[op.id]);
+            const schema = rawSchemas[op.id];
+            if (schema !== undefined) {
+                schemas[op.id] = JSON.stringify(schema);
+            } else {
+                schemas[op.id] = "{}";
+            }
             const xmlBaseName = op.apiXmlPath ? path.basename(op.apiXmlPath, path.extname(op.apiXmlPath)) : op.apiName;
             const candidates = Array.from(new Set([xmlBaseName, op.apiName]))
                 .flatMap(base => op.apiRawVersion ? [`${base}_v${op.apiRawVersion}.yaml`, `${base}.yaml`] : [`${base}.yaml`])
