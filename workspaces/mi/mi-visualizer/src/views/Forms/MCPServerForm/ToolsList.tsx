@@ -141,6 +141,7 @@ export function ToolsListComponent({
                         </Button>
                         <Button
                             appearance="secondary"
+                            tooltip={`Delete tool ${tool.name}`}
                             onClick={(e: any) => { e.stopPropagation(); setToolToDelete(tool); }}
                             sx={{ padding: '4px 8px', fontSize: '11px', minWidth: 'auto' }}
                         >
@@ -180,6 +181,8 @@ export function ToolsListComponent({
                 <DialogField>
                     <Typography variant="subtitle2">Tool Name *</Typography>
                     <TextField
+                        id="edit-tool-name"
+                        aria-label="Tool Name"
                         placeholder="e.g., get_weather"
                         value={editToolName}
                         onChange={(e: any) => setEditToolName(e.target.value)}
@@ -189,6 +192,8 @@ export function ToolsListComponent({
                 <DialogField>
                     <Typography variant="subtitle2">Description *</Typography>
                     <TextField
+                        id="edit-tool-description"
+                        aria-label="Description"
                         placeholder="Describe what this tool does"
                         value={editToolDescription}
                         onChange={(e: any) => setEditToolDescription(e.target.value)}
@@ -198,6 +203,8 @@ export function ToolsListComponent({
                 <DialogField>
                         <Typography variant="subtitle2">Input Schema (JSON)</Typography>
                         <TextArea
+                            id="edit-tool-schema"
+                            aria-label="Input Schema (JSON)"
                             placeholder='e.g. {"type":"object","properties":{"city":{"type":"string"}}}'
                             rows={4}
                             resize="vertical"

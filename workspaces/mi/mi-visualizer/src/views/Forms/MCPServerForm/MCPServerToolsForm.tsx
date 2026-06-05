@@ -597,6 +597,8 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                                             ) : (
                                                 <div style={{ flex: 1 }}>
                                                     <TextField
+                                                        id="mcp-server-port"
+                                                        aria-label="Port"
                                                         placeholder="e.g., 8300"
                                                         {...register('port')}
                                                     />
@@ -696,6 +698,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                                     <FormSection>
                                         <Typography variant="subtitle2">Server Name</Typography>
                                         <TextField
+                                            aria-label="Server Name"
                                             placeholder="e.g., my-mcp-server"
                                             {...register('serverName')}
                                         />
@@ -707,6 +710,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                                     <FormSection>
                                         <Typography variant="subtitle2">Port</Typography>
                                         <TextField
+                                            aria-label="Port"
                                             placeholder="e.g., 8300"
                                             {...register('port')}
                                         />

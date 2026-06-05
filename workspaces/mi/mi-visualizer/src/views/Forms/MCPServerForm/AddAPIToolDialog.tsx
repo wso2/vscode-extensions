@@ -326,6 +326,7 @@ export function AddAPIToolDialog({
                 <Typography variant="subtitle2">Select API</Typography>
                 <DialogSelect
                     id="api-select"
+                    aria-label="Select API"
                     value={selectedAPIForTool}
                     onChange={(e) => handleAPIChange(e.target.value)}
                 >
@@ -352,6 +353,7 @@ export function AddAPIToolDialog({
                                     onChange={handleSelectAll}
                                     onClick={(e) => e.stopPropagation()}
                                     id="select-all"
+                                    aria-label="Select All Operations"
                                 />
                                 <label onClick={(e: any) => e.stopPropagation()} style={{ cursor: 'pointer', margin: 0, fontSize: '12px', fontWeight: 500, color: 'var(--vscode-editor-foreground)' }}>
                                     <strong>Select All Operations</strong>
@@ -368,6 +370,7 @@ export function AddAPIToolDialog({
                                             onChange={() => handleOperationToggle(op.id)}
                                             onClick={(e) => e.stopPropagation()}
                                             id={`op-${op.id}`}
+                                            aria-label={`Select operation ${op.method} ${op.path}`}
                                         />
                                         <OperationDetails>
                                             <OperationMethodRow>
@@ -394,6 +397,7 @@ export function AddAPIToolDialog({
                                             <Typography variant="caption" sx={{ fontSize: '10px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>Tool name *</Typography>
                                             <TextField
                                                 id={`name-${op.id}`}
+                                                aria-label="Tool Name"
                                                 {...register(`items.${op.id}.customName` as const, {
                                                     onChange: e => { if (e.target.value.trim()) clearErrors(`items.${op.id}.customName` as const); },
                                                     onBlur: e => { if (!e.target.value.trim()) setError(`items.${op.id}.customName` as const, { message: 'Tool name is required.' }); },
@@ -404,6 +408,7 @@ export function AddAPIToolDialog({
                                             <Typography variant="caption" sx={{ fontSize: '10px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>Description *</Typography>
                                             <TextField
                                                 id={`desc-${op.id}`}
+                                                aria-label="Description"
                                                 placeholder={op.summary || 'Describe what this tool does'}
                                                 {...register(`items.${op.id}.description` as const, {
                                                     onChange: e => { if (e.target.value.trim()) clearErrors(`items.${op.id}.description` as const); },
@@ -415,6 +420,8 @@ export function AddAPIToolDialog({
                                             <Typography variant="caption" sx={{ fontSize: '10px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>Input Schema (JSON)</Typography>
                                             <SchemaRow>
                                                 <TextArea
+                                                    id={`schema-${op.id}`}
+                                                    aria-label="Input Schema (JSON)"
                                                     placeholder='e.g. {"type":"object","properties":{"city":{"type":"string"}}}'
                                                     rows={4}
                                                     resize="vertical"

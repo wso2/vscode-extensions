@@ -181,6 +181,8 @@ export function CreateScratchToolDialog({
             <DialogField>
                 <Typography variant="subtitle2">Tool Name *</Typography>
                 <TextField
+                    id="scratch-tool-name"
+                    aria-label="Tool Name"
                     placeholder="e.g., get_weather"
                     {...register('name')}
                 />
@@ -193,6 +195,8 @@ export function CreateScratchToolDialog({
             <DialogField>
                 <Typography variant="subtitle2">Description *</Typography>
                 <TextField
+                    id="scratch-tool-description"
+                    aria-label="Description"
                     placeholder="Describe what this tool does"
                     {...register('description')}
                 />
@@ -203,6 +207,8 @@ export function CreateScratchToolDialog({
                 <Typography variant="subtitle2">Input Schema (JSON)</Typography>
                 <SchemaRow>
                     <TextArea
+                        id="scratch-tool-schema"
+                        aria-label="Input Schema (JSON)"
                         placeholder='e.g. {"type":"object","properties":{"city":{"type":"string"}}}'
                         rows={4}
                         resize="vertical"

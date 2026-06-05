@@ -208,6 +208,7 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
                                 onChange={handleSelectAll}
                                 onClick={e => e.stopPropagation()}
                                 id="select-all-sequences"
+                                aria-label="Select All Sequences"
                             />
                             <label onClick={(e: any) => e.stopPropagation()} style={{ cursor: 'pointer', margin: 0, fontSize: '12px', fontWeight: 500, color: 'var(--vscode-editor-foreground)' }}>
                                 <strong>Select All Sequences</strong>
@@ -224,6 +225,7 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
                                         onChange={() => toggleSequence(seq.id)}
                                         onClick={e => e.stopPropagation()}
                                         id={`seq-${seq.id}`}
+                                        aria-label={`Select sequence ${seq.name}`}
                                     />
                                     <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '12px' }}>{seq.name}</Typography>
                                 </ListItemHeader>
@@ -242,6 +244,7 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
                                         <Typography variant="caption" sx={{ color: 'var(--vscode-descriptionForeground)', marginTop: '2px', fontSize: '10px' }}>Tool name</Typography>
                                         <TextField
                                             id={`name-${seq.id}`}
+                                            aria-label="Tool Name"
                                             {...register(`items.${seq.id}.customName` as const, {
                                                 onChange: e => { if (e.target.value.trim()) clearErrors(`items.${seq.id}.customName` as const); },
                                                 onBlur: e => { if (!e.target.value.trim()) setError(`items.${seq.id}.customName` as const, { message: 'Tool name is required.' }); },
@@ -252,6 +255,7 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
                                         <Typography variant="caption" sx={{ fontSize: '10px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>Description *</Typography>
                                         <TextField
                                             id={`desc-${seq.id}`}
+                                            aria-label="Description"
                                             placeholder="Describe what this tool does"
                                             {...register(`items.${seq.id}.description` as const, {
                                                 onChange: e => { if (e.target.value.trim()) clearErrors(`items.${seq.id}.description` as const); },
@@ -263,6 +267,8 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
                                         <Typography variant="caption" sx={{ fontSize: '10px', color: 'var(--vscode-descriptionForeground)', marginTop: '2px' }}>Input Schema (JSON)</Typography>
                                         <SchemaRow>
                                             <TextArea
+                                                id={`schema-${seq.id}`}
+                                                aria-label="Input Schema (JSON)"
                                                 placeholder='e.g. {"type":"object","properties":{"city":{"type":"string"}}}'
                                                 rows={4}
                                                 resize="vertical"
