@@ -18,7 +18,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import styled from '@emotion/styled';
-import { TextField, Button, Typography } from '@wso2/ui-toolkit';
+import { TextField, Button, Typography, FormGroup } from '@wso2/ui-toolkit';
 import { useForm } from 'react-hook-form';
 import * as yup from 'yup';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -159,7 +159,6 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
     const [selectedAPIForTool, setSelectedAPIForTool] = useState<string>('');
     const [corsSettings, setCorsSettings] = useState({ ...DEFAULT_CORS });
     const [originalCorsSettings, setOriginalCorsSettings] = useState({ ...DEFAULT_CORS });
-    const [showCorsSettings, setShowCorsSettings] = useState(false);
 
     const deriveInboundEndpointPath = (localEntryPath: string): string => {
         const dir = pathModule.dirname(localEntryPath);
@@ -609,56 +608,39 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                                                 </div>
                                             )}
                                         </InfoRow>
-                                        <InfoRow style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => setShowCorsSettings(!showCorsSettings)}>
-                                            <Typography variant="caption" sx={{ color: 'var(--vscode-foreground)', fontSize: '13px', fontWeight: 500 }}>
-                                                {showCorsSettings ? '▼' : '▶'} CORS Settings
-                                            </Typography>
-                                        </InfoRow>
-                                        {showCorsSettings && (
-                                            <div style={{ paddingLeft: '16px', borderLeft: '2px solid var(--vscode-panel-border)', marginLeft: '8px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                                <div>
-                                                    <Typography variant="caption" sx={{ color: 'var(--vscode-foreground)', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Allow Origin</Typography>
-                                                    <TextField
-                                                        placeholder="e.g., *"
-                                                        value={corsSettings.corsAllowOrigin}
-                                                        onChange={(e: any) => setCorsSettings({ ...corsSettings, corsAllowOrigin: e.target.value })}
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <Typography variant="caption" sx={{ color: 'var(--vscode-foreground)', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Allow Methods</Typography>
-                                                    <TextField
-                                                        placeholder="e.g., GET, POST, OPTIONS"
-                                                        value={corsSettings.corsAllowMethods}
-                                                        onChange={(e: any) => setCorsSettings({ ...corsSettings, corsAllowMethods: e.target.value })}
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <Typography variant="caption" sx={{ color: 'var(--vscode-foreground)', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Allow Headers</Typography>
-                                                    <TextField
-                                                        placeholder="e.g., Content-Type, Mcp-Session-Id"
-                                                        value={corsSettings.corsAllowHeaders}
-                                                        onChange={(e: any) => setCorsSettings({ ...corsSettings, corsAllowHeaders: e.target.value })}
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <Typography variant="caption" sx={{ color: 'var(--vscode-foreground)', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Expose Headers</Typography>
-                                                    <TextField
-                                                        placeholder="e.g., Mcp-Session-Id"
-                                                        value={corsSettings.corsExposeHeaders}
-                                                        onChange={(e: any) => setCorsSettings({ ...corsSettings, corsExposeHeaders: e.target.value })}
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <Typography variant="caption" sx={{ color: 'var(--vscode-foreground)', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Keep-Alive Interval (ms)</Typography>
-                                                    <TextField
-                                                        type="number"
-                                                        placeholder="e.g., 30000"
-                                                        value={corsSettings.keepAliveInterval}
-                                                        onChange={(e: any) => setCorsSettings({ ...corsSettings, keepAliveInterval: parseInt(e.target.value, 10) || 30000 })}
-                                                    />
-                                                </div>
-                                            </div>
-                                        )}
+                                        <FormGroup title="CORS Settings" isCollapsed={true} sx={{ margin: '8px 0' }}>
+                                            <TextField
+                                                label="Allow Origin"
+                                                placeholder="e.g., *"
+                                                value={corsSettings.corsAllowOrigin}
+                                                onChange={(e: any) => setCorsSettings({ ...corsSettings, corsAllowOrigin: e.target.value })}
+                                            />
+                                            <TextField
+                                                label="Allow Methods"
+                                                placeholder="e.g., GET, POST, OPTIONS"
+                                                value={corsSettings.corsAllowMethods}
+                                                onChange={(e: any) => setCorsSettings({ ...corsSettings, corsAllowMethods: e.target.value })}
+                                            />
+                                            <TextField
+                                                label="Allow Headers"
+                                                placeholder="e.g., Content-Type, Mcp-Session-Id"
+                                                value={corsSettings.corsAllowHeaders}
+                                                onChange={(e: any) => setCorsSettings({ ...corsSettings, corsAllowHeaders: e.target.value })}
+                                            />
+                                            <TextField
+                                                label="Expose Headers"
+                                                placeholder="e.g., Mcp-Session-Id"
+                                                value={corsSettings.corsExposeHeaders}
+                                                onChange={(e: any) => setCorsSettings({ ...corsSettings, corsExposeHeaders: e.target.value })}
+                                            />
+                                            <TextField
+                                                label="Keep-Alive Interval (ms)"
+                                                type="number"
+                                                placeholder="e.g., 30000"
+                                                value={corsSettings.keepAliveInterval}
+                                                onChange={(e: any) => setCorsSettings({ ...corsSettings, keepAliveInterval: parseInt(e.target.value, 10) || 30000 })}
+                                            />
+                                        </FormGroup>
                                     </div>
                                     <ButtonGroup>
                                         <Button

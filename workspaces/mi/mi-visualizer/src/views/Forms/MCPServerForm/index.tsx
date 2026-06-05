@@ -17,8 +17,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import styled from '@emotion/styled';
-import { TextField, Button, FormView, FormActions } from '@wso2/ui-toolkit';
+import { TextField, Button, FormView, FormActions, FormGroup } from '@wso2/ui-toolkit';
 import { useForm } from 'react-hook-form';
 import * as yup from 'yup';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -31,33 +30,6 @@ const CORS_ALLOW_METHODS_VALUE = 'GET, POST, OPTIONS';
 const CORS_ALLOW_HEADERS_VALUE = 'Content-Type, Mcp-Session-Id';
 const CORS_EXPOSE_HEADERS_VALUE = 'Mcp-Session-Id';
 const SSE_KEEPALIVE_INTERVAL_MS = 30000;
-
-const SectionTitle = styled.button`
-    margin: 0;
-    padding: 0;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--vscode-foreground);
-    background: none;
-    border: none;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    user-select: none;
-    margin-bottom: 15px;
-    font-family: inherit;
-
-    &:hover {
-        color: var(--vscode-focusBorder);
-    }
-`;
-
-const ToggleIcon = styled.span<{ isExpanded: boolean }>`
-    margin-right: 8px;
-    display: inline-block;
-    transition: transform 0.2s ease;
-    transform: ${(props: { isExpanded: boolean }) => (props.isExpanded ? 'rotate(90deg)' : 'rotate(0deg)')};
-`;
 
 
 const schema = yup.object({
@@ -114,7 +86,6 @@ export function MCPServerWizard({ path, editData }: MCPServerWizardProps) {
     const [submitting, setSubmitting] = useState(false);
     const [error, setSubmissionError] = useState<string | null>(null);
     const [usedPorts, setUsedPorts] = useState<Set<number>>(new Set());
-    const [showAdvanced, setShowAdvanced] = useState(false);
     const [portDiscoveryLoading, setPortDiscoveryLoading] = useState(true);
     const [portDiscoveryError, setPortDiscoveryError] = useState<string | null>(null);
 
@@ -234,46 +205,38 @@ export function MCPServerWizard({ path, editData }: MCPServerWizardProps) {
                 {...register('port')}
                 errorMsg={errors.port ? String(errors.port.message) : undefined}
             />
-            <div style={{ marginTop: '20px', padding: '15px', border: '1px solid var(--vscode-editorGroup-border)', borderRadius: '4px', background: 'var(--vscode-editor-background)' }}>
-                <SectionTitle onClick={() => setShowAdvanced(!showAdvanced)}>
-                    <ToggleIcon isExpanded={showAdvanced}>▶</ToggleIcon>
-                    Advanced Options
-                </SectionTitle>
-                {showAdvanced && (
-                    <>
-                        <TextField
-                            label="CORS Allow Origin"
-                            placeholder="e.g., *"
-                            {...register('corsAllowOrigin')}
-                            errorMsg={errors.corsAllowOrigin ? String(errors.corsAllowOrigin.message) : undefined}
-                        />
-                        <TextField
-                            label="CORS Allow Methods"
-                            placeholder="e.g., GET, POST, DELETE, OPTIONS"
-                            {...register('corsAllowMethods')}
-                            errorMsg={errors.corsAllowMethods ? String(errors.corsAllowMethods.message) : undefined}
-                        />
-                        <TextField
-                            label="CORS Allow Headers"
-                            placeholder="e.g., Content-Type, Mcp-Session-Id"
-                            {...register('corsAllowHeaders')}
-                            errorMsg={errors.corsAllowHeaders ? String(errors.corsAllowHeaders.message) : undefined}
-                        />
-                        <TextField
-                            label="CORS Expose Headers"
-                            placeholder="e.g., Mcp-Session-Id"
-                            {...register('corsExposeHeaders')}
-                            errorMsg={errors.corsExposeHeaders ? String(errors.corsExposeHeaders.message) : undefined}
-                        />
-                        <TextField
-                            label="Keep-Alive Interval (ms)"
-                            placeholder="e.g., 30000"
-                            {...register('keepAliveInterval')}
-                            errorMsg={errors.keepAliveInterval ? String(errors.keepAliveInterval.message) : undefined}
-                        />
-                    </>
-                )}
-            </div>
+            <FormGroup title="CORS Settings" isCollapsed={true}>
+                <TextField
+                    label="Allow Origin"
+                    placeholder="e.g., *"
+                    {...register('corsAllowOrigin')}
+                    errorMsg={errors.corsAllowOrigin ? String(errors.corsAllowOrigin.message) : undefined}
+                />
+                <TextField
+                    label="Allow Methods"
+                    placeholder="e.g., GET, POST, DELETE, OPTIONS"
+                    {...register('corsAllowMethods')}
+                    errorMsg={errors.corsAllowMethods ? String(errors.corsAllowMethods.message) : undefined}
+                />
+                <TextField
+                    label="Allow Headers"
+                    placeholder="e.g., Content-Type, Mcp-Session-Id"
+                    {...register('corsAllowHeaders')}
+                    errorMsg={errors.corsAllowHeaders ? String(errors.corsAllowHeaders.message) : undefined}
+                />
+                <TextField
+                    label="Expose Headers"
+                    placeholder="e.g., Mcp-Session-Id"
+                    {...register('corsExposeHeaders')}
+                    errorMsg={errors.corsExposeHeaders ? String(errors.corsExposeHeaders.message) : undefined}
+                />
+                <TextField
+                    label="Keep-Alive Interval (ms)"
+                    placeholder="e.g., 30000"
+                    {...register('keepAliveInterval')}
+                    errorMsg={errors.keepAliveInterval ? String(errors.keepAliveInterval.message) : undefined}
+                />
+            </FormGroup>
             {error && <div style={{ color: 'var(--vscode-inputValidation-errorBorder)', padding: '10px', border: '1px solid var(--vscode-inputValidation-errorBorder)', borderRadius: '4px', background: 'var(--vscode-inputValidation-errorBackground)', fontSize: '12px' }}>{error}</div>}
             {portDiscoveryError && <div style={{ color: 'var(--vscode-inputValidation-errorBorder)', padding: '10px', border: '1px solid var(--vscode-inputValidation-errorBorder)', borderRadius: '4px', background: 'var(--vscode-inputValidation-errorBackground)', fontSize: '12px' }}>{portDiscoveryError}</div>}
             <FormActions>
