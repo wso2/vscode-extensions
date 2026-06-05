@@ -104,14 +104,14 @@ export class UnitTest {
     }
 
     public async openUnitTestFormByMainBtn() {
-        console.log('Opening Unit Test Form by "Add Unit Test" button');
-        await this._page.getByRole('button', { name: 'Add Unit Test', exact: true }).click();
+        console.log('Opening Unit Test Form by "Add MI Unit Test" button');
+        await this._page.getByRole('button', { name: 'Add MI Unit Test', exact: true }).click();
     }
 
     public async openUnitTestFormByExplorer() {
         const testExplorer = this._page.locator('div[aria-label="Test Explorer Section"]');
         await testExplorer.hover();
-        await testExplorer.getByLabel('Test Explorer actions').getByLabel('Add unit test').click();
+        await testExplorer.getByLabel('Test Explorer actions').getByLabel('Add MI Unit Test').click();
     }
 
     private async getUniTestForm(): Promise<Form> {

@@ -18,7 +18,7 @@
 
 import styled from "@emotion/styled";
 import React, { useEffect, useState } from "react";
-import { Button, TextField, FormView, FormActions, Dropdown, FormCheckBox, RadioButtonGroup, FormGroup } from "@wso2/ui-toolkit";
+import { Button, TextField, FormView, FormActions, Dropdown, FormCheckBox, RadioButtonGroup, FormGroup, ProgressRing } from "@wso2/ui-toolkit";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
 import { FieldGroup } from "../Commons";
 import { CreateAPIRequest, EVENT_TYPE, MACHINE_VIEW } from "@wso2/mi-core";
@@ -45,6 +45,12 @@ const LocationText = styled.div`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+`;
+
+const ErrorText = styled.div`
+    color: var(--vscode-errorForeground);
+    white-space: pre-wrap;
+    word-break: break-word;
 `;
 
 export interface Region {
@@ -124,6 +130,8 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
     const [APIContexts, setAPIContexts] = useState([]);
     const [prevName, setPrevName] = useState<string | null>(null);
     const [runtimeVersion, setRuntimeVersion] = useState<string | null>(null);
+    const [apiCreationError, setApiCreationError] = useState<string | null>(null);
+    const [isCreating, setIsCreating] = useState(false);
 
     const schema = yup.object({
         apiName: yup.string().required("API Name is required").matches(/^[^@\\^+;:!%&,=*#[\]$?'"<>{}() /]*$/, "Invalid characters in name")
@@ -378,6 +386,17 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
     }
 
     const handleCreateAPI = async (values: any) => {
+        setApiCreationError(null);
+        setIsCreating(true);
+        try {
+            await createOrUpdateAPI(values);
+        } catch (error) {
+            setApiCreationError(error instanceof Error ? error.message : String(error));
+            setIsCreating(false);
+        }
+    };
+
+    const createOrUpdateAPI = async (values: any) => {
         if (values.versionType === "none") {
             values.version = "";
         }
@@ -418,6 +437,11 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
             }
             createAPIParams = { ...createAPIParams, projectDir: projectDir }
             const file = await rpcClient.getMiDiagramRpcClient().createAPI(createAPIParams);
+            if (file.error) {
+                setApiCreationError(file.error);
+                setIsCreating(false);
+                return;
+            }
             console.log("API created");
             rpcClient.getMiVisualizerRpcClient().log({ message: "API created successfully." });
             rpcClient.getMiVisualizerRpcClient().openView({
@@ -745,6 +769,7 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
                     {getAdvanceAPICreationOptions()}
                 </>
             )}
+            {apiCreationError && <ErrorText>{apiCreationError}</ErrorText>}
             <FormActions>
                 <Button
                     appearance="secondary"
@@ -755,9 +780,14 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
                 <Button
                     appearance="primary"
                     onClick={handleSubmit(handleCreateAPI)}
-                    disabled={!isDirty || isSaveDisabled || Object.keys(errors).length > 0}
+                    disabled={!isDirty || isSaveDisabled || Object.keys(errors).length > 0 || isCreating}
                 >
-                    {apiData ? "Save changes" : "Create"}
+                    {isCreating ? (
+                        <>
+                            <ProgressRing sx={{ height: 16, marginLeft: -5, marginRight: 2 }} color="white" />
+                            {apiData ? "Saving" : "Creating"}
+                        </>
+                    ) : (apiData ? "Save changes" : "Create")}
                 </Button>
             </FormActions>
         </FormView>
