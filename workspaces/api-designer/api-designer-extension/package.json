@@ -244,7 +244,7 @@
     "compile-tests": "pnpm run compile",
     "watch-tests": "pnpm run watch",
     "pretest": "pnpm run compile-tests && pnpm run compile && pnpm run lint",
-    "lint": "eslint src --ext ts",
+    "lint": "eslint src",
     "test": "pnpm run pretest && node ./dist/test/runTest.js",
     "e2e-test-setup": "npx extest get-vscode -c 1.81.1 && npx extest get-chromedriver -c 1.81.1 && npx extest install-vsix -f $(ls vsix/*.vsix)",
     "e2e-test": "pnpm run compile-tests && pnpm exec playwright test",
