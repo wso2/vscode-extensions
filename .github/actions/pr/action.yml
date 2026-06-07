@@ -42,10 +42,6 @@ inputs:
     description: 'Is APK'
     type: boolean
     default: false
-  mi:
-    description: 'Is MI'
-    type: boolean
-    default: false
   hurl-client:
     description: 'Is Hurl Client'
     type: boolean
@@ -95,11 +91,6 @@ runs:
         shell: bash
         run: git add workspaces/common-libs/*/*.json
         
-      - name: Add MI git changes
-        if: ${{ inputs.mi == 'true' }}
-        shell: bash
-        run: git add workspaces/mi/*/*.json
-
       - name: Add Hurl Client git changes
         if: ${{ inputs.hurl-client == 'true' }}
         shell: bash
@@ -146,8 +137,6 @@ runs:
             baseBranch="stable/choreo"
           elif [ "${{ inputs.apk }}" == 'true' ]; then
             baseBranch="stable/apk"
-          elif [ "${{ inputs.mi }}" == 'true' ]; then
-            baseBranch="stable/mi"
           elif [ "${{ inputs.hurl-client }}" == 'true' ]; then
             baseBranch="stable/hurl-client"
           fi

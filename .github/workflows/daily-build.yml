@@ -9,10 +9,8 @@ jobs:
     secrets: inherit  
     with:
       bi: true
-      mi: true
       ballerina: true
       runTests: true
-      runMIE2ETests: true
       runBalE2ETests: true
 
   NotifySuccess:
@@ -37,13 +35,6 @@ jobs:
           title: Ballerina
           fileName: ballerina
           chatAPI: ${{ secrets.BI_TEAM_CHAT_API }}
-
-      - name: Notification - MI
-        uses: ./.github/actions/dailyBuildNotification
-        with:
-          title: "WSO2 Integrator: MI"
-          fileName: micro-integrator
-          chatAPI: ${{ secrets.MI_TEAM_CHAT_API }}
 
   NotifyFailure:
     needs: Build

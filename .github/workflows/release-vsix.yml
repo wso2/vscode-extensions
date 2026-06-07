@@ -31,11 +31,6 @@ on:
         type: boolean
         required: true
         default: false
-      mi:
-        description: Release MI extension
-        type: boolean
-        required: true
-        default: false
       hurl-client:
         description: Release Hurl Client extension
         type: boolean
@@ -72,7 +67,6 @@ jobs:
       choreo: ${{ inputs.choreo }}
       apk: ${{ inputs.apk }}
       bi:  ${{ inputs.bi }}
-      mi:  ${{ inputs.mi }}
       hurl-client: ${{ inputs.hurl-client }}
       version: ${{ inputs.version }}
       isReleaseBuild: true
@@ -119,9 +113,6 @@ jobs:
           if [[ "${{ github.event.inputs.choreo }}" == "true" ]]; then
             file=$(ls choreo*.vsix)
           fi
-          if [[ "${{ github.event.inputs.mi }}" == "true" ]]; then
-            file=$(ls micro-integrator*.vsix)
-          fi
           if [[ "${{ github.event.inputs.hurl-client }}" == "true" ]]; then
             file=$(ls hurl-client-[0-9]*.[0-9]*.[0-9]*.vsix)
           fi
@@ -132,9 +123,7 @@ jobs:
       - name: Set Chat API
         id: chat
         run: |
-          if [ "${{ github.event.inputs.mi }}" == "true" ]; then
-            echo "chatAPI=${{ secrets.MI_TEAM_CHAT_API }}" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.inputs.bi }}" == "true" ] || [ "${{ github.event.inputs.ballerina }}" == "true" ]; then
+          if [ "${{ github.event.inputs.bi }}" == "true" ] || [ "${{ github.event.inputs.ballerina }}" == "true" ]; then
             echo "chatAPI=${{ secrets.BI_TEAM_CHAT_API }}" >> $GITHUB_OUTPUT
           else
             echo "chatAPI=${{ secrets.TOOLING_TEAM_CHAT_API }}" >> $GITHUB_OUTPUT
@@ -184,15 +173,6 @@ jobs:
           name: apk
           token: ${{ secrets.CHOREO_BOT_TOKEN }}
           chatAPI: ${{ steps.chat.outputs.chatAPI }}
- 
-      - name: Create a release in wso2/mi-vscode repo
-        if: ${{ github.event.inputs.mi == 'true' }}
-        uses: ./.github/actions/release
-        with:
-          repo: wso2/mi-vscode
-          token: ${{ secrets.CHOREO_BOT_TOKEN }}
-          name: micro-integrator
-          chatAPI: ${{ steps.chat.outputs.chatAPI }}
 
       - name: Create a release in wso2/ballerina-vscode repo for hurl-client
         if: ${{ github.event.inputs.hurl-client == 'true' }}
@@ -218,7 +198,6 @@ jobs:
           wso2-platform: ${{ inputs.wso2-platform }}
           choreo: ${{ inputs.choreo }}
           apk: ${{ inputs.apk }}
-          mi: ${{ inputs.mi }}
           hurl-client: ${{ inputs.hurl-client }}
           chatAPI: ${{ secrets.TOOLING_TEAM_CHAT_API }}
 

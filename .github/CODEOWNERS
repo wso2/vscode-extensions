@@ -10,7 +10,6 @@ pnpm-workspace.yaml @hevayo @gigara @kanushka
 rush.json @hevayo @gigara @kanushka
 /common/ @hevayo @gigara @kanushka
 /workspaces/common-libs/ @hevayo @gigara @tharindulak
-/workspaces/mi/ @hevayo @gigara @kaumini
 workspaces/ballerina/bi-diagram/src/test/__snapshots__ @hevayo @kanushka
 workspaces/ballerina/component-diagram/src/test/__snapshots__ @hevayo @kanushka
 workspaces/ballerina/sequence-diagram/src/test/__snapshots__ @hevayo @kanushka

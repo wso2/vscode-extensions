@@ -74,7 +74,6 @@
     "build:ballerina": "rush build --to ballerina",
     "build:choreo": "rush build --to choreo",
     "build:wso2-platform": "rush build --to wso2-platform",
-    "build:mi": "rush build --to micro-integrator",
     "build:api-designer": "rush build --to api-designer",
     "test:diagrams": "node common/scripts/run-diagram-tests.js",
     "test:updateDiagramsSnapshots": "cd workspaces/ballerina/bi-diagram && npm run test:updateSnapshots && cd ../sequence-diagram && npm run test:updateSnapshots && cd ../component-diagram && npm run test:updateSnapshots && cd ../type-diagram && npm run test:updateSnapshots",
