@@ -38,6 +38,7 @@
     "@mdxeditor/editor": "3.14.0"
   },
   "devDependencies": {
+    "@ts-morph/common": "0.27.0",
     "@storybook/addon-actions": "8.6.14",
     "@storybook/addon-essentials": "8.6.14",
     "@storybook/addon-links": "8.6.14",

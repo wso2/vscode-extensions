@@ -286,6 +286,9 @@ importers:
       '@storybook/react-webpack5':
         specifier: 8.6.14
         version: 8.6.14(postcss@8.5.10)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(storybook@8.6.14(prettier@3.5.3))(typescript@5.8.3)(webpack-cli@5.1.4)
+      '@ts-morph/common':
+        specifier: 0.27.0
+        version: 0.27.0
       '@types/js-yaml':
         specifier: 4.0.9
         version: 4.0.9
@@ -9099,6 +9102,9 @@ packages:
     peerDependenciesMeta:
       tree-sitter:
         optional: true
+
+  '@ts-morph/common@0.27.0':
+    resolution: {integrity: sha512-Wf29UqxWDpc+i61k3oIOzcUfQt79PIT9y/MWfAGlrkjg6lBC1hwDECLXPVJAhWjiGbfBCxZd65F/LIZF3+jeJQ==}
 
   '@tsconfig/node10@1.0.12':
     resolution: {integrity: sha512-UCYBaeFvM11aU2y3YPZ//O5Rhj+xKyzy7mvcIoAjASbigy8mHMryP5cK7dgjlz2hWxh1g5pLw084E0a/wlUSFQ==}
@@ -33892,6 +33898,12 @@ snapshots:
     optionalDependencies:
       tree-sitter: 0.22.4
     optional: true
+
+  '@ts-morph/common@0.27.0':
+    dependencies:
+      fast-glob: 3.3.3
+      minimatch: 10.2.3
+      path-browserify: 1.0.1
 
   '@tsconfig/node10@1.0.12': {}
 
