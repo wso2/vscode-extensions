@@ -39,7 +39,7 @@ import { getModules, parseConsolidatedProjectPom, updateCopyModulesInAggregatePo
 
 class MiConfigurationProvider implements vscode.DebugConfigurationProvider {
 
-    resolveDebugConfiguration(folder: WorkspaceFolder | undefined, config: DebugConfiguration, token?: CancellationToken): ProviderResult<DebugConfiguration> {
+    async resolveDebugConfiguration(folder: WorkspaceFolder | undefined, config: DebugConfiguration, token?: CancellationToken): Promise<DebugConfiguration | undefined> {
         // if launch.json is missing or empty
         if (!config.type && !config.request && !config.name) {
             config.type = 'mi';
@@ -48,6 +48,28 @@ class MiConfigurationProvider implements vscode.DebugConfigurationProvider {
         }
 
         config.internalConsoleOptions = config.noDebug ? 'neverOpen' : 'openOnSessionStart';
+
+        if (!config.projectList || config.projectList.length === 0){
+            const folderPaths = workspace.workspaceFolders?.map(f => f.uri.fsPath) ?? [];
+            if (folderPaths.length === 0) {
+                window.showErrorMessage('No workspace folder is opened');
+                return undefined;
+            }
+            if (folderPaths.length === 1) {
+                config.projectList = [folderPaths[0]];
+            } else if (isConsolidatedProject(path.dirname(folderPaths[0]))) {
+                config.projectList = folderPaths;
+            } else {
+                const selectedItems = await window.showQuickPick(
+                    folderPaths.map(p => ({ label: p })),
+                    { canPickMany: true, placeHolder: 'Select the projects to build and run' }
+                );
+                if (!selectedItems || selectedItems.length === 0) {
+                    return undefined;
+                }
+                config.projectList = selectedItems.map(item => item.label);
+            }
+        }
 
         return config;
     }
