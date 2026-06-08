@@ -87,10 +87,13 @@ export function SetPayloads(props: SetPayloadsProps) {
     useEffect(() => {
         const requestsNames = requests.map((request) => request.name);
         setRequestsNames(requestsNames);
-        if (defaultPayload && !requestsNames.includes(defaultPayload)) {
-            setDefaultPayload(requestsNames[0].name);
-        }
-        if (!defaultPayload && requestsNames.length > 0) {
+        if (requestsNames.length === 0) {
+            // No payloads left -> clear the default payload.
+            setDefaultPayload(undefined);
+        } else if (defaultPayload && !requestsNames.includes(defaultPayload)) {
+            // The default payload was removed ->fall back to the first available payload.
+            setDefaultPayload(requestsNames[0]);
+        } else if (!defaultPayload) {
             setDefaultPayload(requestsNames[0]);
         }
     }, [requests]);

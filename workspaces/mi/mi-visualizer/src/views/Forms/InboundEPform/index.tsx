@@ -18,8 +18,8 @@
 
 import { useEffect, useState } from "react";
 import styled from "@emotion/styled";
-import { FormView, Card, Typography, FormActions, Button } from "@wso2/ui-toolkit";
-import { EVENT_TYPE, MACHINE_VIEW, DownloadProgressData } from "@wso2/mi-core";
+import { FormView, Card, Typography, FormActions, Button, Icon } from "@wso2/ui-toolkit";
+import { EVENT_TYPE, MACHINE_VIEW, DownloadProgressData, POPUP_EVENT_TYPE, ParentPopupData } from "@wso2/mi-core";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
 import AddInboundConnector from "./inboundConnectorForm";
 import { VSCodeLink, VSCodeProgressRing } from "@vscode/webview-ui-toolkit/react";
@@ -30,6 +30,14 @@ const SampleGrid = styled.div`
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(176px, 1fr));
     gap: 20px;
+`;
+
+const HeaderRow = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 10px;
 `;
 
 const LoaderWrapper = styled.div`
@@ -132,6 +140,22 @@ export function InboundEPWizard(props: InboundEPWizardProps) {
             parameters["rabbitmq-queue-autodeclare"] = true;
         }
         return parameters;
+    }
+
+    const importInboundConnector = () => {
+        rpcClient.getMiVisualizerRpcClient().openView({
+            type: POPUP_EVENT_TYPE.OPEN_VIEW,
+            location: {
+                view: MACHINE_VIEW.ImportInboundConnectorForm
+            },
+            isPopup: true
+        });
+
+        rpcClient.onParentPopupSubmitted((data: ParentPopupData) => {
+            if (data.recentIdentifier === "success") {
+                fetchConnectors();
+            }
+        });
     }
 
     const selectConnector = async (connector: any) => {
@@ -334,7 +358,15 @@ export function InboundEPWizard(props: InboundEPWizardProps) {
                             </div>
                         )) : (
                         <>
-                            <span>Please select an event integration.</span>
+                            <HeaderRow>
+                                <span>Please select an event integration.</span>
+                                <Button appearance="secondary" onClick={importInboundConnector} tooltip="Import an inbound connector">
+                                    <div style={{ display: "flex", flexDirection: "row", gap: 10, alignItems: "center" }}>
+                                        <Icon name="plus" isCodicon iconSx={{ fontSize: 20, fontWeight: 200 }} />
+                                        <span>Import Inbound Connector</span>
+                                    </div>
+                                </Button>
+                            </HeaderRow>
                             <SampleGrid>
                                 {localConnectors && storeConnectors ? (<>
                                     {localConnectors && localConnectors.sort((a: any, b: any) => a.rank - b.rank).map((connector: any) => (

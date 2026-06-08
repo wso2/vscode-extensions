@@ -321,10 +321,15 @@ export async function removeEntryFromArtifactXML(projectDir: string, artifactPat
         }
         if (!fs.existsSync(artifactXMLPath)) {
             resolve(false);
+            return;
         }
         const artifactXML = fs.readFileSync(artifactXMLPath, "utf8");
         const artifactXMLData = parser.parse(artifactXML);
         var removed = false;
+        if (!artifactXMLData?.artifacts?.artifact) {
+            resolve(false);
+            return;
+        }
         if (Array.isArray(artifactXMLData.artifacts.artifact)) {
             const startCount = artifactXMLData.artifacts.artifact.length;
             var artifacts = artifactXMLData.artifacts.artifact;
@@ -603,6 +608,19 @@ export async function deleteRegistryResource(filePath: string): Promise<{ status
             resolve({ status: false, info: "Workspace not found" });
         }
     });
+}
+
+export async function deleteApiMetadata(apiPath: string) {
+    const projectRoot = workspace.getWorkspaceFolder(Uri.file(apiPath))?.uri.fsPath;
+    if (!projectRoot) {
+        return;
+    }
+    const apiBaseName = path.basename(apiPath, path.extname(apiPath));
+    const metadataFileName = apiBaseName.replace(/_v(\d[^_]*)$/, '_$1') + '_metadata.yaml';
+    const metadataFilePath = path.join(projectRoot, 'src', 'main', 'wso2mi', 'resources', 'metadata', metadataFileName);
+    if (fs.existsSync(metadataFilePath)) {
+        fs.unlinkSync(metadataFilePath);
+    }
 }
 
 export function deleteDataMapperResources(filePath: string): Promise<{ status: boolean, info: string }> {

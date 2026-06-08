@@ -479,6 +479,10 @@ export class ExtendedLanguageClient extends LanguageClient {
         return this.sendRequest('synapse/getLocalInboundConnectors');
     }
 
+    async updateInboundConnectors(): Promise<string> {
+        return this.sendRequest('synapse/fetchInboundConnectors');
+    }
+
     async getConnectionSchema(request: GetConnectionSchemaRequest): Promise<GetConnectionSchemaResponse> {
         if (request.documentUri) {
             return this.sendRequest("synapse/getConnectionUISchema", { documentUri: Uri.file(request.documentUri).toString(), });
