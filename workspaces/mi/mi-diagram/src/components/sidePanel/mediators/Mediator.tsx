@@ -35,9 +35,10 @@ interface MediatorPageProps {
     isUpdate: boolean;
     showForm: boolean;
     artifactModel: DiagramService;
+    disableTryout?: boolean;
 }
 export function MediatorPage(props: MediatorPageProps) {
-    const { mediatorData, connectorData, mediatorType, documentUri, nodeRange, isUpdate, showForm, artifactModel } = props;
+    const { mediatorData, connectorData, mediatorType, documentUri, nodeRange, isUpdate, showForm, artifactModel, disableTryout } = props;
     const [activeTab, setActiveTab] = React.useState("form");
     const { control, handleSubmit, setValue, getValues, watch, reset, setError, clearErrors, formState: { dirtyFields, errors } } = useForm<any>({
         defaultValues: {
@@ -45,6 +46,8 @@ export function MediatorPage(props: MediatorPageProps) {
     });
     const canTryOut = (mediatorData || connectorData?.form)?.canTryOut;
     const isTryoutSupported = (artifactModel.tag === 'resource' || artifactModel.tag === 'sequence'); // Allow tryout for APIs and sequences only
+    // Show relevant sequence for tasks and event integrations which supports the tryout option.
+    const tryoutSequenceName = ('name' in artifactModel ? artifactModel.name : undefined);
 
     const onChangeTab = (tabId: string) => {
         if (activeTab === tabId) {
@@ -112,19 +115,27 @@ export function MediatorPage(props: MediatorPageProps) {
                 </PanelContent>}
 
                 <PanelContent id={"tryout"}>
-                    {(!showForm || canTryOut) && <TryOutView
-                        documentUri={documentUri}
-                        nodeRange={nodeRange}
-                        mediatorType={mediatorType}
-                        getValues={getValues}
-                        isActive={activeTab === "tryout" || !showForm}
-                        artifactModel={props.artifactModel}
-                        isTryoutSupported={isTryoutSupported}
-                    />}
-                    {isTryoutSupported && ((mediatorData || connectorData) && !canTryOut) && (
+                    {disableTryout ? (
                         <Typography variant="body2" sx={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                            <Icon name="warning" isCodicon /> Please update your MI runtime to the latest version to use the Try-Out feature.
+                            <Icon name="warning" isCodicon /> Try-Out is not supported here. To try out this flow, open the {tryoutSequenceName ? `"${tryoutSequenceName}" ` : "relevant "}sequence and use the Try-Out option there.
                         </Typography>
+                    ) : (
+                        <>
+                            {(!showForm || canTryOut) && <TryOutView
+                                documentUri={documentUri}
+                                nodeRange={nodeRange}
+                                mediatorType={mediatorType}
+                                getValues={getValues}
+                                isActive={activeTab === "tryout" || !showForm}
+                                artifactModel={props.artifactModel}
+                                isTryoutSupported={isTryoutSupported}
+                            />}
+                            {isTryoutSupported && ((mediatorData || connectorData) && !canTryOut) && (
+                                <Typography variant="body2" sx={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                    <Icon name="warning" isCodicon /> Please update your MI runtime to the latest version to use the Try-Out feature.
+                                </Typography>
+                            )}
+                        </>
                     )}
                 </PanelContent>
             </VSCodePanels>

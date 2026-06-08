@@ -74,6 +74,7 @@ export const InboundEPView = ({ path, model, diagnostics }: InboundEPViewProps) 
                         documentUri={model.sequenceURI}
                         diagnostics={diagnostics}
                         isFormOpen={isFormOpen}
+                        disableTryout
                     />
                 }
                 {

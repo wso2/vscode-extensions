@@ -39,6 +39,7 @@ interface MediatorProps {
     searchValue?: string;
     clearSearch?: () => void;
     artifactModel: DiagramService;
+    disableTryout?: boolean;
 }
 
 const INBUILT_MODULES = ["favourites", "generic", "flow control", "database", "extension", "security", "transformation", "other"];
@@ -163,6 +164,7 @@ export function Mediators(props: MediatorProps) {
                         nodeRange={props.nodePosition}
                         showForm={true}
                         artifactModel={props.artifactModel}
+                        disableTryout={props.disableTryout}
                     />
                 </div>;
         } else {
@@ -178,6 +180,7 @@ export function Mediators(props: MediatorProps) {
                         nodeRange={props.nodePosition}
                         showForm={true}
                         artifactModel={props.artifactModel}
+                        disableTryout={props.disableTryout}
                     />
                 </div>;
         }
