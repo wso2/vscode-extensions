@@ -247,7 +247,6 @@
     "postRushBuild": [
       "cd workspaces/wso2-platform/wso2-platform-extension && pnpm run copyVSIXToRoot",
       "cd workspaces/choreo/choreo-extension && pnpm run copyVSIXToRoot",
-      "cd workspaces/mi/mi-extension && pnpm run copyVSIXToRoot",
       "cd workspaces/apk/apk-extension && pnpm run copyVSIXToRoot",
       "cd workspaces/api-designer/api-designer-extension && pnpm run copyVSIXToRoot",
       "cd workspaces/mcp-inspector/mcp-inspector-extension && pnpm run copyVSIXToRoot",
@@ -456,44 +455,8 @@
       "versionPolicyName": "choreo-extension"
     },
     {
-      "packageName": "micro-integrator",
-      "projectFolder": "workspaces/mi/mi-extension"
-    },
-    {
-      "packageName": "@wso2/mi-diagram",
-      "projectFolder": "workspaces/mi/mi-diagram"
-    },
-    {
-      "packageName": "@wso2/mi-core",
-      "projectFolder": "workspaces/mi/mi-core"
-    },
-    {
-      "packageName": "@wso2/mi-syntax-tree",
-      "projectFolder": "workspaces/mi/syntax-tree"
-    },
-    {
-      "packageName": "@wso2/mi-visualizer",
-      "projectFolder": "workspaces/mi/mi-visualizer"
-    },
-    {
-      "packageName": "@wso2/mi-rpc-client",
-      "projectFolder": "workspaces/mi/mi-rpc-client"
-    },
-    {
-      "packageName": "@wso2/mi-data-mapper",
-      "projectFolder": "workspaces/mi/mi-data-mapper"
-    },
-    {
-      "packageName": "@wso2/mi-data-mapper-utils",
-      "projectFolder": "workspaces/mi/mi-data-mapper-utils"
-    },
-    {
       "packageName": "apk-config-language-support",
       "projectFolder": "workspaces/apk/apk-extension"
-    },
-    {
-      "packageName": "@wso2/mi-component-diagram",
-      "projectFolder": "workspaces/mi/mi-component-diagram"
     },
     {
       "packageName": "@wso2/api-designer-core",

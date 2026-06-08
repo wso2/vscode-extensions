@@ -12,7 +12,6 @@ on:
           - 'choreo'
           - 'wso2-platform'
           - 'apk'
-          - 'micro-integrator'
           - 'hurl-client'
       isPreRelease:
         required: true
@@ -88,8 +87,6 @@ jobs:
             echo "repo=wso2/vscode-extensions" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.inputs.extension }}" == "apk" ]; then
             echo "repo=wso2/apk-vscode" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.inputs.extension }}" == "micro-integrator" ]; then
-            echo "repo=wso2/mi-vscode" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.inputs.extension }}" == "hurl-client" ]; then
             echo "repo=wso2/vscode-extensions" >> $GITHUB_OUTPUT
           fi
@@ -128,9 +125,7 @@ jobs:
       - name: Set Chat API
         id: chat
         run: |
-          if [ "${{ inputs.extension }}" == "micro-integrator" ]; then
-            echo "chatAPI=${{ secrets.MI_TEAM_CHAT_API }}" >> $GITHUB_OUTPUT
-          else
+          if
             echo "chatAPI=${{ secrets.TOOLING_TEAM_CHAT_API }}" >> $GITHUB_OUTPUT
           fi
 

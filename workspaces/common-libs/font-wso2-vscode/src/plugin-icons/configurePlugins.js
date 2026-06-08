@@ -179,16 +179,13 @@ const copyDirectoryContent = (srcDir, destDir) => {
 // Generate icons contribution for Ballerina and Choreo extensions
 const ballerinaIcons = config.ballerinaExtIcons || [];
 const choreoIcons = config.choreoExtIcons || [];
-const mIIcons = config.mIExtIcons || [];
 
 const ballerinaIconsContribution = generateFontIconsContribution(ballerinaIcons, "ballerina");
 const choreoIconsContribution = generateFontIconsContribution(choreoIcons, "choreo");
-const mIIconsContribution = generateFontIconsContribution(mIIcons, "mi");
 
 // Merge the generated icons contribution into the existing package.json contributes
 const choreoExtPackageJsonPath = path.join(__dirname, "..", "..", "..", "..", "choreo", "choreo-extension", "package.json");
 const ballerinaExtPackageJsonPath = path.join(__dirname, "..", "..", "..", "..", "ballerina", "ballerina-extension", "package.json");
-const mIExtPackageJsonPath = path.join(__dirname, "..", "..", "..", "..", "mi", "mi-extension", "package.json");
 
 function safelyUpdatePackageJsonIcons(packageJsonPath, iconsContribution, indent = 2) {
   if (!iconsContribution || Object.keys(iconsContribution).length === 0) {
@@ -222,4 +219,3 @@ function safelyUpdatePackageJsonIcons(packageJsonPath, iconsContribution, indent
 
 safelyUpdatePackageJsonIcons(choreoExtPackageJsonPath, choreoIconsContribution, 2);
 safelyUpdatePackageJsonIcons(ballerinaExtPackageJsonPath, ballerinaIconsContribution, 4);
-safelyUpdatePackageJsonIcons(mIExtPackageJsonPath, mIIconsContribution, 2);

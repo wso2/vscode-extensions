@@ -35,7 +35,7 @@
 			"outFiles": [
 				"${workspaceFolder}/dist/**/*.js",
 			],
-			"preLaunchTask": "mi-extension: watch-tests"
+			"preLaunchTask": "api-designer: watch-tests"
 		}
 	]
 }

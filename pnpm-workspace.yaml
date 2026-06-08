@@ -7,6 +7,5 @@ packages:
   - 'workspaces/wso2-platform/*'
   - 'workspaces/api-tryit/*'
   - 'workspaces/common-libs/*'
-  - 'workspaces/mi/*'
   - 'workspaces/mcp-inspector/*'
   - 'workspaces/hurl-client/*'

@@ -29,11 +29,6 @@ on:
         description: Update APK extension version
         type: boolean
         required: false
-        default: false  
-      mi:
-        description: Update MI extension version
-        type: boolean
-        required: false
         default: false
       hurl-client:
         description: Update Hurl Client extension version
@@ -54,11 +49,7 @@ on:
       enableE2ETests:
         type: boolean
         required: false
-        default: false 
-      runMIE2ETests:
-        type: boolean
-        required: false
-        default: false 
+        default: false
 
 
 
@@ -69,7 +60,6 @@ jobs:
     runs-on: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
     outputs:
       runChoreoExtTests: ${{ steps.testMatrix.outputs.runChoreoExtTests }}
-      runMIExtTests: ${{ steps.testMatrix.outputs.runMIExtTests }}
       runAPKExtTests: ${{ steps.testMatrix.outputs.runAPKExtTests }}
       uiTestMatrix: ${{ steps.testMatrix.outputs.uiTestMatrix }}
     steps:
@@ -84,7 +74,6 @@ jobs:
           testArray=""
           echo "hasBalDiff=false" >> $GITHUB_OUTPUT
           echo "hasChoreoDiff=false" >> $GITHUB_OUTPUT
-          echo "hasMIDiff=false" >> $GITHUB_OUTPUT
 
           # Get list of all changed files in the PR
           if [[ ${{ inputs.isReleaseBuild }} = 'true' ]]; then
@@ -99,11 +88,6 @@ jobs:
           # Choreo ext
           if [[ "${CHANGED_DIRS[@]}" =~ "workspaces/choreo" ]]; then
             echo "hasChoreoDiff=true" >> $GITHUB_OUTPUT
-          fi
-
-          # MI ext
-          if [[ "${CHANGED_DIRS[@]}" =~ "workspaces/mi" ]]; then
-              echo "hasMIDiff=true" >> $GITHUB_OUTPUT
           fi
           
           # APK ext
@@ -121,7 +105,6 @@ jobs:
             echo "Have changes in common libs"
             echo "hasChoreoDiff=true" >> $GITHUB_OUTPUT
             echo "hasAPKDiff=true" >> $GITHUB_OUTPUT
-            echo "hasMIDiff=true" >> $GITHUB_OUTPUT
           fi
 
       - name: Set test matrix
@@ -131,25 +114,9 @@ jobs:
           echo "Choreo Tests: ${{ steps.diff.outputs.hasChoreoDiff }}"
           echo "runChoreoExtTests=${{ steps.diff.outputs.hasChoreoDiff }}" >> $GITHUB_OUTPUT
           echo "runAPKExtTests=${{ steps.diff.outputs.hasAPKDiff }}" >> $GITHUB_OUTPUT
-          echo "MI Tests: ${{ steps.diff.outputs.hasMIDiff }}"
-          echo "runMIExtTests=${{ steps.diff.outputs.hasMIDiff }}" >> $GITHUB_OUTPUT
 
           # Dynamically set the matrix for UI tests
           matrix=$(jq -n '{"include": []}')
-
-          if [[ "${{ inputs.runMIE2ETests }}" == "true" || ("${{ inputs.enableE2ETests }}" == "true" && "${{ steps.diff.outputs.hasMIDiff }}" == "true") || ("${{ inputs.isReleaseBuild}}" == "true" && "${{ inputs.mi }}" == "true") ]]; then
-            echo "Including MI UI tests in the matrix"
-            matrix=$(echo "$matrix" | jq '.include += [
-              { "name": "MI", "group": "group1", "path": "mi/mi-extension", "os": "linux" },
-              { "name": "MI", "group": "group2", "path": "mi/mi-extension", "os": "linux" },
-              { "name": "MI", "group": "group3", "path": "mi/mi-extension", "os": "linux" },
-              { "name": "MI", "group": "group4", "path": "mi/mi-extension", "os": "linux" },
-              { "name": "MI", "group": "group1", "path": "mi/mi-extension", "os": "windows" },
-              { "name": "MI", "group": "group2", "path": "mi/mi-extension", "os": "windows" },
-              { "name": "MI", "group": "group3", "path": "mi/mi-extension", "os": "windows" },
-              { "name": "MI", "group": "group4", "path": "mi/mi-extension", "os": "windows" }
-            ]')
-          fi
 
           # Remove "include" from matrix if it is empty to avoid GitHub Actions errors
           if [[ "$(echo "$matrix" | jq '.include | length')" == "0" ]]; then
@@ -169,15 +136,12 @@ jobs:
           choreo: ${{ inputs.choreo }}
           wso2-platform: ${{ inputs.wso2-platform }}
           apk: ${{ inputs.apk }}
-          mi: ${{ inputs.mi }}
           hurl-client: ${{ inputs.hurl-client }}
           version: ${{ inputs.version }}
           token: ${{ secrets.CHOREO_BOT_TOKEN }}
           COPILOT_ROOT_URL: ${{ secrets.COPILOT_ROOT_URL }}
           COPILOT_DEV_ROOT_URL: ${{ secrets.COPILOT_DEV_ROOT_URL }}
           APPINSIGHTS_INSTRUMENTATION_KEY: ${{ secrets.APPINSIGHTS_INSTRUMENTATION_KEY }}
-          MI_AUTH_ORG: ${{ secrets.MI_AUTH_ORG }}
-          MI_AUTH_CLIENT_ID: ${{ secrets.MI_AUTH_CLIENT_ID }}
           PLATFORM_DEFAULT_GHAPP_CLIENT_ID: ${{ secrets.PLATFORM_DEFAULT_GHAPP_CLIENT_ID }}
           PLATFORM_DEFAULT_DEVANT_ASGARDEO_CLIENT_ID: ${{ secrets.PLATFORM_DEFAULT_DEVANT_ASGARDEO_CLIENT_ID }}
           PLATFORM_STAGE_GHAPP_CLIENT_ID: ${{ secrets.PLATFORM_STAGE_GHAPP_CLIENT_ID }}
@@ -195,36 +159,6 @@ jobs:
           timeout: '10m'
           skip-dirs: 'common/temp'
           ignore-unfixed: true
-
-  ExtTest_MI:
-    name: Run MI diagram tests
-    needs: Build_Stage
-    if: ${{ inputs.runTests || (inputs.isReleaseBuild && inputs.mi) || needs.Build_Stage.outputs.runMIExtTests == 'true' || github.base_ref == 'stable/mi' }}
-    timeout-minutes: 30
-    runs-on: ${{ inputs.runOnAWS && inputs.awsRunnerId || 'ubuntu-latest' }}
-    steps:
-      - name: Restore build
-        uses: actions/download-artifact@v4
-        with:
-          name: ExtBuild
-          path: ./
-
-      - name: Set up workspace
-        run: |
-          unzip build.zip
-          rm build.zip
-
-      - name: Setup Rush
-        uses: gigara/setup-rush@v1.2.0
-        with:
-          pnpm: 10.10.0
-          node: 22.x
-          rush-install: true
-
-      - name: Run Test
-        run: |
-          cd workspaces/mi/mi-diagram
-          xvfb-run --auto-servernum pnpm run test
 
   UITest:
     name: Run UI tests
@@ -317,7 +251,6 @@ jobs:
         shell: bash
         if: steps.run-tests-first.outcome == 'failure' || steps.check-results.outcome == 'success'
         run: |
-          rm -rf workspaces/mi/mi-extension/src/test/e2e-playwright-tests/data/new-project
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             cd workspaces/${{ matrix.path }}
             # Run failed tests
@@ -349,22 +282,5 @@ jobs:
             workspaces/${{ matrix.path }}/src/test/test-resources/videos/**
             workspaces/${{ matrix.path }}/src/test/test-resources/screenshots/**
             workspaces/${{ matrix.path }}/record.mp4
-          retention-days: 5
-
-      - name: Upload log files
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: ${{ matrix.name }}-e2e-test-logs-${{ matrix.os }}-${{ matrix.group }}-${{ github.run_attempt }}
-          path: | 
-            workspaces/mi/mi-extension/src/test/test-resources/logs/**
-          retention-days: 5
-      - name: Upload Project Data Directory
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: ${{ matrix.name }}-e2e-test-project-${{ matrix.os }}-${{ matrix.group }}-${{ github.run_attempt }}
-          path: |
-            workspaces/mi/mi-extension/src/test/e2e-playwright-tests/data/new-project/**
           retention-days: 5
 

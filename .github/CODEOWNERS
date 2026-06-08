@@ -10,7 +10,6 @@ pnpm-workspace.yaml @hevayo @gigara @kanushka
 rush.json @hevayo @gigara @kanushka
 /common/ @hevayo @gigara @kanushka
 /workspaces/common-libs/ @hevayo @gigara @tharindulak
-/workspaces/mi/ @hevayo @gigara @kaumini
 /workspaces/choreo/ @kaje94
 /workspaces/wso2-platform/ @kaje94
 * @hevayo @gigara
