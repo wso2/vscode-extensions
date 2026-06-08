@@ -17,7 +17,7 @@
  */
 
 import * as vscode from 'vscode';
-import { ProjectStructureResponse, ProjectStructureEntry, RegistryResourcesFolder, ListRegistryArtifactsResponse, DataIntegrationResponse, CommonArtifactsResponse, AdvancedArtifactsResponse } from '@wso2/mi-core';
+import { ProjectStructureResponse, ProjectStructureEntry, RegistryResourcesFolder, ListRegistryArtifactsResponse, DataIntegrationResponse, CommonArtifactsResponse, AdvancedArtifactsResponse, getMcpServerNameFromConfigFile } from '@wso2/mi-core';
 import { COMMANDS, EndpointTypes, InboundEndpointTypes, MessageProcessorTypes, MessageStoreTypes, TemplateTypes } from '../constants';
 import { window } from 'vscode';
 import path = require('path');
@@ -858,8 +858,7 @@ function generateMcpServers(data: any[]): ProjectExplorerEntry[] {
 			continue;
 		}
 
-		const localEntryFilename = path.basename(server.localEntry.path);
-		const serverDisplayName = localEntryFilename.replace('-mcp-config.xml', '') || server.name;
+		const serverDisplayName = getMcpServerNameFromConfigFile(server.localEntry.path) || server.name;
 		const serverEntry = new ProjectExplorerEntry(
 			serverDisplayName,
 			isCollapsibleState(false),

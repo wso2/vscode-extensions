@@ -22,11 +22,11 @@ import { TextField, Button, FormView, FormActions, FormGroup, Typography } from 
 import { useForm } from 'react-hook-form';
 import * as yup from 'yup';
 import { yupResolver } from '@hookform/resolvers/yup';
-import { MACHINE_VIEW, EVENT_TYPE } from '@wso2/mi-core';
+import { MACHINE_VIEW, EVENT_TYPE, getMcpLocalEntryName } from '@wso2/mi-core';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
 import { VSCodeProgressRing } from '@vscode/webview-ui-toolkit/react';
 import { useConnectorDependency } from '../../../Hooks';
-import * as pathModule from 'path';
+import * as path from 'path';
 import { inboundListenerClass } from './MCPServerToolsForm';
 
 const MCP_INBOUND_CONNECTOR_ARTIFACT_ID = 'mi-inbound-mcp';
@@ -90,7 +90,8 @@ export interface MCPServerWizardProps {
     };
 }
 
-export function MCPServerWizard({ path, editData }: MCPServerWizardProps) {
+export function MCPServerWizard(props: MCPServerWizardProps) {
+    const { editData } = props;
     const { rpcClient } = useVisualizerContext();
 
     const { register, handleSubmit, formState: { errors }, trigger, setError } = useForm({
@@ -117,14 +118,14 @@ export function MCPServerWizard({ path, editData }: MCPServerWizardProps) {
         checkConnector,
         acceptDownload,
         declineDownload,
-    } = useConnectorDependency(rpcClient, path);
+    } = useConnectorDependency(rpcClient, props.path);
 
     useEffect(() => {
         const loadUsedPorts = async () => {
             setPortDiscoveryLoading(true);
             setPortDiscoveryError(null);
             try {
-                const projectRootResp = await rpcClient.getMiDiagramRpcClient().getProjectRoot({ path });
+                const projectRootResp = await rpcClient.getMiDiagramRpcClient().getProjectRoot({ path: props.path });
                 const { ports } = await rpcClient.getMiDiagramRpcClient().getMcpUsedInboundPorts({
                     projectUri: projectRootResp.path,
                 });
@@ -137,7 +138,7 @@ export function MCPServerWizard({ path, editData }: MCPServerWizardProps) {
             }
         };
         loadUsedPorts();
-    }, [rpcClient, path]);
+    }, [rpcClient, props.path]);
 
     useEffect(() => {
         trigger('port');
@@ -147,7 +148,7 @@ export function MCPServerWizard({ path, editData }: MCPServerWizardProps) {
         if (!editData) {
             checkConnector(MCP_INBOUND_CONNECTOR_ARTIFACT_ID);
         }
-    }, [rpcClient, path]);
+    }, [rpcClient, props.path]);
 
     const handleClose = () => {
         rpcClient.getMiVisualizerRpcClient().openView({
@@ -165,13 +166,13 @@ export function MCPServerWizard({ path, editData }: MCPServerWizardProps) {
         setSubmitting(true);
         setSubmissionError(null);
         try {
-            const projectRootResp = await rpcClient.getMiDiagramRpcClient().getProjectRoot({ path });
+            const projectRootResp = await rpcClient.getMiDiagramRpcClient().getProjectRoot({ path: props.path });
             const projectDir = projectRootResp.path;
 
-            const localEntriesDir = pathModule.join(projectDir, 'src', 'main', 'wso2mi', 'artifacts', 'local-entries').toString();
-            const inboundEndpointsDir = pathModule.join(projectDir, 'src', 'main', 'wso2mi', 'artifacts', 'inbound-endpoints').toString();
+            const localEntriesDir = path.join(projectDir, 'src', 'main', 'wso2mi', 'artifacts', 'local-entries').toString();
+            const inboundEndpointsDir = path.join(projectDir, 'src', 'main', 'wso2mi', 'artifacts', 'inbound-endpoints').toString();
 
-            const localEntryName = `${data.serverName}-mcp-config`;
+            const localEntryName = getMcpLocalEntryName(data.serverName);
             const emptyXml = `\n        <mcptools>\n        </mcptools>`;
 
             await rpcClient.getMiDiagramRpcClient().createLocalEntry({
@@ -205,12 +206,12 @@ export function MCPServerWizard({ path, editData }: MCPServerWizardProps) {
                 },
             });
 
-            const localEntryPath = pathModule.join(localEntriesDir, localEntryName + '.xml').toString();
+            const localEntryPath = path.join(localEntriesDir, localEntryName + '.xml').toString();
             rpcClient.getMiVisualizerRpcClient().openView({
                 type: EVENT_TYPE.OPEN_VIEW,
                 location: {
                     view: MACHINE_VIEW.MCPServerFromAPIsForm,
-                    documentUri: path,
+                    documentUri: props.path,
                     customProps: { editData: { serverName: data.serverName, localEntryPath } },
                 },
             });

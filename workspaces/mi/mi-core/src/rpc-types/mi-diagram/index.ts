@@ -53,8 +53,8 @@ import {
     WriteIdpSchemaFileToRegistryRequest,
     WriteIdpSchemaFileToRegistryResponse,
     GetIdpSchemaFilesResponse,
-    ReadFileContentRequest,
-    ReadFileContentResponse,
+    ReadIdpSchemaFileContentRequest,
+    ReadIdpSchemaFileContentResponse,
     CreateLocalEntryRequest,
     CreateLocalEntryResponse,
     FileDirResponse,
@@ -371,7 +371,7 @@ export interface MiDiagramAPI {
     handleFileWithFS: (params: HandleFileRequest) => Promise<HandleFileResponse>;
     writeIdpSchemaFileToRegistry: (params: WriteIdpSchemaFileToRegistryRequest) => Promise<WriteIdpSchemaFileToRegistryResponse>;
     getIdpSchemaFiles: ()=> Promise<GetIdpSchemaFilesResponse>;
-    readFileContent: (params: ReadFileContentRequest) => Promise<ReadFileContentResponse>;
+    readIdpSchemaFileContent: (params: ReadIdpSchemaFileContentRequest) => Promise<ReadIdpSchemaFileContentResponse>;
     highlightCode: (params: HighlightCodeRequest) => void;
     getWorkspaceContext: () => Promise<GetWorkspaceContextResponse>;
     getProjectUuid: () => Promise<GetProjectUuidResponse>;

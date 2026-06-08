@@ -26,6 +26,7 @@ import {
     APITool,
     Sequence,
     UnifiedTool,
+    MCP_CONFIG_FILE_SUFFIX,
 } from "@wso2/mi-core";
 
 const { XMLParser } = require("fast-xml-parser");
@@ -301,6 +302,21 @@ export async function getUsedInboundPorts(
         } catch { /* ignore unreadable */ }
     }
     return Array.from(usedPorts);
+}
+
+/**
+ * Derive the inbound-endpoint XML path for an MCP server from its local-entry config path.
+ * Convention: `<artifacts>/local-entries/<name>-mcp-config.xml`
+ *          -> `<artifacts>/inbound-endpoints/<name>.xml`
+ *
+ * This is a fallback; prefer the inbound endpoint path reported by the project structure.
+ */
+export function deriveMcpInboundEndpointPath(localEntryPath: string): string {
+    const dir = path.dirname(localEntryPath);
+    const fileName = path.basename(localEntryPath);
+    const inboundDir = path.join(path.dirname(dir), "inbound-endpoints");
+    const inboundFileName = fileName.replace(MCP_CONFIG_FILE_SUFFIX, ".xml");
+    return path.join(inboundDir, inboundFileName);
 }
 
 export function generateToolsXml(tools: UnifiedTool[], inputSchemas: Record<string, object>): string {

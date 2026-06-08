@@ -120,7 +120,7 @@ import {
     WriteMockServicesRequest,
     HandleFileRequest,
     WriteIdpSchemaFileToRegistryRequest,
-    ReadFileContentRequest,
+    ReadIdpSchemaFileContentRequest,
     addDBDriver,
     addDriverToLib,
     applyEdit,
@@ -273,7 +273,7 @@ import {
     writeIdpSchemaFileToRegistry,
     getIdpSchemaFiles,
     convertPdfToBase64Images,
-    readFileContent,
+    readIdpSchemaFileContent,
     tryOutMediator,
     MediatorTryOutRequest,
     saveInputPayload,
@@ -443,7 +443,7 @@ export function registerMiDiagramRpcHandlers(messenger: Messenger, projectUri: s
     messenger.onRequest(writeIdpSchemaFileToRegistry, (args: WriteIdpSchemaFileToRegistryRequest) => rpcManger.writeIdpSchemaFileToRegistry(args));
     messenger.onRequest(getIdpSchemaFiles,() => rpcManger.getIdpSchemaFiles());
     messenger.onRequest(convertPdfToBase64Images, (args: string) => rpcManger.convertPdfToBase64Images(args));
-    messenger.onRequest(readFileContent, (args: ReadFileContentRequest) => rpcManger.readFileContent(args));
+    messenger.onRequest(readIdpSchemaFileContent, (args: ReadIdpSchemaFileContentRequest) => rpcManger.readIdpSchemaFileContent(args));
     messenger.onNotification(highlightCode, (args: HighlightCodeRequest) => rpcManger.highlightCode(args));
     messenger.onRequest(getWorkspaceContext, () => rpcManger.getWorkspaceContext());
     messenger.onRequest(getProjectUuid, () => rpcManger.getProjectUuid());

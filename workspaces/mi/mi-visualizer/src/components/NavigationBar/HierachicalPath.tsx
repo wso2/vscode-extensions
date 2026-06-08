@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { EVENT_TYPE, MACHINE_VIEW, VisualizerLocation } from "@wso2/mi-core";
+import { EVENT_TYPE, MACHINE_VIEW, VisualizerLocation, isMcpConfigFile } from "@wso2/mi-core";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
 import { Codicon, Button } from "@wso2/ui-toolkit";
 import path from "path";
@@ -68,7 +68,7 @@ export function HierachicalPath(props: HierachicalPathProps) {
             for (let i = 0; i < pathItems.length; i++) {
                 const pathItem = pathItems[i];
                 if (pathItem.endsWith(".xml")) {
-                    if (pathItem.endsWith("-mcp-config.xml")) {
+                    if (isMcpConfigFile(pathItem)) {
                         segments.push({
                             label: `MCP Server`,
                             onClick: () => { },
@@ -95,7 +95,7 @@ export function HierachicalPath(props: HierachicalPathProps) {
                             console.error(error);
                         }
                     }
-                } else if (pathItem === "local-entries" && i + 1 < pathItems.length && pathItems[i + 1].endsWith("-mcp-config.xml")) {
+                } else if (pathItem === "local-entries" && i + 1 < pathItems.length && isMcpConfigFile(pathItems[i + 1])) {
                     continue;
                 } else {
                     segments.push({

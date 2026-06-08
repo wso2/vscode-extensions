@@ -23,9 +23,9 @@ import { useForm } from 'react-hook-form';
 import * as yup from 'yup';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
-import { EVENT_TYPE, MACHINE_VIEW } from '@wso2/mi-core';
+import { EVENT_TYPE, MACHINE_VIEW, getMcpLocalEntryName } from '@wso2/mi-core';
 import { View, ViewContent, ViewHeader } from '../../../components/View';
-import * as pathModule from 'path';
+import * as path from 'path';
 
 import { API, APITool, Sequence, SequenceTool, UnifiedTool } from '@wso2/mi-core';
 import AddAPIToolDialog from './AddAPIToolDialog';
@@ -136,7 +136,8 @@ export interface MCPServerToolsFormProps {
 
 // Main Form
 
-export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) {
+export function MCPServerToolsForm(props: MCPServerToolsFormProps) {
+    const { editData } = props;
     const isEditMode = !!editData;
     const { rpcClient } = useVisualizerContext();
     const { register, handleSubmit, setValue, getValues, trigger, watch, setError: setFieldError, formState: { errors } } = useForm({
@@ -161,14 +162,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
     const [selectedAPIForTool, setSelectedAPIForTool] = useState<string>('');
     const [corsSettings, setCorsSettings] = useState({ ...DEFAULT_CORS });
     const [originalCorsSettings, setOriginalCorsSettings] = useState({ ...DEFAULT_CORS });
-
-    const deriveInboundEndpointPath = (localEntryPath: string): string => {
-        const dir = pathModule.dirname(localEntryPath);
-        const filename = pathModule.basename(localEntryPath);
-        const inboundDir = pathModule.join(pathModule.dirname(dir), 'inbound-endpoints');
-        const inboundFilename = filename.replace('-mcp-config.xml', '.xml');
-        return pathModule.join(inboundDir, inboundFilename);
-    };
+    const [resolvedInboundPath, setResolvedInboundPath] = useState<string>('');
 
     // Dirty check for the settings section
     const watchedPort = watch('port');
@@ -191,16 +185,16 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
             if (!toolsToSave) return;
 
             try {
-                const projectRootResp = await rpcClient.getMiDiagramRpcClient().getProjectRoot({ path });
+                const projectRootResp = await rpcClient.getMiDiagramRpcClient().getProjectRoot({ path: props.path });
                 const projectDir = projectRootResp.path;
-                const localEntriesDir = pathModule.join(projectDir, 'src', 'main', 'wso2mi', 'artifacts', 'local-entries').toString();
+                const localEntriesDir = path.join(projectDir, 'src', 'main', 'wso2mi', 'artifacts', 'local-entries').toString();
                 const { xml } = await rpcClient.getMiDiagramRpcClient().buildMcpToolsXml({
                     projectRoot: projectDir,
                     tools: toolsToSave,
                 });
                 await rpcClient.getMiDiagramRpcClient().createLocalEntry({
                     directory: localEntriesDir,
-                    name: pathModule.basename(editData.localEntryPath!, '.xml'),
+                    name: path.basename(editData.localEntryPath!, '.xml'),
                     type: 'In-Line XML Entry',
                     value: xml,
                     URL: '',
@@ -220,16 +214,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
             setLoading(true);
             setError(null);
             try {
-                let projectUri = pathModule.normalize(path);
-                const artifactsSep = `${pathModule.sep}artifacts`;
-                const artifactsIndex = projectUri.indexOf(artifactsSep);
-                if (artifactsIndex !== -1) {
-                    projectUri = projectUri.substring(0, artifactsIndex);
-                    const suffixPattern = `${pathModule.sep}src${pathModule.sep}main${pathModule.sep}wso2mi`;
-                    if (projectUri.endsWith(suffixPattern)) {
-                        projectUri = projectUri.substring(0, projectUri.length - suffixPattern.length);
-                    }
-                }
+                const projectUri = (await rpcClient.getMiDiagramRpcClient().getProjectRoot({ path: props.path })).path;
 
                 const { apis: parsedAPIs, sequences: parsedSeqs } =
                     await rpcClient.getMiDiagramRpcClient().getMcpServerProjectArtifacts({ projectUri });
@@ -237,23 +222,15 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                 setSequences(parsedSeqs);
                 setProjectRoot(projectUri);
 
-                // Collect used ports from all inbound endpoints (exclude current server in edit mode)
-                const currentInboundPath = isEditMode
-                    ? (editData?.inboundEndpointPath || (editData?.localEntryPath ? deriveInboundEndpointPath(editData.localEntryPath) : undefined))
-                    : undefined;
-                const { ports } = await rpcClient.getMiDiagramRpcClient().getMcpUsedInboundPorts({
-                    projectUri,
-                    excludePath: currentInboundPath,
-                });
-                setUsedPorts(new Set(ports));
-
-                // Load existing tools, port, and CORS from artifacts when editing
+                // Load existing tools, port, and CORS when editing
+                let currentInboundPath: string | undefined;
                 if (isEditMode && editData?.localEntryPath) {
-                    const inboundPath = editData.inboundEndpointPath || deriveInboundEndpointPath(editData.localEntryPath);
                     const editDataResp = await rpcClient.getMiDiagramRpcClient().getMcpServerEditData({
                         localEntryPath: editData.localEntryPath,
-                        inboundEndpointPath: inboundPath,
+                        inboundEndpointPath: editData.inboundEndpointPath,
                     });
+                    currentInboundPath = editDataResp.inboundEndpointPath || undefined;
+                    setResolvedInboundPath(editDataResp.inboundEndpointPath);
                     setTools(editDataResp.tools);
                     if (editDataResp.port !== null) {
                         setValue('port', editDataResp.port);
@@ -264,6 +241,13 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                 } else if (isEditMode && editData?.tools) {
                     setTools(editData.tools.map(t => ({ ...t, kind: 'api' as const })));
                 }
+
+                // Collect used ports from all inbound endpoints (exclude current server in edit mode)
+                const { ports } = await rpcClient.getMiDiagramRpcClient().getMcpUsedInboundPorts({
+                    projectUri,
+                    excludePath: currentInboundPath,
+                });
+                setUsedPorts(new Set(ports));
             } catch (err) {
                 setError(`Failed to load project data: ${err instanceof Error ? err.message : String(err)}`);
             } finally {
@@ -272,7 +256,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
         };
 
         loadData();
-    }, [rpcClient, path]);
+    }, [rpcClient, props.path]);
 
     // Add API tools (From APIs path)
 
@@ -374,8 +358,8 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                 return;
             }
 
-            const projectRootResp = await rpcClient.getMiDiagramRpcClient().getProjectRoot({ path });
-            const sequencesDir = pathModule.join(
+            const projectRootResp = await rpcClient.getMiDiagramRpcClient().getProjectRoot({ path: props.path });
+            const sequencesDir = path.join(
                 projectRootResp.path, 'src', 'main', 'wso2mi', 'artifacts', 'sequences'
             ).toString();
 
@@ -389,7 +373,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                 trace: false,
             });
 
-            const sequenceXmlPath = pathModule.join(sequencesDir, sequenceName + '.xml').toString();
+            const sequenceXmlPath = path.join(sequencesDir, sequenceName + '.xml').toString();
             const newTool: SequenceTool = {
                 kind: 'sequence',
                 id: crypto.randomUUID(),
@@ -464,7 +448,7 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
         if (!editData?.localEntryPath) return;
         setUpdating(true);
         try {
-            const inboundPath = editData.inboundEndpointPath || deriveInboundEndpointPath(editData.localEntryPath);
+            const inboundPath = resolvedInboundPath || editData.inboundEndpointPath || '';
             await rpcClient.getMiDiagramRpcClient().updateMcpInboundEndpoint({
                 inboundEndpointPath: inboundPath,
                 corsSettings,
@@ -492,13 +476,13 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
         setSubmitting(true);
         setError(null);
         try {
-            const projectRootResp = await rpcClient.getMiDiagramRpcClient().getProjectRoot({ path });
+            const projectRootResp = await rpcClient.getMiDiagramRpcClient().getProjectRoot({ path: props.path });
             const projectDir = projectRootResp.path;
-            const localEntriesDir = pathModule.join(projectDir, 'src', 'main', 'wso2mi', 'artifacts', 'local-entries').toString();
-            const inboundEndpointsDir = pathModule.join(projectDir, 'src', 'main', 'wso2mi', 'artifacts', 'inbound-endpoints').toString();
+            const localEntriesDir = path.join(projectDir, 'src', 'main', 'wso2mi', 'artifacts', 'local-entries').toString();
+            const inboundEndpointsDir = path.join(projectDir, 'src', 'main', 'wso2mi', 'artifacts', 'inbound-endpoints').toString();
 
             const { xml } = await rpcClient.getMiDiagramRpcClient().buildMcpToolsXml({ projectRoot: projectDir, tools });
-            const localEntryName = `${data.serverName}-mcp-config`;
+            const localEntryName = getMcpLocalEntryName(data.serverName);
 
             await rpcClient.getMiDiagramRpcClient().createLocalEntry({
                 directory: localEntriesDir,

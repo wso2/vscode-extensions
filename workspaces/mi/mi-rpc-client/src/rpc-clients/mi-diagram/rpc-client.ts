@@ -202,8 +202,8 @@ import {
     WriteIdpSchemaFileToRegistryRequest,
     WriteIdpSchemaFileToRegistryResponse,
     GetIdpSchemaFilesResponse,
-    ReadFileContentRequest,
-    ReadFileContentResponse,
+    ReadIdpSchemaFileContentRequest,
+    ReadIdpSchemaFileContentResponse,
     applyEdit,
     askFileDirPath,
     askProjectDirPath,
@@ -336,7 +336,7 @@ import {
     writeIdpSchemaFileToRegistry,
     getIdpSchemaFiles,
     convertPdfToBase64Images,
-    readFileContent,
+    readIdpSchemaFileContent,
     StoreConnectorJsonResponse,
     getStoreConnectorJSON,
     TestDbConnectionRequest,
@@ -799,8 +799,8 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
         return this._messenger.sendRequest(convertPdfToBase64Images, HOST_EXTENSION, params);
     }
 
-    readFileContent(params: ReadFileContentRequest): Promise<ReadFileContentResponse> {
-        return this._messenger.sendRequest(readFileContent, HOST_EXTENSION, params);
+    readIdpSchemaFileContent(params: ReadIdpSchemaFileContentRequest): Promise<ReadIdpSchemaFileContentResponse> {
+        return this._messenger.sendRequest(readIdpSchemaFileContent, HOST_EXTENSION, params);
     }
 
     highlightCode(params: HighlightCodeRequest): void {
