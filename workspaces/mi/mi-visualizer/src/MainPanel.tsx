@@ -122,7 +122,6 @@ const MainPanel = (props: MainPanelProps) => {
         if (typeof formState === 'object' && 'open' in formState) {
             rpcClient?.getMiVisualizerRpcClient().openView({ type: POPUP_EVENT_TYPE.CLOSE_VIEW, location: { view: null }, isPopup: true });
         }
-        fetchContext();
     }, [visualizerState.view]);
 
     useEffect(() => {
