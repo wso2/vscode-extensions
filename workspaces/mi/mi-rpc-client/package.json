@@ -24,9 +24,11 @@
     "vscode-messenger-common": "0.5.1",
     "vscode-messenger-webview": "0.5.1",
     "@wso2/mi-syntax-tree": "workspace:*",
-    "@wso2/mi-core": "workspace:*",
-    "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "@wso2/mi-core": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": ">=18.2.0",
+    "react-dom": ">=18.2.0"
   },
   "repository": {
     "type": "git",

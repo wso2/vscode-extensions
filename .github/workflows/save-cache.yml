@@ -5,9 +5,6 @@ on:
     branches:
       - dev
 
-env:
-  ballerina_version: 2201.7.2
-
 jobs:
   Build_Stage:
     name: Build repo
@@ -15,11 +12,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-
-      - uses: ballerina-platform/setup-ballerina@v1
-        name: Install Ballerina
-        with:
-          version: ${{ env.ballerina_version }}
 
       - name: Setup Rush
         uses: gigara/setup-rush@v1.2.0

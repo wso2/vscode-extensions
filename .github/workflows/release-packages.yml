@@ -11,13 +11,6 @@ on:
         description: "Select the package to release"
         required: true
         options:
-          - 'ballerina/data-mapper'
-          - 'ballerina/low-code-diagram'
-          - 'ballerina/low-code-editor'
-          - 'ballerina/low-code-integration-tests'
-          - 'ballerina/statement-editor'
-          - 'ballerina/syntax-tree'
-          - 'ballerina/project-design-diagrams'                                                                          
           - 'common-libs/ui-toolkit'
           - 'common-libs/font-wso2-vscode'
       version:
@@ -41,7 +34,6 @@ jobs:
     with:
       isPreRelease: ${{ inputs.isPreRelease }}
       enableCache: false
-      ballerina: false
       wso2-platform: false
       choreo: false
       apk: false
@@ -116,6 +108,5 @@ jobs:
           ref_name: ${{ github.ref_name }}
           commonLibs: true
           choreo: true
-          ballerina: true
           apk: true
           chatAPI: ${{ secrets.TOOLING_TEAM_CHAT_API }}

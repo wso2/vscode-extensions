@@ -7,10 +7,8 @@ on:
         type: choice
         description: 'Select the extension'
         required: true
-        default: 'ballerina'
+        default: 'micro-integrator'
         options:
-          - 'ballerina'
-          - 'ballerina-integrator'
           - 'choreo'
           - 'wso2-platform'
           - 'apk'
@@ -84,11 +82,7 @@ jobs:
       - name: Get Repo
         id: repo
         run: |
-          if [ "${{ github.event.inputs.extension }}" == "ballerina" ]; then
-            echo "repo=wso2/ballerina-vscode" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.inputs.extension }}" == "ballerina-integrator" ]; then
-            echo "repo=wso2/product-ballerina-integrator" >> $GITHUB_OUTPUT  
-          elif [ "${{ github.event.inputs.extension }}" == "choreo" ]; then
+          if [ "${{ github.event.inputs.extension }}" == "choreo" ]; then
             echo "repo=wso2/choreo-vscode" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.inputs.extension }}" == "wso2-platform" ]; then
             echo "repo=wso2/vscode-extensions" >> $GITHUB_OUTPUT
@@ -131,33 +125,11 @@ jobs:
             exit 1
           fi
 
-      - name: Trigger external repo workflow for ballerina release
-        if: ${{ github.event.inputs.extension == 'ballerina' && github.event.inputs.isPreRelease == 'false' && steps.create_release.outputs.release_created == 'true' }}
-        run: |
-          echo "Triggering external repository workflow for ballerina v${{ steps.vsix.outputs.version }}"
-          response=$(curl -s -w "%{http_code}" -X POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${{ secrets.CLOUD_EDITOR_BUILDER_REPO_TOKEN }}" \
-            https://api.github.com/repos/${{ secrets.CLOUD_EDITOR_BUILDER_REPO }}/dispatches \
-            -d '{"event_type": "extension_published", "client_payload": {"extension": "${{ github.event.inputs.extension }}", "version": "${{ steps.vsix.outputs.version }}", "release_url": "https://github.com/wso2/${{ steps.repo.outputs.repo }}/releases/tag/v${{ steps.vsix.outputs.version }}"}}')
-          
-          http_code=$(echo "$response" | tail -c 4)
-          
-          if [ "$http_code" -eq 204 ]; then
-            echo "Successfully triggered external repository workflow"
-          else
-            echo "Failed to trigger external repository workflow. HTTP code: $http_code"
-            echo "Response: $response"
-            exit 1
-          fi        
-
       - name: Set Chat API
         id: chat
         run: |
           if [ "${{ inputs.extension }}" == "micro-integrator" ]; then
             echo "chatAPI=${{ secrets.MI_TEAM_CHAT_API }}" >> $GITHUB_OUTPUT
-          elif [ "${{ inputs.extension }}" == "ballerina" ] || [ "${{ inputs.extension }}" == "ballerina-integrator" ]; then
-            echo "chatAPI=${{ secrets.BI_TEAM_CHAT_API }}" >> $GITHUB_OUTPUT
           else
             echo "chatAPI=${{ secrets.TOOLING_TEAM_CHAT_API }}" >> $GITHUB_OUTPUT
           fi
