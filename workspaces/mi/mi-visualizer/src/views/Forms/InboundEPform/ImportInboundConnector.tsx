@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
  *
  * WSO2 LLC. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -16,12 +16,11 @@
  * under the License.
  */
 
-import { FormView, FormActions, Button, LocationSelector, ErrorBanner, Typography } from "@wso2/ui-toolkit";
-import { useEffect, useRef, useState } from "react";
+import { FormView, FormActions, Button, LocationSelector, ErrorBanner } from "@wso2/ui-toolkit";
+import { useState } from "react";
 import styled from "@emotion/styled";
 import { VSCodeProgressRing } from "@vscode/webview-ui-toolkit/react";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
-import { ConnectorStatus } from "@wso2/mi-core";
 import { POPUP_EVENT_TYPE } from "@wso2/mi-core";
 
 const LoaderWrapper = styled.div`
@@ -41,81 +40,45 @@ const ProgressRing = styled(VSCodeProgressRing)`
     padding: 4px;
 `;
 
-export interface ImportConnectorFormProps {
-    goBack: () => void;
+export interface ImportInboundConnectorFormProps {
     handlePopupClose?: () => void;
     onImportSuccess: () => void;
     isPopup?: boolean;
 }
 
-export function ImportConnectorForm(props: ImportConnectorFormProps) {
+export function ImportInboundConnectorForm(props: ImportInboundConnectorFormProps) {
     const { rpcClient } = useVisualizerContext();
     const [zipDir, setZipDir] = useState("");
     const [isImporting, setIsImporting] = useState(false);
-    const [isFailedImport, setIsFailedImport] = useState(false);
-    const connectionStatus = useRef(null);
-
-    useEffect(() => {
-        rpcClient.onConnectorStatusUpdate((connectorStatus: ConnectorStatus) => {
-            connectionStatus.current = connectorStatus;
-        });
-
-    }, []);
+    const [importError, setImportError] = useState("");
 
     const handleSourceDirSelection = async () => {
-        const specDirecrory = await rpcClient.getMiDiagramRpcClient().askFileDirPath();
-        setZipDir(specDirecrory.path);
+        const specDirectory = await rpcClient.getMiDiagramRpcClient().askFileDirPath();
+        setZipDir(specDirectory.path);
     }
 
     const importWithZip = async () => {
         setIsImporting(true);
-        const response = await rpcClient.getMiDiagramRpcClient().copyConnectorZip({ connectorPath: zipDir });
-
-        if (!response.success) {
-            setIsImporting(false);
-            return;
-        }
-
+        setImportError("");
         try {
-            const newConnector: any = await waitForEvent();
+            const response = await rpcClient.getMiDiagramRpcClient().copyConnectorZip({ connectorPath: zipDir, isInbound: true });
 
-            if (newConnector?.isSuccess) {
+            if (response.success) {
                 rpcClient.getMiVisualizerRpcClient().openView({
                     type: POPUP_EVENT_TYPE.CLOSE_VIEW,
                     location: { view: null, recentIdentifier: "success" },
                     isPopup: true
                 });
             } else {
-                await removeInvalidConnector(response.connectorPath);
-                setIsFailedImport(true);
+                setImportError(response.error || "Error importing inbound connector. Please try again...");
             }
         } catch (error) {
             console.log(error);
+            setImportError("Error importing inbound connector. Please try again...");
         }
 
         setIsImporting(false);
     };
-
-    const waitForEvent = () => {
-        return new Promise((resolve, reject) => {
-            const checkInterval = setInterval(() => {
-                if (connectionStatus.current) {
-                    clearInterval(checkInterval);
-                    resolve(connectionStatus.current);
-                }
-            }, 200);
-
-            // Reject the promise after 10 seconds
-            setTimeout(() => {
-                clearInterval(checkInterval);
-                reject(new Error('Event did not occur within 10 seconds'));
-            }, 10000);
-        });
-    };
-
-    const removeInvalidConnector = async (connectorPath: string) => {
-        await rpcClient.getMiDiagramRpcClient().removeConnector({ connectorPath: connectorPath });
-    }
 
     const handleCancel = () => {
         if (props.isPopup) {
@@ -124,33 +87,29 @@ export function ImportConnectorForm(props: ImportConnectorFormProps) {
                 location: { view: null, recentIdentifier: "cancel" },
                 isPopup: true
             });
-        } else {
-            props.goBack();
         }
     }
 
     return (
         <>
-            <FormView title={`Import Connector`} onClose={handleCancel}>
+            <FormView title={`Import Inbound Connector`} onClose={handleCancel}>
                 {isImporting ?
                     (
                         <LoaderWrapper>
                             <ProgressRing />
-                            Importing Connector...
+                            Importing inbound-connector...
                         </LoaderWrapper>
                     ) : (
                         <>
-                            {isFailedImport && (
-                                <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
-                                    <Typography variant="body3">Error importing connector. Please try again...</Typography>
-                                </div>
+                            {importError && (
+                                <ErrorBanner errorMsg={importError} />
                             )}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                {zipDir && !zipDir.endsWith('.zip') &&
-                                    <ErrorBanner errorMsg={"Invalid file type. Please select a connector zip file"} />
+                                {zipDir && !zipDir.toLowerCase().endsWith('.zip') &&
+                                    <ErrorBanner errorMsg={"Please select a connector zip file"} />
                                 }
                                 <LocationSelector
-                                    label="Choose path to connector zip"
+                                    label="Choose path to inbound connector zip"
                                     selectedFile={zipDir}
                                     required
                                     onSelect={handleSourceDirSelection}
@@ -161,7 +120,7 @@ export function ImportConnectorForm(props: ImportConnectorFormProps) {
                                     <Button
                                         appearance="primary"
                                         onClick={importWithZip}
-                                        disabled={!zipDir || !zipDir.endsWith('.zip')}
+                                        disabled={!zipDir || !zipDir.toLowerCase().endsWith('.zip')}
                                     >
                                         Import
                                     </Button>

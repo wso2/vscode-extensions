@@ -176,7 +176,6 @@ export function ProxyServiceWizard(props: ProxyServiceWizardProps) {
             type: EVENT_TYPE.OPEN_VIEW,
             location: { view: MACHINE_VIEW.ProxyView, documentUri: file.path }
         });
-        handleCancel();
     };
 
     const renderProps = (fieldName: keyof InputsFields) => {

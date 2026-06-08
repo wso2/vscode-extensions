@@ -38,6 +38,7 @@ import ToolCallSegment from "./ToolCallSegment";
 import TodoListSegment from "./TodoListSegment";
 import BashOutputSegment from "./BashOutputSegment";
 import CompactSummarySegment from "./CompactSummarySegment";
+import ContextWarningSegment from "./ContextWarningSegment";
 import ThinkingSegment from "./ThinkingSegment";
 import ErrorSegment from "./ErrorSegment";
 
@@ -340,6 +341,8 @@ const AIChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
                 }
             } else if (segment.isCompactSummary) {
                 return <CompactSummarySegment key={i} text={segment.text} />;
+            } else if (segment.isContextWarning) {
+                return <ContextWarningSegment key={i} text={segment.text} />;
             } else if (segment.isFileChanges) {
                 return null;
             } else if (segment.isPlan) {

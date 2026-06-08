@@ -29,11 +29,11 @@ module.exports = {
         if (deps['esbuild']) deps['esbuild'] = '0.25.12';
         if (deps['lodash']) deps['lodash'] = '4.18.0';
         if (deps['qs']) deps['qs'] = '6.15.2'; // security fix: CVE-2026-8723
-        if (deps['hono']) deps['hono'] = '4.12.18'; // CVE-2026-44455 (JSX injection), CVE-2026-44456 (bodyLimit bypass)
+        if (deps['hono']) deps['hono'] = '4.12.21';
         if (deps['@hono/node-server']) deps['@hono/node-server'] = '1.19.13';
         if (deps['@tootallnate/once']) deps['@tootallnate/once'] = '3.0.1';
         if (deps['dompurify']) deps['dompurify'] = '3.4.0'; // security fix: XSS vulnerability
-        if (deps['axios']) deps['axios'] = '1.15.2'; // security fix: SSRF vulnerability
+        if (deps['axios']) deps['axios'] = '1.16.0'; // security fix
         if (deps['ip-address']) { // security fix: force patch within 10.x range only to avoid breaking consumers on earlier majors
           if (/^[\s\^~><=]*10[.\s]/.test(deps['ip-address'])) {
             deps['ip-address'] = '10.1.1';

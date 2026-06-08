@@ -78,6 +78,8 @@ export interface SessionContextBlocksState {
     /** Verbatim mode name (`"ask" | "edit" | "plan"`) for "[mode changed from EDIT]" notices. */
     modePolicy?: string;
     payloads?: string;
+    /** sha256-16 of the (possibly truncated) AGENTS.md bytes + truncation banner inputs */
+    agentsMd?: string;
 }
 
 export const TOOL_USE_INTERRUPTION_CONTEXT = `<system-reminder>The user interrupted while a tool was running. The tool use was rejected and any pending mutations were NOT applied. Stop immediately and wait for the user's next message.</system-reminder>`;
@@ -127,6 +129,7 @@ export interface JournalEntry {
     | 'session_start'
     | 'session_end'
     | 'compact_summary'
+    | 'context_warning'
     | 'mode_change'
     | 'undo_checkpoint'
     | 'checkpoint_anchor'
@@ -148,6 +151,8 @@ export interface JournalEntry {
     };
     /** Summary content (compact_summary) */
     summary?: string;
+    /** Warning message body (context_warning) */
+    warningMessage?: string;
     /** Mode value (mode_change) */
     mode?: AgentMode;
     /** Undo checkpoint summary (undo_checkpoint) */
@@ -737,6 +742,28 @@ export class ChatHistoryManager {
     }
 
     /**
+     * Save an AGENTS.md truncation warning entry to history. Rendered on
+     * reload as a synthetic assistant-side message with an `<agents-md-warning>`
+     * tag so the warning persists across panel reconnects.
+     */
+    async saveAgentsMdWarning(warningMessage: string): Promise<void> {
+        const entry: JournalEntry = {
+            type: 'context_warning',
+            timestamp: new Date().toISOString(),
+            sessionId: this.sessionId,
+            warningMessage,
+        };
+
+        try {
+            await this.writeEntry(entry);
+            logInfo(`[ChatHistory] Saved AGENTS.md truncation warning (${warningMessage.length} chars)`);
+        } catch (error) {
+            logError('[ChatHistory] Failed to save AGENTS.md warning', error);
+            throw error;
+        }
+    }
+
+    /**
      * Save a mode change entry to history
      */
     async saveModeChange(mode: AgentMode): Promise<void> {
@@ -936,6 +963,7 @@ export class ChatHistoryManager {
         includeCompactSummaryEntry?: boolean;
         includeUndoCheckpointEntry?: boolean;
         includeCheckpointAnchorEntry?: boolean;
+        includeContextWarningEntry?: boolean;
     }): Promise<any[]> {
         // Sanitize tool-result / text content blocks on load. Older sessions
         // may have persisted raw control bytes (e.g. ANSI codes from a Maven
@@ -981,6 +1009,7 @@ export class ChatHistoryManager {
             const includeCompactSummaryEntry = options?.includeCompactSummaryEntry === true;
             const includeUndoCheckpointEntry = options?.includeUndoCheckpointEntry === true;
             const includeCheckpointAnchorEntry = options?.includeCheckpointAnchorEntry === true;
+            const includeContextWarningEntry = options?.includeContextWarningEntry === true;
             const content = await fs.readFile(this.sessionFile, 'utf8');
             const allEntries = this.parseJournalEntries(content, 'loading messages');
 
@@ -1037,6 +1066,8 @@ export class ChatHistoryManager {
                         messages.push(entry);
                     } else if (includeCheckpointAnchorEntry && entry.type === 'checkpoint_anchor') {
                         messages.push(entry);
+                    } else if (includeContextWarningEntry && entry.type === 'context_warning') {
+                        messages.push(entry);
                     }
                 }
 
@@ -1065,6 +1096,8 @@ export class ChatHistoryManager {
                 } else if (includeUndoCheckpointEntry && entry.type === 'undo_checkpoint') {
                     messages.push(entry);
                 } else if (includeCheckpointAnchorEntry && entry.type === 'checkpoint_anchor') {
+                    messages.push(entry);
+                } else if (includeContextWarningEntry && entry.type === 'context_warning') {
                     messages.push(entry);
                 }
             }
@@ -1483,7 +1516,7 @@ export class ChatHistoryManager {
      * @returns UI events for display
      */
     static convertToEventFormat(messages: any[]): Array<{
-        type: 'user' | 'assistant' | 'tool_call' | 'tool_result' | 'compact_summary' | 'undo_checkpoint' | 'checkpoint_anchor';
+        type: 'user' | 'assistant' | 'tool_call' | 'tool_result' | 'compact_summary' | 'context_warning' | 'undo_checkpoint' | 'checkpoint_anchor';
         chatId?: number;
         content?: string;
         files?: Array<{ name: string; mimetype: string; content: string }>;
@@ -1496,6 +1529,7 @@ export class ChatHistoryManager {
         undoCheckpoint?: UndoCheckpointSummary;
         checkpointAnchor?: CheckpointAnchorSummary;
         targetChatId?: number;
+        warningMessage?: string;
         timestamp: string;
     }> {
         const events: any[] = [];
@@ -1510,6 +1544,19 @@ export class ChatHistoryManager {
                 events.push({
                     type: 'compact_summary',
                     content: msg.summary,
+                    timestamp: msg.timestamp || timestamp,
+                });
+                continue;
+            }
+
+            // Handle context_warning entries (e.g. AGENTS.md truncation). Rendered
+            // on reload as a standalone synthetic assistant message so the warning
+            // persists across panel reconnects (mirrors compact_summary).
+            if (msg.type === 'context_warning') {
+                events.push({
+                    type: 'context_warning',
+                    warningMessage: msg.warningMessage,
+                    content: msg.warningMessage,
                     timestamp: msg.timestamp || timestamp,
                 });
                 continue;

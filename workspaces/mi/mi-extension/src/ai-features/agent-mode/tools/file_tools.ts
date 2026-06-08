@@ -26,8 +26,7 @@ import * as vscode from 'vscode';
 import {
     ValidationResult,
     ToolResult,
-    VALID_FILE_EXTENSIONS,
-    VALID_SPECIAL_FILE_NAMES,
+    hasBlockedBinaryExtension,
     MAX_LINE_LENGTH,
     ErrorMessages,
     FILE_READ_TOOL_NAME,
@@ -119,40 +118,23 @@ function getPdfDocumentStatic(): PdfDocumentStaticLike {
     }
 }
 
+/**
+ * Returns true if a path is safe to read or write as text — anything not in
+ * the binary deny-list. This includes files with no extension (Dockerfile,
+ * Makefile, .gitignore, etc.).
+ */
 function isTextAllowedFilePath(filePath: string): boolean {
     const normalizedPath = filePath.trim();
     if (!normalizedPath) {
         return false;
     }
-
-    const fileName = path.basename(normalizedPath);
-    const lowerFileName = fileName.toLowerCase();
-    const hasValidExtension = VALID_FILE_EXTENSIONS.some(ext =>
-        lowerFileName.endsWith(ext)
-    );
-    if (hasValidExtension) {
-        return true;
-    }
-
-    return VALID_SPECIAL_FILE_NAMES.some(
-        (specialName) => specialName.toLowerCase() === lowerFileName
-    );
-}
-
-function getAllowedFileTypesDescription(): string {
-    return [...VALID_FILE_EXTENSIONS, ...VALID_SPECIAL_FILE_NAMES].join(', ');
-}
-
-function getReadAllowedFileTypesDescription(): string {
-    return [...VALID_FILE_EXTENSIONS, ...VALID_SPECIAL_FILE_NAMES, READ_PDF_EXTENSION, ...READ_IMAGE_EXTENSIONS].join(', ');
+    return !hasBlockedBinaryExtension(path.basename(normalizedPath));
 }
 
 function getReadFileKind(filePath: string): ReadFileKind {
-    if (isTextAllowedFilePath(filePath)) {
-        return 'text';
-    }
+    const trimmed = filePath.trim();
+    const lowerExt = path.extname(trimmed).toLowerCase();
 
-    const lowerExt = path.extname(filePath).toLowerCase();
     if (lowerExt === READ_PDF_EXTENSION) {
         return 'pdf';
     }
@@ -161,7 +143,12 @@ function getReadFileKind(filePath: string): ReadFileKind {
         return 'image';
     }
 
-    return 'unsupported';
+    // For everything else, the deny-list is authoritative — anything not
+    // blocked is treated as text (including extensionless files).
+    if (hasBlockedBinaryExtension(path.basename(trimmed))) {
+        return 'unsupported';
+    }
+    return 'text';
 }
 
 function getImageMediaType(filePath: string): string | undefined {
@@ -333,11 +320,11 @@ function validateTextFilePath(projectPath: string, filePath: string): Validation
         return securityValidation;
     }
 
-    // Reject non-text files (images, PDFs, binaries) to prevent corrupt overwrites
+    // Reject binary files (images, PDFs, archives, native binaries, etc.) to prevent corrupt overwrites.
     if (!isTextAllowedFilePath(filePath)) {
         return {
             valid: false,
-            error: `Cannot write/edit binary or non-text file '${filePath}'. Allowed text file types: ${getAllowedFileTypesDescription()}`
+            error: `Cannot write/edit binary file '${filePath}'. The extension is on the blocked-binary list (archives, executables, images, PDFs, office docs, fonts, media, etc.).`
         };
     }
 
@@ -359,7 +346,7 @@ function validateReadableFilePath(projectPath: string, filePath: string): Valida
     if (getReadFileKind(filePath) === 'unsupported') {
         return {
             valid: false,
-            error: `File must use an allowed read type: ${getReadAllowedFileTypesDescription()}`
+            error: `Cannot read binary file '${filePath}'. The extension is on the blocked-binary list (archives, executables, native libraries, office docs, fonts, audio/video, etc.). Use shell tools for binary inspection if needed.`
         };
     }
 
@@ -652,6 +639,48 @@ function trackModifiedFile(modifiedFiles: string[] | undefined, filePath: string
     }
 }
 
+/**
+ * Returns true for class mediator java sources under src/main/java/.
+ */
+function isClassMediatorPath(filePath: string): boolean {
+    const normalized = filePath.replace(/\\/g, '/').toLowerCase();
+    return /(^|\/)src\/main\/java\//.test(normalized) && normalized.endsWith('.java');
+}
+
+/**
+ * Builds a `<system-reminder>` for class mediator writes/edits when the
+ * project root pom.xml is not yet configured to pack a jar. Returns ''
+ * when packaging is already "jar" so the model is not nagged unnecessarily.
+ * Falls back to a generic reminder if pom.xml cannot be read or parsed,
+ * since the safe default is to surface the requirement.
+ */
+function buildClassMediatorPomReminder(projectPath: string): string {
+    const pomPath = path.join(projectPath, 'pom.xml');
+    let currentPackaging: string | undefined;
+    try {
+        const pomContent = fs.readFileSync(pomPath, 'utf-8');
+        const match = pomContent.match(/<packaging>\s*([^<\s]+)\s*<\/packaging>/);
+        currentPackaging = match?.[1]?.toLowerCase();
+    } catch {
+        // pom.xml missing or unreadable; fall through to the generic reminder.
+    }
+
+    if (currentPackaging === 'jar') {
+        return '';
+    }
+
+    const currentDesc = currentPackaging
+        ? `currently <packaging>${currentPackaging}</packaging>`
+        : 'current packaging could not be determined';
+    return (
+        '\n\n<system-reminder>You just wrote/edited a class mediator java source, ' +
+        `but the project root pom.xml ${currentDesc}. ` +
+        'Change it to <packaging>jar</packaging> and ensure a synapse-core dependency ' +
+        'is declared, otherwise the CApp will not pack the jar and the class mediator ' +
+        'will silently fail to deploy.</system-reminder>'
+    );
+}
+
 
 // ============================================================================
 // Execute Functions (Business Logic)
@@ -780,9 +809,10 @@ export function createWriteExecute(
         console.log(`[FileWriteTool] Successfully ${action} and synced file: ${file_path} with ${lineCount} lines`);
 
         // Build result with structured validation data
+        const classMediatorReminder = isClassMediatorPath(file_path) ? buildClassMediatorPomReminder(projectPath) : '';
         const result: ToolResult = {
             success: true,
-            message: `Successfully ${action} file '${file_path}' with ${lineCount} line(s).${validation ? formatValidationMessage(validation, 15) : ''}`
+            message: `Successfully ${action} file '${file_path}' with ${lineCount} line(s).${validation ? formatValidationMessage(validation, 15) : ''}${classMediatorReminder}`
         };
 
         if (validation) {
@@ -1077,9 +1107,10 @@ export function createEditExecute(
         const replacedCount = replace_all ? occurrences : 1;
         logDebug(`[FileEditTool] Successfully replaced ${replacedCount} occurrence(s) in: ${file_path}`);
 
+        const classMediatorReminder = isClassMediatorPath(file_path) ? buildClassMediatorPomReminder(projectPath) : '';
         const result: ToolResult = {
             success: true,
-            message: `Replaced ${replacedCount} occurrence(s) in '${file_path}'.${validation ? formatValidationMessage(validation, 15) : ''}`
+            message: `Replaced ${replacedCount} occurrence(s) in '${file_path}'.${validation ? formatValidationMessage(validation, 15) : ''}${classMediatorReminder}`
         };
 
         if (validation) {

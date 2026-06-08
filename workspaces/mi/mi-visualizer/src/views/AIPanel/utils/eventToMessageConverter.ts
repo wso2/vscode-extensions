@@ -343,6 +343,23 @@ export function convertEventsToMessages(
                 });
                 break;
 
+            case 'context_warning':
+                // Flush any pending assistant message and emit a standalone synthetic
+                // message wrapping <agents-md-warning>. Parsed by splitContent and
+                // rendered by ContextWarningSegment (mirrors the compact_summary path).
+                if (currentAssistantMessage) {
+                    messages.push(currentAssistantMessage);
+                    currentAssistantMessage = null;
+                }
+                activeChatId = undefined;
+                messages.push({
+                    id: generateId(),
+                    role: Role.MICopilot,
+                    content: `<agents-md-warning>${event.warningMessage || event.content || ''}</agents-md-warning>`,
+                    type: MessageType.AssistantMessage,
+                });
+                break;
+
             case 'undo_checkpoint': {
                 // Undo checkpoint entries from history/stream are ignored.
                 // Review card state is ephemeral and managed from live stop events only.

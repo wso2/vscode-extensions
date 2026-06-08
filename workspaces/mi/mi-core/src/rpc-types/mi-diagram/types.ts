@@ -470,6 +470,7 @@ export interface OpenDiagramRequest {
 
 export interface CreateAPIResponse {
     path: string;
+    error?: string;
 }
 
 export interface EditAPIResponse {
@@ -947,6 +948,7 @@ export interface CreateTaskRequest {
     taskProperties: taskProperty[];
     customProperties: any[];
     sequence: CreateSequenceRequest | undefined;
+    startOnLoad?: string;
 }
 
 export interface taskProperty {
@@ -973,6 +975,7 @@ export interface GetTaskResponse {
     triggerInterval: number;
     triggerCron: string;
     taskProperties: taskProperty[];
+    startOnLoad?: string;
 }
 
 export interface CreateTemplateRequest {
@@ -1839,6 +1842,7 @@ export type GenerateAPIRequest = GenerateAPIBase & (
 export interface GenerateAPIResponse {
     apiXml: string;
     endpointXml?: string;
+    error?: string;
 }
 
 export interface SwaggerTypeRequest {
@@ -1978,11 +1982,13 @@ export interface RemoveDBDriverResponse {
 
 export interface CopyConnectorZipRequest {
     connectorPath: string;
+    isInbound?: boolean;
 }
 
 export interface CopyConnectorZipResponse {
     success: boolean;
     connectorPath?: string;
+    error?: string;
 }
 
 export interface DSSQueryGenRequest {

@@ -27,12 +27,15 @@ import { VSCodeLink } from "@vscode/webview-ui-toolkit/react";
 
 const Item = styled.div`
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     margin-bottom: 12px;
     opacity: 0.6;
 
     & > p {
         margin: 0px;
+        min-width: 0;
+        overflow-wrap: anywhere;
+        word-break: break-word;
     }
 `;
 

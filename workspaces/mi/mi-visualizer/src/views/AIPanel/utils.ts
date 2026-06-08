@@ -97,6 +97,7 @@ interface ContentSegment {
     isTodoList?: boolean;
     isBashOutput?: boolean;
     isCompactSummary?: boolean;
+    isContextWarning?: boolean;
     isFileChanges?: boolean;
     isPlan?: boolean;
     isThinking?: boolean;
@@ -121,7 +122,7 @@ export function splitContent(content: string): ContentSegment[] {
     // opening fence's \n already sits right before the closer, so we fall back
     // to a `(?<=\n)` lookbehind (which doesn't consume) — otherwise `\`\`\`\n\`\`\``
     // wouldn't match at all.
-    const regex = /```(\w*)\n([\s\S]*?)(?:\r?\n|(?<=\n))```(?=\r?\n|$)|<toolcall([^>]*)>([^<]*?)<\/toolcall>|<todolist>([\s\S]*?)<\/todolist>|<bashoutput(?:\s+[^>]*)?>([\s\S]*?)<\/bashoutput>|<compact>([\s\S]*?)<\/compact>|<filechanges>([\s\S]*?)<\/filechanges>|<plan>([\s\S]*?)<\/plan>|<thinking(\s+[^>]*)?>([\s\S]*?)<\/thinking>/g;
+    const regex = /```(\w*)\n([\s\S]*?)(?:\r?\n|(?<=\n))```(?=\r?\n|$)|<toolcall([^>]*)>([^<]*?)<\/toolcall>|<todolist>([\s\S]*?)<\/todolist>|<bashoutput(?:\s+[^>]*)?>([\s\S]*?)<\/bashoutput>|<compact>([\s\S]*?)<\/compact>|<filechanges>([\s\S]*?)<\/filechanges>|<plan>([\s\S]*?)<\/plan>|<thinking(\s+[^>]*)?>([\s\S]*?)<\/thinking>|<agents-md-warning>([\s\S]*?)<\/agents-md-warning>/g;
     let start = 0;
 
     // Helper function to mark the last toolcall segment as complete
@@ -183,6 +184,10 @@ export function splitContent(content: string): ContentSegment[] {
             const thinkingAttrs = match[10] || '';
             const isLoading = /data-loading="true"/.test(thinkingAttrs);
             segments.push({ isThinking: true, loading: isLoading, text: match[11] });
+        } else if (match[12] !== undefined) {
+            // <agents-md-warning> block matched
+            updateLastToolCallSegmentLoading();
+            segments.push({ isContextWarning: true, loading: false, text: match[12] });
         }
         start = regex.lastIndex;
     }
@@ -525,11 +530,21 @@ const FILE_EXTENSION_TO_MIME: Record<string, string> = {
 };
 
 function resolveMimeType(file: File): string {
-    if (file.type) {
+    const extension = file.name.split(".").pop()?.toLowerCase();
+    const extensionMime = extension ? FILE_EXTENSION_TO_MIME[extension] : undefined;
+
+    // Trust the browser-reported type only when it is one we actually support.
+    // Some platforms/webviews report supported files (notably PDFs) with a generic
+    // or empty type (e.g. "application/octet-stream" or ""), which would otherwise
+    // fail the supported-type check and be silently dropped. Fall back to the
+    // extension mapping in those cases.
+    const isSupported = (mime: string) =>
+        VALID_FILE_TYPES.files.includes(mime) || VALID_FILE_TYPES.images.includes(mime);
+
+    if (file.type && isSupported(file.type)) {
         return file.type;
     }
-    const extension = file.name.split(".").pop()?.toLowerCase();
-    return extension ? FILE_EXTENSION_TO_MIME[extension] || "" : "";
+    return extensionMime || "";
 }
 
 export const handleFileAttach = (e: any, existingFiles: FileObject[], setFiles: Function, existingImages: ImageObject[], setImages: Function, setFileUploadStatus: Function) => {
@@ -537,19 +552,32 @@ export const handleFileAttach = (e: any, existingFiles: FileObject[], setFiles: 
     const validFileTypes = VALID_FILE_TYPES.files;
     const validImageTypes = VALID_FILE_TYPES.images;
 
+    // Collect rejection reasons synchronously so that async reader callbacks (which
+    // resolve later, in arbitrary order) cannot overwrite a rejection with a success
+    // status. The error notice is set once, after the whole selection is processed.
+    const errors: string[] = [];
+    const reportReadError = (name: string) =>
+        setFileUploadStatus((prev: { type: string; text: string }) => {
+            const message = `Failed to read file '${name}'.`;
+            // Append so an async read failure doesn't overwrite synchronous
+            // validation errors (or an earlier read failure).
+            const text = prev.type === "error" && prev.text ? `${prev.text} ${message}` : message;
+            return { type: "error", text };
+        });
+
     for (const file of files) {
         const mimeType = resolveMimeType(file);
 
         if (file.size > MAX_FILE_SIZE) {
-            setFileUploadStatus({ type: "error", text: `File '${file.name}' exceeds the size limit of 5 MB.` });
+            errors.push(`File '${file.name}' exceeds the size limit of ${Math.round(MAX_FILE_SIZE / (1024 * 1024))} MB.`);
             continue;
         }
-        
+
         if (existingFiles.some(existingFile => existingFile.name === file.name)) {
-            setFileUploadStatus({ type: "error", text: `File '${file.name}' already added.` });
+            errors.push(`File '${file.name}' already added.`);
             continue;
         } else if (existingImages.some(existingImage => existingImage.imageName === file.name)) {
-            setFileUploadStatus({ type: "error", text: `Image '${file.name}' already added.` });
+            errors.push(`Image '${file.name}' already added.`);
             continue;
         }
 
@@ -567,8 +595,8 @@ export const handleFileAttach = (e: any, existingFiles: FileObject[], setFiles: 
                     ...prevFiles,
                     { name: file.name, mimetype: mimeType, content: fileContents },
                 ]);
-                setFileUploadStatus({ type: "success", text: `File uploaded successfully.` });
             };
+            reader.onerror = () => reportReadError(file.name);
             if (mimeType === "application/pdf") {
                 reader.readAsDataURL(file); // Convert PDF to base64
             } else {
@@ -587,13 +615,15 @@ export const handleFileAttach = (e: any, existingFiles: FileObject[], setFiles: 
                     }
                 }
                 setImages((prevImages: any) => [...prevImages, { imageName: file.name, imageBase64: imageBase64 }]);
-                setFileUploadStatus({ type: "success", text: `File uploaded successfully.` });
             };
+            reader.onerror = () => reportReadError(file.name);
             reader.readAsDataURL(file);
         } else {
-            setFileUploadStatus({ type: "error", text: `File format not supported for '${file.name}'` });
+            errors.push(`File format not supported for '${file.name}'`);
         }
     }
+
+    setFileUploadStatus(errors.length > 0 ? { type: "error", text: errors.join(" ") } : { type: "", text: "" });
     e.target.value = "";
 };
 
