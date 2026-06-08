@@ -18,11 +18,11 @@
 
 import { useEffect, useState } from 'react';
 import styled from '@emotion/styled';
-import { Dialog, Button, Icon, Typography, TextField, TextArea } from '@wso2/ui-toolkit';
+import { Dialog, Button, Icon, Typography, TextField, TextArea, CheckBox } from '@wso2/ui-toolkit';
 import { useForm } from 'react-hook-form';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
 import { DialogField, DialogButtonGroup, DialogTitle } from '../Commons';
-import { SelectAllRow, CustomInputsContainer, ItemsList, ListItem, ListItemHeader, ItemCheckbox } from './styles';
+import { SelectAllRow, CustomInputsContainer, ItemsList, ListItem, ListItemHeader } from './styles';
 import { EMPTY_MCP_SCHEMA, INVALID_MCP_SCHEMA_MESSAGE } from '../../../constants';
 
 interface APIOperation {
@@ -347,14 +347,14 @@ export function AddAPIToolDialog({
                     {selectedAPI.operations.length > 0 ? (
                         <ItemsList>
                             <SelectAllRow onClick={handleSelectAll}>
-                                <ItemCheckbox
-                                    type="checkbox"
-                                    checked={allSelected}
-                                    onChange={handleSelectAll}
-                                    onClick={(e) => e.stopPropagation()}
-                                    id="select-all"
-                                    aria-label="Select All Operations"
-                                />
+                                <span onClick={(e: any) => e.stopPropagation()} style={{ display: 'flex' }}>
+                                    <CheckBox
+                                        label=""
+                                        checked={allSelected}
+                                        indeterminate={!allSelected && selectedOperationIds.size > 0}
+                                        onChange={handleSelectAll}
+                                    />
+                                </span>
                                 <label onClick={(e: any) => e.stopPropagation()} style={{ cursor: 'pointer', margin: 0, fontSize: '12px', fontWeight: 500, color: 'var(--vscode-editor-foreground)' }}>
                                     <strong>Select All Operations</strong>
                                 </label>
@@ -364,14 +364,13 @@ export function AddAPIToolDialog({
                                 return (
                                 <ListItem key={op.id}>
                                     <ListItemHeader onClick={() => handleOperationToggle(op.id)}>
-                                        <ItemCheckbox
-                                            type="checkbox"
-                                            checked={selectedOperationIds.has(op.id)}
-                                            onChange={() => handleOperationToggle(op.id)}
-                                            onClick={(e) => e.stopPropagation()}
-                                            id={`op-${op.id}`}
-                                            aria-label={`Select operation ${op.method} ${op.path}`}
-                                        />
+                                        <span onClick={(e: any) => e.stopPropagation()} style={{ display: 'flex' }}>
+                                            <CheckBox
+                                                label=""
+                                                checked={selectedOperationIds.has(op.id)}
+                                                onChange={() => handleOperationToggle(op.id)}
+                                            />
+                                        </span>
                                         <OperationDetails>
                                             <OperationMethodRow>
                                                 <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '11px', color: 'var(--vscode-descriptionForeground)' }}>

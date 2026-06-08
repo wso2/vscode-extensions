@@ -27,8 +27,8 @@ import { useVisualizerContext } from '@wso2/mi-rpc-client';
 import { VSCodeProgressRing } from '@vscode/webview-ui-toolkit/react';
 import { useConnectorDependency } from '../../../Hooks';
 import * as pathModule from 'path';
+import { inboundListenerClass } from './MCPServerToolsForm';
 
-// Placeholder: replace with 'mi-inbound-mcp' when the MCP inbound connector is released to the connector store
 const MCP_INBOUND_CONNECTOR_ARTIFACT_ID = 'mi-inbound-mcp';
 
 const CORS_ALLOW_ORIGIN_VALUE = '*';
@@ -173,8 +173,6 @@ export function MCPServerWizard({ path, editData }: MCPServerWizardProps) {
 
             const localEntryName = `${data.serverName}-mcp-config`;
             const emptyXml = `\n        <mcptools>\n        </mcptools>`;
-            const { className: inboundListenerClass } =
-                await rpcClient.getMiDiagramRpcClient().getMcpInboundListenerClass();
 
             await rpcClient.getMiDiagramRpcClient().createLocalEntry({
                 directory: localEntriesDir,

@@ -44,12 +44,6 @@ export const ListItemHeader = styled.div`
     user-select: none;
 `;
 
-export const ItemCheckbox = styled.input`
-    cursor: pointer;
-    accent-color: var(--vscode-focusBorder);
-    margin-top: 2px;
-`;
-
 export const SelectAllRow = styled.div`
     display: flex;
     align-items: center;

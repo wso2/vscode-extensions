@@ -19,6 +19,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { parse as parseYaml } from "yaml";
+import { escapeXml } from './templates';
 import {
     API,
     APIOperation,
@@ -38,17 +39,7 @@ const xmlParserOptions = {
     trimValues: true,
 };
 
-export const MCP_INBOUND_LISTENER_CLASS = "org.wso2.carbon.inbound.sse.McpInboundListener";
 export const MCP_INBOUND_CONNECTOR_ARTIFACT_ID = 'mi-inbound-mcp';
-
-function escapeXml(str: string): string {
-    return str
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&apos;");
-}
 
 export function cleanPathForToolName(pathStr: string): string {
     return pathStr
@@ -459,4 +450,3 @@ export function parseSequencesFromProjectStructure(projectStructure: any): Seque
         }))
         .filter((s: Sequence) => s.id !== "");
 }
-

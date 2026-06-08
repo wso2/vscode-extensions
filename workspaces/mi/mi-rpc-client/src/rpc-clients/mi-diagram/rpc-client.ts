@@ -505,8 +505,6 @@ import {
     ConvertMcpJsonSchemaResponse,
     pickMcpJsonFile,
     PickMcpJsonFileResponse,
-    getMcpInboundListenerClass,
-    GetMcpInboundListenerClassResponse,
     getAPIOperationInputSchemas,
     GetAPIOperationInputSchemasRequest,
     GetAPIOperationInputSchemasResponse,
@@ -1329,10 +1327,6 @@ export class MiDiagramRpcClient implements MiDiagramAPI {
 
     async pickMcpJsonFile(): Promise<PickMcpJsonFileResponse> {
         return this._messenger.sendRequest(pickMcpJsonFile, HOST_EXTENSION, undefined);
-    }
-
-    async getMcpInboundListenerClass(): Promise<GetMcpInboundListenerClassResponse> {
-        return this._messenger.sendRequest(getMcpInboundListenerClass, HOST_EXTENSION, undefined);
     }
 
     async getAPIOperationInputSchemas(params: GetAPIOperationInputSchemasRequest): Promise<GetAPIOperationInputSchemasResponse> {

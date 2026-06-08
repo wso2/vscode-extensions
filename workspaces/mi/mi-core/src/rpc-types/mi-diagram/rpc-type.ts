@@ -240,7 +240,6 @@ import {
     ConvertMcpJsonSchemaRequest,
     ConvertMcpJsonSchemaResponse,
     PickMcpJsonFileResponse,
-    GetMcpInboundListenerClassResponse,
     GetAPIOperationInputSchemasRequest,
     GetAPIOperationInputSchemasResponse,
     UpdateMediatorRequest,
@@ -512,5 +511,4 @@ export const updateMcpInboundEndpoint: RequestType<UpdateMcpInboundEndpointReque
 export const cleanMcpToolNames: RequestType<CleanMcpToolNamesRequest, CleanMcpToolNamesResponse> = { method: `${_preFix}/cleanMcpToolNames` };
 export const convertMcpJsonSchema: RequestType<ConvertMcpJsonSchemaRequest, ConvertMcpJsonSchemaResponse> = { method: `${_preFix}/convertMcpJsonSchema` };
 export const pickMcpJsonFile: RequestType<void, PickMcpJsonFileResponse> = { method: `${_preFix}/pickMcpJsonFile` };
-export const getMcpInboundListenerClass: RequestType<void, GetMcpInboundListenerClassResponse> = { method: `${_preFix}/getMcpInboundListenerClass` };
 export const getAPIOperationInputSchemas: RequestType<GetAPIOperationInputSchemasRequest, GetAPIOperationInputSchemasResponse> = { method: `${_preFix}/getAPIOperationInputSchemas` };

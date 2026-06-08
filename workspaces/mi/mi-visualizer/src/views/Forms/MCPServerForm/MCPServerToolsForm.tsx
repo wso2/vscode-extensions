@@ -105,6 +105,8 @@ const DEFAULT_CORS = {
     keepAliveInterval: 30000,
 };
 
+export const inboundListenerClass = "org.wso2.carbon.inbound.sse.McpInboundListener";
+
 // Props
 
 export interface MCPServerEditData {
@@ -507,7 +509,6 @@ export function MCPServerToolsForm({ path, editData }: MCPServerToolsFormProps) 
                 getContentOnly: false,
             });
 
-            const { className: inboundListenerClass } = await rpcClient.getMiDiagramRpcClient().getMcpInboundListenerClass();
             await rpcClient.getMiDiagramRpcClient().createInboundEndpoint({
                 directory: inboundEndpointsDir,
                 attributes: {

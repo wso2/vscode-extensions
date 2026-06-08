@@ -153,7 +153,6 @@ import {
     ConvertMcpJsonSchemaRequest,
     ConvertMcpJsonSchemaResponse,
     PickMcpJsonFileResponse,
-    GetMcpInboundListenerClassResponse,
     GetAPIOperationInputSchemasRequest,
     GetAPIOperationInputSchemasResponse,
     APITool,
@@ -389,7 +388,6 @@ import { MILanguageClient } from "../../lang-client/activator";
 import { addWSO2AIConfigProperties } from "../../ai-features/configUtils";
 import { reorderModulesByBuildOrder, updatePomModules } from "../../debugger/pomResolver";
 import {
-    MCP_INBOUND_LISTENER_CLASS,
     buildInputSchemasForAPITools,
     cleanPathForToolName,
     convertToJsonSchema,
@@ -6797,10 +6795,6 @@ ${keyValuesXML}`;
         });
         if (!selection || selection.length === 0) return { content: null };
         return { content: fs.readFileSync(selection[0].fsPath, 'utf8') };
-    }
-
-    async getMcpInboundListenerClass(): Promise<GetMcpInboundListenerClassResponse> {
-        return { className: MCP_INBOUND_LISTENER_CLASS };
     }
 
     async getAPIOperationInputSchemas(params: GetAPIOperationInputSchemasRequest): Promise<GetAPIOperationInputSchemasResponse> {

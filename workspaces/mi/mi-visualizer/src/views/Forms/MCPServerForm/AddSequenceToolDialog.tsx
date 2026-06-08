@@ -18,12 +18,12 @@
 
 import { useEffect, useState } from 'react';
 import styled from '@emotion/styled';
-import { Dialog, Button, Icon, Typography, TextField, TextArea } from '@wso2/ui-toolkit';
+import { Dialog, Button, Icon, Typography, TextField, TextArea, CheckBox } from '@wso2/ui-toolkit';
 import { useForm } from 'react-hook-form';
 import { Sequence } from '@wso2/mi-core';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
 import { DialogField, DialogButtonGroup, DialogTitle } from '../Commons';
-import { SelectAllRow, CustomInputsContainer, ItemsList, ListItem, ListItemHeader, ItemCheckbox } from './styles';
+import { SelectAllRow, CustomInputsContainer, ItemsList, ListItem, ListItemHeader } from './styles';
 import { EMPTY_MCP_SCHEMA, INVALID_MCP_SCHEMA_MESSAGE } from '../../../constants';
 
 // Styled Components
@@ -202,14 +202,14 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
                 ) : (
                     <ItemsList>
                         <SelectAllRow onClick={handleSelectAll}>
-                            <ItemCheckbox
-                                type="checkbox"
-                                checked={allSelected}
-                                onChange={handleSelectAll}
-                                onClick={e => e.stopPropagation()}
-                                id="select-all-sequences"
-                                aria-label="Select All Sequences"
-                            />
+                            <span onClick={(e: any) => e.stopPropagation()} style={{ display: 'flex' }}>
+                                <CheckBox
+                                    label=""
+                                    checked={allSelected}
+                                    indeterminate={!allSelected && selectedIds.size > 0}
+                                    onChange={handleSelectAll}
+                                />
+                            </span>
                             <label onClick={(e: any) => e.stopPropagation()} style={{ cursor: 'pointer', margin: 0, fontSize: '12px', fontWeight: 500, color: 'var(--vscode-editor-foreground)' }}>
                                 <strong>Select All Sequences</strong>
                             </label>
@@ -219,14 +219,13 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
                             return (
                             <ListItem key={seq.id}>
                                 <ListItemHeader onClick={() => toggleSequence(seq.id)}>
-                                    <ItemCheckbox
-                                        type="checkbox"
-                                        checked={selectedIds.has(seq.id)}
-                                        onChange={() => toggleSequence(seq.id)}
-                                        onClick={e => e.stopPropagation()}
-                                        id={`seq-${seq.id}`}
-                                        aria-label={`Select sequence ${seq.name}`}
-                                    />
+                                    <span onClick={(e: any) => e.stopPropagation()} style={{ display: 'flex' }}>
+                                        <CheckBox
+                                            label=""
+                                            checked={selectedIds.has(seq.id)}
+                                            onChange={() => toggleSequence(seq.id)}
+                                        />
+                                    </span>
                                     <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '12px' }}>{seq.name}</Typography>
                                 </ListItemHeader>
                                 {selectedIds.has(seq.id) && (
