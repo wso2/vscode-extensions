@@ -52,16 +52,27 @@ export async function activate(context: vscode.ExtensionContext) {
 	getLogger().info(`Extension version: ${getExtVersion(context)}`);
 	getLogger().info(`CLI version: ${getCliVersion()}`);
 
-	window
-		.showWarningMessage(
-			"The WSO2 Platform extension is deprecated. Please install the WSO2 Integrator extension instead.",
-			"Install WSO2 Integrator",
-		)
-		.then((selection) => {
-			if (selection === "Install WSO2 Integrator") {
-				vscode.env.openExternal(vscode.Uri.parse("https://marketplace.visualstudio.com/items?itemName=WSO2.wso2-integrator"));
-			}
-		});
+	const DEPRECATION_WARNING_KEY = "wso2.platform.deprecation.dismissed";
+	if (!context.globalState.get<boolean>(DEPRECATION_WARNING_KEY, false)) {
+		window
+			.showWarningMessage(
+				"The WSO2 Platform extension is deprecated. Please install the WSO2 Integrator extension instead.",
+				"Install WSO2 Integrator",
+				"Dismiss",
+			)
+			.then((selection) => {
+				if (selection === "Install WSO2 Integrator") {
+					vscode.env.openExternal(vscode.Uri.parse("https://marketplace.visualstudio.com/items?itemName=WSO2.wso2-integrator"))
+						.then(undefined, (error) => {
+							getLogger().error("Failed to open WSO2 Integrator marketplace page", error);
+							window.showErrorMessage("Failed to open marketplace. Please visit https://marketplace.visualstudio.com/items?itemName=WSO2.wso2-integrator manually.");
+						});
+				}
+				if (selection === "Dismiss" || selection === "Install WSO2 Integrator") {
+					context.globalState.update(DEPRECATION_WARNING_KEY, true);
+				}
+			});
+	}
 
 	// Initialize stores
 	await contextStore.persist.rehydrate();
