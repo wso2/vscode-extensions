@@ -23,7 +23,7 @@ import { EVENT_TYPE, MACHINE_VIEW, VisualizerLocation } from '@wso2/mi-core';
 import { COMMANDS } from '../constants';
 import { ExtensionContext, TreeItem, Uri, ViewColumn, commands, window, workspace } from 'vscode';
 import path = require("path");
-import { deleteRegistryResource, deleteDataMapperResources, deleteSchemaResources } from '../util/fileOperations';
+import { deleteRegistryResource, deleteDataMapperResources, deleteSchemaResources, deleteApiMetadata } from '../util/fileOperations';
 import { extension } from '../MIExtensionContext';
 import { ExtendedLanguageClient } from '../lang-client/ExtendedLanguageClient';
 import { APIResource } from '../../../syntax-tree/lib/src';
@@ -42,6 +42,28 @@ interface MCPServerTreeItem extends TreeItem {
 		localEntry?: { path: string };
 		inboundEndpoint?: { path: string };
 	};
+}
+
+/**
+ * Refresh the open views after an artifact is deleted from the project explorer.
+ *
+ * Deletions here go through `vscode.workspace.fs.delete()`, which does NOT fire
+ * `vscode.workspace.onDidDeleteFiles` (that event only fires for Explorer/WorkspaceEdit deletes).
+ * As a result the visualizer's onDidDeleteFiles refresh handler never runs for project-explorer
+ * deletions, so the Overview keeps showing the deleted artifact. Refresh explicitly instead.
+ */
+function refreshViewsAfterDelete(filePath: string) {
+	const projectUri = workspace.getWorkspaceFolder(Uri.file(filePath))?.uri.fsPath;
+	if (!projectUri) {
+		return;
+	}
+	const currentLocation = getStateMachine(projectUri).context();
+	if (currentLocation.documentUri === filePath) {
+		openView(EVENT_TYPE.REPLACE_VIEW, { view: MACHINE_VIEW.Overview, projectUri });
+	} else if (currentLocation.view === MACHINE_VIEW.Overview) {
+		refreshUI(projectUri);
+	}
+	commands.executeCommand(COMMANDS.REFRESH_COMMAND);
 }
 
 let isProjectExplorerInitialized = false;
@@ -463,7 +485,9 @@ export async function activateProjectExplorer(treeviewId: string, context: Exten
 
 							if (item.contextValue === 'api') {
 								deleteSwagger(fileUri);
+                                deleteApiMetadata(fileUri);
 							}
+							refreshViewsAfterDelete(fileUri);
 						} catch (error) {
 							window.showErrorMessage(`Failed to delete ${item.label}: ${error}`);
 						}

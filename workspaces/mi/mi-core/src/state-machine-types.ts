@@ -97,6 +97,7 @@ export enum MACHINE_VIEW {
     ProjectInformationForm = "Project Information Form",
     SETUP_ENVIRONMENT = "Setup Environment",
     ImportConnectorForm = "Import Connector",
+    ImportInboundConnectorForm = "Import Inbound Connector",
     IdpConnectorSchemaGeneratorForm = "IDP Connector Schema Generator Form",
     DataMapperMigrationForm = "DataMapper Migration Form",
 }

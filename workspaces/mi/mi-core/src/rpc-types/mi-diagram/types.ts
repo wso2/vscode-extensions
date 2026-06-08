@@ -471,6 +471,7 @@ export interface OpenDiagramRequest {
 
 export interface CreateAPIResponse {
     path: string;
+    error?: string;
 }
 
 export interface EditAPIResponse {
@@ -1842,6 +1843,7 @@ export type GenerateAPIRequest = GenerateAPIBase & (
 export interface GenerateAPIResponse {
     apiXml: string;
     endpointXml?: string;
+    error?: string;
 }
 
 export interface SwaggerTypeRequest {
@@ -1981,11 +1983,13 @@ export interface RemoveDBDriverResponse {
 
 export interface CopyConnectorZipRequest {
     connectorPath: string;
+    isInbound?: boolean;
 }
 
 export interface CopyConnectorZipResponse {
     success: boolean;
     connectorPath?: string;
+    error?: string;
 }
 
 export interface DSSQueryGenRequest {

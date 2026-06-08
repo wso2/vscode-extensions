@@ -118,6 +118,20 @@ function isValidBase64(str: string): boolean {
 }
 
 /**
+ * Strips an optional `data:<mediaType>;base64,` prefix, returning the raw base64 payload.
+ *
+ * A full `data:` URI must never reach the AI SDK as inline `data`: the SDK parses it
+ * into a URL and, since Anthropic only declares `http(s)` URLs as supported, tries to
+ * `fetch()` the data URI, which Node rejects with "URL scheme must be http or https,
+ * got data:". Normalizing to raw base64 keeps the payload on the inline-data path.
+ * No-op when the input is already raw base64.
+ */
+function stripDataUriPrefix(content: string): string {
+    const match = content.match(/^data:[^;]+;base64,([\s\S]+)$/);
+    return match ? match[1] : content;
+}
+
+/**
  * Validates if a string is a properly formatted image data URI
  * @param dataUri - The data URI string to validate
  * @returns true if the string is a valid image data URI, false otherwise
@@ -192,7 +206,7 @@ export function buildMessageContent(
         for (const pdfFile of pdfFiles) {
             content.push({
                 type: "file",
-                data: pdfFile.content,  // Base64 encoded content (pre-validated)
+                data: stripDataUriPrefix(pdfFile.content),  // Raw base64 (data: prefix stripped if present)
                 mediaType: "application/pdf"
             });
         }
@@ -217,12 +231,16 @@ export function buildMessageContent(
         });
 
         for (const image of images) {
-            // Use AI SDK format: { type: 'image', image: dataUri }
-            // The AI SDK will convert this to the provider's format internally
-            content.push({
-                type: "image",
-                image: image.imageBase64  // Use the full data URI (pre-validated)
-            });
+            // Split the data URI into raw base64 + mediaType. Passing the full
+            // "data:...;base64,..." string as `image` makes AI SDK v6 try to fetch
+            // it as a URL, which Node rejects ("URL scheme must be http or https,
+            // got data:"). Raw base64 keeps it on the inline-data path.
+            const match = image.imageBase64.match(/^data:([^;]+);base64,(.+)$/);
+            content.push(
+                match
+                    ? { type: "image", image: match[2], mediaType: match[1] }
+                    : { type: "image", image: image.imageBase64 }
+            );
         }
     }
 
@@ -261,7 +279,7 @@ export function validateAttachments(files?: FileObject[], images?: ImageObject[]
                 warnings.push(`Unsupported file type (${file.mimetype}): ${file.name}`);
             }
             // Check PDF base64 encoding
-            else if (file.mimetype === "application/pdf" && !isValidBase64(file.content)) {
+            else if (file.mimetype === "application/pdf" && !isValidBase64(stripDataUriPrefix(file.content))) {
                 warnings.push(`Invalid base64 encoding: ${file.name}`);
             }
         }

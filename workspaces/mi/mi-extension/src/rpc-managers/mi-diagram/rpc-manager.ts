@@ -361,10 +361,10 @@ import { testFileMatchPattern } from "../../test-explorer/discover";
 import { mockSerivesFilesMatchPattern } from "../../test-explorer/mock-services/activator";
 import { UndoRedoManager } from "../../undoRedoManager";
 import { copyDockerResources, copyMavenWrapper, createFolderStructure, getAPIResourceXmlWrapper, getAddressEndpointXmlWrapper, getDataServiceXmlWrapper, getDefaultEndpointXmlWrapper, getDssDataSourceXmlWrapper, getFailoverXmlWrapper, getHttpEndpointXmlWrapper, getInboundEndpointXmlWrapper, getLoadBalanceXmlWrapper, getMessageProcessorXmlWrapper, getMessageStoreXmlWrapper, getProxyServiceXmlWrapper, getRegistryResourceContent, getTaskXmlWrapper, getTemplateEndpointXmlWrapper, getTemplateXmlWrapper, getWsdlEndpointXmlWrapper, createGitignoreFile, getEditTemplateXmlWrapper } from "../../util";
-import { addNewEntryToArtifactXML, createMetadataFilesForRegistryCollection, deleteRegistryResource, detectMediaType, getAvailableRegistryResources, getMediatypeAndFileExtension, getRegistryResourceMetadata, updateRegistryResourceMetadata, generatePathFromRegistryPath, updatePomWithParent } from "../../util/fileOperations";
+import { addNewEntryToArtifactXML, createMetadataFilesForRegistryCollection, deleteApiMetadata, deleteRegistryResource, detectMediaType, getAvailableRegistryResources, getMediatypeAndFileExtension, getRegistryResourceMetadata, updateRegistryResourceMetadata, generatePathFromRegistryPath, updatePomWithParent } from "../../util/fileOperations";
 import { log } from "../../util/logger";
 import { importProjects } from "../../util/migrationUtils";
-import { generateSwagger, getResourceInfo, isEqualSwaggers, mergeSwaggers } from "../../util/swagger";
+import { deleteSwagger, generateSwagger, getResourceInfo, isEqualSwaggers, mergeSwaggers } from "../../util/swagger";
 import { getDataSourceXml } from "../../util/template-engine/mustach-templates/DataSource";
 import { getClassMediatorContent } from "../../util/template-engine/mustach-templates/classMediator";
 import { getBallerinaModuleContent, getBallerinaConfigContent } from "../../util/template-engine/mustach-templates/ballerinaModule";
@@ -477,12 +477,20 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
                 if (params.defaultPayload !== undefined) {
                     content[key] = content[key] ?? {};
                     content[key].defaultRequest = params.defaultPayload;
+                } else if (content[key]) {
+                    // No default payload (e.g. all payloads removed for this resource) — clear it from the stored file.
+                    delete content[key].defaultRequest;
                 }
 
             } else {
                 content = { type };
                 content.requests = stripFlag(payloadArray);
-                content.defaultRequest = params.defaultPayload;
+                if (params.defaultPayload !== undefined) {
+                    content.defaultRequest = params.defaultPayload;
+                } else {
+                    // No default payload (e.g. all payloads removed) — clear it from the stored file.
+                    delete content.defaultRequest;
+                }
             }
             const tryout = path.join(this.projectUri, ".tryout");
             if (!fs.existsSync(tryout)) {
@@ -785,6 +793,11 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
                     });
                 }
 
+                if (response.error) {
+                    resolve({ path: "", error: response.error });
+                    return;
+                }
+
                 const options = {
                     ignoreAttributes: false,
                     allowBooleanAttributes: true,
@@ -799,14 +812,19 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
                 fileName = `${name}${apiVersion !== "" ? `_v${apiVersion}` : ''}`;
 
                 if (saveSwaggerDef && swaggerDefPath) {
-                    const ext = path.extname(swaggerDefPath);
+                    const ext = path.extname(swaggerDefPath).toLowerCase();
                     const swaggerRegPath = path.join(
                         this.projectUri,
                         SWAGGER_REL_DIR,
-                        fileName + (ext === ".yml" ? ".yaml" : ext)
+                        fileName + ".yaml"
                     );
                     fs.mkdirSync(path.dirname(swaggerRegPath), { recursive: true });
-                    fs.copyFileSync(swaggerDefPath, swaggerRegPath);
+                    if (ext === ".json" || ext === ".yml") {
+                        const swaggerContent = parse(fs.readFileSync(swaggerDefPath, "utf8"));
+                        fs.writeFileSync(swaggerRegPath, stringify(swaggerContent));
+                    } else {
+                        fs.copyFileSync(swaggerDefPath, swaggerRegPath);
+                    }
                 }
 
                 if (!isRegistrySupported) {
@@ -3123,7 +3141,7 @@ ${endpointAttributes}
         return new Promise(async (resolve) => {
             const selectedFile = await askFilePath();
             if (!selectedFile || selectedFile.length === 0) {
-                window.showErrorMessage('A folder must be selected to create project');
+                window.showErrorMessage('A file must be selected to continue');
                 resolve({ path: "" });
             } else {
                 const parentDir = selectedFile[0].fsPath;
@@ -4119,9 +4137,43 @@ ${endpointAttributes}
     }
 
     async copyConnectorZip(params: CopyConnectorZipRequest): Promise<CopyConnectorZipResponse> {
-        const { connectorPath } = params;
+        const { connectorPath, isInbound } = params;
+        const langClient = await MILanguageClient.getInstance(this.projectUri);
         try {
-            const langClient = await MILanguageClient.getInstance(this.projectUri);
+            if (isInbound) {
+                const inboundConnectorDirectory = path.join(this.projectUri, 'src', 'main', 'wso2mi', 'resources', 'inbound-connectors');
+                if (!fs.existsSync(inboundConnectorDirectory)) {
+                    fs.mkdirSync(inboundConnectorDirectory, { recursive: true });
+                }
+                const inboundDestinationPath = path.join(inboundConnectorDirectory, path.basename(connectorPath));
+
+                if (fs.existsSync(inboundDestinationPath)) {
+                    return { success: false, error: `An inbound connector with the name '${path.basename(connectorPath)}' already exists.` };
+                }
+
+                const deleteInboundZip = () => {
+                    if (fs.existsSync(inboundDestinationPath)) {
+                        fs.unlinkSync(inboundDestinationPath);
+                    }
+                };
+
+                try {
+                    await fs.promises.copyFile(connectorPath, inboundDestinationPath);
+
+                    const updateResult = await langClient.updateInboundConnectors();
+                    if (updateResult !== "success") {
+                        deleteInboundZip();
+                        return { success: false, error: updateResult || "Failed to import inbound connector." };
+                    }
+
+                    commands.executeCommand(COMMANDS.REFRESH_COMMAND);
+                    return { success: true, connectorPath: inboundDestinationPath };
+                } catch (error) {
+                    deleteInboundZip();
+                    throw error;
+                }
+            }
+
             const isDuplicate = await langClient.isDuplicateConnector(connectorPath);
             if (isDuplicate?.isFromProject === false) {
                 window.showErrorMessage('The connector you are trying to add is already added from a dependency project.');
@@ -4168,6 +4220,7 @@ ${endpointAttributes}
             }
 
             await fs.promises.copyFile(connectorPath, destinationPath);
+            commands.executeCommand(COMMANDS.REFRESH_COMMAND);
 
 
             return new Promise((resolve, reject) => {
@@ -5150,9 +5203,16 @@ ${keyValuesXML}`;
             } else {
                 await workspace.fs.delete(Uri.file(params.path));
             }
+            let isApi = false;
+            const apiDir = path.join("src", "main", "wso2mi", "artifacts", "apis");
+            if (path.normalize(params.path).includes(path.normalize(apiDir))) {
+                isApi = true;
+                deleteSwagger(params.path);
+                await deleteApiMetadata(params.path);
+            }
             await vscode.commands.executeCommand(COMMANDS.REFRESH_COMMAND); // Refresh the project explore view
             navigate(this.projectUri);
-            if (params.enableUndo && !isRegistry) {
+            if (params.enableUndo && !isRegistry && !isApi) {
                 undoRedo.addModification('');
                 const selection = await vscode.window.showInformationMessage('Do you want to undo the deletion?', 'Undo');
                 if (selection === 'Undo') {
@@ -5424,11 +5484,30 @@ ${keyValuesXML}`;
                         destination = lastExportedPath;
                     }
                     if (destination) {
+                        const relativeToProject = path.relative(params.projectPath, destination);
+                        const isInsideProject = relativeToProject === '' ||
+                            (!relativeToProject.startsWith('..') && !path.isAbsolute(relativeToProject));
+                        if (isInsideProject) {
+                            const errorMessage = 'Error: The export destination cannot be inside the project. Please select a folder outside the project.';
+                            window.showErrorMessage(errorMessage);
+                            log(errorMessage);
+                            return reject(errorMessage);
+                        }
                         const destinationPath = path.join(destination, path.basename(carFile[0].fsPath));
-                        fs.copyFileSync(carFile[0].fsPath, destinationPath);
-                        window.showInformationMessage("Project exported successfully!");
-                        log(`Project exported to: ${destination}`);
-                        resolve();
+                        try {
+                            if (fs.existsSync(destinationPath)) {
+                                fs.rmSync(destinationPath, { force: true });
+                            }
+                            fs.copyFileSync(carFile[0].fsPath, destinationPath);
+                            window.showInformationMessage("Project exported successfully!");
+                            log(`Project exported to: ${destination}`);
+                            resolve();
+                        } catch (err) {
+                            const errorMessage = `Error exporting project: ${err instanceof Error ? err.message : String(err)}`;
+                            window.showErrorMessage("Failed to export project. Please try again.");
+                            log(errorMessage);
+                            reject(errorMessage);
+                        }
                     }
                 }
             }
