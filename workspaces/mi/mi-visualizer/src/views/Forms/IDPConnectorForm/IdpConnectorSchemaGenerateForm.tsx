@@ -118,7 +118,7 @@ export function IdpConnectorSchemaGenerateForm({ onClose, path,fileContent }: Id
                     if (token) {
                         const backendRootUri = (await rpcClient.getMiDiagramRpcClient().getProxyRootUrl()).anthropicUrl;
                         const endpoint = `${backendRootUri}/messages`;
-                        
+
                         allConnections.push({
                             name: "[Built-in]",
                             apiKey: token.token,

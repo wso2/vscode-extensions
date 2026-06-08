@@ -23,11 +23,12 @@ import { useForm } from 'react-hook-form';
 import * as yup from 'yup';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
-import { EVENT_TYPE, MACHINE_VIEW, getMcpLocalEntryName } from '@wso2/mi-core';
+import { EVENT_TYPE, MACHINE_VIEW } from '@wso2/mi-core';
 import { View, ViewContent, ViewHeader } from '../../../components/View';
 import * as path from 'path';
 
 import { API, APITool, Sequence, SequenceTool, UnifiedTool } from '@wso2/mi-core';
+import { MCP_CONFIG_NAME_SUFFIX } from '../../../constants';
 import AddAPIToolDialog from './AddAPIToolDialog';
 import { AddSequenceToolDialog } from './AddSequenceToolDialog';
 import { CreateScratchToolDialog, ScratchToolData } from './CreateScratchToolDialog';
@@ -482,7 +483,7 @@ export function MCPServerToolsForm(props: MCPServerToolsFormProps) {
             const inboundEndpointsDir = path.join(projectDir, 'src', 'main', 'wso2mi', 'artifacts', 'inbound-endpoints').toString();
 
             const { xml } = await rpcClient.getMiDiagramRpcClient().buildMcpToolsXml({ projectRoot: projectDir, tools });
-            const localEntryName = getMcpLocalEntryName(data.serverName);
+            const localEntryName = `${data.serverName}${MCP_CONFIG_NAME_SUFFIX}`;
 
             await rpcClient.getMiDiagramRpcClient().createLocalEntry({
                 directory: localEntriesDir,

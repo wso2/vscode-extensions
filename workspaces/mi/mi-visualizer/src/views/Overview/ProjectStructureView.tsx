@@ -16,7 +16,8 @@
  * under the License.
  */
 
-import { EVENT_TYPE, MACHINE_VIEW, getMcpServerNameFromConfigFile } from '@wso2/mi-core';
+import { EVENT_TYPE, MACHINE_VIEW } from '@wso2/mi-core';
+import { MCP_CONFIG_FILE_SUFFIX } from '../../constants';
 import { Alert, ContextMenu, Icon } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
@@ -270,7 +271,8 @@ const ProjectStructureView = (props: { projectStructure: any, workspaceDir: stri
             return;
         }
 
-        const serverName = getMcpServerNameFromConfigFile(localEntryPath) || entry.name;
+        const filename = localEntryPath.split(/[/\\]/).pop() ?? '';
+        const serverName = filename.replace(MCP_CONFIG_FILE_SUFFIX, '') || entry.name;
         const inboundEndpointPath = entry.inboundEndpoint?.path ?? '';
 
         rpcClient.getMiVisualizerRpcClient().openView({

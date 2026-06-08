@@ -22,7 +22,8 @@ import { TextField, Button, FormView, FormActions, FormGroup, Typography } from 
 import { useForm } from 'react-hook-form';
 import * as yup from 'yup';
 import { yupResolver } from '@hookform/resolvers/yup';
-import { MACHINE_VIEW, EVENT_TYPE, getMcpLocalEntryName } from '@wso2/mi-core';
+import { MACHINE_VIEW, EVENT_TYPE } from '@wso2/mi-core';
+import { MCP_CONFIG_NAME_SUFFIX } from '../../../constants';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
 import { VSCodeProgressRing } from '@vscode/webview-ui-toolkit/react';
 import { useConnectorDependency } from '../../../Hooks';
@@ -172,7 +173,7 @@ export function MCPServerWizard(props: MCPServerWizardProps) {
             const localEntriesDir = path.join(projectDir, 'src', 'main', 'wso2mi', 'artifacts', 'local-entries').toString();
             const inboundEndpointsDir = path.join(projectDir, 'src', 'main', 'wso2mi', 'artifacts', 'inbound-endpoints').toString();
 
-            const localEntryName = getMcpLocalEntryName(data.serverName);
+            const localEntryName = `${data.serverName}${MCP_CONFIG_NAME_SUFFIX}`;
             const emptyXml = `\n        <mcptools>\n        </mcptools>`;
 
             await rpcClient.getMiDiagramRpcClient().createLocalEntry({

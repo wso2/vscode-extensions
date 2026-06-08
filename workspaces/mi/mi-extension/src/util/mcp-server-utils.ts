@@ -26,7 +26,6 @@ import {
     APITool,
     Sequence,
     UnifiedTool,
-    MCP_CONFIG_FILE_SUFFIX,
 } from "@wso2/mi-core";
 
 const { XMLParser } = require("fast-xml-parser");
@@ -41,6 +40,10 @@ const xmlParserOptions = {
 };
 
 export const MCP_INBOUND_CONNECTOR_ARTIFACT_ID = 'mi-inbound-mcp';
+
+// MCP server local-entry config naming convention: `<serverName>-mcp-config.xml`.
+export const MCP_CONFIG_FILE_SUFFIX = '-mcp-config.xml';
+export const MCP_CONFIG_NAME_SUFFIX = '-mcp-config';
 
 export function cleanPathForToolName(pathStr: string): string {
     return pathStr

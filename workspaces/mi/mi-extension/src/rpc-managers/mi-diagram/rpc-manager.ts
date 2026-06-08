@@ -3830,25 +3830,11 @@ ${endpointAttributes}
             fileContent: '',
             base64Content: ''
         };
-        let resolvedFilePath = filePath;
         try {
             if (fs.existsSync(filePath)) {
                 response.fileContent = fs.readFileSync(filePath, 'utf8');
             } else {
-                // Case-insensitive fallback for Linux file systems
-                const dir = path.dirname(filePath);
-                const base = path.basename(filePath).toLowerCase();
-                if (fs.existsSync(dir)) {
-                    const match = fs.readdirSync(dir).find(f => f.toLowerCase() === base);
-                    if (match) {
-                        resolvedFilePath = path.join(dir, match);
-                        response.fileContent = fs.readFileSync(resolvedFilePath, 'utf8');
-                    } else {
-                        throw new Error(`File does not exist at path: ${filePath}`);
-                    }
-                } else {
-                    throw new Error(`File does not exist at path: ${filePath}`);
-                }
+                throw new Error(`File does not exist at path: ${filePath}`);
             }
             const folderPath = path.dirname(filePath);
             if (fs.existsSync(folderPath)) {

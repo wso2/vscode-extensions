@@ -19,7 +19,6 @@
 // export * from "./rpc";
 export * from "./state-machine-types";
 export * from "./vscode";
-export * from "./mcp";
 
 export * from "./interfaces/mi";
 export * from "./interfaces/mi-data-mapper";

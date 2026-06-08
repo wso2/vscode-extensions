@@ -18,7 +18,8 @@
 
 import { WebviewView, WebviewPanel, window, env, commands } from 'vscode';
 import { Messenger } from 'vscode-messenger';
-import { stateChanged, getVisualizerState, getAIVisualizerState, VisualizerLocation, AIVisualizerLocation, sendAIStateEvent, AI_EVENT_TYPE, aiStateChanged, themeChanged, getPopupVisualizerState, PopupVisualizerLocation, webviewReady, Platform, MCP_CONFIG_FILE_SUFFIX } from '@wso2/mi-core';
+import { stateChanged, getVisualizerState, getAIVisualizerState, VisualizerLocation, AIVisualizerLocation, sendAIStateEvent, AI_EVENT_TYPE, aiStateChanged, themeChanged, getPopupVisualizerState, PopupVisualizerLocation, webviewReady, Platform } from '@wso2/mi-core';
+import { MCP_CONFIG_FILE_SUFFIX } from './util/mcp-server-utils';
 import { registerMiDiagramRpcHandlers } from './rpc-managers/mi-diagram/rpc-handler';
 import { VisualizerWebview } from './visualizer/webview';
 import { registerMiVisualizerRpcHandlers } from './rpc-managers/mi-visualizer/rpc-handler';
