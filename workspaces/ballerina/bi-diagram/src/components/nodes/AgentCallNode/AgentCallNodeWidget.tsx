@@ -595,6 +595,7 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
         if (readOnly) {
             return;
         }
+        event.stopPropagation();
         setAnchorEl(event.currentTarget);
     };
 
@@ -797,6 +798,7 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                 isSelected={isSelected}
                 onMouseEnter={() => setIsBoxHovered(true)}
                 onMouseLeave={() => setIsBoxHovered(false)}
+                onClick={!readOnly ? handleOnClick : undefined}
                 onContextMenu={!readOnly ? handleOnContextMenu : undefined}
                 title="Configure Agent"
             >

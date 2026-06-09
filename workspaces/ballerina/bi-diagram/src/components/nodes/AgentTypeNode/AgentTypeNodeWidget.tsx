@@ -22,9 +22,11 @@ import { css } from "@emotion/react";
 import { DiagramEngine, PortWidget } from "@projectstorm/react-diagrams-core";
 import { Button, Icon, Item, Menu, MenuItem, Popover, ThemeColors, getAIModuleIcon, DefaultLlmIcon } from "@wso2/ui-toolkit";
 import { NodeMetadata } from "@wso2/ballerina-core";
-import { FlowNode } from "../../../utils/types";
+import { FlowNode, ToolData } from "../../../utils/types";
 import { AgentTypeNodeModel } from "./AgentTypeNodeModel";
 import {
+    AGENT_NODE_TOOL_GAP,
+    AGENT_NODE_TOOL_SECTION_GAP,
     LABEL_HEIGHT,
     LABEL_WIDTH,
     NODE_BORDER_WIDTH,
@@ -265,8 +267,10 @@ export function AgentTypeNodeWidget(props: AgentTypeNodeWidgetProps) {
     const memory = nodeMetadata?.memory;
     // The custom agent class's doc-comment description, shown like the system prompt on the AGENT_CALL node.
     const description = nodeMetadata?.agentDescription;
+    // Read-only tool names emitted by applyAgentTypeMetadata from the inner ai:Agent's tools=[...] arg.
+    const tools: ToolData[] = nodeMetadata?.tools || [];
 
-    const title = (model.node.codedata?.object as string) || model.node.metadata?.label || "Agent";
+    const title = "AI Agent";
     const variableName = model.node.properties?.variable?.value as ReactNode;
 
     const onNodeClick = () => {
@@ -338,6 +342,7 @@ export function AgentTypeNodeWidget(props: AgentTypeNodeWidgetProps) {
         if (readOnly) {
             return;
         }
+        event.stopPropagation();
         setAnchorEl(event.currentTarget);
     };
 
@@ -367,11 +372,12 @@ export function AgentTypeNodeWidget(props: AgentTypeNodeWidgetProps) {
                 isSelected={isSelected}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
+                onClick={onNodeClick}
                 onContextMenu={!readOnly ? handleOnContextMenu : undefined}
                 title="Configure Agent"
             >
                 <Styles.TopPortWidget port={model.getPort("in")!} engine={engine} />
-                <Styles.Column>
+                <Styles.Column style={{ height: `${model.node.viewState?.ch}px` }}>
                     <Styles.Row>
                         <Styles.Icon onClick={onNodeClick}>
                             <NodeIcon type={model.node.codedata.node} size={24} />
@@ -473,7 +479,7 @@ export function AgentTypeNodeWidget(props: AgentTypeNodeWidgetProps) {
                 <Styles.BottomPortWidget port={model.getPort("out")!} engine={engine} />
             </Styles.Box>
 
-            {showModelCircle && (
+            {(showModelCircle || tools.length > 0) && (
                 <svg
                     width={NODE_GAP_X + NODE_HEIGHT + LABEL_HEIGHT + LABEL_WIDTH + 10}
                     height={svgHeight}
@@ -504,40 +510,85 @@ export function AgentTypeNodeWidget(props: AgentTypeNodeWidgetProps) {
                             <circle cx="4" cy="4" r="3" fill={ThemeColors.SURFACE_DIM} stroke={ThemeColors.ON_SURFACE} strokeWidth="1" />
                         </marker>
                     </defs>
-                    <line
-                        x1="0"
-                        y1="25"
-                        x2="57"
-                        y2="25"
-                        style={{
-                            stroke: ThemeColors.ON_SURFACE,
-                            strokeWidth: 1.5,
-                            markerEnd: `url(#${model.node.id}-arrow-head)`,
-                            markerStart: `url(#${model.node.id}-diamond-start)`,
-                        }}
-                    />
-                    <circle
-                        cx="80"
-                        cy="24"
-                        r="22"
-                        fill={ThemeColors.SURFACE_DIM}
-                        stroke={ThemeColors.OUTLINE_VARIANT}
-                        strokeWidth={1.5}
-                        onClick={onModelEditClick}
-                        css={css`
-                            cursor: ${readOnly ? "default" : "pointer"};
-                            transition: stroke 0.4s ease-out;
-                            &:hover {
-                                stroke: ${readOnly ? ThemeColors.OUTLINE_VARIANT : ThemeColors.SECONDARY};
-                            }
-                        `}
-                    >
-                        <title>Configure Model Provider</title>
-                    </circle>
-                    <foreignObject x="68" y="12" width="44" height="44" style={{ pointerEvents: "none" }}>
-                        {getAIModuleIcon(nodeMetadata?.model?.type) ??
-                            (nodeModelIconUrl ? <img src={nodeModelIconUrl} style={{ width: 24, height: 24 }} /> : <DefaultLlmIcon />)}
-                    </foreignObject>
+                    {showModelCircle && (
+                        <>
+                            <line
+                                x1="0"
+                                y1="25"
+                                x2="57"
+                                y2="25"
+                                style={{
+                                    stroke: ThemeColors.ON_SURFACE,
+                                    strokeWidth: 1.5,
+                                    markerEnd: `url(#${model.node.id}-arrow-head)`,
+                                    markerStart: `url(#${model.node.id}-diamond-start)`,
+                                }}
+                            />
+                            <circle
+                                cx="80"
+                                cy="24"
+                                r="22"
+                                fill={ThemeColors.SURFACE_DIM}
+                                stroke={ThemeColors.OUTLINE_VARIANT}
+                                strokeWidth={1.5}
+                                onClick={onModelEditClick}
+                                css={css`
+                                    cursor: ${readOnly ? "default" : "pointer"};
+                                    transition: stroke 0.4s ease-out;
+                                    &:hover {
+                                        stroke: ${readOnly ? ThemeColors.OUTLINE_VARIANT : ThemeColors.SECONDARY};
+                                    }
+                                `}
+                            >
+                                <title>Configure Model Provider</title>
+                            </circle>
+                            <foreignObject x="68" y="12" width="44" height="44" style={{ pointerEvents: "none" }}>
+                                {getAIModuleIcon(nodeMetadata?.model?.type) ??
+                                    (nodeModelIconUrl ? <img src={nodeModelIconUrl} style={{ width: 24, height: 24 }} /> : <DefaultLlmIcon />)}
+                            </foreignObject>
+                        </>
+                    )}
+                    {tools.map((tool: ToolData, index: number) => (
+                        <g
+                            key={index}
+                            transform={`translate(0, ${(index + 1) * (NODE_HEIGHT + AGENT_NODE_TOOL_GAP) + AGENT_NODE_TOOL_SECTION_GAP})`}
+                        >
+                            <line
+                                x1="0"
+                                y1="25"
+                                x2="57"
+                                y2="25"
+                                style={{
+                                    stroke: ThemeColors.ON_SURFACE,
+                                    strokeWidth: 1.5,
+                                    strokeDasharray: "6 6",
+                                    markerEnd: `url(#${model.node.id}-arrow-head)`,
+                                }}
+                            />
+                            <circle
+                                cx="80"
+                                cy="24"
+                                r="22"
+                                fill={ThemeColors.SURFACE_DIM}
+                                stroke={ThemeColors.OUTLINE_VARIANT}
+                                strokeWidth={1.5}
+                            />
+                            <foreignObject x="68" y="12" width="44" height="44" style={{ pointerEvents: "none" }}>
+                                <Icon name="bi-function" sx={{ fontSize: "24px" }} />
+                            </foreignObject>
+                            <text
+                                x="110"
+                                y="28"
+                                textAnchor="start"
+                                fill={ThemeColors.ON_SURFACE}
+                                fontSize="14px"
+                                fontFamily="GilmerRegular"
+                            >
+                                {tool.name.length > 20 ? `${tool.name.slice(0, 20)}...` : tool.name}
+                                <title>{tool.name}</title>
+                            </text>
+                        </g>
+                    ))}
                 </svg>
             )}
         </Styles.Node>
