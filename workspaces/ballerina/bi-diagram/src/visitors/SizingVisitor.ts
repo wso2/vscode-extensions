@@ -277,14 +277,19 @@ export class SizingVisitor implements BaseVisitor {
         if (!this.validateNode(node)) return;
         const halfNodeWidth = NODE_WIDTH / 2;
         const containerLeftWidth = halfNodeWidth;
-        // Reserve room to the right for the model-provider circle (same as AGENT_CALL, minus the tools section).
+        // Reserve room to the right for the model-provider circle and any tool circles.
         const containerRightWidth = halfNodeWidth + NODE_GAP_X + NODE_HEIGHT + LABEL_HEIGHT + LABEL_WIDTH;
         // Grow the box to fit the memory affordance (button/card) and the doc-comment description block (divider +
         // up to 4 clamped lines) when present.
         const nodeMetadata = node.metadata.data as NodeMetadata;
         const memoryHeight = nodeMetadata?.memoryParam ? 52 : 0;
         const descriptionHeight = nodeMetadata?.agentDescription ? 95 : 0;
-        const containerHeight = NODE_HEIGHT + memoryHeight + descriptionHeight;
+        const boxHeight = NODE_HEIGHT + memoryHeight + descriptionHeight;
+        // Base height matches AGENT_CALL (no add-tool button since read-only), then grows per tool.
+        const toolCount = (nodeMetadata?.tools || []).length;
+        const baseHeight = NODE_HEIGHT + AGENT_NODE_TOOL_SECTION_GAP;
+        const toolsHeight = toolCount * (NODE_HEIGHT + AGENT_NODE_TOOL_GAP);
+        const containerHeight = Math.max(boxHeight, baseHeight + toolsHeight);
         this.setNodeSize(node, containerLeftWidth, containerRightWidth, containerHeight);
     }
 
