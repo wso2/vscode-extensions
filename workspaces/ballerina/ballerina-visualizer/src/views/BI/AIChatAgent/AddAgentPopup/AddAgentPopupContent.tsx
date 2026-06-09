@@ -25,7 +25,7 @@ import { cloneDeep, debounce } from "lodash";
 import ButtonCard from "../../../../components/ButtonCard";
 import { RelativeLoader } from "../../../../components/RelativeLoader";
 import { FlowNodeForm } from "../../Forms/FlowNodeForm";
-import { getEndOfFileLineRange, getNodeTemplate } from "../utils";
+import { ensureModelProvider, fetchAgentNodeTemplate, getEndOfFileLineRange, getNodeTemplate } from "../utils";
 import { AgentInfoCard } from "./AgentInfoCard";
 import {
     AgentOptionCard,
@@ -56,8 +56,8 @@ import {
 const AGENT_FILE_NAME = "agents.bal";
 
 type AgentFilter = "All" | "Project" | "Organization";
-// "scratch" = define a new agent from scratch; "configure" = initialize a selected pre-built agent.
-export type AddAgentView = "gallery" | "scratch" | "configure";
+// "create" = custom agent form inline; "configure" = initialize a selected pre-built agent.
+export type AddAgentView = "gallery" | "configure" | "create";
 
 export interface AddAgentPopupContentProps {
     projectPath: string;
@@ -106,12 +106,13 @@ export function AddAgentPopupContent(props: AddAgentPopupContentProps) {
     const [agentFilePath, setAgentFilePath] = useState<string>("");
     const [targetLineRange, setTargetLineRange] = useState<LineRange>();
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+    const [usedDefaultModelProvider, setUsedDefaultModelProvider] = useState<boolean>(false);
     // The pre-built agent selected from the gallery, configured in the "configure" view.
     const [pendingAgent, setPendingAgent] = useState<AvailableNode>();
 
-    // Load the selected pre-built agent's class-init template for the "configure" view. Reset otherwise.
+    // Load agent template for the "configure" and "create" views. Reset otherwise.
     useEffect(() => {
-        if (view !== "configure" || !pendingAgent) {
+        if ((view !== "configure" && view !== "create") || (view === "configure" && !pendingAgent)) {
             setAgentNode(undefined);
             setTargetLineRange(undefined);
             setIsSubmitting(false);
@@ -120,18 +121,31 @@ export function AddAgentPopupContent(props: AddAgentPopupContentProps) {
         let cancelled = false;
         (async () => {
             try {
-                // Resolve the target file (agents.bal) first and use it as the template context: passing the
-                // project directory breaks symbol resolution (no unique result name) and crashes same-package
-                // creation (documentId on a directory). The file may not exist yet — the LS tolerates that.
                 const endOfFile = await getEndOfFileLineRange(AGENT_FILE_NAME, rpcClient);
-                const template = await getNodeTemplate(
-                    rpcClient,
-                    pendingAgent.codedata,
-                    endOfFile.fileName,
-                    endOfFile.startLine
-                );
-                if (!template) {
-                    throw new Error("No agent node template returned");
+                let template: FlowNode;
+                if (view === "configure") {
+                    // Resolve the target file (agents.bal) first and use it as the template context: passing the
+                    // project directory breaks symbol resolution (no unique result name) and crashes same-package
+                    // creation (documentId on a directory). The file may not exist yet — the LS tolerates that.
+                    template = await getNodeTemplate(
+                        rpcClient,
+                        pendingAgent!.codedata,
+                        endOfFile.fileName,
+                        endOfFile.startLine
+                    );
+                    if (!template) {
+                        throw new Error("No agent node template returned");
+                    }
+                } else {
+                    // "create" view: load the built-in ai:Agent template and auto-provision the default model.
+                    template = await fetchAgentNodeTemplate(rpcClient, projectPath);
+                    const { modelVarName, usedDefaultModelProvider: usedDefault } = await ensureModelProvider(
+                        rpcClient,
+                        projectPath,
+                        "agent"
+                    );
+                    template.properties.model.value = modelVarName;
+                    if (!cancelled) setUsedDefaultModelProvider(usedDefault);
                 }
                 template.codedata.lineRange = endOfFile as any;
                 if (cancelled) return;
@@ -190,7 +204,7 @@ export function AddAgentPopupContent(props: AddAgentPopupContentProps) {
 
     const handleCustomAgent = () => {
         setPendingAgent(undefined);
-        onViewChange("scratch");
+        onViewChange("create");
     };
 
     const handleCreateAgent = async (updatedNode?: FlowNode) => {
@@ -209,6 +223,10 @@ export function AddAgentPopupContent(props: AddAgentPopupContentProps) {
             const sourceResponse = await rpcClient
                 .getBIDiagramRpcClient()
                 .getSourceCode({ filePath: endOfFile.fileName, flowNode: node });
+
+            if (view === "create" && usedDefaultModelProvider) {
+                await rpcClient.getAIAgentRpcClient().configureDefaultModelProvider("model");
+            }
 
             // Redirect to the focused agent view for the newly created agent instead of going home.
             const agentVarName = String(node.properties?.variable?.value ?? "");
@@ -246,6 +264,34 @@ export function AddAgentPopupContent(props: AddAgentPopupContentProps) {
     const handleCreateNew = () => {
         // No-op for now. Wire up later.
     };
+
+    if (view === "create") {
+        // Custom agent: model is auto-provisioned, so hide it along with the predetermined type.
+        const fieldOverrides = { type: { hidden: true }, model: { hidden: true } };
+        const formNode = agentNode ? cloneDeep(agentNode) : undefined;
+        return (
+            <FormContainer>
+                {formNode && targetLineRange ? (
+                    <FlowNodeForm
+                        fileName={agentFilePath}
+                        node={formNode}
+                        nodeFormTemplate={formNode}
+                        targetLineRange={targetLineRange}
+                        onSubmit={handleCreateAgent}
+                        submitText={isSubmitting ? "Creating..." : "Create Agent"}
+                        showProgressIndicator={isSubmitting}
+                        disableSaveButton={isSubmitting}
+                        footerActionButton
+                        fieldOverrides={fieldOverrides}
+                    />
+                ) : (
+                    <LoaderWrapper>
+                        <RelativeLoader />
+                    </LoaderWrapper>
+                )}
+            </FormContainer>
+        );
+    }
 
     if (view === "configure") {
         // Pre-built agent: show the model field so the user can supply the ModelProvider; the
