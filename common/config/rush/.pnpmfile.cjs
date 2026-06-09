@@ -30,12 +30,12 @@ module.exports = {
         if (deps['fast-uri']) deps['fast-uri'] = '3.1.2';
         if (deps['esbuild']) deps['esbuild'] = '0.25.12';
         if (deps['lodash']) deps['lodash'] = '4.18.0';
-        if (deps['qs']) deps['qs'] = '6.14.2';
-        if (deps['hono']) deps['hono'] = '4.12.18';
+        if (deps['qs']) deps['qs'] = '6.15.2';
+        if (deps['hono']) deps['hono'] = '4.12.21';
         if (deps['@hono/node-server']) deps['@hono/node-server'] = '1.19.13';
         if (deps['@tootallnate/once']) deps['@tootallnate/once'] = '3.0.1';
         if (deps['dompurify']) deps['dompurify'] = '3.4.0';
-        if (deps['axios']) deps['axios'] = '1.15.2';
+        if (deps['axios']) deps['axios'] = '1.16.0';
         if (deps['ip-address']) deps['ip-address'] = '10.1.1';
         if (deps['follow-redirects']) deps['follow-redirects'] = '1.16.0';
         if (deps['express-rate-limit']) deps['express-rate-limit'] = '8.2.2';
@@ -45,14 +45,14 @@ module.exports = {
         if (deps['serialize-javascript']) deps['serialize-javascript'] = '7.0.5';
         if (deps['flatted']) deps['flatted'] = '3.4.2';
         if (deps['handlebars']) deps['handlebars'] = '4.7.9';
-        if (deps['tmp']) deps['tmp'] = '0.2.4';
+        if (deps['tmp']) deps['tmp'] = '0.2.6';
         if (deps['undici']) deps['undici'] = '7.24.0';
         if (deps['protobufjs']) {
           const currentVersion = deps['protobufjs'];
           if (currentVersion.startsWith('^8') || currentVersion.startsWith('8')) {
-            deps['protobufjs'] = '8.0.2';
+            deps['protobufjs'] = '8.2.0';
           } else {
-            deps['protobufjs'] = '7.5.6';
+            deps['protobufjs'] = '7.5.8';
           }
         }
         if (deps['vite']) deps['vite'] = '6.0.14';
@@ -95,7 +95,7 @@ module.exports = {
           } else if (currentVersion.startsWith('^3') || currentVersion.startsWith('3')) {
             newVersion = '3.0.2';
           } else if (currentVersion.startsWith('^5') || currentVersion.startsWith('5')) {
-            newVersion = '5.0.5';
+            newVersion = '5.0.6';
           } else {
             context.log(`Unexpected brace-expansion version: ${currentVersion}`);
             newVersion = currentVersion;
