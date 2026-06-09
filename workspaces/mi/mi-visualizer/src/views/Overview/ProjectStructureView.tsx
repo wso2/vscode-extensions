@@ -17,11 +17,13 @@
  */
 
 import { EVENT_TYPE, MACHINE_VIEW } from '@wso2/mi-core';
+import { MCP_CONFIG_FILE_SUFFIX } from '../../constants';
 import { Alert, ContextMenu, Icon } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
 import { Fragment, useEffect, useState } from 'react';
 import { EndpointTypes, InboundEndpointTypes, MessageProcessorTypes, MessageStoreTypes, TemplateTypes } from '../../constants';
+import path from 'path';
 
 
 
@@ -142,12 +144,20 @@ const artifactTypeMap: Record<string, ArtifactType> = {
         icon: "data-source",
         description: (entry: any) => "Data Source",
         path: (entry: any) => entry.path,
+    },
+    mcpServers: {
+        title: "MCP Servers",
+        command: "MI.project-explorer.add-mcp-server",
+        view: MACHINE_VIEW.MCPServerForm,
+        icon: "inbound-endpoint",
+        description: (entry: any) => "MCP Server",
+        path: (entry: any) => entry.inboundEndpoint?.path ?? entry.localEntry?.path ?? '',
     }
     // Add more artifact types as needed
 };
 
-const ProjectStructureView = (props: { projectStructure: any, workspaceDir: string }) => {
-    const { projectStructure } = props;
+const ProjectStructureView = (props: { projectStructure: any, workspaceDir: string, isWindows: boolean }) => {
+    const { projectStructure, isWindows } = props;
     const { rpcClient } = useVisualizerContext();
     const [connectorData, setConnectorData] = useState<any[]>([]);
 
@@ -256,6 +266,26 @@ const ProjectStructureView = (props: { projectStructure: any, workspaceDir: stri
         }
     };
 
+    const goToMcpServerTools = (entry: any) => {
+        const localEntryPath = entry.localEntry?.path ?? '';
+        if (!localEntryPath) {
+            return;
+        }
+
+        const filename = localEntryPath.split(isWindows ? path.win32.sep : path.sep).pop() ?? '';
+        const serverName = filename.replace(MCP_CONFIG_FILE_SUFFIX, '') || entry.name;
+        const inboundEndpointPath = entry.inboundEndpoint?.path ?? '';
+
+        rpcClient.getMiVisualizerRpcClient().openView({
+            type: EVENT_TYPE.OPEN_VIEW,
+            location: {
+                view: MACHINE_VIEW.MCPServerFromAPIsForm,
+                documentUri: localEntryPath,
+                customProps: { editData: { serverName, localEntryPath, inboundEndpointPath } },
+            },
+        });
+    };
+
     const goToConnectionView = async (documentUri: string, view: MACHINE_VIEW, connectionName: string) => {
         rpcClient.getMiVisualizerRpcClient().openView({
             type: EVENT_TYPE.OPEN_VIEW,
@@ -275,6 +305,23 @@ const ProjectStructureView = (props: { projectStructure: any, workspaceDir: stri
                 localStorage.removeItem(key);
             }
         });
+    }
+
+    const deleteMCPServer = (entry: any) => {
+        const inboundPath = entry.inboundEndpoint?.path;
+        const localEntryPath = entry.localEntry?.path;
+
+        const confirmed = window.confirm(`Are you sure you want to delete MCP Server "${entry.name}"? This action cannot be undone.`);
+        if (!confirmed) {
+            return;
+        }
+
+        if (inboundPath) {
+            rpcClient.getMiDiagramRpcClient().deleteArtifact({ path: inboundPath, enableUndo: false });
+        }
+        if (localEntryPath) {
+            rpcClient.getMiDiagramRpcClient().deleteArtifact({ path: localEntryPath, enableUndo: false });
+        }
     }
 
     const markAsDefaultSequence = (path: string, remove: boolean) => {
@@ -338,13 +385,14 @@ const ProjectStructureView = (props: { projectStructure: any, workspaceDir: stri
                     {Object.entries(projectStructure.directoryMap.src.main.wso2mi.artifacts)
                         .filter(([key, value]) => artifactTypeMap.hasOwnProperty(key) && Array.isArray(value) && value.length > 0)
                         .map(([key, value]) => {
-                            const hasOnlyUndefinedItems = Object.values(value).every(entry => entry.path === undefined);
+                            const getEntryPath = (entry: any) => artifactTypeMap[key].path(entry);
+                            const hasOnlyUndefinedItems = Object.values(value).every(entry => !getEntryPath(entry));
                             const hasConnections = hasOnlyUndefinedItems ? checkHasConnections(value) : false;
                             return (!hasOnlyUndefinedItems || hasConnections) && (
                                 <div>
                                     <h3>{artifactTypeMap[key].title}</h3>
                                     {Object.entries(value).map(([_, entry]) => (
-                                        entry.path && (
+                                        getEntryPath(entry) && (
                                             <Entry
                                                 key={entry.name}
                                                 isCodicon={artifactTypeMap[key].isCodicon}
@@ -352,12 +400,12 @@ const ProjectStructureView = (props: { projectStructure: any, workspaceDir: stri
                                                 iconSx={artifactTypeMap[key].iconSx}
                                                 name={entry.name}
                                                 description={artifactTypeMap[key].description(entry)}
-                                                onClick={() => goToView(artifactTypeMap[key].path(entry), artifactTypeMap[key].view, entry.name)}
-                                                goToView={() => goToView(artifactTypeMap[key].path(entry), artifactTypeMap[key].view, entry.name)}
-                                                goToSource={() => goToSource(artifactTypeMap[key].path(entry))}
-                                                deleteArtifact={() => deleteArtifact(artifactTypeMap[key].path(entry))}
+                                                onClick={() => key === 'mcpServers' ? goToMcpServerTools(entry) : goToView(getEntryPath(entry), artifactTypeMap[key].view, entry.name)}
+                                                goToView={() => key === 'mcpServers' ? goToMcpServerTools(entry) : goToView(getEntryPath(entry), artifactTypeMap[key].view, entry.name)}
+                                                goToSource={() => goToSource(getEntryPath(entry))}
+                                                deleteArtifact={() => key === 'mcpServers' ? deleteMCPServer(entry) : deleteArtifact(getEntryPath(entry))}
                                                 isMainSequence={entry.isMainSequence}
-                                                markAsDefaultSequence={artifactTypeMap[key].title == "Sequences" ? () => markAsDefaultSequence(artifactTypeMap[key].path(entry), entry.isMainSequence) : undefined}
+                                                markAsDefaultSequence={artifactTypeMap[key].title == "Sequences" ? () => markAsDefaultSequence(getEntryPath(entry), entry.isMainSequence) : undefined}
                                             />
                                         )
                                     ))}

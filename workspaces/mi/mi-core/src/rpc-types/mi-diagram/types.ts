@@ -20,6 +20,7 @@
 import { DiagramService, Range, TagRange } from '@wso2/mi-syntax-tree/lib/src';
 import { Diagnostic, Position, TextDocumentIdentifier, TextEdit } from "vscode-languageserver-types";
 import { HelperPaneData } from '../../interfaces/mi-diagram';
+import { API, Sequence, UnifiedTool } from '../mi-visualizer/types';
 
 interface Record {
     name: string;
@@ -2487,4 +2488,99 @@ export interface UpdateConnectorFlagsRequest {
 export interface UpdateGlobalConnectorFlagsRequest {
     omitAllDrivers?: boolean;
     omitAllConnectors?: boolean;
+}
+
+//  MCP Server Form helpers 
+export interface McpServerCorsSettings {
+    corsAllowOrigin: string;
+    corsAllowMethods: string;
+    corsAllowHeaders: string;
+    corsExposeHeaders: string;
+    keepAliveInterval: number;
+}
+
+export interface GetMcpUsedInboundPortsRequest {
+    projectUri: string;
+    excludePath?: string;
+}
+
+export interface GetMcpUsedInboundPortsResponse {
+    ports: number[];
+}
+
+export interface GetMcpServerProjectArtifactsRequest {
+    projectUri: string;
+}
+
+export interface GetMcpServerProjectArtifactsResponse {
+    apis: API[];
+    sequences: Sequence[];
+}
+
+export interface GetMcpServerEditDataRequest {
+    localEntryPath?: string;
+    inboundEndpointPath?: string;
+}
+
+export interface GetMcpServerEditDataResponse {
+    tools: UnifiedTool[];
+    port: number | null;
+    corsSettings: McpServerCorsSettings;
+    inboundEndpointPath: string;
+}
+
+export interface BuildMcpToolsXmlRequest {
+    projectRoot: string;
+    tools: UnifiedTool[];
+}
+
+export interface BuildMcpToolsXmlResponse {
+    xml: string;
+}
+
+export interface UpdateMcpInboundEndpointRequest {
+    inboundEndpointPath: string;
+    corsSettings: McpServerCorsSettings;
+    port?: number;
+}
+
+export interface UpdateMcpInboundEndpointResponse {
+    success: boolean;
+}
+
+export interface CleanMcpToolNamesRequest {
+    paths: string[];
+}
+
+export interface CleanMcpToolNamesResponse {
+    names: string[];
+}
+
+export interface ConvertMcpJsonSchemaRequest {
+    input: string;
+}
+
+export interface ConvertMcpJsonSchemaResponse {
+    schema: string | null;
+}
+
+export interface PickMcpJsonFileResponse {
+    content: string | null;
+}
+
+export interface GetAPIOperationInputSchemasRequest {
+    projectRoot: string;
+    operations: Array<{
+        id: string;
+        apiName: string;
+        apiXmlPath: string;
+        apiRawVersion: string;
+        operationMethod: string;
+        operationPath: string;
+    }>;
+}
+
+export interface GetAPIOperationInputSchemasResponse {
+    schemas: { [operationId: string]: string };
+    descriptions: { [operationId: string]: string };
 }

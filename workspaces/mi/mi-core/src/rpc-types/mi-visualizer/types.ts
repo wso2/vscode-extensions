@@ -507,3 +507,70 @@ export interface DeployConfigParam {
 export interface ExecuteRemoteDeployParams {
     values: Record<string, string>;
 }
+export interface McpToolSuggestionRequest {
+    toolName: string;
+    operationMethod?: string;
+    operationPath?: string;
+    operationSummary?: string;
+    apiXmlPath?: string;
+    sequenceXmlPath?: string;
+    inputSchemaJson?: string;
+}
+
+export interface McpToolSuggestionResponse {
+    name: string;
+    description: string;
+    inputSchema: string;
+}
+
+export interface APIOperation {
+    id: string;
+    method: string;
+    path: string;
+    summary: string;
+}
+
+export interface API {
+    id: string;
+    name: string;
+    context: string;
+    version: string;
+    rawVersion: string;
+    xmlPath: string;
+    operations: APIOperation[];
+}
+
+export interface Sequence {
+    id: string;
+    name: string;
+    xmlPath: string;
+}
+
+export interface APITool {
+    kind: 'api';
+    id: string;
+    name: string;
+    description: string;
+    apiId: string;
+    apiName: string;
+    apiVersion: string;
+    apiRawVersion: string;
+    apiXmlPath: string;
+    operationId: string;
+    operationMethod: string;
+    operationPath: string;
+    operationSummary: string;
+    inputSchema?: string;
+}
+
+export interface SequenceTool {
+    kind: 'sequence';
+    id: string;
+    name: string;
+    description: string;
+    sequenceName: string;
+    sequenceXmlPath: string;
+    inputSchema: string;
+}
+
+export type UnifiedTool = APITool | SequenceTool;

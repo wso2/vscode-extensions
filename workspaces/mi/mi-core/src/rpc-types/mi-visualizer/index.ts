@@ -56,7 +56,9 @@ import {
     ReloadDependenciesRequest,
     DependencyStatusResponse,
     ExecuteRemoteDeployParams,
-    DeployConfigParam
+    DeployConfigParam,
+    McpToolSuggestionRequest,
+    McpToolSuggestionResponse
 } from "./types";
 import { GettingStartedData, SampleDownloadRequest } from "./types";
 
@@ -115,4 +117,5 @@ export interface MIVisualizerAPI {
     updateAiDependencies: (params: UpdateAiDependenciesRequest) => Promise<boolean>;
     executeRemoteDeployWithParams: (params: ExecuteRemoteDeployParams) => Promise<void>;
     getRemoteDeployConfigs: () => Promise<DeployConfigParam[]>;
+    getMcpToolSuggestion: (params: McpToolSuggestionRequest) => Promise<McpToolSuggestionResponse>;
 }

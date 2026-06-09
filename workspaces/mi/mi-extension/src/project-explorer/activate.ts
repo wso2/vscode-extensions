@@ -37,6 +37,13 @@ import { webviews } from '../visualizer/webview';
 import { MILanguageClient } from '../lang-client/activator';
 import { updatePomModules } from '../debugger/pomResolver';
 
+interface MCPServerTreeItem extends TreeItem {
+	info?: {
+		localEntry?: { path: string };
+		inboundEndpoint?: { path: string };
+	};
+}
+
 /**
  * Refresh the open views after an artifact is deleted from the project explorer.
  *
@@ -215,6 +222,24 @@ export async function activateProjectExplorer(treeviewId: string, context: Exten
 	commands.registerCommand(COMMANDS.ADD_DATA_SOURCE_COMMAND, (entry: ProjectExplorerEntry) => {
 		openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.DataSourceForm, documentUri: entry.info?.path });
 		console.log('Add Data Source');
+	});
+
+	commands.registerCommand(COMMANDS.ADD_MCP_SERVER_COMMAND, (entry: ProjectExplorerEntry) => {
+		openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.MCPServerForm, documentUri: entry.info?.path });
+		console.log('Add MCP Server');
+	});
+
+	commands.registerCommand(COMMANDS.SHOW_MCP_SERVER, (localEntryPath: string, serverName: string, inboundEndpointPath?: string) => {
+		revealWebviewPanel(true);
+		openView(EVENT_TYPE.OPEN_VIEW, {
+			view: MACHINE_VIEW.MCPServerFromAPIsForm,
+			documentUri: localEntryPath,
+			customProps: { editData: { serverName, localEntryPath, inboundEndpointPath } }
+		});
+	});
+
+	commands.registerCommand(COMMANDS.DELETE_MCP_SERVER_COMMAND, (entry: ProjectExplorerEntry) => {
+		commands.executeCommand(COMMANDS.DELETE_PROJECT_EXPLORER_ITEM, entry);
 	});
 
 	commands.registerCommand(COMMANDS.REVEAL_ITEM_COMMAND, async (viewLocation: VisualizerLocation) => {
@@ -646,6 +671,41 @@ export async function activateProjectExplorer(treeviewId: string, context: Exten
 								}
 							}
 							removeFromHistory(fileUri.fsPath);
+						} catch (error) {
+							window.showErrorMessage(`Failed to delete ${item.label}: ${error}`);
+						}
+					}
+					break;
+				}
+			case 'mcpServer':
+				{
+					const mcpItem = item as MCPServerTreeItem;
+					const localEntryPath = mcpItem.info?.localEntry?.path;
+					const inboundEndpointPath = mcpItem.info?.inboundEndpoint?.path;
+
+					if (!localEntryPath || !inboundEndpointPath) {
+						window.showErrorMessage('Could not determine MCP server paths');
+						return;
+					}
+
+					const confirmation = await window.showWarningMessage(
+						`Are you sure you want to delete MCP Server - ${item.label}?`,
+						{ modal: true },
+						'Yes'
+					);
+
+					if (confirmation === 'Yes') {
+						try {
+							// Delete local entry file
+							await vscode.workspace.fs.delete(Uri.file(localEntryPath), { recursive: true, useTrash: true });
+
+							// Delete inbound endpoint file if it exists
+							if (inboundEndpointPath) {
+								await vscode.workspace.fs.delete(Uri.file(inboundEndpointPath), { recursive: true, useTrash: true });
+							}
+
+							file = localEntryPath;
+							window.showInformationMessage(`${item.label} has been deleted.`);
 						} catch (error) {
 							window.showErrorMessage(`Failed to delete ${item.label}: ${error}`);
 						}

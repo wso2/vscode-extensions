@@ -57,7 +57,9 @@ import {
     ReloadDependenciesRequest,
     DependencyStatusResponse,
     ExecuteRemoteDeployParams,
-    DeployConfigParam
+    DeployConfigParam,
+    McpToolSuggestionRequest,
+    McpToolSuggestionResponse
 } from "./types";
 import { GettingStartedData, SampleDownloadRequest } from "./types";
 import { RequestType, NotificationType } from "vscode-messenger-common";
@@ -118,3 +120,4 @@ export const removeDeployPlugin: RequestType<void, MavenDeployPluginDetails> = {
 export const updateAiDependencies: RequestType<UpdateAiDependenciesRequest, boolean> = { method: `${_preFix}/updateAiDependencies` };
 export const executeRemoteDeployWithParams: RequestType<ExecuteRemoteDeployParams, void> = { method: `${_preFix}/executeRemoteDeployWithParams` };
 export const getRemoteDeployConfigs: RequestType<void, DeployConfigParam[]> = { method: `${_preFix}/getRemoteDeployConfigs` };
+export const getMcpToolSuggestion: RequestType<McpToolSuggestionRequest, McpToolSuggestionResponse> = { method: `${_preFix}/getMcpToolSuggestion` };

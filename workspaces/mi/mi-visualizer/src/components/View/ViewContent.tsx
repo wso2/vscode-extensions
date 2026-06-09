@@ -32,7 +32,7 @@ type ViewContentProps = {
 
 const ViewContent: React.FC<ViewContentProps> = ({ children, padding = false }) => {
     return (
-        <ViewContentWrapper style={{ padding: padding ? '20px' : '0px' }}>
+        <ViewContentWrapper style={{ padding: padding ? '20px 20px 20px 46px' : '0px' }}>
             {children}
         </ViewContentWrapper>
     );

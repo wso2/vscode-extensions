@@ -67,6 +67,8 @@ export enum MACHINE_VIEW {
     DssDataSourceForm = "DSS Data Source Form",
     DSSResourceServiceDesigner = "DSS Resource Designer",
     DSSQueryServiceDesigner = "DSS Query Designer",
+    MCPServerForm = "MCPServerForm",
+    MCPServerFromAPIsForm = "MCPServerFromAPIsForm",
     ProjectCreationForm = "Project Creation Form",
     ConvertToConsolidatedForm = "Convert To Consolidated Form",
     LocalEntryForm = "Local Entry Form",
