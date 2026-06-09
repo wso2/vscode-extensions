@@ -310,17 +310,27 @@ export function Diagram(props: DiagramProps) {
         loadDiagramZoomAndPosition(diagramEngine);
 
         if (isSingleAgentNode) {
-            const canvas = document.getElementById("bi-diagram-canvas");
-            if (canvas) {
+            const centerSingleAgentNode = () => {
+                const canvas = document.getElementById("bi-diagram-canvas");
+                if (!canvas) {
+                    return false;
+                }
                 const agentNode = nodes[0] as AgentCallNodeModel | AgentTypeNodeModel;
                 const diagramModel = diagramEngine.getModel();
                 const zoom = diagramModel.getZoomLevel() / 100;
-                const cardHeight = agentNode.node.viewState.h;
-                const canvasRect = canvas.getBoundingClientRect();
-                const visibleBottom = Math.min(canvasRect.bottom, window.innerHeight);
-                const targetCenter = (canvasRect.top * 2 + visibleBottom + canvasRect.bottom) / 4;
-                const offsetY = targetCenter - canvasRect.top - (agentNode.getY() + cardHeight / 2) * zoom;
+                const cardHeight = agentNode.node.viewState.ch || agentNode.node.viewState.h;
+                const canvasHeight = canvas.getBoundingClientRect().height;
+                const offsetY = canvasHeight / 2 - 40 - (agentNode.getY() + cardHeight / 2) * zoom;
                 diagramModel.setOffset(diagramModel.getOffsetX(), offsetY);
+                return true;
+            };
+
+            if (!centerSingleAgentNode()) {
+                requestAnimationFrame(() => {
+                    if (centerSingleAgentNode()) {
+                        diagramEngine.repaintCanvas();
+                    }
+                });
             }
         }
 
