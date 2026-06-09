@@ -25,18 +25,68 @@ module.exports = {
         if (deps['js-yaml']) deps['js-yaml'] = '4.1.1';
         if (deps['diff']) deps['diff'] = '^8.0.3';
         if (deps['eslint']) deps['eslint'] = '^9.27.0';
-        if (deps['fast-xml-parser']) deps['fast-xml-parser'] = '5.3.8';
-        if (deps['lodash']) deps['lodash'] = '4.17.23';
-        if (deps['qs']) deps['qs'] = '6.14.2';
-        if (deps['serialize-javascript']) deps['serialize-javascript'] = '7.0.3';
-        if (deps['@hono/node-server']) deps['@hono/node-server'] = '1.19.10';
+        if (deps['fast-xml-parser']) deps['fast-xml-parser'] = '5.7.0';
+        if (deps['lodash']) deps['lodash'] = '4.18.0';
+        if (deps['qs']) deps['qs'] = '6.15.2';
+        if (deps['serialize-javascript']) deps['serialize-javascript'] = '7.0.5';
+        if (deps['@hono/node-server']) deps['@hono/node-server'] = '1.19.13';
         if (deps['@tootallnate/once']) deps['@tootallnate/once'] = '3.0.1';
-        if (deps['dompurify']) deps['dompurify'] = '3.3.2';
+        if (deps['dompurify']) deps['dompurify'] = '3.4.0';
         if (deps['express-rate-limit']) deps['express-rate-limit'] = '8.2.2';
-        if (deps['hono']) deps['hono'] = '4.12.7';
+        if (deps['hono']) deps['hono'] = '4.12.21';
         if (deps['immutable']) deps['immutable'] = '3.8.3';
+        if (deps['handlebars']) deps['handlebars'] = '4.7.9';
+        if (deps['protobufjs']) deps['protobufjs'] = '7.5.6';
+        if (deps['@protobufjs/utf8']) deps['@protobufjs/utf8'] = '1.1.1';
+        if (deps['axios']) deps['axios'] = '1.16.0';
+        if (deps['flatted']) deps['flatted'] = '3.4.2';
+        if (deps['fast-uri']) deps['fast-uri'] = '3.1.2';
+        if (deps['ip-address']) deps['ip-address'] = '10.1.1';
+        if (deps['file-type']) deps['file-type'] = '21.3.2';
+        if (deps['@nevware21/ts-utils']) deps['@nevware21/ts-utils'] = '0.14.0';
         if (deps['bn.js']) {
           deps['bn.js'] = deps['bn.js'].startsWith('^5') ? '5.2.3' : '4.12.3';
+        }
+        if (deps['brace-expansion']) {
+          const bev = deps['brace-expansion'];
+          if (bev.startsWith('^1') || bev.startsWith('1')) deps['brace-expansion'] = '1.1.13';
+          else if (bev.startsWith('^2') || bev.startsWith('2')) deps['brace-expansion'] = '2.0.3';
+          else if (bev.startsWith('^5') || bev.startsWith('5')) deps['brace-expansion'] = '5.0.5';
+        }
+        if (deps['picomatch']) {
+          const pmv = deps['picomatch'];
+          if (pmv.startsWith('^2') || pmv.startsWith('2')) deps['picomatch'] = '2.3.2';
+          else if (pmv.startsWith('^4') || pmv.startsWith('4')) deps['picomatch'] = '4.0.4';
+        }
+        if (deps['path-to-regexp']) {
+          const ptrv = deps['path-to-regexp'];
+          if (ptrv.startsWith('^0') || ptrv.startsWith('0')) deps['path-to-regexp'] = '0.1.13';
+          else if (ptrv.startsWith('^8') || ptrv.startsWith('8')) deps['path-to-regexp'] = '8.4.0';
+        }
+        if (deps['tmp']) {
+          const tv = deps['tmp'];
+          if (tv.startsWith('^0.2') || tv.startsWith('0.2')) deps['tmp'] = '0.2.6';
+        }
+        if (deps['undici']) {
+          const uv = deps['undici'];
+          if (uv.startsWith('^6') || uv.startsWith('6')) deps['undici'] = '6.24.0';
+          else if (uv.startsWith('^7') || uv.startsWith('7')) deps['undici'] = '7.24.0';
+        }
+        if (deps['uuid']) {
+          const uuidv = deps['uuid'];
+          if (uuidv.startsWith('^11') || uuidv.startsWith('11')) deps['uuid'] = '11.1.1';
+        }
+        if (deps['webpack-dev-server']) {
+          const wdsv = deps['webpack-dev-server'];
+          if (wdsv.startsWith('^5') || wdsv.startsWith('5')) deps['webpack-dev-server'] = '5.2.4';
+        }
+        if (deps['ws']) {
+          const wsv = deps['ws'];
+          if (wsv.startsWith('^8') || wsv.startsWith('8')) deps['ws'] = '8.20.1';
+        }
+        if (deps['yaml']) {
+          const yamlv = deps['yaml'];
+          if (yamlv.startsWith('^1') || yamlv.startsWith('1')) deps['yaml'] = '1.10.3';
         }
         if (deps['minimatch']) {
           const currentVersion = deps['minimatch'];
