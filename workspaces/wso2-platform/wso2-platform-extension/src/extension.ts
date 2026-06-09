@@ -60,16 +60,18 @@ export async function activate(context: vscode.ExtensionContext) {
 				"Install WSO2 Integrator",
 				"Dismiss",
 			)
-			.then((selection) => {
+			.then(async (selection) => {
 				if (selection === "Install WSO2 Integrator") {
-					vscode.env.openExternal(vscode.Uri.parse("https://marketplace.visualstudio.com/items?itemName=WSO2.wso2-integrator"))
+					await vscode.env.openExternal(vscode.Uri.parse("https://marketplace.visualstudio.com/items?itemName=WSO2.wso2-integrator"))
 						.then(undefined, (error) => {
 							getLogger().error("Failed to open WSO2 Integrator marketplace page", error);
 							window.showErrorMessage("Failed to open marketplace. Please visit https://marketplace.visualstudio.com/items?itemName=WSO2.wso2-integrator manually.");
 						});
 				}
 				if (selection === "Dismiss" || selection === "Install WSO2 Integrator") {
-					context.globalState.update(DEPRECATION_WARNING_KEY, true);
+					await context.globalState.update(DEPRECATION_WARNING_KEY, true).then(undefined, (error) => {
+						getLogger().error("Failed to persist deprecation dismissal", error);
+					});
 				}
 			});
 	}
