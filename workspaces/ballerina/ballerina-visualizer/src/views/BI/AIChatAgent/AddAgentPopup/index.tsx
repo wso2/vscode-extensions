@@ -29,7 +29,6 @@ import {
     PopupTitle,
 } from "../../Connection/styles";
 import { AddAgentPopupContent, AddAgentView } from "./AddAgentPopupContent";
-import { NewAgentCanvas } from "./NewAgentCanvas";
 
 export interface AddAgentPopupProps {
     projectPath: string;
@@ -41,7 +40,7 @@ export interface AddAgentPopupProps {
 export function AddAgentPopup(props: AddAgentPopupProps) {
     const { onClose, onNavigateToOverview, isPopup } = props;
     const [view, setView] = useState<AddAgentView>("gallery");
-    const isForm = view === "configure";
+    const isForm = view === "configure" || view === "create";
 
     const handleClosePopup = () => {
         if (isPopup) {
@@ -50,18 +49,6 @@ export function AddAgentPopup(props: AddAgentPopupProps) {
             onNavigateToOverview();
         }
     };
-
-    // The "Create Agent" (from scratch) flow uses a dedicated canvas + side panel that only asks for a
-    // name; the prompt/model/tools are configured afterwards in the agent's focus diagram.
-    if (view === "scratch") {
-        return (
-            <NewAgentCanvas
-                projectPath={props.projectPath}
-                onBack={() => setView("gallery")}
-                onClose={handleClosePopup}
-            />
-        );
-    }
 
     return (
         <>
@@ -75,7 +62,7 @@ export function AddAgentPopup(props: AddAgentPopupProps) {
                     )}
                     <HeaderTitleContainer>
                         <PopupTitle variant="h2">
-                            {view === "configure" ? "Configure Agent" : "Add Agent"}
+                            {view === "configure" ? "Configure Agent" : view === "create" ? "Create Agent" : "Add Agent"}
                         </PopupTitle>
                     </HeaderTitleContainer>
                     <CloseButton appearance="icon" onClick={handleClosePopup}>
