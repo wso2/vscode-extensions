@@ -61,6 +61,7 @@ export interface MediatorPageProps {
     trailingSpace: string;
     documentUri: string;
     artifactModel: DiagramService;
+    disableTryout?: boolean;
 }
 export function HomePage(props: MediatorPageProps) {
     const [searchValue, setSearchValue] = useState<string>('');
@@ -122,7 +123,8 @@ export function HomePage(props: MediatorPageProps) {
                         trailingSpace={props.trailingSpace}
                         searchValue={searchValue}
                         clearSearch={clearSearch}
-                        artifactModel={props.artifactModel} />
+                        artifactModel={props.artifactModel}
+                        disableTryout={props.disableTryout} />
                 </ComponentList>
             )}
             {isConnections && (
@@ -133,7 +135,8 @@ export function HomePage(props: MediatorPageProps) {
                         searchValue={searchValue}
                         clearSearch={clearSearch}
                         trailingSpace={props.trailingSpace}
-                        artifactModel={props.artifactModel} />
+                        artifactModel={props.artifactModel}
+                        disableTryout={props.disableTryout} />
                 </ComponentList>
             )}
         </Wrapper>

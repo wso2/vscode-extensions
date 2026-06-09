@@ -87,6 +87,7 @@ export interface ConnectorPageProps {
     nodePosition: any;
     trailingSpace: string;
     artifactModel: DiagramService;
+    disableTryout?: boolean;
 }
 
 export function ConnectionPage(props: ConnectorPageProps) {
@@ -312,6 +313,7 @@ export function ConnectionPage(props: ConnectorPageProps) {
                 nodeRange={props.nodePosition}
                 showForm={true}
                 artifactModel={props.artifactModel}
+                disableTryout={props.disableTryout}
             />
         </div>;
         sidepanelAddPage(sidePanelContext, page, `${sidePanelContext.isEditing ? "Edit" : "Add"} ${operationTitle}`, icon);
