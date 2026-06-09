@@ -271,6 +271,7 @@
     "@vscode-logging/logger": "2.0.0",
     "@vscode-logging/types": "2.0.0",
     "@vscode-logging/wrapper": "2.0.0",
+    "@microsoft/applicationinsights-common": "3.3.11",
     "@vscode/extension-telemetry": "1.0.0",
     "@vscode/iconv-lite-umd": "0.7.0",
     "@vscode/webview-ui-toolkit": "1.4.0",
