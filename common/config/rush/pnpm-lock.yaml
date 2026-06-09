@@ -40138,7 +40138,7 @@ snapshots:
 
   '@types/node-fetch@2.6.13':
     dependencies:
-      '@types/node': 22.15.24
+      '@types/node': 16.18.126
       form-data: 4.0.5
 
   '@types/node@14.18.63': {}
@@ -49509,7 +49509,10 @@ snapshots:
       pretty-format: 25.5.0
       throat: 5.0.0
     transitivePeerDependencies:
+      - bufferutil
+      - canvas
       - supports-color
+      - utf-8-validate
 
   jest-leak-detector@25.5.0:
     dependencies:
