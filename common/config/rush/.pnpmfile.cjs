@@ -36,7 +36,14 @@ module.exports = {
         if (deps['hono']) deps['hono'] = '4.12.21';
         if (deps['immutable']) deps['immutable'] = '3.8.3';
         if (deps['handlebars']) deps['handlebars'] = '4.7.9';
-        if (deps['protobufjs']) deps['protobufjs'] = '7.5.6';
+        if (deps['protobufjs']) {
+          const currentVersion = deps['protobufjs'];
+          if (currentVersion.startsWith('^8') || currentVersion.startsWith('8')) {
+            deps['protobufjs'] = '8.2.0'; // security fix: CVE-2026-45740
+          } else {
+            deps['protobufjs'] = '7.5.8'; // security fix: CVE-2026-45740
+          }
+        }
         if (deps['@protobufjs/utf8']) deps['@protobufjs/utf8'] = '1.1.1';
         if (deps['axios']) deps['axios'] = '1.16.0';
         if (deps['flatted']) deps['flatted'] = '3.4.2';
@@ -51,7 +58,7 @@ module.exports = {
           const bev = deps['brace-expansion'];
           if (bev.startsWith('^1') || bev.startsWith('1')) deps['brace-expansion'] = '1.1.13';
           else if (bev.startsWith('^2') || bev.startsWith('2')) deps['brace-expansion'] = '2.0.3';
-          else if (bev.startsWith('^5') || bev.startsWith('5')) deps['brace-expansion'] = '5.0.5';
+          else if (bev.startsWith('^5') || bev.startsWith('5')) deps['brace-expansion'] = '5.0.6'; // security fix: CVE-2026-45149
         }
         if (deps['picomatch']) {
           const pmv = deps['picomatch'];
@@ -72,10 +79,7 @@ module.exports = {
           if (uv.startsWith('^6') || uv.startsWith('6')) deps['undici'] = '6.24.0';
           else if (uv.startsWith('^7') || uv.startsWith('7')) deps['undici'] = '7.24.0';
         }
-        if (deps['uuid']) {
-          const uuidv = deps['uuid'];
-          if (uuidv.startsWith('^11') || uuidv.startsWith('11')) deps['uuid'] = '11.1.1';
-        }
+        if (deps['uuid']) deps['uuid'] = '14.0.0'; // security fix: CVE-2026-41907
         if (deps['webpack-dev-server']) {
           const wdsv = deps['webpack-dev-server'];
           if (wdsv.startsWith('^5') || wdsv.startsWith('5')) deps['webpack-dev-server'] = '5.2.4';
@@ -84,9 +88,14 @@ module.exports = {
           const wsv = deps['ws'];
           if (wsv.startsWith('^8') || wsv.startsWith('8')) deps['ws'] = '8.20.1';
         }
+        if (deps['postcss']) {
+          const pv = deps['postcss'];
+          if (pv.startsWith('^8') || pv.startsWith('8')) deps['postcss'] = '8.5.13'; // security fix: CVE-2026-41305
+        }
         if (deps['yaml']) {
           const yamlv = deps['yaml'];
           if (yamlv.startsWith('^1') || yamlv.startsWith('1')) deps['yaml'] = '1.10.3';
+          else if (yamlv.startsWith('^2') || yamlv.startsWith('2')) deps['yaml'] = '2.8.3'; // security fix: CVE-2026-33532
         }
         if (deps['minimatch']) {
           const currentVersion = deps['minimatch'];
