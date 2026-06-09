@@ -23,6 +23,7 @@ import styled from '@emotion/styled';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
 import { Fragment, useEffect, useState } from 'react';
 import { EndpointTypes, InboundEndpointTypes, MessageProcessorTypes, MessageStoreTypes, TemplateTypes } from '../../constants';
+import path from 'path';
 
 
 
@@ -155,8 +156,8 @@ const artifactTypeMap: Record<string, ArtifactType> = {
     // Add more artifact types as needed
 };
 
-const ProjectStructureView = (props: { projectStructure: any, workspaceDir: string }) => {
-    const { projectStructure } = props;
+const ProjectStructureView = (props: { projectStructure: any, workspaceDir: string, isWindows: boolean }) => {
+    const { projectStructure, isWindows } = props;
     const { rpcClient } = useVisualizerContext();
     const [connectorData, setConnectorData] = useState<any[]>([]);
 
@@ -271,7 +272,7 @@ const ProjectStructureView = (props: { projectStructure: any, workspaceDir: stri
             return;
         }
 
-        const filename = localEntryPath.split(/[/\\]/).pop() ?? '';
+        const filename = localEntryPath.split(isWindows ? path.win32.sep : path.sep).pop() ?? '';
         const serverName = filename.replace(MCP_CONFIG_FILE_SUFFIX, '') || entry.name;
         const inboundEndpointPath = entry.inboundEndpoint?.path ?? '';
 
