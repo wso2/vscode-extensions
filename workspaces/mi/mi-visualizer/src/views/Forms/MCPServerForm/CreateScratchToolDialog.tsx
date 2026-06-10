@@ -24,6 +24,7 @@ import * as yup from 'yup';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
 import { DialogField, DialogButtonGroup, DialogTitle } from '../Commons';
+import { AuthenticationDialog, useAuthentication } from '../../../components/AuthenticationDialog';
 import { EMPTY_MCP_SCHEMA, INVALID_MCP_SCHEMA_MESSAGE } from '../../../constants';
 
 // Styled Components
@@ -72,6 +73,11 @@ export function CreateScratchToolDialog({
     const { rpcClient } = useVisualizerContext();
     const [aiLoading, setAiLoading] = useState(false);
 
+    const { showSignInConfirm, checkAuthentication, openSignInView, closeSignInView } = useAuthentication({
+        operationType: 'mcpToolSuggestion',
+        sessionStorageKey: 'pendingMcpScratchToolFill',
+    });
+
     const schema = useMemo(() => yup.object({
         name: yup.string()
             .required('Tool name is required')
@@ -119,6 +125,10 @@ export function CreateScratchToolDialog({
 
     const handleFillWithAI = async () => {
         if (!name?.trim()) return;
+        if (!(await checkAuthentication())) {
+            openSignInView();
+            return;
+        }
         setAiLoading(true);
         try {
             const result = await rpcClient.getMiVisualizerRpcClient().getMcpToolSuggestion({ toolName: name.trim() });
@@ -129,8 +139,12 @@ export function CreateScratchToolDialog({
                 setValue('inputSchema', result.inputSchema);
                 await validateSchema(result.inputSchema);
             }
-        } catch {
-            setError('inputSchema', { message: INVALID_MCP_SCHEMA_MESSAGE });
+        } catch (error: any) {
+            if (String(error?.message ?? error).includes('Authentication failed')) {
+                openSignInView();
+            } else {
+                console.error('Fill with AI failed', error);
+            }
         } finally {
             setAiLoading(false);
         }
@@ -232,6 +246,16 @@ export function CreateScratchToolDialog({
                     Create Tool
                 </Button>
             </DialogButtonGroup>
+
+            <AuthenticationDialog
+                isOpen={showSignInConfirm}
+                operationType="mcpToolSuggestion"
+                sessionStorageKey="pendingMcpScratchToolFill"
+                signInMessage="You need to sign in to WSO2 Integrator Copilot to use the Fill with AI feature. Would you like to sign in?"
+                waitingMessage="Please complete the sign-in process. The tool details will be filled automatically after successful authentication."
+                onCancel={closeSignInView}
+                onAuthenticationSuccess={async () => { handleFillWithAI(); }}
+            />
         </Dialog>
     );
 }

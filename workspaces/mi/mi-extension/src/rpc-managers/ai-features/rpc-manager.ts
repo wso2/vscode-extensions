@@ -955,7 +955,13 @@ Respond ONLY with a JSON object in this exact format, no other text:
                 inputSchema: JSON.stringify(parsed.inputSchema || {}),
             };
         } catch (error: any) {
-            vscode.window.showErrorMessage(`Fill With AI failed: ${error?.message ?? 'Unknown error'}`);
+            const message: string = error?.message ?? 'Unknown error';
+            // 'Unsupported login method: undefined' is thrown when the user is not logged in at all
+            if (message.includes('Authentication failed') || message.includes('Unsupported login method')) {
+                // Let the webview catch this and prompt the user to sign in
+                throw new Error('Authentication failed: Please sign in to use AI features');
+            }
+            vscode.window.showErrorMessage(`Fill With AI failed: ${message}`);
             return { name: '', description: '', inputSchema: '{}' };
         }
     }

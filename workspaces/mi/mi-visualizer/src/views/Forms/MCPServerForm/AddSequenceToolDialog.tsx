@@ -24,6 +24,7 @@ import { Sequence } from '@wso2/mi-core';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
 import { DialogField, DialogButtonGroup, DialogTitle } from '../Commons';
 import { SelectAllRow, CustomInputsContainer, ItemsList, ListItem, ListItemHeader } from './styles';
+import { AuthenticationDialog, useAuthentication } from '../../../components/AuthenticationDialog';
 import { EMPTY_MCP_SCHEMA, INVALID_MCP_SCHEMA_MESSAGE } from '../../../constants';
 
 // Styled Components
@@ -57,6 +58,12 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
     const { rpcClient } = useVisualizerContext();
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [aiLoadingIds, setAiLoadingIds] = useState<Set<string>>(new Set());
+    const [pendingAiSequenceId, setPendingAiSequenceId] = useState<string | null>(null);
+
+    const { showSignInConfirm, checkAuthentication, openSignInView, closeSignInView } = useAuthentication({
+        operationType: 'mcpToolSuggestion',
+        sessionStorageKey: 'pendingMcpSequenceToolFill',
+    });
 
     const { register, handleSubmit, watch, getValues, setValue, setError, clearErrors, reset, formState: { errors } } = useForm<FormValues>({
         defaultValues: { items: {} },
@@ -114,7 +121,16 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
         return true;
     };
 
+    const promptSignIn = (sequenceId: string) => {
+        setPendingAiSequenceId(sequenceId);
+        openSignInView({ sequenceId });
+    };
+
     const handleFillWithAI = async (seq: Sequence) => {
+        if (!(await checkAuthentication())) {
+            promptSignIn(seq.id);
+            return;
+        }
         setAiLoadingIds(prev => new Set(prev).add(seq.id));
         try {
             const customName = getValues(`items.${seq.id}.customName` as const);
@@ -133,8 +149,23 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
                 setValue(`items.${seq.id}.inputSchema` as const, result.inputSchema);
                 validateSchema(seq.id, result.inputSchema);
             }
+        } catch (error: any) {
+            if (String(error?.message ?? error).includes('Authentication failed')) {
+                promptSignIn(seq.id);
+            } else {
+                console.error('Fill with AI failed', error);
+            }
         } finally {
             setAiLoadingIds(prev => { const n = new Set(prev); n.delete(seq.id); return n; });
+        }
+    };
+
+    const handleAuthenticationSuccess = async (formValues: any) => {
+        const sequenceId = formValues?.sequenceId ?? pendingAiSequenceId;
+        setPendingAiSequenceId(null);
+        const seq = sequences.find(s => s.id === sequenceId);
+        if (seq) {
+            handleFillWithAI(seq);
         }
     };
 
@@ -303,6 +334,17 @@ export function AddSequenceToolDialog({ isOpen, sequences, onConfirm, onCancel }
                     Add Selected ({selectedIds.size})
                 </Button>
             </DialogButtonGroup>
+
+            <AuthenticationDialog
+                isOpen={showSignInConfirm}
+                operationType="mcpToolSuggestion"
+                sessionStorageKey="pendingMcpSequenceToolFill"
+                formValues={pendingAiSequenceId ? { sequenceId: pendingAiSequenceId } : undefined}
+                signInMessage="You need to sign in to WSO2 Integrator Copilot to use the Fill with AI feature. Would you like to sign in?"
+                waitingMessage="Please complete the sign-in process. The tool details will be filled automatically after successful authentication."
+                onCancel={() => { setPendingAiSequenceId(null); closeSignInView(); }}
+                onAuthenticationSuccess={handleAuthenticationSuccess}
+            />
         </Dialog>
     );
 }
