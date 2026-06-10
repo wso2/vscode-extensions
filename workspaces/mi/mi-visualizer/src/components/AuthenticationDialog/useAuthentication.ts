@@ -20,7 +20,7 @@ import { useState } from 'react';
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
 
 export interface UseAuthenticationOptions {
-    operationType: 'createUnitTests' | 'generateTestCase' | 'dataMapperMigration';
+    operationType: 'createUnitTests' | 'generateTestCase' | 'dataMapperMigration' | 'mcpToolSuggestion';
     sessionStorageKey: string;
 }
 

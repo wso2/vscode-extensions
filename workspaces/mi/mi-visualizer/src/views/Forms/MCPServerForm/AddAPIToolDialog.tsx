@@ -23,6 +23,7 @@ import { useForm } from 'react-hook-form';
 import { useVisualizerContext } from '@wso2/mi-rpc-client';
 import { DialogField, DialogButtonGroup, DialogTitle } from '../Commons';
 import { SelectAllRow, CustomInputsContainer, ItemsList, ListItem, ListItemHeader } from './styles';
+import { AuthenticationDialog, useAuthentication } from '../../../components/AuthenticationDialog';
 import { EMPTY_MCP_SCHEMA, INVALID_MCP_SCHEMA_MESSAGE } from '../../../constants';
 
 interface APIOperation {
@@ -121,6 +122,12 @@ export function AddAPIToolDialog({
     const [aiLoadingIds, setAiLoadingIds] = useState<Set<string>>(new Set());
     const [apiSchemas, setApiSchemas] = useState<Record<string, string>>({});
     const [apiDescriptions, setApiDescriptions] = useState<Record<string, string>>({});
+    const [pendingAiOperationId, setPendingAiOperationId] = useState<string | null>(null);
+
+    const { showSignInConfirm, checkAuthentication, openSignInView, closeSignInView } = useAuthentication({
+        operationType: 'mcpToolSuggestion',
+        sessionStorageKey: 'pendingMcpApiToolFill',
+    });
 
     const { register, handleSubmit, watch, getValues, setValue, setError, clearErrors, reset, formState: { errors } } = useForm<FormValues>({
         defaultValues: { items: {} },
@@ -228,7 +235,16 @@ export function AddAPIToolDialog({
         return true;
     };
 
+    const promptSignIn = (operationId: string) => {
+        setPendingAiOperationId(operationId);
+        openSignInView({ operationId });
+    };
+
     const handleFillWithAI = async (op: APIOperation) => {
+        if (!(await checkAuthentication())) {
+            promptSignIn(op.id);
+            return;
+        }
         setAiLoadingIds(prev => new Set(prev).add(op.id));
         try {
             const customName = getValues(`items.${op.id}.customName` as const);
@@ -251,8 +267,23 @@ export function AddAPIToolDialog({
                 setValue(`items.${op.id}.inputSchema` as const, result.inputSchema);
                 validateSchema(op.id, result.inputSchema);
             }
+        } catch (error: any) {
+            if (String(error?.message ?? error).includes('Authentication failed')) {
+                promptSignIn(op.id);
+            } else {
+                console.error('Fill with AI failed', error);
+            }
         } finally {
             setAiLoadingIds(prev => { const n = new Set(prev); n.delete(op.id); return n; });
+        }
+    };
+
+    const handleAuthenticationSuccess = async (formValues: any) => {
+        const operationId = formValues?.operationId ?? pendingAiOperationId;
+        setPendingAiOperationId(null);
+        const op = selectedAPI?.operations.find((o: APIOperation) => o.id === operationId);
+        if (op) {
+            handleFillWithAI(op);
         }
     };
 
@@ -466,6 +497,17 @@ export function AddAPIToolDialog({
                     Add Selected Tools ({selectedOperationIds.size})
                 </Button>
             </DialogButtonGroup>
+
+            <AuthenticationDialog
+                isOpen={showSignInConfirm}
+                operationType="mcpToolSuggestion"
+                sessionStorageKey="pendingMcpApiToolFill"
+                formValues={pendingAiOperationId ? { operationId: pendingAiOperationId } : undefined}
+                signInMessage="You need to sign in to WSO2 Integrator Copilot to use the Fill with AI feature. Would you like to sign in?"
+                waitingMessage="Please complete the sign-in process. The tool details will be filled automatically after successful authentication."
+                onCancel={() => { setPendingAiOperationId(null); closeSignInView(); }}
+                onAuthenticationSuccess={handleAuthenticationSuccess}
+            />
         </Dialog>
     );
 }
