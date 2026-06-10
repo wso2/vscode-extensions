@@ -63,6 +63,10 @@ export interface Region {
     value: string;
 }
 
+// MCP servers are created through the dedicated MCP Server artifact flow,
+// so the raw MCP inbound connector is hidden from the event integration list.
+const HIDDEN_INBOUND_CONNECTORS = /^mcp\b/i;
+
 export interface InboundEPWizardProps {
     path: string;
     model?: InboundEndpoint;
@@ -114,8 +118,8 @@ export function InboundEPWizard(props: InboundEPWizardProps) {
 
             const localConnectors = await rpcClient.getMiDiagramRpcClient().getLocalInboundConnectors();
 
-            setLocalConnectors(localConnectors["inbound-connector-data"]);
-            setStoreConnectors(data);
+            setLocalConnectors(localConnectors["inbound-connector-data"]?.filter((connector: any) => !HIDDEN_INBOUND_CONNECTORS.test(connector.name)));
+            setStoreConnectors(data?.filter((connector: any) => !HIDDEN_INBOUND_CONNECTORS.test(connector.connectorName)));
         } catch (e) {
             rpcClient.getMiVisualizerRpcClient().showNotification({message: "Error occurred while fetching inbound-connectors", type: "error"});
             console.error("Error fetching connectors", e);
