@@ -956,7 +956,7 @@ Respond ONLY with a JSON object in this exact format, no other text:
             };
         } catch (error: any) {
             const message: string = error?.message ?? 'Unknown error';
-            // 'Unsupported login method: undefined' is thrown when the user is not logged in at all
+            // Error is thrown when the user is not logged in at all
             if (message.includes('Authentication failed') || message.includes('Unsupported login method')) {
                 // Let the webview catch this and prompt the user to sign in
                 throw new Error('Authentication failed: Please sign in to use AI features');
