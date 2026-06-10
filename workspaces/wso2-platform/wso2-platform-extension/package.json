@@ -1,6 +1,6 @@
 {
   "name": "wso2-platform",
-  "displayName": "WSO2 Platform",
+  "displayName": "WSO2 Platform [Deprecated]",
   "description": "Manage WSO2 Developer & Integration platform projects in VS Code.",
   "license": "Apache-2.0",
   "version": "1.0.26",
