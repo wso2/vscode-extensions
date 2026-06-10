@@ -44,6 +44,7 @@ module.exports = {
         if (deps['file-type']) deps['file-type'] = '21.3.2'; // security fix
         if (deps['immutable']) deps['immutable'] = '3.8.3'; // security fix
         if (deps['serialize-javascript']) deps['serialize-javascript'] = '7.0.5'; // security fix: XSS/code injection
+        if (deps['shell-quote']) deps['shell-quote'] = '1.8.4';
         if (deps['flatted']) deps['flatted'] = '3.4.2'; // security fix
         if (deps['handlebars']) deps['handlebars'] = '4.7.9'; // security fix: prototype pollution
         if (deps['tmp']) deps['tmp'] = '0.2.6'; // security fix
