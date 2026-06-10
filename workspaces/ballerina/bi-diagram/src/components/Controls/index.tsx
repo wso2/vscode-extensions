@@ -22,13 +22,13 @@ import { DiagramEngine } from "@projectstorm/react-diagrams-core";
 import { loadDiagramZoomAndPosition, resetDiagramZoomAndPosition } from "../../utils/diagram";
 import { Icon, ThemeColors } from "@wso2/ui-toolkit";
 
-const Container = styled.div<{}>`
+const Container = styled.div<{ embedded?: boolean }>`
     display: flex;
     flex-direction: column;
     justify-content: center;
     gap: 8px;
 
-    position: fixed;
+    position: ${(props) => (props.embedded ? "absolute" : "fixed")};
     bottom: 20px;
     left: 20px;
     z-index: 1000;
@@ -82,10 +82,11 @@ const Button = styled.div<{}>`
 
 interface ControlsProps {
     engine: DiagramEngine;
+    embedded?: boolean;
 }
 
 export function Controls(props: ControlsProps) {
-    const { engine } = props;
+    const { engine, embedded } = props;
 
     const handleZoomToFit = () => {
         resetDiagramZoomAndPosition();
@@ -100,7 +101,7 @@ export function Controls(props: ControlsProps) {
     };
 
     return (
-        <Container>
+        <Container embedded={embedded}>
             <Button onClick={handleZoomToFit}>
                 <Icon name="bi-fit-screen" sx={{ width: 16, height: 16, fontSize: 16 }} />
             </Button>

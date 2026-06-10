@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { AvailableNode, CodeData, ConfigVariable, EVENT_TYPE, FlowNode, LinePosition, LineRange, NodeKind, ProjectStructureArtifactResponse, Property, SearchNodesQueryParams } from "@wso2/ballerina-core";
+import { AvailableNode, CodeData, ConfigVariable, EVENT_TYPE, FlowNode, LinePosition, LineRange, NodeKind, NodePosition, ProjectStructureArtifactResponse, Property, SearchNodesQueryParams } from "@wso2/ballerina-core";
 import { BallerinaRpcClient } from "@wso2/ballerina-rpc-client";
 import { cloneDeep } from "lodash";
 import { URI, Utils } from "vscode-uri";
@@ -386,6 +386,34 @@ export const findAgentNodeFromAgentCallNode = async (agentCallNode: FlowNode, rp
 };
 
 // Opens the focus diagram of the agent variable an AGENT_RUN node calls.
+export const resolveAgentLocation = async (
+    agentRunNode: FlowNode,
+    rpcClient: BallerinaRpcClient
+): Promise<{ filePath: string; position: NodePosition; agentName: string } | null> => {
+    const agentName = agentRunNode.properties?.connection?.value;
+    const callSiteFile = agentRunNode.codedata?.lineRange?.fileName;
+    if (typeof agentName !== "string" || !callSiteFile) return null;
+    const visualizerRpc = rpcClient.getVisualizerRpcClient();
+    const { filePath: callSitePath } = await visualizerRpc.joinProjectPath({ segments: [callSiteFile] });
+    const nodes = await findFlowNode(rpcClient, callSitePath, agentRunNode.codedata?.lineRange?.startLine, {
+        kind: "AGENT_TYPE",
+        exactMatch: agentName,
+    });
+    const declRange = nodes?.[0]?.codedata?.lineRange;
+    if (!declRange) return null;
+    const { filePath: declPath } = await visualizerRpc.joinProjectPath({ segments: [declRange.fileName] });
+    return {
+        filePath: declPath,
+        agentName,
+        position: {
+            startLine: declRange.startLine.line,
+            startColumn: declRange.startLine.offset,
+            endLine: declRange.endLine.line,
+            endColumn: declRange.endLine.offset,
+        },
+    };
+};
+
 export const goToAgentFromRunNode = async (agentRunNode: FlowNode, rpcClient: BallerinaRpcClient) => {
     const agentName = agentRunNode.properties?.connection?.value;
     const callSiteFile = agentRunNode.codedata?.lineRange?.fileName;

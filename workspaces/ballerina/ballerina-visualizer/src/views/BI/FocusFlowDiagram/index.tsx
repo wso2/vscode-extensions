@@ -77,9 +77,9 @@ import { PanelOverlayRenderer } from "../FlowDiagram/PanelOverlayRenderer";
 import { createPromptHelperPane } from "./utils";
 
 
-const Container = styled.div`
+const Container = styled.div<{ embedded?: boolean }>`
     width: 100%;
-    height: calc(100vh - 50px);
+    height: ${(props: { embedded?: boolean }) => props.embedded ? "100%" : "calc(100vh - 50px)"};
 `;
 
 const SpinnerContainer = styled.div`
@@ -93,6 +93,10 @@ export interface BIFocusFlowDiagramProps {
     projectPath: string;
     filePath: string;
     view?: FocusFlowDiagramView;
+    /** When rendering embedded (e.g. in a drawer), provide the position so the component
+     *  doesn't need to fetch it from the VS Code extension state. */
+    position?: NodePosition;
+    embedded?: boolean;
     onUpdate: () => void;
     onReady: (fileName: string, parentMetadata?: ParentMetadata, position?: NodePosition) => void;
 }
@@ -111,7 +115,9 @@ type AgentPanel =
     | "AGENT_TOOL";
 
 export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
-    const { projectPath, filePath, view, onUpdate, onReady } = props;
+    const { projectPath, filePath, view, onUpdate, onReady, embedded } = props;
+    // Tracks the agent position in embedded mode (where getVisualizerLocation returns the parent view's location).
+    const embeddedPositionRef = useRef<NodePosition | undefined>(props.position);
     const { rpcClient } = useRpcContext();
     const isAgent = view === FOCUS_FLOW_DIAGRAM_VIEW.AGENT;
     // Custom AgentType classes render a simplified node (box + conditional model-provider circle).
@@ -289,11 +295,12 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
         onUpdate();
         try {
             const location = await rpcClient.getVisualizerLocation();
-            const pos = posOverride ?? location?.position;
+            const pos = posOverride ?? embeddedPositionRef.current ?? location?.position;
             if (!pos) {
                 console.error(">>> agent focus: no position in visualizer location", location);
                 return;
             }
+            embeddedPositionRef.current = pos;
 
             // A single getFlowModel call over the declaration's line range returns both the AGENT node
             // (built via the standard flow-model path, so it carries the LS-injected tool/model/memory
@@ -351,11 +358,12 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
         try {
             const location = await rpcClient.getVisualizerLocation();
             // posOverride wins over the stored location, which is stale after a delete shifts the agent up.
-            const pos = posOverride ?? location?.position;
+            const pos = posOverride ?? embeddedPositionRef.current ?? location?.position;
             if (!pos) {
                 console.error(">>> agent-type focus: no position in visualizer location", location);
                 return;
             }
+            embeddedPositionRef.current = pos;
             const response = await rpcClient.getBIDiagramRpcClient().getFlowModel({
                 filePath,
                 startLine: { line: pos.startLine, offset: pos.startColumn },
@@ -1159,6 +1167,7 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
             readOnly: showProgressIndicator,
             // Enables the single agent node's centering in Diagram.tsx (focus view only).
             isAgentFocusView: true,
+            embedded,
             agentNode: {
                 onModelSelect: handleEditAgentModel,
                 onAddTool: handleAddTool,
@@ -1171,7 +1180,7 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
                 onDeleteMemoryManager: handleDeleteAgentMemory,
             },
         }),
-        [flowModel, projectPath, breakpointInfo, showProgressIndicator]
+        [flowModel, projectPath, breakpointInfo, showProgressIndicator, embedded]
     );
 
     const agentTypeDiagramProps = useMemo(
@@ -1187,6 +1196,7 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
             breakpointInfo,
             readOnly: showProgressIndicator,
             isAgentFocusView: true,
+            embedded,
             // The simplified node edits the model provider, and — when the class wires an ai:Memory param — memory via
             // the same Configure Memory panel as the built-in agent. Tool affordances aren't rendered.
             agentNode: {
@@ -1202,7 +1212,7 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
                 onChatWithAgent: handleOnChatWithAgent,
             },
         }),
-        [flowModel, projectPath, breakpointInfo, showProgressIndicator]
+        [flowModel, projectPath, breakpointInfo, showProgressIndicator, embedded]
     );
 
     const diagramProps = isAgentType ? agentTypeDiagramProps : isAgent ? agentDiagramProps : memoizedDiagramProps;
@@ -1224,7 +1234,7 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
                 {(showProgressIndicator) && model && (
                     <ProgressIndicator color={ThemeColors.PRIMARY} />
                 )}
-                <Container>
+                <Container embedded={embedded}>
                     {!model && (
                         <SpinnerContainer>
                             <ProgressRing color={ThemeColors.PRIMARY} />

@@ -20,7 +20,8 @@ import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { TraceAnimationEvent } from "@wso2/ballerina-core";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import styled from "@emotion/styled";
-import { removeMcpServerFromAgentNode, findAgentNodeFromAgentCallNode, findFlowNode, goToAgentFromRunNode, removeAgentNode, confirmAgentCallDeletion } from "../AIChatAgent/utils";
+import { removeMcpServerFromAgentNode, findAgentNodeFromAgentCallNode, findFlowNode, goToAgentFromRunNode, resolveAgentLocation, removeAgentNode, confirmAgentCallDeletion } from "../AIChatAgent/utils";
+import { AgentFocusDrawer } from "./AgentFocusDrawer";
 import { MemoizedDiagram, setTraceAnimationActive, setTraceAnimationInactive } from "@wso2/bi-diagram";
 import {
     BIAvailableNodesRequest,
@@ -151,6 +152,11 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
     // Navigation stack for back navigation
     const [navigationStack, setNavigationStack] = useState<NavigationStackItem[]>([]);
+    const [agentDrawer, setAgentDrawer] = useState<{
+        filePath: string;
+        position: { startLine?: number; startColumn?: number; endLine?: number; endColumn?: number };
+        agentName: string;
+    } | null>(null);
 
     const {
         addDraftNode,
@@ -2423,7 +2429,12 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         await rpcClient.getVisualizerRpcClient().openView({ type: EVENT_TYPE.OPEN_VIEW, location: context });
     };
 
-    const handleGoToAgent = (node: FlowNode) => goToAgentFromRunNode(node, rpcClient);
+    const handleGoToAgent = async (node: FlowNode) => {
+        const resolved = await resolveAgentLocation(node, rpcClient);
+        if (resolved) {
+            setAgentDrawer(resolved);
+        }
+    };
 
     const handleSubPanel = (subPanel: SubPanel) => {
         setSubPanel(subPanel);
@@ -2996,6 +3007,17 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             />
 
             <PanelOverlayRenderer />
+
+            {agentDrawer && (
+                <AgentFocusDrawer
+                    projectPath={projectPath}
+                    filePath={agentDrawer.filePath}
+                    position={agentDrawer.position}
+                    agentName={agentDrawer.agentName}
+                    onClose={() => setAgentDrawer(null)}
+                    onUpdate={onUpdate}
+                />
+            )}
         </PanelOverlayProvider>
     );
 }

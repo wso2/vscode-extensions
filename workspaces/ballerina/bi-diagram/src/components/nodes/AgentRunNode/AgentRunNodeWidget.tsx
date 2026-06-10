@@ -115,6 +115,27 @@ const AgentName = styled.div`
     white-space: nowrap;
 `;
 
+const ViewAgentButton = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    border: 1px solid ${ThemeColors.OUTLINE_VARIANT};
+    background-color: ${ThemeColors.SURFACE};
+    color: ${ThemeColors.ON_SURFACE};
+    font-size: 11px;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    opacity: 0.8;
+    transition: opacity 0.15s ease, background-color 0.15s ease;
+    &:hover {
+        opacity: 1;
+        background-color: ${ThemeColors.SURFACE_CONTAINER};
+    }
+`;
+
 export interface AgentRunNodeWidgetProps {
     model: AgentRunNodeModel;
     engine: DiagramEngine;
@@ -123,7 +144,7 @@ export interface AgentRunNodeWidgetProps {
 
 const NODE_TITLE = (
     <>
-        AI Agent<TitleArrow>→</TitleArrow>Run
+        AI Agent<TitleArrow>:</TitleArrow>Run
     </>
 );
 
@@ -184,7 +205,8 @@ export function AgentRunNodeWidget(props: AgentRunNodeWidgetProps) {
         setMenuAnchorEl(null);
     };
 
-    const handleOnViewAgentClick = () => {
+    const handleOnViewAgentClick = (event: React.MouseEvent<HTMLElement | SVGSVGElement>) => {
+        event.stopPropagation();
         if (readOnly || !goToAgent) {
             return;
         }
@@ -211,6 +233,7 @@ export function AgentRunNodeWidget(props: AgentRunNodeWidgetProps) {
         if (readOnly) {
             return;
         }
+        event.stopPropagation();
         setMenuAnchorEl(event.currentTarget);
     };
 
@@ -255,6 +278,7 @@ export function AgentRunNodeWidget(props: AgentRunNodeWidgetProps) {
             isSelected={isSelected}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
+            onClick={!readOnly ? handleOnClick : undefined}
             onContextMenu={!readOnly ? handleOnContextMenu : undefined}
         >
             {hasBreakpoint && (
@@ -300,18 +324,15 @@ export function AgentRunNodeWidget(props: AgentRunNodeWidgetProps) {
                     <AgentRow>
                         <AgentName onClick={handleOnClick}>{agentVarName}</AgentName>
                         {canViewAgent && (
-                            <Tooltip content="View agent">
-                                <NodeStyles.MenuButton
-                                    buttonSx={readOnly ? { cursor: "not-allowed" } : {}}
-                                    appearance="icon"
-                                    onClick={handleOnViewAgentClick}
-                                >
+                            <Tooltip content="View agent configuration">
+                                <ViewAgentButton onClick={handleOnViewAgentClick}>
                                     <Icon
                                         name="bi-function-flow"
-                                        sx={{ width: 16, height: 16 }}
-                                        iconSx={{ fontSize: 16 }}
+                                        sx={{ width: 12, height: 12 }}
+                                        iconSx={{ fontSize: 12 }}
                                     />
-                                </NodeStyles.MenuButton>
+                                    View
+                                </ViewAgentButton>
                             </Tooltip>
                         )}
                     </AgentRow>

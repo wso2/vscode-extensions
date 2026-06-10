@@ -62,11 +62,11 @@ namespace Styles {
         padding: 0 ${NODE_PADDING}px;
         border: ${NODE_BORDER_WIDTH}px solid
             ${(props: BoxProp) =>
-                props.hasError
-                    ? ThemeColors.ERROR
-                    : (props.isSelected || (props.hovered && !props.readOnly))
-                        ? ThemeColors.SECONDARY
-                        : ThemeColors.OUTLINE_VARIANT};
+            props.hasError
+                ? ThemeColors.ERROR
+                : (props.isSelected || (props.hovered && !props.readOnly))
+                    ? ThemeColors.SECONDARY
+                    : ThemeColors.OUTLINE_VARIANT};
         border-radius: 10px;
         background-color: ${ThemeColors.SURFACE_DIM};
         color: ${ThemeColors.ON_SURFACE};
@@ -224,6 +224,28 @@ namespace Styles {
         opacity: 0.7;
     `;
 
+    export const IconBox = styled.div`
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 4px;
+        margin-right: 4px;
+        border: 1px solid ${ThemeColors.OUTLINE_VARIANT};
+        border-radius: 8px;
+    `;
+
+    export const PackageBadge = styled.div`
+        position: absolute;
+        bottom: -8px;
+        right: -8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: ${ThemeColors.SURFACE_DIM};
+        border-radius: 50%;
+    `;
+
     export const TopPortWidget = styled(PortWidget)`
         margin-top: -3px;
         z-index: 2;
@@ -271,6 +293,7 @@ export function AgentTypeNodeWidget(props: AgentTypeNodeWidgetProps) {
     const tools: ToolData[] = nodeMetadata?.tools || [];
 
     const title = "AI Agent";
+    const isPrebuilt = !!model.node.codedata?.org;
     const variableName = model.node.properties?.variable?.value as ReactNode;
 
     const onNodeClick = () => {
@@ -379,9 +402,18 @@ export function AgentTypeNodeWidget(props: AgentTypeNodeWidgetProps) {
                 <Styles.TopPortWidget port={model.getPort("in")!} engine={engine} />
                 <Styles.Column style={{ height: `${model.node.viewState?.ch}px` }}>
                     <Styles.Row>
-                        <Styles.Icon onClick={onNodeClick}>
-                            <NodeIcon type={model.node.codedata.node} size={24} />
-                        </Styles.Icon>
+                        {isPrebuilt ? (
+                            <Styles.IconBox onClick={onNodeClick}>
+                                <NodeIcon type={model.node.codedata.node} size={24} />
+                                <Styles.PackageBadge>
+                                    <Icon name="package" isCodicon={true} iconSx={{ fontSize: "14px" }} sx={{ color: "orange" }} />
+                                </Styles.PackageBadge>
+                            </Styles.IconBox>
+                        ) : (
+                            <Styles.Icon onClick={onNodeClick}>
+                                <NodeIcon type={model.node.codedata.node} size={24} />
+                            </Styles.Icon>
+                        )}
                         <Styles.Header onClick={onNodeClick}>
                             <Styles.Title>{title}</Styles.Title>
                             <Styles.Description>{variableName}</Styles.Description>
@@ -552,7 +584,9 @@ export function AgentTypeNodeWidget(props: AgentTypeNodeWidgetProps) {
                         <g
                             key={index}
                             transform={`translate(0, ${(index + 1) * (NODE_HEIGHT + AGENT_NODE_TOOL_GAP) + AGENT_NODE_TOOL_SECTION_GAP})`}
+                            style={{ opacity: 0.8, cursor: "not-allowed" }}
                         >
+                            <title>This tool is packaged with the agent and cannot be edited</title>
                             <line
                                 x1="0"
                                 y1="25"
@@ -576,6 +610,10 @@ export function AgentTypeNodeWidget(props: AgentTypeNodeWidgetProps) {
                             <foreignObject x="68" y="12" width="44" height="44" style={{ pointerEvents: "none" }}>
                                 <Icon name="bi-function" sx={{ fontSize: "24px" }} />
                             </foreignObject>
+                            {/* lock badge at top-right of circle */}
+                            <foreignObject x="92" y="4" width="16" height="16" style={{ pointerEvents: "none" }}>
+                                <Icon name="lock" isCodicon={true} iconSx={{ fontSize: "10px" }} sx={{ color: ThemeColors.ON_SURFACE, opacity: 1 }} />
+                            </foreignObject>
                             <text
                                 x="110"
                                 y="28"
@@ -585,7 +623,6 @@ export function AgentTypeNodeWidget(props: AgentTypeNodeWidgetProps) {
                                 fontFamily="GilmerRegular"
                             >
                                 {tool.name.length > 20 ? `${tool.name.slice(0, 20)}...` : tool.name}
-                                <title>{tool.name}</title>
                             </text>
                         </g>
                     ))}

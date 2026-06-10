@@ -106,6 +106,8 @@ export interface DiagramProps {
     // Set only by the agent focus-flow diagram, so its single-node centering never affects the
     // normal flow diagram.
     isAgentFocusView?: boolean;
+    // When true, renders Controls with position:absolute (inside a popup) instead of position:fixed.
+    embedded?: boolean;
 }
 
 export function Diagram(props: DiagramProps) {
@@ -136,11 +138,14 @@ export function Diagram(props: DiagramProps) {
         expressionContext,
         entrypointContext,
         isAgentFocusView,
+        embedded,
     } = props;
 
     const [showErrorFlow, setShowErrorFlow] = useState(false);
     const [diagramEngine] = useState<DiagramEngine>(generateEngine());
     const [diagramModel, setDiagramModel] = useState<DiagramModel | null>(null);
+    // In embedded agent focus view, hide until centering completes to avoid visible jump.
+    const [canvasVisible, setCanvasVisible] = useState(!(isAgentFocusView && embedded));
     const [showComponentPanel, setShowComponentPanel] = useState(false);
     const [expandedErrorHandler, setExpandedErrorHandler] = useState<string | undefined>(undefined);
 
@@ -311,7 +316,7 @@ export function Diagram(props: DiagramProps) {
 
         if (isSingleAgentNode) {
             const centerSingleAgentNode = () => {
-                const canvas = document.getElementById("bi-diagram-canvas");
+                const canvas = diagramEngine.getCanvas();
                 if (!canvas) {
                     return false;
                 }
@@ -319,9 +324,11 @@ export function Diagram(props: DiagramProps) {
                 const diagramModel = diagramEngine.getModel();
                 const zoom = diagramModel.getZoomLevel() / 100;
                 const cardHeight = agentNode.node.viewState.ch || agentNode.node.viewState.h;
-                const canvasHeight = canvas.getBoundingClientRect().height;
+                const { width: canvasWidth, height: canvasHeight } = canvas.getBoundingClientRect();
+                // Card center is at diagram x=0 (node placed at x=-lw), so offsetX = canvasWidth/2.
+                const offsetX = canvasWidth / 2;
                 const offsetY = canvasHeight / 2 - 40 - (agentNode.getY() + cardHeight / 2) * zoom;
-                diagramModel.setOffset(diagramModel.getOffsetX(), offsetY);
+                diagramModel.setOffset(offsetX, offsetY);
                 return true;
             };
 
@@ -330,7 +337,10 @@ export function Diagram(props: DiagramProps) {
                     if (centerSingleAgentNode()) {
                         diagramEngine.repaintCanvas();
                     }
+                    setCanvasVisible(true);
                 });
+            } else {
+                setCanvasVisible(true);
             }
         }
 
@@ -410,8 +420,13 @@ export function Diagram(props: DiagramProps) {
         getActiveBreakpointNode(nodes) || getDraftNode(nodes);
 
     return (
-        <>
-            <Controls engine={diagramEngine} />
+        <div style={{
+            opacity: canvasVisible ? 1 : 0,
+            transition: canvasVisible ? "opacity 0.15s ease" : "none",
+            height: "100%",
+            width: "100%",
+        }}>
+            <Controls engine={diagramEngine} embedded={embedded} />
             {diagramEngine && diagramModel && (
                 <DiagramContextProvider value={context}>
                     {overlay?.visible && <PopupOverlay onClose={overlay.onClickOverlay} />}
@@ -423,7 +438,7 @@ export function Diagram(props: DiagramProps) {
                     </DiagramCanvas>
                 </DiagramContextProvider>
             )}
-        </>
+        </div>
     );
 }
 
