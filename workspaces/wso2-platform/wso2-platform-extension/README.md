@@ -1,5 +1,9 @@
 # WSO2 Platform Extension for Visual Studio Code
 
+> ❗ **IMPORTANT**: This extension has been deprecated in favor of the [WSO2 Integrator](https://marketplace.visualstudio.com/items?itemName=WSO2.wso2-integrator) extension.
+>
+> Please install the [WSO2 Integrator](https://marketplace.visualstudio.com/items?itemName=WSO2.wso2-integrator) extension instead.
+
 The WSO2 Platform VS Code extension enhances your local development experience with [WSO2 Developer Platform](https://wso2.com/choreo/) and [WSO2 Integration Platform](https://devant.wso2.com/) projects, providing comprehensive project and component management capabilities in VS Code. For more details, visit the [WSO2 Developer Platform documentation](https://wso2.com/choreo/docs/) or [WSO2 Integration Platform documentation](https://wso2.com/devant/docs/).
 
 
