@@ -1,9 +1,9 @@
 {
   "name": "wso2-platform",
-  "displayName": "WSO2 Platform",
+  "displayName": "WSO2 Platform [Deprecated]",
   "description": "Manage WSO2 Developer & Integration platform projects in VS Code.",
   "license": "Apache-2.0",
-  "version": "1.0.26",
+  "version": "1.0.27",
   "cliVersion": "v1.2.212603061900",
   "publisher": "wso2",
   "bugs": {
@@ -271,6 +271,7 @@
     "@vscode-logging/logger": "2.0.0",
     "@vscode-logging/types": "2.0.0",
     "@vscode-logging/wrapper": "2.0.0",
+    "@microsoft/applicationinsights-common": "3.3.11",
     "@vscode/extension-telemetry": "1.0.0",
     "@vscode/iconv-lite-umd": "0.7.0",
     "@vscode/webview-ui-toolkit": "1.4.0",
