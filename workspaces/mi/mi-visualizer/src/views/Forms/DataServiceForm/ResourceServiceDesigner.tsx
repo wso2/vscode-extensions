@@ -375,6 +375,10 @@ export function DSSResourceServiceDesignerView({ syntaxTree, documentUri }: Serv
             <ResourceForm
                 isOpen={isResourceFormOpen}
                 formData={mode === "edit" && formData}
+                existingResources={(syntaxTree?.data?.resources ?? []).map((resource: any) => ({
+                    path: resource.path,
+                    method: resource.method,
+                }))}
                 onCancel={handleCancel}
                 documentUri={documentUri}
                 onSave={handleResourceCreate}
@@ -388,6 +392,7 @@ export function DSSResourceServiceDesignerView({ syntaxTree, documentUri }: Serv
             <OperationForm
                 isOpen={isOperationFormOpen}
                 formData={mode === "edit" && formData}
+                existingOperations={(syntaxTree?.data?.operations ?? []).map((operation: any) => operation.name)}
                 onCancel={handleCancel}
                 documentUri={documentUri}
                 onSave={handleOperationCreate}

@@ -67,6 +67,8 @@ export enum MACHINE_VIEW {
     DssDataSourceForm = "DSS Data Source Form",
     DSSResourceServiceDesigner = "DSS Resource Designer",
     DSSQueryServiceDesigner = "DSS Query Designer",
+    MCPServerForm = "MCPServerForm",
+    MCPServerFromAPIsForm = "MCPServerFromAPIsForm",
     ProjectCreationForm = "Project Creation Form",
     ConvertToConsolidatedForm = "Convert To Consolidated Form",
     LocalEntryForm = "Local Entry Form",
@@ -95,6 +97,7 @@ export enum MACHINE_VIEW {
     ProjectInformationForm = "Project Information Form",
     SETUP_ENVIRONMENT = "Setup Environment",
     ImportConnectorForm = "Import Connector",
+    ImportInboundConnectorForm = "Import Inbound Connector",
     IdpConnectorSchemaGeneratorForm = "IDP Connector Schema Generator Form",
     DataMapperMigrationForm = "DataMapper Migration Form",
 }

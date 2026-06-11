@@ -17,7 +17,7 @@
  */
 
 import { ComponentCard, IconLabel, FormView, TextField, Codicon, Typography, FormActions, Button, Divider, Icon, DropdownButton, Tooltip } from "@wso2/ui-toolkit";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import styled from "@emotion/styled";
 import { VSCodeLink, VSCodeProgressRing } from "@vscode/webview-ui-toolkit/react";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
@@ -111,6 +111,37 @@ const NameLabel = styled(IconLabel)`
     text-align: start;
     font-size: 1.2em;
 `;
+
+const ConnectionCard = ({ id, label, icon, onClick, sx }: any) => {
+    const labelRef = useRef<HTMLDivElement>(null);
+    const [isTruncated, setIsTruncated] = useState(false);
+
+    useLayoutEffect(() => {
+        const el = labelRef.current;
+        setIsTruncated(!!el && el.scrollWidth > el.clientWidth);
+    }, [label]);
+
+    const card = (
+        <ComponentCard onClick={onClick ? () => onClick() : undefined} sx={sx}>
+            <CardContent>
+                <IconContainer>{icon}</IconContainer>
+                <CardLabel>
+                    <LabelContainer>
+                        <NameLabel ref={labelRef} id={id}>
+                            {label}
+                        </NameLabel>
+                    </LabelContainer>
+                </CardLabel>
+            </CardContent>
+        </ComponentCard>
+    );
+
+    return isTruncated ? (
+        <Tooltip content={label} position="bottom" containerSx={{ display: 'flex', width: '100%' }}>
+            {card}
+        </Tooltip>
+    ) : card;
+};
 
 const WarningBanner = styled.div`
     display: flex;
@@ -349,11 +380,16 @@ export function ConnectionWizard(props: ConnectionStoreProps) {
     }
 
     function filterStoreConnectionsFromLocal(displayedStoreConnectors: any, displayedLocalConnectors: any) {
+        // Handle jdk specific connectors
+        const normalizeVersion = (version: string) =>
+            (version ?? "").toLowerCase().replace(/^v/, "").replace(/[-_]jdk\d+$/i, "");
+        const normalizeName = (name: string) => (name ?? "").toLowerCase().replace(/[\s._-]/g, "");
         return displayedStoreConnectors.filter((connector: any) =>
             !displayedLocalConnectors.some((c: any) => {
-                const displayName = c.displayName ?? c.name;
-                return displayName.toLowerCase() === connector.connectorName.toLowerCase() &&
-                    c.version === connector.version.tagName;
+                const identityMatches = (c.artifactId && connector.mavenArtifactId &&
+                        c.artifactId.toLowerCase() === connector.mavenArtifactId.toLowerCase()) ||
+                        normalizeName(c.displayName ?? c.name) === normalizeName(connector.connectorName);
+                return identityMatches && normalizeVersion(c.version) === normalizeVersion(connector.version.tagName);
             })
         );
     }
@@ -522,27 +558,18 @@ export function ConnectionWizard(props: ConnectionStoreProps) {
                                                 const isDisabled = isWso2AiConnection && !isMiCopilotLoggedIn;
 
                                                 const cardContent = (
-                                                    <ComponentCard
+                                                    <ConnectionCard
                                                         key={connectionType}
+                                                        label={capitalizeFirstChar(connectionType)}
                                                         onClick={isDisabled ? undefined : () => selectConnectionType(connector, connectionType)}
                                                         sx={isDisabled ? disabledConnectorCardStyle : connectorCardStyle}
-                                                    >
-                                                        <CardContent>
-                                                            <IconContainer>
-                                                                <img
-                                                                    src={(connectionData as any).iconPathUri}
-                                                                    alt="Icon"
-                                                                />
-                                                            </IconContainer>
-                                                            <CardLabel>
-                                                                <LabelContainer>
-                                                                    <NameLabel>
-                                                                        {capitalizeFirstChar(connectionType)}
-                                                                    </NameLabel>
-                                                                </LabelContainer>
-                                                            </CardLabel>
-                                                        </CardContent>
-                                                    </ComponentCard>
+                                                        icon={
+                                                            <img
+                                                                src={(connectionData as any).iconPathUri}
+                                                                alt="Icon"
+                                                            />
+                                                        }
+                                                    />
                                                 );
 
                                                 // Wrap disabled WSO2_AI connection with tooltip
@@ -590,31 +617,23 @@ export function ConnectionWizard(props: ConnectionStoreProps) {
                                                 )}
                                                 <SampleGrid>
                                                     {(connector.version.connections).map((connection: any) => (
-                                                        <ComponentCard
+                                                        <ConnectionCard
                                                             key={connection.name}
+                                                            id={`connection-${capitalizeFirstChar(connection.name)}`}
+                                                            label={capitalizeFirstChar(connection.name)}
                                                             onClick={() => selectStoreConnectionType(connector, connection.name)}
                                                             sx={connectorCardStyle}
-                                                        >
-                                                            <CardContent>
-                                                                <IconContainer>
-                                                                    <img
-                                                                        src={connection.iconUrl}
-                                                                        alt="Icon"
-                                                                        onError={(e) => {
-                                                                            const target = e.target as HTMLImageElement;
-                                                                            target.src = connector.iconUrl || connector.connectorFailoverIconUrl;
-                                                                        }}
-                                                                    />
-                                                                </IconContainer>
-                                                                <CardLabel>
-                                                                    <LabelContainer>
-                                                                        <NameLabel id={`connection-${capitalizeFirstChar(connection.name)}`}>
-                                                                            {capitalizeFirstChar(connection.name)}
-                                                                        </NameLabel>
-                                                                    </LabelContainer>
-                                                                </CardLabel>
-                                                            </CardContent>
-                                                        </ComponentCard>
+                                                            icon={
+                                                                <img
+                                                                    src={connection.iconUrl}
+                                                                    alt="Icon"
+                                                                    onError={(e) => {
+                                                                        const target = e.target as HTMLImageElement;
+                                                                        target.src = connector.iconUrl || connector.connectorFailoverIconUrl;
+                                                                    }}
+                                                                />
+                                                            }
+                                                        />
                                                     ))}
                                                 </SampleGrid>
                                             </div>
@@ -772,7 +791,7 @@ export function ConnectionWizard(props: ConnectionStoreProps) {
                                         }}
                                         autoFocus={true}
                                     />
-                                    <ConnectorList />
+                                    {ConnectorList()}
                                 </div>
                             )}
                         </FormView >

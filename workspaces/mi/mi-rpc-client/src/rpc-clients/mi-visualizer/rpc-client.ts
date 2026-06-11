@@ -114,7 +114,10 @@ import {
     executeRemoteDeployWithParams,
     ExecuteRemoteDeployParams,
     getRemoteDeployConfigs,
-    DeployConfigParam
+    DeployConfigParam,
+    getMcpToolSuggestion,
+    McpToolSuggestionRequest,
+    McpToolSuggestionResponse
 } from "@wso2/mi-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -325,5 +328,9 @@ export class MiVisualizerRpcClient implements MIVisualizerAPI {
 
     getRemoteDeployConfigs(): Promise<DeployConfigParam[]> {
         return this._messenger.sendRequest(getRemoteDeployConfigs, HOST_EXTENSION);
+    }
+
+    getMcpToolSuggestion(params: McpToolSuggestionRequest): Promise<McpToolSuggestionResponse> {
+        return this._messenger.sendRequest(getMcpToolSuggestion, HOST_EXTENSION, params);
     }
 }

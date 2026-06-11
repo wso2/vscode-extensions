@@ -213,6 +213,7 @@ export async function executeBuildTask(projectUri: string, serverPath: string, s
                     [],
                     { shell: true, cwd: project, env: envVariables }
                 );
+                activeBuildProcess = buildProcess;
                 showServerOutputChannel();
 
                 buildProcess.stdout.on('data', (data) => {
@@ -240,6 +241,7 @@ export async function executeBuildTask(projectUri: string, serverPath: string, s
                 if (shouldCopyTarget) {
 
                     buildProcess.on('exit', async (code) => {
+                        activeBuildProcess = undefined;
                         if (shouldCopyTarget && code === 0) {
                             if (!fs.existsSync(serverPath)) {
                                 reject(INCORRECT_SERVER_PATH_MSG);
@@ -297,6 +299,7 @@ export async function executeBuildTask(projectUri: string, serverPath: string, s
                     });
                 } else {
                     buildProcess.on('exit', async (code) => {
+                        activeBuildProcess = undefined;
                         if (code === 0) {
                             resolve();
                         } else {
@@ -388,6 +391,7 @@ async function getCarFiles(targetDirectory) {
 }
 
 let serverProcess: ChildProcess;
+let activeBuildProcess: ChildProcess | undefined;
 const debugConsole = vscode.debug.activeDebugConsole;
 
 export function isCipherToolEnabled(serverPath: string): boolean {
@@ -429,6 +433,13 @@ export async function promptAndWriteCipherToolPassword(serverPath: string): Prom
     } catch (err) {
         vscode.window.showErrorMessage(`Failed to write cipher tool password file: ${(err as Error).message}`);
         return false;
+    }
+}
+
+export function abortBuildAndRun(): void {
+    if (activeBuildProcess) {
+        treeKill(activeBuildProcess.pid!, 'SIGKILL');
+        activeBuildProcess = undefined;
     }
 }
 

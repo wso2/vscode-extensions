@@ -17,6 +17,7 @@
  */
 
 import { EVENT_TYPE, MACHINE_VIEW, VisualizerLocation } from "@wso2/mi-core";
+import { MCP_CONFIG_FILE_SUFFIX } from "../../constants";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
 import { Codicon, Button } from "@wso2/ui-toolkit";
 import path from "path";
@@ -65,27 +66,38 @@ export function HierachicalPath(props: HierachicalPathProps) {
                 return;
             }
 
-            for (const pathItem of pathItems) {
+            for (let i = 0; i < pathItems.length; i++) {
+                const pathItem = pathItems[i];
                 if (pathItem.endsWith(".xml")) {
-                    try {
-                        const syntaxTree = await rpcClient.getMiDiagramRpcClient().getSyntaxTree({ documentUri: machineView.documentUri });
-                        if (!syntaxTree || !syntaxTree?.syntaxTree || !syntaxTree.syntaxTree?.api) {
-                            continue;
-                        }
-                        const api = syntaxTree.syntaxTree.api;
+                    if (pathItem.endsWith(MCP_CONFIG_FILE_SUFFIX)) {
                         segments.push({
-                            label: `${api.context}`,
-                            onClick: () => {
-                                rpcClient.getMiVisualizerRpcClient().openView({
-                                    type: EVENT_TYPE.OPEN_VIEW,
-                                    location: { view: MACHINE_VIEW.ServiceDesigner, documentUri: machineView.documentUri }
-                                });
-                            },
-                            isClickable: true
+                            label: `MCP Server`,
+                            onClick: () => { },
+                            isClickable: false
                         });
-                    } catch (error) {
-                        console.error(error);
+                    } else {
+                        try {
+                            const syntaxTree = await rpcClient.getMiDiagramRpcClient().getSyntaxTree({ documentUri: machineView.documentUri });
+                            if (!syntaxTree || !syntaxTree?.syntaxTree || !syntaxTree.syntaxTree?.api) {
+                                continue;
+                            }
+                            const api = syntaxTree.syntaxTree.api;
+                            segments.push({
+                                label: `${api.context}`,
+                                onClick: () => {
+                                    rpcClient.getMiVisualizerRpcClient().openView({
+                                        type: EVENT_TYPE.OPEN_VIEW,
+                                        location: { view: MACHINE_VIEW.ServiceDesigner, documentUri: machineView.documentUri }
+                                    });
+                                },
+                                isClickable: true
+                            });
+                        } catch (error) {
+                            console.error(error);
+                        }
                     }
+                } else if (pathItem === "local-entries" && i + 1 < pathItems.length && pathItems[i + 1].endsWith(MCP_CONFIG_FILE_SUFFIX)) {
+                    continue;
                 } else {
                     segments.push({
                         label: pathItem,

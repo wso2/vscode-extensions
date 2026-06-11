@@ -35,7 +35,7 @@ import { AiPanelWebview } from '../ai-features/webview';
 import { MiDiagramRpcManager } from '../rpc-managers/mi-diagram/rpc-manager';
 import { log, outputChannel } from '../util/logger';
 import { CACHED_FOLDER, INTEGRATION_PROJECT_DEPENDENCIES_DIR, isConsolidatedProject } from '../util/onboardingUtils';
-import { extractZip, formatAndSavePomDocument, getHash, zipProjectFolder } from '../util/fileOperations';
+import { extractZip, formatAndSavePomDocument, getHash, zipProjectFolder, deleteApiMetadata } from '../util/fileOperations';
 import { MILanguageClient } from '../lang-client/activator';
 import { ConflictingDependency } from '../lang-client/ExtendedLanguageClient';
 import { askForProject } from '../util/workspace';
@@ -455,6 +455,7 @@ export function activateVisualizer(context: vscode.ExtensionContext, firstProjec
                     const apiDir = path.join(projectUri, 'src', 'main', "wso2mi", "artifacts", "apis");
                     if (filePath.fsPath?.includes(apiDir)) {
                         deleteSwagger(filePath.fsPath);
+                        deleteApiMetadata(filePath.fsPath);
                     }
 
                     removeFromHistory(filePath.fsPath);

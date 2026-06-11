@@ -57,6 +57,8 @@ import { Overview } from './views/Overview';
 import { DatamapperForm } from './views/Forms/DatamapperForm';
 import { DataMapperMigrationForm } from './views/Forms/DataMapperMigrationForm';
 import { ImportArtfactForm } from './views/Forms/ImportArtifactForm';
+import { MCPServerWizard } from './views/Forms/MCPServerForm/index';
+import { MCPServerToolsForm } from './views/Forms/MCPServerForm/MCPServerToolsForm';
 import { IdpConnectorSchemaGenerateForm }from './views/Forms/IDPConnectorForm/IdpConnectorSchemaGenerateForm';
 import { KubernetesConfigurationForm } from "./views/Forms/KubernetesConfigurationForm";
 import { RegistryPropertyForm } from "./views/Forms/RegistryPropertyForm";
@@ -122,7 +124,6 @@ const MainPanel = (props: MainPanelProps) => {
         if (typeof formState === 'object' && 'open' in formState) {
             rpcClient?.getMiVisualizerRpcClient().openView({ type: POPUP_EVENT_TYPE.CLOSE_VIEW, location: { view: null }, isPopup: true });
         }
-        fetchContext();
     }, [visualizerState.view]);
 
     useEffect(() => {
@@ -343,6 +344,12 @@ const MainPanel = (props: MainPanelProps) => {
                 break;
             case MACHINE_VIEW.DataSourceForm:
                 setViewComponent(<DataSourceWizard path={visualizerState.documentUri} />);
+                break;
+            case MACHINE_VIEW.MCPServerForm:
+                setViewComponent(<MCPServerWizard path={visualizerState.documentUri} />);
+                break;
+            case MACHINE_VIEW.MCPServerFromAPIsForm:
+                setViewComponent(<MCPServerToolsForm path={visualizerState.documentUri} editData={visualizerState.customProps?.editData} />);
                 break;
             case MACHINE_VIEW.ImportArtifactForm:
                 setViewComponent(<ImportArtfactForm />);

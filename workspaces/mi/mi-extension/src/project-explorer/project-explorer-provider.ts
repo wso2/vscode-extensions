@@ -18,6 +18,7 @@
 
 import * as vscode from 'vscode';
 import { ProjectStructureResponse, ProjectStructureEntry, RegistryResourcesFolder, ListRegistryArtifactsResponse, DataIntegrationResponse, CommonArtifactsResponse, AdvancedArtifactsResponse } from '@wso2/mi-core';
+import { MCP_CONFIG_FILE_SUFFIX } from '../util/mcp-server-utils';
 import { COMMANDS, EndpointTypes, InboundEndpointTypes, MessageProcessorTypes, MessageStoreTypes, TemplateTypes } from '../constants';
 import { window } from 'vscode';
 import path = require('path');
@@ -201,7 +202,7 @@ async function generateTreeDataOfArtifacts(project: vscode.WorkspaceFolder, data
 			path.join(project.uri.fsPath, 'src', 'main', 'wso2mi', ...artifactConfig.folderName.split("/")) :
 			'';
 
-		artifacts[key].path = folderPath;
+		artifacts[key].path = folderPath || project.uri.fsPath;
 
 		const parentEntry = new ProjectExplorerEntry(
 			key,
@@ -212,6 +213,8 @@ async function generateTreeDataOfArtifacts(project: vscode.WorkspaceFolder, data
 		let children;
 		if (['APIs', 'Event Integrations', 'Automations', 'Data Services'].includes(key)) {
 			children = genProjectStructureEntry(artifacts[key]);
+		} else if (key === 'MCP Servers') {
+			children = generateMcpServers(artifacts[key]);
 		} else if (key === 'Resources') {
 			const existingResources = await getAvailableRegistryResources(project.uri.fsPath);
 			children = generateResources(artifacts[key], existingResources);
@@ -245,6 +248,10 @@ function getArtifactConfig(key: string) {
 		'Data Services': {
 			folderName: 'artifacts/data-services',
 			contextValue: 'dataServices'
+		},
+		'MCP Servers': {
+			folderName: '',
+			contextValue: 'mcpServers'
 		},
 		'Other Artifacts': {
 			folderName: '',
@@ -844,6 +851,38 @@ function getMesaaageStoreIcon(messageStoreType: MessageStoreTypes): string {
 	return icon;
 }
 
+
+function generateMcpServers(data: any[]): ProjectExplorerEntry[] {
+	const result: ProjectExplorerEntry[] = [];
+	for (const server of data) {
+		if (!server.localEntry?.path) {
+			continue;
+		}
+
+		const serverDisplayName = path.basename(server.localEntry.path).replace(MCP_CONFIG_FILE_SUFFIX, '') || server.name;
+		const serverEntry = new ProjectExplorerEntry(
+			serverDisplayName,
+			isCollapsibleState(false),
+			{
+				name: serverDisplayName,
+				type: 'MCP_SERVER',
+				path: server.localEntry.path,
+				localEntry: server.localEntry,
+				inboundEndpoint: server.inboundEndpoint
+			} as any,
+			'inbound-endpoint'
+		);
+		serverEntry.contextValue = 'mcpServer';
+		serverEntry.command = {
+			title: 'Show MCP Server',
+			command: COMMANDS.SHOW_MCP_SERVER,
+			arguments: [server.localEntry.path, serverDisplayName, server.inboundEndpoint?.path]
+		};
+
+		result.push(serverEntry);
+	}
+	return result;
+}
 
 function genProjectStructureEntry(data: ProjectStructureEntry[]): ProjectExplorerEntry[] {
 	const result: ProjectExplorerEntry[] = [];

@@ -3,7 +3,7 @@
   "displayName": "WSO2 Integrator: MI",
   "description": "An extension which gives a development environment for designing, developing, debugging, and testing integration solutions.",
   "icon": "resources/images/wso2-micro-integrator-icon.png",
-  "version": "4.0.2",
+  "version": "4.1.0",
   "publisher": "wso2",
   "engines": {
     "vscode": "^1.100.0"
@@ -276,7 +276,7 @@
       },
       {
         "view": "testing",
-        "contents": "[Add Unit Test](command:MI.test.add.suite)",
+        "contents": "[Add MI Unit Test](command:MI.test.add.suite)",
         "when": "MI.status == 'projectLoaded'"
       }
     ],
@@ -493,6 +493,25 @@
         "category": "MI"
       },
       {
+        "command": "MI.project-explorer.add-mcp-server",
+        "title": "Add MCP Server",
+        "icon": "$(add)",
+        "group": "navigation",
+        "category": "MI"
+      },
+      {
+        "command": "MI.project-explorer.show-mcp-server",
+        "title": "Show MCP Server",
+        "icon": "$(server)",
+        "category": "MI"
+      },
+      {
+        "command": "MI.project-explorer.delete-mcp-server",
+        "title": "Delete MCP Server",
+        "icon": "$(trash)",
+        "category": "MI"
+      },
+      {
         "command": "MI.project-explorer.open-dss-service-designer",
         "title": "Open Service Designer",
         "icon": "$(mi-design-view)",
@@ -572,7 +591,7 @@
       },
       {
         "command": "MI.test.add.suite",
-        "title": "Add unit test",
+        "title": "Add MI unit test",
         "icon": "$(add)",
         "category": "MI"
       },
@@ -699,6 +718,18 @@
         },
         {
           "command": "MI.project-explorer.add-data-service",
+          "when": "false"
+        },
+        {
+          "command": "MI.project-explorer.add-mcp-server",
+          "when": "false"
+        },
+        {
+          "command": "MI.project-explorer.show-mcp-server",
+          "when": "false"
+        },
+        {
+          "command": "MI.project-explorer.delete-mcp-server",
           "when": "false"
         },
         {
@@ -947,6 +978,16 @@
         {
           "command": "MI.project-explorer.add-data-service",
           "when": "view == MI.project-explorer && viewItem == dataServices",
+          "group": "inline"
+        },
+        {
+          "command": "MI.project-explorer.add-mcp-server",
+          "when": "view == MI.project-explorer && viewItem == mcpServers",
+          "group": "inline"
+        },
+        {
+          "command": "MI.project-explorer.delete-mcp-server",
+          "when": "view == MI.project-explorer && viewItem == mcpServer",
           "group": "inline"
         },
         {

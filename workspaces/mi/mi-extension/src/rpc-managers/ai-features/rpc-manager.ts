@@ -44,6 +44,7 @@ import {
 } from "./utils";
 import { CopilotEventHandler } from "./event-handler";
 import { MiDiagramRpcManager } from "../mi-diagram/rpc-manager";
+import { MiVisualizerRpcManager } from "../mi-visualizer/rpc-manager";
 import { generateSuggestions as generateSuggestionsFromLLM } from "../../ai-features/copilot/suggestions/suggestions";
 import { fillIdpSchema } from '../../ai-features/copilot/idp/fill_schema';
 import { codeDiagnostics } from "../../ai-features/copilot/diagnostics/diagnostics";
@@ -51,15 +52,20 @@ import { getCopilotUsageApiUrl, getLoginMethod, getTavilyApiKey, setTavilyApiKey
 import { LoginMethod } from '@wso2/mi-core';
 import { logInfo, logWarn, logError, logDebug } from '../../ai-features/copilot/logger';
 import { MILanguageClient } from '../../lang-client/activator';
+import { getAnthropicClient, ANTHROPIC_HAIKU_4_5 } from "../../ai-features/connection";
+import { generateText } from "ai";
+import * as vscode from 'vscode';
 
 export class MIAIPanelRpcManager implements MIAIPanelAPI {
     private eventHandler: CopilotEventHandler;
     private currentController: AbortController | null = null;
     private miDiagramRpcManager: MiDiagramRpcManager;
+    private miVisualizerRpcManager: MiVisualizerRpcManager;
 
     constructor(private projectUri: string) {
         this.eventHandler = this.createEventHandler();
         this.miDiagramRpcManager = new MiDiagramRpcManager(this.projectUri);
+        this.miVisualizerRpcManager = new MiVisualizerRpcManager(this.projectUri);
     }
 
     /**
@@ -877,6 +883,86 @@ export class MIAIPanelRpcManager implements MIAIPanelAPI {
         } catch (error) {
             logError('[autoFillForm] Error auto-filling form', error);
             throw new Error(`Failed to auto-fill form: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    }
+
+    /**
+     * Gets MCP tool suggestions using AI
+     */
+    async getMcpToolSuggestion(params: import('@wso2/mi-core').McpToolSuggestionRequest): Promise<import('@wso2/mi-core').McpToolSuggestionResponse> {
+        const { toolName, operationMethod, operationPath, operationSummary, apiXmlPath, sequenceXmlPath, inputSchemaJson } = params;
+        const fs = require('fs') as typeof import('fs');
+        const MAX_XML_CHARS = 3000;
+
+        const contextLines: string[] = [`Tool name: ${toolName}`];
+        if (operationMethod) contextLines.push(`HTTP method: ${operationMethod}`);
+        if (operationPath) contextLines.push(`HTTP path: ${operationPath}`);
+        if (operationSummary) contextLines.push(`Operation summary: ${operationSummary}`);
+
+        if (inputSchemaJson) {
+            contextLines.push(`\nExisting input schema (from OpenAPI definition):\n${inputSchemaJson}`);
+        }
+
+        if (apiXmlPath) {
+            try {
+                let xml = fs.readFileSync(apiXmlPath, 'utf8');
+                if (xml.length > MAX_XML_CHARS) xml = xml.slice(0, MAX_XML_CHARS) + '\n... (truncated)';
+                contextLines.push(`\nAPI resource XML (Synapse configuration):\n${xml}`);
+            } catch { /* file unreadable — skip */ }
+        }
+
+        if (sequenceXmlPath) {
+            try {
+                let xml = fs.readFileSync(sequenceXmlPath, 'utf8');
+                if (xml.length > MAX_XML_CHARS) xml = xml.slice(0, MAX_XML_CHARS) + '\n... (truncated)';
+                contextLines.push(`\nSequence implementation XML (Synapse configuration):\n${xml}`);
+            } catch { /* file unreadable — skip */ }
+        }
+
+        const context = contextLines.join('\n');
+
+        const schemaInstruction = inputSchemaJson
+            ? `3. A full JSON Schema object for the tool's input parameters. Use the existing input schema above as the base — preserve it as-is unless the implementation XML reveals additional parameters that should be included.`
+            : `3. A full JSON Schema object for the tool's input parameters. Infer parameters from the implementation XML and the tool context. If no implementation is available, infer typical parameters from the tool name and HTTP path.`;
+
+        const prompt = `You are helping to configure an MCP (Model Context Protocol) tool for a WSO2 Micro Integrator project.
+
+Given the following tool context:
+${context}
+
+Generate:
+1. A concise snake_case tool name (e.g. get_user_by_id, create_order). Derive it from the implementation and context rather than just the provided tool name.
+2. A clear, one-sentence description of what this tool does (suitable as the MCP tool description shown to an AI assistant). Use the implementation XML to understand the actual behaviour.
+${schemaInstruction}
+
+Respond ONLY with a JSON object in this exact format, no other text:
+{"name": "...", "description": "...", "inputSchema": {"type": "object", "properties": {...}, "additionalProperties": false}}`;
+
+        try {
+            const model = await getAnthropicClient(ANTHROPIC_HAIKU_4_5);
+            const { text } = await generateText({
+                model: model,
+                prompt: prompt,
+                temperature: 0.3,
+                maxOutputTokens: 500,
+            });
+
+            const cleaned = text.trim().replace(/^```json\s*/i, '').replace(/```\s*$/, '');
+            const parsed = JSON.parse(cleaned);
+            return {
+                name: parsed.name || '',
+                description: parsed.description || '',
+                inputSchema: JSON.stringify(parsed.inputSchema || {}),
+            };
+        } catch (error: any) {
+            const message: string = error?.message ?? 'Unknown error';
+            // Error is thrown when the user is not logged in at all
+            if (message.includes('Authentication failed') || message.includes('Unsupported login method')) {
+                // Let the webview catch this and prompt the user to sign in
+                throw new Error('Authentication failed: Please sign in to use AI features');
+            }
+            vscode.window.showErrorMessage(`Fill With AI failed: ${message}`);
+            return { name: '', description: '', inputSchema: '{}' };
         }
     }
 }

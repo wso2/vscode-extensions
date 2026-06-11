@@ -105,3 +105,33 @@ export function TypeChip(props: TypeChipProps) {
         </ButtonWrapper>
     )
 }
+
+export const DialogTitle = styled.div`
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--vscode-editor-foreground);
+`;
+
+export const DialogField = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 15px;
+`;
+
+export const DialogButtonGroup = styled.div`
+    display: flex;
+    gap: 10px;
+    justify-content: space-between;
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid var(--vscode-panel-border);
+`;
+
+export const FlexRow = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+`;

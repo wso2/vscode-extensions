@@ -62,6 +62,7 @@ export const TaskView = ({ path, model, diagnostics }: TaskViewProps) => {
                         documentUri={model.sequenceURI}
                         diagnostics={diagnostics}
                         isFormOpen={isFormOpen}
+                        disableTryout
                     />
                 }
             </ViewContent>}

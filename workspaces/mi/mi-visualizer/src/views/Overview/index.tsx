@@ -17,7 +17,7 @@
  */
 
 import React, { useEffect } from "react";
-import { DeployConfigParam, DeployProjectRequest, EVENT_TYPE, MACHINE_VIEW, ProjectOverviewResponse, ProjectStructureResponse, WorkspaceFolder } from "@wso2/mi-core";
+import { DeployConfigParam, DeployProjectRequest, EVENT_TYPE, MACHINE_VIEW, Platform, ProjectOverviewResponse, ProjectStructureResponse, WorkspaceFolder } from "@wso2/mi-core";
 import { RemoteDeployConfigForm } from "../Forms/RemoteDeployConfigForm";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
 import { ViewHeader } from "../../components/View";
@@ -120,6 +120,7 @@ export function Overview(props: OverviewProps) {
     const [errors, setErrors] = React.useState({});
     const [isConsolidatedProject, setIsConsolidatedProject] = React.useState<boolean>(false);
     const [remoteDeployConfigs, setRemoteDeployConfigs] = React.useState<DeployConfigParam[] | null>(null);
+    const [isWindows, setIsWindows] = React.useState<boolean>(false);
     const { data: devantMetadata } = useQuery({
         queryKey: ["devant-metadata", workspaces],
         queryFn: () => rpcClient.getMiDiagramRpcClient().getDevantMetadata(),
@@ -131,6 +132,7 @@ export function Overview(props: OverviewProps) {
             try {
                 const machineState = await rpcClient.getVisualizerState();
                 const { projectUri } = machineState;
+                setIsWindows(machineState.platform === Platform.WINDOWS);
                 const response = await rpcClient.getMiVisualizerRpcClient().getWorkspaces();
                 setWorkspaces(response.workspaces);
                 const activeWorkspaceUri = response.workspaces.find((workspace) => workspace.fsPath === projectUri);
@@ -357,6 +359,7 @@ export function Overview(props: OverviewProps) {
                                         <ProjectStructureView
                                             projectStructure={projectStructure}
                                             workspaceDir={selected}
+                                            isWindows={isWindows}
                                         />
                                     )}
                                 </TabContent>

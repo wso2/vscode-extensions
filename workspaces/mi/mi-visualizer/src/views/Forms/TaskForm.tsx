@@ -32,6 +32,8 @@ import { XMLValidator } from "fast-xml-parser";
 import cronValidator from 'cron-expression-validator';
 import path from "path";
 import { SequenceWizard } from "./SequenceForm";
+import { compareVersions } from "@wso2/mi-diagram/lib/utils/commons";
+import { RUNTIME_VERSION_410 } from "../../constants";
 export interface Region {
     label: string;
     value: string;
@@ -108,6 +110,9 @@ export function TaskForm(props: TaskFormProps) {
         text: ""
     });
     const [isCustomPropsUpdated, setIsCustomPropsUpdated] = useState(false);
+    const [startOnLoad, setStartOnLoad] = useState(true);
+    const [isStartOnLoadUpdated, setIsStartOnLoadUpdated] = useState(false);
+    const [isStartOnLoadSupported, setIsStartOnLoadSupported] = useState(false);
 
     const paramConfigs: ParamConfig = {
         paramValues: [],
@@ -209,6 +214,7 @@ export function TaskForm(props: TaskFormProps) {
                     if (taskRes.taskProperties) {
                         setValue("message", taskRes.taskProperties.find((prop: any) => prop.key === "message")?.value);
                         setMessageIsXML(!taskRes.taskProperties.find((prop: any) => prop.key === "message")?.isLiteral);
+                        setStartOnLoad(taskRes.startOnLoad !== "false");
                         setValue("injectTo", taskRes.taskProperties.find((prop: any) => prop.key === "injectTo")?.value);
                         setValue("registryKey", taskRes.taskProperties.find((prop: any) => prop.key === "registryKey")?.value);
                         setValue("invokeHandlers", Boolean(taskRes.taskProperties.find((prop: any) => prop.key === "invokeHandlers")?.value));
@@ -258,6 +264,9 @@ export function TaskForm(props: TaskFormProps) {
                 path: props.path,
             });
             setArtifactNames(regArtifactRes.artifacts.map(name => name.toLowerCase()));
+            const projectDetails = await rpcClient.getMiVisualizerRpcClient().getProjectDetails();
+            const runtimeVersion = projectDetails.primaryDetails.runtimeVersion.value;
+            setIsStartOnLoadSupported(compareVersions(runtimeVersion, RUNTIME_VERSION_410) === 0);
         })();
     }, []);
 
@@ -296,6 +305,7 @@ export function TaskForm(props: TaskFormProps) {
             ...values,
             taskProperties: taskProperties,
             customProperties: customProperties,
+            startOnLoad: isStartOnLoadSupported ? String(startOnLoad) : undefined,
             directory: props.path
         };
         // Hanlde the case where user do not secify a sequence 
@@ -540,6 +550,17 @@ export function TaskForm(props: TaskFormProps) {
                                 errorMsg={errors.implementation?.message}
                                 {...register("implementation")}
                             />
+                            {isStartOnLoadSupported && (
+                                <CheckBox
+                                    label="Start on Load"
+                                    value="startOnLoad"
+                                    checked={startOnLoad}
+                                    onChange={(isChecked: boolean) => {
+                                        setStartOnLoad(isChecked);
+                                        setIsStartOnLoadUpdated(true);
+                                    }}
+                                />
+                            )}
                         </FormGroup>
                         <FormActions>
                             <Button
@@ -551,7 +572,7 @@ export function TaskForm(props: TaskFormProps) {
                             <Button
                                 appearance="primary"
                                 onClick={handleSubmit(handleCreateTask)}
-                                disabled={!(isDirty || isCustomPropsUpdated)}
+                                disabled={!(isDirty || isCustomPropsUpdated || isStartOnLoadUpdated)}
                                 data-testid="create-task-button"
                             >
                                 {isNewTask ? "Create" : "Update"}

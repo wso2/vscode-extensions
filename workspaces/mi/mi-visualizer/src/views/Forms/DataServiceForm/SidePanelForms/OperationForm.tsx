@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import { Button, TextField, SidePanel, SidePanelTitleContainer, SidePanelBody, Codicon, FormCheckBox, TextArea, Typography } from "@wso2/ui-toolkit";
 import * as yup from "yup";
 import styled from "@emotion/styled";
@@ -100,11 +100,33 @@ type OperationFormProps = {
     formData?: OperationType;
     isOpen: boolean;
     documentUri: string;
+    existingOperations?: string[];
     onCancel: () => void;
     onSave: (data: OperationFormData) => void;
 };
 
-export const OperationForm = ({ isOpen, onCancel, onSave, formData, documentUri }: OperationFormProps) => {
+export const OperationForm = ({ isOpen, onCancel, onSave, formData, documentUri, existingOperations = [] }: OperationFormProps) => {
+    // Reject an operation whose name already exists.
+    const validationSchema = useMemo(
+        () => schema.test("unique-operation", function (value) {
+            const name = value?.operationName;
+            if (!name) {
+                return true;
+            }
+            if (formData && name === formData.operationName) {
+                return true;
+            }
+            if (existingOperations.includes(name)) {
+                return this.createError({
+                    path: "operationName",
+                    message: "An operation with this name already exists",
+                });
+            }
+            return true;
+        }),
+        [existingOperations, formData]
+    );
+
     const {
         control,
         handleSubmit,
@@ -114,7 +136,7 @@ export const OperationForm = ({ isOpen, onCancel, onSave, formData, documentUri 
         reset
     } = useForm({
         defaultValues: newOperation,
-        resolver: yupResolver(schema),
+        resolver: yupResolver(validationSchema),
         mode: "onChange",
     });
 

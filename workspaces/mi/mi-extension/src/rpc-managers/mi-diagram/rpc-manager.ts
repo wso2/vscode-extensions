@@ -138,6 +138,25 @@ import {
     GetMediatorsResponse,
     McpToolsRequest,
     McpToolsResponse,
+    GetMcpUsedInboundPortsRequest,
+    GetMcpUsedInboundPortsResponse,
+    GetMcpServerProjectArtifactsRequest,
+    GetMcpServerProjectArtifactsResponse,
+    GetMcpServerEditDataRequest,
+    GetMcpServerEditDataResponse,
+    BuildMcpToolsXmlRequest,
+    BuildMcpToolsXmlResponse,
+    UpdateMcpInboundEndpointRequest,
+    UpdateMcpInboundEndpointResponse,
+    CleanMcpToolNamesRequest,
+    CleanMcpToolNamesResponse,
+    ConvertMcpJsonSchemaRequest,
+    ConvertMcpJsonSchemaResponse,
+    PickMcpJsonFileResponse,
+    GetAPIOperationInputSchemasRequest,
+    GetAPIOperationInputSchemasResponse,
+    APITool,
+    UnifiedTool,
     GetMessageStoreRequest,
     GetMessageStoreResponse,
     GetProjectRootRequest,
@@ -342,10 +361,10 @@ import { testFileMatchPattern } from "../../test-explorer/discover";
 import { mockSerivesFilesMatchPattern } from "../../test-explorer/mock-services/activator";
 import { UndoRedoManager } from "../../undoRedoManager";
 import { copyDockerResources, copyMavenWrapper, createFolderStructure, getAPIResourceXmlWrapper, getAddressEndpointXmlWrapper, getDataServiceXmlWrapper, getDefaultEndpointXmlWrapper, getDssDataSourceXmlWrapper, getFailoverXmlWrapper, getHttpEndpointXmlWrapper, getInboundEndpointXmlWrapper, getLoadBalanceXmlWrapper, getMessageProcessorXmlWrapper, getMessageStoreXmlWrapper, getProxyServiceXmlWrapper, getRegistryResourceContent, getTaskXmlWrapper, getTemplateEndpointXmlWrapper, getTemplateXmlWrapper, getWsdlEndpointXmlWrapper, createGitignoreFile, getEditTemplateXmlWrapper } from "../../util";
-import { addNewEntryToArtifactXML, createMetadataFilesForRegistryCollection, deleteRegistryResource, detectMediaType, getAvailableRegistryResources, getMediatypeAndFileExtension, getRegistryResourceMetadata, updateRegistryResourceMetadata, generatePathFromRegistryPath, updatePomWithParent } from "../../util/fileOperations";
+import { addNewEntryToArtifactXML, createMetadataFilesForRegistryCollection, deleteApiMetadata, deleteRegistryResource, detectMediaType, getAvailableRegistryResources, getMediatypeAndFileExtension, getRegistryResourceMetadata, updateRegistryResourceMetadata, generatePathFromRegistryPath, updatePomWithParent } from "../../util/fileOperations";
 import { log } from "../../util/logger";
 import { importProjects } from "../../util/migrationUtils";
-import { generateSwagger, getResourceInfo, isEqualSwaggers, mergeSwaggers } from "../../util/swagger";
+import { deleteSwagger, generateSwagger, getResourceInfo, isEqualSwaggers, mergeSwaggers } from "../../util/swagger";
 import { getDataSourceXml } from "../../util/template-engine/mustach-templates/DataSource";
 import { getClassMediatorContent } from "../../util/template-engine/mustach-templates/classMediator";
 import { getBallerinaModuleContent, getBallerinaConfigContent } from "../../util/template-engine/mustach-templates/ballerinaModule";
@@ -368,6 +387,19 @@ import { parseStringPromise, Builder } from "xml2js";
 import { MILanguageClient } from "../../lang-client/activator";
 import { addWSO2AIConfigProperties } from "../../ai-features/configUtils";
 import { reorderModulesByBuildOrder, updatePomModules } from "../../debugger/pomResolver";
+import {
+    buildInputSchemasForAPITools,
+    cleanPathForToolName,
+    convertToJsonSchema,
+    deriveMcpInboundEndpointPath,
+    extractOperationDescription,
+    generateToolsXml,
+    getUsedInboundPorts,
+    parseApisFromProjectStructure,
+    parseInboundEndpointConfig,
+    parseSequencesFromProjectStructure,
+    parseToolsFromXML,
+} from "../../util/mcp-server-utils";
 const AdmZip = require('adm-zip');
 
 const { XMLParser, XMLBuilder } = require("fast-xml-parser");
@@ -445,12 +477,20 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
                 if (params.defaultPayload !== undefined) {
                     content[key] = content[key] ?? {};
                     content[key].defaultRequest = params.defaultPayload;
+                } else if (content[key]) {
+                    // No default payload (e.g. all payloads removed for this resource) — clear it from the stored file.
+                    delete content[key].defaultRequest;
                 }
 
             } else {
                 content = { type };
                 content.requests = stripFlag(payloadArray);
-                content.defaultRequest = params.defaultPayload;
+                if (params.defaultPayload !== undefined) {
+                    content.defaultRequest = params.defaultPayload;
+                } else {
+                    // No default payload (e.g. all payloads removed) — clear it from the stored file.
+                    delete content.defaultRequest;
+                }
             }
             const tryout = path.join(this.projectUri, ".tryout");
             if (!fs.existsSync(tryout)) {
@@ -753,6 +793,11 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
                     });
                 }
 
+                if (response.error) {
+                    resolve({ path: "", error: response.error });
+                    return;
+                }
+
                 const options = {
                     ignoreAttributes: false,
                     allowBooleanAttributes: true,
@@ -767,14 +812,19 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
                 fileName = `${name}${apiVersion !== "" ? `_v${apiVersion}` : ''}`;
 
                 if (saveSwaggerDef && swaggerDefPath) {
-                    const ext = path.extname(swaggerDefPath);
+                    const ext = path.extname(swaggerDefPath).toLowerCase();
                     const swaggerRegPath = path.join(
                         this.projectUri,
                         SWAGGER_REL_DIR,
-                        fileName + (ext === ".yml" ? ".yaml" : ext)
+                        fileName + ".yaml"
                     );
                     fs.mkdirSync(path.dirname(swaggerRegPath), { recursive: true });
-                    fs.copyFileSync(swaggerDefPath, swaggerRegPath);
+                    if (ext === ".json" || ext === ".yml") {
+                        const swaggerContent = parse(fs.readFileSync(swaggerDefPath, "utf8"));
+                        fs.writeFileSync(swaggerRegPath, stringify(swaggerContent));
+                    } else {
+                        fs.copyFileSync(swaggerDefPath, swaggerRegPath);
+                    }
                 }
 
                 if (!isRegistrySupported) {
@@ -1798,7 +1848,9 @@ ${endpointAttributes}
                     triggerCount: null,
                     triggerInterval: 1,
                     triggerCron: '',
-                    taskProperties: []
+                    taskProperties: [],
+                    startOnLoad: jsonData.task["@_"]["startOnLoad"] !== undefined ? 
+                        String(jsonData.task["@_"]["startOnLoad"]) : undefined
                 };
 
                 if (jsonData.task.trigger["@_"]["once"] !== undefined) {
@@ -3089,7 +3141,7 @@ ${endpointAttributes}
         return new Promise(async (resolve) => {
             const selectedFile = await askFilePath();
             if (!selectedFile || selectedFile.length === 0) {
-                window.showErrorMessage('A folder must be selected to create project');
+                window.showErrorMessage('A file must be selected to continue');
                 resolve({ path: "" });
             } else {
                 const parentDir = selectedFile[0].fsPath;
@@ -4071,9 +4123,43 @@ ${endpointAttributes}
     }
 
     async copyConnectorZip(params: CopyConnectorZipRequest): Promise<CopyConnectorZipResponse> {
-        const { connectorPath } = params;
+        const { connectorPath, isInbound } = params;
+        const langClient = await MILanguageClient.getInstance(this.projectUri);
         try {
-            const langClient = await MILanguageClient.getInstance(this.projectUri);
+            if (isInbound) {
+                const inboundConnectorDirectory = path.join(this.projectUri, 'src', 'main', 'wso2mi', 'resources', 'inbound-connectors');
+                if (!fs.existsSync(inboundConnectorDirectory)) {
+                    fs.mkdirSync(inboundConnectorDirectory, { recursive: true });
+                }
+                const inboundDestinationPath = path.join(inboundConnectorDirectory, path.basename(connectorPath));
+
+                if (fs.existsSync(inboundDestinationPath)) {
+                    return { success: false, error: `An inbound connector with the name '${path.basename(connectorPath)}' already exists.` };
+                }
+
+                const deleteInboundZip = () => {
+                    if (fs.existsSync(inboundDestinationPath)) {
+                        fs.unlinkSync(inboundDestinationPath);
+                    }
+                };
+
+                try {
+                    await fs.promises.copyFile(connectorPath, inboundDestinationPath);
+
+                    const updateResult = await langClient.updateInboundConnectors();
+                    if (updateResult !== "success") {
+                        deleteInboundZip();
+                        return { success: false, error: updateResult || "Failed to import inbound connector." };
+                    }
+
+                    commands.executeCommand(COMMANDS.REFRESH_COMMAND);
+                    return { success: true, connectorPath: inboundDestinationPath };
+                } catch (error) {
+                    deleteInboundZip();
+                    throw error;
+                }
+            }
+
             const isDuplicate = await langClient.isDuplicateConnector(connectorPath);
             if (isDuplicate?.isFromProject === false) {
                 window.showErrorMessage('The connector you are trying to add is already added from a dependency project.');
@@ -4120,6 +4206,7 @@ ${endpointAttributes}
             }
 
             await fs.promises.copyFile(connectorPath, destinationPath);
+            commands.executeCommand(COMMANDS.REFRESH_COMMAND);
 
 
             return new Promise((resolve, reject) => {
@@ -5102,9 +5189,16 @@ ${keyValuesXML}`;
             } else {
                 await workspace.fs.delete(Uri.file(params.path));
             }
+            let isApi = false;
+            const apiDir = path.join("src", "main", "wso2mi", "artifacts", "apis");
+            if (path.normalize(params.path).includes(path.normalize(apiDir))) {
+                isApi = true;
+                deleteSwagger(params.path);
+                await deleteApiMetadata(params.path);
+            }
             await vscode.commands.executeCommand(COMMANDS.REFRESH_COMMAND); // Refresh the project explore view
             navigate(this.projectUri);
-            if (params.enableUndo && !isRegistry) {
+            if (params.enableUndo && !isRegistry && !isApi) {
                 undoRedo.addModification('');
                 const selection = await vscode.window.showInformationMessage('Do you want to undo the deletion?', 'Undo');
                 if (selection === 'Undo') {
@@ -5376,11 +5470,30 @@ ${keyValuesXML}`;
                         destination = lastExportedPath;
                     }
                     if (destination) {
+                        const relativeToProject = path.relative(params.projectPath, destination);
+                        const isInsideProject = relativeToProject === '' ||
+                            (!relativeToProject.startsWith('..') && !path.isAbsolute(relativeToProject));
+                        if (isInsideProject) {
+                            const errorMessage = 'Error: The export destination cannot be inside the project. Please select a folder outside the project.';
+                            window.showErrorMessage(errorMessage);
+                            log(errorMessage);
+                            return reject(errorMessage);
+                        }
                         const destinationPath = path.join(destination, path.basename(carFile[0].fsPath));
-                        fs.copyFileSync(carFile[0].fsPath, destinationPath);
-                        window.showInformationMessage("Project exported successfully!");
-                        log(`Project exported to: ${destination}`);
-                        resolve();
+                        try {
+                            if (fs.existsSync(destinationPath)) {
+                                fs.rmSync(destinationPath, { force: true });
+                            }
+                            fs.copyFileSync(carFile[0].fsPath, destinationPath);
+                            window.showInformationMessage("Project exported successfully!");
+                            log(`Project exported to: ${destination}`);
+                            resolve();
+                        } catch (err) {
+                            const errorMessage = `Error exporting project: ${err instanceof Error ? err.message : String(err)}`;
+                            window.showErrorMessage("Failed to export project. Please try again.");
+                            log(errorMessage);
+                            reject(errorMessage);
+                        }
                     }
                 }
             }
@@ -6633,6 +6746,173 @@ ${keyValuesXML}`;
             const res = await langClient.updateGlobalConnectorFlags(params);
             resolve(res);
         });
+    }
+
+    async getMcpUsedInboundPorts(params: GetMcpUsedInboundPortsRequest): Promise<GetMcpUsedInboundPortsResponse> {
+        const langClient = await MILanguageClient.getInstance(this.projectUri);
+        const projectStructure = await langClient.getProjectStructure(params.projectUri);
+        const artifacts: any = (projectStructure as any)?.directoryMap?.src?.main?.wso2mi?.artifacts;
+        const inboundEndpoints: Array<{ path: string }> = artifacts?.inboundEndpoints || [];
+        const mcpServers: Array<{ inboundEndpoint?: { path: string } }> = artifacts?.mcpServers || [];
+        const allEndpointPaths = [
+            ...inboundEndpoints.map(ep => ep.path),
+            ...mcpServers.filter(m => m.inboundEndpoint?.path).map(m => m.inboundEndpoint!.path),
+        ];
+        const ports = await getUsedInboundPorts(allEndpointPaths, params.excludePath);
+        return { ports };
+    }
+
+    async getMcpServerProjectArtifacts(params: GetMcpServerProjectArtifactsRequest): Promise<GetMcpServerProjectArtifactsResponse> {
+        const langClient = await MILanguageClient.getInstance(this.projectUri);
+        const projectStructure = await langClient.getProjectStructure(params.projectUri);
+        return {
+            apis: parseApisFromProjectStructure(projectStructure),
+            sequences: parseSequencesFromProjectStructure(projectStructure),
+        };
+    }
+
+    async getMcpServerEditData(params: GetMcpServerEditDataRequest): Promise<GetMcpServerEditDataResponse> {
+        const defaultCors = {
+            corsAllowOrigin: "*",
+            corsAllowMethods: "GET, POST, OPTIONS",
+            corsAllowHeaders: "Content-Type, Mcp-Session-Id",
+            corsExposeHeaders: "Mcp-Session-Id",
+            keepAliveInterval: 30000,
+        };
+        let tools: UnifiedTool[] = [];
+        if (params.localEntryPath && fs.existsSync(params.localEntryPath)) {
+            const content = fs.readFileSync(params.localEntryPath, "utf8");
+            tools = parseToolsFromXML(content);
+        }
+        const inboundEndpointPath = params.inboundEndpointPath
+            || (params.localEntryPath ? deriveMcpInboundEndpointPath(params.localEntryPath) : "");
+        let port: number | null = null;
+        let corsSettings = defaultCors;
+        if (inboundEndpointPath && fs.existsSync(inboundEndpointPath)) {
+            const content = fs.readFileSync(inboundEndpointPath, "utf8");
+            const cfg = parseInboundEndpointConfig(content);
+            port = cfg.port;
+            corsSettings = {
+                corsAllowOrigin: cfg.corsAllowOrigin,
+                corsAllowMethods: cfg.corsAllowMethods,
+                corsAllowHeaders: cfg.corsAllowHeaders,
+                corsExposeHeaders: cfg.corsExposeHeaders,
+                keepAliveInterval: cfg.keepAliveInterval,
+            };
+        }
+        return { tools, port, corsSettings, inboundEndpointPath };
+    }
+
+    async buildMcpToolsXml(params: BuildMcpToolsXmlRequest): Promise<BuildMcpToolsXmlResponse> {
+        const apiTools = params.tools.filter((t): t is APITool => t.kind === "api");
+        const apiDefDir = path.join(params.projectRoot, "src", "main", "wso2mi", "resources", "api-definitions");
+        const inputSchemas = await buildInputSchemasForAPITools(apiTools, apiDefDir);
+        return { xml: generateToolsXml(params.tools, inputSchemas) };
+    }
+
+    async updateMcpInboundEndpoint(params: UpdateMcpInboundEndpointRequest): Promise<UpdateMcpInboundEndpointResponse> {
+        try {
+            if (!fs.existsSync(params.inboundEndpointPath)) return { success: false };
+
+            const current = await this.getInboundEndpoint({ path: params.inboundEndpointPath });
+            const { class: endpointClass, ...currentParams } = current.parameters as any;
+
+            const updatedParams = {
+                ...currentParams,
+                'inbound.cors.allow.origin': params.corsSettings.corsAllowOrigin,
+                'inbound.cors.allow.methods': params.corsSettings.corsAllowMethods,
+                'inbound.cors.allow.headers': params.corsSettings.corsAllowHeaders,
+                'inbound.cors.expose.headers': params.corsSettings.corsExposeHeaders,
+                'inbound.sse.keepalive.interval': params.corsSettings.keepAliveInterval,
+                ...(params.port !== undefined && {
+                    'inbound.mcp.port': params.port,
+                    'inbound.http.port': params.port,
+                }),
+            };
+
+            const attributes: Record<string, string | number | boolean> = {
+                name: current.name,
+                type: current.type,
+                sequence: current.sequence ?? '',
+                onError: current.errorSequence ?? '',
+                suspend: current.suspend,
+                ...(endpointClass && { class: endpointClass }),
+            };
+
+            const xml = getInboundEndpointXmlWrapper({ attributes, parameters: updatedParams });
+            await replaceFullContentToFile(params.inboundEndpointPath, xml);
+            return { success: true };
+        } catch {
+            return { success: false };
+        }
+    }
+
+    async cleanMcpToolNames(params: CleanMcpToolNamesRequest): Promise<CleanMcpToolNamesResponse> {
+        return { names: params.paths.map(p => cleanPathForToolName(p)) };
+    }
+
+    async convertMcpJsonSchema(params: ConvertMcpJsonSchemaRequest): Promise<ConvertMcpJsonSchemaResponse> {
+        return { schema: convertToJsonSchema(params.input) };
+    }
+
+    async pickMcpJsonFile(): Promise<PickMcpJsonFileResponse> {
+        const selection = await vscode.window.showOpenDialog({
+            canSelectMany: false,
+            openLabel: 'Import',
+            filters: { 'JSON Schema': ['json'] },
+        });
+        if (!selection || selection.length === 0) return { content: null };
+        return { content: fs.readFileSync(selection[0].fsPath, 'utf8') };
+    }
+
+    async getAPIOperationInputSchemas(params: GetAPIOperationInputSchemasRequest): Promise<GetAPIOperationInputSchemasResponse> {
+        const apiDefDir = path.join(params.projectRoot, "src", "main", "wso2mi", "resources", "api-definitions");
+        const fakeTools: APITool[] = params.operations.map(op => ({
+            kind: 'api' as const,
+            id: op.id,
+            name: '',
+            description: '',
+            apiId: op.apiName,
+            apiName: op.apiName,
+            apiVersion: '',
+            apiRawVersion: op.apiRawVersion,
+            apiXmlPath: op.apiXmlPath,
+            operationId: op.id,
+            operationMethod: op.operationMethod,
+            operationPath: op.operationPath,
+            operationSummary: '',
+        }));
+        const rawSchemas = await buildInputSchemasForAPITools(fakeTools, apiDefDir);
+        const schemas: Record<string, string> = {};
+        const descriptions: Record<string, string> = {};
+        for (const op of params.operations) {
+            const tool = fakeTools.find(t => t.id === op.id);
+            if (!tool) continue;
+            const schema = rawSchemas[op.id];
+            if (schema !== undefined) {
+                schemas[op.id] = JSON.stringify(schema);
+            } else {
+                schemas[op.id] = "{}";
+            }
+            const xmlBaseName = op.apiXmlPath ? path.basename(op.apiXmlPath, path.extname(op.apiXmlPath)) : op.apiName;
+            const candidates = Array.from(new Set([xmlBaseName, op.apiName]))
+                .flatMap(base => op.apiRawVersion ? [`${base}_v${op.apiRawVersion}.yaml`, `${base}.yaml`] : [`${base}.yaml`])
+                .map(f => path.join(apiDefDir, f));
+            let spec: any = null;
+            for (const candidate of candidates) {
+                try {
+                    if (fs.existsSync(candidate)) {
+                        const { parse: parseYaml } = require("yaml");
+                        spec = parseYaml(fs.readFileSync(candidate, "utf8"));
+                        break;
+                    }
+                } catch { /* skip unreadable */ }
+            }
+            if (spec) {
+                descriptions[op.id] = extractOperationDescription(spec, op.operationMethod, op.operationPath);
+            }
+        }
+        return { schemas, descriptions };
     }
 }
 

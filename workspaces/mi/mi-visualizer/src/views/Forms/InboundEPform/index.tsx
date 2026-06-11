@@ -18,18 +18,27 @@
 
 import { useEffect, useState } from "react";
 import styled from "@emotion/styled";
-import { FormView, Card, Typography, FormActions, Button } from "@wso2/ui-toolkit";
-import { EVENT_TYPE, MACHINE_VIEW, DownloadProgressData } from "@wso2/mi-core";
+import { FormView, Card, Typography, FormActions, Button, Icon } from "@wso2/ui-toolkit";
+import { EVENT_TYPE, MACHINE_VIEW, DownloadProgressData, POPUP_EVENT_TYPE, ParentPopupData } from "@wso2/mi-core";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
 import AddInboundConnector from "./inboundConnectorForm";
 import { VSCodeLink, VSCodeProgressRing } from "@vscode/webview-ui-toolkit/react";
 import { InboundEndpoint } from "@wso2/mi-syntax-tree/lib/src";
+import { useConnectorDependency } from "../../../Hooks";
 import path from "path";
 
 const SampleGrid = styled.div`
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(176px, 1fr));
     gap: 20px;
+`;
+
+const HeaderRow = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 10px;
 `;
 
 const LoaderWrapper = styled.div`
@@ -54,6 +63,10 @@ export interface Region {
     value: string;
 }
 
+// MCP servers are created through the dedicated MCP Server artifact flow,
+// so the raw MCP inbound connector is hidden from the event integration list.
+const HIDDEN_INBOUND_CONNECTORS = /^mcp\b/i;
+
 export interface InboundEPWizardProps {
     path: string;
     model?: InboundEndpoint;
@@ -64,12 +77,17 @@ export function InboundEPWizard(props: InboundEPWizardProps) {
     const { rpcClient } = useVisualizerContext();
     const [localConnectors, setLocalConnectors] = useState(undefined);
     const [storeConnectors, setStoreConnectors] = useState(undefined);
-    const [isDownloading, setIsDownloading] = useState(false);
     const [isFetchingConnectors, setIsFetchingConnectors] = useState(false);
     const [connectorSchema, setConnectorSchema] = useState(undefined);
-    const [inboundOnconfirmation, setInboundOnconfirmation] = useState(undefined);
-    const [downloadProgress, setDownloadProgress] = useState<DownloadProgressData>(undefined);
-    const [isFailedDownload, setIsFailedDownload] = useState(false);
+
+    const {
+        state: depState,
+        connectorInfo: inboundOnconfirmation,
+        downloadProgress,
+        requiresDownload,
+        acceptDownload,
+        declineDownload,
+    } = useConnectorDependency(rpcClient, props.path);
 
     useEffect(() => {
         (async () => {
@@ -90,10 +108,6 @@ export function InboundEPWizard(props: InboundEPWizardProps) {
         })();
     }, [props.path]);
 
-    rpcClient.onDownloadProgress((data: DownloadProgressData) => {
-        setDownloadProgress(data);
-    });
-
     const fetchConnectors = async () => {
         setIsFetchingConnectors(true);
         try {
@@ -104,8 +118,8 @@ export function InboundEPWizard(props: InboundEPWizardProps) {
 
             const localConnectors = await rpcClient.getMiDiagramRpcClient().getLocalInboundConnectors();
 
-            setLocalConnectors(localConnectors["inbound-connector-data"]);
-            setStoreConnectors(data);
+            setLocalConnectors(localConnectors["inbound-connector-data"]?.filter((connector: any) => !HIDDEN_INBOUND_CONNECTORS.test(connector.name)));
+            setStoreConnectors(data?.filter((connector: any) => !HIDDEN_INBOUND_CONNECTORS.test(connector.connectorName)));
         } catch (e) {
             rpcClient.getMiVisualizerRpcClient().showNotification({message: "Error occurred while fetching inbound-connectors", type: "error"});
             console.error("Error fetching connectors", e);
@@ -134,6 +148,22 @@ export function InboundEPWizard(props: InboundEPWizardProps) {
         return parameters;
     }
 
+    const importInboundConnector = () => {
+        rpcClient.getMiVisualizerRpcClient().openView({
+            type: POPUP_EVENT_TYPE.OPEN_VIEW,
+            location: {
+                view: MACHINE_VIEW.ImportInboundConnectorForm
+            },
+            isPopup: true
+        });
+
+        rpcClient.onParentPopupSubmitted((data: ParentPopupData) => {
+            if (data.recentIdentifier === "success") {
+                fetchConnectors();
+            }
+        });
+    }
+
     const selectConnector = async (connector: any) => {
         const response = await rpcClient.getMiDiagramRpcClient().getInboundEPUischema({
             connectorName: connector.id
@@ -143,19 +173,13 @@ export function InboundEPWizard(props: InboundEPWizardProps) {
     }
 
     const selectStoreConnector = async (connector: any) => {
-        const connectorName = connector.connectorName;
-        const connectorId = localConnectors.find((c: any) => c.name === connectorName).id;
-
-        // Check if uiSchema is available
-        const response = await rpcClient.getMiDiagramRpcClient().getInboundEPUischema({
-            connectorName: connectorId
-        });
+        const connectorId = localConnectors.find((c: any) => c.name === connector.connectorName).id;
+        const response = await rpcClient.getMiDiagramRpcClient().getInboundEPUischema({ connectorName: connectorId });
 
         if (response?.uiSchema) {
             setConnectorSchema(response?.uiSchema);
         } else {
-            // Ask user for dependency addition confirmation
-            setInboundOnconfirmation(connector);
+            requiresDownload(connector);
         }
     }
 
@@ -199,76 +223,13 @@ export function InboundEPWizard(props: InboundEPWizardProps) {
         rpcClient.getMiVisualizerRpcClient().openView({ type: EVENT_TYPE.OPEN_VIEW, location: { view: MACHINE_VIEW.InboundEPView, documentUri: documentUri } });
     };
 
-    const handleDependencyResponse = async (response: boolean) => {
-        if (response) {
-            // Add dependencies to pom
-            setIsDownloading(true);
-
-            const connectorId = localConnectors.find((c: any) => c.name === inboundOnconfirmation.connectorName).id;
-
-            const updateDependencies = async () => {
-                const dependencies = [];
-                dependencies.push({
-                    groupId: inboundOnconfirmation.mavenGroupId,
-                    artifact: inboundOnconfirmation.mavenArtifactId,
-                    version: inboundOnconfirmation.version.tagName,
-                    type: 'zip' as 'zip'
-                });
-                await rpcClient.getMiVisualizerRpcClient().updateDependencies({
-                    dependencies
-                });
-            }
-
-            await updateDependencies();
-
-            const projectDir = (await rpcClient.getMiDiagramRpcClient().getProjectRoot({ path: props.path })).path;
-            const pomPath = path.join(projectDir, 'pom.xml');
-
-            // Download Connector
-            const response = await rpcClient.getMiVisualizerRpcClient().updateConnectorDependencies();
-
-            // Format pom
-            await rpcClient.getMiDiagramRpcClient().rangeFormat({ uri: pomPath });
-
-            if (response === "Success" || !response.includes(inboundOnconfirmation.mavenArtifactId)) {
-                const schema = await rpcClient.getMiDiagramRpcClient().getInboundEPUischema({
-                    connectorName: connectorId
-                });
-                setConnectorSchema(schema?.uiSchema);
-                setInboundOnconfirmation(undefined);
-            } else {
-                setIsFailedDownload(true);
-            }
-            setIsDownloading(false);
-        } else {
-            setIsFailedDownload(false);
-            setInboundOnconfirmation(undefined);
-        }
-    }
-
-    const retryDownload = async () => {
-        setIsDownloading(true);
-
+    const handleAcceptDownload = () => {
         const connectorId = localConnectors.find((c: any) => c.name === inboundOnconfirmation.connectorName).id;
-        // Download Connector
-        const response = await rpcClient.getMiVisualizerRpcClient().updateConnectorDependencies();
-
-        // Format pom
-        const projectDir = (await rpcClient.getMiDiagramRpcClient().getProjectRoot({ path: props.path })).path;
-        const pomPath = path.join(projectDir, 'pom.xml');
-        await rpcClient.getMiDiagramRpcClient().rangeFormat({ uri: pomPath });
-
-        if (response === "Success" || !response.includes(inboundOnconfirmation.mavenArtifactId)) {
-            const schema = await rpcClient.getMiDiagramRpcClient().getInboundEPUischema({
-                connectorName: connectorId
-            });
+        acceptDownload(async () => {
+            const schema = await rpcClient.getMiDiagramRpcClient().getInboundEPUischema({ connectorName: connectorId });
             setConnectorSchema(schema?.uiSchema);
-            setIsDownloading(false);
-        } else {
-            setIsFailedDownload(true);
-        }
-        setIsDownloading(false);
-    }
+        });
+    };
 
 
     const handleOnClose = () => {
@@ -287,7 +248,7 @@ export function InboundEPWizard(props: InboundEPWizardProps) {
                     handleCreateInboundEP={handleCreateInboundEP} model={props?.model} />
             ) : (
                 !props.model && (
-                    isDownloading ? (
+                    depState === 'downloading' ? (
                         <LoaderWrapper>
                             <ProgressRing />
                             <span>Downloading connector... This might take a while</span>
@@ -295,46 +256,41 @@ export function InboundEPWizard(props: InboundEPWizardProps) {
                                 `Downloaded ${downloadProgress.downloadedAmount} of ${downloadProgress.downloadSize} (${downloadProgress.percentage}%). `
                             )}
                         </LoaderWrapper>
-                    ) : inboundOnconfirmation ? (
-                        isFailedDownload ? (
-                            <div style={{ display: "flex", flexDirection: "column", padding: "40px", gap: "15px" }}>
-                                <Typography variant="body2">Error downloading module. Please try again...</Typography>
-                                <FormActions>
-                                    <Button
-                                        appearance="primary"
-                                        onClick={() => retryDownload()}
-                                    >
-                                        Retry
-                                    </Button>
-                                    <Button
-                                        appearance="secondary"
-                                        onClick={() => handleDependencyResponse(false)}
-                                    >
-                                        Cancel
-                                    </Button>
-                                </FormActions>
-                            </div>
-                        ) : (
-                            <div style={{ display: "flex", flexDirection: "column", padding: "40px", gap: "15px" }}>
-                                <Typography variant="body2">Dependencies will be added to the project. Do you want to continue?</Typography>
-                                <FormActions>
-                                    <Button
-                                        appearance="secondary"
-                                        onClick={() => handleDependencyResponse(false)}
-                                    >
-                                        No
-                                    </Button>
-                                    <Button
-                                        appearance="primary"
-                                        onClick={() => handleDependencyResponse(true)}
-                                    >
-                                        Yes
-                                    </Button>
-                                </FormActions>
-                            </div>
-                        )) : (
+                    ) : depState === 'download-failed' ? (
+                        <div style={{ display: "flex", flexDirection: "column", padding: "40px", gap: "15px" }}>
+                            <Typography variant="body2">Error downloading module. Please try again...</Typography>
+                            <FormActions>
+                                <Button appearance="primary" onClick={handleAcceptDownload}>
+                                    Retry
+                                </Button>
+                                <Button appearance="secondary" onClick={declineDownload}>
+                                    Cancel
+                                </Button>
+                            </FormActions>
+                        </div>
+                    ) : depState === 'needs-download' ? (
+                        <div style={{ display: "flex", flexDirection: "column", padding: "40px", gap: "15px" }}>
+                            <Typography variant="body2">Dependencies will be added to the project. Do you want to continue?</Typography>
+                            <FormActions>
+                                <Button appearance="secondary" onClick={declineDownload}>
+                                    No
+                                </Button>
+                                <Button appearance="primary" onClick={handleAcceptDownload}>
+                                    Yes
+                                </Button>
+                            </FormActions>
+                        </div>
+                    ) : (
                         <>
-                            <span>Please select an event integration.</span>
+                            <HeaderRow>
+                                <span>Please select an event integration.</span>
+                                <Button appearance="secondary" onClick={importInboundConnector} tooltip="Import an inbound connector">
+                                    <div style={{ display: "flex", flexDirection: "row", gap: 10, alignItems: "center" }}>
+                                        <Icon name="plus" isCodicon iconSx={{ fontSize: 20, fontWeight: 200 }} />
+                                        <span>Import Inbound Connector</span>
+                                    </div>
+                                </Button>
+                            </HeaderRow>
                             <SampleGrid>
                                 {localConnectors && storeConnectors ? (<>
                                     {localConnectors && localConnectors.sort((a: any, b: any) => a.rank - b.rank).map((connector: any) => (

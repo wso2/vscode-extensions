@@ -23,7 +23,7 @@ import { useVisualizerContext } from "@wso2/mi-rpc-client";
 
 export interface AuthenticationDialogProps {
     isOpen: boolean;
-    operationType: 'createUnitTests' | 'generateTestCase' | 'dataMapperMigration';
+    operationType: 'createUnitTests' | 'generateTestCase' | 'dataMapperMigration' | 'mcpToolSuggestion';
     sessionStorageKey: string;
     formValues?: any;
     signInMessage?: string;

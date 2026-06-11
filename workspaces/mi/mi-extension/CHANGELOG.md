@@ -2,6 +2,30 @@
 
 All notable changes to the "micro-integrator" extension will be documented in this file.
 
+## [4.1.0] - 2026-06-11   
+
+### New Features   
+
+Added: MCP Server support for Micro Integrator ([#4939](https://github.com/wso2/product-integrator-mi/issues/4939))
+
+### Fixed    
+
+Fixed: Possible to create resources in a dataservice with the same name and the same method ([#209](https://github.com/wso2/mi-vscode/issues/209))    
+Fixed: Tooling Allow tryout feature for Event Integrations and Automatons ([#1453](https://github.com/wso2/mi-vscode/issues/1453))    
+Fixed: API creation with some WSDL urls fails without indicating an error ([#1462](https://github.com/wso2/mi-vscode/issues/1462))    
+Fixed: Nice to have import option for inbound endpoints similar to connectors in development ([#1454](https://github.com/wso2/mi-vscode/issues/1454))    
+Fixed: Server Download Link field under Unit Tests Configuration is not properly styled ([#1447](https://github.com/wso2/mi-vscode/issues/1447))    
+Fixed: Imported connectors are not appearing in the side panel without a refresh ([#1431](https://github.com/wso2/mi-vscode/issues/1431))    
+Fixed: Confusing interface when adding Unit Tests ([#1384](https://github.com/wso2/mi-vscode/issues/1384))    
+Fixed: Just after creating a new proxy, the Show Source button is not visible ([#1280](https://github.com/wso2/mi-vscode/issues/1280))    
+Fixed: CAR Export option don't give an status update ([#219](https://github.com/wso2/mi-vscode/issues/219))    
+Fixed: API deletion doesn't delete respective metadata and api definition files ([#1227](https://github.com/wso2/mi-vscode/issues/1227))    
+Fixed: When an error in a mediator is fixed the diagram rendered doesn't reflect the fixing of the error ([#178](https://github.com/wso2/mi-vscode/issues/178))    
+Fixed: Files deleted through the VSCode explorer aren't removed from the MI project explorer ([#144](https://github.com/wso2/mi-vscode/issues/144))    
+Fixed: Unable to identify connections with lengthy names ([#1497](https://github.com/wso2/mi-vscode/issues/1497))    
+Fixed: Add "startOnLoad" Property to Task Configurations ([#1493](https://github.com/wso2/mi-vscode/issues/1493))    
+Fixed: UI "Stop" action during deployment fails to terminate the underlying MI server process ([#1485](https://github.com/wso2/mi-vscode/issues/1485))    
+
 ## [4.0.2] - 2026-05-29    
 
 ### Fixed    

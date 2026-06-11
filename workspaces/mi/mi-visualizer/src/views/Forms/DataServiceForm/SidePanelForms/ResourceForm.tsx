@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Button, TextField, SidePanel, SidePanelTitleContainer, SidePanelBody, Codicon, FormCheckBox, TextArea, Dropdown, Typography, LinkButton } from "@wso2/ui-toolkit";
 import * as yup from "yup";
 import styled from "@emotion/styled";
@@ -109,15 +109,46 @@ export type ResourceFormData = ResourceType & {
     mode: "create" | "edit";
 };
 
+type ExistingResource = {
+    path: string;
+    method: string;
+};
+
 type ResourceFormProps = {
     formData?: ResourceType;
     isOpen: boolean;
     documentUri: string;
+    existingResources?: ExistingResource[];
     onCancel: () => void;
     onSave: (data: ResourceFormData) => void;
 };
 
-export const ResourceForm = ({ isOpen, onCancel, onSave, formData, documentUri }: ResourceFormProps) => {
+export const ResourceForm = ({ isOpen, onCancel, onSave, formData, documentUri, existingResources = [] }: ResourceFormProps) => {
+    // Reject a resource whose path and method combination already exists.
+    const validationSchema = useMemo(
+        () => schema.test("unique-resource", function (value) {
+            const path = value?.resourcePath;
+            const method = value?.resourceMethod;
+            if (!path || !method) {
+                return true;
+            }
+            const currentKey = formData ? `${formData.resourceMethod}::${formData.resourcePath}` : null;
+            const newKey = `${method}::${path}`;
+            if (newKey === currentKey) {
+                return true;
+            }
+            const isDuplicate = existingResources.some((resource) => `${resource.method}::${resource.path}` === newKey);
+            if (isDuplicate) {
+                return this.createError({
+                    path: "resourcePath",
+                    message: "A resource with this path and method already exists",
+                });
+            }
+            return true;
+        }),
+        [existingResources, formData]
+    );
+
     const {
         control,
         handleSubmit,
@@ -125,10 +156,11 @@ export const ResourceForm = ({ isOpen, onCancel, onSave, formData, documentUri }
         register,
         watch,
         setValue,
-        reset
+        reset,
+        trigger
     } = useForm({
         defaultValues: newResource,
-        resolver: yupResolver(schema),
+        resolver: yupResolver(validationSchema),
         mode: "onChange",
     });
 
@@ -144,6 +176,14 @@ export const ResourceForm = ({ isOpen, onCancel, onSave, formData, documentUri }
             reset(newResource);
         }
     }, [formData, isOpen])
+
+    // Re-validate resourcePath whenever the method changes to clear/raise the error.
+    const resourceMethod = watch("resourceMethod");
+    useEffect(() => {
+        if (isOpen && watch("resourcePath")) {
+            trigger("resourcePath");
+        }
+    }, [resourceMethod]);
 
     const handleResourceSubmit = (data: ResourceType) => {
         const metaData: ResourceFormData = {

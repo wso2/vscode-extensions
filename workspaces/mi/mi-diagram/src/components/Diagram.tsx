@@ -56,6 +56,7 @@ export interface DiagramProps {
     // Callbacks for the diagram view
     isFaultFlow?: boolean;
     isFormOpen?: boolean;
+    disableTryout?: boolean;
 }
 
 export enum DiagramType {
@@ -610,7 +611,7 @@ export function Diagram(props: DiagramProps) {
                         onResize={(width: number) => console.log('Width changed to:', width)}
                         resizable={true}
                     >
-                        <SidePanelList nodePosition={sidePanelState.nodeRange} trailingSpace={sidePanelState.trailingSpace} documentUri={props.documentUri} artifactModel={props.model} />
+                        <SidePanelList nodePosition={sidePanelState.nodeRange} trailingSpace={sidePanelState.trailingSpace} documentUri={props.documentUri} artifactModel={props.model} disableTryout={props.disableTryout} />
                     </ResizableSidePanel>
                 </SidePanelProvider >
             </S.Container >
