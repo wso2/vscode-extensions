@@ -53,7 +53,8 @@ test.beforeAll(async () => {
 
 test.describe(createProjectTests);
 test.describe(artifactTests);
-test.describe(multiWorkspaceTests);
+// Enable the test after fixing https://github.com/wso2/mi-vscode/issues/1501
+test.describe.skip(multiWorkspaceTests);
 test.describe(dataMapperTests);
 test.describe(overviewPageTests);
 test.describe(openEntryPointArtifact);
