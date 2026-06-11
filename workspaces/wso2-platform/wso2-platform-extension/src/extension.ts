@@ -55,7 +55,8 @@ export async function activate(context: vscode.ExtensionContext) {
 	const DEPRECATION_WARNING_KEY = "wso2.platform.deprecation.dismissed";
 	const RELATED_EXTENSION_IDS = ["WSO2.ballerina", "WSO2.micro-integrator"];
 	const hasRelatedExtension = RELATED_EXTENSION_IDS.some((id) => !!vscode.extensions.getExtension(id));
-	if (hasRelatedExtension && !context.globalState.get<boolean>(DEPRECATION_WARNING_KEY, false)) {
+	const hasWso2Integrator = !!vscode.extensions.getExtension("WSO2.wso2-integrator");
+	if (hasRelatedExtension && !hasWso2Integrator && !context.globalState.get<boolean>(DEPRECATION_WARNING_KEY, false)) {
 		window
 			.showWarningMessage(
 				"The WSO2 Platform extension is deprecated. Please install the WSO2 Integrator extension instead.",
