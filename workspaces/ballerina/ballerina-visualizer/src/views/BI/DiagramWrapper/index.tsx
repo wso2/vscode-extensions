@@ -129,6 +129,8 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
     const [fileName, setFileName] = useState("");
     const [serviceType, setServiceType] = useState("");
     const [serviceName, setServiceName] = useState("");
+    // For the AGENT focus view: the agent's variable name (e.g. "libraryAgent"), shown as the title.
+    const [agentName, setAgentName] = useState("");
     const [basePath, setBasePath] = useState("");
     const [listener, setListener] = useState("");
     const [parentMetadata, setParentMetadata] = useState<ParentMetadata>();
@@ -167,6 +169,9 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
         rpcClient.getVisualizerLocation().then((location) => {
             if (location.metadata?.enableSequenceDiagram) {
                 setEnableSequenceDiagram(true);
+            }
+            if (location.identifier) {
+                setAgentName(location.identifier);
             }
 
             rpcClient
@@ -398,6 +403,18 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
     let isAgent = parentMetadata?.kind === "AI Chat Agent" && parentMetadata?.label === "chat";
     let isInitFunction = parentMetadata?.kind === "Function" && parentMetadata?.label === "init";
     let isNPFunction = view === FOCUS_FLOW_DIAGRAM_VIEW.NP_FUNCTION;
+    let isAgentFocus = view === FOCUS_FLOW_DIAGRAM_VIEW.AGENT || view === FOCUS_FLOW_DIAGRAM_VIEW.AGENT_TYPE;
+
+    const handleAgentFocusChat = () => {
+        if (!agentName || !filePath) {
+            console.error("Cannot start inline agent chat: missing agent variable name or file path");
+            return;
+        }
+        rpcClient.getBIDiagramRpcClient().startInlineAgentChat({
+            agentVarName: agentName,
+            filePath,
+        });
+    };
 
     const handleResourceTryIt = async (methodValue: string, pathValue: string) => {
         if (serviceType !== "http") { return; }
@@ -512,6 +529,8 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
 
     // Calculate title based on conditions
     const getTitle = () => {
+        if (view === FOCUS_FLOW_DIAGRAM_VIEW.AGENT) return agentName || "AI Agent";
+        if (view === FOCUS_FLOW_DIAGRAM_VIEW.AGENT_TYPE) return agentName || "AI Agent";
         if (isNPFunction) return "Natural Function";
         if (isAutomation) return "Automation";
         if (parentCodedata?.sourceCode.includes("@ai:AgentTool")) return "Agent Tool";
@@ -566,6 +585,23 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
                         Chat
                     </ActionButton>
                 </>
+            );
+        }
+
+        if (isAgentFocus) {
+            return (
+                <ActionButton
+                    appearance="secondary"
+                    onClick={handleAgentFocusChat}
+                    tooltip="Generate a chat service for this agent"
+                >
+                    <Icon
+                        name="comment-discussion"
+                        isCodicon={true}
+                        sx={{ marginRight: 5, width: 16, height: 16, fontSize: 14 }}
+                    />
+                    Chat
+                </ActionButton>
             );
         }
 
@@ -624,11 +660,13 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
             ) : (
                 <TitleBar
                     title={getTitle()}
-                    subtitleElement={getSubtitleElement}
-                    actions={loadingDiagram ? null : getActions()}
+                    {...(view === FOCUS_FLOW_DIAGRAM_VIEW.AGENT || view === FOCUS_FLOW_DIAGRAM_VIEW.AGENT_TYPE
+                        ? { subtitle: "AI Agent" }
+                        : { subtitleElement: getSubtitleElement })}
+                    actions={getActions()}
                 />
             )}
-            {enableSequenceDiagram && !isAgent &&
+            {enableSequenceDiagram && !isAgent && !view &&
                 (
                     !loadingDiagram ? (
                         <Switch
@@ -672,6 +710,7 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
                     <BIFocusFlowDiagram
                         projectPath={projectPath}
                         filePath={filePath}
+                        view={view}
                         onUpdate={handleUpdateDiagram}
                         onReady={handleReadyDiagram}
                     />

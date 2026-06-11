@@ -68,6 +68,7 @@ export enum MACHINE_VIEW {
     InlineDataMapper = "Inline Data Mapper",
     GraphQLDiagram = "GraphQL Diagram",
     TypeDiagram = "Type Diagram",
+    AgentsOverview = "Agents Overview",
     SetupView = "Setup View",
     BIDiagram = "BI Diagram",
     BIWelcome = "BI Welcome",
@@ -76,6 +77,7 @@ export enum MACHINE_VIEW {
     BIAddProjectForm = "BI Add Project SKIP",
     BIComponentView = "BI Component View",
     AddConnectionWizard = "Add Connection Wizard",
+    AddAgent = "Add Agent",
     ConnectionConfiguration = "Connection Configuration",
     AddCustomConnector = "Add Custom Connector",
     ViewConfigVariables = "View Config Variables",
@@ -116,6 +118,8 @@ export interface CommandProps {
 
 export const FOCUS_FLOW_DIAGRAM_VIEW = {
     NP_FUNCTION: "NP_FUNCTION",
+    AGENT: "AGENT",
+    AGENT_TYPE: "AGENT_TYPE",
 } as const;
 
 export type FocusFlowDiagramView = typeof FOCUS_FLOW_DIAGRAM_VIEW[keyof typeof FOCUS_FLOW_DIAGRAM_VIEW];

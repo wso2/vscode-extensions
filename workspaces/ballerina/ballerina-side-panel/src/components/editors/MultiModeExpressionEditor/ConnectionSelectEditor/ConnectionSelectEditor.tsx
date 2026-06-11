@@ -19,9 +19,18 @@
 import React, { useEffect, useState } from "react";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { CodeData } from "@wso2/ballerina-core";
+import { Codicon, LinkButton } from "@wso2/ui-toolkit";
 import { FormField } from "../../../Form/types";
 import { ConnectionIconSelect, ConnectionSelectItem } from "../../ConnectionIconSelect";
 import { useFormContext } from "../../../../context";
+
+// "MODEL_PROVIDER" -> "Model Provider"
+function humanizeKind(kind: string): string {
+    return kind
+        .split("_")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(" ");
+}
 
 interface ConnectionSelectEditorProps {
     value: string;
@@ -63,28 +72,32 @@ function ensureValueInItems(
 
 export const ConnectionSelectEditor: React.FC<ConnectionSelectEditorProps> = ({ value, field, onChange }) => {
     const { rpcClient } = useRpcContext();
-    const { targetLineRange, fileName } = useFormContext();
+    const { targetLineRange, fileName, onCreateConnection } = useFormContext();
 
     const searchNodesKind = field.codedata?.searchNodesKind;
+    // Narrows the search and keys the cache so different client types sharing "NEW_CONNECTION" don't collide.
+    const connectionType = field.codedata?.connectionType;
+    const cacheKey = connectionType ? `${searchNodesKind}:${connectionType}` : searchNodesKind;
     const initialItems: ConnectionSelectItem[] = field.codedata?.initialItems ?? [];
     const staticItems: ConnectionSelectItem[] = field.codedata?.staticItems ?? [];
-    const cachedItems = searchNodesKind ? itemsCache.get(searchNodesKind) : undefined;
+    const itemsPreloaded = field.codedata?.initialItems !== undefined;
+    const cachedItems = cacheKey ? itemsCache.get(cacheKey) : undefined;
     const resolvedItems = [...staticItems, ...(cachedItems ?? enrichWithCachedIcons(initialItems))];
     const [selectItems, setSelectItems] = useState<ConnectionSelectItem[]>(
         ensureValueInItems(resolvedItems, value, searchNodesKind)
     );
-    const [loading, setLoading] = useState<boolean>(!!searchNodesKind && !cachedItems);
+    const [loading, setLoading] = useState<boolean>(!!searchNodesKind && !cachedItems && !itemsPreloaded);
 
     const fetchItems = () => {
         if (!searchNodesKind) return;
         // Show loading only if we have no cached items to display
-        if (!itemsCache.has(searchNodesKind)) {
+        if (!itemsCache.has(cacheKey)) {
             setLoading(true);
         }
         rpcClient.getBIDiagramRpcClient().searchNodes({
             filePath: fileName,
             position: targetLineRange.startLine,
-            queryMap: { kind: searchNodesKind }
+            queryMap: { kind: searchNodesKind, ...(connectionType ? { connectionType } : {}) }
         }).then((response) => {
             const nodes = response?.output ?? [];
             const items: ConnectionSelectItem[] = nodes
@@ -103,7 +116,7 @@ export const ConnectionSelectEditor: React.FC<ConnectionSelectEditorProps> = ({ 
                         iconUrl,
                     };
                 });
-            itemsCache.set(searchNodesKind, items);
+            itemsCache.set(cacheKey, items);
             setSelectItems([...staticItems, ...items]);
         }).finally(() => {
             setLoading(false);
@@ -111,19 +124,30 @@ export const ConnectionSelectEditor: React.FC<ConnectionSelectEditorProps> = ({ 
     };
 
     useEffect(() => {
+        // Parent already provided the list (initialItems) — skip the redundant mount fetch.
+        if (itemsPreloaded) return;
         fetchItems();
-    }, [searchNodesKind, fileName]);
+    }, [searchNodesKind, connectionType, fileName]);
 
     // When value changes to something not in the current items (e.g. after creating
     // a new connection via an overlay), inject a placeholder and re-fetch
     useEffect(() => {
         if (!value || selectItems.some(item => item.value === value)) return;
         setSelectItems(prev => ensureValueInItems(prev, value, searchNodesKind));
-        if (searchNodesKind) {
-            itemsCache.delete(searchNodesKind);
+        if (cacheKey) {
+            itemsCache.delete(cacheKey);
         }
         fetchItems();
     }, [value]);
+
+    // Suppress the generic create-new action when the field supplies its own (e.g. the memory `store` field, which
+    // has a dedicated create flow via actionCallback/actionLabel) — otherwise both render as duplicate buttons.
+    const showCreateNew = !!onCreateConnection && !!searchNodesKind && field.editable && !field.actionCallback;
+    // The backing connector codedata for the create-new flow.
+    const connectorCodeData = field.codedata?.data?.connection as CodeData | undefined;
+    const createNewLabel = connectionType
+        ? "Connection"
+        : humanizeKind(searchNodesKind);
 
     return (
         <>
@@ -136,6 +160,19 @@ export const ConnectionSelectEditor: React.FC<ConnectionSelectEditorProps> = ({ 
                 loading={loading}
                 onChange={(val) => onChange(val, val?.length)}
             />
+            {showCreateNew && (
+                <LinkButton
+                    onClick={() => onCreateConnection(
+                        searchNodesKind,
+                        (varName) => onChange(varName, varName?.length),
+                        connectorCodeData
+                    )}
+                    sx={{ padding: "4px 6px", margin: 0, marginTop: "6px", fontSize: "13px" }}
+                >
+                    <Codicon name="add" />
+                    {`Create New ${createNewLabel}`}
+                </LinkButton>
+            )}
         </>
     );
 };

@@ -263,6 +263,36 @@ export class SizingVisitor implements BaseVisitor {
         this.setNodeSize(node, containerLeftWidth, containerRightWidth, containerHeight);
     }
 
+    endVisitAgentRun(node: FlowNode, parent?: FlowNode): void {
+        if (!this.validateNode(node)) return;
+        const halfWidth = NODE_WIDTH / 2;
+        // NODE_HEIGHT covers header (icon + title + result-var subtitle); agent row holds name + redirect button:
+        // 8 padding-bottom + 1 divider + 8 column-gap + ~24 button + 8 bottom ≈ 49px.
+        const hasAgentRow = Boolean(node.properties?.connection?.value);
+        const containerHeight = NODE_HEIGHT + (hasAgentRow ? 49 : 0);
+        this.setNodeSize(node, halfWidth, halfWidth, containerHeight);
+    }
+
+    endVisitAgentType(node: FlowNode, parent?: FlowNode): void {
+        if (!this.validateNode(node)) return;
+        const halfNodeWidth = NODE_WIDTH / 2;
+        const containerLeftWidth = halfNodeWidth;
+        // Reserve room to the right for the model-provider circle and any tool circles.
+        const containerRightWidth = halfNodeWidth + NODE_GAP_X + NODE_HEIGHT + LABEL_HEIGHT + LABEL_WIDTH;
+        // Grow the box to fit the memory affordance (button/card) and the doc-comment description block (divider +
+        // up to 4 clamped lines) when present.
+        const nodeMetadata = node.metadata.data as NodeMetadata;
+        const memoryHeight = nodeMetadata?.memoryParam ? 52 : 0;
+        const descriptionHeight = nodeMetadata?.agentDescription ? 95 : 0;
+        const boxHeight = NODE_HEIGHT + memoryHeight + descriptionHeight;
+        // Base height matches AGENT_CALL (no add-tool button since read-only), then grows per tool.
+        const toolCount = (nodeMetadata?.tools || []).length;
+        const baseHeight = NODE_HEIGHT + AGENT_NODE_TOOL_SECTION_GAP;
+        const toolsHeight = toolCount * (NODE_HEIGHT + AGENT_NODE_TOOL_GAP);
+        const containerHeight = Math.max(boxHeight, baseHeight + toolsHeight);
+        this.setNodeSize(node, containerLeftWidth, containerRightWidth, containerHeight);
+    }
+
     endVisitEmpty(node: FlowNode, parent?: FlowNode): void {
         if (!this.validateNode(node)) return;
         if (reverseCustomNodeId(node.id).label === LAST_NODE) {

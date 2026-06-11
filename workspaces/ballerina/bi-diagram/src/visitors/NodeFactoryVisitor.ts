@@ -43,6 +43,8 @@ import { Branch, FlowNode, NodeModel } from "../utils/types";
 import { EndNodeModel } from "../components/nodes/EndNode";
 import { ErrorNodeModel } from "../components/nodes/ErrorNode";
 import { AgentCallNodeModel } from "../components/nodes/AgentCallNode/AgentCallNodeModel";
+import { AgentRunNodeModel } from "../components/nodes/AgentRunNode/AgentRunNodeModel";
+import { AgentTypeNodeModel } from "../components/nodes/AgentTypeNode/AgentTypeNodeModel";
 import { PromptNodeModel } from "../components/nodes/PromptNode/PromptNodeModel";
 
 export class NodeFactoryVisitor implements BaseVisitor {
@@ -621,6 +623,28 @@ export class NodeFactoryVisitor implements BaseVisitor {
             return;
         }
         const nodeModel = new AgentCallNodeModel(node);
+        this.nodes.push(nodeModel);
+        this.updateNodeLinks(node, nodeModel);
+        this.addSuggestionsButton(node);
+    }
+
+    beginVisitAgentRun(node: FlowNode, parent?: FlowNode): void {
+        if (!this.validateNode(node)) return;
+        if (!node.id) {
+            return;
+        }
+        const nodeModel = new AgentRunNodeModel(node);
+        this.nodes.push(nodeModel);
+        this.updateNodeLinks(node, nodeModel);
+        this.addSuggestionsButton(node);
+    }
+
+    beginVisitAgentType(node: FlowNode, parent?: FlowNode): void {
+        if (!this.validateNode(node)) return;
+        if (!node.id) {
+            return;
+        }
+        const nodeModel = new AgentTypeNodeModel(node);
         this.nodes.push(nodeModel);
         this.updateNodeLinks(node, nodeModel);
         this.addSuggestionsButton(node);

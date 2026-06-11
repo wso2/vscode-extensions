@@ -17,7 +17,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { AvailableNode, CDModel, CodeData, EVENT_TYPE, NodeKind } from '@wso2/ballerina-core';
+import { CDModel, EVENT_TYPE } from '@wso2/ballerina-core';
 import { View, ViewContent, TextField, Button, Typography } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
 import { useRpcContext } from '@wso2/ballerina-rpc-client';
@@ -25,25 +25,8 @@ import { TitleBar } from '../../../components/TitleBar';
 import { TopNavigationBar } from '../../../components/TopNavigationBar';
 import { RelativeLoader } from '../../../components/RelativeLoader';
 import { FormHeader } from '../../../components/FormHeader';
-import { getAiModuleOrg, getNodeTemplate } from './utils';
-import { AI_COMPONENT_PROGRESS_MESSAGE_TIMEOUT, BALLERINA, GET_DEFAULT_MODEL_PROVIDER } from '../../../constants';
-
-const WSO2_MODEL_PROVIDER_CODEDATA: CodeData = {
-    node: "MODEL_PROVIDER",
-    org: "ballerina",
-    module: "ai",
-    packageName: "ai",
-    symbol: "getDefaultModelProvider",
-};
-
-const OPENAI_PROVIDER_CODEDATA: CodeData = {
-    node: "CLASS_INIT",
-    org: "ballerinax",
-    module: "ai",
-    packageName: "ai",
-    object: "OpenAiProvider",
-    symbol: "init",
-};
+import { createBuiltInAgent, getAiModuleOrg, toBaseName, toCamelCase } from './utils';
+import { AI_COMPONENT_PROGRESS_MESSAGE_TIMEOUT, BALLERINA } from '../../../constants';
 
 const FormContainer = styled.div`
     display: flex;
@@ -77,43 +60,6 @@ export interface AIChatAgentWizardProps {
 }
 
 const AI_CHAT_AGENT_LISTENER = "chatAgentListener";
-const AI_WSO2_MODEL_PROVIDER = "wso2ModelProvider";
-const MODEL = "Model";
-const KNOWN_SUFFIXES = ["agent", "model"];
-
-function toCamelCase(name: string): string {
-    // Split on spaces/underscores, convert to camelCase
-    const words = name.trim().split(/[\s_]+/).filter(Boolean);
-    if (words.length === 0) return "";
-    const firstWord = words[0];
-    // Lowercase leading acronyms: "HR" -> "hr", "HTMLParser" -> "htmlParser"
-    const leadingUpper = firstWord.match(/^[A-Z]+/);
-    let lowerFirst: string;
-    if (leadingUpper && leadingUpper[0].length === firstWord.length) {
-        // Entire word is uppercase: "HR" -> "hr"
-        lowerFirst = firstWord.toLowerCase();
-    } else if (leadingUpper && leadingUpper[0].length > 1) {
-        // Acronym followed by more chars: "HRPolicy" -> "hrPolicy"
-        lowerFirst = leadingUpper[0].slice(0, -1).toLowerCase() + firstWord.slice(leadingUpper[0].length - 1);
-    } else {
-        lowerFirst = firstWord.charAt(0).toLowerCase() + firstWord.slice(1);
-    }
-    return lowerFirst
-        + words.slice(1).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join("");
-}
-
-function toBaseName(name: string): string {
-    const camel = toCamelCase(name);
-    // Strip known suffixes to avoid e.g. "salesAgentAgent"
-    const lower = camel.toLowerCase();
-    for (const suffix of KNOWN_SUFFIXES) {
-        if (lower.endsWith(suffix) && lower.length > suffix.length) {
-            return camel.slice(0, -suffix.length);
-        }
-    }
-    return camel;
-}
-
 
 export function AIChatAgentWizard(props: AIChatAgentWizardProps) {
     // module name for ai agent
@@ -223,65 +169,12 @@ export function AIChatAgentWizard(props: AIChatAgentWizardProps) {
 
             setCurrentStep(1);
 
-            // Select model provider based on org
-            const modelProviderCodedata = aiModuleOrg.current === BALLERINA
-                ? WSO2_MODEL_PROVIDER_CODEDATA
-                : OPENAI_PROVIDER_CODEDATA;
-
-            let modelVarName: string;
-
-            // For WSO2 model provider, reuse shared "aiWso2ModelProvider" if it already exists
-            if (aiModuleOrg.current === BALLERINA) {
-                modelVarName = AI_WSO2_MODEL_PROVIDER;
-                const existingModelProviders = await rpcClient.getBIDiagramRpcClient().searchNodes({
-                    filePath: projectPath.current,
-                    queryMap: { kind: "MODEL_PROVIDER" as NodeKind }
-                });
-                const existingProvider = existingModelProviders?.output?.find(
-                    node => String(node.properties?.variable?.value) === AI_WSO2_MODEL_PROVIDER
-                );
-
-                if (!existingProvider) {
-                    const modelNodeTemplate = await getNodeTemplate(rpcClient, modelProviderCodedata, projectPath.current);
-                    modelNodeTemplate.properties.variable.value = modelVarName;
-                    await rpcClient.getBIDiagramRpcClient().getSourceCode({ filePath: projectPath.current, flowNode: modelNodeTemplate });
-                }
-            } else {
-                modelVarName = `${baseName}` + MODEL;
-                const modelNodeTemplate = await getNodeTemplate(rpcClient, modelProviderCodedata, projectPath.current);
-                modelNodeTemplate.properties.variable.value = modelVarName;
-                await rpcClient.getBIDiagramRpcClient().getSourceCode({ filePath: projectPath.current, flowNode: modelNodeTemplate });
-            }
-
-            // Search for agent node in the current file
-            const agentSearchResponse = await rpcClient.getBIDiagramRpcClient().search({
-                filePath: projectPath.current,
-                queryMap: { orgName: aiModuleOrg.current },
-                searchKind: "AGENT"
-            });
-
-            // Validate search response structure
-            if (!agentSearchResponse?.categories?.[0]?.items?.[0]) {
-                throw new Error('No agent node found in search response');
-            }
-
-            const agentNode = agentSearchResponse.categories[0].items[0] as AvailableNode;
-            console.log(">>> agentNode", agentNode);
-
-            // Generate template from agent node
-            const agentNodeTemplate = await getNodeTemplate(rpcClient, agentNode.codedata, projectPath.current);
-
-            // save the agent node
-            const systemPromptValue = `{role: string \`${agentName}\`, instructions: string \`\`}`;
-            const agentVarName = `${baseName}Agent`;
-            agentNodeTemplate.properties.systemPrompt.value = systemPromptValue;
-            agentNodeTemplate.properties.model.value = modelVarName;
-            agentNodeTemplate.properties.tools.value = "[]";
-            agentNodeTemplate.properties.variable.value = agentVarName;
-
-            await rpcClient
-                .getBIDiagramRpcClient()
-                .getSourceCode({ filePath: projectPath.current, flowNode: agentNodeTemplate });
+            // Create the built-in agent + model provider (shared with the "from scratch" flow)
+            const { usedDefaultModelProvider } = await createBuiltInAgent(
+                rpcClient,
+                projectPath.current,
+                agentName
+            );
 
             setCurrentStep(3);
 
@@ -339,7 +232,7 @@ export function AIChatAgentWizard(props: AIChatAgentWizardProps) {
             const newServiceArtifact = serviceSourceCodeResult.artifacts.find(artifact => artifact.isNew);
 
             // If the selected model is the default WSO2 model provider, configure it
-            if (modelProviderCodedata.symbol === GET_DEFAULT_MODEL_PROVIDER) {
+            if (usedDefaultModelProvider) {
                 await rpcClient.getAIAgentRpcClient().configureDefaultModelProvider("model");
             }
 

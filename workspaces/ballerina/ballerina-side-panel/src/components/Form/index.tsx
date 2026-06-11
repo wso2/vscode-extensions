@@ -355,6 +355,8 @@ export interface FormProps {
     derivedFields?: FieldDerivation[]; // Configuration for auto-deriving field values from other fields
     updateImports?: (key: string, imports: Imports) => void;
     defaultExpandAdvanced?: boolean;
+    // Enables the "Create New" link on connection-select fields; resolves with the new variable name.
+    onCreateConnection?: (kind: string, onCreated: (variableName: string) => void) => void;
 }
 
 export const Form = forwardRef((props: FormProps, _ref) => {
@@ -400,6 +402,7 @@ export const Form = forwardRef((props: FormProps, _ref) => {
         openFormTypeEditor,
         derivedFields = [],
         updateImports,
+        onCreateConnection,
     } = props;
 
     const { rpcClient } = useRpcContext();
@@ -793,7 +796,8 @@ export const Form = forwardRef((props: FormProps, _ref) => {
         popupManager: popupManager,
         nodeInfo: {
             kind: selectedNode,
-        }
+        },
+        onCreateConnection,
     };
 
     // Find the first editable identifier field

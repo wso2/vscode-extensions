@@ -20,7 +20,7 @@ import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { TraceAnimationEvent } from "@wso2/ballerina-core";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import styled from "@emotion/styled";
-import { removeMcpServerFromAgentNode, findAgentNodeFromAgentCallNode, findFlowNode, removeAgentNode, confirmAgentCallDeletion } from "../AIChatAgent/utils";
+import { removeMcpServerFromAgentNode, findAgentNodeFromAgentCallNode, findFlowNode, goToAgentFromRunNode, removeAgentNode, confirmAgentCallDeletion } from "../AIChatAgent/utils";
 import { MemoizedDiagram, setTraceAnimationActive, setTraceAnimationInactive } from "@wso2/bi-diagram";
 import {
     BIAvailableNodesRequest,
@@ -57,6 +57,7 @@ import {
 import {
     convertBICategoriesToSidePanelCategories,
     convertFunctionCategoriesToSidePanelCategories,
+    convertAgentCategoriesToSidePanelCategories,
     convertModelProviderCategoriesToSidePanelCategories,
     convertVectorStoreCategoriesToSidePanelCategories,
     convertEmbeddingProviderCategoriesToSidePanelCategories,
@@ -1364,10 +1365,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                     })
                     .then((response) => {
                         setCategories(
-                            convertFunctionCategoriesToSidePanelCategories(
-                                response.categories as Category[],
-                                FUNCTION_TYPE.REGULAR
-                            )
+                            convertAgentCategoriesToSidePanelCategories(response.categories as Category[])
                         );
                         setSidePanelView(SidePanelView.AGENT_LIST);
                         setShowSidePanel(true);
@@ -2425,6 +2423,8 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         await rpcClient.getVisualizerRpcClient().openView({ type: EVENT_TYPE.OPEN_VIEW, location: context });
     };
 
+    const handleGoToAgent = (node: FlowNode) => goToAgentFromRunNode(node, rpcClient);
+
     const handleSubPanel = (subPanel: SubPanel) => {
         setSubPanel(subPanel);
     };
@@ -2851,6 +2851,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
             addBreakpoint: handleAddBreakpoint,
             removeBreakpoint: handleRemoveBreakpoint,
             openView: handleOpenView,
+            goToAgent: handleGoToAgent,
             draftNode: {
                 override: hasDraft && isDraftProcessing,
                 showSpinner: isDraftProcessing,

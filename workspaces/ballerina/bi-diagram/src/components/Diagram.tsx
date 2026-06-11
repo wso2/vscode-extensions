@@ -44,6 +44,8 @@ import Controls from "./Controls";
 import { CurrentBreakpointsResponse as BreakpointInfo, JoinProjectPathRequest, JoinProjectPathResponse, traverseFlow, VisualizerLocation } from "@wso2/ballerina-core";
 import { BreakpointVisitor } from "../visitors/BreakpointVisitor";
 import { BaseNodeModel } from "./nodes/BaseNode";
+import { AgentCallNodeModel } from "./nodes/AgentCallNode/AgentCallNodeModel";
+import { AgentTypeNodeModel } from "./nodes/AgentTypeNode/AgentTypeNodeModel";
 import { PopupOverlay } from "./PopupOverlay";
 
 export interface DiagramProps {
@@ -59,6 +61,7 @@ export interface DiagramProps {
     onConnectionSelect?: (connectionName: string) => void;
     goToSource?: (node: FlowNode) => void;
     openView?: (location: VisualizerLocation) => void;
+    goToAgent?: (node: FlowNode) => void;
     draftNode?: DraftNodeConfig;
     selectedNodeId?: string;
     // agent node callbacks
@@ -100,6 +103,9 @@ export interface DiagramProps {
         serviceName?: string;
         functionName?: string;
     };
+    // Set only by the agent focus-flow diagram, so its single-node centering never affects the
+    // normal flow diagram.
+    isAgentFocusView?: boolean;
 }
 
 export function Diagram(props: DiagramProps) {
@@ -114,6 +120,7 @@ export function Diagram(props: DiagramProps) {
         onConnectionSelect,
         goToSource,
         openView,
+        goToAgent,
         draftNode,
         selectedNodeId,
         agentNode,
@@ -128,6 +135,7 @@ export function Diagram(props: DiagramProps) {
         isUserAuthenticated,
         expressionContext,
         entrypointContext,
+        isAgentFocusView,
     } = props;
 
     const [showErrorFlow, setShowErrorFlow] = useState(false);
@@ -282,10 +290,49 @@ export function Diagram(props: DiagramProps) {
             diagramEngine.getModel().removeLayer(overlayLayer);
         }
 
+        // Agent focus view renders a lone agent node (built-in AGENT_CALL or custom AGENT_TYPE). Center the agent
+        // card (width = 2 * lw) on the diagram center line (x = 0), letting the model/tools branch out to the right;
+        // the shared reset/centering below then horizontally centers the card in the canvas.
+        // Gated on isAgentFocusView so it never affects the normal flow diagram.
+        const isSingleAgentNode =
+            isAgentFocusView && nodes.length === 1 &&
+            (nodes[0].getType() === NodeTypes.AGENT_CALL_NODE ||
+                nodes[0].getType() === NodeTypes.AGENT_TYPE_NODE);
+        if (isSingleAgentNode) {
+            const agentNode = nodes[0] as AgentCallNodeModel | AgentTypeNodeModel;
+            const { lw, y } = agentNode.node.viewState;
+            agentNode.setPosition(-lw, y);
+        }
+
         if (nodes.length < 3 || !hasDiagramZoomAndPosition(model.fileName)) {
             resetDiagramZoomAndPosition(model.fileName);
         }
         loadDiagramZoomAndPosition(diagramEngine);
+
+        if (isSingleAgentNode) {
+            const centerSingleAgentNode = () => {
+                const canvas = document.getElementById("bi-diagram-canvas");
+                if (!canvas) {
+                    return false;
+                }
+                const agentNode = nodes[0] as AgentCallNodeModel | AgentTypeNodeModel;
+                const diagramModel = diagramEngine.getModel();
+                const zoom = diagramModel.getZoomLevel() / 100;
+                const cardHeight = agentNode.node.viewState.ch || agentNode.node.viewState.h;
+                const canvasHeight = canvas.getBoundingClientRect().height;
+                const offsetY = canvasHeight / 2 - 40 - (agentNode.getY() + cardHeight / 2) * zoom;
+                diagramModel.setOffset(diagramModel.getOffsetX(), offsetY);
+                return true;
+            };
+
+            if (!centerSingleAgentNode()) {
+                requestAnimationFrame(() => {
+                    if (centerSingleAgentNode()) {
+                        diagramEngine.repaintCanvas();
+                    }
+                });
+            }
+        }
 
         diagramEngine.repaintCanvas();
         // update the diagram model state
@@ -325,6 +372,7 @@ export function Diagram(props: DiagramProps) {
         onConnectionSelect: onConnectionSelect,
         goToSource: goToSource,
         openView: openView,
+        goToAgent: goToAgent,
         draftNode: draftNode,
         selectedNodeId: selectedNodeId,
         agentNode: agentNode,
