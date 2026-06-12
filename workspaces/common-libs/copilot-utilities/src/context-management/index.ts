@@ -150,50 +150,6 @@ export function extractCompactionSummary(rawContent: string): string | null {
 }
 
 /**
- * Builds providerOptions for Amazon Bedrock's context management API.
- *
- * Bedrock does not use providerOptions.anthropic — it reads providerOptions.bedrock
- * and passes context_management via additionalModelRequestFields. The beta header
- * is sent via the anthropicBeta array.
- *
- * Returns null under the same conditions as buildContextManagementOptions (floor >= trigger).
- */
-export function buildBedrockContextManagementOptions(
-    config: ContextManagementConfig = {}
-): { bedrock: { anthropicBeta: string[]; additionalModelRequestFields: Record<string, unknown> } } | null {
-    const compactTrigger = config.compactTriggerTokens ?? DEFAULT_COMPACT_TRIGGER;
-    const clearTrigger = config.clearToolUsesTriggerTokens ?? DEFAULT_CLEAR_TOOL_USES_TRIGGER;
-    const keepToolUses = config.keepRecentToolUses ?? DEFAULT_KEEP_RECENT_TOOL_USES;
-    const instructions = config.compactionInstructions ?? SUMMARIZATION_PROMPT;
-
-    if (config.estimatedFloorTokens !== undefined && config.estimatedFloorTokens >= compactTrigger) {
-        return null;
-    }
-
-    return {
-        bedrock: {
-            anthropicBeta: ['compact-2026-01-12'],
-            additionalModelRequestFields: {
-                context_management: {
-                    edits: [
-                        {
-                            type: 'clear_tool_uses_20250919',
-                            trigger: { type: 'input_tokens', value: clearTrigger },
-                            keep: { type: 'tool_uses', value: keepToolUses },
-                        },
-                        {
-                            type: 'compact_20260112',
-                            trigger: { type: 'input_tokens', value: compactTrigger },
-                            instructions,
-                        },
-                    ],
-                },
-            },
-        },
-    };
-}
-
-/**
  * Strips <analysis>...</analysis> blocks from compaction text in model messages.
  * Called in prepareStep to avoid re-sending verbose reasoning tokens on every
  * subsequent turn after compaction.
