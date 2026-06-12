@@ -81,7 +81,8 @@ function supportsCompaction(loginMethod: LoginMethod): boolean {
     return loginMethod === LoginMethod.ANTHROPIC_KEY
         || loginMethod === LoginMethod.BI_INTEL
         || loginMethod === LoginMethod.VERTEX_AI
-        || loginMethod === LoginMethod.AWS_BEDROCK;
+        || loginMethod === LoginMethod.AWS_BEDROCK
+        || loginMethod === LoginMethod.ANTHROPIC_AWS;
 }
 
 function buildCompactionProviderOptions(loginMethod: LoginMethod, floorTokens: number) {
