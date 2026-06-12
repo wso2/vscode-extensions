@@ -50,6 +50,14 @@ module.exports = {
         if (deps['tmp']) deps['tmp'] = '0.2.6';
         if (deps['undici']) deps['undici'] = '7.24.0';
         if (deps['@nevware21/ts-utils']) deps['@nevware21/ts-utils'] = '0.14.0'; // security fix: CVE-2026-46681 (prototype pollution)
+        if (deps['@ai-sdk/provider-utils']) {
+          const currentVersion = deps['@ai-sdk/provider-utils'];
+          // security mitigation: CVE-2026-8769 (uncontrolled resource consumption) - no fixed
+          // version published yet, pin to the latest 3.x patch
+          if (currentVersion.startsWith('^3') || currentVersion.startsWith('3')) {
+            deps['@ai-sdk/provider-utils'] = '3.0.25';
+          }
+        }
         if (deps['protobufjs']) {
           const currentVersion = deps['protobufjs'];
           if (currentVersion.startsWith('^8') || currentVersion.startsWith('8')) {
