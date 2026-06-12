@@ -88,6 +88,7 @@ export interface PersistedGenerationMetadata {
     generationType?: string;
     commandType?: string;
     compactionMetadata?: PersistedCompactionMetadata;
+    agentsMdLastReadHash?: string;
 }
 
 // ============================================
