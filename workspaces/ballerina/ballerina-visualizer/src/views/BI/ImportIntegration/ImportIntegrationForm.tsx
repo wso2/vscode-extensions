@@ -118,7 +118,7 @@ export function ImportIntegrationForm({
     return (
         <>
             <BodyText>
-                This wizard converts an external integration from MuleSoft or TIBCO into a ready-to-use BI
+                This wizard converts an external integration from MuleSoft or TIBCO into a ready-to-use WSO2 Integrator 
                 project.
             </BodyText>
             <Typography variant="h3" sx={{ marginTop: 20, marginBottom: 8 }}>

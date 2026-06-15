@@ -99,7 +99,7 @@ export const CodeSection: React.FC<CodeSectionProps> = ({
         ? `Generating ${isTestCode ? "Tests..." : "Integration..."}`
         : isTestCode
         ? "Ballerina Tests"
-        : "BI Integration";
+        : "WSO2 Integrator Integration";
 
     const allCodeSegments = splitContent(message.content)
         .filter((segment) => segment.type === SegmentType.Code)

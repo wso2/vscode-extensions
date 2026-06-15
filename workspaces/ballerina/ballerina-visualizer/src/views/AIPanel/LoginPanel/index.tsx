@@ -204,7 +204,7 @@ const LoginPanel: React.FC = () => {
                     <StyledButton onClick={handleCopilotLogin}>Login using WSO2 Integration Platform</StyledButton>
                 ) : (
                     <InstallingContainer>  
-                        Install WSO2 Integrator to sign in and use BI Copilot.
+                        Install WSO2 Integrator to sign in and use WSO2 Integrator Copilot.
                         <StyledButton 
                             disabled={isInstallingExtension || undefined} 
                             onClick={installExtension}
