@@ -353,9 +353,18 @@ export function convertNodePropertiesToFormFields(
 
 const AI_MODEL_PROVIDER_TYPE = "ai:ModelProvider";
 const MODEL_PROVIDER_SEARCH_KIND = "MODEL_PROVIDER";
+const DEFAULT_MODEL_PROVIDER_EXPR = "check ai:getDefaultModelProvider()";
+export const DEFAULT_MODEL_PROVIDER_ITEM = {
+    id: "ai:getDefaultModelProvider",
+    label: "Default WSO2 Model Provider",
+    value: DEFAULT_MODEL_PROVIDER_EXPR,
+    codedata: { module: "ai", node: "MODEL_PROVIDER" } as any,
+};
 
 // A bare identifier value points at an existing provider (dropdown mode); anything else is an inline expression.
+// The default model provider expression is treated as a selectable value, not an inline expression.
 function isInlineExpressionValue(value: unknown): boolean {
+    if (value === DEFAULT_MODEL_PROVIDER_EXPR) return false;
     return typeof value === "string" && value.trim() !== "" && !/^[a-zA-Z_][a-zA-Z0-9_']*$/.test(value.trim());
 }
 
@@ -371,7 +380,11 @@ function enrichModelProviderField(formField: FormField, property: Property): voi
         { fieldType: "ACTION_EXPRESSION", ballerinaType: AI_MODEL_PROVIDER_TYPE, selected: !expressionMode },
         { fieldType: "EXPRESSION", selected: expressionMode },
     ] as InputType[];
-    formField.codedata = { ...(formField.codedata || {}), searchNodesKind: MODEL_PROVIDER_SEARCH_KIND };
+    formField.codedata = {
+        ...(formField.codedata || {}),
+        searchNodesKind: MODEL_PROVIDER_SEARCH_KIND,
+        staticItems: [DEFAULT_MODEL_PROVIDER_ITEM],
+    };
 }
 
 const NEW_CONNECTION_SEARCH_KIND = "NEW_CONNECTION";

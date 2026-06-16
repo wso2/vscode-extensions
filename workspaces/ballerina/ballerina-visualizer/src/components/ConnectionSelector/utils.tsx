@@ -19,7 +19,7 @@
 import { FlowNode, Category, Property, ProjectStructureArtifactResponse } from "@wso2/ballerina-core";
 import { FormField, Category as PanelCategory, FormValues, FormImports } from "@wso2/ballerina-side-panel";
 import { ConnectionKindConfig, ConnectionKind, ConnectionSearchConfig } from "./types";
-import { getImportsForProperty } from "../../utils/bi";
+import { getImportsForProperty, DEFAULT_MODEL_PROVIDER_ITEM } from "../../utils/bi";
 import { getConnectionKindConfig } from "./config";
 import { Codicon } from "@wso2/ui-toolkit";
 import { BallerinaRpcClient } from "@wso2/ballerina-rpc-client";
@@ -64,7 +64,8 @@ export const createConnectionSelectField = (
             "kind": "REQUIRED",
             "originalName": "connection",
             ...(connectionKind && { searchNodesKind: connectionKind }),
-            ...(initialItems && { initialItems })
+            ...(initialItems && { initialItems }),
+            ...(connectionKind === "MODEL_PROVIDER" && { staticItems: [DEFAULT_MODEL_PROVIDER_ITEM] }),
         },
         "actionCallback": handleActionBtnClick,
         "actionLabel": <><Codicon name="add" />{createLabel}</>,

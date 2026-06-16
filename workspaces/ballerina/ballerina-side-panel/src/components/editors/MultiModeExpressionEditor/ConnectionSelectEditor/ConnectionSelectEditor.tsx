@@ -129,6 +129,13 @@ export const ConnectionSelectEditor: React.FC<ConnectionSelectEditorProps> = ({ 
         fetchItems();
     }, [searchNodesKind, connectionType, fileName]);
 
+    // Auto-select the first static item when the field opens with no value (new form).
+    useEffect(() => {
+        if (!value && staticItems.length > 0) {
+            onChange(staticItems[0].value, staticItems[0].value.length);
+        }
+    }, []);
+
     // When value changes to something not in the current items (e.g. after creating
     // a new connection via an overlay), inject a placeholder and re-fetch
     useEffect(() => {
