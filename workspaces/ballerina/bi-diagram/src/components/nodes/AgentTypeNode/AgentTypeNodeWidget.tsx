@@ -575,7 +575,9 @@ export function AgentTypeNodeWidget(props: AgentTypeNodeWidgetProps) {
                                 <title>Configure Model Provider</title>
                             </circle>
                             <foreignObject x="68" y="12" width="44" height="44" style={{ pointerEvents: "none" }}>
-                                {getAIModuleIcon(nodeMetadata?.model?.type) ??
+                                {model.node.properties?.model?.value === "check ai:getDefaultModelProvider()"
+                                    ? <Icon name="bi-wso2" sx={{ fontSize: 24, width: 24, height: 24 }} />
+                                    : getAIModuleIcon(nodeMetadata?.model?.type) ??
                                     (nodeModelIconUrl ? <img src={nodeModelIconUrl} style={{ width: 24, height: 24 }} /> : <DefaultLlmIcon />)}
                             </foreignObject>
                         </>
