@@ -56,7 +56,7 @@ import { AddTool } from "../AIChatAgent/AddTool";
 import { NewTool, NewToolSelectionMode } from "../AIChatAgent/NewTool";
 import { AddMcpServer } from "../AIChatAgent/AddMcpServer";
 import { ToolConfig } from "../AIChatAgent/ToolConfig";
-import { findFlowNode, findFlowNodeByModuleVarName, goToAgentFromRunNode, refreshNodeLineRangeFromArtifacts, removeToolFromAgentNode } from "../AIChatAgent/utils";
+import { findFlowNode, findFlowNodeByModuleVarName, goToAgentFromRunNode, refreshNodeLineRangeFromArtifacts, removeToolFromAgentNode, findAgentNodeFromAgentCallNode } from "../AIChatAgent/utils";
 import { buildAgentRenderNode } from "./agent";
 
 import {
@@ -871,7 +871,29 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
         await rpcClient.getVisualizerRpcClient().openView({ type: EVENT_TYPE.OPEN_VIEW, location: context });
     };
 
-    const handleGoToAgent = (node: FlowNode) => goToAgentFromRunNode(node, rpcClient);
+    const handleGoToAgent = async (node: FlowNode) => {
+        if (node.codedata?.node === "AGENT_CALL") {
+            const agentNode = await findAgentNodeFromAgentCallNode(node, rpcClient);
+            if (!agentNode) return;
+            const declRange = agentNode.codedata?.lineRange;
+            if (!declRange) return;
+            const { filePath } = await rpcClient.getVisualizerRpcClient().joinProjectPath({ segments: [declRange.fileName] });
+            await rpcClient.getVisualizerRpcClient().openView({
+                type: EVENT_TYPE.OPEN_VIEW,
+                location: {
+                    documentUri: filePath,
+                    position: {
+                        startLine: declRange.startLine.line,
+                        startColumn: declRange.startLine.offset,
+                        endLine: declRange.endLine.line,
+                        endColumn: declRange.endLine.offset,
+                    },
+                },
+            });
+        } else {
+            goToAgentFromRunNode(node, rpcClient);
+        }
+    };
 
     const handleOnChatWithAgent = (agentDeclNode: FlowNode) => {
         const agentVarName = agentDeclNode.properties?.variable?.value as string;

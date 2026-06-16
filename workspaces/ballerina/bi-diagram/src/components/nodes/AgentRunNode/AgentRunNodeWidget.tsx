@@ -19,7 +19,7 @@
 import React, { ReactNode, useState } from "react";
 import styled from "@emotion/styled";
 import { DiagramEngine } from "@projectstorm/react-diagrams-core";
-import { Icon, Item, Menu, MenuItem, Popover, ThemeColors, Tooltip } from "@wso2/ui-toolkit";
+import { Icon, Item, Menu, MenuItem, Popover, ThemeColors } from "@wso2/ui-toolkit";
 import { MoreVertIcon } from "../../../resources";
 import NodeIcon from "../../NodeIcon";
 import { useDiagramContext } from "../../DiagramContext";
@@ -29,6 +29,7 @@ import { DiagnosticsPopUp } from "../../DiagnosticsPopUp";
 import { nodeHasError } from "../../../utils/node";
 import { BreakpointMenu } from "../../BreakNodeMenu/BreakNodeMenu";
 import { NodeStyles } from "../BaseNode/BaseNodeWidget";
+import { ViewAgentButton } from "../AgentCallNode/AgentCallNodeWidget";
 import {
     DRAFT_NODE_BORDER_WIDTH,
     NODE_BORDER_WIDTH,
@@ -115,25 +116,24 @@ const AgentName = styled.div`
     white-space: nowrap;
 `;
 
-const ViewAgentButton = styled.div`
+
+const IconBox = styled.div`
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    margin-right: 4px;
+`;
+
+const RunBadge = styled.div`
+    position: absolute;
+    bottom: -5px;
+    right: -5px;
     display: flex;
     align-items: center;
-    gap: 3px;
-    padding: 2px 7px;
-    border-radius: 4px;
-    border: 1px solid ${ThemeColors.OUTLINE_VARIANT};
-    background-color: ${ThemeColors.SURFACE};
-    color: ${ThemeColors.ON_SURFACE};
-    font-size: 11px;
-    cursor: pointer;
-    white-space: nowrap;
-    flex-shrink: 0;
-    opacity: 0.8;
-    transition: opacity 0.15s ease, background-color 0.15s ease;
-    &:hover {
-        opacity: 1;
-        background-color: ${ThemeColors.SURFACE_CONTAINER};
-    }
+    justify-content: center;
+    border-radius: 50%;
 `;
 
 export interface AgentRunNodeWidgetProps {
@@ -298,9 +298,12 @@ export function AgentRunNodeWidget(props: AgentRunNodeWidgetProps) {
             <Column style={{ height: `${model.node.viewState?.ch}px` }}>
                 <HeaderSection withDivider={Boolean(agentVarName)}>
                     <NodeStyles.Row>
-                        <NodeStyles.Icon onClick={handleOnClick}>
+                        <IconBox onClick={handleOnClick}>
                             <NodeIcon type={model.node.codedata.node} size={24} />
-                        </NodeStyles.Icon>
+                            <RunBadge>
+                                <Icon name="bi-play" iconSx={{ fontSize: "20px" }} sx={{ color: "var(--vscode-charts-green)", display: "flex", justifyContent: "center", alignItems: "center" }} />
+                            </RunBadge>
+                        </IconBox>
                         <NodeStyles.Header onClick={handleOnClick}>
                             <NodeStyles.Title>{NODE_TITLE}</NodeStyles.Title>
                             {resultVar && (
@@ -324,16 +327,10 @@ export function AgentRunNodeWidget(props: AgentRunNodeWidgetProps) {
                     <AgentRow>
                         <AgentName onClick={handleOnClick}>{agentVarName}</AgentName>
                         {canViewAgent && (
-                            <Tooltip content="View agent configuration">
-                                <ViewAgentButton onClick={handleOnViewAgentClick}>
-                                    <Icon
-                                        name="bi-function-flow"
-                                        sx={{ width: 12, height: 12 }}
-                                        iconSx={{ fontSize: 12 }}
-                                    />
-                                    View
-                                </ViewAgentButton>
-                            </Tooltip>
+                            <ViewAgentButton onClick={handleOnViewAgentClick} title="View agent configuration">
+                                <Icon name="bi-settings" sx={{ width: 12, height: 12 }} iconSx={{ fontSize: 12 }} />
+                                Configure
+                            </ViewAgentButton>
                         )}
                     </AgentRow>
                 )}

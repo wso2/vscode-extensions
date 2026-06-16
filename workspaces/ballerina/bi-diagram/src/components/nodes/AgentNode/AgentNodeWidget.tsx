@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
  *
  * WSO2 LLC. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -19,8 +19,9 @@
 import React, { ReactNode, useEffect, useState } from "react";
 import styled from "@emotion/styled";
 import { DiagramEngine, PortWidget } from "@projectstorm/react-diagrams-core";
-import { AgentCallNodeModel } from "./AgentCallNodeModel";
+import { AgentNodeModel } from "./AgentNodeModel";
 import {
+    AGENT_NODE_ADD_TOOL_BUTTON_WIDTH,
     AGENT_NODE_TOOL_GAP,
     AGENT_NODE_TOOL_SECTION_GAP,
     DRAFT_NODE_BORDER_WIDTH,
@@ -37,7 +38,7 @@ import { MoreVertIcon } from "../../../resources/icons";
 import { AgentData, FlowNode, ToolData } from "../../../utils/types";
 import NodeIcon, { CHART_COLORS, getAIColor, isDarkTheme, ThemeListener } from "../../NodeIcon";
 import ConnectorIcon from "../../ConnectorIcon";
-import { useDiagramContext, useTraceAnimation, useTracingEnabled } from "../../DiagramContext";
+import { useDiagramContext, useTraceAnimation } from "../../DiagramContext";
 import { DiagnosticsPopUp } from "../../DiagnosticsPopUp";
 import { nodeHasError } from "../../../utils/node";
 import { css, keyframes } from "@emotion/react";
@@ -148,7 +149,7 @@ export namespace NodeStyles {
     `;
 
     export const Title = styled(StyledText)`
-        height: 18px !important; 
+        height: 18px !important;
         max-width: ${NODE_WIDTH - 80}px;
         white-space: nowrap;
         overflow: hidden;
@@ -193,6 +194,10 @@ export namespace NodeStyles {
         blockquote { margin: 0.3em 0; padding-left: 8px; border-left: 2px solid ${ThemeColors.OUTLINE_VARIANT}; }
         blockquote:first-child { margin-top: 0; }
         blockquote:last-child { margin-bottom: 0; }
+        strong { font-weight: 600; }
+        em { font-style: italic; }
+        a { color: ${ThemeColors.PRIMARY}; text-decoration: none; }
+        a:hover { text-decoration: underline; }
     `;
 
     export const Role = styled(MarkdownContent)`
@@ -275,25 +280,6 @@ export namespace NodeStyles {
         width: 20px;
         height: 20px;
         color: ${ThemeColors.ERROR};
-    `;
-
-    export const IconBox = styled.div`
-        position: relative;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 4px;
-        margin-right: 4px;
-    `;
-
-    export const RunBadge = styled.div`
-        position: absolute;
-        bottom: -5px;
-        right: -5px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
     `;
 
     export const Hr = styled.hr`
@@ -407,84 +393,30 @@ export namespace NodeStyles {
     `;
 }
 
-const TitleArrow = styled.span`
-    font-size: 11px;
-    opacity: 0.6;
-    margin: 0 4px;
-    vertical-align: 1px;
-`;
-
-const AgentRow = styled.div`
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 4px 6px 8px;
-`;
-
-const AgentName = styled.div`
-    flex: 1;
-    min-width: 0;
-    color: ${ThemeColors.ON_SURFACE};
-    opacity: 0.7;
-    font-family: monospace;
-    font-size: 12px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-`;
-
-export const ViewAgentButton = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 10px;
-    border-radius: 4px;
-    border: 1px solid ${ThemeColors.OUTLINE_VARIANT};
-    background-color: ${ThemeColors.SURFACE};
-    color: ${ThemeColors.ON_SURFACE};
-    font-size: 12px;
-    cursor: pointer;
-    white-space: nowrap;
-    flex-shrink: 0;
-    opacity: 0.8;
-    transition: opacity 0.15s ease, background-color 0.15s ease;
-    &:hover {
-        opacity: 1;
-        background-color: ${ThemeColors.SURFACE_CONTAINER};
-    }
-`;
-
-// Extra height reserved for the agent name row (divider + row + bottom padding).
-const AGENT_CALL_AGENT_ROW_HEIGHT = 38;
-
-const NODE_TITLE = (
-    <>
-        AI Agent<TitleArrow>:</TitleArrow>Run
-    </>
-);
-
-interface AgentCallNodeWidgetProps {
-    model: AgentCallNodeModel;
+interface AgentNodeWidgetProps {
+    model: AgentNodeModel;
     engine: DiagramEngine;
     onClick?: (node: FlowNode) => void;
 }
 
-export interface NodeWidgetProps extends Omit<AgentCallNodeWidgetProps, "children"> { }
-
-export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
+export function AgentNodeWidget(props: AgentNodeWidgetProps) {
     const { model, engine, onClick } = props;
-    const { onNodeSelect, goToSource, goToAgent, onDeleteNode, removeBreakpoint, addBreakpoint, agentNode, readOnly, selectedNodeId, entrypointContext } = useDiagramContext();
+    const { onNodeSelect, goToSource, onDeleteNode, removeBreakpoint, addBreakpoint, agentNode, readOnly, selectedNodeId, entrypointContext } = useDiagramContext();
     const traceAnimation = useTraceAnimation();
-    const isTracingEnabled = useTracingEnabled();
 
     const isSelected = selectedNodeId === model.node.id;
 
     const [isBoxHovered, setIsBoxHovered] = useState(false);
     const [agentIdHovered, setAgentIdHovered] = useState(false);
     const [anchorEl, setAnchorEl] = useState<HTMLElement | SVGSVGElement>(null);
+    const [toolAnchorEl, setToolAnchorEl] = useState<HTMLElement | SVGSVGElement>(null);
+    const [selectedTool, setSelectedTool] = useState<ToolData | null>(null);
+    const [memoryMenuAnchorEl, setMemoryMenuAnchorEl] = useState<HTMLElement | SVGSVGElement>(null);
     const [menuButtonElement, setMenuButtonElement] = useState<HTMLElement | null>(null);
+    const [memoryMenuButtonElement, setMemoryMenuButtonElement] = useState<HTMLElement | null>(null);
     const isMenuOpen = Boolean(anchorEl);
+    const isToolMenuOpen = Boolean(toolAnchorEl);
+    const isMemoryMenuOpen = Boolean(memoryMenuAnchorEl);
     const hasBreakpoint = model.hasBreakpoint();
     const isActiveBreakpoint = model.isActiveBreakpoint();
     const [aiColor, setAiColor] = useState<string>(() => getAIColor());
@@ -516,10 +448,50 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
         setAnchorEl(null);
     };
 
-    const handleViewAgentClick = (event: React.MouseEvent<HTMLElement>) => {
-        event.stopPropagation();
-        if (!goToAgent) return;
-        goToAgent(model.node);
+    const onModelEditClick = () => {
+        if (readOnly) {
+            return;
+        }
+        agentNode?.onModelSelect && agentNode.onModelSelect(model.node);
+        setAnchorEl(null);
+    };
+
+    const onMemoryManagerClick = () => {
+        if (readOnly) {
+            return;
+        }
+        agentNode?.onSelectMemoryManager && agentNode.onSelectMemoryManager(model.node);
+        setMemoryMenuAnchorEl(null);
+    };
+
+    const onMemoryManagerDeleteClick = () => {
+        if (readOnly) {
+            return;
+        }
+        agentNode?.onDeleteMemoryManager && agentNode.onDeleteMemoryManager(model.node);
+        setMemoryMenuAnchorEl(null);
+    };
+
+    const onToolClick = (tool: ToolData) => {
+        if (readOnly) {
+            return;
+        }
+        const toolType = tool.type ?? "";
+        if (toolType === "MCP Server") {
+            agentNode?.onSelectMcpToolkit && agentNode.onSelectMcpToolkit(tool, model.node);
+            setAnchorEl(null);
+        } else {
+            agentNode?.onSelectTool && agentNode.onSelectTool(tool, model.node);
+            setAnchorEl(null);
+        }
+    };
+
+    const onAddToolClick = () => {
+        if (readOnly) {
+            return;
+        }
+        agentNode?.onAddTool && agentNode.onAddTool(model.node);
+        setAnchorEl(null);
     };
 
     const onGoToSource = () => {
@@ -550,6 +522,33 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
         setIsBoxHovered(false);
     };
 
+    const handleToolMenuClick = (event: React.MouseEvent<HTMLElement | SVGSVGElement>, tool: ToolData) => {
+        if (readOnly) {
+            return;
+        }
+        event.stopPropagation();
+        setToolAnchorEl(event.currentTarget);
+        setSelectedTool(tool);
+    };
+
+    const handleToolMenuClose = () => {
+        setToolAnchorEl(null);
+        setSelectedTool(null);
+    };
+
+    const onImplementTool = (tool: ToolData) => {
+        if (readOnly) {
+            return;
+        }
+        agentNode?.goToTool && agentNode.goToTool(tool, model.node);
+        handleToolMenuClose();
+    };
+
+    const onDeleteTool = (tool: ToolData) => {
+        agentNode?.onDeleteTool && agentNode.onDeleteTool(tool, model.node);
+        handleToolMenuClose();
+    };
+
     const onAddBreakpoint = () => {
         addBreakpoint && addBreakpoint(model.node);
         setAnchorEl(null);
@@ -558,6 +557,24 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
     const onRemoveBreakpoint = () => {
         removeBreakpoint && removeBreakpoint(model.node);
         setAnchorEl(null);
+    };
+
+    const handleOnMemoryMenuClick = (event: React.MouseEvent<HTMLElement | SVGSVGElement>) => {
+        if (readOnly) {
+            return;
+        }
+        event.stopPropagation();
+        setMemoryMenuAnchorEl(event.currentTarget);
+    };
+
+    const handleMemoryContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
+        event.preventDefault();
+        event.stopPropagation();
+        setMemoryMenuAnchorEl(memoryMenuButtonElement || event.currentTarget);
+    };
+
+    const handleMemoryMenuClose = () => {
+        setMemoryMenuAnchorEl(null);
     };
 
     const handleThemeChange = () => {
@@ -586,12 +603,37 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
         { id: "delete", label: "Delete", onClick: () => deleteNode() },
     ];
 
+    const toolMenuItems = (tool: ToolData): Item[] => [
+        {
+            id: "edit",
+            label: "Edit",
+            onClick: () => onToolClick(tool),
+        },
+        {
+            id: "view",
+            label: "View",
+            onClick: () => onImplementTool(tool),
+        },
+        {
+            id: "delete",
+            label: "Delete",
+            onClick: () => onDeleteTool(tool),
+        },
+    ];
+
+    const memoryMenuItems: Item[] = [
+        {
+            id: "edit",
+            label: "Edit",
+            onClick: () => onMemoryManagerClick(),
+        },
+        { id: "delete", label: "Delete", onClick: () => onMemoryManagerDeleteClick() },
+    ];
+
     const disabled = model.node.suggested;
+    const nodeTitle = "AI Agent";
     const hasError = nodeHasError(model.node);
     const nodeMetadata = model?.node.metadata.data as NodeMetadata;
-    const agentVarName = typeof model.node.properties?.connection?.value === "string"
-        ? (model.node.properties.connection.value as string).trim() : "";
-    const canViewAgent = Boolean(goToAgent) && agentVarName.length > 0;
     const nodeModelIconUrl = nodeMetadata?.model?.path;
     const tools = nodeMetadata?.tools || [];
 
@@ -601,7 +643,6 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
     const nodeInstructions = sanitizedAgent?.instructions || '';
 
     const isTraceMatch = traceAnimation && (() => {
-        // Guard: only animate if the trace's entrypoint matches the current flow diagram's service/function
         if (entrypointContext) {
             const traceService = traceAnimation.entrypointServiceName ?? '';
             const traceFunction = traceAnimation.entrypointFunctionName ?? '';
@@ -627,14 +668,12 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                 return roleMatch && instrMatch;
             }
         }
-        // No system instructions → fall back to tool intersection
         const hasToolOverlap =
             traceAnimation.activeAgentToolNames.some(t => nodeToolNames.includes(t)) ||
             traceAnimation.entries.some(e =>
                 e.type === 'execute_tool' && e.toolName && nodeToolNames.includes(e.toolName)
             );
         if (hasToolOverlap) return true;
-        // Nothing available → no match without explicit evidence
         return false;
     })();
     const matchedEntries = isTraceMatch ? traceAnimation.entries : [];
@@ -642,23 +681,21 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
     const chatEntry = matchedEntries.find(e => e.type === 'chat');
     const toolEntries = matchedEntries.filter(e => e.type === 'execute_tool');
 
-    // Check which tools are currently active
     const activeToolNames = toolEntries.filter(e => e.phase === 'active').map(e => e.toolName);
     const isAnyToolActive = activeToolNames.length > 0;
 
-    // Model is active ONLY if it's chatting AND no tools are currently executing
     const isModelActive = chatEntry?.phase === 'active' && !isAnyToolActive;
 
-    // Agent box pulses when either model or any tool is actively executing
     const isAgentNodeActive = isModelActive || isAnyToolActive;
 
-    let containerHeight = NODE_HEIGHT + AGENT_NODE_TOOL_SECTION_GAP + AGENT_NODE_TOOL_GAP * 2 + AGENT_CALL_AGENT_ROW_HEIGHT;
+    let containerHeight =
+        NODE_HEIGHT + AGENT_NODE_TOOL_SECTION_GAP + AGENT_NODE_ADD_TOOL_BUTTON_WIDTH + AGENT_NODE_TOOL_GAP * 2;
     if (tools.length > 0) {
         containerHeight += tools.length * (NODE_HEIGHT + AGENT_NODE_TOOL_GAP);
     }
 
     return (
-        <NodeStyles.Node data-testid="agent-call-node" readOnly={readOnly}>
+        <NodeStyles.Node data-testid="agent-node" readOnly={readOnly}>
             <NodeStyles.Box
                 disabled={disabled}
                 hovered={isBoxHovered}
@@ -704,16 +741,13 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                 <NodeStyles.TopPortWidget port={model.getPort("in")!} engine={engine} />
                 <NodeStyles.Column style={{ height: `${model.node.viewState?.ch}px` }}>
                     <NodeStyles.Row readOnly={readOnly}>
-                        <NodeStyles.IconBox onClick={handleOnClick}>
+                        <NodeStyles.Icon onClick={handleOnClick}>
                             <NodeIcon type={model.node.codedata.node} size={24} />
-                            <NodeStyles.RunBadge>
-                                <Icon name="bi-play" iconSx={{ fontSize: "20px" }} sx={{ color: "var(--vscode-charts-green)", display: "flex", justifyContent: "center", alignItems: "center" }} />
-                            </NodeStyles.RunBadge>
-                        </NodeStyles.IconBox>
+                        </NodeStyles.Icon>
                         <NodeStyles.Row readOnly={readOnly}>
                             <NodeStyles.Header onClick={handleOnClick}>
                                 <div style={{ display: "flex", alignItems: "center", gap: "6px", lineHeight: 1, maxWidth: `${NODE_WIDTH - 80}px` }}>
-                                    <NodeStyles.Title>{NODE_TITLE}</NodeStyles.Title>
+                                    <NodeStyles.Title>{nodeTitle}</NodeStyles.Title>
                                     {model.node.properties?.credential?.value && (
                                         <NodeStyles.AgentIdBadge
                                             title=""
@@ -769,59 +803,97 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                         </Popover>
                     </NodeStyles.Row>
 
-                    <div style={{ opacity: 0.55, borderTop: `1px dashed ${ThemeColors.OUTLINE_VARIANT}`, flex: 1, overflow: "hidden", padding: "8px 2px" }}>
-                        {
-                            sanitizedAgent?.role ? (
-                                <NodeStyles.Row readOnly={readOnly} onClick={handleOnClick} style={{ marginBottom: 6 }}>
-                                    <NodeStyles.Role>
-                                        <ReactMarkdown
-                                            disallowedElements={['script', 'iframe', 'object', 'embed', 'link', 'style']}
-                                            unwrapDisallowed={true}
+                    <NodeStyles.MemoryContainer>
+                        <NodeStyles.Row readOnly={readOnly}>
+                            {nodeMetadata?.memory ? (
+                                <NodeStyles.MemoryCard
+                                    readOnly={readOnly}
+                                    onClick={onMemoryManagerClick}
+                                    title="Configure Memory"
+                                    onContextMenu={!readOnly ? handleMemoryContextMenu : undefined}
+                                >
+                                    <NodeStyles.Row readOnly={readOnly}>
+                                        <div style={{ flex: 1 }}>
+                                            <NodeStyles.MemoryTitle>Memory</NodeStyles.MemoryTitle>
+                                            <NodeStyles.MemoryMeta>
+                                                {(nodeMetadata?.memory?.type || "MessageWindowChatMemory").replace(/^ai:/, "")}
+                                            </NodeStyles.MemoryMeta>
+                                        </div>
+                                        <NodeStyles.MenuButton
+                                            ref={setMemoryMenuButtonElement}
+                                            buttonSx={readOnly ? { cursor: "not-allowed" } : {}}
+                                            appearance="icon"
+                                            onClick={handleOnMemoryMenuClick}
                                         >
-                                            {sanitizedAgent?.role}
-                                        </ReactMarkdown>
-                                    </NodeStyles.Role>
-                                </NodeStyles.Row>
+                                            <MoreVertIcon />
+                                        </NodeStyles.MenuButton>
+                                    </NodeStyles.Row>
+                                </NodeStyles.MemoryCard>
                             ) : (
-                                <NodeStyles.Row readOnly={readOnly} onClick={handleOnClick} style={{ marginBottom: 6 }}>
-                                    <NodeStyles.RolePlaceholder>Define agent's role</NodeStyles.RolePlaceholder>
-                                </NodeStyles.Row>
-                            )
-                        }
-
-                        {
-                            sanitizedAgent?.instructions ? (
-                                <NodeStyles.InstructionsRow readOnly={readOnly} onClick={handleOnClick}>
-                                    <NodeStyles.Instructions>
-                                        <ReactMarkdown
-                                            disallowedElements={['script', 'iframe', 'object', 'embed', 'link', 'style']}
-                                            unwrapDisallowed={true}
-                                        >
-                                            {sanitizedAgent?.instructions}
-                                        </ReactMarkdown>
-                                    </NodeStyles.Instructions>
-                                </NodeStyles.InstructionsRow>
-                            ) : (
-                                <NodeStyles.InstructionsRow readOnly={readOnly} onClick={handleOnClick}>
-                                    <NodeStyles.InstructionsPlaceholder>
-                                        Provide specific instructions on how the agent should behave.
-                                    </NodeStyles.InstructionsPlaceholder>
-                                </NodeStyles.InstructionsRow>
-                            )
-                        }
-                    </div>
-
-                    {agentVarName && (
-                        <AgentRow style={{ borderTop: `1px dashed ${ThemeColors.OUTLINE_VARIANT}`, padding: "12px 4px" }}>
-                            <AgentName onClick={handleOnClick}>{agentVarName}</AgentName>
-                            {canViewAgent && (
-                                <ViewAgentButton onClick={handleViewAgentClick} title="View agent configuration">
-                                    <Icon name="bi-settings" sx={{ width: 12, height: 12 }} iconSx={{ fontSize: 12 }} />
-                                    Configure
-                                </ViewAgentButton>
+                                <NodeStyles.MemoryButton readOnly={readOnly} onClick={onMemoryManagerClick} title="Add Memory">
+                                    <Icon name="bi-plus" sx={{ fontSize: "16px", marginRight: "4px" }} />
+                                    Add Memory
+                                </NodeStyles.MemoryButton>
                             )}
-                        </AgentRow>
-                    )}
+                        </NodeStyles.Row>
+                        <Popover
+                            open={isMemoryMenuOpen}
+                            anchorEl={memoryMenuAnchorEl}
+                            handleClose={handleMemoryMenuClose}
+                            sx={{
+                                padding: 0,
+                                borderRadius: 0,
+                            }}
+                        >
+                            <Menu>
+                                <>
+                                    {memoryMenuItems.map((item) => (
+                                        <MenuItem key={item.id} item={item} />
+                                    ))}
+                                </>
+                            </Menu>
+                        </Popover>
+                    </NodeStyles.MemoryContainer>
+
+                    {
+                        sanitizedAgent?.role ? (
+                            <NodeStyles.Row readOnly={readOnly} onClick={handleOnClick}>
+                                <NodeStyles.Role>
+                                    <ReactMarkdown
+                                        disallowedElements={['script', 'iframe', 'object', 'embed', 'link', 'style']}
+                                        unwrapDisallowed={true}
+                                    >
+                                        {sanitizedAgent?.role}
+                                    </ReactMarkdown>
+                                </NodeStyles.Role>
+                            </NodeStyles.Row>
+                        ) : (
+                            <NodeStyles.Row readOnly={readOnly} onClick={handleOnClick}>
+                                <NodeStyles.RolePlaceholder>Define agent's role</NodeStyles.RolePlaceholder>
+                            </NodeStyles.Row>
+                        )
+                    }
+
+                    {
+                        sanitizedAgent?.instructions ? (
+                            <NodeStyles.InstructionsRow readOnly={readOnly} onClick={handleOnClick}>
+                                <NodeStyles.Instructions>
+                                    <ReactMarkdown
+                                        disallowedElements={['script', 'iframe', 'object', 'embed', 'link', 'style']}
+                                        unwrapDisallowed={true}
+                                    >
+                                        {sanitizedAgent?.instructions}
+                                    </ReactMarkdown>
+                                </NodeStyles.Instructions>
+                            </NodeStyles.InstructionsRow>
+                        ) : (
+                            <NodeStyles.InstructionsRow readOnly={readOnly} onClick={handleOnClick}>
+                                <NodeStyles.InstructionsPlaceholder>
+                                    Provide specific instructions on how the agent should behave.
+                                </NodeStyles.InstructionsPlaceholder>
+                            </NodeStyles.InstructionsRow>
+                        )
+                    }
                 </NodeStyles.Column>
                 <NodeStyles.BottomPortWidget port={model.getPort("out")!} engine={engine} />
             </NodeStyles.Box>
@@ -830,7 +902,7 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                 width={NODE_GAP_X + NODE_HEIGHT + LABEL_HEIGHT + LABEL_WIDTH + 10}
                 height={model.node.viewState?.ch}
                 viewBox={`0 0 300 ${containerHeight}`}
-                style={{ marginLeft: "-10px", position: "relative", zIndex: 1, opacity: isTracingEnabled ? 0.75 : 0, transition: "opacity 0.4s ease-out", pointerEvents: isTracingEnabled ? "auto" : "none" }}
+                style={{ marginLeft: "-10px", position: "relative", zIndex: 1 }}
             >
                 {/* ai agent model circle */}
                 <g>
@@ -843,9 +915,16 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                         strokeWidth={1.5}
                         strokeDasharray={disabled ? "5 5" : "none"}
                         opacity={disabled ? 0.7 : 1}
-                        style={{ cursor: "default" }}
+                        onClick={onModelEditClick}
+                        css={css`
+                            cursor: ${readOnly ? "default" : "pointer"};
+                            transition: stroke 0.4s ease-out;
+                            &:hover {
+                                stroke: ${readOnly ? ThemeColors.OUTLINE_VARIANT : ThemeColors.SECONDARY};
+                            }
+                        `}
                     >
-                        <title>{"Model Provider"}</title>
+                        <title>{"Configure Model Provider"}</title>
                     </circle>
                     <circle
                         cx="80"
@@ -917,8 +996,35 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                     return (
                         <g
                             key={index}
-                            transform={`translate(0, ${(index + 1) * (NODE_HEIGHT + AGENT_NODE_TOOL_GAP) + AGENT_NODE_TOOL_SECTION_GAP + AGENT_CALL_AGENT_ROW_HEIGHT})`}
-                            style={{ cursor: "default" }}
+                            transform={`translate(0, ${(index + 1) * (NODE_HEIGHT + AGENT_NODE_TOOL_GAP) + AGENT_NODE_TOOL_SECTION_GAP
+                                })`}
+                            onClick={() => tool.type == "MCP Server" ? onToolClick(tool) : onImplementTool(tool)}
+                            onContextMenu={(e) => {
+                                if (!readOnly) {
+                                    e.preventDefault();
+                                    handleToolMenuClick(e as any, tool);
+                                }
+                            }}
+                            css={css`
+                            cursor: ${readOnly ? "default" : "pointer"};
+                            &:hover circle:first-of-type {
+                                stroke: ${ThemeColors.SECONDARY};
+                            }
+                            &:hover foreignObject .connector-icon path {
+                                fill: ${ThemeColors.SECONDARY};
+                            }
+                            &:hover text {
+                                fill: ${ThemeColors.SECONDARY};
+                            }
+                            &:hover .tool-tooltip {
+                                opacity: 1;
+                                visibility: visible;
+                            }
+                            &:hover .tool-menu-button {
+                                opacity: 1;
+                                visibility: visible;
+                            }
+                        `}
                         >
                             {/* Base Tool Circle */}
                             <circle
@@ -987,6 +1093,57 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                                 <title>{tool.name}</title>
                             </text>
 
+                            {/* Tool menu button */}
+                            {!readOnly && (
+                                <>
+                                    {/* Transparent overlay for hover detection */}
+                                    <foreignObject
+                                        x="60"
+                                        y="0"
+                                        width="220"
+                                        height="48"
+                                        css={css`
+                                        pointer-events: all;
+                                        &:hover + .tool-menu-button {
+                                            opacity: 1;
+                                            visibility: visible;
+                                        }
+                                    `}
+                                    >
+                                        <div style={{ width: "100%", height: "100%" }} />
+                                    </foreignObject>
+                                    <foreignObject
+                                        x={tool.name.length > 20 ? 240 : 110 + tool.name.length * 7}
+                                        y="14"
+                                        width="24"
+                                        height="24"
+                                        className="tool-menu-button"
+                                        css={css`
+                                        opacity: 0;
+                                        visibility: hidden;
+                                        transition: opacity 0.2s ease-in-out;
+                                        pointer-events: all;
+                                        &:hover {
+                                            opacity: 1;
+                                            visibility: visible;
+                                        }
+                                    `}
+                                    >
+                                        <NodeStyles.MenuButton
+                                            appearance="icon"
+                                            onClick={(e) => handleToolMenuClick(e, tool)}
+                                            css={css`
+                                            padding: 2px;
+                                            height: 24px;
+                                            width: 24px;
+                                            min-width: 24px;
+                                        `}
+                                        >
+                                            <MoreVertIcon />
+                                        </NodeStyles.MenuButton>
+                                    </foreignObject>
+                                </>
+                            )}
 
                             {/* Base Tool Line */}
                             <line
@@ -1023,10 +1180,113 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                                 `}
                             />
 
+                            {/* Tool tooltip */}
+                            <foreignObject
+                                x="110"
+                                y="-10"
+                                width="150"
+                                height="30"
+                                className="tool-tooltip"
+                                style={{ pointerEvents: "none" }}
+                            >
+                                <div
+                                    css={css`
+                                    background-color: ${ThemeColors.SURFACE_BRIGHT};
+                                    color: ${ThemeColors.ON_SURFACE};
+                                    padding: 4px 8px;
+                                    border-radius: 4px;
+                                    font-size: 12px;
+                                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+                                    opacity: 0;
+                                    visibility: hidden;
+                                    transition: opacity 0.2s ease-in-out;
+                                    pointer-events: none;
+                                    white-space: nowrap;
+                                    font-family: "GilmerRegular";
+                                `}
+                                >
+                                    Click to view {tool.name}
+                                </div>
+                            </foreignObject>
                         </g>
                     );
                 })}
 
+                {/* Tool Menu Popover */}
+                <Popover
+                    open={isToolMenuOpen}
+                    anchorEl={toolAnchorEl}
+                    handleClose={handleToolMenuClose}
+                    sx={{
+                        padding: 0,
+                        borderRadius: 0,
+                    }}
+                >
+                    <Menu>
+                        {selectedTool &&
+                            toolMenuItems(selectedTool).map((item) => <MenuItem key={item.id} item={item} />)}
+                    </Menu>
+                </Popover>
+
+                {/* Add "Add new tool" button below all tools — hidden in read-only mode */}
+                {!readOnly && <g
+                    transform={`translate(-11, ${tools.length > 0
+                        ? (tools.length + 1) * (NODE_HEIGHT + AGENT_NODE_TOOL_GAP) + AGENT_NODE_TOOL_SECTION_GAP
+                        : NODE_HEIGHT + AGENT_NODE_TOOL_SECTION_GAP
+                        })`}
+                    onClick={onAddToolClick}
+                    style={{ cursor: "pointer" }}
+                >
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        css={css`
+                            cursor: ${readOnly ? "not-allowed" : "pointer"};
+                            &:hover path:last-of-type {
+                                fill: ${ThemeColors.SECONDARY};
+                            }
+                            &:hover + .custom-tooltip {
+                                opacity: 1;
+                                visibility: visible;
+                            }
+                        `}
+                    >
+                        <title>Add New Tool / MCP Server</title>
+                        <path
+                            fill={ThemeColors.SURFACE_BRIGHT}
+                            d="M12 0C5 0 0 5 0 12s5 12 12 12 12-5 12-12S19 0 12 0z"
+                        />
+                        <path
+                            fill={ThemeColors.ON_SURFACE}
+                            d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2m0 18a8 8 0 1 1 8-8a8 8 0 0 1-8 8m4-9h-3V8a1 1 0 0 0-2 0v3H8a1 1 0 0 0 0 2h3v3a1 1 0 0 0 2 0v-3h3a1 1 0 0 0 0-2"
+                        />
+                    </svg>
+
+                    {/* Custom tooltip */}
+                    <foreignObject x="25" y="-10" width="100" height="30" style={{ pointerEvents: "none" }}>
+                        <div
+                            className="custom-tooltip"
+                            css={css`
+                                background-color: ${ThemeColors.SURFACE_BRIGHT};
+                                color: ${ThemeColors.ON_SURFACE};
+                                padding: 4px 8px;
+                                border-radius: 4px;
+                                font-size: 12px;
+                                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+                                opacity: 0;
+                                visibility: hidden;
+                                transition: opacity 0.2s ease-in-out;
+                                pointer-events: none;
+                                white-space: nowrap;
+                                font-family: "GilmerRegular";
+                            `}
+                        >
+                            Add New Tool / MCP Server
+                        </div>
+                    </foreignObject>
+                </g>}
 
                 <defs>
                     <marker
@@ -1105,20 +1365,14 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
     );
 }
 
-// sanitize a string for use as an SVG/HTML id attribute
 function sanitizeId(name: string): string {
     return name.replace(/[^A-Za-z0-9_-]/g, "_");
 }
 
-// sanitize agent instructions and role
-// remove leading and trailing quotes
-// remove suffix "string `" and prefix "`"
 function stripWrappingQuotes(str: string): string {
-    // Handle `string \`...\`` template format — backticks are the definitive wrapper, no further stripping needed
     if (str.startsWith('string `') && str.endsWith('`')) {
         return str.slice('string `'.length, -1);
     }
-    // Only strip quotes if wrapped in a single matching pair (not multiple like """...""")
     if (
         ((str.startsWith('"') && str.endsWith('"')) || (str.startsWith("'") && str.endsWith("'")))
         && !(str.startsWith('""') || str.startsWith("''"))

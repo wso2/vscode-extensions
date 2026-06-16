@@ -118,7 +118,7 @@ export function buildAgentRenderNode(agentNode: FlowNode, connections: FlowNode[
     return {
         ...agentNode,
         id: agentNode.id || "agent-focus-node",
-        codedata: { ...agentNode.codedata, node: "AGENT_CALL" },
+        codedata: { ...agentNode.codedata, node: "AGENT" },
         metadata: { ...(agentNode.metadata || { label: "AI Agent", description: "" }), data },
         properties: {
             ...(agentNode.properties || {}),

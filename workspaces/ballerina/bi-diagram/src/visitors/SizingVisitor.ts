@@ -245,6 +245,21 @@ export class SizingVisitor implements BaseVisitor {
         this.createApiCallNode(node);
     }
 
+    endVisitAgent(node: FlowNode, parent?: FlowNode): void {
+        if (!this.validateNode(node)) return;
+        const halfNodeWidth = NODE_WIDTH / 2;
+        const containerLeftWidth = halfNodeWidth;
+        const containerRightWidth = halfNodeWidth + NODE_GAP_X + NODE_HEIGHT + LABEL_HEIGHT + LABEL_WIDTH;
+        const nodeMetadata = node.metadata.data as NodeMetadata;
+        const tools = nodeMetadata?.tools || [];
+        const numberOfCircles = tools.length || 0;
+        let containerHeight = NODE_HEIGHT + AGENT_NODE_TOOL_SECTION_GAP + AGENT_NODE_ADD_TOOL_BUTTON_WIDTH + AGENT_NODE_TOOL_GAP * 2;
+        if (numberOfCircles > 0) {
+            containerHeight += numberOfCircles * (NODE_HEIGHT + AGENT_NODE_TOOL_GAP);
+        }
+        this.setNodeSize(node, containerLeftWidth, containerRightWidth, containerHeight);
+    }
+
     endVisitAgentCall(node: FlowNode, parent?: FlowNode): void {
         if (!this.validateNode(node)) return;
         const nodeWidth = NODE_WIDTH;
@@ -256,7 +271,8 @@ export class SizingVisitor implements BaseVisitor {
         const nodeMetadata = node.metadata.data as NodeMetadata;
         const tools = nodeMetadata?.tools || [];
         const numberOfCircles = tools.length || 0;
-        let containerHeight = NODE_HEIGHT + AGENT_NODE_TOOL_SECTION_GAP + AGENT_NODE_ADD_TOOL_BUTTON_WIDTH + AGENT_NODE_TOOL_GAP * 2;
+        // 38px for the agent name row; no add-tool button (read-only circles).
+        let containerHeight = NODE_HEIGHT + AGENT_NODE_TOOL_SECTION_GAP + AGENT_NODE_TOOL_GAP * 2 + 38;
         if (numberOfCircles > 0) {
             containerHeight += numberOfCircles * (NODE_HEIGHT + AGENT_NODE_TOOL_GAP);
         }

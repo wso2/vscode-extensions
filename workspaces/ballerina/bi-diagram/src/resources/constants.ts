@@ -32,6 +32,7 @@ export enum NodeTypes {
     AGENT_CALL_NODE = "agent-call-node",
     AGENT_RUN_NODE = "agent-run-node",
     AGENT_TYPE_NODE = "agent-type-node",
+    AGENT_NODE = "agent-node",
     PROMPT_NODE = "prompt-node",
 }
 

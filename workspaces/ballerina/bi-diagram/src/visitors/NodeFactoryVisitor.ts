@@ -45,6 +45,7 @@ import { ErrorNodeModel } from "../components/nodes/ErrorNode";
 import { AgentCallNodeModel } from "../components/nodes/AgentCallNode/AgentCallNodeModel";
 import { AgentRunNodeModel } from "../components/nodes/AgentRunNode/AgentRunNodeModel";
 import { AgentTypeNodeModel } from "../components/nodes/AgentTypeNode/AgentTypeNodeModel";
+import { AgentNodeModel } from "../components/nodes/AgentNode/AgentNodeModel";
 import { PromptNodeModel } from "../components/nodes/PromptNode/PromptNodeModel";
 
 export class NodeFactoryVisitor implements BaseVisitor {
@@ -615,6 +616,17 @@ export class NodeFactoryVisitor implements BaseVisitor {
     beginVisitVectorKnowledgeBaseCall(node: FlowNode, parent?: FlowNode): void {
         if (!this.validateNode(node)) return;
         this.beginVisitRemoteActionCall(node, parent);
+    }
+
+    beginVisitAgent(node: FlowNode, parent?: FlowNode): void {
+        if (!this.validateNode(node)) return;
+        if (!node.id) {
+            return;
+        }
+        const nodeModel = new AgentNodeModel(node);
+        this.nodes.push(nodeModel);
+        this.updateNodeLinks(node, nodeModel);
+        this.addSuggestionsButton(node);
     }
 
     beginVisitAgentCall(node: FlowNode, parent?: FlowNode): void {

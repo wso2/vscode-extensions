@@ -20,8 +20,7 @@ import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { TraceAnimationEvent } from "@wso2/ballerina-core";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import styled from "@emotion/styled";
-import { removeMcpServerFromAgentNode, findAgentNodeFromAgentCallNode, findFlowNode, goToAgentFromRunNode, resolveAgentLocation, removeAgentNode, confirmAgentCallDeletion } from "../AIChatAgent/utils";
-import { AgentFocusDrawer } from "./AgentFocusDrawer";
+import { removeMcpServerFromAgentNode, findAgentNodeFromAgentCallNode, findFlowNode, goToAgentFromRunNode, removeAgentNode, confirmAgentCallDeletion } from "../AIChatAgent/utils";
 import { MemoizedDiagram, setTraceAnimationActive, setTraceAnimationInactive } from "@wso2/bi-diagram";
 import {
     BIAvailableNodesRequest,
@@ -152,12 +151,6 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
     // Navigation stack for back navigation
     const [navigationStack, setNavigationStack] = useState<NavigationStackItem[]>([]);
-    const [agentDrawer, setAgentDrawer] = useState<{
-        filePath: string;
-        position: { startLine?: number; startColumn?: number; endLine?: number; endColumn?: number };
-        agentName: string;
-    } | null>(null);
-
     const {
         addDraftNode,
         cancelDraft,
@@ -2430,9 +2423,26 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     };
 
     const handleGoToAgent = async (node: FlowNode) => {
-        const resolved = await resolveAgentLocation(node, rpcClient);
-        if (resolved) {
-            setAgentDrawer(resolved);
+        if (node.codedata?.node === "AGENT_CALL") {
+            const agentNode = await findAgentNodeFromAgentCallNode(node, rpcClient);
+            if (!agentNode) return;
+            const declRange = agentNode.codedata?.lineRange;
+            if (!declRange) return;
+            const { filePath } = await rpcClient.getVisualizerRpcClient().joinProjectPath({ segments: [declRange.fileName] });
+            await rpcClient.getVisualizerRpcClient().openView({
+                type: EVENT_TYPE.OPEN_VIEW,
+                location: {
+                    documentUri: filePath,
+                    position: {
+                        startLine: declRange.startLine.line,
+                        startColumn: declRange.startLine.offset,
+                        endLine: declRange.endLine.line,
+                        endColumn: declRange.endLine.offset,
+                    },
+                },
+            });
+        } else {
+            goToAgentFromRunNode(node, rpcClient);
         }
     };
 
@@ -3008,16 +3018,6 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
 
             <PanelOverlayRenderer />
 
-            {agentDrawer && (
-                <AgentFocusDrawer
-                    projectPath={projectPath}
-                    filePath={agentDrawer.filePath}
-                    position={agentDrawer.position}
-                    agentName={agentDrawer.agentName}
-                    onClose={() => setAgentDrawer(null)}
-                    onUpdate={onUpdate}
-                />
-            )}
         </PanelOverlayProvider>
     );
 }
