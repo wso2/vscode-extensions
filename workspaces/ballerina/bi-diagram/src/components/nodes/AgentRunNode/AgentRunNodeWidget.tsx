@@ -19,7 +19,7 @@
 import React, { ReactNode, useState } from "react";
 import styled from "@emotion/styled";
 import { DiagramEngine } from "@projectstorm/react-diagrams-core";
-import { Icon, Item, Menu, MenuItem, Popover, ThemeColors } from "@wso2/ui-toolkit";
+import { Icon, Item, Menu, MenuItem, Popover, ThemeColors, Tooltip } from "@wso2/ui-toolkit";
 import { MoreVertIcon } from "../../../resources";
 import NodeIcon from "../../NodeIcon";
 import { useDiagramContext } from "../../DiagramContext";
@@ -29,7 +29,6 @@ import { DiagnosticsPopUp } from "../../DiagnosticsPopUp";
 import { nodeHasError } from "../../../utils/node";
 import { BreakpointMenu } from "../../BreakNodeMenu/BreakNodeMenu";
 import { NodeStyles } from "../BaseNode/BaseNodeWidget";
-import { ViewAgentButton } from "../AgentCallNode/AgentCallNodeWidget";
 import {
     DRAFT_NODE_BORDER_WIDTH,
     NODE_BORDER_WIDTH,
@@ -327,10 +326,15 @@ export function AgentRunNodeWidget(props: AgentRunNodeWidgetProps) {
                     <AgentRow>
                         <AgentName onClick={handleOnClick}>{agentVarName}</AgentName>
                         {canViewAgent && (
-                            <ViewAgentButton onClick={handleOnViewAgentClick} title="View agent configuration">
-                                <Icon name="bi-settings" sx={{ width: 12, height: 12 }} iconSx={{ fontSize: 12 }} />
-                                Configure
-                            </ViewAgentButton>
+                            <Tooltip content="View agent">
+                                <NodeStyles.MenuButton
+                                    buttonSx={readOnly ? { cursor: "not-allowed" } : {}}
+                                    appearance="icon"
+                                    onClick={handleOnViewAgentClick}
+                                >
+                                    <Icon name="bi-function-flow" sx={{ width: 16, height: 16 }} iconSx={{ fontSize: 16 }} />
+                                </NodeStyles.MenuButton>
+                            </Tooltip>
                         )}
                     </AgentRow>
                 )}

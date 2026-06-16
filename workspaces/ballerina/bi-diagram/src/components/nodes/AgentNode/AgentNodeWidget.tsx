@@ -951,7 +951,9 @@ export function AgentNodeWidget(props: AgentNodeWidgetProps) {
                         fill={ThemeColors.ON_SURFACE}
                         style={{ pointerEvents: "none" }}
                     >
-                        {getAIModuleIcon(nodeMetadata?.model?.type) ?? (nodeModelIconUrl ? <img src={nodeModelIconUrl} style={{ width: 24, height: 24 }} /> : <DefaultLlmIcon />)}
+                        {model.node.properties?.model?.value === "check ai:getDefaultModelProvider()"
+                            ? <Icon name="bi-wso2" sx={{ fontSize: 24, width: 24, height: 24 }} />
+                            : getAIModuleIcon(nodeMetadata?.model?.type) ?? (nodeModelIconUrl ? <img src={nodeModelIconUrl} style={{ width: 24, height: 24 }} /> : <DefaultLlmIcon />)}
                     </foreignObject>
 
                     {/* Base Line */}

@@ -32,7 +32,7 @@ import {
     NODE_PADDING,
     NODE_WIDTH,
 } from "../../../resources/constants";
-import { Button, Icon, Item, Menu, MenuItem, Popover, ThemeColors, getAIModuleIcon, DefaultLlmIcon } from "@wso2/ui-toolkit";
+import { Button, Icon, Item, Menu, MenuItem, Popover, ThemeColors, Tooltip, getAIModuleIcon, DefaultLlmIcon } from "@wso2/ui-toolkit";
 import { MoreVertIcon } from "../../../resources/icons";
 import { AgentData, FlowNode, ToolData } from "../../../utils/types";
 import NodeIcon, { CHART_COLORS, getAIColor, isDarkTheme, ThemeListener } from "../../NodeIcon";
@@ -516,7 +516,7 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
         setAnchorEl(null);
     };
 
-    const handleViewAgentClick = (event: React.MouseEvent<HTMLElement>) => {
+    const handleViewAgentClick = (event: React.MouseEvent<HTMLElement | SVGSVGElement>) => {
         event.stopPropagation();
         if (!goToAgent) return;
         goToAgent(model.node);
@@ -815,10 +815,15 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                         <AgentRow style={{ borderTop: `1px dashed ${ThemeColors.OUTLINE_VARIANT}`, padding: "12px 4px" }}>
                             <AgentName onClick={handleOnClick}>{agentVarName}</AgentName>
                             {canViewAgent && (
-                                <ViewAgentButton onClick={handleViewAgentClick} title="View agent configuration">
-                                    <Icon name="bi-settings" sx={{ width: 12, height: 12 }} iconSx={{ fontSize: 12 }} />
-                                    Configure
-                                </ViewAgentButton>
+                                <Tooltip content="View agent">
+                                    <NodeStyles.MenuButton
+                                        buttonSx={readOnly ? { cursor: "not-allowed" } : {}}
+                                        appearance="icon"
+                                        onClick={handleViewAgentClick}
+                                    >
+                                        <Icon name="bi-function-flow" sx={{ width: 16, height: 16 }} iconSx={{ fontSize: 16 }} />
+                                    </NodeStyles.MenuButton>
+                                </Tooltip>
                             )}
                         </AgentRow>
                     )}
@@ -830,7 +835,7 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                 width={NODE_GAP_X + NODE_HEIGHT + LABEL_HEIGHT + LABEL_WIDTH + 10}
                 height={model.node.viewState?.ch}
                 viewBox={`0 0 300 ${containerHeight}`}
-                style={{ marginLeft: "-10px", position: "relative", zIndex: 1, opacity: isTracingEnabled ? 0.75 : 0, transition: "opacity 0.4s ease-out", pointerEvents: isTracingEnabled ? "auto" : "none" }}
+                style={{ marginLeft: "-10px", position: "relative", zIndex: 1, opacity: isTracingEnabled ? 0.55 : 0, transition: "opacity 0.4s ease-out", pointerEvents: isTracingEnabled ? "auto" : "none" }}
             >
                 {/* ai agent model circle */}
                 <g>
@@ -872,7 +877,9 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                         fill={ThemeColors.ON_SURFACE}
                         style={{ pointerEvents: "none" }}
                     >
-                        {getAIModuleIcon(nodeMetadata?.model?.type) ?? (nodeModelIconUrl ? <img src={nodeModelIconUrl} style={{ width: 24, height: 24 }} /> : <DefaultLlmIcon />)}
+                        {model.node.properties?.model?.value === "check ai:getDefaultModelProvider()"
+                            ? <Icon name="bi-wso2" sx={{ fontSize: 24, width: 24, height: 24 }} />
+                            : getAIModuleIcon(nodeMetadata?.model?.type) ?? (nodeModelIconUrl ? <img src={nodeModelIconUrl} style={{ width: 24, height: 24 }} /> : <DefaultLlmIcon />)}
                     </foreignObject>
 
                     {/* Base Line */}
