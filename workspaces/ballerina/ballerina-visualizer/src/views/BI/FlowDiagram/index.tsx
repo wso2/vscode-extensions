@@ -82,6 +82,7 @@ import {
 
     removeToolFromAgentNode,
 } from "../AIChatAgent/utils";
+import AddAgentPopup from "../AIChatAgent/AddAgentPopup";
 import { DiagramSkeleton } from "../../../components/Skeletons";
 import { AI_COMPONENT_PROGRESS_MESSAGE, AI_COMPONENT_PROGRESS_MESSAGE_TIMEOUT, GET_DEFAULT_EMBEDDING_PROVIDER, GET_DEFAULT_MODEL_PROVIDER, LOADING_MESSAGE } from "../../../constants";
 import { ConnectionListItem } from "@wso2/wso2-platform-core";
@@ -90,6 +91,12 @@ import { usePlatformExtContext } from "../../../providers/platform-ext-ctx-provi
 const Container = styled.div`
     width: 100%;
     height: calc(100vh - 50px);
+`;
+
+// Stacking context above the side panel (z 2000) so the popup backdrop covers the whole screen.
+const AddAgentPopupLayer = styled.div`
+    position: relative;
+    z-index: 2100;
 `;
 
 export interface BIFlowDiagramProps {
@@ -178,7 +185,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
     const updatedNodeRef = useRef<FlowNode>(undefined);
     const [targetLineRange, setTargetLineRange] = useState<LineRange>(targetRef?.current);
 
-    const isCreatingAgent = useRef<boolean>(false);
+    const [showAddAgentPopup, setShowAddAgentPopup] = useState(false);
     const isCreatingNewModelProvider = useRef<boolean>(false);
     const isCreatingNewVectorStore = useRef<boolean>(false);
     const isCreatingNewEmbeddingProvider = useRef<boolean>(false);
@@ -838,7 +845,6 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         isCreatingNewDataLoader.current = false;
         isCreatingNewChunker.current = false;
         setErrorMessage(undefined);
-        isCreatingAgent.current = false;
         setShowProgressIndicator(false);
         setShowProgressSpinner(false);
         clearNavigationStack();
@@ -1355,23 +1361,7 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
                 break;
 
             case "AGENTS":
-                setShowProgressIndicator(true);
-                rpcClient
-                    .getBIDiagramRpcClient()
-                    .getAvailableAgents({
-                        position: targetRef.current.startLine,
-                        filePath: model?.fileName || fileName,
-                    })
-                    .then((response) => {
-                        setCategories(
-                            convertAgentCategoriesToSidePanelCategories(response.categories as Category[])
-                        );
-                        setSidePanelView(SidePanelView.AGENT_LIST);
-                        setShowSidePanel(true);
-                    })
-                    .finally(() => {
-                        setShowProgressIndicator(false);
-                    });
+                loadAvailableAgents(fileName);
                 break;
 
             case "MODEL_PROVIDERS":
@@ -2122,39 +2112,31 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
         setProgressMessage(LOADING_MESSAGE);
     };
 
-    const handleOnAddNewAgent = async () => {
-        isCreatingAgent.current = true;
+    const loadAvailableAgents = (fileNameOverride?: string) => {
         setShowProgressIndicator(true);
-        setShowProgressSpinner(true);
-        setProgressTitle("AI Agent");
-
-        // Push current state to navigation stack
-        pushToNavigationStack(sidePanelView, categories, selectedNodeRef.current, selectedClientName.current);
-
-        rpcClient.getBIDiagramRpcClient().getNodeTemplate({
-            position: targetRef.current.startLine,
-            filePath: model?.fileName,
-            id: {
-                node: "AGENT_CALL",
-                org: "ballerina",
-                symbol: "run",
-                module: "ai",
-                packageName: "ai",
-                object: "Agent",
-            },
-        })
+        return rpcClient
+            .getBIDiagramRpcClient()
+            .getAvailableAgents({
+                position: targetRef.current.startLine,
+                filePath: model?.fileName || fileNameOverride,
+            })
             .then((response) => {
-                if (!isCreatingAgent.current) return;
-                selectedNodeRef.current = response.flowNode;
-                nodeTemplateRef.current = response.flowNode;
-                showEditForm.current = false;
-                setSidePanelView(SidePanelView.FORM);
+                setCategories(convertAgentCategoriesToSidePanelCategories(response.categories as Category[]));
+                setSidePanelView(SidePanelView.AGENT_LIST);
                 setShowSidePanel(true);
             })
             .finally(() => {
                 setShowProgressIndicator(false);
-                setShowProgressSpinner(false);
             });
+    };
+
+    const handleOnAddNewAgent = () => {
+        setShowAddAgentPopup(true);
+    };
+
+    const handleAgentCreated = () => {
+        setShowAddAgentPopup(false);
+        loadAvailableAgents();
     };
 
     const handleOnAddNewModelProvider = () => {
@@ -3018,6 +3000,18 @@ export function BIFlowDiagram(props: BIFlowDiagramProps) {
 
             <PanelOverlayRenderer />
 
+            {showAddAgentPopup && (
+                <AddAgentPopupLayer>
+                    <AddAgentPopup
+                        isPopup
+                        inFlow
+                        projectPath={projectPath}
+                        onClose={() => setShowAddAgentPopup(false)}
+                        onNavigateToOverview={() => setShowAddAgentPopup(false)}
+                        onAgentCreated={handleAgentCreated}
+                    />
+                </AddAgentPopupLayer>
+            )}
         </PanelOverlayProvider>
     );
 }

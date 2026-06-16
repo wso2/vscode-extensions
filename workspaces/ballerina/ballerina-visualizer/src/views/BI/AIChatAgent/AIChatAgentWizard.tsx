@@ -27,7 +27,7 @@ import { TopNavigationBar } from '../../../components/TopNavigationBar';
 import { RelativeLoader } from '../../../components/RelativeLoader';
 import { FormHeader } from '../../../components/FormHeader';
 import { FlowNodeForm } from '../Forms/FlowNodeForm';
-import { ensureModelProvider, fetchAgentNodeTemplate, getAiModuleOrg, getEndOfFileLineRange } from './utils';
+import { fetchAgentNodeTemplate, getAiModuleOrg, getEndOfFileLineRange } from './utils';
 import { AI_COMPONENT_PROGRESS_MESSAGE_TIMEOUT } from '../../../constants';
 
 const Container = styled.div`
@@ -57,7 +57,6 @@ export function AIChatAgentWizard(props: AIChatAgentWizardProps) {
     const [agentNode, setAgentNode] = useState<FlowNode | undefined>(undefined);
     const [agentFilePath, setAgentFilePath] = useState<string>('');
     const [targetLineRange, setTargetLineRange] = useState<LineRange | undefined>(undefined);
-    const [usedDefaultModelProvider, setUsedDefaultModelProvider] = useState<boolean>(false);
     const [isCreating, setIsCreating] = useState<boolean>(false);
     const [currentStep, setCurrentStep] = useState<number>(0);
 
@@ -94,15 +93,6 @@ export function AIChatAgentWizard(props: AIChatAgentWizardProps) {
                 const template = await fetchAgentNodeTemplate(rpcClient, projectPath.current);
                 if (cancelled) return;
 
-                const { modelVarName, usedDefaultModelProvider: usedDefault } = await ensureModelProvider(
-                    rpcClient,
-                    projectPath.current,
-                    "agent"
-                );
-                if (cancelled) return;
-
-                template.properties.model.value = modelVarName;
-
                 const endOfFile = await getEndOfFileLineRange(AGENT_FILE_NAME, rpcClient);
                 if (cancelled) return;
 
@@ -110,7 +100,6 @@ export function AIChatAgentWizard(props: AIChatAgentWizardProps) {
                 setAgentFilePath(endOfFile.fileName);
                 setTargetLineRange(endOfFile);
                 setAgentNode(template);
-                setUsedDefaultModelProvider(usedDefault);
             } catch (error) {
                 console.error("Error initializing AIChatAgentWizard:", error);
             }
@@ -146,7 +135,7 @@ export function AIChatAgentWizard(props: AIChatAgentWizardProps) {
                 flowNode: node,
             });
 
-            if (usedDefaultModelProvider) {
+            if (String(node.properties?.model?.value ?? "") === "check ai:getDefaultModelProvider()") {
                 await rpcClient.getAIAgentRpcClient().configureDefaultModelProvider("model");
             }
 
@@ -242,7 +231,7 @@ export function AIChatAgentWizard(props: AIChatAgentWizardProps) {
                             targetLineRange={targetLineRange}
                             onSubmit={handleCreateAgent}
                             submitText="Create"
-                            fieldOverrides={{ type: { hidden: true }, model: { hidden: true } }}
+                            fieldOverrides={{ type: { hidden: true } }}
                         />
                     ) : (
                         <RelativeLoader />

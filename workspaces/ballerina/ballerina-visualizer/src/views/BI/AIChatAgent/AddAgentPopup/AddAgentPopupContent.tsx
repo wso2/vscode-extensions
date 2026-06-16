@@ -25,7 +25,7 @@ import { cloneDeep, debounce } from "lodash";
 import ButtonCard from "../../../../components/ButtonCard";
 import { RelativeLoader } from "../../../../components/RelativeLoader";
 import { FlowNodeForm } from "../../Forms/FlowNodeForm";
-import { ensureModelProvider, fetchAgentNodeTemplate, getEndOfFileLineRange, getNodeTemplate } from "../utils";
+import { fetchAgentNodeTemplate, getEndOfFileLineRange, getNodeTemplate } from "../utils";
 import { AgentInfoCard } from "./AgentInfoCard";
 import {
     AgentOptionCard,
@@ -64,6 +64,9 @@ export interface AddAgentPopupContentProps {
     onClose?: () => void;
     view: AddAgentView;
     onViewChange: (view: AddAgentView) => void;
+    // When opened from inside a flow: skip the focus-diagram redirect and call onAgentCreated instead.
+    inFlow?: boolean;
+    onAgentCreated?: (agentVarName: string) => void;
 }
 
 // Maps a UI filter tab to the backend AgentSearchCommand `source` parameter.
@@ -74,7 +77,7 @@ const FILTER_TO_SOURCE: Record<AgentFilter, string> = {
 };
 
 export function AddAgentPopupContent(props: AddAgentPopupContentProps) {
-    const { projectPath, onClose, view, onViewChange } = props;
+    const { projectPath, onClose, view, onViewChange, inFlow, onAgentCreated } = props;
     const { rpcClient } = useRpcContext();
     const [searchText, setSearchText] = useState<string>("");
     const [filterType, setFilterType] = useState<AgentFilter>("All");
@@ -106,7 +109,6 @@ export function AddAgentPopupContent(props: AddAgentPopupContentProps) {
     const [agentFilePath, setAgentFilePath] = useState<string>("");
     const [targetLineRange, setTargetLineRange] = useState<LineRange>();
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-    const [usedDefaultModelProvider, setUsedDefaultModelProvider] = useState<boolean>(false);
     // The pre-built agent selected from the gallery, configured in the "configure" view.
     const [pendingAgent, setPendingAgent] = useState<AvailableNode>();
 
@@ -137,15 +139,8 @@ export function AddAgentPopupContent(props: AddAgentPopupContentProps) {
                         throw new Error("No agent node template returned");
                     }
                 } else {
-                    // "create" view: load the built-in ai:Agent template and auto-provision the default model.
+                    // "create" view: load the built-in ai:Agent template.
                     template = await fetchAgentNodeTemplate(rpcClient, projectPath);
-                    const { modelVarName, usedDefaultModelProvider: usedDefault } = await ensureModelProvider(
-                        rpcClient,
-                        projectPath,
-                        "agent"
-                    );
-                    template.properties.model.value = modelVarName;
-                    if (!cancelled) setUsedDefaultModelProvider(usedDefault);
                 }
                 template.codedata.lineRange = endOfFile as any;
                 if (cancelled) return;
@@ -224,12 +219,19 @@ export function AddAgentPopupContent(props: AddAgentPopupContentProps) {
                 .getBIDiagramRpcClient()
                 .getSourceCode({ filePath: endOfFile.fileName, flowNode: node });
 
-            if (view === "create" && usedDefaultModelProvider) {
+            if (String(node.properties?.model?.value ?? "") === "check ai:getDefaultModelProvider()") {
                 await rpcClient.getAIAgentRpcClient().configureDefaultModelProvider("model");
             }
 
-            // Redirect to the focused agent view for the newly created agent instead of going home.
             const agentVarName = String(node.properties?.variable?.value ?? "");
+
+            // In-flow: don't navigate away. Close the popup and let the caller refresh the agent list.
+            if (inFlow) {
+                onAgentCreated?.(agentVarName);
+                return;
+            }
+
+            // Redirect to the focused agent view for the newly created agent instead of going home.
             const agentArtifact =
                 sourceResponse?.artifacts?.find((artifact) => artifact.isNew && artifact.name === agentVarName) ||
                 sourceResponse?.artifacts?.find((artifact) => artifact.name === agentVarName);
@@ -266,8 +268,7 @@ export function AddAgentPopupContent(props: AddAgentPopupContentProps) {
     };
 
     if (view === "create") {
-        // Custom agent: model is auto-provisioned, so hide it along with the predetermined type.
-        const fieldOverrides = { type: { hidden: true }, model: { hidden: true } };
+        const fieldOverrides = { type: { hidden: true } };
         const formNode = agentNode ? cloneDeep(agentNode) : undefined;
         return (
             <FormContainer>

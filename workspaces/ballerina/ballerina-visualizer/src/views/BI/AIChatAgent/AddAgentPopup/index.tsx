@@ -35,10 +35,12 @@ export interface AddAgentPopupProps {
     onClose?: (parent?: ParentPopupData) => void;
     onNavigateToOverview: () => void;
     isPopup?: boolean;
+    inFlow?: boolean;
+    onAgentCreated?: (agentVarName: string) => void;
 }
 
 export function AddAgentPopup(props: AddAgentPopupProps) {
-    const { onClose, onNavigateToOverview, isPopup } = props;
+    const { onClose, onNavigateToOverview, isPopup, inFlow, onAgentCreated } = props;
     const [view, setView] = useState<AddAgentView>("gallery");
     const isForm = view === "configure" || view === "create";
 
@@ -74,6 +76,8 @@ export function AddAgentPopup(props: AddAgentPopupProps) {
                     onClose={handleClosePopup}
                     view={view}
                     onViewChange={setView}
+                    inFlow={inFlow}
+                    onAgentCreated={onAgentCreated}
                 />
             </PopupContainer>
         </>
