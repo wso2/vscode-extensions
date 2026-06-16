@@ -17,58 +17,50 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { CDModel, EVENT_TYPE } from '@wso2/ballerina-core';
-import { View, ViewContent, TextField, Button, Typography } from '@wso2/ui-toolkit';
+import { cloneDeep } from 'lodash';
+import { CDModel, EVENT_TYPE, FlowNode, LineRange } from '@wso2/ballerina-core';
+import { View, ViewContent } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
 import { useRpcContext } from '@wso2/ballerina-rpc-client';
 import { TitleBar } from '../../../components/TitleBar';
 import { TopNavigationBar } from '../../../components/TopNavigationBar';
 import { RelativeLoader } from '../../../components/RelativeLoader';
 import { FormHeader } from '../../../components/FormHeader';
-import { createBuiltInAgent, getAiModuleOrg, toBaseName, toCamelCase } from './utils';
-import { AI_COMPONENT_PROGRESS_MESSAGE_TIMEOUT, BALLERINA } from '../../../constants';
+import { FlowNodeForm } from '../Forms/FlowNodeForm';
+import { ensureModelProvider, fetchAgentNodeTemplate, getAiModuleOrg, getEndOfFileLineRange } from './utils';
+import { AI_COMPONENT_PROGRESS_MESSAGE_TIMEOUT } from '../../../constants';
 
-const FormContainer = styled.div`
+const Container = styled.div`
     display: flex;
     flex-direction: column;
     max-width: 600px;
     gap: 20px;
 `;
 
-const Container = styled.div`
-    display: "flex";
-    flex-direction: "column";
-    gap: 10;
-`;
-
-
-const ButtonContainer = styled.div`
-    display: flex;
-    gap: 10px;
-    margin-top: 10px;
-    justify-content: flex-end;
-`;
-
-const FormFields = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding: 20px;
-`;
-
-export interface AIChatAgentWizardProps {
-}
+export interface AIChatAgentWizardProps { }
 
 const AI_CHAT_AGENT_LISTENER = "chatAgentListener";
+const AGENT_FILE_NAME = "agents.bal";
+
+function toKebabCase(varName: string): string {
+    return varName
+        .replace(/_/g, '-')
+        .replace(/([a-z])([A-Z])/g, '$1-$2')
+        .replace(/([A-Z]+)([A-Z][a-z])/g, '$1-$2')
+        .replace(/([a-zA-Z])(\d)/g, '$1-$2')
+        .replace(/(\d)([a-zA-Z])/g, '$1-$2')
+        .toLowerCase();
+}
 
 export function AIChatAgentWizard(props: AIChatAgentWizardProps) {
-    // module name for ai agent
-    const type = "ai";
     const { rpcClient } = useRpcContext();
-    const [agentName, setAgentName] = useState<string>("");
-    const [nameError, setNameError] = useState<string>("");
+    const [agentNode, setAgentNode] = useState<FlowNode | undefined>(undefined);
+    const [agentFilePath, setAgentFilePath] = useState<string>('');
+    const [targetLineRange, setTargetLineRange] = useState<LineRange | undefined>(undefined);
+    const [usedDefaultModelProvider, setUsedDefaultModelProvider] = useState<boolean>(false);
     const [isCreating, setIsCreating] = useState<boolean>(false);
     const [currentStep, setCurrentStep] = useState<number>(0);
+
     const steps = [
         { label: "Creating Agent", description: "Creating the AI chat agent" },
         { label: "Creating Model Provider", description: "Creating the model provider for the AI chat agent" },
@@ -83,84 +75,59 @@ export function AIChatAgentWizard(props: AIChatAgentWizardProps) {
     const progressTimeoutRef = useRef<number | null>(null);
     const designModelRef = useRef<CDModel>(null);
 
-    const init = async () => {
-        const designModelResponse = await rpcClient.getBIDiagramRpcClient().getDesignModel({});
-        designModelRef.current = designModelResponse.designModel;
-        aiModuleOrg.current = await getAiModuleOrg(rpcClient);
-    }
-
     useEffect(() => {
-        init();
+        let cancelled = false;
+        (async () => {
+            try {
+                const visualizerLocation = await rpcClient.getVisualizerLocation();
+                if (cancelled) return;
+                projectPath.current = visualizerLocation.projectPath;
+
+                const [designModelResponse, org] = await Promise.all([
+                    rpcClient.getBIDiagramRpcClient().getDesignModel({}),
+                    getAiModuleOrg(rpcClient),
+                ]);
+                if (cancelled) return;
+                designModelRef.current = designModelResponse.designModel;
+                aiModuleOrg.current = org;
+
+                const template = await fetchAgentNodeTemplate(rpcClient, projectPath.current);
+                if (cancelled) return;
+
+                const { modelVarName, usedDefaultModelProvider: usedDefault } = await ensureModelProvider(
+                    rpcClient,
+                    projectPath.current,
+                    "agent"
+                );
+                if (cancelled) return;
+
+                template.properties.model.value = modelVarName;
+
+                const endOfFile = await getEndOfFileLineRange(AGENT_FILE_NAME, rpcClient);
+                if (cancelled) return;
+
+                template.codedata.lineRange = endOfFile as any;
+                setAgentFilePath(endOfFile.fileName);
+                setTargetLineRange(endOfFile);
+                setAgentNode(template);
+                setUsedDefaultModelProvider(usedDefault);
+            } catch (error) {
+                console.error("Error initializing AIChatAgentWizard:", error);
+            }
+        })();
+        return () => { cancelled = true; };
     }, []);
 
-    const validateName = (name: string): boolean => {
-        if (!name) {
-            setNameError("Name is required");
-            return false;
-        }
-        if (/^\s/.test(name) || /^[0-9]/.test(name.trim())) {
-            setNameError("Name must start with a letter");
-            return false;
-        }
-        if (!/^[a-zA-Z][a-zA-Z0-9\s_]*$/.test(name)) {
-            setNameError("Name can only contain letters, numbers, spaces, and underscores");
-            return false;
-        }
-        const base = toBaseName(name);
-        const camel = toCamelCase(name);
-        if (!base) {
-            setNameError("Name is required");
-            return false;
-        }
-        if (designModelRef.current) {
-            const basePath = `/${camel}`;
-            const isServiceExists = designModelRef.current.services.some(
-                service => service.absolutePath?.trim().toLowerCase() === basePath.toLowerCase()
-            );
-            if (isServiceExists) {
-                setNameError("An AI Chat Agent with this name already exists. Please choose a different name.");
-                return false;
-            }
-            const agentConnectionName = `${base}Agent`;
-            const isConnectionExists = designModelRef.current.connections.some(
-                connection => connection.symbol.toLowerCase() === agentConnectionName.toLowerCase()
-            );
-            if (isConnectionExists) {
-                setNameError(`"${agentConnectionName}" already exists. Please choose a different name.`);
-                return false;
-            }
-            if (aiModuleOrg.current !== BALLERINA) {
-                const modelName = `${base}Model`;
-                const isModelExists = designModelRef.current.connections.some(
-                    connection => connection.symbol.toLowerCase() === modelName.toLowerCase()
-                );
-                if (isModelExists) {
-                    setNameError(`"${modelName}" already exists. Please choose a different name.`);
-                    return false;
-                }
-            }
-        }
-        setNameError("");
-        return true;
-    };
+    const handleCreateAgent = async (updatedNode?: FlowNode) => {
+        if (!updatedNode) return;
 
-    const handleCreateService = async () => {
-        if (!validateName(agentName)) {
-            return;
-        }
-        const baseName = toBaseName(agentName);
-        const servicePath = toCamelCase(agentName);
+        const agentVarName = String(updatedNode.properties?.variable?.value ?? "");
+        const servicePath = toKebabCase(agentVarName).replace(/-/g, '\\-');
+
         setIsCreating(true);
+        setCurrentStep(0);
+
         try {
-            // Initialize wizard data when user clicks create
-            setCurrentStep(0);
-
-            // Get AI module organization
-            aiModuleOrg.current = aiModuleOrg.current || await getAiModuleOrg(rpcClient);
-
-            const visualizerLocation = await rpcClient.getVisualizerLocation();
-            projectPath.current = visualizerLocation.projectPath;
-
             // hack: fetching from Central to build module dependency map in LS may take time
             progressTimeoutRef.current = setTimeout(() => {
                 setCurrentStep(2);
@@ -169,23 +136,28 @@ export function AIChatAgentWizard(props: AIChatAgentWizardProps) {
 
             setCurrentStep(1);
 
-            // Create the built-in agent + model provider (shared with the "from scratch" flow)
-            const { usedDefaultModelProvider } = await createBuiltInAgent(
-                rpcClient,
-                projectPath.current,
-                agentName
-            );
+            // Write the agent declaration to agents.bal, re-fetching end-of-file in case it
+            // shifted since the template was loaded (e.g. a concurrent edit).
+            const endOfFile = await getEndOfFileLineRange(AGENT_FILE_NAME, rpcClient);
+            const node = cloneDeep(updatedNode);
+            node.codedata.lineRange = endOfFile as any;
+            await rpcClient.getBIDiagramRpcClient().getSourceCode({
+                filePath: endOfFile.fileName,
+                flowNode: node,
+            });
+
+            if (usedDefaultModelProvider) {
+                await rpcClient.getAIAgentRpcClient().configureDefaultModelProvider("model");
+            }
 
             setCurrentStep(3);
 
-            // Check if the shared listener already exists
             const listenerExists = designModelRef.current?.listeners.some(
                 listener => listener.symbol.toLowerCase() === AI_CHAT_AGENT_LISTENER.toLowerCase()
             );
 
             if (!listenerExists) {
                 const mainBalFile = `${projectPath.current}/main.bal`;
-
                 const payload = {
                     codedata: {
                         orgName: "ballerina",
@@ -197,7 +169,6 @@ export function AIChatAgentWizard(props: AIChatAgentWizardProps) {
                 };
 
                 const listenerResponse = await rpcClient.getServiceDesignerRpcClient().getListenerModel(payload);
-
                 const listenerConfiguration = listenerResponse.listener;
                 listenerConfiguration.properties['variableNameKey'].value = AI_CHAT_AGENT_LISTENER;
                 listenerConfiguration.properties['listenOn'].value = "check http:getDefaultListener()";
@@ -212,7 +183,7 @@ export function AIChatAgentWizard(props: AIChatAgentWizardProps) {
 
             const serviceResponse = await rpcClient.getServiceDesignerRpcClient().getServiceModel({
                 filePath: "",
-                moduleName: type,
+                moduleName: "ai",
                 listenerName: AI_CHAT_AGENT_LISTENER,
                 orgName: aiModuleOrg.current,
             });
@@ -222,7 +193,7 @@ export function AIChatAgentWizard(props: AIChatAgentWizardProps) {
             serviceConfiguration.properties["listener"].items = [AI_CHAT_AGENT_LISTENER];
             serviceConfiguration.properties["listener"].value = AI_CHAT_AGENT_LISTENER;
             serviceConfiguration.properties["basePath"].value = `/${servicePath}`;
-            serviceConfiguration.properties["agentName"].value = baseName;
+            serviceConfiguration.properties["agentName"].value = agentVarName;
 
             const serviceSourceCodeResult = await rpcClient.getServiceDesignerRpcClient().addServiceSourceCode({
                 filePath: "",
@@ -231,13 +202,9 @@ export function AIChatAgentWizard(props: AIChatAgentWizardProps) {
 
             const newServiceArtifact = serviceSourceCodeResult.artifacts.find(artifact => artifact.isNew);
 
-            // If the selected model is the default WSO2 model provider, configure it
-            if (usedDefaultModelProvider) {
-                await rpcClient.getAIAgentRpcClient().configureDefaultModelProvider("model");
-            }
+            setCurrentStep(5);
 
             if (newServiceArtifact) {
-                setCurrentStep(5);
                 rpcClient.getVisualizerRpcClient().openView({
                     type: EVENT_TYPE.OPEN_VIEW,
                     location: { documentUri: newServiceArtifact.path, position: newServiceArtifact.position }
@@ -253,53 +220,35 @@ export function AIChatAgentWizard(props: AIChatAgentWizardProps) {
                 progressTimeoutRef.current = null;
             }
         }
-    }
+    };
 
     return (
         <View>
             <TopNavigationBar projectPath={projectPath.current} />
             <TitleBar
-                title="AI Chat Agent"
+                title="Chat Agent Service"
                 subtitle="Create a chattable AI agent using an LLM, prompts and tools."
             />
             <ViewContent padding>
                 <Container>
-                    <FormHeader
-                        title="Create AI Chat Agent"
-                    />
-                    <FormContainer>
-                        <FormFields>
-                            <TextField
-                                label="Name"
-                                description="Name of the agent (e.g. 'Customer Support Assistant', 'Sales Advisor', 'Data Analyst')"
-                                value={agentName}
-                                disabled={isCreating}
-                                onChange={(e) => {
-                                    setAgentName(e.target.value);
-                                    validateName(e.target.value);
-                                }}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && !isCreating && !nameError && agentName) {
-                                        handleCreateService();
-                                    }
-                                }}
-                                errorMsg={nameError}
-                                autoFocus
-                            />
-                            <ButtonContainer>
-                                <Button
-                                    appearance="primary"
-                                    onClick={handleCreateService}
-                                    disabled={isCreating || !!nameError || !agentName}
-                                >
-                                    {isCreating ? <Typography variant="progress">Creating...</Typography> : 'Create'}
-                                </Button>
-                            </ButtonContainer>
-                            {isCreating && <RelativeLoader message={steps[currentStep].description} />}
-                        </FormFields>
-                    </FormContainer>
+                    <FormHeader title="Create Chat Agent Service" />
+                    {isCreating ? (
+                        <RelativeLoader message={steps[currentStep].description} />
+                    ) : agentNode && targetLineRange ? (
+                        <FlowNodeForm
+                            fileName={agentFilePath}
+                            node={cloneDeep(agentNode)}
+                            nodeFormTemplate={cloneDeep(agentNode)}
+                            targetLineRange={targetLineRange}
+                            onSubmit={handleCreateAgent}
+                            submitText="Create"
+                            fieldOverrides={{ type: { hidden: true }, model: { hidden: true } }}
+                        />
+                    ) : (
+                        <RelativeLoader />
+                    )}
                 </Container>
             </ViewContent>
         </View>
     );
-};
+}

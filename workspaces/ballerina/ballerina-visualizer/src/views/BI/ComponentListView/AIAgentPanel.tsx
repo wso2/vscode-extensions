@@ -77,8 +77,8 @@ export function AIAgentPanel(props: AIAgentPanelProps) {
             <CardGrid>
                 <ButtonCard
                     id="ai-agent-card"
-                    icon={<Icon name="bi-ai-agent" />}
-                    title="AI Chat Agent"
+                    icon={<Icon name="bi-ai-chat" />}
+                    title="Chat Agent Service"
                     onClick={handleClick}
                     disabled={isDisabled}
                     tooltip={isDisabled ? OutOfScopeComponentTooltip : ""}
