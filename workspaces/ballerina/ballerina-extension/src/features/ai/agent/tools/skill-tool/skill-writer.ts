@@ -17,10 +17,18 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { computeWorkspaceHash } from '@wso2/copilot-utilities/chat-persistence';
 
 export const GLOBAL_SKILLS_CONFIG_PATH = path.join(
     os.homedir(), '.ballerina', 'copilot', 'skills.config.json'
 );
+
+/** Per-workspace skills config stored alongside workspace.meta.json — never inside the project folder. */
+export function buildWorkspaceSkillsConfigPath(projectRootPath: string): string {
+    const workspaceId = process.env.CLOUD_INITIAL_PROJECT_ID ?? path.resolve(projectRootPath);
+    const hash = computeWorkspaceHash(workspaceId);
+    return path.join(os.homedir(), '.ballerina', 'copilot', 'workspaces', hash, 'skills.config.json');
+}
 
 export interface SkillsConfig {
     disabledSkills: string[];

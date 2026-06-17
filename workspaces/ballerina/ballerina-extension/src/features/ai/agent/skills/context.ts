@@ -18,7 +18,7 @@ import * as path from 'path';
 import { ProjectSkillMeta } from './types';
 import { getDisabledBuiltIns, REGISTERED_SKILLS } from './index';
 import { scanProjectSkills, scanUserSkills } from '../tools/skill-tool/skill-reader';
-import { getSkillsConfig, GLOBAL_SKILLS_CONFIG_PATH } from '../tools/skill-tool/skill-writer';
+import { getSkillsConfig, GLOBAL_SKILLS_CONFIG_PATH, buildWorkspaceSkillsConfigPath } from '../tools/skill-tool/skill-writer';
 
 export interface SkillsContext {
     allDisabled: Set<string>;
@@ -40,13 +40,15 @@ export function buildAllDisabledSet(projectRootPath: string | null): Set<string>
         : { disabledSkills: [], enabledSkills: [] };
 
     const allDisabled = new Set([...globalConfig.disabledSkills, ...projectConfig.disabledSkills]);
-    const allEnabled = new Set([...globalConfig.enabledSkills, ...projectConfig.enabledSkills]);
+    const workspaceConfig = projectRootPath
+        ? getSkillsConfig(buildWorkspaceSkillsConfigPath(projectRootPath))
+        : { disabledSkills: [], enabledSkills: [] };
 
     for (const skill of REGISTERED_SKILLS) {
         if (skill.optional === false) {
             allDisabled.delete(skill.name);
         } else if (skill.default === false) {
-            if (allEnabled.has(skill.name)) {
+            if (workspaceConfig.enabledSkills.includes(skill.name)) {
                 allDisabled.delete(skill.name);
             } else {
                 allDisabled.add(skill.name);

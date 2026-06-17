@@ -129,6 +129,7 @@ import {
     deleteUserSkill,
     deleteProjectSkill,
     GLOBAL_SKILLS_CONFIG_PATH,
+    buildWorkspaceSkillsConfigPath,
 } from '../../features/ai/agent/tools/skill-tool/skill-writer';
 import { clearCompactionDisabledWarning } from '../../features/ai/agent/AgentExecutor';
 import { LLM_API_BASE_PATH, WI_EXTENSION_ID } from "../../features/ai/constants";
@@ -910,13 +911,13 @@ User reverted the last made changes. The files have been restored to the state b
         return slash !== -1 ? skillId.slice(slash + 1) : skillId;
     }
 
-    private buildBuiltinSkillEntries(allDisabled: Set<string>, allEnabled: Set<string>): SkillEntry[] {
+    private buildBuiltinSkillEntries(allDisabled: Set<string>, globalEnabled: Set<string>): SkillEntry[] {
         return REGISTERED_SKILLS.map(s => {
             let enabled: boolean;
             if (s.optional === false) {
                 enabled = true;
             } else if (s.default === false) {
-                enabled = allEnabled.has(s.name);
+                enabled = globalEnabled.has(s.name);
             } else {
                 enabled = !allDisabled.has(s.name);
             }
@@ -967,11 +968,13 @@ User reverted the last made changes. The files have been restored to the state b
         const projectConfigPath = projectRootPath ? buildProjectSkillsConfigPath(projectRootPath) : null;
         const projectConfig = projectConfigPath ? getSkillsConfig(projectConfigPath) : { disabledSkills: [], enabledSkills: [] };
         const allDisabled = new Set([...globalConfig.disabledSkills, ...projectConfig.disabledSkills]);
-        const allEnabled = new Set([...globalConfig.enabledSkills, ...projectConfig.enabledSkills]);
+        const workspaceConfigPath = projectRootPath ? buildWorkspaceSkillsConfigPath(projectRootPath) : null;
+        const workspaceConfig = workspaceConfigPath ? getSkillsConfig(workspaceConfigPath) : { disabledSkills: [], enabledSkills: [] };
+        const globalEnabled = new Set(workspaceConfig.enabledSkills);
 
         return {
             skills: [
-                ...this.buildBuiltinSkillEntries(allDisabled, allEnabled),
+                ...this.buildBuiltinSkillEntries(allDisabled, globalEnabled),
                 ...(projectRootPath ? this.buildProjectSkillEntries(projectRootPath, allDisabled) : []),
                 ...this.buildUserSkillEntries(allDisabled),
             ],
@@ -996,11 +999,18 @@ User reverted the last made changes. The files have been restored to the state b
 
     async toggleSkill(params: ToggleSkillRequest): Promise<boolean> {
         try {
-            const configPath = this.resolveSkillsConfigPath(params.tier, resolveProjectRootPath());
+            const projectRootPath = resolveProjectRootPath();
             const builtinSkill = params.tier === SkillTier.BUILTIN
                 ? REGISTERED_SKILLS.find(s => s.name === params.skillId)
                 : undefined;
-            setSkillEnabled(configPath, params.skillId, params.enabled, builtinSkill?.default === false);
+            if (builtinSkill?.default === false) {
+                if (projectRootPath) {
+                    setSkillEnabled(buildWorkspaceSkillsConfigPath(projectRootPath), params.skillId, params.enabled, true);
+                }
+            } else {
+                const configPath = this.resolveSkillsConfigPath(params.tier, projectRootPath);
+                setSkillEnabled(configPath, params.skillId, params.enabled, false);
+            }
             return true;
         } catch (error) {
             console.error('[Skills] toggleSkill failed:', error);
@@ -1031,7 +1041,7 @@ User reverted the last made changes. The files have been restored to the state b
             const builtinSkill = REGISTERED_SKILLS.find(s => s.name === params.skillId);
             if (builtinSkill?.default === false) {
                 if (projectRootPath) {
-                    setSkillEnabled(buildProjectSkillsConfigPath(projectRootPath), params.skillId, true, true);
+                    setSkillEnabled(buildWorkspaceSkillsConfigPath(projectRootPath), params.skillId, true, true);
                 }
             } else {
                 setSkillEnabled(GLOBAL_SKILLS_CONFIG_PATH, params.skillId, true);
