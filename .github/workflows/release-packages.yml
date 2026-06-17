@@ -97,11 +97,10 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
 
-      - name: Create PR and notify
+      - name: Create PR
         uses: ./.github/actions/pr
         with:
           version: ${{ steps.publish.outputs.version }}${{ inputs.package }}
-          threadId: ${{ github.run_id }}
           bot_username: ${{ secrets.CHOREO_BOT_USERNAME }}
           bot_email: ${{ secrets.CHOREO_BOT_EMAIL }}
           bot_token: ${{ secrets.CHOREO_BOT_TOKEN }}
@@ -109,4 +108,3 @@ jobs:
           commonLibs: true
           choreo: true
           apk: true
-          chatAPI: ${{ secrets.TOOLING_TEAM_CHAT_API }}

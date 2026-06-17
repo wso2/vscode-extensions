@@ -23,17 +23,3 @@ jobs:
         run: |
           unzip build.zip
           rm build.zip
-
-  NotifyFailure:
-    needs: Build
-    if: ${{ always() && contains(needs.*.result, 'failure') && github.repository == 'wso2/vscode-extensions'}}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: "Failure Notification"
-        uses: ./.github/actions/failure-notification
-        with:
-          title: "Daily Build Failed"
-          run_id: ${{ github.run_id }}
-          chat_api: ${{ secrets.TOOLING_TEAM_CHAT_API }}
-          repository: ${{ github.repository }}

@@ -96,13 +96,6 @@ jobs:
           echo $version
           echo "version=$version" >> $GITHUB_OUTPUT
 
-      - name: Set Chat API
-        id: chat
-        run: |
-          if
-            echo "chatAPI=${{ secrets.TOOLING_TEAM_CHAT_API }}" >> $GITHUB_OUTPUT
-          fi
-
       - name: Create a release in wso2/vscode-extensions repo
         if: ${{ github.event.inputs.wso2-platform == 'true' }}
         uses: ./.github/actions/release
@@ -110,7 +103,6 @@ jobs:
           repo: wso2/vscode-extensions
           name: wso2-platform
           token: ${{ secrets.CHOREO_BOT_TOKEN }}
-          chatAPI: ${{ steps.chat.outputs.chatAPI }}
       
       - name: Create a release in wso2/choreo-vscode repo
         if: ${{ github.event.inputs.choreo == 'true' }}
@@ -119,7 +111,6 @@ jobs:
           repo: wso2/choreo-vscode
           name: choreo
           token: ${{ secrets.CHOREO_BOT_TOKEN }}
-          chatAPI: ${{ steps.chat.outputs.chatAPI }}
 
       - name: Create a release in wso2/apk repo
         if: ${{ github.event.inputs.apk == 'true' }}
@@ -128,7 +119,6 @@ jobs:
           repo: wso2/apk
           name: apk
           token: ${{ secrets.CHOREO_BOT_TOKEN }}
-          chatAPI: ${{ steps.chat.outputs.chatAPI }}
 
       - name: Create a release in wso2/ballerina-vscode repo for hurl-client
         if: ${{ github.event.inputs.hurl-client == 'true' }}
@@ -137,14 +127,12 @@ jobs:
           repo: wso2/ballerina-vscode
           token: ${{ secrets.CHOREO_BOT_TOKEN }}
           name: hurl-client
-          chatAPI: ${{ secrets.TOOLING_TEAM_CHAT_API }}
 
-      - name: Create PR and notify
+      - name: Create PR
         uses: ./.github/actions/pr
         with:
           version: ${{ steps.vsix.outputs.version }}
           isPreRelease: ${{ github.event.inputs.isPreRelease }}
-          threadId: ${{ github.run_id }}
           bot_username: ${{ secrets.CHOREO_BOT_USERNAME }}
           bot_email: ${{ secrets.CHOREO_BOT_EMAIL }}
           bot_token: ${{ secrets.CHOREO_BOT_TOKEN }}
@@ -153,18 +141,3 @@ jobs:
           choreo: ${{ inputs.choreo }}
           apk: ${{ inputs.apk }}
           hurl-client: ${{ inputs.hurl-client }}
-          chatAPI: ${{ secrets.TOOLING_TEAM_CHAT_API }}
-
-  Notify:
-    needs: [Release]
-    if: ${{ always() && contains(needs.*.result, 'failure') && github.repository == 'wso2/vscode-extensions'}}
-    runs-on: codebuild-wso2_vscode-extensions-${{ github.run_id }}-${{ github.run_attempt }}
-    steps:
-      - uses: actions/checkout@v2
-      - name: "Failure Notification"
-        uses: ./.github/actions/failure-notification
-        with:
-          title: "Release Build Failed"
-          run_id: ${{ github.run_id }}
-          chat_api: ${{ secrets.TOOLING_TEAM_CHAT_API }}
-          repository: ${{ github.repository }}
