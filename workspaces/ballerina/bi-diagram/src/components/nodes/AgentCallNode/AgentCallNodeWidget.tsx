@@ -21,8 +21,8 @@ import styled from "@emotion/styled";
 import { DiagramEngine, PortWidget } from "@projectstorm/react-diagrams-core";
 import { AgentCallNodeModel } from "./AgentCallNodeModel";
 import {
+    AGENT_CALL_TOOL_SECTION_GAP,
     AGENT_NODE_TOOL_GAP,
-    AGENT_NODE_TOOL_SECTION_GAP,
     DRAFT_NODE_BORDER_WIDTH,
     LABEL_HEIGHT,
     LABEL_WIDTH,
@@ -208,12 +208,6 @@ export namespace NodeStyles {
         p { display: inline; margin: 0; }
     `;
 
-    export const RolePlaceholder = styled(Role)`
-        color: ${ThemeColors.ON_SURFACE};
-        opacity: 0.5;
-        font-style: italic;
-    `;
-
     export const Instructions = styled(MarkdownContent)`
         color: ${ThemeColors.ON_SURFACE};
         opacity: 0.7;
@@ -221,11 +215,6 @@ export namespace NodeStyles {
         height: 100%;
         max-height: calc(100% - 5px);
         padding: 0 4px 4px;
-    `;
-
-    export const InstructionsPlaceholder = styled(Instructions)`
-        opacity: 0.5;
-        font-style: italic;
     `;
 
     export const InstructionsRow = styled.div<{ readOnly: boolean }>`
@@ -658,7 +647,7 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
     // Agent box pulses when either model or any tool is actively executing
     const isAgentNodeActive = isModelActive || isAnyToolActive;
 
-    let containerHeight = NODE_HEIGHT + AGENT_NODE_TOOL_SECTION_GAP + AGENT_NODE_TOOL_GAP * 2 + AGENT_CALL_AGENT_ROW_HEIGHT;
+    let containerHeight = NODE_HEIGHT + AGENT_CALL_TOOL_SECTION_GAP + AGENT_NODE_TOOL_GAP * 2 + AGENT_CALL_AGENT_ROW_HEIGHT;
     if (tools.length > 0) {
         containerHeight += tools.length * (NODE_HEIGHT + AGENT_NODE_TOOL_GAP);
     }
@@ -775,9 +764,10 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                         </Popover>
                     </NodeStyles.Row>
 
-                    <div style={{ opacity: 0.55, borderTop: `1px dashed ${ThemeColors.OUTLINE_VARIANT}`, flex: 1, overflow: "hidden", padding: "8px 2px" }}>
-                        {
-                            sanitizedAgent?.role ? (
+                    <div style={{ width: "100%", opacity: 0.55, borderTop: `1px dashed ${ThemeColors.OUTLINE_VARIANT}`, flex: 1, overflow: "hidden", padding: "8px 2px" }}>
+                        {sanitizedAgent?.role && sanitizedAgent?.instructions ? (
+                            // Only show the system prompt when both role and instructions are present.
+                            <>
                                 <NodeStyles.Row readOnly={readOnly} onClick={handleOnClick} style={{ marginBottom: 6 }}>
                                     <NodeStyles.Role>
                                         <ReactMarkdown
@@ -788,15 +778,7 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                                         </ReactMarkdown>
                                     </NodeStyles.Role>
                                 </NodeStyles.Row>
-                            ) : (
-                                <NodeStyles.Row readOnly={readOnly} onClick={handleOnClick} style={{ marginBottom: 6 }}>
-                                    <NodeStyles.RolePlaceholder>Define agent's role</NodeStyles.RolePlaceholder>
-                                </NodeStyles.Row>
-                            )
-                        }
 
-                        {
-                            sanitizedAgent?.instructions ? (
                                 <NodeStyles.InstructionsRow readOnly={readOnly} onClick={handleOnClick}>
                                     <NodeStyles.Instructions>
                                         <ReactMarkdown
@@ -807,14 +789,20 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                                         </ReactMarkdown>
                                     </NodeStyles.Instructions>
                                 </NodeStyles.InstructionsRow>
-                            ) : (
-                                <NodeStyles.InstructionsRow readOnly={readOnly} onClick={handleOnClick}>
-                                    <NodeStyles.InstructionsPlaceholder>
-                                        Provide specific instructions on how the agent should behave.
-                                    </NodeStyles.InstructionsPlaceholder>
-                                </NodeStyles.InstructionsRow>
-                            )
-                        }
+                            </>
+                        ) : nodeMetadata?.agentDescription ? (
+                            // No (complete) system prompt: fall back to the class description.
+                            <NodeStyles.InstructionsRow readOnly={readOnly} onClick={handleOnClick}>
+                                <NodeStyles.Instructions>
+                                    <ReactMarkdown
+                                        disallowedElements={['script', 'iframe', 'object', 'embed', 'link', 'style']}
+                                        unwrapDisallowed={true}
+                                    >
+                                        {nodeMetadata.agentDescription}
+                                    </ReactMarkdown>
+                                </NodeStyles.Instructions>
+                            </NodeStyles.InstructionsRow>
+                        ) : null}
                     </div>
 
                     {agentVarName && (
@@ -884,6 +872,7 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                         style={{ pointerEvents: "none" }}
                     >
                         {model.node.properties?.model?.value === "check ai:getDefaultModelProvider()"
+                            || nodeMetadata?.model?.name === "check ai:getDefaultModelProvider()"
                             ? <Icon name="bi-wso2" sx={{ fontSize: 24, width: 24, height: 24 }} />
                             : getAIModuleIcon(nodeMetadata?.model?.type) ?? (nodeModelIconUrl ? <img src={nodeModelIconUrl} style={{ width: 24, height: 24 }} /> : <DefaultLlmIcon />)}
                     </foreignObject>
@@ -930,7 +919,7 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                     return (
                         <g
                             key={index}
-                            transform={`translate(0, ${(index + 1) * (NODE_HEIGHT + AGENT_NODE_TOOL_GAP) + AGENT_NODE_TOOL_SECTION_GAP + AGENT_CALL_AGENT_ROW_HEIGHT})`}
+                            transform={`translate(0, ${(index + 1) * (NODE_HEIGHT + AGENT_NODE_TOOL_GAP) + AGENT_CALL_TOOL_SECTION_GAP + AGENT_CALL_AGENT_ROW_HEIGHT})`}
                             style={{ cursor: "default" }}
                         >
                             {/* Base Tool Circle */}
