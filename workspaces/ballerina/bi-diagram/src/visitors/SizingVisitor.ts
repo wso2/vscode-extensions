@@ -279,14 +279,9 @@ export class SizingVisitor implements BaseVisitor {
         this.setNodeSize(node, containerLeftWidth, containerRightWidth, containerHeight);
     }
 
+    // AGENT_RUN reuses the AgentCall node/widget, so it sizes identically.
     endVisitAgentRun(node: FlowNode, parent?: FlowNode): void {
-        if (!this.validateNode(node)) return;
-        const halfWidth = NODE_WIDTH / 2;
-        // NODE_HEIGHT covers header (icon + title + result-var subtitle); agent row holds name + redirect button:
-        // 8 padding-bottom + 1 divider + 8 column-gap + ~24 button + 8 bottom ≈ 49px.
-        const hasAgentRow = Boolean(node.properties?.connection?.value);
-        const containerHeight = NODE_HEIGHT + (hasAgentRow ? 49 : 0);
-        this.setNodeSize(node, halfWidth, halfWidth, containerHeight);
+        this.endVisitAgentCall(node, parent);
     }
 
     endVisitAgentType(node: FlowNode, parent?: FlowNode): void {

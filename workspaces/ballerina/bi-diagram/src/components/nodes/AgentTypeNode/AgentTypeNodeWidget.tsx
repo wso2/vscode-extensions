@@ -37,6 +37,7 @@ import {
 } from "../../../resources/constants";
 import { MoreVertIcon } from "../../../resources/icons";
 import NodeIcon from "../../NodeIcon";
+import ConnectorIcon from "../../ConnectorIcon";
 import { useDiagramContext } from "../../DiagramContext";
 import { DiagnosticsPopUp } from "../../DiagnosticsPopUp";
 import { nodeHasError } from "../../../utils/node";
@@ -610,7 +611,16 @@ export function AgentTypeNodeWidget(props: AgentTypeNodeWidgetProps) {
                                 strokeWidth={1.5}
                             />
                             <foreignObject x="68" y="12" width="44" height="44" style={{ pointerEvents: "none" }}>
-                                <Icon name="bi-function" sx={{ fontSize: "24px" }} />
+                                {tool.path ? (
+                                    <ConnectorIcon
+                                        url={tool.path}
+                                        style={{ width: 24, height: 24, fontSize: 24 }}
+                                        fallbackIcon={<Icon name="bi-function" sx={{ fontSize: "24px" }} />}
+                                        codedata={model.node?.codedata}
+                                    />
+                                ) : (
+                                    <Icon name="bi-function" sx={{ fontSize: "24px" }} />
+                                )}
                             </foreignObject>
                             {/* lock badge at top-right of circle */}
                             <foreignObject x="92" y="4" width="16" height="16" style={{ pointerEvents: "none" }}>

@@ -43,7 +43,6 @@ import { Branch, FlowNode, NodeModel } from "../utils/types";
 import { EndNodeModel } from "../components/nodes/EndNode";
 import { ErrorNodeModel } from "../components/nodes/ErrorNode";
 import { AgentCallNodeModel } from "../components/nodes/AgentCallNode/AgentCallNodeModel";
-import { AgentRunNodeModel } from "../components/nodes/AgentRunNode/AgentRunNodeModel";
 import { AgentTypeNodeModel } from "../components/nodes/AgentTypeNode/AgentTypeNodeModel";
 import { AgentNodeModel } from "../components/nodes/AgentNode/AgentNodeModel";
 import { PromptNodeModel } from "../components/nodes/PromptNode/PromptNodeModel";
@@ -640,15 +639,9 @@ export class NodeFactoryVisitor implements BaseVisitor {
         this.addSuggestionsButton(node);
     }
 
+    // AGENT_RUN (custom agent .run()) reuses the built-in AgentCall node/widget — they render identically.
     beginVisitAgentRun(node: FlowNode, parent?: FlowNode): void {
-        if (!this.validateNode(node)) return;
-        if (!node.id) {
-            return;
-        }
-        const nodeModel = new AgentRunNodeModel(node);
-        this.nodes.push(nodeModel);
-        this.updateNodeLinks(node, nodeModel);
-        this.addSuggestionsButton(node);
+        this.beginVisitAgentCall(node, parent);
     }
 
     beginVisitAgentType(node: FlowNode, parent?: FlowNode): void {

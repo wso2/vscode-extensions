@@ -504,7 +504,13 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
             return;
         }
         if (event.metaKey) {
-            onGoToSource();
+            // Custom agent (AGENT_RUN): ⌘+click jumps to the agent's focus diagram. Built-in AGENT_CALL has no
+            // separate focus diagram to resolve, so it falls back to go-to-source.
+            if (model.node.codedata.node === "AGENT_RUN" && canViewAgent) {
+                goToAgent?.(model.node);
+            } else {
+                onGoToSource();
+            }
         } else {
             onNodeClick();
         }
