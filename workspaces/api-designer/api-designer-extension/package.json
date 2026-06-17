@@ -129,7 +129,7 @@
     "node-fetch": "2.6.7",
     "node-loader": "2.0.0",
     "to-json-schema": "0.2.5",
-    "@babel/core": "7.24.4",
+    "@babel/core": "^7.29.7",
     "@types/json-schema": "7.0.15",
     "json-schema": "0.4.0",
     "portfinder": "1.0.32",
