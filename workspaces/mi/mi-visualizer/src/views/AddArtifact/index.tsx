@@ -26,7 +26,7 @@ import styled from "@emotion/styled";
 import { View, ViewContent, ViewHeader } from "../../components/View";
 import path from "path";
 import { handleFileAttach } from "../AIPanel/utils";
-import { RUNTIME_VERSION_440 } from "../../constants";
+import { RUNTIME_VERSION_440, RUNTIME_VERSION_460 } from "../../constants";
 import { compareVersions } from "@wso2/mi-diagram/lib/utils/commons";
 import { VALID_FILE_TYPES } from "../AIPanel/constants";
 import { FileObject, ImageObject } from "@wso2/mi-core";
@@ -142,6 +142,7 @@ export function AddArtifactView() {
     const [images, setImages] = useState<ImageObject[]>([]);
     const [fileUploadStatus, setFileUploadStatus] = useState({ type: '', text: '' });
     const [isResourceContentVisible, setIsResourceContentVisible] = useState(false);
+    const [isMcpServerVisible, setIsMcpServerVisible] = useState(false);
     const [projectUri, setProjectUri] = useState<string>("");
 
     const handleClick = async (key: string) => {
@@ -227,6 +228,7 @@ export function AddArtifactView() {
         rpcClient.getMiVisualizerRpcClient().getProjectDetails().then((response) => {
             const runtimeVersion = response.primaryDetails.runtimeVersion.value;
             setIsResourceContentVisible(compareVersions(runtimeVersion, RUNTIME_VERSION_440) >= 0);
+            setIsMcpServerVisible(compareVersions(runtimeVersion, RUNTIME_VERSION_460) >= 0);
         })
     }, []);
 
@@ -386,14 +388,16 @@ export function AddArtifactView() {
                                         description="Manage shared resources and configurations."
                                         onClick={() => handleClick("resources")}
                                     />
-                                    <Card
-                                        id="MCP Server"
-                                        icon="server"
-                                        isCodicon
-                                        title="MCP Server"
-                                        description="Create, expose, and manage MCP Servers."
-                                        onClick={() => handleClick("mcpServers")}
-                                    />
+                                    {isMcpServerVisible && (
+                                        <Card
+                                            id="MCP Server"
+                                            icon="server"
+                                            isCodicon
+                                            title="MCP Server"
+                                            description="Create, expose, and manage MCP Servers."
+                                            onClick={() => handleClick("mcpServers")}
+                                        />
+                                    )}
                                     <Card
                                         id="Message Processor"
                                         icon="message-processor"
