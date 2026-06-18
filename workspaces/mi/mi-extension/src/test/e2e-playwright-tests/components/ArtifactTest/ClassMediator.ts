@@ -72,11 +72,23 @@ export class ClassMediator {
 
     public async clear(classNames: string[]) {
         for (const className of classNames) {
+            await this.saveIfPrompted();
             try {
                 await this._page.getByRole('tab', { name: className }).getByLabel('Close').click();
             } catch (error) {
                 console.error(`Failed to close class mediator tab for ${className}: ${error}`);
             }
+        }
+        await this.saveIfPrompted();
+    }
+
+    private async saveIfPrompted() {
+        const save = this._page.getByRole('button', { name: 'Save', exact: true });
+        try {
+            await save.waitFor({ state: 'visible', timeout: 2000 });
+            await save.click();
+        } catch {
+            // No dialog open — nothing to save.
         }
     }
 }
