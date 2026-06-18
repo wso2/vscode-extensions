@@ -68,6 +68,16 @@ export function AIAgentPanel(props: AIAgentPanelProps) {
         });
     };
 
+    const handleAgentClick = async () => {
+        await rpcClient.getVisualizerRpcClient().openView({
+            type: EVENT_TYPE.OPEN_VIEW,
+            location: {
+                view: MACHINE_VIEW.AddAgent,
+            },
+            isPopup: true,
+        });
+    };
+
     return (
         <PanelViewMore disabled={isDisabled}>
             <TitleWrapper>
@@ -80,6 +90,14 @@ export function AIAgentPanel(props: AIAgentPanelProps) {
                     icon={<Icon name="bi-ai-chat" />}
                     title="Chat Agent Service"
                     onClick={handleClick}
+                    disabled={isDisabled}
+                    tooltip={isDisabled ? OutOfScopeComponentTooltip : ""}
+                />
+                <ButtonCard
+                    id="agent-card"
+                    icon={<Icon name="bi-ai-agent" />}
+                    title="Agent"
+                    onClick={handleAgentClick}
                     disabled={isDisabled}
                     tooltip={isDisabled ? OutOfScopeComponentTooltip : ""}
                 />
