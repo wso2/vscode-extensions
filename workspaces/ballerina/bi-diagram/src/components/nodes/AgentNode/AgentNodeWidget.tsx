@@ -456,7 +456,8 @@ export function AgentNodeWidget(props: AgentNodeWidgetProps) {
         setAnchorEl(null);
     };
 
-    const onMemoryManagerClick = () => {
+    const onMemoryManagerClick = (event?: React.MouseEvent) => {
+        event?.stopPropagation();
         if (readOnly) {
             return;
         }

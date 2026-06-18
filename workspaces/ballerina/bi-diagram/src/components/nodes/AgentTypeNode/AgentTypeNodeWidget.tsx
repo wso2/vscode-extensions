@@ -313,7 +313,8 @@ export function AgentTypeNodeWidget(props: AgentTypeNodeWidgetProps) {
         agentNode?.onModelSelect?.(model.node);
     };
 
-    const onMemoryClick = () => {
+    const onMemoryClick = (event?: React.MouseEvent) => {
+        event?.stopPropagation();
         if (readOnly) {
             return;
         }
