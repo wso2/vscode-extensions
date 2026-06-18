@@ -45,6 +45,7 @@ import {
     LinePosition,
     ToolData,
     NodeMetadata,
+    MACHINE_VIEW,
     FOCUS_FLOW_DIAGRAM_VIEW,
     FocusFlowDiagramView
 } from "@wso2/ballerina-core";
@@ -55,7 +56,6 @@ import { MemoryManagerConfig } from "../AIChatAgent/MemoryManagerConfig";
 import { AddTool } from "../AIChatAgent/AddTool";
 import { NewTool, NewToolSelectionMode } from "../AIChatAgent/NewTool";
 import { AddMcpServer } from "../AIChatAgent/AddMcpServer";
-import { ToolConfig } from "../AIChatAgent/ToolConfig";
 import { findFlowNode, findFlowNodeByModuleVarName, goToAgentFromRunNode, refreshNodeLineRangeFromArtifacts, removeToolFromAgentNode, findAgentNodeFromAgentCallNode } from "../AIChatAgent/utils";
 import { buildAgentRenderNode } from "./agent";
 
@@ -111,8 +111,7 @@ type AgentPanel =
     | "NEW_TOOL_CONNECTION"
     | "NEW_TOOL_FUNCTION"
     | "ADD_MCP"
-    | "EDIT_MCP"
-    | "AGENT_TOOL";
+    | "EDIT_MCP";
 
 export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
     const { projectPath, filePath, view, onUpdate, onReady, embedded } = props;
@@ -596,20 +595,81 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
         setAgentPanel("ADD_MCP");
     };
 
-    const handleSelectTool = (tool: ToolData, _node: FlowNode) => {
-        selectedToolRef.current = tool;
-        setShowConnectionPanel(false);
-        setAgentPanel("AGENT_TOOL");
-    };
-
     const handleSelectMcpToolkit = (tool: ToolData, _node: FlowNode) => {
         selectedToolRef.current = tool;
         setShowConnectionPanel(false);
         setAgentPanel("EDIT_MCP");
     };
 
-    const handleGoToTool = (_tool: ToolData, _node: FlowNode) => {
-        // No-op: navigating to a tool's source needs a resolved function location (deferred).
+    // Resolves a tool's @ai:AgentTool function via a targeted getFunctionNode lookup in the agent's own
+    // file (agent tools are written alongside the agent). Avoids the project-wide getProjectComponents scan.
+    const resolveToolFunction = async (toolName: string) => {
+        const agentFileName = agentDeclRef.current?.codedata?.lineRange?.fileName || "agents.bal";
+        const response = await rpcClient.getBIDiagramRpcClient().getFunctionNode({
+            functionName: toolName,
+            fileName: agentFileName,
+            projectPath,
+        });
+        const lineRange = response?.functionDefinition?.codedata?.lineRange;
+        if (!lineRange) {
+            return null;
+        }
+        const { filePath: documentUri } = await rpcClient
+            .getVisualizerRpcClient()
+            .joinProjectPath({ segments: [lineRange.fileName] });
+        return { documentUri, lineRange };
+    };
+
+    // Tool ⋮ → Edit: open the tool's Agent Tool form (FunctionForm auto-detects the @ai:AgentTool annotation).
+    const handleSelectTool = async (tool: ToolData, _node: FlowNode) => {
+        if (!tool?.name) {
+            return;
+        }
+        setShowProgressIndicator(true);
+        try {
+            const resolved = await resolveToolFunction(tool.name);
+            if (!resolved) {
+                console.error(">>> agent focus: tool function not found for edit", tool.name);
+                return;
+            }
+            await rpcClient.getVisualizerRpcClient().openView({
+                type: EVENT_TYPE.OPEN_VIEW,
+                location: {
+                    documentUri: resolved.documentUri,
+                    identifier: tool.name,
+                    view: MACHINE_VIEW.BIFunctionForm,
+                },
+            });
+        } finally {
+            setShowProgressIndicator(false);
+        }
+    };
+
+    // Tool circle click / ⋮ → View: open that tool function's flow diagram (MCP toolkits are handled by
+    // handleSelectMcpToolkit, so they never reach here).
+    const handleGoToTool = async (tool: ToolData, _node: FlowNode) => {
+        if (!tool?.name) {
+            return;
+        }
+        setShowProgressIndicator(true);
+        try {
+            const resolved = await resolveToolFunction(tool.name);
+            if (!resolved) {
+                console.error(">>> agent focus: tool function not found", tool.name);
+                return;
+            }
+            await handleOpenView({
+                documentUri: resolved.documentUri,
+                position: {
+                    startLine: resolved.lineRange.startLine.line,
+                    startColumn: resolved.lineRange.startLine.offset,
+                    endLine: resolved.lineRange.endLine.line,
+                    endColumn: resolved.lineRange.endLine.offset,
+                },
+            });
+        } finally {
+            setShowProgressIndicator(false);
+        }
     };
 
     const handleDeleteTool = async (tool: ToolData, _node: FlowNode) => {
@@ -1391,16 +1451,6 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
                         editMode={true}
                         name={selectedToolRef.current?.name}
                         agentNode={agentDeclRef.current}
-                        onSave={handleCloseAgentPanel}
-                    />
-                </PanelContainer>
-            )}
-
-            {isAgent && agentPanel === "AGENT_TOOL" && agentDeclRef.current && (
-                <PanelContainer title="Tool Configuration" show={true} onClose={handleCloseAgentPanel}>
-                    <ToolConfig
-                        agentNode={agentDeclRef.current}
-                        toolData={selectedToolRef.current}
                         onSave={handleCloseAgentPanel}
                     />
                 </PanelContainer>
