@@ -18,7 +18,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { cloneDeep } from 'lodash';
-import { CDModel, EVENT_TYPE, FlowNode, LineRange } from '@wso2/ballerina-core';
+import { CDModel, EVENT_TYPE, FlowNode, LineRange, Property } from '@wso2/ballerina-core';
 import { View, ViewContent } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
 import { useRpcContext } from '@wso2/ballerina-rpc-client';
@@ -28,6 +28,7 @@ import { RelativeLoader } from '../../../components/RelativeLoader';
 import { FormHeader } from '../../../components/FormHeader';
 import { FlowNodeForm } from '../Forms/FlowNodeForm';
 import { fetchAgentNodeTemplate, getAiModuleOrg, getEndOfFileLineRange } from './utils';
+import { sanitizedHttpPath } from '../ServiceDesigner/utils';
 import { AI_COMPONENT_PROGRESS_MESSAGE_TIMEOUT } from '../../../constants';
 
 const Container = styled.div`
@@ -37,10 +38,18 @@ const Container = styled.div`
     gap: 20px;
 `;
 
+const LoaderContainer = styled.div`
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+`;
+
 export interface AIChatAgentWizardProps { }
 
 const AI_CHAT_AGENT_LISTENER = "chatAgentListener";
 const AGENT_FILE_NAME = "agents.bal";
+const BASE_PATH_KEY = "basePath";
 
 function toKebabCase(varName: string): string {
     return varName
@@ -50,6 +59,10 @@ function toKebabCase(varName: string): string {
         .replace(/([a-zA-Z])(\d)/g, '$1-$2')
         .replace(/(\d)([a-zA-Z])/g, '$1-$2')
         .toLowerCase();
+}
+
+function deriveBasePath(agentVarName: string): string {
+    return "/" + toKebabCase(agentVarName);
 }
 
 export function AIChatAgentWizard(props: AIChatAgentWizardProps) {
@@ -93,6 +106,20 @@ export function AIChatAgentWizard(props: AIChatAgentWizardProps) {
                 const template = await fetchAgentNodeTemplate(rpcClient, projectPath.current);
                 if (cancelled) return;
 
+                template.metadata.description = "Configure your agent's model, role, and instructions.";
+
+                const initialAgentName = String(template.properties?.variable?.value ?? "");
+                (template.properties as Record<string, Property>)[BASE_PATH_KEY] = {
+                    metadata: {
+                        label: "Service Base Path",
+                        description: "The path where this chat service is exposed (e.g. /sales-agent).",
+                    },
+                    value: deriveBasePath(initialAgentName),
+                    optional: false,
+                    editable: true,
+                    types: [{ fieldType: "SERVICE_PATH", selected: true }],
+                } as Property;
+
                 const endOfFile = await getEndOfFileLineRange(AGENT_FILE_NAME, rpcClient);
                 if (cancelled) return;
 
@@ -111,7 +138,9 @@ export function AIChatAgentWizard(props: AIChatAgentWizardProps) {
         if (!updatedNode) return;
 
         const agentVarName = String(updatedNode.properties?.variable?.value ?? "");
-        const servicePath = toKebabCase(agentVarName).replace(/-/g, '\\-');
+        const rawBasePath = String((updatedNode.properties as Record<string, Property>)?.[BASE_PATH_KEY]?.value ?? "").trim();
+        const basePathSegment = rawBasePath.replace(/^\/+/, "") || toKebabCase(agentVarName);
+        const servicePath = sanitizedHttpPath(basePathSegment);
 
         setIsCreating(true);
         setCurrentStep(0);
@@ -129,6 +158,7 @@ export function AIChatAgentWizard(props: AIChatAgentWizardProps) {
             // shifted since the template was loaded (e.g. a concurrent edit).
             const endOfFile = await getEndOfFileLineRange(AGENT_FILE_NAME, rpcClient);
             const node = cloneDeep(updatedNode);
+            delete (node.properties as Record<string, Property>)[BASE_PATH_KEY];
             node.codedata.lineRange = endOfFile as any;
             await rpcClient.getBIDiagramRpcClient().getSourceCode({
                 filePath: endOfFile.fileName,
@@ -198,6 +228,9 @@ export function AIChatAgentWizard(props: AIChatAgentWizardProps) {
                     type: EVENT_TYPE.OPEN_VIEW,
                     location: { documentUri: newServiceArtifact.path, position: newServiceArtifact.position }
                 });
+            } else {
+                setIsCreating(false);
+                setCurrentStep(0);
             }
         } catch (error) {
             console.error("Error creating AI Chat Agent:", error);
@@ -219,11 +252,13 @@ export function AIChatAgentWizard(props: AIChatAgentWizardProps) {
                 subtitle="Create a chattable AI agent using an LLM, prompts and tools."
             />
             <ViewContent padding>
-                <Container>
-                    <FormHeader title="Create Chat Agent Service" />
-                    {isCreating ? (
+                {isCreating ? (
+                    <LoaderContainer>
                         <RelativeLoader message={steps[currentStep].description} />
-                    ) : agentNode && targetLineRange ? (
+                    </LoaderContainer>
+                ) : agentNode && targetLineRange ? (
+                    <Container>
+                        <FormHeader title="Create Chat Agent Service" />
                         <FlowNodeForm
                             fileName={agentFilePath}
                             node={cloneDeep(agentNode)}
@@ -232,11 +267,20 @@ export function AIChatAgentWizard(props: AIChatAgentWizardProps) {
                             onSubmit={handleCreateAgent}
                             submitText="Create"
                             fieldOverrides={{ type: { hidden: true } }}
+                            derivedFields={[{
+                                sourceField: "variable",
+                                targetField: BASE_PATH_KEY,
+                                deriveFn: (agentVarName) => deriveBasePath(String(agentVarName ?? "")),
+                                breakOnManualEdit: true,
+                            }]}
+                            bottomFields={[BASE_PATH_KEY]}
                         />
-                    ) : (
+                    </Container>
+                ) : (
+                    <LoaderContainer>
                         <RelativeLoader />
-                    )}
-                </Container>
+                    </LoaderContainer>
+                )}
             </ViewContent>
         </View>
     );

@@ -177,6 +177,7 @@ interface FlowNodeFormProps {
     fieldOverrides?: Record<string, Partial<FormField>>;
     footerActionButton?: boolean; // Render save button as footer action button
     derivedFields?: FieldDerivation[]; // Configuration for auto-deriving field values from other fields
+    bottomFields?: string[];
     devantExpressionEditor?: ExpressionEditorDevantProps;
     customValidator?: (fieldKey: string, value: any, allValues: FormValues) => string | undefined; // Custom validation function for form fields
     defaultExpandAdvanced?: boolean;
@@ -2056,6 +2057,7 @@ export const FlowNodeForm = forwardRef<FormExpressionEditorRef, FlowNodeFormProp
                     onChange={handleFormChange}
                     injectedComponents={injectedComponents}
                     derivedFields={props.derivedFields}
+                    bottomFields={props.bottomFields}
                     updateImports={handleUpdateImports}
                     defaultExpandAdvanced={props.defaultExpandAdvanced}
                 />
