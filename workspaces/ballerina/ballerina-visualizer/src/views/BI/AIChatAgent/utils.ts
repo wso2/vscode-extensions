@@ -340,7 +340,6 @@ export const findFlowNode = async (
 };
 
 export const findAgentNodeFromAgentCallNode = async (agentCallNode: FlowNode, rpcClient: BallerinaRpcClient) => {
-    // Validate input node type
     if (!agentCallNode || agentCallNode.codedata?.node !== "AGENT_CALL") {
         return null;
     }
@@ -644,89 +643,6 @@ export const addMcpServerToAgentNode = async (agentNode: FlowNode, toolConfig: M
     // update the node
     updatedAgentNode.properties.tools.value = toolsValue;
     updatedAgentNode.codedata.isNew = false;
-    return updatedAgentNode;
-};
-
-export const removeMcpServerFromAgentNode = (
-    agentNode: FlowNode,
-    toolkitNameToRemove: string
-) => {
-    if (!agentNode || agentNode.codedata?.node !== "AGENT") return null;
-
-    const updatedAgentNode = cloneDeep(agentNode);
-    let toolsValue = updatedAgentNode.properties.tools.value;
-
-    if (typeof toolsValue === "string") {
-        const startPattern = 'check new ai:McpToolKit(';
-        let startIndex = 0;
-        let found = false;
-
-        while (!found && startIndex < toolsValue.length) {
-            startIndex = toolsValue.indexOf(startPattern, startIndex);
-            if (startIndex === -1) break;
-
-            let endIndex = toolsValue.indexOf('})', startIndex);
-            if (endIndex === -1) break;
-            endIndex += 2; // Include the '})'
-
-            const declaration = toolsValue.substring(startIndex, endIndex);
-            if (declaration.includes(`name: "${toolkitNameToRemove}"`)) {
-                let hasCommaAfter = false;
-                if (toolsValue[endIndex] === ',') {
-                    endIndex++;
-                    hasCommaAfter = true;
-                }
-                let hasCommaBefore = false;
-                let newStartIndex = startIndex;
-                if (startIndex > 0 && toolsValue[startIndex - 1] === ',') {
-                    newStartIndex--;
-                    hasCommaBefore = true;
-                }
-
-                let isLastItem = !hasCommaAfter;
-
-                let before: string = toolsValue.substring(0, newStartIndex);
-                let after: string = toolsValue.substring(endIndex);
-
-                if (hasCommaBefore && hasCommaAfter) {
-                    after = after.trim();
-                } else if (isLastItem) {
-                    before = before.trim();
-                    if (before.endsWith(',')) {
-                        before = before.substring(0, before.length - 1).trim();
-                    }
-                }
-
-                toolsValue = before + after;
-                found = true;
-            } else {
-                startIndex = endIndex;
-            }
-        }
-
-        toolsValue = toolsValue
-            .replace(/,+/g, ',')
-            .replace(/, ,/g, ', ')
-            .replace(/\s*,\s*/g, ', ')
-            .replace(/, $/, '')
-            .replace(/^, /, '')
-            .replace(/\s+/g, ' ')
-            .trim();
-
-        if (toolsValue === '[' || toolsValue === '[]') {
-            toolsValue = '[]';
-        }
-    } else if (Array.isArray(toolsValue)) {
-        const pattern = new RegExp(`name:\\s*"${toolkitNameToRemove}"`);
-        toolsValue = (toolsValue as Property[]).filter(
-            (tool: any) => !pattern.test(tool.value) && tool.value !== toolkitNameToRemove
-        );
-    } else {
-        console.error("Tools value is not a string or array", toolsValue);
-        return agentNode;
-    }
-
-    updatedAgentNode.properties.tools.value = toolsValue;
     return updatedAgentNode;
 };
 

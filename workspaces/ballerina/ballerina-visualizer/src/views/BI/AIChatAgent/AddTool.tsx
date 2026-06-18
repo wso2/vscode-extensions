@@ -87,7 +87,7 @@ const OptionDescription = styled.div`
 `;
 
 interface AddToolProps {
-    agentCallNode: FlowNode;
+    agentNode: FlowNode;
     onCreateCustomTool?: () => void;
     onUseConnection?: () => void;
     onUseFunction?: () => void;

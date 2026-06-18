@@ -123,12 +123,12 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
     // Custom AgentType classes render a simplified node (box + conditional model-provider circle).
     const isAgentType = view === FOCUS_FLOW_DIAGRAM_VIEW.AGENT_TYPE;
 
-    // AGENT focus view: the declaration node is the edit target; the diagram renders a single
-    // synthetic AGENT_CALL node derived from it (see ./agent.buildAgentRenderNode).
+    // AGENT focus view: the declaration node (agentDeclRef) is the edit target for everything —
+    // model/memory/tools all operate on it directly. The diagram renders a single node derived
+    // from it for display only (see ./agent.buildAgentRenderNode).
     const agentDeclRef = useRef<FlowNode>();
     const memoryNodeRef = useRef<FlowNode>();
     const agentFormNodeRef = useRef<FlowNode>();
-    const agentCallNodeRef = useRef<FlowNode>();
     const selectedToolRef = useRef<ToolData>();
     // The focused agent view shows just the node; the edit form opens only when the user clicks it.
     const [agentPanel, setAgentPanel] = useState<AgentPanel>("NONE");
@@ -325,7 +325,6 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
 
             const connections = fetchedFlow?.connections || [];
             const renderNode = buildAgentRenderNode(agentDecl, connections);
-            agentCallNodeRef.current = renderNode;
             // Use the absolute document path (the node's lineRange.fileName is relative, which the
             // LS would resolve against filesystem root -> EROFS on save).
             const fileName = filePath;
@@ -1331,10 +1330,10 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
                 </PanelContainer>
             )}
 
-            {isAgent && agentPanel === "ADD_TOOL" && agentCallNodeRef.current && (
+            {isAgent && agentPanel === "ADD_TOOL" && agentDeclRef.current && (
                 <PanelContainer title="Add Tool" show={true} onClose={handleCloseAgentPanel}>
                     <AddTool
-                        agentCallNode={agentCallNodeRef.current}
+                        agentNode={agentDeclRef.current}
                         onCreateCustomTool={() => setAgentPanel("NEW_TOOL_CUSTOM")}
                         onUseConnection={() => setAgentPanel("NEW_TOOL_CONNECTION")}
                         onUseFunction={() => setAgentPanel("NEW_TOOL_FUNCTION")}
@@ -1348,7 +1347,7 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
                 (agentPanel === "NEW_TOOL_CUSTOM" ||
                     agentPanel === "NEW_TOOL_CONNECTION" ||
                     agentPanel === "NEW_TOOL_FUNCTION") &&
-                agentCallNodeRef.current && (
+                agentDeclRef.current && (
                     <PanelContainer
                         title="Add Tool"
                         show={true}
@@ -1356,7 +1355,7 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
                         onBack={() => setAgentPanel("ADD_TOOL")}
                     >
                         <NewTool
-                            agentCallNode={agentCallNodeRef.current}
+                            agentNode={agentDeclRef.current}
                             mode={
                                 agentPanel === "NEW_TOOL_CUSTOM"
                                     ? NewToolSelectionMode.CUSTOM_TOOL
@@ -1371,7 +1370,7 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
                     </PanelContainer>
                 )}
 
-            {isAgent && agentPanel === "ADD_MCP" && agentCallNodeRef.current && (
+            {isAgent && agentPanel === "ADD_MCP" && agentDeclRef.current && (
                 <PanelContainer
                     title="Add MCP Server"
                     show={true}
@@ -1379,28 +1378,28 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
                     onBack={() => setAgentPanel("ADD_TOOL")}
                 >
                     <AddMcpServer
-                        agentCallNode={agentCallNodeRef.current}
+                        agentNode={agentDeclRef.current}
                         onSave={handleCloseAgentPanel}
                         onBack={() => setAgentPanel("ADD_TOOL")}
                     />
                 </PanelContainer>
             )}
 
-            {isAgent && agentPanel === "EDIT_MCP" && agentCallNodeRef.current && (
+            {isAgent && agentPanel === "EDIT_MCP" && agentDeclRef.current && (
                 <PanelContainer title="Edit MCP Server" show={true} onClose={handleCloseAgentPanel}>
                     <AddMcpServer
                         editMode={true}
                         name={selectedToolRef.current?.name}
-                        agentCallNode={agentCallNodeRef.current}
+                        agentNode={agentDeclRef.current}
                         onSave={handleCloseAgentPanel}
                     />
                 </PanelContainer>
             )}
 
-            {isAgent && agentPanel === "AGENT_TOOL" && agentCallNodeRef.current && (
+            {isAgent && agentPanel === "AGENT_TOOL" && agentDeclRef.current && (
                 <PanelContainer title="Tool Configuration" show={true} onClose={handleCloseAgentPanel}>
                     <ToolConfig
-                        agentCallNode={agentCallNodeRef.current}
+                        agentNode={agentDeclRef.current}
                         toolData={selectedToolRef.current}
                         onSave={handleCloseAgentPanel}
                     />

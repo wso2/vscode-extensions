@@ -46,14 +46,13 @@ const Row = styled.div`
 `;
 
 interface ToolConfigProps {
-    agentCallNode: FlowNode;
+    agentNode: FlowNode;
     toolData: ToolData;
     onSave?: () => void;
 }
 
 export function ToolConfig(props: ToolConfigProps): JSX.Element {
-    const { agentCallNode, toolData, onSave } = props;
-    console.log(">>> ToolConfig props", props);
+    const { agentNode, toolData, onSave } = props;
 
     const { rpcClient } = useRpcContext();
     const [loading, setLoading] = useState<boolean>(false);
@@ -63,7 +62,7 @@ export function ToolConfig(props: ToolConfigProps): JSX.Element {
 
     useEffect(() => {
         initPanel();
-    }, [agentCallNode]);
+    }, [agentNode]);
 
     const initPanel = async () => {
         setLoading(true);
@@ -118,11 +117,11 @@ export function ToolConfig(props: ToolConfigProps): JSX.Element {
                     <RelativeLoader />
                 </LoaderContainer>
             )}
-            {!loading && agentCallNode?.codedata?.lineRange && (
+            {!loading && agentNode?.codedata?.lineRange && (
                 <ConfigForm
                     fileName={agentFilePath.current}
                     formFields={formFields}
-                    targetLineRange={agentCallNode.codedata.lineRange}
+                    targetLineRange={agentNode.codedata.lineRange}
                     onSubmit={handleOnSave}
                     disableSaveButton={savingForm}
                     isSaving={savingForm}

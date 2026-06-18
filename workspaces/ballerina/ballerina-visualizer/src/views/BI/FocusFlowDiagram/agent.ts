@@ -113,8 +113,6 @@ export function buildAgentRenderNode(agentNode: FlowNode, connections: FlowNode[
     const hasLsData = !!(lsData && (lsData.agent || lsData.model || lsData.memory || (lsData.tools && lsData.tools.length)));
     const data: NodeMetadata = hasLsData ? (lsData as NodeMetadata) : { agent, model, memory, tools };
 
-    const agentVarName = typeof props.variable?.value === "string" ? props.variable.value : "";
-
     return {
         ...agentNode,
         id: agentNode.id || "agent-focus-node",
@@ -122,9 +120,6 @@ export function buildAgentRenderNode(agentNode: FlowNode, connections: FlowNode[
         metadata: { ...(agentNode.metadata || { label: "AI Agent", description: "" }), data },
         properties: {
             ...(agentNode.properties || {}),
-            // The tool flow (NewTool / findAgentNodeFromAgentCallNode) resolves the agent from the
-            // AGENT_CALL node's `connection` property; mirror the agent variable name here.
-            connection: { value: agentVarName },
         },
         branches: [],
         flags: agentNode.flags ?? 0,

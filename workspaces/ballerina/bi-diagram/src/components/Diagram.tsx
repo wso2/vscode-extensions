@@ -67,15 +67,16 @@ export interface DiagramProps {
     selectedNodeId?: string;
     // agent node callbacks
     agentNode?: {
-        onModelSelect: (node: FlowNode) => void;
-        onAddTool: (node: FlowNode) => void;
-        onAddMcpServer: (node: FlowNode) => void;
-        onSelectTool: (tool: ToolData, node: FlowNode) => void;
-        onSelectMcpToolkit: (tool: ToolData, node: FlowNode) => void;
-        onDeleteTool: (tool: ToolData, node: FlowNode) => void;
-        goToTool: (tool: ToolData, node: FlowNode) => void;
-        onSelectMemoryManager: (node: FlowNode) => void;
-        onDeleteMemoryManager: (node: FlowNode) => void;
+        onModelSelect?: (node: FlowNode) => void;
+        onAddTool?: (node: FlowNode) => void;
+        onAddMcpServer?: (node: FlowNode) => void;
+        onSelectTool?: (tool: ToolData, node: FlowNode) => void;
+        onSelectMcpToolkit?: (tool: ToolData, node: FlowNode) => void;
+        onDeleteTool?: (tool: ToolData, node: FlowNode) => void;
+        goToTool?: (tool: ToolData, node: FlowNode) => void;
+        onSelectMemoryManager?: (node: FlowNode) => void;
+        onDeleteMemoryManager?: (node: FlowNode) => void;
+        onChatWithAgent?: (node: FlowNode) => void;
     };
     // ai nodes callbacks
     aiNodes?: {
@@ -387,7 +388,20 @@ export function Diagram(props: DiagramProps) {
         goToAgent: goToAgent,
         draftNode: draftNode,
         selectedNodeId: selectedNodeId,
-        agentNode: agentNode,
+        // Fill any editing callbacks the host omits (e.g. the main flow only passes onChatWithAgent)
+        // with no-ops so widgets can call them unconditionally.
+        agentNode: {
+            onModelSelect: () => { },
+            onAddTool: () => { },
+            onAddMcpServer: () => { },
+            onSelectTool: () => { },
+            onSelectMcpToolkit: () => { },
+            onDeleteTool: () => { },
+            goToTool: () => { },
+            onSelectMemoryManager: () => { },
+            onDeleteMemoryManager: () => { },
+            ...agentNode,
+        },
         aiNodes: aiNodes,
         suggestions: suggestions,
         project: project,

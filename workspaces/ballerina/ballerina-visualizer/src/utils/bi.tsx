@@ -580,22 +580,6 @@ export function getContainerTitle(view: SidePanelView, activeNode: FlowNode, cli
             return "Error";
         case SidePanelView.LOADING:
             return "";
-        case SidePanelView.AGENT_MEMORY_MANAGER:
-            return "Configure Memory";
-        case SidePanelView.AGENT_TOOL:
-            return "Configure Tool";
-        case SidePanelView.ADD_TOOL:
-            return "Add Tool";
-        case SidePanelView.ADD_MCP_SERVER:
-            return "Add MCP Server";
-        case SidePanelView.EDIT_MCP_SERVER:
-            return "Edit MCP Server";
-        case SidePanelView.NEW_TOOL:
-            return "Add New Tool";
-        case SidePanelView.NEW_TOOL_FROM_CONNECTION:
-            return "Create Tool from Connection";
-        case SidePanelView.NEW_TOOL_FROM_FUNCTION:
-            return "Create Tool from Function";
         case SidePanelView.FORM:
             if (!activeNode) {
                 return "";
