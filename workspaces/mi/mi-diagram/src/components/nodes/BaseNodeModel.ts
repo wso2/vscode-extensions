@@ -137,6 +137,7 @@ export class BaseNodeModel extends NodeModel {
                 operationName = "connector";
 
                 const connectorNode = ((node.stNode as Tool).mediator ?? node.stNode) as Connector;
+                mediatorTag = connectorNode.tag;
 
                 const connectorData = await rpcClient.getMiDiagramRpcClient().getAvailableConnectors({
                     documentUri: node.documentUri,

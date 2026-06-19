@@ -196,6 +196,7 @@ export function DataServiceWizard(props: DataServiceWizardProps) {
     const handleDeleteDatasource = (index: number) => {
         const updatedDatasources = datasources.filter((_, i) => i !== index);
         setDatasources(updatedDatasources);
+        setValue("ds", updatedDatasources, { shouldDirty: true });
     };
 
     const addDatasource = () => {

@@ -76,7 +76,7 @@ export class Automation {
         await frame.getByLabel('Startup Trigger').click();
         await frame.getByRole('textbox', { name: 'Name*' }).fill(name);
         await frame.getByRole('heading', { name: 'Advanced Configuration' }).click();
-        await frame.locator('[id="headlessui-combobox-input-\\:r0\\:"]').click();
+        await frame.locator('[id^="headlessui-combobox-input-"]').click();
         await frame.getByText(seqName).click();
         await frame.getByLabel('Enable tracing').click();
         await frame.getByLabel('Enable statistics').click();
