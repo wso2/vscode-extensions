@@ -17,6 +17,7 @@
  */
 
 import { Locator, Page } from "@playwright/test";
+import { ExtendedPage } from "@wso2/playwright-vscode-tester";
 
 export class ProjectExplorer {
     private explorer!: Locator;
@@ -25,8 +26,14 @@ export class ProjectExplorer {
         if (name) {
             this.explorer = this.page.locator(`div[role="tree"][aria-label="${name}"]`);
         } else {
-            this.explorer = this.page.getByRole('tree').locator('div').first();
+            this.explorer = this.page.locator('div[role="tree"]').filter({
+                has: this.page.locator('div[role="treeitem"][aria-label^="Project "]')
+            });
         }
+    }
+
+    private treeItem(label: string): string {
+        return `div[role="treeitem"][aria-label="${label}"], div[role="treeitem"][aria-label^="${label}, "]`;
     }
 
     public async init () {
@@ -37,7 +44,7 @@ export class ProjectExplorer {
         let currentItem: Locator | undefined = undefined;
         for (let i = 0; i < path.length; i++) {
 
-            currentItem = this.explorer.locator(`div[role="treeitem"][aria-label="${path[i]}"]`);
+            currentItem = this.explorer.locator(this.treeItem(path[i]));
             await currentItem.waitFor();
 
             if (i < path.length - 1) {
@@ -56,27 +63,26 @@ export class ProjectExplorer {
         return currentItem;
     }
 
+    private async focusProjectExplorer() {
+        await new ExtendedPage(this.page).executePaletteCommand('Focus on MI Project Explorer View');
+        await this.page.waitForTimeout(500);
+    }
+
     public async goToOverview(projectName: string, timeout?: number) {
-        // wait for 1s
-        const projectExplorerRoot = this.explorer.locator(`div[role="treeitem"][aria-label="Project ${projectName}"]`);
+        const projectExplorerRoot = this.explorer.locator(this.treeItem(`Project ${projectName}`));
         const waitTimeout = timeout || 30000;
-        
+        await this.focusProjectExplorer();
+
         try {
             await projectExplorerRoot.waitFor({ state: 'visible', timeout: waitTimeout });
         } catch (error) {
-            // If project not found, try to refresh the explorer or wait a bit more
+            // If project not found, re-open the explorer view and wait again.
             console.warn(`Project ${projectName} not found, waiting additional time...`);
             await this.page.waitForTimeout(2000);
-            try {
-                // Click sidebar and select WSO2 Integrator: MI to refresh the explorer
-                await this.page.waitForSelector(`a[aria-label="WSO2 Integrator"]`);
-                return await this.page.click(`a[aria-label="WSO2 Integrator"]`);
-            } catch (error) {
-                console.error(`Failed to select sidebar item: ${error}`);
-            }
+            await this.focusProjectExplorer();
             await projectExplorerRoot.waitFor({ state: 'visible', timeout: waitTimeout });
         }
-        
+
         await projectExplorerRoot.first().hover();
         const locator = projectExplorerRoot.getByLabel('Open Project Overview');
         await locator.waitFor();
@@ -86,7 +92,7 @@ export class ProjectExplorer {
 
     public async goToAddArtifact(projectName: string) {
         // wait for 1s
-        const projectExplorerRoot = this.explorer.locator(`div[role="treeitem"][aria-label="Project ${projectName}"]`);
+        const projectExplorerRoot = this.explorer.locator(this.treeItem(`Project ${projectName}`));
         await projectExplorerRoot.waitFor();
         await projectExplorerRoot.hover();
         const locator = projectExplorerRoot.getByLabel('Add Artifact');
@@ -99,7 +105,7 @@ export class ProjectExplorer {
         let currentItem;
         for (let i = 0; i < path.length; i++) {
 
-            currentItem = this.explorer.locator(`div[role="treeitem"][aria-label="${path[i]}"]`);
+            currentItem = this.explorer.locator(this.treeItem(path[i]));
             await currentItem.waitFor();
 
             const isExpanded = await currentItem.getAttribute('aria-expanded');
