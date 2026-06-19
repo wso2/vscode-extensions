@@ -56,7 +56,7 @@ interface UnitTestApiResponse {
 const cardStyle = {
     display: "block",
     margin: "15px 0 0 0",
-    padding: "0 15px 15px 15px",
+    padding: "15px 15px 0 15px",
     width: "auto",
     cursor: "auto"
 };

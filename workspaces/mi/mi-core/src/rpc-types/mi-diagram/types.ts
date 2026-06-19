@@ -2254,6 +2254,7 @@ export interface GenerateConnectorRequest {
 export interface GenerateConnectorResponse {
     buildStatus: boolean;
     connectorPath: string;
+    errorMessage?: string;
 }
 
 export interface GetHelperPaneInfoRequest {

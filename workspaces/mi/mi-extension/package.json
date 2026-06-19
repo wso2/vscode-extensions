@@ -1,7 +1,7 @@
 {
   "name": "micro-integrator",
   "displayName": "WSO2 Integrator: MI",
-  "description": "An extension which gives a development environment for designing, developing, debugging, and testing integration solutions.",
+  "description": "The official low-code development toolkit for WSO2 Integrator: MI. Everything you need to build, test, and deploy integrations — right from within VS Code.",
   "icon": "resources/images/wso2-micro-integrator-icon.png",
   "version": "4.1.0",
   "publisher": "wso2",

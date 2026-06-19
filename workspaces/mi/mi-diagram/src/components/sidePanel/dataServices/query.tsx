@@ -17,7 +17,7 @@
  */
 
 import React, { useEffect, useRef } from 'react';
-import { AutoComplete, Button, ComponentCard, ProgressIndicator, TextField, TextArea, Typography } from '@wso2/ui-toolkit';
+import { AutoComplete, AutoResizeTextArea, Button, ComponentCard, FormGroup, ProgressIndicator, TextField, Typography } from '@wso2/ui-toolkit';
 import { VSCodeCheckbox } from '@vscode/webview-ui-toolkit/react';
 import styled from '@emotion/styled';
 import SidePanelContext from '../SidePanelContexProvider';
@@ -31,8 +31,8 @@ import { getDssQueryXml, getDssResourceSelfClosingXml, getDssResourceXml } from 
 
 const cardStyle = {
     display: "block",
-    margin: "15px 0",
-    padding: "0 15px 15px 15px",
+    margin: "0",
+    padding: "15px 15px 0 15px",
     width: "auto",
     cursor: "auto"
 };
@@ -212,15 +212,14 @@ const QueryForm = (props: AddMediatorProps) => {
                         name="sqlQuery"
                         control={control}
                         render={({ field }) => (
-                            <TextArea {...field} label="Query / Expression" placeholder="" />
+                            <AutoResizeTextArea {...field} label="Query / Expression" placeholder="" growRange={{ start: 3, offset: 12 }} />
                         )}
                     />
                     {errors.sqlQuery && <Error>{errors.sqlQuery.message.toString()}</Error>}
                 </Field>
 
-                <ComponentCard sx={cardStyle} disbaleHoverEffect>
-                    <Typography variant="h3">Advanced Properties</Typography>
-
+                <FormGroup title="Advanced Properties" isCollapsed={true} sx={{ paddingBottom: '10px' }}>
+                    <ComponentCard sx={cardStyle} disbaleHoverEffect>
                     <Field>
                         <Controller
                             name="queryTimeout"
@@ -335,7 +334,8 @@ const QueryForm = (props: AddMediatorProps) => {
                         {errors.forceJDBCBatchRequests && <Error>{errors.forceJDBCBatchRequests.message.toString()}</Error>}
                     </Field>
 
-                </ComponentCard>
+                    </ComponentCard>
+                </FormGroup>
 
 
                 <div style={{ textAlign: "right", marginTop: "10px", float: "right" }}>

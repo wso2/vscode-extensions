@@ -108,6 +108,7 @@ const MainPanel = (props: MainPanelProps) => {
     const isWindows = visualizerState.platform === Platform.WINDOWS;
     const { rpcClient } = useVisualizerContext();
     const [viewComponent, setViewComponent] = useState<React.ReactNode>();
+    const [viewKey, setViewKey] = useState<string>();
     const [showNavigator, setShowNavigator] = useState<boolean>(true);
     const [formState, setFormState] = useState<PopupMachineStateValue>('initialize');
 
@@ -143,6 +144,18 @@ const MainPanel = (props: MainPanelProps) => {
 
     const getUniqueKey = (model: any, documentUri: string) => {
         return `${JSON.stringify(model?.range)}-${documentUri}`;
+    }
+
+    // Remount form in a fresh state without stale information
+    const getViewKey = () => {
+        let customPropsId = '';
+        try {
+            customPropsId = JSON.stringify(visualizerState.customProps ?? '');
+        } catch (e) {
+            customPropsId = '';
+        }
+        const rangeId = JSON.stringify((visualizerState.stNode as any)?.range);
+        return `${visualizerState.view}-${visualizerState.documentUri}-${rangeId}-${customPropsId}`;
     }
 
     const fetchContext = async () => {
@@ -413,6 +426,7 @@ const MainPanel = (props: MainPanelProps) => {
         }
         // Update the showNavigator state based on the current view
         setShowNavigator(shouldShowNavigator);
+        setViewKey(getViewKey());
     }
 
     const handleOnClose = () => {
@@ -427,7 +441,9 @@ const MainPanel = (props: MainPanelProps) => {
                 </LoaderWrapper>
             ) : <>
                 {showNavigator && <NavigationBar />}
-                {viewComponent}
+                {React.isValidElement(viewComponent)
+                    ? React.cloneElement(viewComponent as React.ReactElement, { key: viewKey })
+                    : viewComponent}
             </>}
             {typeof formState === 'object' && 'open' in formState && (
                 <PopUpContainer>

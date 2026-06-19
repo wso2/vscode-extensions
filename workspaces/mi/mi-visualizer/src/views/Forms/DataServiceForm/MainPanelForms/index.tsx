@@ -16,7 +16,7 @@
  * under the License.
  */
 import React, { useEffect, useState } from "react";
-import { Button, TextField, FormView, FormActions, FormGroup, LinkButton, Codicon } from "@wso2/ui-toolkit";
+import { Button, TextField, FormView, FormActions, FormGroup, LinkButton, Codicon, RequiredFormInput } from "@wso2/ui-toolkit";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
 import { EVENT_TYPE, MACHINE_VIEW, CreateDataServiceRequest, Datasource, Property, POPUP_EVENT_TYPE } from "@wso2/mi-core";
 import { DataServiceAdvancedWizard } from "./AdvancedForm";
@@ -30,6 +30,18 @@ import styled from "@emotion/styled";
 
 const AddButtonWrapper = styled.div`
 	margin: 8px 0;
+`;
+
+const DatasourceLabel = styled.div`
+	display: flex;
+	align-items: center;
+	color: var(--vscode-editor-foreground);
+	margin-top: 8px;
+`;
+
+const ErrorText = styled.span`
+	color: var(--vscode-errorForeground);
+	font-size: 12px;
 `;
 
 export interface DataServiceWizardProps {
@@ -137,6 +149,7 @@ export function DataServiceWizard(props: DataServiceWizardProps) {
     const [artifactNames, setArtifactNames] = useState([]);
     const [workspaceFileNames, setWorkspaceFileNames] = useState([]);
     const [savedDSName, setSavedDSName] = useState("");
+    const [showDatasourceError, setShowDatasourceError] = useState(false);
 
     useEffect(() => {
         (async () => {
@@ -200,6 +213,11 @@ export function DataServiceWizard(props: DataServiceWizardProps) {
     };
 
     const handleCreateDataService = async (values: any) => {
+
+        if (datasources.length === 0) {
+            setShowDatasourceError(true);
+            return;
+        }
 
         const transports: string[] = [];
         if (values.http) transports.push("http");
@@ -297,6 +315,10 @@ export function DataServiceWizard(props: DataServiceWizardProps) {
                             size={100}
                             {...renderProps('dataServiceName')}
                         />
+                        <DatasourceLabel>
+                            <label>Datasource</label>
+                            <RequiredFormInput />
+                        </DatasourceLabel>
                         {datasources.length > 0 &&
                             <DataServiceDisplayTable data={datasources} attributes={['dataSourceType', 'dataSourceName']}
                                 onEdit={handleEditDatasource} onDelete={handleDeleteDatasource} />
@@ -306,6 +328,9 @@ export function DataServiceWizard(props: DataServiceWizardProps) {
                                 <Codicon name="add" /><>Add Datasource</>
                             </LinkButton>
                         </AddButtonWrapper>
+                        {showDatasourceError && datasources.length === 0 &&
+                            <ErrorText>At least one datasource is required</ErrorText>
+                        }
                         <TextField
                             label="Description"
                             size={100}
@@ -327,7 +352,7 @@ export function DataServiceWizard(props: DataServiceWizardProps) {
                             <Button
                                 appearance="primary"
                                 onClick={handleSubmit(handleCreateDataService)}
-                                disabled={!(isDirty && datasources.length > 0)}
+                                disabled={!isDirty}
                             >
                                 {isNewDataService ? "Create" : "Save Changes"}
                             </Button>

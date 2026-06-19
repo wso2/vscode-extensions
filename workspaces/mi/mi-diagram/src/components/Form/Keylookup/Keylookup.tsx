@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import React, { ReactNode, useEffect, useState } from "react";
+import React, { ReactNode, useEffect, useId, useState } from "react";
 import { AutoComplete, ErrorBanner, getItemKey, ItemComponent, Typography } from "@wso2/ui-toolkit";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
 import styled from "@emotion/styled";
@@ -199,6 +199,7 @@ export const Keylookup = (props: IKeylookup) => {
     } = props;
     const [items, setItems] = useState<(string | ItemComponent)[]>([]);
     const { rpcClient } = useVisualizerContext();
+    const fallbackId = useId();
 
     useEffect(() => {
         fetchItems();
@@ -349,6 +350,7 @@ export const Keylookup = (props: IKeylookup) => {
                 !isExpressionFieldValue(value)) ? (
                 <AutoComplete
                     {...rest}
+                    {...({ name: (props as any).name ?? fallbackId } as any)}
                     value={getValue(value)}
                     onValueChange={handleValueChange}
                     borderBox={true}
