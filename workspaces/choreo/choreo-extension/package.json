@@ -222,7 +222,7 @@
     "byline": "5.0.0",
     "dotenv": "16.0.3",
     "file-type": "21.3.2",
-    "js-yaml": "4.1.1",
+    "js-yaml": "4.2.0",
     "yaml": "2.8.3",
     "jschardet": "3.0.0",
     "vscode-messenger": "0.5.1",

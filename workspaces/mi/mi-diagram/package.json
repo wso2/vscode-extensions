@@ -82,7 +82,7 @@
         "vscode-languageserver-protocol": "3.17.5",
         "vscode-jsonrpc": "8.2.1",
         "jest-environment-jsdom": "29.7.0",
-        "@babel/core": "7.27.1",
+        "@babel/core": "7.29.6",
         "@babel/preset-env": "7.27.2",
         "babel-jest": "30.0.0",
         "react-test-renderer": "18.3.0",

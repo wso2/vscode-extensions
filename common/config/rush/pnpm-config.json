@@ -90,7 +90,7 @@
      */
     "globalOverrides": {
       "lodash": ">=4.18.0",
-      "hono": "4.12.21"
+      "hono": "4.12.25"
     },
   
     /**
