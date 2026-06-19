@@ -34,7 +34,7 @@ module.exports = {
         if (deps['@tootallnate/once']) deps['@tootallnate/once'] = '3.0.1';
         if (deps['dompurify']) deps['dompurify'] = '3.4.9';
         if (deps['axios']) deps['axios'] = '1.16.0'; // security fix
-        if (deps['http-proxy-middleware']) deps['http-proxy-middleware'] = '3.0.6';
+        if (deps['http-proxy-middleware']) deps['http-proxy-middleware'] = '3.0.7';
         if (deps['ip-address']) { // security fix: force patch within 10.x range only to avoid breaking consumers on earlier majors
           if (/^[\s\^~><=]*10[.\s]/.test(deps['ip-address'])) {
             deps['ip-address'] = '10.1.1';

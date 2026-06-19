@@ -16577,8 +16577,8 @@ packages:
     resolution: {integrity: sha512-T1gkAiYYDWYx3V5Bmyu7HcfcvL7mUrTWiM6yOfa3PIphViJ/gFPbvidQ+veqSOHci/PxBcDabeUNCzpOODJZig==}
     engines: {node: '>= 14'}
 
-  http-proxy-middleware@3.0.6:
-    resolution: {integrity: sha512-jhO3QfahaHWfQjEnyGW0vpYIYaXcnA6FEfehrBthOokGppvmI6zcV+1yb6TWn3vyeh8yQUoEqH51DNHOCjivxg==}
+  http-proxy-middleware@3.0.7:
+    resolution: {integrity: sha512-iwbQltVlx8bCrqePUM8C+hllHvdawVhQJaLrj1X7qllkvFQdXFsr16pW/mo9+JDVjN+QO2XUx9jd8SmoFkE5qw==}
     engines: {node: ^14.18.0 || ^16.10.0 || >=18.0.0}
 
   http-proxy@1.18.1:
@@ -45305,7 +45305,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  http-proxy-middleware@3.0.6:
+  http-proxy-middleware@3.0.7:
     dependencies:
       '@types/http-proxy': 1.17.17
       debug: 4.4.3
@@ -45316,7 +45316,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  http-proxy-middleware@3.0.6(supports-color@5.5.0):
+  http-proxy-middleware@3.0.7(supports-color@5.5.0):
     dependencies:
       '@types/http-proxy': 1.17.17
       debug: 4.4.3(supports-color@5.5.0)
@@ -57004,7 +57004,7 @@ snapshots:
       del: 3.0.0
       express: 4.22.1
       html-entities: 1.4.0
-      http-proxy-middleware: 3.0.6(supports-color@5.5.0)
+      http-proxy-middleware: 3.0.7(supports-color@5.5.0)
       import-local: 1.0.0
       internal-ip: 1.2.0
       ip: 1.1.9
@@ -57041,7 +57041,7 @@ snapshots:
       connect-history-api-fallback: 2.0.0
       express: 4.22.1
       graceful-fs: 4.2.11
-      http-proxy-middleware: 3.0.6
+      http-proxy-middleware: 3.0.7
       ipaddr.js: 2.4.0
       launch-editor: 2.14.1
       open: 10.2.0
@@ -57080,7 +57080,7 @@ snapshots:
       connect-history-api-fallback: 2.0.0
       express: 4.22.1
       graceful-fs: 4.2.11
-      http-proxy-middleware: 3.0.6
+      http-proxy-middleware: 3.0.7
       ipaddr.js: 2.4.0
       launch-editor: 2.14.1
       open: 10.2.0
@@ -57118,7 +57118,7 @@ snapshots:
       connect-history-api-fallback: 2.0.0
       express: 4.22.1
       graceful-fs: 4.2.11
-      http-proxy-middleware: 3.0.6
+      http-proxy-middleware: 3.0.7
       ipaddr.js: 2.4.0
       launch-editor: 2.14.1
       open: 10.2.0
@@ -57156,7 +57156,7 @@ snapshots:
       connect-history-api-fallback: 2.0.0
       express: 4.22.1
       graceful-fs: 4.2.11
-      http-proxy-middleware: 3.0.6
+      http-proxy-middleware: 3.0.7
       ipaddr.js: 2.4.0
       launch-editor: 2.14.1
       open: 10.2.0
