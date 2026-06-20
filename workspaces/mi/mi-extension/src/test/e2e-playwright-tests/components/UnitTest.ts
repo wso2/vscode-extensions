@@ -487,7 +487,7 @@ export class UnitTest {
         console.log('Opening Edit view of Mock Service:', name);
         const mockServiceExplorer = new ProjectExplorer(this._page, 'Mock Services');
         await mockServiceExplorer.init();
-        await mockServiceExplorer.findItem([this.projectName + ' ', name + ' '], true);
+        await mockServiceExplorer.findItem([this.projectName, name], true);
         await this._page.getByRole('button', { name: 'Edit mock service' }).click();
     }
 
@@ -495,7 +495,7 @@ export class UnitTest {
         console.log('Adding Mock Service from side panel');
         const mockServiceExplorer = new ProjectExplorer(this._page, 'Mock Services');
         await mockServiceExplorer.init();
-        await mockServiceExplorer.findItem([this.projectName + ' '], true);
+        await mockServiceExplorer.findItem([this.projectName], true);
         await this._page.getByLabel('Add mock service').waitFor();
         // Add 2s delay to ensure the button is clickable
         await this._page.waitForTimeout(2000);
