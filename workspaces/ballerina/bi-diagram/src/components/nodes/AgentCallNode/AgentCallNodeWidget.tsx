@@ -592,8 +592,8 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
     const nodeRole = sanitizedAgent?.role || '';
     const nodeInstructions = sanitizedAgent?.instructions || '';
 
-    const isTraceMatch = traceAnimation && (() => {
-        // Guard: only animate if the trace's entrypoint matches the current flow diagram's service/function
+    // Guard: only animate if the trace's entrypoint matches the current flow diagram's service/function.
+    const entrypointMatches = traceAnimation && (() => {
         if (entrypointContext) {
             const traceService = traceAnimation.entrypointServiceName ?? '';
             const traceFunction = traceAnimation.entrypointFunctionName ?? '';
@@ -603,7 +603,10 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                 return false;
             }
         }
+        return true;
+    })();
 
+    const isTraceMatch = entrypointMatches && (() => {
         const sysInstr = traceAnimation.systemInstructions;
         if (sysInstr) {
             const extractedRole = sysInstr.match(/(?:^|\n)#\s*Role[ \t]*\r?\n([\s\S]*?)(?=\r?\n#\s*Instructions|$)/i)?.[1]?.trim();
@@ -629,12 +632,9 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
         // Nothing available → no match without explicit evidence
         return false;
     })();
-    const matchedEntries = isTraceMatch ? traceAnimation.entries : [];
-
-    const chatEntry = matchedEntries.find(e => e.type === 'chat');
-    const toolEntries = matchedEntries.filter(e => e.type === 'execute_tool');
-
-    // Check which tools are currently active
+    const chatEntry = isTraceMatch ? traceAnimation.entries.find(e => e.type === 'chat') : undefined;
+    const toolEntries = (entrypointMatches ? traceAnimation.entries : [])
+        .filter(e => e.type === 'execute_tool' && e.toolName && nodeToolNames.includes(e.toolName));
     const activeToolNames = toolEntries.filter(e => e.phase === 'active').map(e => e.toolName);
     const isAnyToolActive = activeToolNames.length > 0;
 
@@ -829,7 +829,7 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                 style={{ marginLeft: "-10px", position: "relative", zIndex: 1 }}
             >
                 {/* ai agent model circle */}
-                <g>
+                <g style={{ opacity: isModelActive ? 1 : 0.55, transition: "opacity 0.4s ease-out" }}>
                     <circle
                         cx="80"
                         cy="24"
@@ -917,7 +917,7 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                         <g
                             key={index}
                             transform={`translate(0, ${(index + 1) * (NODE_HEIGHT + AGENT_NODE_TOOL_GAP) + AGENT_CALL_TOOL_SECTION_GAP + AGENT_CALL_AGENT_ROW_HEIGHT})`}
-                            style={{ cursor: "default" }}
+                            style={{ cursor: "default", opacity: isToolActive ? 1 : 0.55, transition: "opacity 0.4s ease-out" }}
                         >
                             {/* Base Tool Circle */}
                             <circle
