@@ -17,6 +17,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import styled from "@emotion/styled";
 import { Category as DiagramCategory, FlowNode } from "@wso2/ballerina-core";
 import { Icon } from "@wso2/ui-toolkit";
@@ -136,7 +137,7 @@ export function UseAgentTool(props: UseAgentToolProps): JSX.Element {
                 onBack={onBack}
                 onClose={onClose}
             />
-            {showAddAgentPopup && (
+            {showAddAgentPopup && createPortal(
                 <PopupLayer>
                     <AddAgentPopup
                         isPopup
@@ -154,7 +155,8 @@ export function UseAgentTool(props: UseAgentToolProps): JSX.Element {
                             }
                         }}
                     />
-                </PopupLayer>
+                </PopupLayer>,
+                document.body
             )}
         </>
     );
