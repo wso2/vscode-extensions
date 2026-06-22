@@ -20,7 +20,6 @@ import React, { useEffect, useRef, useState } from "react";
 import { STNode } from "@wso2/syntax-tree";
 import { Button, Icon, Switch, View, ThemeColors, Tooltip } from "@wso2/ui-toolkit";
 import { BIFlowDiagram } from "../FlowDiagram";
-import { setTracingEnabled } from "@wso2/bi-diagram";
 import { BISequenceDiagram } from "../SequenceDiagram";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { TopNavigationBar } from "../../../components/TopNavigationBar";
@@ -245,10 +244,6 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
     useEffect(() => {
         checkTracingStatus();
     }, []);
-
-    useEffect(() => {
-        setTracingEnabled(isTracingEnabled);
-    }, [isTracingEnabled]);
 
     // Re-query on every change so the button reflects this project's file,
     // not whatever project triggered the broadcast.

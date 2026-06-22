@@ -37,7 +37,7 @@ import { MoreVertIcon } from "../../../resources/icons";
 import { AgentData, FlowNode, ToolData } from "../../../utils/types";
 import NodeIcon, { CHART_COLORS, getAIColor, isDarkTheme, ThemeListener } from "../../NodeIcon";
 import ConnectorIcon from "../../ConnectorIcon";
-import { useDiagramContext, useTraceAnimation, useTracingEnabled } from "../../DiagramContext";
+import { useDiagramContext, useTraceAnimation } from "../../DiagramContext";
 import { DiagnosticsPopUp } from "../../DiagnosticsPopUp";
 import { nodeHasError } from "../../../utils/node";
 import { css, keyframes } from "@emotion/react";
@@ -465,7 +465,6 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
     const { model, engine, onClick } = props;
     const { onNodeSelect, goToSource, goToAgent, onDeleteNode, removeBreakpoint, addBreakpoint, agentNode, readOnly, selectedNodeId, entrypointContext } = useDiagramContext();
     const traceAnimation = useTraceAnimation();
-    const isTracingEnabled = useTracingEnabled();
 
     const isSelected = selectedNodeId === model.node.id;
 
@@ -827,7 +826,7 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                 width={NODE_GAP_X + NODE_HEIGHT + LABEL_HEIGHT + LABEL_WIDTH + 10}
                 height={model.node.viewState?.ch}
                 viewBox={`0 0 300 ${containerHeight}`}
-                style={{ marginLeft: "-10px", position: "relative", zIndex: 1, opacity: isTracingEnabled ? 0.55 : 0, transition: "opacity 0.4s ease-out", pointerEvents: isTracingEnabled ? "auto" : "none" }}
+                style={{ marginLeft: "-10px", position: "relative", zIndex: 1 }}
             >
                 {/* ai agent model circle */}
                 <g>

@@ -374,19 +374,3 @@ export function setTraceAnimationInactive(
 export function useTraceAnimation(): TraceAnimationState {
     return useSyncExternalStore(subscribeTraceAnimation, getTraceAnimationSnapshot);
 }
-
-let tracingEnabledState = false;
-const tracingEnabledListeners = new Set<() => void>();
-
-export function setTracingEnabled(enabled: boolean): void {
-    if (tracingEnabledState === enabled) return;
-    tracingEnabledState = enabled;
-    tracingEnabledListeners.forEach(l => l());
-}
-
-export function useTracingEnabled(): boolean {
-    return useSyncExternalStore(
-        (listener) => { tracingEnabledListeners.add(listener); return () => tracingEnabledListeners.delete(listener); },
-        () => tracingEnabledState,
-    );
-}
