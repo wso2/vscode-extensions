@@ -93,7 +93,7 @@ export class UnitTest {
     public async init() {
         console.log('Selecting Testing section in VS Code');
         const testActivity = this._page.getByRole('tab', { name: 'Testing' });
-        await testActivity.waitFor();
+        await testActivity.waitFor({ state: 'visible', timeout: 60000 });
         if ((await testActivity.getAttribute('aria-selected')) !== 'true') {
             const testBtn = testActivity.locator('a');
             await testBtn.waitFor();
@@ -101,17 +101,24 @@ export class UnitTest {
         } else {
             console.log('Testing section is already selected');
         }
+        await this._page.locator('div[aria-label="Test Explorer Section"]').waitFor({ state: 'visible', timeout: 60000 });
     }
 
     public async openUnitTestFormByMainBtn() {
         console.log('Opening Unit Test Form by "Add MI Unit Test" button');
-        await this._page.getByRole('button', { name: 'Add MI Unit Test', exact: true }).click();
+        const addUnitTestBtn = this._page.getByRole('button', { name: 'Add MI Unit Test', exact: true });
+        await addUnitTestBtn.waitFor({ state: 'visible', timeout: 60000 });
+        await addUnitTestBtn.scrollIntoViewIfNeeded();
+        await addUnitTestBtn.click();
     }
 
     public async openUnitTestFormByExplorer() {
         const testExplorer = this._page.locator('div[aria-label="Test Explorer Section"]');
+        await testExplorer.waitFor({ state: 'visible', timeout: 60000 });
         await testExplorer.hover();
-        await testExplorer.getByLabel('Test Explorer actions').getByLabel('Add MI Unit Test').click();
+        const addUnitTestBtn = testExplorer.getByLabel('Test Explorer actions').getByLabel('Add MI Unit Test');
+        await addUnitTestBtn.waitFor({ state: 'visible', timeout: 60000 });
+        await addUnitTestBtn.click();
     }
 
     private async getUniTestForm(): Promise<Form> {
@@ -275,6 +282,7 @@ export class UnitTest {
             const form = await paramManager.getAddNewForm();
             await this.fillTestCaseForm(form, testCase);
             await form.submit('Create');
+            await parentForm.switchToFormView(undefined, 60000);
         }
     }
 
@@ -388,12 +396,14 @@ export class UnitTest {
                     }
                 });
                 await form.submit('Add');
+                await parentForm.switchToFormView(undefined, 60000);
             } else {
                 await form.clickAddNewForField('Select Mock Service');
                 const mockServiceForm = new Form(this._page, frame);
                 await mockServiceForm.switchToFormView();
                 await this.fillMockServiceForm(mockServiceForm, mockService, frame);
                 await mockServiceForm.submit('Create');
+                await parentForm.switchToFormView(undefined, 60000);
             }
         }
     }
@@ -477,7 +487,7 @@ export class UnitTest {
         console.log('Opening Edit view of Mock Service:', name);
         const mockServiceExplorer = new ProjectExplorer(this._page, 'Mock Services');
         await mockServiceExplorer.init();
-        await mockServiceExplorer.findItem([this.projectName + ' ', name + ' '], true);
+        await mockServiceExplorer.findItem([this.projectName, name], true);
         await this._page.getByRole('button', { name: 'Edit mock service' }).click();
     }
 
@@ -485,7 +495,7 @@ export class UnitTest {
         console.log('Adding Mock Service from side panel');
         const mockServiceExplorer = new ProjectExplorer(this._page, 'Mock Services');
         await mockServiceExplorer.init();
-        await mockServiceExplorer.findItem([this.projectName + ' '], true);
+        await mockServiceExplorer.findItem([this.projectName], true);
         await this._page.getByLabel('Add mock service').waitFor();
         // Add 2s delay to ensure the button is clickable
         await this._page.waitForTimeout(2000);

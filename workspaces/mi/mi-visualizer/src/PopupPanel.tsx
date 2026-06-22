@@ -57,6 +57,18 @@ const ViewContainer = styled.div`
 const PopupPanel = (props: { formState: PopupMachineStateValue, handleClose?: () => void }) => {
     const { rpcClient } = useVisualizerContext();
     const [viewComponent, setViewComponent] = useState<React.ReactNode>();
+    const [viewKey, setViewKey] = useState<string>();
+
+    // Remount form in a fresh state without stale information
+    const getViewKey = (machineSate: PopupVisualizerLocation) => {
+        let customPropsId = '';
+        try {
+            customPropsId = JSON.stringify(machineSate?.customProps ?? '');
+        } catch (e) {
+            customPropsId = '';
+        }
+        return `${machineSate?.view}-${machineSate?.documentUri}-${customPropsId}`;
+    }
 
     useEffect(() => {
         if (typeof props.formState === 'object' && 'open' in props.formState) {
@@ -188,12 +200,15 @@ const PopupPanel = (props: { formState: PopupMachineStateValue, handleClose?: ()
                 default:
                     setViewComponent(null);
             }
+            setViewKey(getViewKey(machineSate));
         });
     }
 
     return (
         <ViewContainer id='popUpPanel'>
-            {viewComponent}
+            {React.isValidElement(viewComponent)
+                ? React.cloneElement(viewComponent as React.ReactElement, { key: viewKey })
+                : viewComponent}
         </ViewContainer >
     );
 };

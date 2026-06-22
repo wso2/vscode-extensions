@@ -222,15 +222,13 @@ export async function executeBuildTask(projectUri: string, serverPath: string, s
                     serverLog(text);
                 });
 
-                if (shouldCopyTarget) {
-                    buildProcess.on('close', async (code) => {
-                        if (code === 0) {
-                            vscode.window.showInformationMessage(`${path.basename(project)} build was successful`);
-                        } else {
-                            vscode.window.showErrorMessage(`${path.basename(project)} build failed`);
-                        }
-                    });
-                }
+                buildProcess.on('close', async (code) => {
+                    if (code === 0) {
+                        vscode.window.showInformationMessage(`${path.basename(project)} build was successful`);
+                    } else {
+                        vscode.window.showErrorMessage(`${path.basename(project)} build failed`);
+                    }
+                });
 
                 buildProcess.stderr.on('data', (data) => {
                     const text = data.toString('utf8');

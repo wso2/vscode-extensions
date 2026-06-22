@@ -125,11 +125,19 @@ export class BaseNodeModel extends NodeModel {
                 }
             }
 
-            if (node.stNode.tag.includes('.') || node.stNode.tag === "tool") {
+            const isToolNode = node.stNode.tag === "tool";
+            const toolMediator = isToolNode ? (node.stNode as Tool).mediator : undefined;
+            // Built-in mediator should use the regular mediator form
+            const isConnectorTool = isToolNode && ((node.stNode as Tool).isMcpTool || toolMediator?.connectorName !== undefined);
+
+            let mediatorTag = stNode.tag;
+
+            if (node.stNode.tag.includes('.') || isConnectorTool) {
 
                 operationName = "connector";
 
                 const connectorNode = ((node.stNode as Tool).mediator ?? node.stNode) as Connector;
+                mediatorTag = connectorNode.tag;
 
                 const connectorData = await rpcClient.getMiDiagramRpcClient().getAvailableConnectors({
                     documentUri: node.documentUri,
@@ -161,13 +169,16 @@ export class BaseNodeModel extends NodeModel {
                         icon: iconPath
                     };
                 }
+            } else if (isToolNode && toolMediator) {
+                operationName = toolMediator.tag;
+                mediatorTag = toolMediator.tag;
             }
 
             sidePanelContext.setSidePanelState({
                 ...sidePanelContext,
                 isOpen: true,
                 operationName,
-                tag: (stNode as any).isMcpTool ? 'ai.mcpTools' : stNode.tag,
+                tag: (stNode as any).isMcpTool ? 'ai.mcpTools' : mediatorTag,
                 nodeRange: nodeRange,
                 isEditing: true,
                 parentNode: node.mediatorName,
