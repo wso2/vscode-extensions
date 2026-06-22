@@ -1900,6 +1900,14 @@ export interface AIGentToolsResponse {
     };
 }
 
+export interface GenAgentToolRequest {
+    filePath: string;
+    agentVarName: string;
+    includeSessionId: boolean;
+    toolName: string;
+    description: string;
+}
+
 export interface AIGetPackageVersionRequest {
     projectPath: string;
     org: string;

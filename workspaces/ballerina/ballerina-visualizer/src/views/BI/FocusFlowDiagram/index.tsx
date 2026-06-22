@@ -55,6 +55,8 @@ import { FlowNodeForm } from "../Forms/FlowNodeForm";
 import { MemoryManagerConfig } from "../AIChatAgent/MemoryManagerConfig";
 import { AddTool } from "../AIChatAgent/AddTool";
 import { NewTool, NewToolSelectionMode } from "../AIChatAgent/NewTool";
+import { UseAgentTool } from "../AIChatAgent/UseAgentTool";
+import { UseAgentToolForm } from "../AIChatAgent/UseAgentToolForm";
 import { AddMcpServer } from "../AIChatAgent/AddMcpServer";
 import { findFlowNode, findFlowNodeByModuleVarName, goToAgentFromRunNode, refreshNodeLineRangeFromArtifacts, removeToolFromAgentNode, findAgentNodeFromAgentCallNode } from "../AIChatAgent/utils";
 import { buildAgentRenderNode } from "./agent";
@@ -110,6 +112,8 @@ type AgentPanel =
     | "NEW_TOOL_CUSTOM"
     | "NEW_TOOL_CONNECTION"
     | "NEW_TOOL_FUNCTION"
+    | "NEW_TOOL_AGENT"
+    | "NEW_TOOL_AGENT_FORM"
     | "ADD_MCP"
     | "EDIT_MCP";
 
@@ -129,6 +133,8 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
     const memoryNodeRef = useRef<FlowNode>();
     const agentFormNodeRef = useRef<FlowNode>();
     const selectedToolRef = useRef<ToolData>();
+    // Agent picked in the select step, used by the form step.
+    const selectedAgentToolName = useRef<string>("");
     // The focused agent view shows just the node; the edit form opens only when the user clicks it.
     const [agentPanel, setAgentPanel] = useState<AgentPanel>("NONE");
     // Set when a model provider is created from the open form; consumed to skip the one reload that
@@ -1397,6 +1403,7 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
                         onCreateCustomTool={() => setAgentPanel("NEW_TOOL_CUSTOM")}
                         onUseConnection={() => setAgentPanel("NEW_TOOL_CONNECTION")}
                         onUseFunction={() => setAgentPanel("NEW_TOOL_FUNCTION")}
+                        onUseAgent={() => setAgentPanel("NEW_TOOL_AGENT")}
                         onUseMcpServer={() => setAgentPanel("ADD_MCP")}
                         onSave={handleCloseAgentPanel}
                     />
@@ -1429,6 +1436,36 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
                         />
                     </PanelContainer>
                 )}
+
+            {isAgent && agentPanel === "NEW_TOOL_AGENT" && agentDeclRef.current && (
+                // No title here: NodeList renders its own header (avoids a duplicate header bar).
+                <PanelContainer show={true} onClose={handleCloseAgentPanel}>
+                    <UseAgentTool
+                        agentNode={agentDeclRef.current}
+                        onSelectAgent={(agentVarName: string) => {
+                            selectedAgentToolName.current = agentVarName;
+                            setAgentPanel("NEW_TOOL_AGENT_FORM");
+                        }}
+                        onBack={() => setAgentPanel("ADD_TOOL")}
+                        onClose={handleCloseAgentPanel}
+                    />
+                </PanelContainer>
+            )}
+
+            {isAgent && agentPanel === "NEW_TOOL_AGENT_FORM" && agentDeclRef.current && (
+                <PanelContainer
+                    title="Use Agent"
+                    show={true}
+                    onClose={handleCloseAgentPanel}
+                    onBack={() => setAgentPanel("NEW_TOOL_AGENT")}
+                >
+                    <UseAgentToolForm
+                        agentNode={agentDeclRef.current}
+                        agentVarName={selectedAgentToolName.current}
+                        onSave={handleCloseAgentPanel}
+                    />
+                </PanelContainer>
+            )}
 
             {isAgent && agentPanel === "ADD_MCP" && agentDeclRef.current && (
                 <PanelContainer

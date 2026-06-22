@@ -1070,15 +1070,18 @@ export function AgentNodeWidget(props: AgentNodeWidgetProps) {
                                 style={{ pointerEvents: "none" }}
                             >
                                 <div className="connector-icon">
-                                    {tool.path && (
+                                    {tool.type === "Agent" ? (
+                                        <Icon name="bi-ai-agent" sx={{ fontSize: "24px" }} />
+                                    ) : tool.path ? (
                                         <ConnectorIcon
                                             url={tool.path}
                                             style={{ width: 24, height: 24, fontSize: 24 }}
                                             fallbackIcon={<Icon name="bi-function" sx={{ fontSize: "24px" }} />}
                                             codedata={model.node?.codedata}
                                         />
+                                    ) : (
+                                        <Icon name="bi-function" sx={{ fontSize: "24px" }} />
                                     )}
-                                    {!tool.path && <Icon name="bi-function" sx={{ fontSize: "24px" }} />}
                                 </div>
                             </foreignObject>
 

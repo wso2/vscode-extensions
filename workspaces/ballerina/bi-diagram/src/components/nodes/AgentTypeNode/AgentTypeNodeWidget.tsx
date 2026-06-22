@@ -612,7 +612,9 @@ export function AgentTypeNodeWidget(props: AgentTypeNodeWidgetProps) {
                                 strokeWidth={1.5}
                             />
                             <foreignObject x="68" y="12" width="44" height="44" style={{ pointerEvents: "none" }}>
-                                {tool.path ? (
+                                {tool.type === "Agent" ? (
+                                    <Icon name="bi-ai-agent" sx={{ fontSize: "24px" }} />
+                                ) : tool.path ? (
                                     <ConnectorIcon
                                         url={tool.path}
                                         style={{ width: 24, height: 24, fontSize: 24 }}
