@@ -55,7 +55,7 @@ module.exports = {
           // security mitigation: CVE-2026-8769 (uncontrolled resource consumption) - no fixed
           // version published yet, pin to the latest 3.x patch
           if (currentVersion.startsWith('^3') || currentVersion.startsWith('3')) {
-            deps['@ai-sdk/provider-utils'] = '3.0.25';
+            deps['@ai-sdk/provider-utils'] = '3.0.27';
           }
         }
         if (deps['protobufjs']) {
