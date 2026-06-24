@@ -22,7 +22,7 @@ import { css } from "@emotion/react";
 import { DiagramEngine, PortWidget } from "@projectstorm/react-diagrams-core";
 import { Button, Icon, Item, Menu, MenuItem, Popover, ThemeColors, getAIModuleIcon, DefaultLlmIcon } from "@wso2/ui-toolkit";
 import { NodeMetadata } from "@wso2/ballerina-core";
-import { FlowNode, ToolData } from "../../../utils/types";
+import { AgentData, FlowNode, ToolData } from "../../../utils/types";
 import { AgentTypeNodeModel } from "./AgentTypeNodeModel";
 import {
     AGENT_NODE_TOOL_GAP,
@@ -143,6 +143,11 @@ namespace Styles {
 
     export const DescriptionBlock = styled.div<{ readOnly: boolean }>`
         width: 100%;
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
         padding: 4px 4px 12px;
         cursor: ${(props: { readOnly: boolean }) => (props.readOnly ? "default" : "pointer")};
         z-index: 2;
@@ -153,10 +158,44 @@ namespace Styles {
         line-height: 1.4;
         color: ${ThemeColors.ON_SURFACE};
         opacity: 0.7;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+
+        p {
+            margin: 0 0 0.3em 0;
+        }
+        p:last-child {
+            margin-bottom: 0;
+        }
+    `;
+
+    export const Role = styled.div`
+        font-size: 12px;
+        line-height: 1.4;
+        color: ${ThemeColors.PRIMARY};
+        font-family: "GilmerMedium";
+        font-weight: bold;
         overflow: hidden;
         display: -webkit-box;
-        -webkit-line-clamp: 4;
+        -webkit-line-clamp: 1;
         -webkit-box-orient: vertical;
+        margin-bottom: 4px;
+
+        p {
+            display: inline;
+            margin: 0;
+        }
+    `;
+
+    export const Instructions = styled.div`
+        font-size: 12px;
+        line-height: 1.4;
+        color: ${ThemeColors.ON_SURFACE};
+        opacity: 0.7;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
 
         p {
             margin: 0 0 0.3em 0;
@@ -232,18 +271,15 @@ namespace Styles {
         justify-content: center;
         padding: 4px;
         margin-right: 4px;
-        border: 1px solid ${ThemeColors.OUTLINE_VARIANT};
-        border-radius: 8px;
     `;
 
     export const PackageBadge = styled.div`
         position: absolute;
-        bottom: -8px;
-        right: -8px;
+        bottom: -7px;
+        right: -7px;
         display: flex;
         align-items: center;
         justify-content: center;
-        background-color: ${ThemeColors.SURFACE_DIM};
         border-radius: 50%;
     `;
 
@@ -280,17 +316,13 @@ export function AgentTypeNodeWidget(props: AgentTypeNodeWidgetProps) {
     const isSelected = selectedNodeId === model.node.id;
     const hasError = nodeHasError(model.node);
     const nodeMetadata = model.node.metadata?.data as NodeMetadata;
-    // The model-provider circle is rendered only when the LS confirmed an ai:ModelProvider param is wired into
-    // the inner agent (see CodeAnalyzer.applyCustomAgentMetadata).
     const showModelCircle = Boolean(nodeMetadata?.modelProviderParam);
     const nodeModelIconUrl = nodeMetadata?.model?.path;
-    // The memory affordance is rendered only when the LS confirmed an ai:Memory param is wired into the inner agent
-    // (mirrors the model-provider circle). When present, render the same button/card UX as the AGENT_CALL node.
     const showMemory = Boolean(nodeMetadata?.memoryParam);
     const memory = nodeMetadata?.memory;
-    // The custom agent class's doc-comment description, shown like the system prompt on the AGENT_CALL node.
+    const sanitizedAgent = nodeMetadata?.agent ? sanitizeAgentData(nodeMetadata.agent) : undefined;
+    const hasPrompt = Boolean(sanitizedAgent?.role && sanitizedAgent?.instructions);
     const description = nodeMetadata?.agentDescription;
-    // Read-only tool names emitted by applyAgentTypeMetadata from the inner ai:Agent's tools=[...] arg.
     const tools: ToolData[] = nodeMetadata?.tools || [];
 
     const title = "AI Agent";
@@ -408,7 +440,7 @@ export function AgentTypeNodeWidget(props: AgentTypeNodeWidgetProps) {
                             <Styles.IconBox onClick={onNodeClick}>
                                 <NodeIcon type={model.node.codedata.node} size={24} />
                                 <Styles.PackageBadge>
-                                    <Icon name="package" isCodicon={true} iconSx={{ fontSize: "14px" }} sx={{ color: "orange" }} />
+                                    <Icon name="bi-box" iconSx={{ fontSize: "12px" }} sx={{ color: "orange" }} />
                                 </Styles.PackageBadge>
                             </Styles.IconBox>
                         ) : (
@@ -494,18 +526,39 @@ export function AgentTypeNodeWidget(props: AgentTypeNodeWidgetProps) {
                             </Popover>
                         </Styles.MemoryContainer>
                     )}
-                    {description && (
+                    {(hasPrompt || description) && (
                         <>
                             {!showMemory && <Styles.Divider />}
                             <Styles.DescriptionBlock readOnly={readOnly} onClick={onNodeClick}>
-                                <Styles.AgentDescription>
-                                    <ReactMarkdown
-                                        disallowedElements={["script", "iframe", "object", "embed", "link", "style"]}
-                                        unwrapDisallowed={true}
-                                    >
-                                        {description}
-                                    </ReactMarkdown>
-                                </Styles.AgentDescription>
+                                {hasPrompt ? (
+                                    <>
+                                        <Styles.Role>
+                                            <ReactMarkdown
+                                                disallowedElements={["script", "iframe", "object", "embed", "link", "style"]}
+                                                unwrapDisallowed={true}
+                                            >
+                                                {sanitizedAgent.role}
+                                            </ReactMarkdown>
+                                        </Styles.Role>
+                                        <Styles.Instructions>
+                                            <ReactMarkdown
+                                                disallowedElements={["script", "iframe", "object", "embed", "link", "style"]}
+                                                unwrapDisallowed={true}
+                                            >
+                                                {sanitizedAgent.instructions}
+                                            </ReactMarkdown>
+                                        </Styles.Instructions>
+                                    </>
+                                ) : (
+                                    <Styles.AgentDescription>
+                                        <ReactMarkdown
+                                            disallowedElements={["script", "iframe", "object", "embed", "link", "style"]}
+                                            unwrapDisallowed={true}
+                                        >
+                                            {description}
+                                        </ReactMarkdown>
+                                    </Styles.AgentDescription>
+                                )}
                             </Styles.DescriptionBlock>
                         </>
                     )}
@@ -588,7 +641,7 @@ export function AgentTypeNodeWidget(props: AgentTypeNodeWidgetProps) {
                         <g
                             key={index}
                             transform={`translate(0, ${(index + 1) * (NODE_HEIGHT + AGENT_NODE_TOOL_GAP) + AGENT_NODE_TOOL_SECTION_GAP})`}
-                            style={{ opacity: 0.8, cursor: "not-allowed" }}
+                            style={{ opacity: 0.55, cursor: "not-allowed" }}
                         >
                             <title>This tool is packaged with the agent and cannot be edited</title>
                             <line
@@ -625,10 +678,6 @@ export function AgentTypeNodeWidget(props: AgentTypeNodeWidgetProps) {
                                     <Icon name="bi-function" sx={{ fontSize: "24px" }} />
                                 )}
                             </foreignObject>
-                            {/* lock badge at top-right of circle */}
-                            <foreignObject x="92" y="4" width="16" height="16" style={{ pointerEvents: "none" }}>
-                                <Icon name="lock" isCodicon={true} iconSx={{ fontSize: "10px" }} sx={{ color: ThemeColors.ON_SURFACE, opacity: 1 }} />
-                            </foreignObject>
                             <text
                                 x="110"
                                 y="28"
@@ -645,4 +694,26 @@ export function AgentTypeNodeWidget(props: AgentTypeNodeWidgetProps) {
             )}
         </Styles.Node>
     );
+}
+
+// remove leading/trailing quotes and the `string \`...\`` template wrapper
+function stripWrappingQuotes(str: string): string {
+    if (str.startsWith("string `") && str.endsWith("`")) {
+        return str.slice("string `".length, -1);
+    }
+    if (
+        ((str.startsWith('"') && str.endsWith('"')) || (str.startsWith("'") && str.endsWith("'")))
+        && !(str.startsWith('""') || str.startsWith("''"))
+    ) {
+        return str.slice(1, -1);
+    }
+    return str;
+}
+
+function sanitizeAgentData(data: AgentData): AgentData {
+    return {
+        ...data,
+        role: data.role ? stripWrappingQuotes(data.role) : data.role,
+        instructions: data.instructions ? stripWrappingQuotes(data.instructions) : data.instructions,
+    };
 }

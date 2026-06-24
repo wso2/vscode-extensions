@@ -294,7 +294,9 @@ export class SizingVisitor implements BaseVisitor {
         // up to 4 clamped lines) when present.
         const nodeMetadata = node.metadata.data as NodeMetadata;
         const memoryHeight = nodeMetadata?.memoryParam ? 52 : 0;
-        const descriptionHeight = nodeMetadata?.agentDescription ? 95 : 0;
+        // The system prompt (role + 3 clamped instruction lines) reserves a bit more than the description block.
+        const hasPrompt = Boolean(nodeMetadata?.agent?.role && nodeMetadata?.agent?.instructions);
+        const descriptionHeight = hasPrompt ? 115 : nodeMetadata?.agentDescription ? 95 : 0;
         const boxHeight = NODE_HEIGHT + memoryHeight + descriptionHeight;
         // Base height matches AGENT_CALL (no add-tool button since read-only), then grows per tool.
         const toolCount = (nodeMetadata?.tools || []).length;
