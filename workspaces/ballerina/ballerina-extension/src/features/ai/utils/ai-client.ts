@@ -28,7 +28,7 @@ export const ANTHROPIC_HAIKU = "claude-haiku-4-5-20251001";
 export const ANTHROPIC_SONNET_4 = "claude-sonnet-4-6";
 
 // Contact for requesting more Copilot quota once the usage limit is reached.
-export const QUOTA_REQUEST_CONTACT_EMAIL = "integration-platform-help@wso2.com";
+export const QUOTA_REQUEST_CONTACT_EMAIL = "support@wso2.com";
 export const USAGE_LIMIT_EXCEEDED_MESSAGE =
     `Usage limit exceeded. To request additional quota, contact ${QUOTA_REQUEST_CONTACT_EMAIL}.`;
 
