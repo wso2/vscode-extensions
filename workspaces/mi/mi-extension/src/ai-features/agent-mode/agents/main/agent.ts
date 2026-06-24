@@ -839,7 +839,7 @@ export async function executeAgent(
         // Configure Anthropic provider options.
         // - `adaptive` lets the model decide whether to think per step.
         // - `effort: 'low'` biases adaptive toward skipping for simple steps.
-        // - `display: 'summarized'` is required on Opus 4.7 (default changed to
+        // - `display: 'summarized'` is required on Opus 4.8 (default changed to
         //   'omitted' there) to actually surface reasoning text to the UI;
         //   harmless on Sonnet which already defaults to summarized.
         const anthropicOptions: AnthropicProviderOptions = request.thinking

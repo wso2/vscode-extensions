@@ -125,10 +125,11 @@ Headers, properties, params, and configs auto-parse string values: \`"200"\` →
 2. **\`==\` compares string representations**: \`1 == 1.0\` → false. Use \`float()\` for numeric comparison.
 3. **Logical ops need strict boolean**: \`1 and true\` THROWS. No truthy/falsy. \`not()\` argument MUST be boolean.
 4. **Comparison ops are numeric-only**: \`"abc" > "abd"\` THROWS. Convert to numbers first.
-5. **Ternary condition must be boolean**: \`null ? "a" : "b"\` THROWS.
-6. **PayloadFactory: NEVER use \`<args>\` with Synapse Expressions** — embed directly in \`<format>\`.
-7. **Single-line only**: no multi-line code inside \`\${}\`.
-8. **Hyphens in identifiers**: \`vars.my-var\` is valid (hyphens allowed in variable names).
+5. **\`and\`/\`or\` bind TIGHTER than comparisons — parenthesize each comparison**: \`\${(a > 0) and (b < 10)}\`, not \`\${a > 0 and b < 10}\` (which mis-parses as \`a > (0 and b) < 10\`). Already-boolean operands (\`vars.flag\`, \`exists(...)\`) need no parens.
+6. **Ternary condition must be boolean**: \`null ? "a" : "b"\` THROWS.
+7. **PayloadFactory: NEVER use \`<args>\` with Synapse Expressions** — embed directly in \`<format>\`.
+8. **Single-line only**: no multi-line code inside \`\${}\`.
+9. **Hyphens in identifiers**: \`vars.my-var\` is valid (hyphens allowed in variable names).
 
 ---
 
@@ -144,7 +145,7 @@ These are the EXACT attribute names — do not substitute.
 
 #### filter mediator — uses \`xpath=\` attribute (must evaluate to boolean)
 \`\`\`xml
-<filter xpath="\${payload.price &lt; 10 and payload.stock &gt; 0}">
+<filter xpath="\${(payload.price &lt; 10) and (payload.stock &gt; 0)}">
     <then>
         <log category="INFO"><message>In stock and affordable</message></log>
     </then>
@@ -173,7 +174,7 @@ These are the EXACT attribute names — do not substitute.
 \`\`\`xml
 <variable name="discountedPrice" type="DOUBLE" expression="\${payload.price * 0.9}"/>
 <variable name="userData" type="JSON" expression="\${payload.user}"/>
-<variable name="isEligible" type="BOOLEAN" expression="\${payload.age &gt;= 18 and exists(payload.email)}"/>
+<variable name="isEligible" type="BOOLEAN" expression="\${(payload.age &gt;= 18) and exists(payload.email)}"/>
 \`\`\`
 
 #### payloadFactory — inline \`\${}\` in \`<format>\`, NO \`<args>\`
