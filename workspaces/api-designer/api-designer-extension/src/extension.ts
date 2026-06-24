@@ -26,6 +26,7 @@ import { ApiDesignerPanel } from './visualizer/api-designer-panel';
 import { initializeSpectralRulesetAutomation } from './spectral/rulesetAutomation';
 import { registerMCPTools } from './tools/mcp-tools';
 import { detectSpecType, ApiSpecType } from '@wso2/api-designer-core';
+import { activateApkFeature } from './apk/apk-feature';
 
 class ApiDesignerCodeLensProvider implements vscode.CodeLensProvider {
 	provideCodeLenses(document: vscode.TextDocument): vscode.CodeLens[] {
@@ -105,6 +106,12 @@ export async function activate(context: vscode.ExtensionContext) {
 	
 	// Register MCP tools for Language Model API
 	registerMCPTools(context);
+
+	try {
+		await activateApkFeature(context);
+	} catch (err) {
+		console.error('APK feature activation failed:', err);
+	}
 
 	// Register the showCode command
 	let showCodeDisposable = vscode.commands.registerCommand('APIDesigner.showCode', showCode);

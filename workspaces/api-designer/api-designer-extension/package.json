@@ -28,7 +28,11 @@
   ],
   "activationEvents": [
     "onStartupFinished",
-    "onLanguage:yaml"
+    "onLanguage:yaml",
+    "workspaceContains:**/*.apk-conf"
+  ],
+  "extensionDependencies": [
+    "redhat.vscode-yaml"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -145,7 +149,18 @@
         }
       }
     ],
+    "languages": [
+      {
+        "id": "yaml",
+        "extensions": [".apk-conf"]
+      }
+    ],
     "commands": [
+      {
+        "command": "APIDesigner.chooseTemplateApk",
+        "title": "Choose Template (APK)",
+        "category": "API Designer"
+      },
       {
         "command": "APIDesigner.openApiDesigner",
         "title": "Open in API Designer",
@@ -229,8 +244,8 @@
     "compile-tests": "pnpm run compile",
     "watch-tests": "pnpm run watch",
     "pretest": "pnpm run compile-tests && pnpm run compile && pnpm run lint",
-    "lint": "eslint src --ext ts",
-    "test": "pnpm run pretest && node ./out/test/runTest.js",
+    "lint": "eslint src",
+    "test": "pnpm run pretest && node ./dist/test/runTest.js",
     "e2e-test-setup": "npx extest get-vscode -c 1.81.1 && npx extest get-chromedriver -c 1.81.1 && npx extest install-vsix -f $(ls vsix/*.vsix)",
     "e2e-test": "pnpm run compile-tests && pnpm exec playwright test",
     "copyFonts": "copyfiles -f ./node_modules/@wso2/font-wso2-vscode/dist/* ./resources/font-wso2-vscode/dist/",
@@ -249,6 +264,10 @@
     "webpack": "5.104.1",
     "webpack-cli": "5.1.4",
     "@vscode/test-electron": "2.3.4",
+    "@types/mocha": "10.0.1",
+
+    "mocha": "10.2.0",
+    "glob": "11.1.0",
     "rimraf": "5.0.5",
     "@types/js-yaml": "4.0.9"
   },
@@ -264,7 +283,7 @@
     "@types/xml2js": "0.4.12",
     "jsonix": "3.0.0",
     "lodash": "4.17.23",
-    "axios": "1.15.0",
+    "axios": "1.16.0",
     "@types/lodash": "4.14.199",
     "xstate": "4.38.3",
     "node-fetch": "2.6.7",
