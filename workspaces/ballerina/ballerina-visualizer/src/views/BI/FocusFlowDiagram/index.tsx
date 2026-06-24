@@ -696,6 +696,21 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
                     .getBIDiagramRpcClient()
                     .getSourceCode({ filePath: agentFilePath, flowNode: updatedAgent });
             }
+            const resolved = await resolveToolFunction(tool.name);
+            if (resolved) {
+                await rpcClient.getBIDiagramRpcClient().deleteByComponentInfo({
+                    filePath: resolved.documentUri,
+                    component: {
+                        name: tool.name,
+                        filePath: resolved.documentUri,
+                        startLine: resolved.lineRange.startLine.line,
+                        startColumn: resolved.lineRange.startLine.offset,
+                        endLine: resolved.lineRange.endLine.line,
+                        endColumn: resolved.lineRange.endLine.offset,
+                        resources: [],
+                    },
+                });
+            }
         } catch (error) {
             console.error(">>> agent focus: error deleting tool", error);
         } finally {
