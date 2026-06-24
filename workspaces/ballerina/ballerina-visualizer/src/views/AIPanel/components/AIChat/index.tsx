@@ -2283,6 +2283,8 @@ const AIChat: React.FC = () => {
                                 multiple: true,
                                 acceptResolver: acceptResolver,
                                 handleAttachmentSelection: handleAttachmentSelection,
+                                onAttachClick: (command, skillCommand) =>
+                                    rpcClient.getAiPanelRpcClient().selectContextFiles({ command, skillCommand }),
                             }}
                             suggestedCommandTemplates={footerSuggestedCommandTemplates}
                             inputPlaceholder={

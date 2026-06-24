@@ -241,6 +241,11 @@ export interface ExistingFunction {
 // ==================================
 // Attachment-Related Interfaces
 // ==================================
+export interface SelectContextFilesRequest {
+    command: Command | null;
+    skillCommand?: SkillCommand;
+}
+
 export interface Attachment {
     name: string;
     path?: string

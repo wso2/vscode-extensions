@@ -75,6 +75,8 @@ import {
     SetMcpToolsEnabledRequest,
     McpLoadErrorsDTO,
     AgentsMdFileInfoDTO,
+    SelectContextFilesRequest,
+    Attachment,
 } from "./interfaces";
 
 export interface AIPanelAPI {
@@ -185,4 +187,8 @@ export interface AIPanelAPI {
     getMcpLoadErrors: () => Promise<McpLoadErrorsDTO>;
     getAgentsMdFileInfo: () => Promise<AgentsMdFileInfoDTO>;
     openOrCreateAgentsMd: () => Promise<void>;
+    // ==================================
+    // File Attachment via VS Code Dialog
+    // ==================================
+    selectContextFiles: (params: SelectContextFilesRequest) => Promise<Attachment[]>;
 }

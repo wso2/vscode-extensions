@@ -76,6 +76,8 @@ import {
     AgentsMdFileInfoDTO,
     ParseSkillFileRequest,
     ParseSkillFileResponse,
+    SelectContextFilesRequest,
+    Attachment,
 } from "./interfaces";
 import { RequestType, NotificationType } from "vscode-messenger-common";
 
@@ -162,3 +164,4 @@ export const mcpLoadErrorsChanged: NotificationType<McpLoadErrorsDTO> = { method
 export const getAgentsMdFileInfo: RequestType<void, AgentsMdFileInfoDTO> = { method: `${_preFix}/getAgentsMdFileInfo` };
 export const openOrCreateAgentsMd: RequestType<void, void> = { method: `${_preFix}/openOrCreateAgentsMd` };
 export const agentsMdFileInfoChanged: NotificationType<AgentsMdFileInfoDTO> = { method: `${_preFix}/agentsMdFileInfoChanged` };
+export const selectContextFiles: RequestType<SelectContextFilesRequest, Attachment[]> = { method: `${_preFix}/selectContextFiles` };

@@ -155,6 +155,9 @@ import {
     SetMcpToolsEnabledRequest,
     McpLoadErrorsDTO,
     AgentsMdFileInfoDTO,
+    selectContextFiles,
+    SelectContextFilesRequest,
+    Attachment,
 } from "@wso2/ballerina-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { Messenger } from "vscode-messenger-webview";
@@ -478,5 +481,9 @@ export class AiPanelRpcClient implements AIPanelAPI {
 
     openOrCreateAgentsMd(): Promise<void> {
         return this._messenger.sendRequest(openOrCreateAgentsMd, HOST_EXTENSION);
+    }
+
+    selectContextFiles(params: SelectContextFilesRequest): Promise<Attachment[]> {
+        return this._messenger.sendRequest(selectContextFiles, HOST_EXTENSION, params);
     }
 }

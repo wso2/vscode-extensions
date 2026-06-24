@@ -137,6 +137,8 @@ import {
     OpenMcpConfigRequest,
     getAgentsMdFileInfo,
     openOrCreateAgentsMd,
+    selectContextFiles,
+    SelectContextFilesRequest,
 } from "@wso2/ballerina-core";
 import { workspace } from 'vscode';
 import { Messenger } from "vscode-messenger";
@@ -233,6 +235,7 @@ export function registerAiPanelRpcHandlers(messenger: Messenger) {
     messenger.onRequest(getMcpLoadErrors, () => rpcManger.getMcpLoadErrors());
     messenger.onRequest(getAgentsMdFileInfo, () => rpcManger.getAgentsMdFileInfo());
     messenger.onRequest(openOrCreateAgentsMd, () => rpcManger.openOrCreateAgentsMd());
+    messenger.onRequest(selectContextFiles, (args: SelectContextFilesRequest) => rpcManger.selectContextFiles(args));
 
     // Push updates to the webview whenever the set of running services changes.
     runningServicesManager.onChange = (services) => {
