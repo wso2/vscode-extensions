@@ -299,6 +299,7 @@ namespace S {
 }
 export interface FormProps {
     infoLabel?: string;
+    hideInfoBanner?: boolean;
     formFields: FormField[];
     submitText?: string;
     cancelText?: string;
@@ -363,6 +364,7 @@ export interface FormProps {
 export const Form = forwardRef((props: FormProps, _ref) => {
     const {
         infoLabel,
+        hideInfoBanner,
         formFields,
         selectedNode,
         submitText,
@@ -1020,7 +1022,7 @@ export const Form = forwardRef((props: FormProps, _ref) => {
                     )}
                 </S.MarkdownWrapper>
             )}
-            {!preserveOrder && !compact && (
+            {!preserveOrder && !compact && !hideInfoBanner && (
                 <FormDescription formFields={formFields} selectedNode={selectedNode} />
             )}
             {formDiagnostics && formDiagnostics.length > 0 && (

@@ -60,6 +60,7 @@ import { UseAgentToolForm } from "../AIChatAgent/UseAgentToolForm";
 import { AddMcpServer } from "../AIChatAgent/AddMcpServer";
 import { findFlowNode, findFlowNodeByModuleVarName, goToAgentFromRunNode, refreshNodeLineRangeFromArtifacts, removeToolFromAgentNode, findAgentNodeFromAgentCallNode } from "../AIChatAgent/utils";
 import { buildAgentRenderNode } from "./agent";
+import { AgentPromptDisplay } from "./AgentPromptDisplay";
 
 import {
     addDraftNodeToDiagram,
@@ -1220,6 +1221,17 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
         });
     }, [model, projectPath, completions, filteredCompletions, debouncedRetrieveCompletions, rpcClient, selectedNode]);
 
+    // Any agent panel open — the agent edit/config form (agentPanel) or the model-provider/connection
+    // config panel (showConnectionPanel). Drives the diagram backdrop; clicking it closes the open panel.
+    const isAgentPanelOpen = agentPanel !== "NONE" || showConnectionPanel;
+    const handleOverlayClick = () => {
+        if (showConnectionPanel) {
+            handleCloseConnectionPanel();
+        } else {
+            handleCloseAgentPanel();
+        }
+    };
+
     const memoizedDiagramProps = useMemo(
         () => ({
             model: flowModel,
@@ -1270,6 +1282,11 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
             // Enables the single agent node's centering in Diagram.tsx (focus view only).
             isAgentFocusView: true,
             embedded,
+            // Dim backdrop above the canvas (behind the form) while a panel is open; click to close.
+            overlay: {
+                visible: isAgentPanelOpen,
+                onClickOverlay: handleOverlayClick,
+            },
             agentNode: {
                 onModelSelect: handleEditAgentModel,
                 onAddTool: handleAddTool,
@@ -1282,7 +1299,7 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
                 onDeleteMemoryManager: handleDeleteAgentMemory,
             },
         }),
-        [flowModel, projectPath, breakpointInfo, showProgressIndicator, embedded]
+        [flowModel, projectPath, breakpointInfo, showProgressIndicator, embedded, isAgentPanelOpen]
     );
 
     const agentTypeDiagramProps = useMemo(
@@ -1299,6 +1316,11 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
             readOnly: showProgressIndicator,
             isAgentFocusView: true,
             embedded,
+            // Dim backdrop above the canvas (behind the form) while a panel is open; click to close.
+            overlay: {
+                visible: isAgentPanelOpen,
+                onClickOverlay: handleOverlayClick,
+            },
             // The simplified node edits the model provider, and — when the class wires an ai:Memory param — memory via
             // the same Configure Memory panel as the built-in agent. Tool affordances aren't rendered.
             agentNode: {
@@ -1314,7 +1336,7 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
                 onChatWithAgent: handleOnChatWithAgent,
             },
         }),
-        [flowModel, projectPath, breakpointInfo, showProgressIndicator, embedded]
+        [flowModel, projectPath, breakpointInfo, showProgressIndicator, embedded, isAgentPanelOpen]
     );
 
     const diagramProps = isAgentType ? agentTypeDiagramProps : isAgent ? agentDiagramProps : memoizedDiagramProps;
@@ -1328,6 +1350,18 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
             delete node.metadata.description;
         }
         return node;
+    })();
+
+    // Read-only role/instructions at the top of the Configure Agent form (not the model-only form).
+    const agentTypePromptInjection = (() => {
+        if (agentTypeFormMode !== "ALL") {
+            return undefined;
+        }
+        const agent = (agentFormNodeRef.current?.metadata?.data as NodeMetadata | undefined)?.agent;
+        if (!agent || (!agent.role && !agent.instructions)) {
+            return undefined;
+        }
+        return [{ component: <AgentPromptDisplay role={agent.role} instructions={agent.instructions} />, index: 0 }];
     })();
 
     return (
@@ -1391,6 +1425,8 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
                         showProgressIndicator={showProgressIndicator}
                         disableSaveButton={showProgressIndicator}
                         fieldOverrides={buildAgentTypeFieldOverrides(agentFormNodeRef.current, agentTypeFormMode)}
+                        injectedComponents={agentTypePromptInjection}
+                        hideInfoBanner={Boolean(agentTypePromptInjection)}
                         onConnectionCreated={() => { suppressAgentTypeReloadRef.current = true; }}
                     />
                 </PanelContainer>

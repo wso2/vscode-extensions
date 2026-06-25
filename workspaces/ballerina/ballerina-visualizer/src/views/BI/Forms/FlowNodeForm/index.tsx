@@ -176,6 +176,7 @@ interface FlowNodeFormProps {
     fieldPriority?: Record<string, number>; // Map of field keys to priority numbers (lower = rendered first)
     fieldOverrides?: Record<string, Partial<FormField>>;
     footerActionButton?: boolean; // Render save button as footer action button
+    hideInfoBanner?: boolean; // Hide the auto-generated "no required parameters" info banner
     derivedFields?: FieldDerivation[]; // Configuration for auto-deriving field values from other fields
     bottomFields?: string[];
     devantExpressionEditor?: ExpressionEditorDevantProps;
@@ -280,6 +281,7 @@ export const FlowNodeForm = forwardRef<FormExpressionEditorRef, FlowNodeFormProp
         injectedComponents,
         fieldPriority,
         footerActionButton,
+        hideInfoBanner,
         customValidator,
     } = props;
 
@@ -1905,6 +1907,7 @@ export const FlowNodeForm = forwardRef<FormExpressionEditorRef, FlowNodeFormProp
                     handleVisualizableFields={fetchVisualizableFields}
                     visualizableField={visualizableField}
                     infoLabel={infoLabel}
+                    hideInfoBanner={hideInfoBanner}
                     disableSaveButton={disableSaveButton}
                     footerActionButton={footerActionButton}
                     actionButton={actionButton}
@@ -2039,6 +2042,7 @@ export const FlowNodeForm = forwardRef<FormExpressionEditorRef, FlowNodeFormProp
                     handleVisualizableFields={fetchVisualizableFields}
                     visualizableField={visualizableField}
                     infoLabel={infoLabel}
+                    hideInfoBanner={hideInfoBanner}
                     disableSaveButton={disableSaveButton}
                     footerActionButton={footerActionButton}
                     actionButton={actionButton}
