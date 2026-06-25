@@ -16,7 +16,8 @@
 
 import * as path from 'path';
 import { ProjectSkillMeta } from './types';
-import { getDisabledBuiltIns, REGISTERED_SKILLS } from './index';
+import { REGISTERED_SKILLS } from './registry';
+import { getDisabledBuiltIns } from './index';
 import { scanProjectSkills, scanUserSkills } from '../tools/skill-tool/skill-reader';
 import { getSkillsConfig, GLOBAL_SKILLS_CONFIG_PATH } from '../tools/skill-tool/skill-writer';
 
