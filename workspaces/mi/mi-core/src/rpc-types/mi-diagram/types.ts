@@ -1438,11 +1438,14 @@ export type ResourceType =
     | "xslt"
     | "yaml"
     | "crt"
-    | "registry";
+    | "registry"
+    | "bindToInbound"
+    | "inbound-endpoint";
 
 export interface MultipleResourceType {
     type: ResourceType;
     needRegistry?: boolean;
+    protocols?: string[];
 }
 
 export interface GetAvailableResourcesRequest {

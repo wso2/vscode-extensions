@@ -24,6 +24,18 @@ import { EditProxyForm } from "../views/Forms/EditForms/EditProxyForm";
 import { XMLBuilder, XMLParser } from "fast-xml-parser";
 import { Method, Protocol, ResourceFormData, ResourceType } from "../views/Forms/ResourceForm";
 
+export const bindsToToList = (bindsTo?: string): string[] =>
+    bindsTo ? bindsTo.split(",").map((s) => s.trim()).filter(Boolean) : [];
+
+export const getApiBindsToOptions = async (rpcClient: RpcClient, documentUri: string): Promise<string[]> => {
+    try {
+        const st = await rpcClient.getMiDiagramRpcClient().getSyntaxTree({ documentUri });
+        return bindsToToList((st as any)?.syntaxTree?.api?.bindsTo);
+    } catch {
+        return [];
+    }
+};
+
 /**
  * Functions to generate data for forms
  */
@@ -64,6 +76,7 @@ export const generateResourceData = (model: APIResource): ResourceType => {
         outSequence: model.outSequenceAttribute,
         faultSequenceType: model.faultSequenceAttribute ? "named" : "inline",
         faultSequence: model.faultSequenceAttribute,
+        bindsTo: model.bindsTo,
     };
 
     return resourceData;
@@ -134,7 +147,7 @@ const inlineFormatter = (inlineWsdl: string) => {
  */
 
 export const onResourceCreate = (data: ResourceFormData, range: Range, documentUri: string, rpcClient: RpcClient) => {
-    const { uriTemplate, urlMapping, methods, protocol } = data;
+    const { uriTemplate, urlMapping, methods, protocol, bindsTo } = data;
     const formValues = {
         // Extract selected methods and create string containing the methods for the XML
         methods: Object.keys(methods)
@@ -147,6 +160,7 @@ export const onResourceCreate = (data: ResourceFormData, range: Range, documentU
             : Object.keys(protocol).find((key) => protocol[key as keyof typeof protocol]),
         uri_template: uriTemplate,
         url_mapping: urlMapping,
+        binds_to: bindsTo,
     };
 
     const xml = getXML(ARTIFACT_TEMPLATES.ADD_RESOURCE, formValues);
@@ -193,6 +207,7 @@ export const onResourceEdit = (
         faultSequence,
         faultSequenceType,
         isFaultSequenceDirty,
+        bindsTo,
     } = data;
     const formValues = {
         methods: Object.keys(methods)
@@ -212,7 +227,8 @@ export const onResourceEdit = (
         fault_sequence: faultSequence,
         appened_in_sequence: isInSequenceDirty && inSequenceType === "inline" ? true : false,
         appened_out_sequence: isOutSequenceDirty && outSequenceType === "inline" ? true : false,
-        appened_fault_sequence: isFaultSequenceDirty && faultSequenceType === "inline" ? true : false
+        appened_fault_sequence: isFaultSequenceDirty && faultSequenceType === "inline" ? true : false,
+        binds_to: bindsTo,
     };
 
     const xml = getXML(ARTIFACT_TEMPLATES.EDIT_RESOURCE, formValues);
