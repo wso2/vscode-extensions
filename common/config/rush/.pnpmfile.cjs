@@ -51,7 +51,7 @@ module.exports = {
         if (deps['handlebars']) deps['handlebars'] = '4.7.9'; // security fix: prototype pollution
         if (deps['shell-quote']) deps['shell-quote'] = '1.8.4'; // security fix: CVE-2026-9277 (command injection)
         if (deps['tmp']) deps['tmp'] = '0.2.6'; // security fix: CVE-2026-44705 (path traversal via prefix/postfix)
-        if (deps['undici']) deps['undici'] = '7.24.0'; // security fix: header injection
+        if (deps['undici']) deps['undici'] = '7.28.0'; // security fix: CVE-2026-12151 (DoS via unbounded memory growth); also CVE-2026-9678/9697/6734 (was header injection)
         if (deps['@nevware21/ts-utils']) deps['@nevware21/ts-utils'] = '0.14.0'; // security fix: CVE-2026-46681 (prototype pollution)
         if (deps['protobufjs']) {
           const currentVersion = deps['protobufjs'];
