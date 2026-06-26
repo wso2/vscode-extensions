@@ -415,6 +415,10 @@
       "versionPolicyName": "ui-toolkit"
     },
     {
+      "packageName": "@wso2/webview-giga-bridge",
+      "projectFolder": "workspaces/common-libs/webview-giga-bridge"
+    },
+    {
       "packageName": "@wso2/service-designer",
       "projectFolder": "workspaces/common-libs/service-designer",
       "versionPolicyName": "service-designer"
