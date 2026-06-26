@@ -1903,7 +1903,7 @@ export interface AIGentToolsResponse {
 export interface GenAgentToolRequest {
     filePath: string;
     agentVarName: string;
-    includeSessionId: boolean;
+    includeContext: boolean;
     toolName: string;
     description: string;
 }

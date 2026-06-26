@@ -49,7 +49,7 @@ const ImplementationBadge = styled.div`
     overflow: hidden;
 `;
 
-const SessionOption = styled.label`
+const ContextOption = styled.label`
     display: flex;
     align-items: flex-start;
     gap: 8px;
@@ -59,7 +59,7 @@ const SessionOption = styled.label`
     margin-top: 4px;
 `;
 
-const SessionHint = styled.div`
+const ContextHint = styled.div`
     font-size: 11px;
     color: var(--vscode-descriptionForeground);
     margin-top: 2px;
@@ -79,8 +79,8 @@ export function UseAgentToolForm(props: UseAgentToolFormProps): JSX.Element {
     const [agentFilePath, setAgentFilePath] = useState<string>("");
     const [ready, setReady] = useState<boolean>(false);
     const [saving, setSaving] = useState<boolean>(false);
-    const [includeSession, setIncludeSession] = useState<boolean>(true);
-    const includeSessionRef = useRef<boolean>(true);
+    const [includeContext, setIncludeContext] = useState<boolean>(false);
+    const includeContextRef = useRef<boolean>(false);
 
     useEffect(() => {
         (async () => {
@@ -130,7 +130,7 @@ export function UseAgentToolForm(props: UseAgentToolFormProps): JSX.Element {
             await rpcClient.getAIAgentRpcClient().genAgentTool({
                 filePath: agentFilePath,
                 agentVarName,
-                includeSessionId: includeSessionRef.current,
+                includeContext: includeContextRef.current,
                 toolName,
                 description,
             });
@@ -182,23 +182,22 @@ export function UseAgentToolForm(props: UseAgentToolFormProps): JSX.Element {
                 },
                 {
                     component: (
-                        <SessionOption>
+                        <ContextOption>
                             <input
                                 type="checkbox"
-                                checked={includeSession}
+                                checked={includeContext}
                                 onChange={(e) => {
-                                    includeSessionRef.current = e.target.checked;
-                                    setIncludeSession(e.target.checked);
+                                    includeContextRef.current = e.target.checked;
+                                    setIncludeContext(e.target.checked);
                                 }}
                             />
                             <div>
-                                Allow multi-turn conversations
-                                <SessionHint>
-                                    Adds an optional session id so this agent can hold a continued conversation
-                                    with {agentVarName} instead of one-off requests.
-                                </SessionHint>
+                                Pass context to {agentVarName}
+                                <ContextHint>
+                                    Forwards the calling agent's context to {agentVarName} when the tool runs.
+                                </ContextHint>
                             </div>
-                        </SessionOption>
+                        </ContextOption>
                     ),
                     index: 2,
                 },
