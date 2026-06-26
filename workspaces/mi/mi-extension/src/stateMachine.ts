@@ -236,7 +236,7 @@ const stateMachine = createMachine<MachineContext>({
                     invoke: {
                         src: 'findView',
                         onDone: {
-                            target: 'viewReady',
+                            target: 'viewStacking',
                             actions: assign({
                                 view: (context, event) => event.data.view,
                                 stNode: (context, event) => event.data.stNode,
@@ -244,6 +244,15 @@ const stateMachine = createMachine<MachineContext>({
                                 dataMapperProps: (context, event) => event.data?.dataMapperProps,
                                 isLoading: (context, event) => false
                             })
+                        }
+                    }
+                },
+                viewStacking: {
+                    entry: () => logDebug("State Machine: Entering 'ready.viewStacking' state"),
+                    invoke: {
+                        src: 'updateStack',
+                        onDone: {
+                            target: "viewReady"
                         }
                     }
                 },
@@ -614,10 +623,15 @@ const stateMachine = createMachine<MachineContext>({
         },
         updateStack: (context, event) => {
             return new Promise(async (resolve, reject) => {
-                if (event.data.type === EVENT_TYPE.REPLACE_VIEW) {
+                const isReplaceView = event.data.type === EVENT_TYPE.REPLACE_VIEW;
+                if (isReplaceView) {
                     history.pop();
                 }
-                if (!context.view?.includes("Form")) {
+                // A replace swaps out the current view in place, so it must not add a
+                // back-step. previousContext is only set on OPEN_VIEW, so on a replace the
+                // fallback to `context` would otherwise push the just-opened (replacement)
+                // view as its own back target.
+                if (!isReplaceView && !context.view?.includes("Form")) {
                     const ctx = context?.previousContext ? context?.previousContext : context;
                     const historyStack = history.get();
                     const lastEntry = historyStack[historyStack.length - 1];
