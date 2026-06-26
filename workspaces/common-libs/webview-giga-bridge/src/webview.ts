@@ -594,6 +594,8 @@ export function createWebviewTransportAdapter<TRequest, TResponse>(
   let currentMode: TransportMode = options.mode ?? 'proxy';
   const listeners = new Set<(message: TResponse) => void>();
   const statusListeners = new Set<(status: ConnectionStatus) => void>();
+  // Cache the latest status so subscribers added after a transition still see it.
+  let latestStatus: ConnectionStatus = 'connecting';
 
   let adapter = createAdapterForMode<TRequest, TResponse>(options, currentMode);
   let unsubscribe = adapter.subscribe(
@@ -621,6 +623,8 @@ export function createWebviewTransportAdapter<TRequest, TResponse>(
     subscribe(listener, onStatus) {
       listeners.add(listener);
       statusListeners.add(onStatus);
+      // Replay the current status so late subscribers don't miss it.
+      onStatus(latestStatus);
       return () => {
         listeners.delete(listener);
         statusListeners.delete(onStatus);
@@ -643,6 +647,7 @@ export function createWebviewTransportAdapter<TRequest, TResponse>(
           listeners.forEach((listener) => listener(message));
         },
         (status) => {
+          latestStatus = status;
           statusListeners.forEach((listener) => listener(status));
         }
       );
