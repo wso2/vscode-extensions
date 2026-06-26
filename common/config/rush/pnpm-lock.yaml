@@ -1036,6 +1036,25 @@ importers:
         specifier: 6.0.14
         version: 6.0.14(@types/node@22.15.24)(jiti@1.21.7)(terser@5.48.0)(yaml@2.8.3)
 
+  ../../workspaces/common-libs/vscode-webview-bridge:
+    dependencies:
+      ws:
+        specifier: 8.21.0
+        version: 8.21.0
+    devDependencies:
+      '@types/vscode':
+        specifier: 1.100.0
+        version: 1.100.0
+      '@types/ws':
+        specifier: 8.18.1
+        version: 8.18.1
+      rimraf:
+        specifier: 5.0.5
+        version: 5.0.5
+      typescript:
+        specifier: 5.8.3
+        version: 5.8.3
+
   ../../workspaces/hurl-client/hurl-client-core:
     dependencies:
       '@wso2/api-tryit-hurl-runner':
