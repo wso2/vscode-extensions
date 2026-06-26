@@ -41,6 +41,7 @@ const PopupLayer = styled.div`
 interface UseAgentToolProps {
     agentNode: FlowNode;
     onSelectAgent: (agentVarName: string) => void;
+    onAgentCreated?: () => void;
     onBack?: () => void;
     onClose?: () => void;
 }
@@ -65,7 +66,7 @@ function extractAgentVarNames(categories: DiagramCategory[]): string[] {
 }
 
 export function UseAgentTool(props: UseAgentToolProps): JSX.Element {
-    const { agentNode, onSelectAgent, onBack, onClose } = props;
+    const { agentNode, onSelectAgent, onAgentCreated, onBack, onClose } = props;
     const { rpcClient } = useRpcContext();
 
     const [loading, setLoading] = useState<boolean>(true);
@@ -147,6 +148,7 @@ export function UseAgentTool(props: UseAgentToolProps): JSX.Element {
                         onNavigateToOverview={() => setShowAddAgentPopup(false)}
                         onAgentCreated={(agentVarName?: string) => {
                             setShowAddAgentPopup(false);
+                            onAgentCreated?.();
                             // A freshly created agent can be used immediately; otherwise refresh the list.
                             if (agentVarName && agentVarName !== hostAgentVar) {
                                 onSelectAgent(agentVarName);

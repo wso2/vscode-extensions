@@ -141,6 +141,8 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
     // Set when a model provider is created from the open form; consumed to skip the one reload that
     // creation triggers (which would remount the form and drop the unsaved selection). Saving clears it.
     const suppressAgentTypeReloadRef = useRef(false);
+    // Skips the one reload triggered when an agent is created from the "Use Agent" tool flow.
+    const suppressAgentReloadRef = useRef(false);
     // Bumped on each agent model fetch so the edit form remounts with fresh values.
     const [agentFormKey, setAgentFormKey] = useState(0);
     // AGENT_TYPE box click shows the whole init form; model-circle click scopes it to the model param.
@@ -297,6 +299,10 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
     // posOverride: refetch over a known position instead of the stored visualizer location, which goes stale after a
     // webview edit shifts the agent (the auto-refresh path doesn't re-resolve it). See handleDeleteAgentMemory.
     const getAgentModel = async (posOverride?: NodePosition) => {
+        if (suppressAgentReloadRef.current) {
+            suppressAgentReloadRef.current = false;
+            return;
+        }
         setShowProgressIndicator(true);
         onUpdate();
         try {
@@ -464,11 +470,6 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
         if (agentPosition) {
             void (isAgentType ? getAgentTypeModel(agentPosition) : getAgentModel(agentPosition));
         }
-    };
-
-    // The edit form's own close button (no refresh needed — nothing changed).
-    const handleCloseForm = () => {
-        setAgentPanel("NONE");
     };
 
     const handleEditAgentModel = (_node: FlowNode) => {
@@ -1364,195 +1365,63 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
         return [{ component: <AgentPromptDisplay role={agent.role} instructions={agent.instructions} />, index: 0 }];
     })();
 
-    return (
-        <PanelOverlayProvider>
-            <View>
-                {(showProgressIndicator) && model && (
-                    <ProgressIndicator color={ThemeColors.PRIMARY} />
-                )}
-                <Container embedded={embedded}>
-                    {!model && (
-                        <SpinnerContainer>
-                            <ProgressRing color={ThemeColors.PRIMARY} />
-                        </SpinnerContainer>
-                    )}
-                    {model && <MemoizedDiagram {...diagramProps} />}
-                </Container>
-            </View>
+    const agentPanelTitle: string | undefined = (() => {
+        if (showConnectionPanel) {
+            return "Configure Model Provider Connection";
+        }
+        switch (agentPanel) {
+            case "FORM":
+                return isAgentType
+                    ? agentTypeFormMode === "MODEL" ? "Configure Model Provider" : "Configure Agent"
+                    : "Edit Agent";
+            case "MEMORY":
+                return "Configure Memory";
+            case "ADD_TOOL":
+            case "NEW_TOOL_CUSTOM":
+            case "NEW_TOOL_CONNECTION":
+            case "NEW_TOOL_FUNCTION":
+                return "Add Tool";
+            case "NEW_TOOL_AGENT_FORM":
+                return "Use Agent";
+            case "ADD_MCP":
+                return "Add MCP Server";
+            case "EDIT_MCP":
+                return "Edit MCP Server";
+            default:
+                return undefined;
+        }
+    })();
 
-            {isAgent && agentPanel === "FORM" && agentFormNodeRef.current && (
-                <PanelContainer
-                    title="Edit Agent"
-                    show={true}
-                    onClose={handleCloseForm}
-                >
-                    <FlowNodeForm
-                        key={agentFormKey}
-                        fileName={model?.fileName || ""}
-                        node={agentFormNodeRef.current}
-                        nodeFormTemplate={agentFormNodeRef.current}
-                        targetLineRange={agentFormNodeRef.current.codedata?.lineRange as any}
-                        projectPath={projectPath}
-                        editForm={true}
-                        onSubmit={handleSubmitAgentForm}
-                        submitText={showProgressIndicator ? "Saving..." : "Save"}
-                        showProgressIndicator={showProgressIndicator}
-                        disableSaveButton={showProgressIndicator}
-                        fieldOverrides={{
-                            model: { hidden: true },
-                            type: { hidden: true },
-                        }}
-                    />
-                </PanelContainer>
-            )}
+    const agentPanelOnBack: (() => void) | undefined = (() => {
+        if (showConnectionPanel) {
+            if (connectionView === SidePanelView.CONNECTION_SELECT) {
+                return () => setConnectionView(SidePanelView.CONNECTION_CONFIG);
+            }
+            if (connectionView === SidePanelView.CONNECTION_CREATE) {
+                return () => setConnectionView(SidePanelView.CONNECTION_SELECT);
+            }
+            return undefined;
+        }
+        switch (agentPanel) {
+            case "NEW_TOOL_CUSTOM":
+            case "NEW_TOOL_CONNECTION":
+            case "NEW_TOOL_FUNCTION":
+            case "ADD_MCP":
+                return () => setAgentPanel("ADD_TOOL");
+            case "NEW_TOOL_AGENT_FORM":
+                return () => setAgentPanel("NEW_TOOL_AGENT");
+            default:
+                return undefined;
+        }
+    })();
 
-            {isAgentType && agentPanel === "FORM" && agentFormNodeRef.current && (
-                <PanelContainer
-                    title={agentTypeFormMode === "MODEL" ? "Configure Model Provider" : "Configure Agent"}
-                    show={true}
-                    onClose={handleCloseForm}
-                >
-                    <FlowNodeForm
-                        key={agentFormKey}
-                        fileName={model?.fileName || ""}
-                        node={agentTypeFormNode}
-                        nodeFormTemplate={agentTypeFormNode}
-                        targetLineRange={agentFormNodeRef.current.codedata?.lineRange as any}
-                        projectPath={projectPath}
-                        editForm={true}
-                        onSubmit={handleSubmitAgentForm}
-                        submitText={showProgressIndicator ? "Saving..." : "Save"}
-                        showProgressIndicator={showProgressIndicator}
-                        disableSaveButton={showProgressIndicator}
-                        fieldOverrides={buildAgentTypeFieldOverrides(agentFormNodeRef.current, agentTypeFormMode)}
-                        injectedComponents={agentTypePromptInjection}
-                        hideInfoBanner={Boolean(agentTypePromptInjection)}
-                        onConnectionCreated={() => { suppressAgentTypeReloadRef.current = true; }}
-                    />
-                </PanelContainer>
-            )}
-
-            {(isAgent || isAgentType) && agentPanel === "MEMORY" && agentDeclRef.current && (
-                <PanelContainer
-                    title="Configure Memory"
-                    show={true}
-                    onClose={handleCloseAgentPanel}
-                >
-                    <MemoryManagerConfig
-                        agentNode={agentDeclRef.current}
-                        memoryNode={memoryNodeRef.current as FlowNode}
-                        memoryPropertyKey={getMemoryPropertyKey()}
-                        onSave={handleAgentMemorySaved}
-                    />
-                </PanelContainer>
-            )}
-
-            {isAgent && agentPanel === "ADD_TOOL" && agentDeclRef.current && (
-                <PanelContainer title="Add Tool" show={true} onClose={handleCloseAgentPanel}>
-                    <AddTool
-                        agentNode={agentDeclRef.current}
-                        onCreateCustomTool={() => setAgentPanel("NEW_TOOL_CUSTOM")}
-                        onUseConnection={() => setAgentPanel("NEW_TOOL_CONNECTION")}
-                        onUseFunction={() => setAgentPanel("NEW_TOOL_FUNCTION")}
-                        onUseAgent={() => setAgentPanel("NEW_TOOL_AGENT")}
-                        onUseMcpServer={() => setAgentPanel("ADD_MCP")}
-                        onSave={handleCloseAgentPanel}
-                    />
-                </PanelContainer>
-            )}
-
-            {isAgent &&
-                (agentPanel === "NEW_TOOL_CUSTOM" ||
-                    agentPanel === "NEW_TOOL_CONNECTION" ||
-                    agentPanel === "NEW_TOOL_FUNCTION") &&
-                agentDeclRef.current && (
-                    <PanelContainer
-                        title="Add Tool"
-                        show={true}
-                        onClose={handleCloseAgentPanel}
-                        onBack={() => setAgentPanel("ADD_TOOL")}
-                    >
-                        <NewTool
-                            agentNode={agentDeclRef.current}
-                            mode={
-                                agentPanel === "NEW_TOOL_CUSTOM"
-                                    ? NewToolSelectionMode.CUSTOM_TOOL
-                                    : agentPanel === "NEW_TOOL_CONNECTION"
-                                        ? NewToolSelectionMode.CONNECTION
-                                        : NewToolSelectionMode.FUNCTION
-                            }
-                            onSave={handleCloseAgentPanel}
-                            onBack={() => setAgentPanel("ADD_TOOL")}
-                            onSetBackOverride={noop}
-                        />
-                    </PanelContainer>
-                )}
-
-            {isAgent && agentPanel === "NEW_TOOL_AGENT" && agentDeclRef.current && (
-                // No title here: NodeList renders its own header (avoids a duplicate header bar).
-                <PanelContainer show={true} onClose={handleCloseAgentPanel}>
-                    <UseAgentTool
-                        agentNode={agentDeclRef.current}
-                        onSelectAgent={(agentVarName: string) => {
-                            selectedAgentToolName.current = agentVarName;
-                            setAgentPanel("NEW_TOOL_AGENT_FORM");
-                        }}
-                        onBack={() => setAgentPanel("ADD_TOOL")}
-                        onClose={handleCloseAgentPanel}
-                    />
-                </PanelContainer>
-            )}
-
-            {isAgent && agentPanel === "NEW_TOOL_AGENT_FORM" && agentDeclRef.current && (
-                <PanelContainer
-                    title="Use Agent"
-                    show={true}
-                    onClose={handleCloseAgentPanel}
-                    onBack={() => setAgentPanel("NEW_TOOL_AGENT")}
-                >
-                    <UseAgentToolForm
-                        agentNode={agentDeclRef.current}
-                        agentVarName={selectedAgentToolName.current}
-                        onSave={handleCloseAgentPanel}
-                    />
-                </PanelContainer>
-            )}
-
-            {isAgent && agentPanel === "ADD_MCP" && agentDeclRef.current && (
-                <PanelContainer
-                    title="Add MCP Server"
-                    show={true}
-                    onClose={handleCloseAgentPanel}
-                    onBack={() => setAgentPanel("ADD_TOOL")}
-                >
-                    <AddMcpServer
-                        agentNode={agentDeclRef.current}
-                        onSave={handleCloseAgentPanel}
-                        onBack={() => setAgentPanel("ADD_TOOL")}
-                    />
-                </PanelContainer>
-            )}
-
-            {isAgent && agentPanel === "EDIT_MCP" && agentDeclRef.current && (
-                <PanelContainer title="Edit MCP Server" show={true} onClose={handleCloseAgentPanel}>
-                    <AddMcpServer
-                        editMode={true}
-                        name={selectedToolRef.current?.name}
-                        agentNode={agentDeclRef.current}
-                        onSave={handleCloseAgentPanel}
-                    />
-                </PanelContainer>
-            )}
-
-            {showConnectionPanel && selectedNodeRef.current && (
-                <PanelContainer
-                    title="Configure Model Provider Connection"
-                    show={showConnectionPanel}
-                    onClose={handleCloseConnectionPanel}
-                    onBack={connectionView === SidePanelView.CONNECTION_SELECT ? () => setConnectionView(SidePanelView.CONNECTION_CONFIG) :
-                        connectionView === SidePanelView.CONNECTION_CREATE ? () => setConnectionView(SidePanelView.CONNECTION_SELECT) :
-                            undefined}
-                >
+    const renderAgentPanelContent = () => {
+        if (showConnectionPanel) {
+            if (!selectedNodeRef.current) {
+                return null;
+            }
+            return (
+                <>
                     {connectionView === SidePanelView.CONNECTION_CONFIG && (
                         <ConnectionConfig
                             fileName={filePath}
@@ -1577,6 +1446,157 @@ export function BIFocusFlowDiagram(props: BIFocusFlowDiagramProps) {
                             onSave={handleUpdateNodeWithConnection}
                         />
                     )}
+                </>
+            );
+        }
+        switch (agentPanel) {
+            case "FORM":
+                if (isAgent && agentFormNodeRef.current) {
+                    return (
+                        <FlowNodeForm
+                            key={agentFormKey}
+                            fileName={model?.fileName || ""}
+                            node={agentFormNodeRef.current}
+                            nodeFormTemplate={agentFormNodeRef.current}
+                            targetLineRange={agentFormNodeRef.current.codedata?.lineRange as any}
+                            projectPath={projectPath}
+                            editForm={true}
+                            onSubmit={handleSubmitAgentForm}
+                            submitText={showProgressIndicator ? "Saving..." : "Save"}
+                            showProgressIndicator={showProgressIndicator}
+                            disableSaveButton={showProgressIndicator}
+                            fieldOverrides={{ model: { hidden: true }, type: { hidden: true } }}
+                        />
+                    );
+                }
+                if (isAgentType && agentFormNodeRef.current) {
+                    return (
+                        <FlowNodeForm
+                            key={agentFormKey}
+                            fileName={model?.fileName || ""}
+                            node={agentTypeFormNode}
+                            nodeFormTemplate={agentTypeFormNode}
+                            targetLineRange={agentFormNodeRef.current.codedata?.lineRange as any}
+                            projectPath={projectPath}
+                            editForm={true}
+                            onSubmit={handleSubmitAgentForm}
+                            submitText={showProgressIndicator ? "Saving..." : "Save"}
+                            showProgressIndicator={showProgressIndicator}
+                            disableSaveButton={showProgressIndicator}
+                            fieldOverrides={buildAgentTypeFieldOverrides(agentFormNodeRef.current, agentTypeFormMode)}
+                            injectedComponents={agentTypePromptInjection}
+                            hideInfoBanner={Boolean(agentTypePromptInjection)}
+                            onConnectionCreated={() => { suppressAgentTypeReloadRef.current = true; }}
+                        />
+                    );
+                }
+                return null;
+            case "MEMORY":
+                return agentDeclRef.current ? (
+                    <MemoryManagerConfig
+                        agentNode={agentDeclRef.current}
+                        memoryNode={memoryNodeRef.current as FlowNode}
+                        memoryPropertyKey={getMemoryPropertyKey()}
+                        onSave={handleAgentMemorySaved}
+                    />
+                ) : null;
+            case "ADD_TOOL":
+                return agentDeclRef.current ? (
+                    <AddTool
+                        agentNode={agentDeclRef.current}
+                        onCreateCustomTool={() => setAgentPanel("NEW_TOOL_CUSTOM")}
+                        onUseConnection={() => setAgentPanel("NEW_TOOL_CONNECTION")}
+                        onUseFunction={() => setAgentPanel("NEW_TOOL_FUNCTION")}
+                        onUseAgent={() => setAgentPanel("NEW_TOOL_AGENT")}
+                        onUseMcpServer={() => setAgentPanel("ADD_MCP")}
+                        onSave={handleCloseAgentPanel}
+                    />
+                ) : null;
+            case "NEW_TOOL_CUSTOM":
+            case "NEW_TOOL_CONNECTION":
+            case "NEW_TOOL_FUNCTION":
+                return agentDeclRef.current ? (
+                    <NewTool
+                        agentNode={agentDeclRef.current}
+                        mode={
+                            agentPanel === "NEW_TOOL_CUSTOM"
+                                ? NewToolSelectionMode.CUSTOM_TOOL
+                                : agentPanel === "NEW_TOOL_CONNECTION"
+                                    ? NewToolSelectionMode.CONNECTION
+                                    : NewToolSelectionMode.FUNCTION
+                        }
+                        onSave={handleCloseAgentPanel}
+                        onBack={() => setAgentPanel("ADD_TOOL")}
+                        onSetBackOverride={noop}
+                    />
+                ) : null;
+            case "NEW_TOOL_AGENT":
+                return agentDeclRef.current ? (
+                    <UseAgentTool
+                        agentNode={agentDeclRef.current}
+                        onSelectAgent={(agentVarName: string) => {
+                            selectedAgentToolName.current = agentVarName;
+                            setAgentPanel("NEW_TOOL_AGENT_FORM");
+                        }}
+                        onAgentCreated={() => { suppressAgentReloadRef.current = true; }}
+                        onBack={() => setAgentPanel("ADD_TOOL")}
+                        onClose={handleCloseAgentPanel}
+                    />
+                ) : null;
+            case "NEW_TOOL_AGENT_FORM":
+                return agentDeclRef.current ? (
+                    <UseAgentToolForm
+                        agentNode={agentDeclRef.current}
+                        agentVarName={selectedAgentToolName.current}
+                        onSave={handleCloseAgentPanel}
+                    />
+                ) : null;
+            case "ADD_MCP":
+                return agentDeclRef.current ? (
+                    <AddMcpServer
+                        agentNode={agentDeclRef.current}
+                        onSave={handleCloseAgentPanel}
+                        onBack={() => setAgentPanel("ADD_TOOL")}
+                    />
+                ) : null;
+            case "EDIT_MCP":
+                return agentDeclRef.current ? (
+                    <AddMcpServer
+                        editMode={true}
+                        name={selectedToolRef.current?.name}
+                        agentNode={agentDeclRef.current}
+                        onSave={handleCloseAgentPanel}
+                    />
+                ) : null;
+            default:
+                return null;
+        }
+    };
+
+    return (
+        <PanelOverlayProvider>
+            <View>
+                {(showProgressIndicator) && model && (
+                    <ProgressIndicator color={ThemeColors.PRIMARY} />
+                )}
+                <Container embedded={embedded}>
+                    {!model && (
+                        <SpinnerContainer>
+                            <ProgressRing color={ThemeColors.PRIMARY} />
+                        </SpinnerContainer>
+                    )}
+                    {model && <MemoizedDiagram {...diagramProps} />}
+                </Container>
+            </View>
+
+            {isAgentPanelOpen && (
+                <PanelContainer
+                    title={agentPanelTitle}
+                    show={true}
+                    onClose={showConnectionPanel ? handleCloseConnectionPanel : handleCloseAgentPanel}
+                    onBack={agentPanelOnBack}
+                >
+                    {renderAgentPanelContent()}
                 </PanelContainer>
             )}
             <PanelOverlayRenderer />
