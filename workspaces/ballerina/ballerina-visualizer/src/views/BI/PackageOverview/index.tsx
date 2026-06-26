@@ -26,6 +26,7 @@ import {
     BuildMode,
     BI_COMMANDS,
     DIRECTORY_MAP,
+    isSamePath,
 } from "@wso2/ballerina-core";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { Typography, Codicon, ProgressRing, Button, Icon, Divider, CheckBox, ProgressIndicator, Overlay, Dropdown } from "@wso2/ui-toolkit";
@@ -449,7 +450,7 @@ function DeploymentOptions({
         enabled: platformExtState.isExtInstalled,
         refetchInterval: 5000,
     });
-    const currentProjectMeta = devantMetadata?.projectsMetadata?.find(p => p.projectPath === projectPath);
+    const currentProjectMeta = devantMetadata?.projectsMetadata?.find(p => isSamePath(p.projectPath, projectPath));
     const isDeployed = devantMetadata?.isLoggedIn
         ? (currentProjectMeta?.hasComponent ?? false)
         : false;
@@ -503,7 +504,7 @@ function DeploymentOptions({
                         isExpanded={expandedOptions.has("devant")}
                         onToggle={() => toggleOption("devant")}
                         onDeploy={isDeployed ? () => goToDevant() : handleDeploy}
-                        learnMoreLink={"https://wso2.com/devant/docs/"}
+                        learnMoreLink={"https://wso2.com/integration-platform/docs/deploy/cloud/push-from-ide/"}
                         hasDeployableIntegration={hasDeployableIntegration && !isRefreshing}
                         secondaryAction={
                             isDeployed && currentProjectMeta?.hasLocalChanges
@@ -799,7 +800,7 @@ export function PackageOverview(props: PackageOverviewProps) {
             .getBIDiagramRpcClient()
             .getProjectStructure()
             .then((res) => {
-                const project = res.projects.find(project => project.projectPath === projectPath);
+                const project = res.projects.find(project => isSamePath(project.projectPath, projectPath));
                 setIsInProject(res.workspaceName !== undefined);
                 if (project) {
                     setProjectStructure(project);

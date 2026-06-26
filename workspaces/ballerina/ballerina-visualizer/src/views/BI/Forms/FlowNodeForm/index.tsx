@@ -307,10 +307,15 @@ export const FlowNodeForm = forwardRef<FormExpressionEditorRef, FlowNodeFormProp
     /* Expression editor related state and ref variables */
     const prevCompletionFetchText = useRef<string>("");
     const [completions, setCompletions] = useState<CompletionItem[]>([]);
+    const completionsRef = useRef<CompletionItem[]>([]);
     const [filteredCompletions, setFilteredCompletions] = useState<CompletionItem[]>([]);
     const [types, setTypes] = useState<CompletionItem[]>([]);
+    const typesRef = useRef<CompletionItem[]>([]);
     const [filteredTypes, setFilteredTypes] = useState<CompletionItem[]>([]);
     const expressionOffsetRef = useRef<number>(0); // To track the expression offset on adding import statements
+
+    useEffect(() => { completionsRef.current = completions; }, [completions]);
+    useEffect(() => { typesRef.current = types; }, [types]);
 
     const { addModal, closeModal, popModal } = useModalStack()
 
@@ -592,10 +597,12 @@ export const FlowNodeForm = forwardRef<FormExpressionEditorRef, FlowNodeFormProp
                     }
                 }
 
-                else if (isContainingRepeatableMap && nodeProperties?.[field.key]?.value !== undefined) {
-                    if (!(typeof nodeProperties?.[field.key]?.value === "object")) {
-                        throw new Error(`Expected value for repeatable map field "${field.key}" to be an object, but got ${typeof nodeProperties?.[field.key]?.value}.`);
-                    }
+                else if (
+                    isContainingRepeatableMap &&
+                    typeof nodeProperties?.[field.key]?.value === "object" &&
+                    nodeProperties?.[field.key]?.value !== null &&
+                    !Array.isArray(nodeProperties?.[field.key]?.value)
+                ) {
                     if (selectedInputType?.fieldType === "REPEATABLE_MAP") {
                         let initialValues: { key: string; value: string }[];
                         if (typeof data[field.key] === 'string') {
@@ -754,6 +761,23 @@ export const FlowNodeForm = forwardRef<FormExpressionEditorRef, FlowNodeFormProp
 
     const mergeFormDataWithFlowNode = (data: FormValues, targetLineRange: LineRange, dirtyFields?: any): FlowNode => {
         const clonedNode = cloneDeep(node);
+
+        // When a template is available, enrich the cloned node's properties with the
+        // template's property structure before saving. This ensures that properties
+        // with null values (e.g. the expression on a bare `return;`) are replaced with
+        // fully-formed Property objects so that updateNodeProperties can set their values.
+        if (nodeFormTemplate) {
+            const formProperties = getFormProperties(clonedNode);
+            const formTemplateProperties = getFormProperties(nodeFormTemplate);
+            const enrichedProperties = enrichFormTemplatePropertiesWithValues(formProperties, formTemplateProperties);
+
+            if (clonedNode.branches?.at(0)?.properties) {
+                clonedNode.branches[0].properties = enrichedProperties;
+            } else {
+                clonedNode.properties = enrichedProperties;
+            }
+        }
+
         // Create updated node with new line range
         const updatedNode = createNodeWithUpdatedLineRange(clonedNode, targetLineRange);
 
@@ -833,12 +857,14 @@ export const FlowNodeForm = forwardRef<FormExpressionEditorRef, FlowNodeFormProp
                 const { parentContent, currentContent } = value
                     .slice(0, offset)
                     .match(EXPRESSION_EXTRACTION_REGEX)?.groups ?? {};
+                const cachedCompletions = completionsRef.current;
                 if (
-                    completions.length > 0 &&
+                    cachedCompletions.length > 0 &&
                     !triggerCharacter &&
+                    parentContent !== undefined &&
                     parentContent === prevCompletionFetchText.current
                 ) {
-                    expressionCompletions = completions
+                    expressionCompletions = cachedCompletions
                         .filter((completion) => {
                             const lowerCaseText = currentContent.toLowerCase();
                             const lowerCaseLabel = completion.label.toLowerCase();
@@ -894,7 +920,7 @@ export const FlowNodeForm = forwardRef<FormExpressionEditorRef, FlowNodeFormProp
             },
             250
         ),
-        [rpcClient, completions, fileName, targetLineRange, node]
+        [rpcClient, fileName, targetLineRange, node]
     );
 
     const handleRetrieveCompletions = useCallback(
@@ -921,8 +947,8 @@ export const FlowNodeForm = forwardRef<FormExpressionEditorRef, FlowNodeFormProp
                 fetchReferenceTypes: boolean,
                 valueTypeConstraint?: string
             ) => {
-                let visibleTypes: CompletionItem[] = types;
-                if (!types.length) {
+                let visibleTypes: CompletionItem[] = typesRef.current;
+                if (!visibleTypes.length) {
                     const searchResponse = await rpcClient.getBIDiagramRpcClient().search({
                         filePath: fileName,
                         position: targetLineRange,
@@ -992,7 +1018,7 @@ export const FlowNodeForm = forwardRef<FormExpressionEditorRef, FlowNodeFormProp
             },
             250
         ),
-        [rpcClient, types, fileName, targetLineRange]
+        [rpcClient, fileName, targetLineRange]
     );
 
     const handleGetVisibleTypes = useCallback(
@@ -1001,6 +1027,19 @@ export const FlowNodeForm = forwardRef<FormExpressionEditorRef, FlowNodeFormProp
         },
         [debouncedGetVisibleTypes]
     );
+
+    const debouncedRetrieveCompletionsRef = useRef(debouncedRetrieveCompletions);
+    const debouncedGetVisibleTypesRef = useRef(debouncedGetVisibleTypes);
+    useEffect(() => {
+        debouncedRetrieveCompletionsRef.current = debouncedRetrieveCompletions;
+    }, [debouncedRetrieveCompletions]);
+    useEffect(() => {
+        debouncedGetVisibleTypesRef.current = debouncedGetVisibleTypes;
+    }, [debouncedGetVisibleTypes]);
+    useEffect(() => () => {
+        debouncedRetrieveCompletionsRef.current.cancel();
+        debouncedGetVisibleTypesRef.current.cancel();
+    }, []);
 
     const extractArgsFromFunction = async (value: string, property: ExpressionProperty, cursorPosition: number) => {
         const { lineOffset, charOffset } = calculateExpressionOffsets(value, cursorPosition);

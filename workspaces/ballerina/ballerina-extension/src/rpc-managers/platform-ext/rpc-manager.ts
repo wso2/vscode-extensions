@@ -22,6 +22,7 @@ import {
     DIRECTORY_MAP,
     findDevantScopeByModule,
     AvailableNode,
+    isSamePath,
 } from "@wso2/ballerina-core";
 import { Uri, window, WorkspaceEdit } from "vscode";
 import * as vscode from "vscode";
@@ -116,8 +117,21 @@ export class PlatformExtRpcManager implements PlatformExtAPI {
         }
         platformExtStore.getState().setState({ isExtInstalled: true });
         const platformExtAPI: IWso2PlatformExtensionAPI = platformExt.exports?.cloudAPIs;
+        await this.waitForExtensionActive(platformExtAPI);            
         PlatformExtRpcManager.platformExtAPI = platformExtAPI;
         return platformExtAPI;
+    }
+
+    // Wait for devant features to activate
+    private async waitForExtensionActive(platformExtAPI: IWso2PlatformExtensionAPI, timeoutMs: number = 30000): Promise<void> {
+        const startTime = Date.now();
+        while (!platformExtAPI?.isActive()) {
+            if (Date.now() - startTime > timeoutMs) {
+                log("Timeout: Platform extension failed to activate within 30 seconds");
+                throw new Error("WI extension cloud features activation timeout");
+            }
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
     }
 
     public async initStateSubscription(messenger: Messenger) {
@@ -139,7 +153,7 @@ export class PlatformExtRpcManager implements PlatformExtAPI {
             250,
         );
         StateMachine.service().subscribe(async (state) => {
-            if (state.context?.projectPath && state.context?.projectPath !== projectPath) {
+            if (state.context?.projectPath && !isSamePath(state.context?.projectPath, projectPath)) {
                 projectPath = state.context?.projectPath;
                 if (disposeProjectPathWatcher) {
                     disposeProjectPathWatcher();
@@ -492,7 +506,7 @@ export class PlatformExtRpcManager implements PlatformExtAPI {
         }
 
         const project = projectStructure.projects.find(
-            (project) => project.projectPath === StateMachine.context()?.projectPath,
+            (project) => isSamePath(project.projectPath, StateMachine.context()?.projectPath),
         );
         if (!project) {
             return;

@@ -31,7 +31,8 @@ export const dataFolder = path.join(__dirname, '..', '..', '..', 'data');
 /** Template package committed with tests (minimal Ballerina project to copy). */
 const emptyProjectPath = path.join(__dirname, '..', '..', 'data', 'empty_project');
 export const extensionsFolder = path.join(__dirname, '..', '..', '..', '..', 'vsix');
-const vscodeVersion = 'latest';
+const repoRootExtensionsFolder = path.join(__dirname, '..', '..', '..', '..', '..', '..', '..');
+const vscodeVersion = '1.125.1';
 const baseVsCodeProfileName = process.env.BI_E2E_PROFILE_NAME ?? `bi-test-profile-${process.pid}`;
 let vscodeLaunchAttempt = 0;
 export const resourcesFolder = path.join(__dirname, '..', '..', '..', 'test-resources');
@@ -155,17 +156,29 @@ function getVsCodeProfileName(): string {
 }
 
 function resolveBallerinaVsixPath(): string {
-    const ballerinaVsixFiles = fs.readdirSync(extensionsFolder)
-        .filter((file) => /^ballerina-.*\.vsix$/i.test(file))
+    const candidateFolders = [extensionsFolder, repoRootExtensionsFolder];
+    const findVsixFiles = () => candidateFolders.filter((folder) => fs.existsSync(folder)).flatMap((folder) => fs.readdirSync(folder)
+        .filter((file) => /^ballerina-.*\.vsix$/i.test(file) && !/^ballerina-integrator-/i.test(file))
         .map((file) => ({
             file,
-            fullPath: path.join(extensionsFolder, file),
-            mtime: fs.statSync(path.join(extensionsFolder, file)).mtimeMs,
-        }))
+            fullPath: path.join(folder, file),
+            mtime: fs.statSync(path.join(folder, file)).mtimeMs,
+        })))
         .sort((a, b) => b.mtime - a.mtime);
 
+    let ballerinaVsixFiles = findVsixFiles();
     if (ballerinaVsixFiles.length === 0) {
-        throw new Error(`No ballerina VSIX found in: ${extensionsFolder}`);
+        console.log('No local Ballerina VSIX found; running "rush build -t ballerina"');
+        execSync('rush build -t ballerina', {
+            cwd: repoRootExtensionsFolder,
+            stdio: 'inherit',
+            timeout: 60 * 60 * 1000,
+        });
+        ballerinaVsixFiles = findVsixFiles();
+    }
+
+    if (ballerinaVsixFiles.length === 0) {
+        throw new Error(`No local Ballerina VSIX found in: ${candidateFolders.join(', ')} after running "rush build -t ballerina".`);
     }
 
     return ballerinaVsixFiles[0].fullPath;
@@ -262,16 +275,16 @@ async function resumeVSCode() {
     page = new ExtendedPage(await vscode!.firstWindow({ timeout: 60000 }));
 }
 
-function resetTestProjectFromTemplate(): void {
-    if (!existsSync(emptyProjectPath)) {
-        throw new Error(`Empty project template not found: ${emptyProjectPath}`);
+function resetTestProjectFromTemplate(templatePath: string = emptyProjectPath): void {
+    if (!existsSync(templatePath)) {
+        throw new Error(`Project template not found: ${templatePath}`);
     }
 
     if (fs.existsSync(newProjectPath)) {
         fs.rmSync(newProjectPath, { recursive: true, force: true });
     }
 
-    fs.cpSync(emptyProjectPath, newProjectPath, { recursive: true, force: true });
+    fs.cpSync(templatePath, newProjectPath, { recursive: true, force: true });
 }
 
 /**
@@ -446,7 +459,7 @@ export async function createProject(page: ExtendedPage, projectName?: string) {
     await integrationName.waitFor({ timeout: 200000 });
 }
 
-export function initTest(newProject: boolean = true, skipProjectCreation: boolean = true, cleanupAfter?: boolean, projectName?: string) {
+export function initTest(newProject: boolean = true, skipProjectCreation: boolean = true, cleanupAfter?: boolean, projectName?: string, templatePath?: string) {
     test.beforeAll(async ({ }, testInfo) => {
         console.log(`\n▶️  STARTING TEST: ${testInfo.title} (Attempt ${testInfo.retry + 1})`);
 
@@ -462,7 +475,7 @@ export function initTest(newProject: boolean = true, skipProjectCreation: boolea
             wipeAndRecreateDataFolder();
             if (newProject) {
                 console.log('  🧹 Resetting test project from template');
-                resetTestProjectFromTemplate();
+                resetTestProjectFromTemplate(templatePath);
             }
             console.log('  📦 Starting VSCode...');
             await initVSCode(newProject ? newProjectPath : dataFolder);
@@ -487,7 +500,7 @@ export function initTest(newProject: boolean = true, skipProjectCreation: boolea
 
             if (newProject) {
                 console.log('  🧹 Resetting test project from template');
-                resetTestProjectFromTemplate();
+                resetTestProjectFromTemplate(templatePath);
             }
 
             // Wrap the soft-reload path in a timeout. If anything in the chain

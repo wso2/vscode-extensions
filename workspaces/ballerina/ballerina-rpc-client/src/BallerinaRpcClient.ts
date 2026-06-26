@@ -69,7 +69,14 @@ import {
     webToolToggle,
     WebToolToggle,
     runningServicesChanged,
-    RunningServiceInfo
+    RunningServiceInfo,
+    mcpServersChanged,
+    McpServerStatusDTO,
+    mcpLoadErrorsChanged,
+    McpLoadErrorsDTO,
+    agentsMdFileInfoChanged,
+    AgentsMdFileInfoDTO,
+    evaluationHistoryUpdated
 } from "@wso2/ballerina-core";
 import { LangClientRpcClient } from "./rpc-clients/lang-client/rpc-client";
 import { LibraryBrowserRpcClient } from "./rpc-clients/library-browser/rpc-client";
@@ -109,7 +116,11 @@ export class BallerinaRpcClient {
     private _platformExt: PlatformExtRpcClient;
     private _identifierUpdatedCallbacks = new Set<(response: ProjectStructureArtifactResponse[]) => void>();
     private _runningServicesChangedCallbacks = new Set<(services: RunningServiceInfo[]) => void>();
+    private _mcpServersChangedCallbacks = new Set<(servers: McpServerStatusDTO[]) => void>();
+    private _mcpLoadErrorsChangedCallbacks = new Set<(errors: McpLoadErrorsDTO) => void>();
+    private _agentsMdFileInfoChangedCallbacks = new Set<(state: AgentsMdFileInfoDTO) => void>();
     private _projectContentUpdatedCallbacks = new Set<(state: boolean) => void>();
+    private _evaluationHistoryUpdatedCallbacks = new Set<() => void>();
 
     constructor() {
         this.messenger = new Messenger(vscode);
@@ -139,8 +150,20 @@ export class BallerinaRpcClient {
         this.messenger.onNotification(runningServicesChanged, (services: RunningServiceInfo[]) => {
             this._runningServicesChangedCallbacks.forEach((callback) => callback(services));
         });
+        this.messenger.onNotification(mcpServersChanged, (servers: McpServerStatusDTO[]) => {
+            this._mcpServersChangedCallbacks.forEach((callback) => callback(servers));
+        });
+        this.messenger.onNotification(mcpLoadErrorsChanged, (errors: McpLoadErrorsDTO) => {
+            this._mcpLoadErrorsChangedCallbacks.forEach((callback) => callback(errors));
+        });
+        this.messenger.onNotification(agentsMdFileInfoChanged, (state: AgentsMdFileInfoDTO) => {
+            this._agentsMdFileInfoChangedCallbacks.forEach((callback) => callback(state));
+        });
         this.messenger.onNotification(projectContentUpdated, (state: boolean) => {
             this._projectContentUpdatedCallbacks.forEach((callback) => callback(state));
+        });
+        this.messenger.onNotification(evaluationHistoryUpdated, () => {
+            this._evaluationHistoryUpdatedCallbacks.forEach((callback) => callback());
         });
     }
 
@@ -247,6 +270,13 @@ export class BallerinaRpcClient {
         };
     }
 
+    onEvaluationHistoryUpdated(callback: () => void): () => void {
+        this._evaluationHistoryUpdatedCallbacks.add(callback);
+        return () => {
+            this._evaluationHistoryUpdatedCallbacks.delete(callback);
+        };
+    }
+
     onIdentifierUpdated(callback: (response: ProjectStructureArtifactResponse[]) => void) {
         this._identifierUpdatedCallbacks.add(callback);
         return () => {
@@ -340,6 +370,27 @@ export class BallerinaRpcClient {
         this._runningServicesChangedCallbacks.add(callback);
         return () => {
             this._runningServicesChangedCallbacks.delete(callback);
+        };
+    }
+
+    onMcpServersChanged(callback: (servers: McpServerStatusDTO[]) => void): () => void {
+        this._mcpServersChangedCallbacks.add(callback);
+        return () => {
+            this._mcpServersChangedCallbacks.delete(callback);
+        };
+    }
+
+    onMcpLoadErrorsChanged(callback: (errors: McpLoadErrorsDTO) => void): () => void {
+        this._mcpLoadErrorsChangedCallbacks.add(callback);
+        return () => {
+            this._mcpLoadErrorsChangedCallbacks.delete(callback);
+        };
+    }
+
+    onAgentsMdFileInfoChanged(callback: (state: AgentsMdFileInfoDTO) => void): () => void {
+        this._agentsMdFileInfoChangedCallbacks.add(callback);
+        return () => {
+            this._agentsMdFileInfoChangedCallbacks.delete(callback);
         };
     }
 }

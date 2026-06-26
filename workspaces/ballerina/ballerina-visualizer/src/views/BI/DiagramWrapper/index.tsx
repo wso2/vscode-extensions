@@ -24,7 +24,7 @@ import { BISequenceDiagram } from "../SequenceDiagram";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { TopNavigationBar } from "../../../components/TopNavigationBar";
 import { TitleBar } from "../../../components/TitleBar";
-import { CodeData, DIRECTORY_MAP, EVENT_TYPE, FOCUS_FLOW_DIAGRAM_VIEW, FocusFlowDiagramView, FunctionModel, LineRange, ParentMetadata, ProjectStructureArtifactResponse, Protocol, SHARED_COMMANDS } from "@wso2/ballerina-core";
+import { CodeData, DIRECTORY_MAP, EVENT_TYPE, FOCUS_FLOW_DIAGRAM_VIEW, FocusFlowDiagramView, FunctionModel, isSamePath, LineRange, ParentMetadata, ProjectStructureArtifactResponse, Protocol, SHARED_COMMANDS } from "@wso2/ballerina-core";
 import { VisualizerLocation, NodePosition } from "@wso2/ballerina-core";
 import { MACHINE_VIEW } from "@wso2/ballerina-core";
 import styled from "@emotion/styled";
@@ -125,6 +125,7 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
     const [showSequenceDiagram, setShowSequenceDiagram] = useState(false);
     const [enableSequenceDiagram, setEnableSequenceDiagram] = useState(false);
     const [loadingDiagram, setLoadingDiagram] = useState(true);
+    const [hasLoadedTitleBar, setHasLoadedTitleBar] = useState(false);
     const [fileName, setFileName] = useState("");
     const [serviceType, setServiceType] = useState("");
     const [serviceName, setServiceName] = useState("");
@@ -239,9 +240,17 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
         checkTracingStatus();
     }, []);
 
+    // Re-query on every change so the button reflects this project's file,
+    // not whatever project triggered the broadcast.
+    useEffect(() => {
+        rpcClient.getAgentChatRpcClient().onTracingStatusChanged(() => {
+            checkTracingStatus();
+        });
+    }, [rpcClient]);
+
     const checkTracingStatus = async () => {
         try {
-            const status = await rpcClient.getAgentChatRpcClient().getTracingStatus();
+            const status = await rpcClient.getAgentChatRpcClient().getTracingStatus({ projectPath });
             setIsTracingEnabled(status.enabled);
         } catch (error) {
             setIsTracingEnabled(false);
@@ -280,6 +289,7 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
 
     const handleReadyDiagram = (fileName?: string, parentMetadata?: ParentMetadata, position?: NodePosition, parentCodedata?: CodeData) => {
         setLoadingDiagram(false);
+        setHasLoadedTitleBar(true);
         if (fileName) {
             setFileName(fileName);
         }
@@ -306,7 +316,7 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
         }
         const functionModel = await rpcClient.getServiceDesignerRpcClient().getFunctionFromSource({ filePath: filePath, codedata: codeData });
         const projectStructure = await rpcClient.getBIDiagramRpcClient().getProjectStructure();
-        const project = projectStructure.projects.find(project => project.projectPath === visualizerLocation.projectPath);
+        const project = projectStructure.projects.find(project => isSamePath(project.projectPath, visualizerLocation.projectPath));
         const services = project?.directoryMap[DIRECTORY_MAP.SERVICE] || [];
         const selectedService = services.find(
             service => service.path === filePath && servicePositionWithinArtifact(service.position, servicePosition)
@@ -609,10 +619,14 @@ export function DiagramWrapper(param: DiagramWrapperProps) {
     return (
         <View>
             <TopNavigationBar projectPath={projectPath} />
-            {loadingDiagram ? (
+            {loadingDiagram && !hasLoadedTitleBar ? (
                 <TitleBarSkeleton />
             ) : (
-                <TitleBar title={getTitle()} subtitleElement={getSubtitleElement} actions={getActions()} />
+                <TitleBar
+                    title={getTitle()}
+                    subtitleElement={getSubtitleElement}
+                    actions={loadingDiagram ? null : getActions()}
+                />
             )}
             {enableSequenceDiagram && !isAgent &&
                 (
