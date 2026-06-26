@@ -416,7 +416,7 @@
     },
     {
       "packageName": "@wso2/webview-giga-bridge",
-      "projectFolder": "workspaces/common-libs/webview-giga-bridge"
+      "projectFolder": "workspaces/common-libs/vscode-webview-bridge"
     },
     {
       "packageName": "@wso2/service-designer",

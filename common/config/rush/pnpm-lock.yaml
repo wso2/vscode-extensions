@@ -1036,7 +1036,7 @@ importers:
         specifier: 6.0.14
         version: 6.0.14(@types/node@22.15.24)(jiti@1.21.7)(terser@5.48.0)(yaml@2.8.3)
 
-  ../../workspaces/common-libs/webview-giga-bridge:
+  ../../workspaces/common-libs/vscode-webview-bridge:
     dependencies:
       ws:
         specifier: 8.21.0
