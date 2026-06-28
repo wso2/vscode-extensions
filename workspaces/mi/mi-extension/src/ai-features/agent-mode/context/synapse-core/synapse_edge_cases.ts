@@ -69,9 +69,9 @@ false || true           → true   OK
 "text" or false         → THROWS
 0 and false             → THROWS
 \`\`\`
-**Workaround:** Use comparison to produce boolean:
+**Workaround:** Use comparisons to produce booleans, and parenthesize each one (\`and\`/\`or\` bind tighter than comparisons):
 \`\`\`xml
-\${payload.count > 0 and payload.active == "true"}
+\${(payload.count > 0) and (payload.active == "true")}
 \`\`\`
 
 ### Comparison operators are numeric-only
@@ -139,7 +139,7 @@ length(payload.middle)  → THROWS ("Null source value")
 \${not(exists(payload.field))}
 
 <!-- UNSAFE: will throw WARN if field is truly null -->
-\${payload.field == null or payload.field == ""}
+\${(payload.field == null) or (payload.field == "")}
 <!-- Use instead: -->
 \${not(exists(payload.field))}
 \`\`\`
@@ -182,7 +182,7 @@ Inside XML attribute values, these characters MUST be escaped:
 \`\`\`xml
 <!-- Comparison operators need XML escaping in attributes -->
 <variable name="isAdult" expression="\${payload.age &gt; 18}" type="BOOLEAN"/>
-<variable name="check" expression="\${payload.a &gt;= 5 &amp;&amp; payload.b &lt; 10}" type="BOOLEAN"/>
+<variable name="check" expression="\${(payload.a &gt;= 5) &amp;&amp; (payload.b &lt; 10)}" type="BOOLEAN"/>
 
 <!-- In text nodes (like log message), no escaping needed -->
 <log><message>\${payload.age > 18}</message></log>
@@ -324,11 +324,11 @@ error_catalog: `## Common Error Messages → Causes
 |--------------|-------|-----|
 | "Addition between non-numeric values" | Using \`+\` with string and number | Convert both to same type, or use inline template |
 | "Comparison between non-numeric values" | Using \`>\`/\`<\` with strings | Convert to numeric first: \`integer(x) > 5\` |
-| "Logical operation between non-boolean values" | Using \`and\`/\`or\` with non-boolean | Ensure both sides are boolean expressions |
+| "Logical operation between non-boolean values" | Using \`and\`/\`or\` with non-boolean — most often an unparenthesized comparison (\`a > 0 and b < 10\` parses as \`a > (0 and b) < 10\`) | Parenthesize each comparison: \`(a > 0) and (b < 10)\` |
 | "Condition is not a boolean" | Ternary \`?\` with non-boolean condition | Condition must be a comparison or boolean variable |
 | "Condition is null" | Ternary \`?\` where condition evaluates to null | Add \`exists()\` check |
 | "Null inputs for X operation" | Using arithmetic/comparison with null | Check with \`exists()\` first |
-| "Variable X is not defined" | Accessing unset variable | Set variable first or use \`exists()\` |
+| "Variable X is not defined" | Accessing unset variable | Declare it with a \`<variable>\` mediator (or connector \`responseVariable\`) earlier in the flow, or guard with \`exists()\` |
 | "Payload is empty" | Accessing payload when there's no body | Check payload exists before access |
 | "Could not fetch the value of the key" | Missing header/property/param | Verify the header/property is set |
 | "Invalid index for subString" | subString index out of bounds | Validate string length before calling |

@@ -2309,6 +2309,13 @@ export interface GetArtifactTypeResponse {
 export interface XmlCode{
     fileName: string;
     code: string;
+    /**
+     * When true, the language server skips cross-file reference checks (unresolved
+     * endpoint/sequence/key/messageStore/dataService references) for this request. Used by
+     * per-file auto-validation after a write, where a referenced sibling artifact may not exist
+     * yet. Optional and ignored by language servers that don't support it.
+     */
+    skipCrossFileValidation?: boolean;
 }
 
 export interface SubmitFeedbackRequest {

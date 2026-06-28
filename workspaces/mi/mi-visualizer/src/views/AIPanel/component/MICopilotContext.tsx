@@ -237,7 +237,7 @@ export function MICopilotContextProvider({ children }: MICopilotProviderProps) {
     });
 
     // Thinking mode state (persisted in localStorage per agent mode).
-    // Default ON: adaptive thinking + low effort + Opus 4.7 omitted-mode
+    // Default ON: adaptive thinking + low effort + Opus 4.8 omitted-mode
     // means it self-regulates and helps on multi-step reasoning. Users who
     // explicitly turned it OFF keep their preference.
     const THINKING_KEY_PREFIX = 'mi-agent-thinking-enabled';

@@ -108,12 +108,18 @@ function postProcessDiagnosticMessage(message: string): string {
  * @param absolutePath - Absolute path to the file
  * @param projectPath - Project root path
  * @param includeCodeActions - Whether to fetch LSP code actions for diagnostics
+ * @param skipCrossFileValidation - When true, ask the LS to skip cross-file reference checks
+ *   (unresolved endpoint/sequence/key/messageStore/dataService references). Used for per-file
+ *   auto-validation after a write, where a referenced sibling artifact may not exist yet. The
+ *   final validate_code call leaves this off so cross-file references are checked once all
+ *   related files exist. Unknown to older language servers, which simply ignore the flag.
  * @returns ValidationDiagnostics object or null if validation not performed
  */
 export async function validateXmlFile(
     absolutePath: string,
     projectPath: string,
-    includeCodeActions: boolean = false
+    includeCodeActions: boolean = false,
+    skipCrossFileValidation: boolean = false
 ): Promise<ValidationDiagnostics | null> {
     // Only validate XML files (incl. .dbs data services, which are XML in the SynapseXml language).
     const lowerPath = absolutePath.toLowerCase();
@@ -140,7 +146,8 @@ export async function validateXmlFile(
         // Get diagnostics from language server
         const diagnosticsResponse = await langClient.getCodeDiagnostics({
             fileName: absolutePath,
-            code: fileContent
+            code: fileContent,
+            skipCrossFileValidation
         });
 
         const lspDiagnostics = diagnosticsResponse.diagnostics || [];
