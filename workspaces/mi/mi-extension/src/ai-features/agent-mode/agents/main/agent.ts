@@ -30,7 +30,7 @@ const NATIVE_COMPACTION_TRIGGER_TOKENS = 200000;
 
 import { ModelMessage, streamText, stepCountIs, UserModelMessage, SystemModelMessage, wrapLanguageModel } from 'ai';
 import { AnthropicProviderOptions } from '@ai-sdk/anthropic';
-import { getAnthropicClient, getAnthropicClientForCustomModel, getAnthropicProvider, AnthropicModel, resolveMainModelId } from '../../../connection';
+import { getAnthropicClient, getAnthropicClientForCustomModel, getAnthropicProvider, AnthropicModel, resolveMainModelId, ANTHROPIC_OPUS_4_8, ANTHROPIC_SONNET_4_6 } from '../../../connection';
 import { getLoginMethod, getTavilyApiKey } from '../../../auth';
 import { getSystemPrompt } from '../main/system';
 import {
@@ -88,6 +88,7 @@ import {
     DEFAULT_STREAM_TOTAL_TIMEOUT_MS,
     getErrorDiagnostics,
     getErrorMessage,
+    getDisplayErrorMessage,
     isProxyTerminatedStreamError,
     isStreamTimeoutError,
     StreamWatchdog,
@@ -774,7 +775,19 @@ export async function executeAgent(
         let currentStepNumber = 0;
 
         // Get the model for prepareStep — resolve from model settings or default to Sonnet
-        const mainModelId = resolveMainModelId(request.modelSettings || { mainModelPreset: 'sonnet' });
+        let mainModelId = resolveMainModelId(request.modelSettings || { mainModelPreset: 'sonnet' });
+        // The WSO2 MI Copilot proxy blocks Opus models. If a stale 'opus' preset survives
+        // (e.g. carried over from a prior BYOK session), clamp the main agent to Sonnet so
+        // MI_INTEL requests don't 400 on every turn. Custom model IDs are left untouched —
+        // those surface the proxy error so the user can correct their override.
+        if (
+            loginMethod === LoginMethod.MI_INTEL &&
+            !request.modelSettings?.mainModelCustomId &&
+            mainModelId === ANTHROPIC_OPUS_4_8
+        ) {
+            logInfo('[Agent] MI_INTEL login: Opus is not available on the WSO2 plan — using Sonnet for the main agent.');
+            mainModelId = ANTHROPIC_SONNET_4_6;
+        }
         let model = request.modelSettings?.mainModelCustomId
             ? await getAnthropicClientForCustomModel(mainModelId)
             : await getAnthropicClient(mainModelId as AnthropicModel);
@@ -1335,7 +1348,9 @@ export async function executeAgent(
 
                 case 'error': {
                     cleanupStreamLifecycle?.();
-                    const errorMsg = getErrorMessage(part.error);
+                    // Surface the upstream provider/proxy message (e.g. a blocked-model
+                    // 400) rather than the SDK's generic status text.
+                    const errorMsg = getDisplayErrorMessage(part.error);
                     logError(`[Agent] Stream error: ${errorMsg}`);
                     // Structured diagnostics only — getErrorDiagnostics whitelists/truncates
                     // the safe provider fields. A raw JSON dump would re-introduce the leak
@@ -1460,6 +1475,10 @@ export async function executeAgent(
             requestAbortSignalAborted: request.abortSignal?.aborted || false,
         });
         const errorMsg = classifiedError.rawMessage;
+        // User-facing message: prefers the upstream provider/proxy detail (e.g. a
+        // blocked-model 400 body) over the SDK's generic status text. rawMessage is
+        // kept for classification/logging above.
+        const displayError = getDisplayErrorMessage(error);
 
         // Try to capture partial model messages even on error
         try {
@@ -1532,8 +1551,8 @@ export async function executeAgent(
             case 'model_error': {
                 const isCustomModel = !!request.modelSettings?.mainModelCustomId;
                 const modelErrorMessage = isCustomModel
-                    ? `Invalid model ID '${request.modelSettings!.mainModelCustomId}'. Check your model settings and try again.`
-                    : `The model used by this extension may be outdated or unavailable. Please update the WSO2 MI Extension to the latest version to get updated model support. (Error: ${errorMsg})`;
+                    ? `Invalid model ID '${request.modelSettings!.mainModelCustomId}'. Check your model settings and try again. (${displayError})`
+                    : `The model used by this extension may be outdated or unavailable. Please update the WSO2 MI Extension to the latest version to get updated model support. (Error: ${displayError})`;
                 logError(`[Agent] Model error (custom=${isCustomModel}): ${errorMsg}`, error);
                 emitEvent({ type: 'error', error: modelErrorMessage });
                 return {
@@ -1551,12 +1570,12 @@ export async function executeAgent(
 
                 emitEvent({
                     type: 'error',
-                    error: errorMsg,
+                    error: displayError,
                 });
                 return {
                     success: false,
                     modifiedFiles,
-                    error: errorMsg,
+                    error: displayError,
                     modelMessages: finalModelMessages,
                 };
         }

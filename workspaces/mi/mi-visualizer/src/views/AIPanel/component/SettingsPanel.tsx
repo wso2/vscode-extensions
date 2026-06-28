@@ -218,7 +218,17 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, isByok, isAwsBed
         !modelSettings.subModelCustomId &&
         isThinkingEnabled;
 
-    const currentMainOption = MAIN_AGENT_OPTIONS.find(o => o.value === modelSettings.mainModelPreset) || MAIN_AGENT_OPTIONS[0];
+    // WSO2 (MI Copilot / MI_INTEL) login is the only non-BYOK method. The MI Copilot
+    // proxy manages the model set (and blocks Opus), so model switching is locked here.
+    const isMiCopilotPlan = !isByok;
+
+    // On the WSO2 plan the main agent can't use Opus (proxy-blocked), so always show
+    // the non-Opus default — even if an 'opus' preset carried over from a prior BYOK
+    // session (the backend clamps the actual model to match). The sub-agent presets
+    // (Haiku/Sonnet) are both allowed on the plan, so its switch is locked but still
+    // reflects the model actually in use.
+    const effectiveMainPreset = isMiCopilotPlan ? DEFAULT_MAIN : modelSettings.mainModelPreset;
+    const currentMainOption = MAIN_AGENT_OPTIONS.find(o => o.value === effectiveMainPreset) || MAIN_AGENT_OPTIONS[0];
     const currentSubOption = SUB_AGENT_OPTIONS.find(o => o.value === modelSettings.subModelPreset) || SUB_AGENT_OPTIONS[0];
 
     return (
@@ -250,11 +260,33 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, isByok, isAwsBed
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-5 space-y-6">
+                {/* WSO2 plan: model selection is managed by the proxy and locked here. */}
+                {isMiCopilotPlan && (
+                    <div
+                        className="flex items-start gap-1.5 px-3 py-2 rounded-md"
+                        style={{
+                            fontSize: "11px",
+                            lineHeight: 1.4,
+                            color: "var(--vscode-foreground)",
+                            backgroundColor: "color-mix(in srgb, var(--vscode-foreground) 6%, transparent)",
+                            border: "1px solid var(--vscode-panel-border)",
+                        }}
+                    >
+                        <span className="shrink-0 mt-px" style={{ color: "var(--vscode-editorInfo-foreground, #3794ff)" }}>
+                            <Codicon name="lock" />
+                        </span>
+                        <span>
+                            Sign in with your own Anthropic API key or AWS Bedrock to change models.
+                        </span>
+                    </div>
+                )}
+
                 {/* Main Agent Intelligence */}
                 <SettingsSection title="Main Agent Intelligence">
                     <ToggleGroup
                         options={MAIN_AGENT_OPTIONS.map(o => o.label)}
                         selected={currentMainOption.label}
+                        disabled={isMiCopilotPlan}
                         onSelect={(label) => {
                             const option = MAIN_AGENT_OPTIONS.find(o => o.label === label);
                             if (option) {
@@ -277,6 +309,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, isByok, isAwsBed
                     <ToggleGroup
                         options={SUB_AGENT_OPTIONS.map(o => o.label)}
                         selected={currentSubOption.label}
+                        disabled={isMiCopilotPlan}
                         onSelect={(label) => {
                             const option = SUB_AGENT_OPTIONS.find(o => o.label === label);
                             if (option) {
@@ -294,8 +327,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, isByok, isAwsBed
                     </div>
                 </SettingsSection>
 
-                {/* High intelligence warning */}
-                {(modelSettings.mainModelPreset === "opus" || modelSettings.subModelPreset === "sonnet") && (
+                {/* High intelligence warning — not shown on the WSO2 plan, where the
+                    model is locked to the plan default. */}
+                {!isMiCopilotPlan && (modelSettings.mainModelPreset === "opus" || modelSettings.subModelPreset === "sonnet") && (
                     <InfoNote
                         icon="info"
                         variant="info"

@@ -83,6 +83,119 @@ export function getErrorMessage(error: unknown): string {
     return 'An unknown error occurred';
 }
 
+/**
+ * Pull a human-readable message out of a provider/proxy error body. Handles the
+ * common JSON envelopes:
+ *   { error: { message } }              (Anthropic / OpenAI style)
+ *   { error: "..." }                    (string error)
+ *   { message }                         (bare message)
+ *   { detail } / { detail: { message } } (FastAPI / proxy style)
+ */
+function pickProviderMessage(obj: Record<string, unknown>): string | undefined {
+    const err = obj.error;
+    if (err && typeof err === 'object' && typeof (err as { message?: unknown }).message === 'string') {
+        const msg = (err as { message: string }).message.trim();
+        if (msg) {
+            return msg;
+        }
+    }
+    if (typeof err === 'string' && err.trim()) {
+        return err.trim();
+    }
+    if (typeof obj.message === 'string' && obj.message.trim()) {
+        return obj.message.trim();
+    }
+    const detail = obj.detail;
+    if (typeof detail === 'string' && detail.trim()) {
+        return detail.trim();
+    }
+    if (detail && typeof detail === 'object' && typeof (detail as { message?: unknown }).message === 'string') {
+        const msg = (detail as { message: string }).message.trim();
+        if (msg) {
+            return msg;
+        }
+    }
+    return undefined;
+}
+
+/**
+ * Best-effort extraction of the message the upstream provider/proxy actually sent.
+ * The Vercel AI SDK's APICallError stores the parsed body in `data` and the raw
+ * body in `responseBody`; when the body doesn't match the provider's error schema
+ * the SDK falls back to the bare HTTP status text for `.message`, so actionable
+ * detail (e.g. "Opus models are not available on this plan") only lives in
+ * `responseBody`. We look there so it can be surfaced to the user.
+ */
+function extractProviderErrorMessageFrom(error: unknown): string | undefined {
+    if (!error || typeof error !== 'object') {
+        return undefined;
+    }
+    const r = error as Record<string, unknown>;
+    if (r.data && typeof r.data === 'object') {
+        const fromData = pickProviderMessage(r.data as Record<string, unknown>);
+        if (fromData) {
+            return fromData;
+        }
+    }
+    if (typeof r.responseBody === 'string' && r.responseBody.trim()) {
+        const body = r.responseBody.trim();
+        try {
+            const parsed = JSON.parse(body);
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                const fromBody = pickProviderMessage(parsed as Record<string, unknown>);
+                if (fromBody) {
+                    return fromBody;
+                }
+            }
+        } catch {
+            // Non-JSON body — surface short plain-text bodies as-is.
+            if (body.length <= 500) {
+                return body;
+            }
+        }
+    }
+    return undefined;
+}
+
+/**
+ * The AI SDK sometimes wraps the provider's APICallError, so the body-bearing
+ * error can sit on `.cause`. Walk a couple of levels of the cause chain.
+ */
+function extractProviderErrorMessage(error: unknown): string | undefined {
+    let current: unknown = error;
+    for (let depth = 0; depth < 3 && current && typeof current === 'object'; depth++) {
+        const found = extractProviderErrorMessageFrom(current);
+        if (found) {
+            return found;
+        }
+        current = (current as { cause?: unknown }).cause;
+    }
+    return undefined;
+}
+
+const MAX_DISPLAY_ERROR_LENGTH = 1000;
+
+/**
+ * Build the user-facing error string for the chat error card. Prefers the
+ * upstream provider/proxy message (which carries actionable detail such as a
+ * blocked-model notice) over the SDK's generic status text, falling back to the
+ * plain error message when no richer detail is available.
+ */
+export function getDisplayErrorMessage(error: unknown): string {
+    const base = getErrorMessage(error).trim();
+    const provider = extractProviderErrorMessage(error)?.trim();
+    let message = base;
+    // base is often just "Bad Request"/"Forbidden"; prefer the provider detail
+    // unless base already contains it (so we don't drop extra context).
+    if (provider && provider !== base && !base.includes(provider)) {
+        message = provider;
+    }
+    if (message.length > MAX_DISPLAY_ERROR_LENGTH) {
+        message = message.slice(0, MAX_DISPLAY_ERROR_LENGTH) + '…';
+    }
+    return message || 'An unknown error occurred';
+}
+
 function getErrorCode(error: unknown): string | undefined {
     if (!error || typeof error !== 'object') {
         return undefined;
