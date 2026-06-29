@@ -54,6 +54,7 @@ import * as vscode from 'vscode';
 import { AgentEventHandler } from './event-handler';
 import { executeAgent, createAgentAbortController, AgentEvent } from '../../ai-features/agent-mode';
 import { isToolInterruptionAbortError } from '../../ai-features/agent-mode/agents/main/agent';
+import { getDisplayErrorMessage } from '../../ai-features/agent-mode/stream_guard';
 import { logInfo, logError, logDebug } from '../../ai-features/copilot/logger';
 import {
     ChatHistoryManager,
@@ -929,7 +930,9 @@ export class MIAgentPanelRpcManager implements MIAgentPanelAPI {
             return {
                 success: false,
                 checkpointId: activeCheckpointId,
-                error: error instanceof Error ? error.message : 'Unknown error'
+                // Surface the upstream provider/proxy detail (e.g. a blocked-model 400)
+                // for errors that escape executeAgent's own handling.
+                error: getDisplayErrorMessage(error)
             };
         } finally {
             if (shouldRunCleanup) {
