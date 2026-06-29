@@ -60,12 +60,17 @@ export function AICodeGenerator({ isUsageExceeded = false }: AICodeGeneratorProp
   useEffect(() => {
       let cancelled = false;
       const checkByok = async () => {
+          // Re-gate from scratch on every lookup (e.g. rpcClient change) so a prior
+          // session's resolved state can't leak into the new one. Clear the auth
+          // flags too, not just the resolved gate — otherwise a failed/missing
+          // lookup would settle with stale isByok/isAwsBedrock and wrongly unlock
+          // the model controls. Runs before the rpcClient guard so it always applies.
+          setIsByok(false);
+          setIsAwsBedrock(false);
+          setByokResolved(false);
           if (!rpcClient) {
               return;
           }
-          // Re-gate from scratch on every lookup (e.g. rpcClient change) so a prior
-          // session's resolved state can't leak into the new one before this settles.
-          setByokResolved(false);
           try {
               const [hasApiKey, machineView] = await Promise.all([
                   rpcClient.getMiAiPanelRpcClient().hasAnthropicApiKey(),
@@ -82,7 +87,8 @@ export function AICodeGenerator({ isUsageExceeded = false }: AICodeGeneratorProp
               console.error('[AICodeGenerator] Failed to resolve BYOK / Bedrock state', error);
               if (!cancelled) {
                   // Settle even on failure so the settings UI doesn't stay pending
-                  // (controls disabled) forever; falls back to the managed-plan view.
+                  // (controls disabled) forever; the cleared flags above mean this
+                  // falls back to the managed-plan view rather than a stale unlock.
                   setByokResolved(true);
               }
           }

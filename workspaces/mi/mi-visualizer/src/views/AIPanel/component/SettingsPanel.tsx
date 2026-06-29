@@ -77,11 +77,11 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, isByok, byokReso
     const handleResetDefaults = () => {
         updateModelSettings({
             ...modelSettings,
-            // On the locked MI Copilot plan the model presets are managed by the
-            // proxy and the selectors are disabled, so reset must leave them as-is —
-            // otherwise it's a hidden model-switch path. Only reset what the user can
-            // actually control here (thinking, below).
-            ...(isMiCopilotPlan ? {} : {
+            // When the model controls are disabled — the locked MI Copilot plan, or
+            // while plan resolution is still pending — reset must leave the presets
+            // as-is, otherwise it's a hidden model-switch path. Only reset what the
+            // user can actually control here (thinking, below).
+            ...(modelControlsDisabled ? {} : {
                 mainModelPreset: DEFAULT_MAIN,
                 subModelPreset: DEFAULT_SUB,
                 mainModelCustomId: undefined,
@@ -240,11 +240,11 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, isByok, byokReso
         modelSettings.subModelPreset === DEFAULT_SUB &&
         !modelSettings.mainModelCustomId &&
         !modelSettings.subModelCustomId;
-    // On the locked MI Copilot plan the presets aren't user-controllable, so a
-    // carried-over preset must not keep the reset button active — clicking it would
-    // rewrite the (locked) presets, a hidden model-switch path. There, "default"
-    // depends only on the thinking toggle.
-    const isDefault = (isMiCopilotPlan || modelSettingsAreDefault) && isThinkingEnabled;
+    // When model controls are disabled (locked plan or pending resolution) the
+    // presets aren't user-controllable, so a carried-over preset must not keep the
+    // reset button active — clicking it would rewrite the (locked) presets, a
+    // hidden model-switch path. There, "default" depends only on the thinking toggle.
+    const isDefault = (modelControlsDisabled || modelSettingsAreDefault) && isThinkingEnabled;
 
     // On the WSO2 plan the main agent can't use Opus (proxy-blocked), so always show
     // the non-Opus default — even if an 'opus' preset carried over from a prior BYOK
