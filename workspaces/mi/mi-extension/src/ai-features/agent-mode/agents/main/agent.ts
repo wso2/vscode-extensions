@@ -1476,9 +1476,11 @@ export async function executeAgent(
         });
         const errorMsg = classifiedError.rawMessage;
         // User-facing message: prefers the upstream provider/proxy detail (e.g. a
-        // blocked-model 400 body) over the SDK's generic status text. rawMessage is
-        // kept for classification/logging above.
-        const displayError = getDisplayErrorMessage(error);
+        // blocked-model 400 body) over the SDK's generic status text. When the
+        // watchdog aborted the stream, the caught error is a generic abort wrapper
+        // while abortReason holds the original (body-bearing) error, so prefer it.
+        // rawMessage is kept for classification/logging above.
+        const displayError = getDisplayErrorMessage(abortReason ?? error);
 
         // Try to capture partial model messages even on error
         try {

@@ -126,6 +126,47 @@ function pickProviderMessage(obj: Record<string, unknown>): string | undefined {
  * detail (e.g. "Opus models are not available on this plan") only lives in
  * `responseBody`. We look there so it can be surfaced to the user.
  */
+// Oversized bodies are unlikely to be well-formed provider envelopes and
+// JSON.parse-ing them on an already-failing path isn't worth the cost, so we
+// only attempt structured parsing below this threshold and surface shorter
+// plain-text bodies as-is.
+const MAX_PARSEABLE_BODY_LENGTH = 8000;
+const MAX_PLAINTEXT_BODY_LENGTH = 500;
+
+/**
+ * Extract a provider message from a raw body string. The string may be a JSON
+ * envelope, a JSON-quoted string, or plain text.
+ */
+function extractProviderErrorMessageFromBody(body: string): string | undefined {
+    const trimmed = body.trim();
+    if (!trimmed) {
+        return undefined;
+    }
+    if (trimmed.length <= MAX_PARSEABLE_BODY_LENGTH) {
+        try {
+            const parsed = JSON.parse(trimmed);
+            // A JSON-quoted string (e.g. "Opus is not available") parses to a string.
+            if (typeof parsed === 'string' && parsed.trim()) {
+                return parsed.trim();
+            }
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                const fromBody = pickProviderMessage(parsed as Record<string, unknown>);
+                if (fromBody) {
+                    return fromBody;
+                }
+            }
+            return undefined;
+        } catch {
+            // Fall through to plain-text handling below.
+        }
+    }
+    // Non-JSON (or oversized) body — surface short plain-text bodies as-is.
+    if (trimmed.length <= MAX_PLAINTEXT_BODY_LENGTH) {
+        return trimmed;
+    }
+    return undefined;
+}
+
 function extractProviderErrorMessageFrom(error: unknown): string | undefined {
     if (!error || typeof error !== 'object') {
         return undefined;
@@ -136,22 +177,17 @@ function extractProviderErrorMessageFrom(error: unknown): string | undefined {
         if (fromData) {
             return fromData;
         }
+    } else if (typeof r.data === 'string') {
+        // The AI SDK can surface APICallError.data as a raw string.
+        const fromData = extractProviderErrorMessageFromBody(r.data);
+        if (fromData) {
+            return fromData;
+        }
     }
-    if (typeof r.responseBody === 'string' && r.responseBody.trim()) {
-        const body = r.responseBody.trim();
-        try {
-            const parsed = JSON.parse(body);
-            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-                const fromBody = pickProviderMessage(parsed as Record<string, unknown>);
-                if (fromBody) {
-                    return fromBody;
-                }
-            }
-        } catch {
-            // Non-JSON body — surface short plain-text bodies as-is.
-            if (body.length <= 500) {
-                return body;
-            }
+    if (typeof r.responseBody === 'string') {
+        const fromBody = extractProviderErrorMessageFromBody(r.responseBody);
+        if (fromBody) {
+            return fromBody;
         }
     }
     return undefined;
