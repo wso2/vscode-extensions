@@ -29,7 +29,7 @@ export function getAddAPITemplate() {
 }
 
 export function getEditAPITemplate() {
-    return `<api{{#hostName}} hostname="{{hostName}}"{{/hostName}} name="{{name}}"{{#port}} port="{{port}}"{{/port}}{{#statistics}} statistics="enable"{{/statistics}}{{#trace}} trace="enable"{{/trace}} context="{{context}}"{{#swaggerDef}} publishSwagger="{{swaggerDef}}"{{/swaggerDef}}{{#version}} version="{{version}}" version-type="{{version_type}}"{{/version}} xmlns="http://ws.apache.org/ns/synapse">`
+    return `<api{{#hostName}} hostname="{{hostName}}"{{/hostName}} name="{{name}}"{{#port}} port="{{port}}"{{/port}}{{#statistics}} statistics="enable"{{/statistics}}{{#trace}} trace="enable"{{/trace}} context="{{context}}"{{#swaggerDef}} publishSwagger="{{swaggerDef}}"{{/swaggerDef}}{{#version}} version="{{version}}" version-type="{{version_type}}"{{/version}}{{#bindsTo}} binds-to="{{bindsTo}}"{{/bindsTo}} xmlns="http://ws.apache.org/ns/synapse">`
 }
 
 export function getHandlersTemplate() {
@@ -41,7 +41,7 @@ export function getHandlersTemplate() {
 };
 
 export function getAddAPIResourceTemplate() {
-    return `<resource methods="{{methods}}"{{#protocol}} protocol="{{protocol}}"{{/protocol}}{{#uri_template}} uri-template="{{uri_template}}"{{/uri_template}}{{#url_mapping}} url-mapping="{{url_mapping}}"{{/url_mapping}}{{#version}} version="{{version}}" version-type="{{version_type}}"{{/version}}>
+    return `<resource methods="{{methods}}"{{#protocol}} protocol="{{protocol}}"{{/protocol}}{{#uri_template}} uri-template="{{uri_template}}"{{/uri_template}}{{#url_mapping}} url-mapping="{{url_mapping}}"{{/url_mapping}}{{#version}} version="{{version}}" version-type="{{version_type}}"{{/version}}{{#binds_to}} binds-to="{{binds_to}}"{{/binds_to}}>
     <inSequence>
     </inSequence>
     <faultSequence>
@@ -50,7 +50,7 @@ export function getAddAPIResourceTemplate() {
 }
 
 export const getEditAPIResourceTemplate = () => {
-    return `<resource methods="{{methods}}"{{#protocol}} protocol="{{protocol}}"{{/protocol}}{{#uri_template}} uri-template="{{uri_template}}"{{/uri_template}}{{#url_mapping}} url-mapping="{{url_mapping}}"{{/url_mapping}}{{#in_sequence}} inSequence="{{in_sequence}}"{{/in_sequence}}{{#out_sequence}} outSequence="{{out_sequence}}"{{/out_sequence}}{{#fault_sequence}} faultSequence="{{fault_sequence}}"{{/fault_sequence}}>{{#appened_in_sequence}}
+    return `<resource methods="{{methods}}"{{#protocol}} protocol="{{protocol}}"{{/protocol}}{{#uri_template}} uri-template="{{uri_template}}"{{/uri_template}}{{#url_mapping}} url-mapping="{{url_mapping}}"{{/url_mapping}}{{#in_sequence}} inSequence="{{in_sequence}}"{{/in_sequence}}{{#out_sequence}} outSequence="{{out_sequence}}"{{/out_sequence}}{{#fault_sequence}} faultSequence="{{fault_sequence}}"{{/fault_sequence}}{{#binds_to}} binds-to="{{binds_to}}"{{/binds_to}}>{{#appened_in_sequence}}
     <inSequence>
     </inSequence>{{/appened_in_sequence}}{{#appened_fault_sequence}}
     <faultSequence>

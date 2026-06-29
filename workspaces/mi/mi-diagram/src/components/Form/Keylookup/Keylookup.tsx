@@ -57,6 +57,7 @@ export type FilterType =
     | "dssQuery"
     | "dssDataSource"
     | "configurable"
+    | "bindToInbound"
 
 // Interfaces
 interface IKeylookupBase {
@@ -271,7 +272,9 @@ export const Keylookup = (props: IKeylookup) => {
         }
 
         let resourceType: ResourceType | MultipleResourceType[];
-        if (Array.isArray(filterType)) {
+        if (filterType === "bindToInbound") {
+            resourceType = [{ type: "inbound-endpoint", protocols: ["http", "https", "ws", "wss"] }];
+        } else if (Array.isArray(filterType)) {
             resourceType = filterType.map((type) => {
                 return { type: type }
             });
@@ -290,7 +293,8 @@ export const Keylookup = (props: IKeylookup) => {
         const resources = artifactTypes.artifacts;
         if (resources && result?.resources) {
             result.resources.forEach((resource) => {
-                const item = { key: resource.name, item: getItemComponent(resource.name, resource.type), path: resource.absolutePath };
+                const displayType = filterType === "bindToInbound" ? "inbound-endpoint" : resource.type;
+                const item = { key: resource.name, item: getItemComponent(resource.name, displayType), path: resource.absolutePath };
                 if (resource.name === getValue(value)) {
                     initialItem = item;
                     return;

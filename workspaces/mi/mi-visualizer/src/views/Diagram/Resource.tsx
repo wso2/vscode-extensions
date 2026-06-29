@@ -15,7 +15,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import React from "react";
+import React, { useEffect } from "react";
 import { Diagnostic } from "vscode-languageserver-types";
 import { APIResource, Range } from "@wso2/mi-syntax-tree/lib/src";
 import { Diagram } from "@wso2/mi-diagram";
@@ -24,7 +24,7 @@ import { useVisualizerContext } from "@wso2/mi-rpc-client";
 import { VSCodeTag } from "@vscode/webview-ui-toolkit/react";
 import { getColorByMethod } from "@wso2/service-designer";
 import { View, ViewContent, ViewHeader } from "../../components/View";
-import { generateResourceData, getResourceDeleteRanges, onResourceEdit } from "../../utils/form";
+import { generateResourceData, getApiBindsToOptions, getResourceDeleteRanges, onResourceEdit } from "../../utils/form";
 import styled from "@emotion/styled";
 import { ResourceForm, ResourceFormData, ResourceType } from "../Forms/ResourceForm";
 
@@ -52,6 +52,13 @@ export const ResourceView = ({ model: resourceModel, documentUri, diagnostics }:
     const flowStateKey = `flowState-${documentUri}-${model.uriTemplate || model.urlMapping}`;
     const [isFaultFlow, setFlow] = React.useState<boolean>(localStorage.getItem(flowStateKey) === 'true' ? true : false);
     const [isFormOpen, setFormOpen] = React.useState(false);
+    const [bindsToOptions, setBindsToOptions] = React.useState<string[]>([]);
+
+    useEffect(() => {
+        (async () => {
+            setBindsToOptions(await getApiBindsToOptions(rpcClient, documentUri));
+        })();
+    }, [documentUri]);
 
     const toggleFlow = () => {
         const newFlowState = !isFaultFlow;
@@ -60,7 +67,6 @@ export const ResourceView = ({ model: resourceModel, documentUri, diagnostics }:
     };
 
     const handleEditResource = () => {
-        console.log(model);
         setFormOpen(true);
     }
 
@@ -108,6 +114,7 @@ export const ResourceView = ({ model: resourceModel, documentUri, diagnostics }:
                     isOpen={isFormOpen}
                     formData={data}
                     documentUri={documentUri}
+                    bindsToOptions={bindsToOptions}
                     onCancel={() => setFormOpen(false)}
                     onSave={onSave}
                 />

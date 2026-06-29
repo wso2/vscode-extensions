@@ -108,6 +108,7 @@ export function ServiceDesignerView({ syntaxTree, documentUri }: ServiceDesigner
         const serviceData: APIData = {
             apiName: st.name,
             apiContext: st.context,
+            bindsTo: st.bindsTo ?? '',
             version: st.version,
             hostName: st.hostname ?? '',
             port: st.port ?? '0',
@@ -322,6 +323,7 @@ export function ServiceDesignerView({ syntaxTree, documentUri }: ServiceDesigner
                 formData={mode === "edit" && formData}
                 onCancel={handleCancel}
                 documentUri={documentUri}
+                bindsToOptions={serviceData?.bindsTo ? serviceData.bindsTo.split(",").map((s) => s.trim()).filter(Boolean) : []}
                 onSave={handleResourceCreate}
             />
         </>
