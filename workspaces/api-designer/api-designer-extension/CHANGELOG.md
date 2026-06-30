@@ -7,7 +7,7 @@ All notable changes to the "API Designer" extension will be documented in this f
 ### Added
 - **APK Configuration Support**: Author and manage `.apk-conf` API configuration files.
   - Schema validation, autocompletion, and inline error checking for `.apk-conf` files.
-  - Insert built-in templates (Basic, PetStore, Pizza Shack) via the **Choose Template (APK)** command.
+  - Insert built-in templates (Basic, PetStore, Pizza Shack) via the **API Designer: Choose Template (APK)** command.
 
 ## 0.9.0
 
