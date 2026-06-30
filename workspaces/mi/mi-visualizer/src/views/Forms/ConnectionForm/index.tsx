@@ -276,22 +276,17 @@ export function ConnectionWizard(props: ConnectionStoreProps) {
     const fetchStoreConnectors = async () => {
         setIsFetchingStoreConnectors(true);
         try {
-            if (navigator.onLine) {
-                const response = await rpcClient.getMiDiagramRpcClient().getStoreConnectorJSON();
-                const data = response.connectors;
+            const response = await rpcClient.getMiDiagramRpcClient().getStoreConnectorJSON();
+            const data = response.connectors;
 
-                if (data) {
-                    setStoreConnectors(data);
-                } else {
-                    setStoreConnectors(null);
-                }
+            if (data) {
+                setStoreConnectors(data);
             } else {
                 setStoreConnectors(null);
             }
         } catch (e) {
             setStoreConnectors(null);
             console.error("Error fetching connectors", e);
-            rpcClient.getMiVisualizerRpcClient().showNotification({message: "Error occurred while fetching connectors", type: "error"});
         }
         setIsFetchingStoreConnectors(false);
     };
@@ -649,7 +644,7 @@ export function ConnectionWizard(props: ConnectionStoreProps) {
                         ) : displayedStoreConnectors === null && (
                             <LoaderWrapper>
                                 {isFetchingStoreConnectors ? (
-                                    <span>Fetching connectors...</span>
+                                    <><ProgressRing /><span>Fetching connectors...</span></>
                                 ) : (
                                     <span>Failed to fetch store connectors. Please <VSCodeLink onClick={fetchStoreConnectors}>retry</VSCodeLink></span>
 

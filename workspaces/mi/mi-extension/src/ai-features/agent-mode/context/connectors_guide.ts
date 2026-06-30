@@ -69,7 +69,7 @@ noInitializationNeeded? (HIGHEST PRECEDENCE — check this first)
 \`\`\`
 
 ### 2) General rules
-1. Only use operations defined in connector JSON signatures (via ${CONNECTOR_TOOL_NAME}).
+1. Only use operations AND parameters returned by ${CONNECTOR_TOOL_NAME} mode='details'. Never write connector XML from memory — parameter names and casing vary between connector versions.
 2. Never use \`<class name="..."/>\`. Use proper connector syntax.
 3. No placeholders — include all required parameters.
 4. \`configKey\` must exactly match the local entry \`key\`.

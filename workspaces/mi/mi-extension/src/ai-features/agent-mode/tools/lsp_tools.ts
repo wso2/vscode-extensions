@@ -122,7 +122,8 @@ export function createValidateCodeTool(execute: ValidateCodeExecuteFn) {
             NOTE: file_write/file_edit already validate automatically. Only use to:
             - Validate files you haven't just written/edited
             - Batch-validate multiple files
-            - Re-validate after adding connectors via ${MANAGE_CONNECTOR_TOOL_NAME}`,
+            - Re-validate after adding connectors via ${MANAGE_CONNECTOR_TOOL_NAME}
+            - Check cross-file references (endpoint/sequence/key/messageStore/dataService) after all related files are written — these are NOT reported by per-file auto-validation, since the referenced files may not exist yet at write time`,
         inputSchema: validateCodeInputSchema,
         execute
     });

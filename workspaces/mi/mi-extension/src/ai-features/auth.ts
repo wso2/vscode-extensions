@@ -599,7 +599,7 @@ const validateBedrockRegion = (region: string): void => {
     if (region.startsWith('us-gov-') || region.startsWith('cn-')) {
         throw new Error(
             `AWS region "${region}" is not supported. The Anthropic models on Bedrock ` +
-            `(Haiku 4.5, Sonnet 4.6, Opus 4.7) are only available via the global. ` +
+            `(Haiku 4.5, Sonnet 4.6, Opus 4.8) are only available via the global. ` +
             `inference profile in the commercial AWS partition — GovCloud and China ` +
             `partitions are not supported. Use a commercial region like us-east-1 or eu-west-1.`
         );

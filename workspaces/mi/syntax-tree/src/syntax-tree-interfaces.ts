@@ -683,6 +683,7 @@ export interface API extends STNode {
     description: string;
     statistics: string;
     trace: string;
+    bindsTo?: string;
 }
 
 export interface WSDLEndpointMarkForSuspension extends STNode {
@@ -1154,6 +1155,7 @@ export interface APIResource extends STNode {
     faultSequenceAttribute: string;
     uriTemplate: string;
     urlMapping: string;
+    bindsTo: string;
 }
 
 export interface DSSResource extends STNode {

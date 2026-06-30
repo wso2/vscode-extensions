@@ -36,7 +36,7 @@ import styled from "@emotion/styled";
 import { SIDE_PANEL_WIDTH } from "../../constants";
 import { Resolver, useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { FormKeylookup } from "@wso2/mi-diagram";
+import { FormKeylookup, ParamManager, ParamConfig, ParamField } from "@wso2/mi-diagram";
 
 // Styles
 const ActionContainer = styled.div`
@@ -115,6 +115,7 @@ const schema = yup.object({
         then: (schema) => schema.required("Fault Sequence is required"),
         otherwise: (schema) => schema.transform(() => undefined),
     }),
+    bindsTo: yup.string(),
 });
 
 // Types
@@ -131,6 +132,7 @@ type ResourceFormProps = {
     formData?: ResourceType;
     isOpen: boolean;
     documentUri: string;
+    bindsToOptions?: string[];
     onCancel: () => void;
     onSave: (data: ResourceFormData) => void;
 };
@@ -163,9 +165,41 @@ const initialValues: ResourceType = {
     outSequence: "",
     faultSequenceType: "inline",
     faultSequence: "",
+    bindsTo: "",
 };
 
-export const ResourceForm = ({ isOpen, documentUri, onCancel, onSave, formData }: ResourceFormProps) => {
+const paramConfigToBindsTo = (config: ParamConfig): string =>
+    config.paramValues
+        .map((param) => (param.paramValues[0]?.value as string)?.trim())
+        .filter(Boolean)
+        .join(",");
+
+const bindsToToParamConfig = (bindsTo: string, options: string[]): ParamConfig => {
+    const paramFields: ParamField[] = [
+        {
+            id: 0,
+            type: "AutoComplete",
+            label: "Inbound Endpoint",
+            values: options,
+            isRequired: true,
+            allowItemCreate: false,
+        },
+    ];
+    return {
+        paramFields,
+        paramValues: (bindsTo ? bindsTo.split(",") : [])
+            .map((value) => value.trim())
+            .filter(Boolean)
+            .map((value, index) => ({
+                id: index,
+                paramValues: [{ value }],
+                key: String(index + 1),
+                value,
+            })),
+    };
+};
+
+export const ResourceForm = ({ isOpen, documentUri, onCancel, onSave, formData, bindsToOptions = [] }: ResourceFormProps) => {
     const {
         control,
         handleSubmit,
@@ -189,6 +223,19 @@ export const ResourceForm = ({ isOpen, documentUri, onCancel, onSave, formData }
     const [isHidden, setIsHidden] = useState(false);
     const [paramType, setParamType] = useState("");
     const [paramValue, setParamValue] = useState("");
+    const [bindsToParams, setBindsToParams] = useState<ParamConfig>(bindsToToParamConfig("", bindsToOptions));
+
+    const handleBindsToChange = (config: ParamConfig) => {
+        const normalized: ParamConfig = {
+            ...config,
+            paramValues: config.paramValues.map((param, index) => {
+                const value = (param.paramValues[0]?.value as string) ?? "";
+                return { ...param, id: index, key: String(index + 1), value };
+            }),
+        };
+        setBindsToParams(normalized);
+        setValue("bindsTo", paramConfigToBindsTo(normalized), { shouldValidate: true, shouldDirty: true });
+    };
 
     // Functions
     const handleCancel = () => {
@@ -254,13 +301,16 @@ export const ResourceForm = ({ isOpen, documentUri, onCancel, onSave, formData }
     };
 
     // useEffects
+    const bindsToOptionsKey = bindsToOptions.join(",");
     useEffect(() => {
         if (isOpen && formData) {
             reset(formData);
+            setBindsToParams(bindsToToParamConfig(formData.bindsTo ?? "", bindsToOptions));
         } else if (isOpen && !formData) {
             reset(initialValues);
+            setBindsToParams(bindsToToParamConfig("", bindsToOptions));
         }
-    }, [formData, isOpen])
+    }, [formData, isOpen, bindsToOptionsKey])
 
     return (
         <SidePanel
@@ -415,6 +465,29 @@ export const ResourceForm = ({ isOpen, documentUri, onCancel, onSave, formData }
                                                     />
                                                 )}
                                             </>
+                                        )}
+                                        {bindsToOptions.length > 0 && (
+                                            <CheckBoxContainer>
+                                                <label>Bindings</label>
+                                                <ParamManager
+                                                    paramConfigs={{
+                                                        ...bindsToParams,
+                                                        paramFields: [
+                                                            {
+                                                                id: 0,
+                                                                type: "AutoComplete",
+                                                                label: "Inbound Endpoint",
+                                                                values: bindsToOptions,
+                                                                isRequired: true,
+                                                                allowItemCreate: false,
+                                                            },
+                                                        ],
+                                                    }}
+                                                    onChange={handleBindsToChange}
+                                                    addParamText="Add Inbound Endpoint"
+                                                    allowDuplicates={false}
+                                                />
+                                            </CheckBoxContainer>
                                         )}
                                     </React.Fragment>
                                 </FormGroup>

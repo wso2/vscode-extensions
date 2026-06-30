@@ -1,9 +1,9 @@
 {
   "name": "micro-integrator",
   "displayName": "WSO2 Integrator: MI",
-  "description": "An extension which gives a development environment for designing, developing, debugging, and testing integration solutions.",
+  "description": "The official low-code development toolkit for WSO2 Integrator: MI. Everything you need to build, test, and deploy integrations — right from within VS Code.",
   "icon": "resources/images/wso2-micro-integrator-icon.png",
-  "version": "4.1.0",
+  "version": "4.1.1",
   "publisher": "wso2",
   "engines": {
     "vscode": "^1.100.0"
@@ -1136,7 +1136,7 @@
     "@anthropic-ai/tokenizer": "0.0.4",
     "@tavily/core": "0.6.4",
     "@apidevtools/json-schema-ref-parser": "12.0.2",
-    "@babel/core": "7.27.1",
+    "@babel/core": "7.29.6",
     "@babel/plugin-transform-typescript": "7.27.1",
     "@iarna/toml": "2.2.5",
     "@langfuse/otel": "4.5.1",
@@ -1177,7 +1177,7 @@
     "pdf-lib": "1.17.1",
     "portfinder": "1.0.37",
     "recast": "0.23.11",
-    "tmp": "0.2.6",
+    "tmp": "0.2.7",
     "to-json-schema": "0.2.5",
     "tree-kill": "1.2.2",
     "unzipper": "0.12.3",

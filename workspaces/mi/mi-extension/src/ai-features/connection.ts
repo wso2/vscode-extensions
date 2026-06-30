@@ -31,21 +31,21 @@ import { logInfo, logDebug, logError } from "./copilot/logger";
 
 export const ANTHROPIC_HAIKU_4_5 = "claude-haiku-4-5";
 export const ANTHROPIC_SONNET_4_6 = "claude-sonnet-4-6";
-export const ANTHROPIC_OPUS_4_7 = "claude-opus-4-7";
+export const ANTHROPIC_OPUS_4_8 = "claude-opus-4-8";
 // Backward-compatible alias for existing imports.
 export const ANTHROPIC_SONNET_4_5 = ANTHROPIC_SONNET_4_6;
 
 export type AnthropicModel =
     | typeof ANTHROPIC_HAIKU_4_5
     | typeof ANTHROPIC_SONNET_4_6
-    | typeof ANTHROPIC_OPUS_4_7;
+    | typeof ANTHROPIC_OPUS_4_8;
 
 // Bedrock inference-profile IDs (without the regional prefix).
 // Base IDs verified against `aws bedrock list-inference-profiles`.
 const BEDROCK_MODEL_MAP: Record<string, string> = {
     [ANTHROPIC_HAIKU_4_5]: "anthropic.claude-haiku-4-5-20251001-v1:0",
     [ANTHROPIC_SONNET_4_6]: "anthropic.claude-sonnet-4-6",
-    [ANTHROPIC_OPUS_4_7]: "anthropic.claude-opus-4-7",
+    [ANTHROPIC_OPUS_4_8]: "anthropic.claude-opus-4-8",
 };
 
 /**
@@ -372,7 +372,7 @@ export function resolveMainModelId(settings: { mainModelPreset: string; mainMode
     if (settings.mainModelCustomId) {
         return settings.mainModelCustomId;
     }
-    return settings.mainModelPreset === 'opus' ? ANTHROPIC_OPUS_4_7 : ANTHROPIC_SONNET_4_6;
+    return settings.mainModelPreset === 'opus' ? ANTHROPIC_OPUS_4_8 : ANTHROPIC_SONNET_4_6;
 }
 
 /**

@@ -1429,6 +1429,7 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
                         break;
                     default:
                         response.type = 'Custom Message Store';
+                        response.providerClass = className;
                         break;
                 }
                 if (jsonData && jsonData.messageStore && jsonData.messageStore.parameter) {

@@ -116,11 +116,11 @@ export function AddInboundConnector(props: AddInboundConnectorProps) {
             // Populate Paramters
             model.parameters[0]?.parameter?.forEach((param: any) => {
                 if (parameterNames.includes(param.name)) {
-                    setValue(getNameForController(param.name), param.content);
+                    setValue(getNameForController(param.name), getParameterValue(param));
                 } else {
                     additionalParams.push({
                         name: param.name,
-                        value: param.content
+                        value: getParameterValue(param)
                     });
                 }
             });
@@ -134,6 +134,23 @@ export function AddInboundConnector(props: AddInboundConnectorProps) {
             }
         }
     }, [model, formData]);
+
+    function getParameterValue(param: any): string {
+        const content = param?.content;
+        if (content == null) {
+            return param?.textNode ?? "";
+        }
+        if (typeof content === "string") {
+            return content;
+        }
+        if (Array.isArray(content)) {
+            return content
+                .map((node: any) => (typeof node === "string" ? node : node?.textNode ?? ""))
+                .join("")
+                .trim();
+        }
+        return content?.textNode ?? param?.textNode ?? "";
+    }
 
     function getNameForController(name: string | number) {
         return String(name).replace(/\./g, '__dot__');

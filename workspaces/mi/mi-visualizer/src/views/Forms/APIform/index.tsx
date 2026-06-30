@@ -30,7 +30,7 @@ import { yupResolver } from "@hookform/resolvers/yup"
 import * as yup from "yup";
 import { useForm } from "react-hook-form";
 import * as pathLib from "path";
-import { FormKeylookup } from "@wso2/mi-diagram";
+import { FormKeylookup, ParamManager, ParamConfig, ParamField } from "@wso2/mi-diagram";
 import { compareVersions } from "@wso2/mi-diagram/lib/utils/commons";
 
 const TitleBar = styled.div({
@@ -70,6 +70,7 @@ export interface CORSSettings {
 export interface APIData {
     apiName: string;
     apiContext: string;
+    bindsTo?: string;
     hostName?: string;
     port?: string;
     trace?: boolean;
@@ -91,6 +92,7 @@ export interface APIData {
 const initialAPI: APIData = {
     apiName: "",
     apiContext: "",
+    bindsTo: "",
     hostName: "",
     port: "",
     trace: false,
@@ -116,6 +118,35 @@ const initialAPI: APIData = {
     }
 };
 
+const BINDS_TO_PARAM_FIELDS: ParamField[] = [
+    {
+        id: 0,
+        type: "KeyLookup",
+        label: "Inbound Endpoint",
+        filterType: "bindToInbound",
+        isRequired: true,
+    },
+];
+
+const bindsToToParamConfig = (bindsTo?: string): ParamConfig => ({
+    paramFields: BINDS_TO_PARAM_FIELDS,
+    paramValues: (bindsTo ? bindsTo.split(",") : [])
+        .map((value) => value.trim())
+        .filter(Boolean)
+        .map((value, index) => ({
+            id: index,
+            paramValues: [{ value }],
+            key: String(index + 1),
+            value,
+        })),
+});
+
+const paramConfigToBindsTo = (config: ParamConfig): string =>
+    config.paramValues
+        .map((param) => (param.paramValues[0]?.value as string)?.trim())
+        .filter(Boolean)
+        .join(",");
+
 export interface APIWizardProps {
     apiData?: APIData;
     path: string;
@@ -132,6 +163,7 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
     const [runtimeVersion, setRuntimeVersion] = useState<string | null>(null);
     const [apiCreationError, setApiCreationError] = useState<string | null>(null);
     const [isCreating, setIsCreating] = useState(false);
+    const [bindsToParams, setBindsToParams] = useState<ParamConfig>(bindsToToParamConfig(""));
 
     const schema = yup.object({
         apiName: yup.string().required("API Name is required").matches(/^[^@\\^+;:!%&,=*#[\]$?'"<>{}() /]*$/, "Invalid characters in name")
@@ -150,6 +182,7 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
                 const { versionType } = this.parent;
                 return versionType !== "none" || !APIContexts.includes(value);
             }),
+        bindsTo: yup.string(),
         hostName: yup.string(),
         port: yup.string(),
         trace: yup.boolean(),
@@ -320,10 +353,24 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
             setValue("versionType", versionType);
             setValue("handlers", filteredHandlers);
             setValue("corsSettings", corsSettings);
+            setBindsToParams(bindsToToParamConfig(apiData.bindsTo));
         } else {
             reset(initialAPI);
+            setBindsToParams(bindsToToParamConfig(""));
         }
     }, [apiData]);
+
+    const handleBindsToChange = (config: ParamConfig) => {
+        const normalized: ParamConfig = {
+            ...config,
+            paramValues: config.paramValues.map((param, index) => {
+                const value = (param.paramValues[0]?.value as string) ?? "";
+                return { ...param, id: index, key: String(index + 1), value };
+            }),
+        };
+        setBindsToParams(normalized);
+        setValue("bindsTo", paramConfigToBindsTo(normalized), { shouldValidate: true, shouldDirty: true });
+    };
 
     useEffect(() => {
         (async () => {
@@ -461,6 +508,7 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
                 port: values.port === "0" ? undefined : values.port,
                 trace: values.trace ? "enable" : undefined,
                 statistics: values.statistics ? "enable" : undefined,
+                bindsTo: values.bindsTo,
             }
             const xml = getXML(ARTIFACT_TEMPLATES.EDIT_API, formValues);
             // Combine regular handlers with CORS handler if enabled and version supports it
@@ -737,6 +785,14 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
                                 />
                             ))}
                         </FieldGroup>
+                    </FormGroup>
+                    <FormGroup title="Bindings" isCollapsed={true}>
+                        <ParamManager
+                            paramConfigs={bindsToParams}
+                            onChange={handleBindsToChange}
+                            addParamText="Add Inbound Endpoint"
+                            allowDuplicates={false}
+                        />
                     </FormGroup>
                 </>
             )}

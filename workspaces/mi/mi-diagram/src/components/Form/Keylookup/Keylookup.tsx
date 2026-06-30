@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import React, { ReactNode, useEffect, useState } from "react";
+import React, { ReactNode, useEffect, useId, useState } from "react";
 import { AutoComplete, ErrorBanner, getItemKey, ItemComponent, Typography } from "@wso2/ui-toolkit";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
 import styled from "@emotion/styled";
@@ -57,6 +57,7 @@ export type FilterType =
     | "dssQuery"
     | "dssDataSource"
     | "configurable"
+    | "bindToInbound"
 
 // Interfaces
 interface IKeylookupBase {
@@ -199,6 +200,7 @@ export const Keylookup = (props: IKeylookup) => {
     } = props;
     const [items, setItems] = useState<(string | ItemComponent)[]>([]);
     const { rpcClient } = useVisualizerContext();
+    const fallbackId = useId();
 
     useEffect(() => {
         fetchItems();
@@ -270,7 +272,9 @@ export const Keylookup = (props: IKeylookup) => {
         }
 
         let resourceType: ResourceType | MultipleResourceType[];
-        if (Array.isArray(filterType)) {
+        if (filterType === "bindToInbound") {
+            resourceType = [{ type: "inbound-endpoint", protocols: ["http", "https", "ws", "wss"] }];
+        } else if (Array.isArray(filterType)) {
             resourceType = filterType.map((type) => {
                 return { type: type }
             });
@@ -289,7 +293,8 @@ export const Keylookup = (props: IKeylookup) => {
         const resources = artifactTypes.artifacts;
         if (resources && result?.resources) {
             result.resources.forEach((resource) => {
-                const item = { key: resource.name, item: getItemComponent(resource.name, resource.type), path: resource.absolutePath };
+                const displayType = filterType === "bindToInbound" ? "inbound-endpoint" : resource.type;
+                const item = { key: resource.name, item: getItemComponent(resource.name, displayType), path: resource.absolutePath };
                 if (resource.name === getValue(value)) {
                     initialItem = item;
                     return;
@@ -349,6 +354,7 @@ export const Keylookup = (props: IKeylookup) => {
                 !isExpressionFieldValue(value)) ? (
                 <AutoComplete
                     {...rest}
+                    {...({ name: (props as any).name ?? fallbackId } as any)}
                     value={getValue(value)}
                     onValueChange={handleValueChange}
                     borderBox={true}

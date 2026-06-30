@@ -927,12 +927,12 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
                 openAPIPath: filePath,
                 connectorProjectPath: path.join(this.projectUri, 'target')
             };
-            const { buildStatus, connectorPath } = await langClient.generateConnector(connectorGenRequest);
+            const { buildStatus, connectorPath, errorMessage } = await langClient.generateConnector(connectorGenRequest);
             if (buildStatus) {
                 await copy(connectorPath, path.join(this.projectUri, 'src', 'main', 'wso2mi', 'resources', 'connectors', path.basename(connectorPath)));
                 vscode.window.showInformationMessage("Connector generated successfully");
             } else {
-                vscode.window.showErrorMessage("Error while generating connector");
+                vscode.window.showErrorMessage(errorMessage || "Error while generating connector");
             }
         }
     }

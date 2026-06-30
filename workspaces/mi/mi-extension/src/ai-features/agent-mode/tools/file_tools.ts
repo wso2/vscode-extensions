@@ -803,8 +803,11 @@ export function createWriteExecute(
 
         // Give language services a brief moment to settle before automatic validation.
         await delay(POST_WRITE_VALIDATION_DELAY_MS);
-        // Automatically validate the file and get structured diagnostics (include code actions for agent)
-        const validation = await validateXmlFile(fullPath, projectPath, true);
+        // Automatically validate the file and get structured diagnostics (include code actions for agent).
+        // Skip cross-file reference checks here: during multi-file generation a referenced sibling
+        // artifact may not exist yet, so those warnings would be transient false positives. The agent
+        // runs validate_code (no skip) once all related files are written to surface them.
+        const validation = await validateXmlFile(fullPath, projectPath, true, true);
 
         console.log(`[FileWriteTool] Successfully ${action} and synced file: ${file_path} with ${lineCount} lines`);
 
@@ -1102,7 +1105,9 @@ export function createEditExecute(
 
         // Give language services a brief moment to settle before automatic validation.
         await delay(POST_WRITE_VALIDATION_DELAY_MS);
-        const validation = await validateXmlFile(fullPath, projectPath, true);
+        // Skip cross-file reference checks for per-file auto-validation (see file_write rationale);
+        // validate_code surfaces them once all related files exist.
+        const validation = await validateXmlFile(fullPath, projectPath, true, true);
 
         const replacedCount = replace_all ? occurrences : 1;
         logDebug(`[FileEditTool] Successfully replaced ${replacedCount} occurrence(s) in: ${file_path}`);
