@@ -342,10 +342,10 @@ importers:
         version: 5.104.1(postcss@8.5.10)(webpack-cli@5.1.4)
       webpack-cli:
         specifier: 5.1.4
-        version: 5.1.4(webpack-dev-server@5.2.5)(webpack@5.104.1)
+        version: 5.1.4(webpack-dev-server@5.2.4)(webpack@5.104.1)
       webpack-dev-server:
-        specifier: '>=5.2.5'
-        version: 5.2.5(webpack-cli@5.1.4)(webpack@5.104.1)
+        specifier: 5.2.4
+        version: 5.2.4(webpack-cli@5.1.4)(webpack@5.104.1)
 
   ../../workspaces/api-tryit/api-tryit-core:
     dependencies:
@@ -761,10 +761,10 @@ importers:
         version: 5.104.1(postcss@8.5.10)(webpack-cli@6.0.1)
       webpack-cli:
         specifier: 6.0.1
-        version: 6.0.1(webpack-dev-server@5.2.5)(webpack@5.104.1)
+        version: 6.0.1(webpack-dev-server@5.2.4)(webpack@5.104.1)
       webpack-dev-server:
-        specifier: '>=5.2.5'
-        version: 5.2.5(webpack-cli@6.0.1)(webpack@5.104.1)
+        specifier: 5.2.4
+        version: 5.2.4(webpack-cli@6.0.1)(webpack@5.104.1)
 
   ../../workspaces/common-libs/copilot-utilities:
     devDependencies:
@@ -1473,10 +1473,10 @@ importers:
         version: 5.104.1(postcss@8.5.10)(webpack-cli@6.0.1)
       webpack-cli:
         specifier: 6.0.1
-        version: 6.0.1(webpack-dev-server@5.2.5)(webpack@5.104.1)
+        version: 6.0.1(webpack-dev-server@5.2.4)(webpack@5.104.1)
       webpack-dev-server:
-        specifier: '>=5.2.5'
-        version: 5.2.5(webpack-cli@6.0.1)(webpack@5.104.1)
+        specifier: 5.2.4
+        version: 5.2.4(webpack-cli@6.0.1)(webpack@5.104.1)
 
 packages:
 
@@ -3551,7 +3551,6 @@ packages:
     engines: {node: '>=18'}
     peerDependencies:
       '@cfworker/json-schema': ^4.1.1
-      zod: ^3.25 || ^4.0
     peerDependenciesMeta:
       '@cfworker/json-schema':
         optional: true
@@ -3572,8 +3571,8 @@ packages:
       '@emnapi/core': ^1.7.1
       '@emnapi/runtime': ^1.7.1
 
-  '@nevware21/ts-async@0.6.1':
-    resolution: {integrity: sha512-W2kFiT5oPuxTrB3NrxUId/U+1AuAhIaiDQkLC4HcxkjNc+85GfELYdPQXnsDWDG8yji24F5qk6QpBDxZX3/0+g==}
+  '@nevware21/ts-async@0.5.5':
+    resolution: {integrity: sha512-vwqaL05iJPjLeh5igPi8MeeAu10i+Aq7xko1fbo9F5Si6MnVN5505qaV7AhSdk5MCBJVT/UYMk3kgInNjDb4Ig==}
 
   '@nevware21/ts-async@0.6.1':
     resolution: {integrity: sha512-W2kFiT5oPuxTrB3NrxUId/U+1AuAhIaiDQkLC4HcxkjNc+85GfELYdPQXnsDWDG8yji24F5qk6QpBDxZX3/0+g==}
@@ -15468,7 +15467,7 @@ snapshots:
       '@microsoft/applicationinsights-core-js': 3.4.2(tslib@2.8.1)
       '@microsoft/applicationinsights-shims': 3.0.1
       '@microsoft/dynamicproto-js': 2.0.5
-      '@nevware21/ts-async': 0.6.1
+      '@nevware21/ts-async': 0.5.5
       '@nevware21/ts-utils': 0.14.0
     transitivePeerDependencies:
       - tslib
@@ -15478,7 +15477,7 @@ snapshots:
       '@microsoft/applicationinsights-core-js': 3.4.2(tslib@2.8.1)
       '@microsoft/applicationinsights-shims': 3.0.1
       '@microsoft/dynamicproto-js': 2.0.5
-      '@nevware21/ts-async': 0.6.1
+      '@nevware21/ts-async': 0.5.5
       '@nevware21/ts-utils': 0.14.0
     transitivePeerDependencies:
       - tslib
@@ -15488,7 +15487,7 @@ snapshots:
       '@microsoft/applicationinsights-core-js': 3.4.2(tslib@2.8.1)
       '@microsoft/applicationinsights-shims': 3.0.1
       '@microsoft/dynamicproto-js': 2.0.5
-      '@nevware21/ts-async': 0.6.1
+      '@nevware21/ts-async': 0.5.5
       '@nevware21/ts-utils': 0.14.0
       tslib: 2.8.1
 
@@ -15512,7 +15511,7 @@ snapshots:
     dependencies:
       '@microsoft/applicationinsights-shims': 3.0.1
       '@microsoft/dynamicproto-js': 2.0.5
-      '@nevware21/ts-async': 0.6.1
+      '@nevware21/ts-async': 0.5.5
       '@nevware21/ts-utils': 0.14.0
       tslib: 2.8.1
 
@@ -15526,7 +15525,7 @@ snapshots:
       '@microsoft/applicationinsights-core-js': 3.4.2(tslib@2.8.1)
       '@microsoft/applicationinsights-shims': 3.0.1
       '@microsoft/dynamicproto-js': 2.0.5
-      '@nevware21/ts-async': 0.6.1
+      '@nevware21/ts-async': 0.5.5
       '@nevware21/ts-utils': 0.14.0
       tslib: 2.8.1
 
@@ -15573,23 +15572,22 @@ snapshots:
 
   '@modelcontextprotocol/ext-apps@1.7.4(@modelcontextprotocol/sdk@1.29.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(zod@3.25.76)':
     dependencies:
-      '@modelcontextprotocol/sdk': 1.29.0(zod@3.25.76)
+      '@modelcontextprotocol/sdk': 1.29.0
       '@standard-schema/spec': 1.1.0
       zod: 3.25.76
     optionalDependencies:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
 
-  '@modelcontextprotocol/inspector-cli@0.21.2(zod@3.25.76)':
+  '@modelcontextprotocol/inspector-cli@0.21.2':
     dependencies:
-      '@modelcontextprotocol/sdk': 1.29.0(zod@3.25.76)
+      '@modelcontextprotocol/sdk': 1.29.0
       commander: 13.1.0
       express: 5.2.1
       spawn-rx: 5.1.2
     transitivePeerDependencies:
       - '@cfworker/json-schema'
       - supports-color
-      - zod
 
   '@modelcontextprotocol/inspector-client@0.21.2(@types/react-dom@18.2.0)(@types/react@18.2.0)':
     dependencies:
@@ -15628,7 +15626,7 @@ snapshots:
 
   '@modelcontextprotocol/inspector-server@0.21.2':
     dependencies:
-      '@modelcontextprotocol/sdk': 1.29.0(zod@3.25.76)
+      '@modelcontextprotocol/sdk': 1.29.0
       cors: 2.8.6
       express: 5.2.1
       express-rate-limit: 8.2.2(express@5.2.1)
@@ -15645,7 +15643,7 @@ snapshots:
 
   '@modelcontextprotocol/inspector@0.21.0(@types/node@22.15.18)(@types/react-dom@18.2.0)(@types/react@18.2.0)(typescript@5.8.3)':
     dependencies:
-      '@modelcontextprotocol/inspector-cli': 0.21.2(zod@3.25.76)
+      '@modelcontextprotocol/inspector-cli': 0.21.2
       '@modelcontextprotocol/inspector-client': 0.21.2(@types/react-dom@18.2.0)(@types/react@18.2.0)
       '@modelcontextprotocol/inspector-server': 0.21.2
       '@modelcontextprotocol/sdk': 1.29.0
@@ -15668,7 +15666,7 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@modelcontextprotocol/sdk@1.29.0(zod@3.25.76)':
+  '@modelcontextprotocol/sdk@1.29.0':
     dependencies:
       '@hono/node-server': 1.19.13(hono@4.12.25)
       ajv: 8.20.0
@@ -15685,30 +15683,8 @@ snapshots:
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
       raw-body: 3.0.2
-      zod: 3.25.76
-      zod-to-json-schema: 3.25.2(zod@3.25.76)
-    transitivePeerDependencies:
-      - supports-color
-
-  '@modelcontextprotocol/sdk@1.29.0(zod@4.1.8)':
-    dependencies:
-      '@hono/node-server': 1.19.13(hono@4.12.25)
-      ajv: 8.17.1
-      ajv-formats: 3.0.1(ajv@8.17.1)
-      content-type: 1.0.5
-      cors: 2.8.6
-      cross-spawn: 7.0.6
-      eventsource: 3.0.7
-      eventsource-parser: 3.1.0
-      express: 5.2.1
-      express-rate-limit: 8.2.2(express@5.2.1)
-      hono: 4.12.25
-      jose: 6.2.3
-      json-schema-typed: 8.0.2
-      pkce-challenge: 5.0.1
-      raw-body: 3.0.2
-      zod: 4.1.8
-      zod-to-json-schema: 3.25.2(zod@4.1.8)
+      zod: 4.1.11
+      zod-to-json-schema: 3.25.2(zod@4.1.11)
     transitivePeerDependencies:
       - supports-color
 
@@ -15730,7 +15706,7 @@ snapshots:
       '@tybys/wasm-util': 0.10.3
     optional: true
 
-  '@nevware21/ts-async@0.6.1':
+  '@nevware21/ts-async@0.5.5':
     dependencies:
       '@nevware21/ts-utils': 0.14.0
 
@@ -18094,7 +18070,6 @@ snapshots:
       '@swagger-api/apidom-parser-adapter-yaml-1-2': 1.11.3
     transitivePeerDependencies:
       - debug
-      - supports-color
 
   '@swaggerexpert/cookie@2.0.2':
     dependencies:
@@ -19123,21 +19098,21 @@ snapshots:
   '@webpack-cli/serve@2.0.5(webpack-cli@5.1.4)(webpack-dev-server@5.2.4)(webpack@5.104.1)':
     dependencies:
       webpack: 5.104.1(postcss@8.5.10)(webpack-cli@5.1.4)
-      webpack-cli: 5.1.4(webpack-dev-server@5.2.5)(webpack@5.104.1)
+      webpack-cli: 5.1.4(webpack-dev-server@5.2.4)(webpack@5.104.1)
     optionalDependencies:
-      webpack-dev-server: 5.2.5(webpack-cli@5.1.4)(webpack@5.104.1)
+      webpack-dev-server: 5.2.4(webpack-cli@5.1.4)(webpack@5.104.1)
 
   '@webpack-cli/serve@2.0.5(webpack-cli@5.1.4)(webpack@5.104.1)':
     dependencies:
       webpack: 5.104.1(webpack-cli@5.1.4)
       webpack-cli: 5.1.4(webpack@5.104.1)
 
-  '@webpack-cli/serve@3.0.1(webpack-cli@6.0.1)(webpack-dev-server@5.2.5)(webpack@5.104.1)':
+  '@webpack-cli/serve@3.0.1(webpack-cli@6.0.1)(webpack-dev-server@5.2.4)(webpack@5.104.1)':
     dependencies:
       webpack: 5.104.1(postcss@8.5.10)(webpack-cli@6.0.1)
-      webpack-cli: 6.0.1(webpack-dev-server@5.2.5)(webpack@5.104.1)
+      webpack-cli: 6.0.1(webpack-dev-server@5.2.4)(webpack@5.104.1)
     optionalDependencies:
-      webpack-dev-server: 5.2.5(webpack-cli@6.0.1)(webpack@5.104.1)
+      webpack-dev-server: 5.2.4(webpack-cli@6.0.1)(webpack@5.104.1)
 
   '@webpack-cli/serve@3.0.1(webpack-cli@6.0.1)(webpack@5.104.1)':
     dependencies:
@@ -19427,7 +19402,6 @@ snapshots:
       proxy-from-env: 2.1.0
     transitivePeerDependencies:
       - debug
-      - supports-color
 
   azure-devops-node-api@12.5.0:
     dependencies:
@@ -26009,7 +25983,6 @@ snapshots:
       ramda-adjunct: 5.1.0(ramda@0.30.1)
     transitivePeerDependencies:
       - debug
-      - supports-color
 
   swagger-ui-react@5.22.0(@types/react@18.2.0)(react-dom@18.2.0(react@18.2.0))(react@18.2.0):
     dependencies:
@@ -26051,7 +26024,6 @@ snapshots:
     transitivePeerDependencies:
       - '@types/react'
       - debug
-      - supports-color
 
   synckit@0.11.13:
     dependencies:
@@ -27076,7 +27048,7 @@ snapshots:
       '@discoveryjs/json-ext': 0.5.7
       '@webpack-cli/configtest': 2.1.1(webpack-cli@5.1.4)(webpack@5.104.1)
       '@webpack-cli/info': 2.0.2(webpack-cli@5.1.4)(webpack@5.104.1)
-      '@webpack-cli/serve': 2.0.5(webpack-cli@5.1.4)(webpack-dev-server@5.2.5)(webpack@5.104.1)
+      '@webpack-cli/serve': 2.0.5(webpack-cli@5.1.4)(webpack-dev-server@5.2.4)(webpack@5.104.1)
       colorette: 2.0.20
       commander: 10.0.1
       cross-spawn: 7.0.6
@@ -27088,7 +27060,7 @@ snapshots:
       webpack: 5.104.1(postcss@8.5.10)(webpack-cli@5.1.4)
       webpack-merge: 5.10.0
     optionalDependencies:
-      webpack-dev-server: 5.2.5(webpack-cli@5.1.4)(webpack@5.104.1)
+      webpack-dev-server: 5.2.4(webpack-cli@5.1.4)(webpack@5.104.1)
 
   webpack-cli@5.1.4(webpack@5.104.1):
     dependencies:
@@ -27107,12 +27079,12 @@ snapshots:
       webpack: 5.104.1(webpack-cli@5.1.4)
       webpack-merge: 5.10.0
 
-  webpack-cli@6.0.1(webpack-dev-server@5.2.5)(webpack@5.104.1):
+  webpack-cli@6.0.1(webpack-dev-server@5.2.4)(webpack@5.104.1):
     dependencies:
       '@discoveryjs/json-ext': 0.6.3
       '@webpack-cli/configtest': 3.0.1(webpack-cli@6.0.1)(webpack@5.104.1)
       '@webpack-cli/info': 3.0.1(webpack-cli@6.0.1)(webpack@5.104.1)
-      '@webpack-cli/serve': 3.0.1(webpack-cli@6.0.1)(webpack-dev-server@5.2.5)(webpack@5.104.1)
+      '@webpack-cli/serve': 3.0.1(webpack-cli@6.0.1)(webpack-dev-server@5.2.4)(webpack@5.104.1)
       colorette: 2.0.20
       commander: 12.1.0
       cross-spawn: 7.0.6
@@ -27124,7 +27096,7 @@ snapshots:
       webpack: 5.104.1(postcss@8.5.10)(webpack-cli@6.0.1)
       webpack-merge: 6.0.1
     optionalDependencies:
-      webpack-dev-server: 5.2.5(webpack-cli@6.0.1)(webpack@5.104.1)
+      webpack-dev-server: 5.2.4(webpack-cli@6.0.1)(webpack@5.104.1)
 
   webpack-cli@6.0.1(webpack@5.104.1):
     dependencies:
@@ -27206,14 +27178,14 @@ snapshots:
       ws: 8.21.0
     optionalDependencies:
       webpack: 5.104.1(postcss@8.5.10)(webpack-cli@5.1.4)
-      webpack-cli: 5.1.4(webpack-dev-server@5.2.5)(webpack@5.104.1)
+      webpack-cli: 5.1.4(webpack-dev-server@5.2.4)(webpack@5.104.1)
     transitivePeerDependencies:
       - bufferutil
       - debug
       - supports-color
       - utf-8-validate
 
-  webpack-dev-server@5.2.5(webpack-cli@6.0.1)(webpack@5.104.1):
+  webpack-dev-server@5.2.4(webpack-cli@6.0.1)(webpack@5.104.1):
     dependencies:
       '@types/bonjour': 3.5.13
       '@types/connect-history-api-fallback': 1.5.4
@@ -27245,7 +27217,7 @@ snapshots:
       ws: 8.21.0
     optionalDependencies:
       webpack: 5.104.1(postcss@8.5.10)(webpack-cli@6.0.1)
-      webpack-cli: 6.0.1(webpack-dev-server@5.2.5)(webpack@5.104.1)
+      webpack-cli: 6.0.1(webpack-dev-server@5.2.4)(webpack@5.104.1)
     transitivePeerDependencies:
       - bufferutil
       - debug
@@ -27351,7 +27323,7 @@ snapshots:
       watchpack: 2.5.2
       webpack-sources: 3.5.0
     optionalDependencies:
-      webpack-cli: 5.1.4(webpack-dev-server@5.2.5)(webpack@5.104.1)
+      webpack-cli: 5.1.4(webpack-dev-server@5.2.4)(webpack@5.104.1)
     transitivePeerDependencies:
       - '@minify-html/node'
       - '@swc/core'
@@ -27394,7 +27366,7 @@ snapshots:
       watchpack: 2.5.2
       webpack-sources: 3.5.0
     optionalDependencies:
-      webpack-cli: 6.0.1(webpack-dev-server@5.2.5)(webpack@5.104.1)
+      webpack-cli: 6.0.1(webpack-dev-server@5.2.4)(webpack@5.104.1)
     transitivePeerDependencies:
       - '@minify-html/node'
       - '@swc/core'
@@ -27744,13 +27716,9 @@ snapshots:
 
   zenscroll@4.0.2: {}
 
-  zod-to-json-schema@3.25.2(zod@3.25.76):
+  zod-to-json-schema@3.25.2(zod@4.1.11):
     dependencies:
-      zod: 3.25.76
-
-  zod-to-json-schema@3.25.2(zod@4.1.8):
-    dependencies:
-      zod: 4.1.8
+      zod: 4.1.11
 
   zod@3.22.4: {}
 

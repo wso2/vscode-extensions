@@ -17,7 +17,6 @@ module.exports = {
     readPackage(pkg, context) {
       function applyOverrides(deps) {
         if (!deps) return;
-        if (deps['@nevware21/ts-utils']) deps['@nevware21/ts-utils'] = '0.14.0';
         if (deps['http-proxy']) deps['http-proxy'] = '1.18.1';
         if (deps['prismjs']) deps['prismjs'] = '1.30.0';
         if (deps['xmldom']) deps['xmldom'] = 'npm:@xmldom/xmldom@0.8.10';
@@ -54,24 +53,15 @@ module.exports = {
         if (deps['tmp']) deps['tmp'] = '0.2.6'; // security fix: CVE-2026-44705 (path traversal via prefix/postfix)
         if (deps['undici']) deps['undici'] = '7.28.0'; // security fix: CVE-2026-12151 (DoS via unbounded memory growth); also CVE-2026-9678/9697/6734 (was header injection)
         if (deps['@nevware21/ts-utils']) deps['@nevware21/ts-utils'] = '0.14.0'; // security fix: CVE-2026-46681 (prototype pollution)
-        if (deps['@ai-sdk/provider-utils']) {
-          const currentVersion = deps['@ai-sdk/provider-utils'];
-          // security mitigation: CVE-2026-8769 (uncontrolled resource consumption) - no fixed
-          // version published yet, pin to the latest 3.x patch
-          if (currentVersion.startsWith('^3') || currentVersion.startsWith('3')) {
-            deps['@ai-sdk/provider-utils'] = '3.0.25';
-          }
-        }
         if (deps['protobufjs']) {
           const currentVersion = deps['protobufjs'];
           if (currentVersion.startsWith('^8') || currentVersion.startsWith('8')) {
-            deps['protobufjs'] = '8.2.0';
+            deps['protobufjs'] = '8.2.0'; // security fix: CVE-2026-45740 (DoS via recursive JSON descriptor expansion)
           } else {
-            deps['protobufjs'] = '7.5.8';
+            deps['protobufjs'] = '7.5.8'; // security fix: CVE-2026-45740 (DoS via recursive JSON descriptor expansion)
           }
         }
         if (deps['vite']) deps['vite'] = '6.0.14';
-        if (deps['webpack-dev-server']) deps['webpack-dev-server'] = '5.2.4';
         if (deps['yauzl']) deps['yauzl'] = '3.2.1';
         if (deps['bn.js']) {
           deps['bn.js'] = deps['bn.js'].startsWith('^5') ? '5.2.3' : '4.12.3';
