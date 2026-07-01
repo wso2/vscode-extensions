@@ -31,24 +31,28 @@ module.exports = {
         if (deps['fast-uri']) deps['fast-uri'] = '3.1.2';
         if (deps['esbuild']) deps['esbuild'] = '0.25.12';
         if (deps['lodash']) deps['lodash'] = '4.18.0';
-        if (deps['qs']) deps['qs'] = '6.15.2';
-        if (deps['hono']) deps['hono'] = '4.12.21';
-        if (deps['shell-quote']) deps['shell-quote'] = '1.8.4';
+        if (deps['qs']) deps['qs'] = '6.15.2'; // security fix: CVE-2026-8723
+        if (deps['hono']) deps['hono'] = '4.12.25'; // security fix: Hono middleware/cookie/router vulnerabilities
         if (deps['@hono/node-server']) deps['@hono/node-server'] = '1.19.13';
         if (deps['@tootallnate/once']) deps['@tootallnate/once'] = '3.0.1';
-        if (deps['dompurify']) deps['dompurify'] = '3.4.0';
-        if (deps['axios']) deps['axios'] = '1.16.0';
-        if (deps['ip-address']) deps['ip-address'] = '10.1.1';
-        if (deps['follow-redirects']) deps['follow-redirects'] = '1.16.0';
-        if (deps['express-rate-limit']) deps['express-rate-limit'] = '8.2.2';
-        if (deps['file-type']) deps['file-type'] = '21.3.2';
+        if (deps['dompurify']) deps['dompurify'] = '3.4.0'; // security fix: XSS vulnerability
+        if (deps['axios']) deps['axios'] = '1.16.0'; // security fix: SSRF + CVE-2026-44489/44490/44492/44494 (prototype pollution / proxy bypass)
+        if (deps['ip-address']) { // security fix: force patch within 10.x range only to avoid breaking consumers on earlier majors
+          if (/^[\s\^~><=]*10[.\s]/.test(deps['ip-address'])) {
+            deps['ip-address'] = '10.1.1';
+          }
+        }
+        if (deps['follow-redirects']) deps['follow-redirects'] = '1.16.0'; // security fix: redirect bypass vulnerability
+        if (deps['express-rate-limit']) deps['express-rate-limit'] = '8.2.2'; // security fix
+        if (deps['file-type']) deps['file-type'] = '21.3.2'; // security fix
         if (deps['postcss']) deps['postcss'] = '8.5.10';
-        if (deps['immutable']) deps['immutable'] = '3.8.3';
-        if (deps['serialize-javascript']) deps['serialize-javascript'] = '7.0.5';
-        if (deps['flatted']) deps['flatted'] = '3.4.2';
-        if (deps['handlebars']) deps['handlebars'] = '4.7.9';
-        if (deps['tmp']) deps['tmp'] = '0.2.6';
-        if (deps['undici']) deps['undici'] = '7.24.0';
+        if (deps['immutable']) deps['immutable'] = '3.8.3'; // security fix
+        if (deps['serialize-javascript']) deps['serialize-javascript'] = '7.0.5'; // security fix: XSS/code injection
+        if (deps['flatted']) deps['flatted'] = '3.4.2'; // security fix
+        if (deps['handlebars']) deps['handlebars'] = '4.7.9'; // security fix: prototype pollution
+        if (deps['shell-quote']) deps['shell-quote'] = '1.8.4'; // security fix: CVE-2026-9277 (command injection)
+        if (deps['tmp']) deps['tmp'] = '0.2.6'; // security fix: CVE-2026-44705 (path traversal via prefix/postfix)
+        if (deps['undici']) deps['undici'] = '7.28.0'; // security fix: CVE-2026-12151 (DoS via unbounded memory growth); also CVE-2026-9678/9697/6734 (was header injection)
         if (deps['@nevware21/ts-utils']) deps['@nevware21/ts-utils'] = '0.14.0'; // security fix: CVE-2026-46681 (prototype pollution)
         if (deps['@ai-sdk/provider-utils']) {
           const currentVersion = deps['@ai-sdk/provider-utils'];
@@ -107,7 +111,7 @@ module.exports = {
           } else if (currentVersion.startsWith('^3') || currentVersion.startsWith('3')) {
             newVersion = '3.0.2';
           } else if (currentVersion.startsWith('^5') || currentVersion.startsWith('5')) {
-            newVersion = '5.0.6';
+            newVersion = '5.0.6'; // security fix: CVE-2026-45149 (DoS numeric range)
           } else {
             context.log(`Unexpected brace-expansion version: ${currentVersion}`);
             newVersion = currentVersion;

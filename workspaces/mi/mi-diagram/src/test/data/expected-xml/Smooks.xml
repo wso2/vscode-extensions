@@ -1,4 +1,0 @@
-<smooks config-key="Config Key" description="" >
-        <input expression="Input Expression" type="xml" />
-        <output    type="xml" />
-    </smooks>

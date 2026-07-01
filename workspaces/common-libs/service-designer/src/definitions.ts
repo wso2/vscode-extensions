@@ -16,8 +16,24 @@
  * under the License.
  */
 
-import { NodePosition, Diagnostic } from "@wso2/syntax-tree";
 import { Item } from "@wso2/ui-toolkit";
+
+export interface NodePosition {
+    startLine?: number;
+    startColumn?: number;
+    endLine?: number;
+    endColumn?: number;
+}
+
+export interface DiagnosticInfo {
+    code: string;
+    severity: string;
+}
+
+export interface Diagnostic {
+    diagnosticInfo: DiagnosticInfo;
+    message: string;
+}
 
 export interface ResponseConfig {
     id: number;

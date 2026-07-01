@@ -1,5 +1,0 @@
-<iterate  attachPath="Path" continueParent="true" expression="Iterate Exp" id="IterateID" preservePayload="true" sequential="true" >
-        <target>
-            <sequence></sequence>
-        </target>
-    </iterate>

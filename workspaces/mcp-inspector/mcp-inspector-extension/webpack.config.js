@@ -83,6 +83,10 @@ const inspectorClientConfig = {
     // Native modules that can't be bundled
     'bufferutil': 'commonjs bufferutil',
     'utf-8-validate': 'commonjs utf-8-validate',
+    // open@10+ is ESM-only; bundling it embeds the build machine's absolute file:// URL,
+    // causing ERR_INVALID_FILE_URL_PATH on Windows when built on macOS. Since the extension
+    // always sets MCP_AUTO_OPEN_ENABLED=false, open() is never called at runtime.
+    'open': 'commonjs open',
   },
   resolve: {
     extensions: ['.js', '.json']

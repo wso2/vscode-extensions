@@ -3,11 +3,9 @@ packages:
   - 'workspaces/api-tryit/*'
   - 'workspaces/apk/*'
   - 'workspaces/*'
-  - 'workspaces/ballerina/*'
   - 'workspaces/choreo/*'
   - 'workspaces/wso2-platform/*'
-  - "workspaces/bi/*"
+  - 'workspaces/api-tryit/*'
   - 'workspaces/common-libs/*'
-  - 'workspaces/mi/*'
   - 'workspaces/mcp-inspector/*'
   - 'workspaces/hurl-client/*'

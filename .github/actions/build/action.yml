@@ -3,22 +3,12 @@ inputs:
   isPreRelease:
     default: true
     type: boolean
-  ballerinaLsTag:
-    description: Override Ballerina LS download tag (latest, prerelease, v1.5.0). Overrides isPreRelease for LS download.
-    type: string
-    required: false
-    default: ''
   enableCache:
     default: true
     type: boolean
   enableLSCache:
     default: false
     type: boolean
-  ballerina:
-    description: Update Ballerina extension version
-    type: boolean
-    required: false
-    default: false
   choreo:
     description: Update Choreo extension version
     type: boolean
@@ -29,18 +19,8 @@ inputs:
     type: boolean
     required: false
     default: false
-  bi:
-    description: Update BI extension version
-    type: boolean
-    required: false
-    default: false
   wso2-platform:
     description: Update WSO2 Platform extension version
-    type: boolean
-    required: false
-    default: false
-  mi:
-    description: Update MI extension version
     type: boolean
     required: false
     default: false
@@ -53,34 +33,15 @@ inputs:
     default: "N/A"
     type: string
     required: false
-  balVersion:
-    default: 2201.7.1
-    type: string
   token:
     type: string
     required: false
-  BALLERINA_AUTH_ORG:
-    type: string
-  BALLERINA_AUTH_CLIENT_ID:
-    type: string
-  BALLERINA_DEV_COPLIOT_ROOT_URL:
-    type: string
-  BALLERINA_DEV_COPLIOT_AUTH_ORG:
-    type: string
-  BALLERINA_DEV_COPLIOT_AUTH_CLIENT_ID:
-    type: string
-  BALLERINA_DEV_COPLIOT_AUTH_REDIRECT_URL:
-    type: string
   COPILOT_ROOT_URL:
     type: string
   COPILOT_DEV_ROOT_URL:
     type: string
   APPINSIGHTS_INSTRUMENTATION_KEY:
     type: string  
-  MI_AUTH_ORG:
-    type: string
-  MI_AUTH_CLIENT_ID:
-    type: string
   PLATFORM_DEFAULT_GHAPP_CLIENT_ID:
     type: string
   PLATFORM_DEFAULT_DEVANT_ASGARDEO_CLIENT_ID:
@@ -106,19 +67,6 @@ runs:
         cache-pnpm: ${{ inputs.enableCache }}
         set-env: ${{ inputs.enableCache }}
 
-    - uses: ballerina-platform/setup-ballerina@v1
-      name: Install Ballerina
-      with:
-        version: ${{ inputs.balVersion }}
-
-    - name: Update version - Balleina
-      if: ${{ inputs.ballerina == 'true' }}
-      uses: ./.github/actions/updateVersion
-      with:
-        path: "ballerina/ballerina-extension"
-        isPreRelease: ${{ inputs.isPreRelease }}
-        version: ${{ inputs.version }}
-
     - name: Update version - Choreo
       if: ${{ inputs.choreo == 'true' }}
       uses: ./.github/actions/updateVersion
@@ -135,14 +83,6 @@ runs:
         isPreRelease: ${{ inputs.isPreRelease }}
         version: ${{ inputs.version }}
 
-    - name: Update version - BI
-      if: ${{ inputs.bi == 'true' }}
-      uses: ./.github/actions/updateVersion
-      with:
-        path: "bi/bi-extension"
-        isPreRelease: ${{ inputs.isPreRelease }}
-        version: ${{ inputs.version }}
-
     - name: Update version - WSO2 Platform
       if: ${{ inputs.wso2-platform == 'true' }}
       uses: ./.github/actions/updateVersion
@@ -151,11 +91,11 @@ runs:
         isPreRelease: ${{ inputs.isPreRelease }}
         version: ${{ inputs.version }}
 
-    - name: Update version - MI
-      if: ${{ inputs.mi == 'true' }}
+    - name: Update version - Hurl Client
+      if: ${{ inputs.hurl-client == 'true' }}
       uses: ./.github/actions/updateVersion
       with:
-        path: "mi/mi-extension"
+        path: "hurl-client/hurl-client-extension"
         isPreRelease: ${{ inputs.isPreRelease }}
         version: ${{ inputs.version }}
 
@@ -167,52 +107,17 @@ runs:
           cp "$example" "$envfile"
         done
 
-    - name: Restore MI LS from cache
-      id: mi-ls-cache
-      if: ${{ inputs.enableLSCache == 'true' }}
-      uses: actions/cache@v4
-      with:
-        path: workspaces/mi/mi-extension/ls
-        key: mi-ls
-        retention-days: 1
-
-    - name: Resolve Ballerina LS version
-      id: resolve-ballerina-ls-version
-      if: ${{ inputs.enableLSCache == 'true' }}
-      shell: bash
-      run: node workspaces/ballerina/ballerina-extension/scripts/download-ls.js --resolve-version
-      env:
-        BALLERINA_LS_TAG: ${{ inputs.ballerinaLsTag != '' && inputs.ballerinaLsTag || (inputs.isPreRelease == 'true' && 'prerelease' || 'latest') }}
-        GITHUB_TOKEN: ${{ inputs.token }}
-
-    - name: Restore Ballerina LS from cache
-      id: ballerina-ls-cache
-      if: ${{ inputs.enableLSCache == 'true' }}
-      uses: actions/cache@v4
-      with:
-        path: workspaces/ballerina/ballerina-extension/ls
-        key: ballerina-ls-${{ steps.resolve-ballerina-ls-version.outputs.version }}
-        retention-days: 1
-
     - name: Build repo
       shell: bash
       id: build
       run: |
         node common/scripts/install-run-rush.js build --verbose
       env:
+        NODE_OPTIONS: --max-old-space-size=6144
         isPreRelease: ${{ inputs.isPreRelease == 'true' }}
-        BALLERINA_LS_TAG: ${{ inputs.enableLSCache == 'true' && steps.resolve-ballerina-ls-version.outputs.version || (inputs.ballerinaLsTag != '' && inputs.ballerinaLsTag || (inputs.isPreRelease == 'true' && 'prerelease' || 'latest')) }}
-        BALLERINA_AUTH_ORG: ${{ inputs.BALLERINA_AUTH_ORG }}
-        BALLERINA_AUTH_CLIENT_ID: ${{ inputs.BALLERINA_AUTH_CLIENT_ID }}
-        BALLERINA_DEV_COPLIOT_ROOT_URL: ${{ inputs.BALLERINA_DEV_COPLIOT_ROOT_URL }}
-        BALLERINA_DEV_COPLIOT_AUTH_ORG: ${{ inputs.BALLERINA_DEV_COPLIOT_AUTH_ORG }}
-        BALLERINA_DEV_COPLIOT_AUTH_CLIENT_ID: ${{ inputs.BALLERINA_DEV_COPLIOT_AUTH_CLIENT_ID }}
-        BALLERINA_DEV_COPLIOT_AUTH_REDIRECT_URL: ${{ inputs.BALLERINA_DEV_COPLIOT_AUTH_REDIRECT_URL }}
         COPILOT_ROOT_URL: ${{ inputs.COPILOT_ROOT_URL }}
         COPILOT_DEV_ROOT_URL: ${{ inputs.COPILOT_DEV_ROOT_URL }}
         APPINSIGHTS_INSTRUMENTATION_KEY: ${{ inputs.APPINSIGHTS_INSTRUMENTATION_KEY }}
-        MI_AUTH_ORG: ${{ inputs.MI_AUTH_ORG }}
-        MI_AUTH_CLIENT_ID: ${{ inputs.MI_AUTH_CLIENT_ID }}
         PLATFORM_DEFAULT_GHAPP_CLIENT_ID: ${{ inputs.PLATFORM_DEFAULT_GHAPP_CLIENT_ID }}
         PLATFORM_DEFAULT_DEVANT_ASGARDEO_CLIENT_ID: ${{ inputs.PLATFORM_DEFAULT_DEVANT_ASGARDEO_CLIENT_ID }}
         PLATFORM_STAGE_GHAPP_CLIENT_ID: ${{ inputs.PLATFORM_STAGE_GHAPP_CLIENT_ID }}

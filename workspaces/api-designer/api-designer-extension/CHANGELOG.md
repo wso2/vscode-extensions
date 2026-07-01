@@ -1,6 +1,6 @@
 # Change Log
 
-All notable changes to the "micro-integrator" extension will be documented in this file.
+All notable changes to the "api-designer" extension will be documented in this file.
 
 ## [1.0.1] (2024-07-26)
 

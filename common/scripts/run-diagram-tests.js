@@ -37,7 +37,6 @@ const diagram_packages = [
     { name: 'sequence-diagram', path: 'workspaces/ballerina/sequence-diagram' },
     { name: 'component-diagram', path: 'workspaces/ballerina/component-diagram' },
     { name: 'type-diagram', path: 'workspaces/ballerina/type-diagram' },
-    { name: 'mi-diagram', path: 'workspaces/mi/mi-diagram' },
 ];
 
 function parseTestResults(output) {

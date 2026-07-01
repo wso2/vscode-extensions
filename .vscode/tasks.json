@@ -242,35 +242,6 @@
             "script": "compile-tests",
         },
         {
-            "label": "npm: watch-mi",
-			"type": "npm",
-			"script": "watch",
-            "path": "workspaces/mi/mi-extension",
-            "problemMatcher": "$tsc-watch",
-			"isBackground": true,
-			"presentation": {
-				"reveal": "never",
-				"group": "watchers"
-			},
-			"group": {
-				"kind": "build",
-				"isDefault": true
-			}
-		},
-		{
-            "label": "watch-mi-tests",
-			"type": "npm",
-			"script": "watch-tests",
-            "path": "workspaces/mi/mi-extension",
-			"problemMatcher": "$tsc-watch",
-			"isBackground": true,
-			"presentation": {
-				"reveal": "never",
-				"group": "watchers"
-			},
-			"group": "build"
-		},
-        {
             "label": "npm: watch-api-designer",
 			"type": "npm",
 			"script": "watch",

@@ -1,2 +1,0 @@
-[workspace]
-packages = ["alpha_runner", "beta_runner"]
