@@ -66,7 +66,7 @@ export class InboundEPForm {
             await confiramtionBtn.click();
             console.log('Download dependency confirmed');
             
-            const downloadingMessageLocator = inboundEPSection.locator(`span:text("Downloading connector... This might take a while")`);
+            const downloadingMessageLocator = inboundEPSection.locator(`span:text("Downloading inbound endpoint... This might take a while")`);
             try {
                 await downloadingMessageLocator.waitFor({ state: 'visible', timeout: 5000 });
                 console.log('Downloading connector message appeared');

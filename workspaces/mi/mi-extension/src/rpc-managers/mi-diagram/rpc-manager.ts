@@ -4128,14 +4128,14 @@ ${endpointAttributes}
         const langClient = await MILanguageClient.getInstance(this.projectUri);
         try {
             if (isInbound) {
-                const inboundConnectorDirectory = path.join(this.projectUri, 'src', 'main', 'wso2mi', 'resources', 'inbound-connectors');
+                const inboundConnectorDirectory = path.join(this.projectUri, 'src', 'main', 'wso2mi', 'resources', 'inbound-endpoints');
                 if (!fs.existsSync(inboundConnectorDirectory)) {
                     fs.mkdirSync(inboundConnectorDirectory, { recursive: true });
                 }
                 const inboundDestinationPath = path.join(inboundConnectorDirectory, path.basename(connectorPath));
 
                 if (fs.existsSync(inboundDestinationPath)) {
-                    return { success: false, error: `An inbound connector with the name '${path.basename(connectorPath)}' already exists.` };
+                    return { success: false, error: `An inbound endpoint with the name '${path.basename(connectorPath)}' already exists.` };
                 }
 
                 const deleteInboundZip = () => {
@@ -4150,7 +4150,7 @@ ${endpointAttributes}
                     const updateResult = await langClient.updateInboundConnectors();
                     if (updateResult !== "success") {
                         deleteInboundZip();
-                        return { success: false, error: updateResult || "Failed to import inbound connector." };
+                        return { success: false, error: updateResult || "Failed to import inbound endpoint." };
                     }
 
                     commands.executeCommand(COMMANDS.REFRESH_COMMAND);
