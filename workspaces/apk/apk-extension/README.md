@@ -1,4 +1,6 @@
-# Kubernetes Gateway Config Language Support
+# Kubernetes Gateway Config Language Support [Deprecated]
+
+> ❗ **IMPORTANT**: This extension has been deprecated in favor of the [WSO2 API Designer](https://marketplace.visualstudio.com/items?itemName=WSO2.api-designer) extension, which includes APK configuration language support along with additional API design capabilities. Please install [WSO2 API Designer](https://marketplace.visualstudio.com/items?itemName=WSO2.api-designer) instead.
 
 A Visual Studio Code extension for providing language support for APK configuration YAML files.
 
