@@ -380,7 +380,7 @@ export async function readOutputSchema(
 /**
  * Discover inbound endpoint types known to the LS/runtime — splits bundled (runtime-shipped)
  * from Maven-or-custom (either in the store catalog or added under
- * `src/main/wso2mi/resources/inbound-connectors/`).
+ * `src/main/wso2mi/resources/inbound-endpoints/`).
  *
  * The bundled list is runtime-dependent — we do NOT hardcode it. Bundled `id`s are the
  * values passed to `getInboundInfo({id})`. Maven entries' `id`s are consumer class FQNs

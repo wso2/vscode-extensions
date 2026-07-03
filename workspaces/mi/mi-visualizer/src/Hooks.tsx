@@ -37,7 +37,7 @@ export interface ConnectorInfo {
 }
 
 /**
- * Manages the check-and-download lifecycle for a downloadable inbound connector.
+ * Manages the check-and-download lifecycle for a downloadable inbound endpoint.
  *
  * Two entry points:
  * - `requiresDownload(info)` – caller already knows the connector needs downloading

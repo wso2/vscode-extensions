@@ -64,7 +64,7 @@ export interface Region {
 }
 
 // MCP servers are created through the dedicated MCP Server artifact flow,
-// so the raw MCP inbound connector is hidden from the event integration list.
+// so the raw MCP inbound endpoint is hidden from the event integration list.
 const HIDDEN_INBOUND_CONNECTORS = /^mcp\b/i;
 
 export interface InboundEPWizardProps {
@@ -121,7 +121,7 @@ export function InboundEPWizard(props: InboundEPWizardProps) {
             setLocalConnectors(localConnectors["inbound-connector-data"]?.filter((connector: any) => !HIDDEN_INBOUND_CONNECTORS.test(connector.name)));
             setStoreConnectors(data?.filter((connector: any) => !HIDDEN_INBOUND_CONNECTORS.test(connector.connectorName)));
         } catch (e) {
-            rpcClient.getMiVisualizerRpcClient().showNotification({message: "Error occurred while fetching inbound-connectors", type: "error"});
+            rpcClient.getMiVisualizerRpcClient().showNotification({message: "Error occurred while fetching inbound-endpoints", type: "error"});
             console.error("Error fetching connectors", e);
         }
         setIsFetchingConnectors(false);
@@ -251,7 +251,7 @@ export function InboundEPWizard(props: InboundEPWizardProps) {
                     depState === 'downloading' ? (
                         <LoaderWrapper>
                             <ProgressRing />
-                            <span>Downloading connector... This might take a while</span>
+                            <span>Downloading inbound endpoint... This might take a while</span>
                             {downloadProgress && (
                                 `Downloaded ${downloadProgress.downloadedAmount} of ${downloadProgress.downloadSize} (${downloadProgress.percentage}%). `
                             )}
@@ -284,10 +284,10 @@ export function InboundEPWizard(props: InboundEPWizardProps) {
                         <>
                             <HeaderRow>
                                 <span>Please select an event integration.</span>
-                                <Button appearance="secondary" onClick={importInboundConnector} tooltip="Import an inbound connector">
+                                <Button appearance="secondary" onClick={importInboundConnector} tooltip="Import an inbound endpoint">
                                     <div style={{ display: "flex", flexDirection: "row", gap: 10, alignItems: "center" }}>
                                         <Icon name="plus" isCodicon iconSx={{ fontSize: 20, fontWeight: 200 }} />
-                                        <span>Import Inbound Connector</span>
+                                        <span>Import Inbound Endpoint</span>
                                     </div>
                                 </Button>
                             </HeaderRow>
