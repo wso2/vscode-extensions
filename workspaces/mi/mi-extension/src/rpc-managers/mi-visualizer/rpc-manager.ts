@@ -60,6 +60,7 @@ import {
     UpdatePomValuesRequest,
     UpdateConfigValuesRequest,
     ImportOpenAPISpecRequest,
+    ImportOpenAPISpecResponse,
     PathDetailsResponse,
     DownloadMIRequest,
     UpdateAiDependenciesRequest,
@@ -919,7 +920,7 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
         }
     }
 
-    async importOpenAPISpec(params: ImportOpenAPISpecRequest): Promise<void> {
+    async importOpenAPISpec(params: ImportOpenAPISpecRequest): Promise<ImportOpenAPISpecResponse> {
         const { filePath } = params;
         const langClient = await MILanguageClient.getInstance(this.projectUri);
         if (filePath && filePath.length > 0) {
@@ -931,10 +932,14 @@ export class MiVisualizerRpcManager implements MIVisualizerAPI {
             if (buildStatus) {
                 await copy(connectorPath, path.join(this.projectUri, 'src', 'main', 'wso2mi', 'resources', 'connectors', path.basename(connectorPath)));
                 vscode.window.showInformationMessage("Connector generated successfully");
+                return { isSuccess: true };
             } else {
-                vscode.window.showErrorMessage(errorMessage || "Error while generating connector");
+                const message = errorMessage || "Error while generating connector";
+                vscode.window.showErrorMessage(message);
+                return { isSuccess: false, errorMessage: message };
             }
         }
+        return { isSuccess: false, errorMessage: "Please select a valid file for connector generation" };
     }
 
     async updateProjectSettingsConfig(params: ProjectConfig): Promise<void> {

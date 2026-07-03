@@ -46,6 +46,7 @@ import {
     UpdatePomValuesRequest,
     UpdateConfigValuesRequest,
     ImportOpenAPISpecRequest,
+    ImportOpenAPISpecResponse,
     SetupDetails,
     SetPathRequest,
     PathDetailsResponse,
@@ -104,7 +105,7 @@ export interface MIVisualizerAPI {
     refetchIntegrationProjectDependencies: () => Promise<string>;
     getDependencyStatusList: () => Promise<DependencyStatusResponse>;
     updateDependenciesFromOverview: (params: UpdateDependenciesRequest) => Promise<boolean>;
-    importOpenAPISpec: (params: ImportOpenAPISpecRequest) => Promise<void>;
+    importOpenAPISpec: (params: ImportOpenAPISpecRequest) => Promise<ImportOpenAPISpecResponse>;
     getProjectSetupDetails: () => Promise<SetupDetails>;
     updateRuntimeVersionsInPom: (params:string) => Promise<boolean>;
     setPathsInWorkSpace: (params: SetPathRequest) => Promise<PathDetailsResponse>;

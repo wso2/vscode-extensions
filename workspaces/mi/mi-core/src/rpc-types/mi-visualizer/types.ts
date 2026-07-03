@@ -393,6 +393,11 @@ export interface ImportOpenAPISpecRequest {
     filePath: string;
 }
 
+export interface ImportOpenAPISpecResponse {
+    isSuccess: boolean;
+    errorMessage?: string;
+}
+
 export interface RuntimeServicesResponse {
     api: RuntimeServiceDetails | undefined;
     proxy: RuntimeServiceDetails | undefined;
