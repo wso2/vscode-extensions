@@ -259,6 +259,7 @@ Returns:
 
                 const allIssues: any[] = [];
                 const excludedIssues: any[] = [];
+                let dependentPackageIssuesFound = false;
 
                 for (const target of scanTargets) {
                     console.log(
@@ -281,6 +282,10 @@ Returns:
                         };
                         eventHandler({ type: 'tool_result', toolName: SECURITY_TOOL_NAME, toolOutput: failureRes, failed: true });
                         return failureRes;
+                    }
+
+                    if (scanResponse.dependentPackageIssuesFound) {
+                        dependentPackageIssuesFound = true;
                     }
 
                     allIssues.push(...(scanResponse.activeIssues || []));
@@ -344,15 +349,19 @@ Returns:
                 }
 
                 if (filteredIssues.length === 0) {
+                    let emptyMsg = excludedIssues.length > 0
+                        ? `No active issues found. ${excludedIssues.length} issue(s) are currently excluded/suppressed.`
+                        : 'No issues found. Code looks good!';
+                    if (dependentPackageIssuesFound) {
+                        emptyMsg += ` Dependent packages were found to have security vulnerabilities. The user should open the project in workspace mode to view and resolve these issues.`;
+                    }
                     const emptyRes: DiagnosticsCheckResult = {
                         count: 0,
                         diagnostics: [],
                         excludedCount: excludedIssues.length,
                         timeoutMs,
                         scanTargetPath: scanTargets.length === 1 ? scanTargets[0].targetPath : tempProjectPath,
-                        message: excludedIssues.length > 0
-                            ? `No active issues found. ${excludedIssues.length} issue(s) are currently excluded/suppressed.`
-                            : 'No issues found. Code looks good!',
+                        message: emptyMsg,
                         success: true,
                     };
                     eventHandler({ type: 'tool_result', toolName: SECURITY_TOOL_NAME, toolOutput: emptyRes });
@@ -372,6 +381,10 @@ Returns:
 
                 if (userInputRequiredCount > 0) {
                     outputMessage += ` STRICT RULE: ${userInputRequiredCount} issue(s) have autoFixEnabled=false. DO NOT attempt to fix them automatically. Only fix them if the user EXPLICITLY asks you to fix them AND provides any required values.`;
+                }
+
+                if (dependentPackageIssuesFound) {
+                    outputMessage += ` Dependent packages were found to have security vulnerabilities. The user should open the project in workspace mode to view and resolve these issues.`;
                 }
 
                 const result: DiagnosticsCheckResult = {

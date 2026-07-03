@@ -256,6 +256,21 @@ const OutdatedBanner = styled.div`
     max-width: fit-content;
 `;
 
+const DependentPkgBanner = styled.div`
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--vscode-editorWarning-foreground);
+    background: var(--vscode-inputValidation-warningBackground, var(--vscode-editorWidget-background));
+    color: var(--vscode-editorWarning-foreground);
+    font-size: 11px;
+    font-weight: 600;
+    max-width: fit-content;
+`;
+
 const SummaryPills = styled.div`
     display: flex;
     flex-wrap: wrap;
@@ -607,6 +622,7 @@ const ScannerOverview = ({ projectPath: propProjectPath }: { projectPath?: strin
     const [pullSuccess, setPullSuccess] = useState<boolean>(false);
     const [severityFilter, setSeverityFilter] = useState<Set<"HIGH" | "MEDIUM" | "LOW">>(new Set());
     const [scanError, setScanError] = useState<string | null>(null);
+    const [dependentPkgIssuesFound, setDependentPkgIssuesFound] = useState(false);
 
     const scannerEnabled =
         typeof window !== "undefined" ? Boolean(window.__SCANNER_ENABLED__) : true;
@@ -674,6 +690,10 @@ const ScannerOverview = ({ projectPath: propProjectPath }: { projectPath?: strin
             if (checkAborted?.()) return;
             const workspaceMode = res.workspaceName !== undefined;
             setIsWorkspace(workspaceMode);
+
+            if (workspaceMode) {
+                setDependentPkgIssuesFound(false);
+            }
 
             if (workspaceMode && res.projects && res.projects.length > 0) {
                 setWorkspaceProjects(res.projects);
@@ -759,6 +779,7 @@ const ScannerOverview = ({ projectPath: propProjectPath }: { projectPath?: strin
                     setRescannedAt(new Date());
                     setResultsOutdated(false);
                     setScanError(errorMsg || 'Scan failed due to an unknown error');
+                    setDependentPkgIssuesFound(false);
                 } else {
                     const active: ActiveIssue[] = Array.isArray(scanResult) ? scanResult : (scanResult.activeIssues || []);
                     const excluded: ExcludedIssue[] = Array.isArray(scanResult) ? [] : (scanResult.excludedIssues || []);
@@ -767,6 +788,7 @@ const ScannerOverview = ({ projectPath: propProjectPath }: { projectPath?: strin
                     setRescannedAt(new Date());
                     setResultsOutdated(false);
                     setScanError(null);
+                    setDependentPkgIssuesFound(scanResponse?.dependentPackageIssuesFound ?? false);
                 }
             }
         } catch (error) {
@@ -1445,6 +1467,12 @@ const ScannerOverview = ({ projectPath: propProjectPath }: { projectPath?: strin
                                     <Codicon name="warning" sx={{ fontSize: "11px" }} />
                                     Results are outdated. Rescan to refresh.
                                 </OutdatedBanner>
+                            )}
+                            {!isWorkspace && dependentPkgIssuesFound && (
+                                <DependentPkgBanner title="Security vulnerabilities detected in dependent packages">
+                                    <Codicon name="warning" sx={{ fontSize: "11px" }} />
+                                    Detected security vulnerabilities in dependent packages. Please open this in workspace mode.
+                                </DependentPkgBanner>
                             )}
                         </HeaderIdentity>
 

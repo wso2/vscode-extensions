@@ -572,6 +572,7 @@ export class ScannerRpcManager implements ScannerAPI {
                 success: true,
                 activeIssues: result.activeIssues,
                 excludedIssues: enrichedExclusions,
+                dependentPackageIssuesFound: result.dependentPackageIssuesFound,
             };
 
         } catch (error) {

@@ -147,6 +147,7 @@ export interface BaseResponse {
 export interface ScanResponse extends BaseResponse {
     activeIssues?: any[];
     excludedIssues?: any[];
+    dependentPackageIssuesFound?: boolean;
 }
 
 /**

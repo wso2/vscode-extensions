@@ -179,11 +179,12 @@ export function mapExclusion(raw: any): ScannerExclusionContext {
 }
 
 export function mapRawScanResponse(response: ScanResponse | undefined): ScanResponse {
-    const { activeIssues = [], excludedIssues = [] } = response || {};
+    const { activeIssues = [], excludedIssues = [], dependentPackageIssuesFound } = response || {};
 
     return {
         activeIssues: activeIssues.map(mapIssue),
-        excludedIssues: excludedIssues.map(mapExclusion)
+        excludedIssues: excludedIssues.map(mapExclusion),
+        dependentPackageIssuesFound
     };
 }
 
