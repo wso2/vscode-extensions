@@ -67,8 +67,14 @@ export function ImportConnectionFromProto(props: ImportConnectionProps) {
 
     const importWithProto = async () => {
         setIsImporting(true);
+        setIsFailedImport(false);
         try {
-            await rpcClient.getMiVisualizerRpcClient().importOpenAPISpec({ filePath: protoDir });
+            const result = await rpcClient.getMiVisualizerRpcClient().importOpenAPISpec({ filePath: protoDir });
+            if (!result?.isSuccess) {
+                setIsFailedImport(true);
+                setIsImporting(false);
+                return;
+            }
 
             const newConnector: any = await waitForEvent();
             if (newConnector?.isSuccess) {
@@ -78,6 +84,7 @@ export function ImportConnectionFromProto(props: ImportConnectionProps) {
             }
         } catch (error) {
             console.log(error);
+            setIsFailedImport(true);
         }
         setIsImporting(false);
     };

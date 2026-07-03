@@ -67,9 +67,15 @@ export function ImportConnectionFromOpenAPI(props: ImportConnectionProps) {
 
     const importWithOpenAPI = async () => {
         setIsImporting(true);
+        setIsFailedImport(false);
         try {
-            await rpcClient.getMiVisualizerRpcClient().importOpenAPISpec({ filePath: openApiDir });
-            
+            const result = await rpcClient.getMiVisualizerRpcClient().importOpenAPISpec({ filePath: openApiDir });
+            if (!result?.isSuccess) {
+                setIsFailedImport(true);
+                setIsImporting(false);
+                return;
+            }
+
             const newConnector: any = await waitForEvent();
             if (newConnector?.isSuccess) {
                 props.onImportSuccess();
@@ -78,6 +84,7 @@ export function ImportConnectionFromOpenAPI(props: ImportConnectionProps) {
             }
         } catch (error) {
             console.log(error);
+            setIsFailedImport(true);
         }
         setIsImporting(false);
     };
