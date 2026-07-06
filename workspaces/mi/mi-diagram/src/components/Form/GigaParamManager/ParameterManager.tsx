@@ -109,8 +109,26 @@ const ParameterManager = (props: ParameterManagerProps) => {
         setIsUpdate(false);
     }
 
+    const EXPRESSION_INPUT_TYPES = [
+        'stringOrExpression', 'integerOrExpression', 'expression', 'keyOrExpression',
+        'resourceOrExpression', 'textOrExpression', 'textAreaOrExpression', 'stringOrExpresion'
+    ];
+    const CONTAINER_INPUT_TYPES = ['ParamManager', 'stringWithParamManager', 'table'];
+
     const handleEditParameter = (param: Param, index: number) => {
-        reset(param);
+        const normalized: any = { ...(param as any) };
+        formData?.elements?.forEach((el: any) => {
+            const fieldName = el?.value?.name;
+            const inputType = el?.value?.inputType;
+            if (fieldName
+                && !EXPRESSION_INPUT_TYPES.includes(inputType)
+                && !CONTAINER_INPUT_TYPES.includes(inputType)
+                && !Array.isArray(normalized[fieldName])
+                && typeof normalized[fieldName] === 'object' && normalized[fieldName] !== null) {
+                normalized[fieldName] = getFieldValue(normalized[fieldName]);
+            }
+        });
+        reset(normalized);
         setCurrentIndex(index);
         setIsUpdate(true);
     };

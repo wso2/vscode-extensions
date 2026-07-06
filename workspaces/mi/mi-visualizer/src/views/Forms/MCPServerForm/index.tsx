@@ -231,14 +231,14 @@ export function MCPServerWizard(props: MCPServerWizardProps) {
             {depState === 'downloading' ? (
                 <LoaderWrapper>
                     <ProgressRing />
-                    <span>Downloading connector... This might take a while</span>
+                    <span>Downloading inbound endpoint... This might take a while</span>
                     {downloadProgress && (
                         `Downloaded ${downloadProgress.downloadedAmount} of ${downloadProgress.downloadSize} (${downloadProgress.percentage}%). `
                     )}
                 </LoaderWrapper>
             ) : depState === 'download-failed' ? (
                 <div style={{ display: 'flex', flexDirection: 'column', padding: '40px', gap: '15px' }}>
-                    <Typography variant="body2">Error downloading connector. Please try again...</Typography>
+                    <Typography variant="body2">Error downloading inbound endpoint. Please try again...</Typography>
                     <FormActions>
                         <Button appearance="primary" onClick={() => acceptDownload()}>
                             Retry
@@ -250,7 +250,7 @@ export function MCPServerWizard(props: MCPServerWizardProps) {
                 </div>
             ) : depState === 'needs-download' ? (
                 <div style={{ display: 'flex', flexDirection: 'column', padding: '40px', gap: '15px' }}>
-                    <Typography variant="body2">The MCP inbound connector will be added as a dependency to the project. Do you want to continue?</Typography>
+                    <Typography variant="body2">The MCP inbound endpoint will be added as a dependency to the project. Do you want to continue?</Typography>
                     <FormActions>
                         <Button appearance="secondary" onClick={declineDownload}>
                             No

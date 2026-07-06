@@ -3,7 +3,7 @@
   "displayName": "WSO2 Integrator: MI",
   "description": "The official low-code development toolkit for WSO2 Integrator: MI. Everything you need to build, test, and deploy integrations — right from within VS Code.",
   "icon": "resources/images/wso2-micro-integrator-icon.png",
-  "version": "4.1.1",
+  "version": "4.1.2",
   "publisher": "wso2",
   "engines": {
     "vscode": "^1.100.0"

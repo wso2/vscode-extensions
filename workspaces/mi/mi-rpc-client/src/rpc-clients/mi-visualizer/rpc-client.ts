@@ -97,6 +97,7 @@ import {
     updateConnectorDependencies,
     refetchIntegrationProjectDependencies,
     ImportOpenAPISpecRequest,
+    ImportOpenAPISpecResponse,
     updateRuntimeVersionsInPom,
     PathDetailsResponse,
     updateProjectSettingsConfig,
@@ -296,7 +297,7 @@ export class MiVisualizerRpcClient implements MIVisualizerAPI {
     updateDependenciesFromOverview(params: UpdateDependenciesRequest): Promise<boolean> {
         return this._messenger.sendRequest(updateDependenciesFromOverview, HOST_EXTENSION, params);
     }
-    importOpenAPISpec(params: ImportOpenAPISpecRequest): Promise<void> {
+    importOpenAPISpec(params: ImportOpenAPISpecRequest): Promise<ImportOpenAPISpecResponse> {
         return this._messenger.sendRequest(importOpenAPISpec, HOST_EXTENSION, params);
     }
     updateProjectSettingsConfig(params: ProjectConfig): Promise<void> {

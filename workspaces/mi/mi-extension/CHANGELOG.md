@@ -2,6 +2,14 @@
 
 All notable changes to the "micro-integrator" extension will be documented in this file.   
 
+## [4.1.2] - 2026-07-04   
+
+### Fixed   
+
+Fixed: Table field values are incorrectly shown in inbound endpoint form ([#1079](https://github.com/wso2/mi-vscode/issues/1079))    
+Fixed: Minor bug fixes in the extension and the language server   
+Fixed: Update the custom inbound-endpoints importing process   
+
 ## [4.1.1] - 2026-06-30   
 
 ### Fixed   
@@ -13,7 +21,6 @@ Fixed: HTTP connector is always added in window reload ([#1440](https://github.c
 Fixed: Expression editor in Script Mediator appends additional parentheses ([#1376](https://github.com/wso2/mi-vscode/issues/1376))    
 Fixed: No error shown we retry connectors without internet connection ([#1314](https://github.com/wso2/mi-vscode/issues/1314))    
 Fixed: Show a message when the CApp generation is successful ([#1289](https://github.com/wso2/mi-vscode/issues/1289))    
-Fixed: Table field values are incorrectly shown in inbound endpoint form ([#1079](https://github.com/wso2/mi-vscode/issues/1079))    
 Fixed: Improve Query UI in dataservices ([#721](https://github.com/wso2/mi-vscode/issues/721))    
 Fixed: Datasource is not marked as required in Data Service create form ([#708](https://github.com/wso2/mi-vscode/issues/708))    
 Fixed: Update unit test page artifact select dropdowns don't work properly  ([#487](https://github.com/wso2/mi-vscode/issues/487))    

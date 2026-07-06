@@ -137,9 +137,6 @@ export function AddInboundConnector(props: AddInboundConnectorProps) {
 
     function getParameterValue(param: any): string {
         const content = param?.content;
-        if (content == null) {
-            return param?.textNode ?? "";
-        }
         if (typeof content === "string") {
             return content;
         }
@@ -149,7 +146,7 @@ export function AddInboundConnector(props: AddInboundConnectorProps) {
                 .join("")
                 .trim();
         }
-        return content?.textNode ?? param?.textNode ?? "";
+        return param?.textNode ?? "";
     }
 
     function getNameForController(name: string | number) {
@@ -209,16 +206,12 @@ export function AddInboundConnector(props: AddInboundConnectorProps) {
             // Handle param manager input type
             if (Array.isArray(values[key])) {
                 const value = values[key];
-                let paramText = `[`;
-
-                value.forEach((item: any) => {
-                    const propertyName = item.propertyName;
-                    const propertyValue = item.propertyValue?.value ?? item.propertyValue;
-                    const text = `["${propertyName}","${propertyValue}"],`;
-                    paramText = paramText + text;
+                const items = value.map((item: any) => {
+                    const propertyName = item.propertyName ?? "";;
+                    const propertyValue = item.propertyValue?.value ?? item.propertyValue ?? "";
+                    return JSON.stringify([String(propertyName), String(propertyValue)]);
                 });
-                paramText = paramText + `]`;
-                paramFields[key] = paramText;
+                paramFields[key] = `[${items.join(",")}]`;
             }
         })
         return { attrFields, paramFields };

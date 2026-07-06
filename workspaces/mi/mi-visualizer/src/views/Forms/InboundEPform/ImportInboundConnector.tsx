@@ -70,11 +70,11 @@ export function ImportInboundConnectorForm(props: ImportInboundConnectorFormProp
                     isPopup: true
                 });
             } else {
-                setImportError(response.error || "Error importing inbound connector. Please try again...");
+                setImportError(response.error || "Error importing inbound endpoint. Please try again...");
             }
         } catch (error) {
             console.log(error);
-            setImportError("Error importing inbound connector. Please try again...");
+            setImportError("Error importing inbound endpoint. Please try again...");
         }
 
         setIsImporting(false);
@@ -92,12 +92,12 @@ export function ImportInboundConnectorForm(props: ImportInboundConnectorFormProp
 
     return (
         <>
-            <FormView title={`Import Inbound Connector`} onClose={handleCancel}>
+            <FormView title={`Import Inbound Endpoint`} onClose={handleCancel}>
                 {isImporting ?
                     (
                         <LoaderWrapper>
                             <ProgressRing />
-                            Importing inbound-connector...
+                            Importing inbound-endpoint...
                         </LoaderWrapper>
                     ) : (
                         <>
@@ -109,7 +109,7 @@ export function ImportInboundConnectorForm(props: ImportInboundConnectorFormProp
                                     <ErrorBanner errorMsg={"Please select a connector zip file"} />
                                 }
                                 <LocationSelector
-                                    label="Choose path to inbound connector zip"
+                                    label="Choose path to inbound endpoint zip"
                                     selectedFile={zipDir}
                                     required
                                     onSelect={handleSourceDirSelection}
