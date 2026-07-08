@@ -50,7 +50,7 @@ import { FormattingProvider } from './FormattingProvider';
 
 import util = require('util');
 import { log } from '../util/logger';
-import { getJavaHomeFromConfig, getProjectSetupDetails, isMISetup, isJavaSetup } from '../util/onboardingUtils';
+import { getJavaHomeFromConfig, getJavaVersion, getMIVersionFromPom, isMISetup, isJavaSetup } from '../util/onboardingUtils';
 import { SELECTED_SERVER_PATH } from '../debugger/constants';
 import { extension } from '../MIExtensionContext';
 import { loadCAppResources } from '../visualizer/activate';
@@ -202,6 +202,12 @@ export class MILanguageClient {
     }
 
     public async checkJDKCompatibility(javaHome: string): Promise<boolean> {
+        // Fast path: reuse the memoized `java -version` result — the same JDK path was
+        // already probed during environment setup, so this avoids a ~500ms shell spawn.
+        const majorVersion = getJavaVersion(path.join(javaHome, 'bin'));
+        if (majorVersion) {
+            return parseInt(majorVersion) >= parseInt(this.COMPATIBLE_JDK_VERSION);
+        }
         const env = { ...process.env };
         env.PATH = `${path.join(javaHome, 'bin')}${path.delimiter}${env.PATH}`;
         const { stderr } = await exec('java -version',
@@ -213,7 +219,10 @@ export class MILanguageClient {
 
     private async launch(projectUri: string) {
         try {
-            const { miVersionFromPom } = await getProjectSetupDetails(projectUri);
+            // Only the runtime version is needed here — the full getProjectSetupDetails
+            // probe (java -version spawn, MI path resolution, update check) already ran
+            // in setupEnvironment and costs 250ms+ per call.
+            const miVersionFromPom = await getMIVersionFromPom(projectUri);
             if (!miVersionFromPom) {
                 const errorMessage = `Runtime version not found in the pom file of project ${projectUri}. Please add the runtime version and reload to continue.`;
                 window.showErrorMessage(errorMessage);

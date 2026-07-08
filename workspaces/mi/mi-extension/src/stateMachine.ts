@@ -49,6 +49,14 @@ const stateMachine = createMachine<MachineContext>({
         dependenciesResolved: false,
         isInWI: false
     },
+    // Allow re-initialization from any state (e.g. when the deferred server-update
+    // prompt is accepted after startup). Nested states with their own
+    // REFRESH_ENVIRONMENT handler take precedence over this root handler.
+    on: {
+        REFRESH_ENVIRONMENT: {
+            target: '.initialize'
+        }
+    },
     states: {
         initialize: {
             entry: () => logDebug("State Machine: Entering 'initialize' state"),
@@ -399,6 +407,12 @@ const stateMachine = createMachine<MachineContext>({
             return new Promise(async (resolve, reject) => {
                 console.log("Waiting for LS to be ready " + new Date().toLocaleTimeString());
                 try {
+                    // Create the webview panel now so its JS bundle loads in parallel
+                    // with the language-server startup; openWebPanel later waits on the
+                    // ready latch before advancing the machine.
+                    if (context.displayOverview !== false) {
+                        createWebviewPanelWithReadyLatch(context);
+                    }
                     vscode.commands.executeCommand(`${MI_PROJECT_EXPLORER_VIEW_ID}.focus`);
                     const ls = await MILanguageClient.getInstance(context.projectUri!);
                     vscode.commands.executeCommand('setContext', 'MI.status', 'projectLoaded');
@@ -419,16 +433,15 @@ const stateMachine = createMachine<MachineContext>({
                 }
 
                 if (!webviews.has(context.projectUri)) {
-                    const panel = new VisualizerWebview(context.view!, context.projectUri, extension.webviewReveal);
-                    webviews.set(context.projectUri!, panel);
-
-                    const messenger = RPCLayer._messengers.get(context.projectUri);
-                    if (messenger) {
-                        messenger.onNotification(webviewReady, () => {
-                            resolve(true);
-                        });
-                    }
+                    createWebviewPanelWithReadyLatch(context);
+                    await webviewReadyLatches.get(context.projectUri);
+                    resolve(true);
                 } else {
+                    // The panel may have been pre-created (in parallel with LS startup)
+                    // and still be loading its bundle: wait until the webview announced
+                    // readiness before advancing the machine — resolveMissingDependencies
+                    // relies on the NEXT webviewReady notification.
+                    await webviewReadyLatches.get(context.projectUri);
                     const webview = webviews.get(context.projectUri)?.getWebview();
                     if (webview) {
                         webview.reveal(ViewColumn.Active);
@@ -681,6 +694,29 @@ const stateMachine = createMachine<MachineContext>({
     }
 });
 
+
+// Resolves once a project's webview has loaded its JS bundle and sent webviewReady.
+// Lets the panel be created early (in parallel with LS startup) while openWebPanel
+// still blocks the state machine until the webview is actually interactive.
+const webviewReadyLatches: Map<string, Promise<boolean>> = new Map();
+
+function createWebviewPanelWithReadyLatch(context: { projectUri?: string | null, view?: MACHINE_VIEW | null }): void {
+    if (!context.projectUri || webviews.has(context.projectUri)) {
+        return;
+    }
+    const projectUri = context.projectUri;
+    const panel = new VisualizerWebview(context.view!, projectUri, extension.webviewReveal);
+    webviews.set(projectUri, panel);
+
+    const messenger = RPCLayer._messengers.get(projectUri);
+    if (messenger) {
+        webviewReadyLatches.set(projectUri, new Promise((resolve) => {
+            messenger.onNotification(webviewReady, () => {
+                resolve(true);
+            });
+        }));
+    }
+}
 
 // Create a service to interpret the machine
 const stateMachines: Map<string, any> = new Map();

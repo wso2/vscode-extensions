@@ -1,12 +1,18 @@
 const path = require("path");
 const webpack = require("webpack");
-const ReactRefreshWebpackPlugin = require('@pmmmwh/react-refresh-webpack-plugin');
 
-module.exports = {
+// Development mode (eval-source-map, ~87MB unminified bundle) is only used by
+// `webpack-dev-server --mode=development` (the `start` script). Any other build —
+// including `rush build` output that gets packaged into the .vsix — must be
+// production: the dev bundle wraps every module in eval() and takes several
+// seconds to parse inside the webview, which delays the Overview page.
+module.exports = (env, argv) => {
+    const isDev = argv && argv.mode === "development";
+    return {
     entry: "./src/index.tsx",
     target: "web",
-    devtool: !process.env.CI ? "eval-source-map" : undefined,
-    mode: !process.env.CI ? "development" : "production",
+    devtool: isDev ? "eval-source-map" : false,
+    mode: isDev ? "development" : "production",
     output: {
         path: path.resolve(__dirname, "build"),
         filename: "Visualizer.js",
@@ -99,6 +105,10 @@ module.exports = {
         new webpack.ProvidePlugin({
             process: "process/browser",
         }),
-        !process.env.CI & new ReactRefreshWebpackPlugin(),
+        // Note: ReactRefreshWebpackPlugin was previously listed here guarded by
+        // `!process.env.CI & new ReactRefreshWebpackPlugin()` — the bitwise `&`
+        // always evaluated to 0, so the plugin was never actually enabled.
+        // Removed rather than silently changing dev-server behavior.
     ].filter(Boolean),
+    };
 };
