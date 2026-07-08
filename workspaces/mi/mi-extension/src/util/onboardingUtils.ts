@@ -67,6 +67,23 @@ export function isWso2IntegratorRuntime(): boolean {
 
 let ballerinaOutputChannel: vscode.OutputChannel | undefined;
 
+// Projects where the user accepted a server update from the deferred background
+// prompt; consumed by the next setupEnvironment run to open the environment-setup view.
+const pendingServerUpdates = new Set<string>();
+
+function promptServerUpdateInBackground(projectUri: string): void {
+    isServerUpdateRequested(projectUri).then(async (isUpdateRequested) => {
+        if (isUpdateRequested) {
+            pendingServerUpdates.add(projectUri);
+            // Dynamic import to avoid a circular dependency (stateMachine imports this module).
+            const { getStateMachine } = await import('../stateMachine');
+            getStateMachine(projectUri).service().send({ type: 'REFRESH_ENVIRONMENT' });
+        }
+    }).catch((error) => {
+        console.error('Background server-update check failed:', error);
+    });
+}
+
 export async function setupEnvironment(projectUri: string, isOldProject: boolean): Promise<boolean> {
     try {
         const wrapperFiles = await vscode.workspace.findFiles(
@@ -83,7 +100,7 @@ export async function setupEnvironment(projectUri: string, isOldProject: boolean
             }
             setupConfigFiles(projectUri);
         }
-        const { miVersionFromPom } = await getProjectSetupDetails(projectUri);
+        const { miVersionFromPom } = await getProjectSetupDetails(projectUri, { skipUpdateCheck: true });
         if (!miVersionFromPom) {
             return false;
         }
@@ -95,14 +112,22 @@ export async function setupEnvironment(projectUri: string, isOldProject: boolean
         const isJavaSet = await isJavaSetup(projectUri, miVersionFromPom);
 
         if (isMISet && isJavaSet) {
-            const isUpdateRequested = await isServerUpdateRequested(projectUri);
+            // A server update was accepted from the deferred background prompt and the
+            // state machine re-initialized: route to the environment-setup view now.
+            if (pendingServerUpdates.has(projectUri)) {
+                pendingServerUpdates.delete(projectUri);
+                return false;
+            }
             await updateCarPluginVersion(projectUri);
             const config = vscode.workspace.getConfiguration('MI', vscode.Uri.parse(projectUri));
             const currentState = config.inspect<string>("useLocalMaven");
             if (currentState?.workspaceFolderValue === undefined) {
                 config.update("useLocalMaven", currentState?.globalValue ?? false, vscode.ConfigurationTarget.WorkspaceFolder);
             }
-            return !isUpdateRequested;
+            // The server-update check needs a network round trip (~1s cold), so it must
+            // not block startup: prompt in the background after the UI is up.
+            promptServerUpdateInBackground(projectUri);
+            return true;
         }
         return isMISet && isJavaSet;
     } catch (error) {
@@ -129,7 +154,7 @@ export async function isMIUpToDate(): Promise<boolean> {
     return false;
 }
 
-export async function getProjectSetupDetails(projectUri: string): Promise<SetupDetails> {
+export async function getProjectSetupDetails(projectUri: string, options?: { skipUpdateCheck?: boolean }): Promise<SetupDetails> {
     const miVersion = await getMIVersionFromPom(projectUri);
     if (!miVersion) {
         vscode.window.showWarningMessage('Failed to get WSO2 Integrator: MI version from pom.xml.');
@@ -138,7 +163,7 @@ export async function getProjectSetupDetails(projectUri: string): Promise<SetupD
     if (isSupportedMIVersion(miVersion)) {
         const highestSupportedJavaVersion = javaVersionCompatibilityMap[miVersion].supportedRange.max;
         const recommendedVersions = { miVersion, javaVersion: highestSupportedJavaVersion };
-        const setupDetails = await getJavaAndMIPathsFromWorkspace(projectUri, miVersion);
+        const setupDetails = await getJavaAndMIPathsFromWorkspace(projectUri, miVersion, options);
         return { ...setupDetails, miVersionStatus: 'valid', showDownloadButtons: isDownloadableMIVersion(miVersion), recommendedVersions, miVersionFromPom: miVersion };
     }
 
@@ -581,7 +606,17 @@ function isDownloadableMIVersion(version: string): boolean {
     return miDownloadUrls[version] !== undefined;
 }
 
-function getJavaVersion(javaBinPath: string): string | null {
+// spawnSync blocks the extension host event loop for 100ms+ per call, and the same
+// JDK path is checked repeatedly during startup. A JDK's version cannot change at a
+// given path within a session, so cache successful lookups (failures are not cached
+// so a JDK installed mid-session at the same path is picked up).
+const javaVersionCache = new Map<string, string>();
+
+export function getJavaVersion(javaBinPath: string): string | null {
+    const cached = javaVersionCache.get(javaBinPath);
+    if (cached !== undefined) {
+        return cached;
+    }
     const javaExecutableName = process.platform === 'win32' ? 'java.exe' : 'java';
     const javaExecutable = path.join(javaBinPath, javaExecutableName);
     const result = spawnSync(javaExecutable, ['-version'], { encoding: 'utf8' });
@@ -590,7 +625,11 @@ function getJavaVersion(javaBinPath: string): string | null {
         return null;
     }
     const versionMatch = result.stderr.match(/(\d+\.\d+\.\d+)/);
-    return versionMatch ? versionMatch[0].split('.')[0] : null;
+    const version = versionMatch ? versionMatch[0].split('.')[0] : null;
+    if (version) {
+        javaVersionCache.set(javaBinPath, version);
+    }
+    return version;
 }
 function getMIVersion(miPath: string): string | null {
     const miVersionFile = path.join(miPath, 'bin', 'version.txt');
@@ -682,7 +721,7 @@ export async function setPathsInWorkSpace(request: SetPathRequest): Promise<Path
     return response;
 }
 
-async function getJavaAndMIPathsFromWorkspace(projectUri: string, projectMiVersion: string): Promise<SetupDetails> {
+async function getJavaAndMIPathsFromWorkspace(projectUri: string, projectMiVersion: string, options?: { skipUpdateCheck?: boolean }): Promise<SetupDetails> {
     const compatibleJavaVersion = javaVersionCompatibilityMap[projectMiVersion];
     const highestSupportedJavaVersion = compatibleJavaVersion && compatibleJavaVersion.supportedRange.max;
     const response: SetupDetails = {
@@ -713,7 +752,9 @@ async function getJavaAndMIPathsFromWorkspace(projectUri: string, projectMiVersi
             const miVersion = getMIVersion(validServerPath);
             if (projectMiVersion === miVersion) {
                 let status: "valid" | "valid-not-updated" | "mismatch" | "not-valid" = "valid";
-                if (miVersion === "4.4.0") {
+                // The 4.4.0 freshness check needs a network round trip (~1s cold); startup
+                // callers skip it and rely on the deferred background update prompt instead.
+                if (miVersion === "4.4.0" && !options?.skipUpdateCheck) {
                     const isUpdatedPack = await isMIUpToDate();
                     status = isUpdatedPack ? "valid" : "valid-not-updated";
                 }
@@ -1501,12 +1542,22 @@ async function updateBallerinaDistribution(isBallerinaInstalledGlobally: boolean
     });
 }
 
+// The update-version endpoint is hit from several startup paths (isMIUpToDate,
+// isServerUpdateRequested, and the env-setup UI). Each cold HTTPS round trip costs
+// ~1s, so share a single in-flight request and cache the result briefly.
+let latestMIVersionFetch: { promise: Promise<{ data: any }>, fetchedAt: number } | undefined;
+const MI_UPDATE_CHECK_TTL_MS = 10 * 60 * 1000;
+
 async function fetchLatestMIVersion(miVersion: string): Promise<string> {
     try {
-        const response = await axios.get(miUpdateVersionCheckUrl);
+        if (!latestMIVersionFetch || Date.now() - latestMIVersionFetch.fetchedAt > MI_UPDATE_CHECK_TTL_MS) {
+            latestMIVersionFetch = { promise: axios.get(miUpdateVersionCheckUrl), fetchedAt: Date.now() };
+        }
+        const response = await latestMIVersionFetch.promise;
         const versions = response.data;
         return versions[miVersion] || '';
     } catch (error) {
+        latestMIVersionFetch = undefined; // do not cache failures
         console.error('Error fetching MI update version:', error);
         return '';
     }
