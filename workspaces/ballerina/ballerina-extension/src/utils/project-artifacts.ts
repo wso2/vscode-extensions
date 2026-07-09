@@ -28,6 +28,11 @@ import { isLibraryProject } from "./config";
 // the LS publishes artifacts after the pull completes.
 const failedArtifactProjects = new Set<string>();
 
+// True while a recovery rebuild is in flight. Overlapping publishArtifacts notifications are
+// skipped during this window: the rebuild fetches the latest project state anyway, and letting
+// them run the incremental path would race the rebuild with updates based on stale structure.
+let artifactRecoveryInProgress = false;
+
 export async function buildProjectsStructure(
     projectInfo: ProjectInfo,
     langClient: ExtendedLangClient,
@@ -107,20 +112,38 @@ async function buildProjectArtifactsStructure(
 }
 
 export async function updateProjectArtifacts(publishedArtifacts: ArtifactsNotification): Promise<void> {
+    // A recovery rebuild is already running; it fetches the post-edit state, so this
+    // notification's changes are covered by the rebuild.
+    if (artifactRecoveryInProgress) {
+        return;
+    }
+
     // If any project's artifacts failed to load earlier (e.g., the initial load raced with a
     // missing-module pull), the cached structure is empty and incremental deltas cannot repair
     // it. The LS publishes artifacts once the pull completes and the project is reloaded, so
     // recover here with a full rebuild instead of applying the deltas.
     if (failedArtifactProjects.size > 0) {
+        const failedSnapshot = Array.from(failedArtifactProjects);
         console.log("[updateProjectArtifacts] Rebuilding project structure; artifacts previously failed for:",
-            Array.from(failedArtifactProjects));
+            failedSnapshot);
+        artifactRecoveryInProgress = true;
+        // Clear before the rebuild; buildProjectArtifactsStructure re-adds any project that
+        // still fails, and stale entries (e.g., removed packages) get pruned.
         failedArtifactProjects.clear();
         const notificationHandler = ArtifactNotificationHandler.getInstance();
         notificationHandler.publish(ArtifactsUpdated.method, {
             data: [],
             timestamp: Date.now()
         });
-        await vscode.commands.executeCommand(SHARED_COMMANDS.FORCE_UPDATE_PROJECT_ARTIFACTS);
+        try {
+            await vscode.commands.executeCommand(SHARED_COMMANDS.FORCE_UPDATE_PROJECT_ARTIFACTS);
+        } catch (error) {
+            // Restore the failed state so the next notification retries the recovery.
+            failedSnapshot.forEach(projectPath => failedArtifactProjects.add(projectPath));
+            console.error("[updateProjectArtifacts] Failed to rebuild the project structure:", error);
+        } finally {
+            artifactRecoveryInProgress = false;
+        }
         return;
     }
 
