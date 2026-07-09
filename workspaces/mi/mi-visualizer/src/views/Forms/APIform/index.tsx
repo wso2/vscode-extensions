@@ -461,12 +461,14 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
             if (swaggerDefPath) {
                 createAPIParams = {
                     ...createAPIParams,
+                    context: values.apiContext,
                     saveSwaggerDef: values.saveSwaggerDef,
                     swaggerDefPath: swaggerDefPath
                 }
             } else if (wsdlDefPath) {
                 createAPIParams = {
                     ...createAPIParams,
+                    context: values.apiContext,
                     wsdlType: values.wsdlType,
                     wsdlDefPath: wsdlDefPath,
                     wsdlEndpointName: values.wsdlEndpointName

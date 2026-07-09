@@ -779,6 +779,7 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
                 if (swaggerDefPath) {
                     response = await langClient.generateAPI({
                         apiName: name,
+                        context: apiContext !== "" ? apiContext : null,
                         swaggerOrWsdlPath: swaggerDefPath,
                         publishSwaggerPath: saveSwaggerDef ? getPublishSwaggerPath(swaggerDefPath) : undefined,
                         mode: "create.api.from.swagger"
@@ -787,6 +788,7 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
                     const filePath = wsdlType === "file" && Uri.file(wsdlDefPath).toString();
                     response = await langClient.generateAPI({
                         apiName: name,
+                        context: apiContext !== "" ? apiContext : null,
                         swaggerOrWsdlPath: filePath || wsdlDefPath,
                         mode: "create.api.from.wsdl",
                         wsdlEndpointName

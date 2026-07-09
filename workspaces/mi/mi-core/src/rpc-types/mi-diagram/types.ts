@@ -1835,6 +1835,7 @@ export interface ExportProjectRequest {
 
 interface GenerateAPIBase {
     apiName: string;
+    context?: string | null;
     swaggerOrWsdlPath: string;
 }
 
