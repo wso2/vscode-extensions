@@ -17,11 +17,16 @@
  */
 import * as vscode from "vscode";
 import { URI, Utils } from "vscode-uri";
-import { ARTIFACT_TYPE, Artifacts, ArtifactsNotification, BaseArtifact, DIRECTORY_MAP, isSamePath, PROJECT_KIND, ProjectInfo, ProjectStructure, ProjectStructureArtifactResponse, ProjectStructureResponse } from "@wso2/ballerina-core";
+import { ARTIFACT_TYPE, Artifacts, ArtifactsNotification, BaseArtifact, DIRECTORY_MAP, isSamePath, PROJECT_KIND, ProjectInfo, ProjectStructure, ProjectStructureArtifactResponse, ProjectStructureResponse, SHARED_COMMANDS } from "@wso2/ballerina-core";
 import { StateMachine } from "../stateMachine";
 import { ExtendedLangClient } from "../core/extended-language-client";
 import { ArtifactsUpdated, ArtifactNotificationHandler } from "./project-artifacts-handler";
 import { isLibraryProject } from "./config";
+
+// Tracks projects whose artifacts could not be fetched (e.g., the initial load raced with a
+// missing-module pull and the compilation failed). Used to recover with a full rebuild once
+// the LS publishes artifacts after the pull completes.
+const failedArtifactProjects = new Set<string>();
 
 export async function buildProjectsStructure(
     projectInfo: ProjectInfo,
@@ -88,14 +93,37 @@ async function buildProjectArtifactsStructure(
     const designArtifacts = await langClient.getProjectArtifacts({ projectPath });
     console.log("designArtifacts", designArtifacts);
     if (designArtifacts?.artifacts) {
+        failedArtifactProjects.delete(projectPath);
         traverseComponents(designArtifacts.artifacts, projectPath, result);
         await populateLocalConnectors(projectPath, result);
+    } else {
+        // The artifact fetch failed (e.g., compilation error while modules are being pulled).
+        // Remember it so the next publishArtifacts notification triggers a full rebuild.
+        failedArtifactProjects.add(projectPath);
+        console.warn("[buildProjectArtifactsStructure] Failed to fetch artifacts for project:", projectPath);
     }
 
     return result;
 }
 
 export async function updateProjectArtifacts(publishedArtifacts: ArtifactsNotification): Promise<void> {
+    // If any project's artifacts failed to load earlier (e.g., the initial load raced with a
+    // missing-module pull), the cached structure is empty and incremental deltas cannot repair
+    // it. The LS publishes artifacts once the pull completes and the project is reloaded, so
+    // recover here with a full rebuild instead of applying the deltas.
+    if (failedArtifactProjects.size > 0) {
+        console.log("[updateProjectArtifacts] Rebuilding project structure; artifacts previously failed for:",
+            Array.from(failedArtifactProjects));
+        failedArtifactProjects.clear();
+        const notificationHandler = ArtifactNotificationHandler.getInstance();
+        notificationHandler.publish(ArtifactsUpdated.method, {
+            data: [],
+            timestamp: Date.now()
+        });
+        await vscode.commands.executeCommand(SHARED_COMMANDS.FORCE_UPDATE_PROJECT_ARTIFACTS);
+        return;
+    }
+
     // Current project structure
     const currentProjectStructure: ProjectStructureResponse = StateMachine.context().projectStructure;
 
