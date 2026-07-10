@@ -30,6 +30,7 @@ import { SetPathRequest, PathDetailsResponse, SetupDetails } from '@wso2/mi-core
 import { parseStringPromise } from 'xml2js';
 import { LATEST_CAR_PLUGIN_VERSION } from './templates';
 import { runCommand, runBasicCommand } from '../test-explorer/runner';
+import { escapeShellArg } from './shellEscapeUtils';
 import { XMLParser, XMLBuilder } from "fast-xml-parser";
 
 const AdmZip = require('adm-zip');
@@ -1190,19 +1191,18 @@ async function runBallerinaBuildsWithProgress(projectPath: string, isBallerinaIn
                 return;
             }
 
-            // Quote paths on all platforms to handle spaces in directory names
-            const quotedProjectPath = isWindows ? `"${projectPath.replace(/"/g, '""')}"` : projectPath;
-            const quotedBalCommand = isWindows ? `"${balCommand.replace(/"/g, '""')}"` : balCommand;
-            console.debug('[Ballerina Build] Quoted Project Path:', quotedProjectPath);
+            // Escape the bal path so the shell treats it as a literal (handles spaces and metacharacters).
+            // The project path is passed raw; runCommand escapes it when building the cd prefix.
+            const quotedBalCommand = escapeShellArg(balCommand);
             console.debug('[Ballerina Build] Quoted Bal Command:', quotedBalCommand);
 
             // Use global bal if installed, otherwise use local installation
-            const pullCommand = isBallerinaInstalled 
+            const pullCommand = isBallerinaInstalled
                 ? (isWindows ? 'bal.bat tool pull migen' : 'bal tool pull migen')
                 : `${quotedBalCommand} tool pull migen`;
 
             console.debug('[Ballerina Build] Command to execute:', pullCommand);
-            console.debug('[Ballerina Build] Working directory:', quotedProjectPath);
+            console.debug('[Ballerina Build] Working directory:', projectPath);
             console.debug('[Ballerina Build] Using global installation:', isBallerinaInstalled);
 
             // Verify project path exists before running command
@@ -1213,7 +1213,7 @@ async function runBallerinaBuildsWithProgress(projectPath: string, isBallerinaIn
                 return;
             }
 
-            runCommand(pullCommand, quotedProjectPath, onData, onError, buildModule);
+            runCommand(pullCommand, projectPath, onData, onError, buildModule);
             let isModuleAlreadyInstalled = false, commandFailed = false;
 
             function onData(data: string) {
@@ -1278,15 +1278,22 @@ async function runBallerinaBuildsWithProgress(projectPath: string, isBallerinaIn
                     ballerinaOutputChannel = vscode.window.createOutputChannel('Ballerina Module Builder');
                 }
                 ballerinaOutputChannel.clear();
-                const isWindows = process.platform === 'win32';
-                const moduleGenCommand = isBallerinaInstalled
-                    ? (isWindows ? 'bal.bat migen module' : 'bal migen module')
-                    : `"${path.join(balHome, isWindows ? 'bal.bat' : 'bal').replace(/"/g, isWindows ? '""' : '\\"')}" migen module`;
+                try {
+                    const isWindows = process.platform === 'win32';
+                    const moduleGenCommand = isBallerinaInstalled
+                        ? (isWindows ? 'bal.bat migen module' : 'bal migen module')
+                        : `${escapeShellArg(path.join(balHome, isWindows ? 'bal.bat' : 'bal'))} migen module`;
 
-                console.debug('Running module gen command:', moduleGenCommand, 'in directory:', projectPath);
-                runBasicCommand(moduleGenCommand, projectPath,
-                    onData, onError, onComplete, ballerinaOutputChannel
-                );
+                    console.debug('Running module gen command:', moduleGenCommand, 'in directory:', projectPath);
+                    runBasicCommand(moduleGenCommand, projectPath,
+                        onData, onError, onComplete, ballerinaOutputChannel
+                    );
+                } catch (error) {
+                    console.error('[Ballerina Build] Failed to run module generation command:', error);
+                    vscode.window.showErrorMessage(`Failed to run Ballerina module generation: ${error instanceof Error ? error.message : error}`);
+                    reject(error);
+                    return;
+                }
 
                 async function onComplete() {
                     try {
@@ -1466,7 +1473,13 @@ async function getBallerinaVersion(isBallerinaInstalledGlobally: boolean): Promi
             const balHome = path.normalize(path.join(os.homedir(), '.ballerina', 'ballerina-home', 'bin'));
             const balExecutable = isWindows ? 'bal.bat' : 'bal';
             const balCommand = path.join(balHome, balExecutable);
-            command = `"${balCommand}" version`;
+            try {
+                command = `${escapeShellArg(balCommand)} version`;
+            } catch (error) {
+                console.error('[Ballerina] Cannot build version command:', error);
+                resolve(null);
+                return;
+            }
         }
 
         const proc = child_process.spawn(command, [], { shell: true });
@@ -1492,7 +1505,13 @@ async function updateBallerinaDistribution(isBallerinaInstalledGlobally: boolean
             const balHome = path.normalize(path.join(os.homedir(), '.ballerina', 'ballerina-home', 'bin'));
             const balExecutable = isWindows ? 'bal.bat' : 'bal';
             const balCommand = path.join(balHome, balExecutable);
-            command = `"${balCommand}" dist update`;
+            try {
+                command = `${escapeShellArg(balCommand)} dist update`;
+            } catch (error) {
+                console.error('[Ballerina] Cannot build dist update command:', error);
+                resolve(false);
+                return;
+            }
         }
 
         const proc = child_process.spawn(command, [], { shell: true });
