@@ -26,7 +26,7 @@ import { fileURLToPath } from 'url';
 import path = require('path');
 import { activateTestExplorer } from './test-explorer/activator';
 import { DMProject } from './datamapper/DMProject';
-import { setupEnvironment, getMIVersionFromPom, compareVersions } from './util/onboardingUtils';
+import { setupEnvironment, getMIVersionFromPom, compareVersions, checkSynapseCoreDependencyVersion } from './util/onboardingUtils';
 import { getPopupStateMachine } from './stateMachinePopup';
 import { askForProject } from './util/workspace';
 import { containsMultiModuleNatureInProjectFile, containsMultiModuleNatureInPomFile, findMultiModuleProjectsInWorkspaceDir } from './util/migrationUtils';
@@ -405,6 +405,8 @@ const stateMachine = createMachine<MachineContext>({
 
                     resolve(ls);
                     console.log("LS is ready " + new Date().toLocaleTimeString());
+
+                    checkSynapseCoreDependencyVersion(context.projectUri!);
                 } catch (error) {
                     console.log("Error occured while waiting for LS to be ready " + new Date().toLocaleTimeString());
                     reject(error);
