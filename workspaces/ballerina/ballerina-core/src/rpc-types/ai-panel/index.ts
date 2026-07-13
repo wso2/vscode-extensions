@@ -60,7 +60,6 @@ import {
     DeleteSkillRequest,
     SkillEnableRequest,
     SkillEnableCancelRequest,
-    SetSkillsEnabledRequest,
     ParseSkillFileRequest,
     ParseSkillFileResponse,
     SkillTier,
@@ -168,8 +167,6 @@ export interface AIPanelAPI {
     enableSkillFromChat: (params: SkillEnableRequest) => Promise<boolean>;
     cancelSkillEnable: (params: SkillEnableCancelRequest) => Promise<void>;
     parseSkillFile: (params: ParseSkillFileRequest) => Promise<ParseSkillFileResponse>;
-    getSkillsEnabled: () => Promise<boolean>;
-    setSkillsEnabled: (params: SetSkillsEnabledRequest) => Promise<void>;
     // ==================================
     // MCP tool support
     // ==================================
