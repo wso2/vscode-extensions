@@ -142,6 +142,34 @@ export interface PersistedThread {
 }
 
 // ============================================
+// Thread Log Records (append-only JSONL format)
+// ============================================
+
+/**
+ * A single record in a thread's append-only log (`thread.jsonl`).
+ *
+ * Instead of rewriting the whole thread on every mutation, each change appends
+ * exactly one of these records. On load the records are replayed in order to
+ * rebuild an identical {@link PersistedThread}. The log is periodically
+ * compacted down to one `gen` record per live generation.
+ *
+ * Replay semantics:
+ *  - `head`  — thread identity + schema version. Written once as the first line.
+ *  - `meta`  — thread-level mutable fields (name/sessionId). Last write wins.
+ *  - `gen`   — upsert a generation by `gen.id`. First occurrence defines its
+ *              position; later occurrences replace it in place (last write wins).
+ *  - `del`   — remove a generation by id (tombstone).
+ *  - `trunc` — remove the generation `fromId` and every generation that was
+ *              appended after it (restore-to-checkpoint).
+ */
+export type ThreadLogRecord =
+    | { t: 'head'; v: number; id: string; createdAt: number }
+    | { t: 'meta'; updatedAt: number; name?: string; sessionId?: string }
+    | { t: 'gen'; updatedAt: number; gen: PersistedGeneration }
+    | { t: 'del'; updatedAt: number; id: string }
+    | { t: 'trunc'; updatedAt: number; fromId: string };
+
+// ============================================
 // Persisted Checkpoint
 // ============================================
 

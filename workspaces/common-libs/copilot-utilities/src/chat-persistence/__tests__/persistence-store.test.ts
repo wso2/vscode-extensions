@@ -529,16 +529,23 @@ describe('CopilotPersistenceStore', () => {
             assert.equal(tmpFiles.length, 0, `Found leftover tmp files: ${tmpFiles.join(', ')}`);
         });
 
-        it('should produce valid JSON on disk', () => {
+        it('should produce a valid JSONL log on disk (one JSON object per line)', () => {
             store.saveThread(WORKSPACE_PATH, 'default', makeThread());
 
-            const threadFile = path.join(
-                store.getWorkspaceDir(WORKSPACE_PATH), 'threads', 'default', 'thread.json'
-            );
-            const raw = fs.readFileSync(threadFile, 'utf8');
-            // Should not throw
-            const parsed = JSON.parse(raw);
-            assert.equal(parsed.id, 'default');
+            const threadDir = path.join(store.getWorkspaceDir(WORKSPACE_PATH), 'threads', 'default');
+            // The append-only log replaces the legacy whole-file snapshot.
+            assert.ok(fs.existsSync(path.join(threadDir, 'thread.jsonl')));
+            assert.equal(fs.existsSync(path.join(threadDir, 'thread.json')), false);
+
+            const raw = fs.readFileSync(path.join(threadDir, 'thread.jsonl'), 'utf8');
+            const lines = raw.split('\n').filter(l => l.trim().length > 0);
+            // Each line must parse as JSON on its own.
+            const records = lines.map(l => JSON.parse(l));
+            // Compact form: head, meta, then one gen per generation.
+            assert.equal(records[0].t, 'head');
+            assert.equal(records[0].id, 'default');
+            assert.equal(records[1].t, 'meta');
+            assert.ok(records.some(r => r.t === 'gen'));
         });
     });
 

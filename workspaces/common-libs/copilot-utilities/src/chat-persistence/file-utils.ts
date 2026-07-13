@@ -93,6 +93,53 @@ export function writeJsonSync(filePath: string, data: unknown): void {
 }
 
 /**
+ * Append a single line to a file (creating it and any parent directories if
+ * needed). The newline terminator is added automatically.
+ *
+ * This is the core primitive behind the append-only (JSONL) thread log: adding
+ * a record costs O(size of the record) regardless of how large the file already
+ * is, unlike a full-file rewrite which costs O(size of the whole file).
+ */
+export function appendLineSync(filePath: string, line: string): void {
+    ensureDirSync(path.dirname(filePath));
+    fs.appendFileSync(filePath, line + '\n', 'utf8');
+}
+
+/**
+ * Read a newline-delimited JSON (JSONL) file and parse each line.
+ *
+ * Returns `null` if the file does not exist (so callers can distinguish
+ * "no log" from "empty log"). Blank lines are skipped. Individual lines that
+ * fail to parse are skipped rather than aborting the whole read — this makes
+ * replay resilient to a torn trailing line left behind by a crash mid-append
+ * (`fs.appendFileSync` is not atomic across a crash) and to any single corrupt
+ * record, without losing the rest of the history.
+ */
+export function readJsonlSync<T>(filePath: string): T[] | null {
+    try {
+        if (!fs.existsSync(filePath)) {
+            return null;
+        }
+        const raw = fs.readFileSync(filePath, 'utf8');
+        const records: T[] = [];
+        for (const line of raw.split('\n')) {
+            const trimmed = line.trim();
+            if (trimmed.length === 0) {
+                continue;
+            }
+            try {
+                records.push(JSON.parse(trimmed) as T);
+            } catch {
+                // Skip a torn/corrupt line; keep replaying the rest.
+            }
+        }
+        return records;
+    } catch {
+        return null;
+    }
+}
+
+/**
  * Write data as gzip-compressed JSON atomically.
  * Used for large checkpoint snapshots.
  */

@@ -24,6 +24,8 @@ import {
     PersistenceStoreConfig,
     PersistedThread,
     PersistedCheckpoint,
+    PersistedGeneration,
+    ThreadLogRecord,
     WorkspaceMetadata,
     ThreadSummary,
 } from './types';
@@ -36,6 +38,9 @@ import {
     removeDirSync,
     listSubdirectoriesSync,
     listFilesBySuffixSync,
+    atomicWriteSync,
+    appendLineSync,
+    readJsonlSync,
 } from './file-utils';
 import { computeWorkspaceHash } from './workspace-hash';
 import {
@@ -53,7 +58,26 @@ const THREADS_DIR = 'threads';
 const CHECKPOINTS_DIR = 'checkpoints';
 const WORKSPACE_META_FILE = 'workspace.meta.json';
 const THREAD_FILE = 'thread.json';
+const THREAD_LOG_FILE = 'thread.jsonl';
 const CHECKPOINT_SUFFIX = '.snapshot.gz';
+
+/**
+ * Compaction tuning for the append-only thread log.
+ *
+ * `COMPACT_APPEND_INTERVAL` bounds live-session growth: after this many appends
+ * to a thread since it was last compacted, the log is rewritten to its compact
+ * form (one record per live generation). Because a compaction costs
+ * O(live records) and happens once per interval, the amortized cost stays
+ * ~O(1) per append — this is what keeps the format from regressing to the
+ * O(n²)-per-session behaviour of full-file rewrites.
+ *
+ * `COMPACT_LOAD_FACTOR` / `COMPACT_LOAD_MIN_LINES` bound startup replay cost:
+ * on load, if the log holds more than `FACTOR ×` the records a compact log
+ * would (and more than the minimum), it is compacted opportunistically.
+ */
+const COMPACT_APPEND_INTERVAL = 100;
+const COMPACT_LOAD_FACTOR = 3;
+const COMPACT_LOAD_MIN_LINES = 16;
 
 /**
  * File-based persistence store for copilot chat threads and checkpoints.
@@ -62,9 +86,34 @@ const CHECKPOINT_SUFFIX = '.snapshot.gz';
  * All thread reads/writes are synchronous (files are typically 1-2MB).
  * Checkpoint writes offer an async variant for large snapshots.
  */
+/**
+ * Build the compact record sequence for a thread: a `head`, a `meta`, then one
+ * `gen` per generation in order. Replaying this sequence reproduces `thread`.
+ */
+function buildCompactedRecords(thread: PersistedThread): ThreadLogRecord[] {
+    const records: ThreadLogRecord[] = [
+        { t: 'head', v: thread.schemaVersion, id: thread.id, createdAt: thread.createdAt },
+        {
+            t: 'meta',
+            updatedAt: thread.updatedAt,
+            name: thread.name,
+            ...(thread.sessionId !== undefined ? { sessionId: thread.sessionId } : {}),
+        },
+    ];
+    for (const gen of thread.generations) {
+        records.push({ t: 'gen', updatedAt: thread.updatedAt, gen });
+    }
+    return records;
+}
+
 export class CopilotPersistenceStore {
     private readonly baseDir: string;
     private readonly workspaceIdResolver: (workspacePath: string) => string;
+
+    // Per-thread count of appends since the last compaction (runtime-only).
+    // Keyed by `${workspaceHash}/${threadId}` so it is stable across calls for
+    // the lifetime of the process. Drives amortized compaction.
+    private readonly appendsSinceCompaction: Map<string, number> = new Map();
 
     constructor(config: PersistenceStoreConfig = {}) {
         this.baseDir = config.baseDir ?? DEFAULT_BASE_DIR;
@@ -86,9 +135,19 @@ export class CopilotPersistenceStore {
         return path.join(this.getWorkspaceDir(workspacePath), THREADS_DIR, threadId);
     }
 
-    /** Resolve the path to the thread JSON file. */
+    /** Resolve the path to the legacy whole-file thread JSON (pre-v2). */
     private getThreadFilePath(workspacePath: string, threadId: string): string {
         return path.join(this.getThreadDir(workspacePath, threadId), THREAD_FILE);
+    }
+
+    /** Resolve the path to the append-only thread log (`thread.jsonl`). */
+    private getThreadLogFilePath(workspacePath: string, threadId: string): string {
+        return path.join(this.getThreadDir(workspacePath, threadId), THREAD_LOG_FILE);
+    }
+
+    /** Key used to track per-thread append counts for amortized compaction. */
+    private compactionKey(workspacePath: string, threadId: string): string {
+        return `${computeWorkspaceHash(this.workspaceIdResolver(workspacePath))}/${threadId}`;
     }
 
     /** Resolve the path to a checkpoint snapshot file. */
@@ -166,6 +225,12 @@ export class CopilotPersistenceStore {
      */
     deleteWorkspace(workspacePath: string): void {
         removeDirSync(this.getWorkspaceDir(workspacePath));
+        const prefix = `${computeWorkspaceHash(this.workspaceIdResolver(workspacePath))}/`;
+        for (const key of this.appendsSinceCompaction.keys()) {
+            if (key.startsWith(prefix)) {
+                this.appendsSinceCompaction.delete(key);
+            }
+        }
     }
 
     // ============================================
@@ -205,20 +270,41 @@ export class CopilotPersistenceStore {
     }
 
     /**
-     * Load a thread from disk. Applies schema migrations if needed.
+     * Load a thread from disk.
+     *
+     * Threads persist as an append-only log (`thread.jsonl`, schema v2). The log
+     * is replayed to rebuild the thread. If only a legacy whole-file snapshot
+     * (`thread.json`, schema v1) exists, it is read, migrated, rewritten as a
+     * `thread.jsonl`, and the legacy file is deleted (one-time migration).
+     *
      * Returns `null` if the thread does not exist or is corrupt.
      */
     loadThread(workspacePath: string, threadId: string): PersistedThread | null {
+        const logPath = this.getThreadLogFilePath(workspacePath, threadId);
+        const records = readJsonlSync<ThreadLogRecord>(logPath);
+
+        if (records !== null) {
+            // Append-only log is the source of truth once it exists.
+            const thread = this.replayThread(threadId, records);
+            if (!thread) {
+                return null;
+            }
+            this.compactOnLoadIfNeeded(workspacePath, threadId, thread, records.length);
+            // A stale legacy snapshot may linger if a previous migration was
+            // interrupted after writing the log but before deleting the JSON.
+            this.deleteLegacyThreadFile(workspacePath, threadId);
+            return thread;
+        }
+
+        // Legacy fallback: whole-file thread.json (schema v1).
         const raw = readJsonSync<Record<string, unknown>>(this.getThreadFilePath(workspacePath, threadId));
         if (!raw) {
             return null;
         }
         try {
             const migrated = migrateThread(raw);
-            // Re-save if migration changed the schema version
-            if ((raw.schemaVersion as number) !== CURRENT_THREAD_SCHEMA_VERSION) {
-                this.saveThread(workspacePath, threadId, migrated);
-            }
+            // Convert to the append-only format and remove the legacy file.
+            this.saveThread(workspacePath, threadId, migrated);
             return migrated;
         } catch (err) {
             console.error(`[CopilotPersistenceStore] Failed to migrate thread ${threadId}:`, err);
@@ -227,15 +313,244 @@ export class CopilotPersistenceStore {
     }
 
     /**
-     * Save a thread to disk atomically.
-     * Injects the current schemaVersion automatically.
+     * Persist a thread by rewriting its log in compact form (one record per
+     * live generation), atomically. Used for thread creation, one-time
+     * migration from the legacy format, and compaction.
+     *
+     * This does NOT append — for incremental mutations use {@link appendGeneration},
+     * {@link removeGenerationRecord}, {@link truncateFromGeneration} and
+     * {@link updateThreadMeta}, which append a single record instead of
+     * rewriting the whole thread.
      */
     saveThread(workspacePath: string, threadId: string, thread: Omit<PersistedThread, 'schemaVersion'>): void {
         const data: PersistedThread = {
             ...thread,
             schemaVersion: CURRENT_THREAD_SCHEMA_VERSION,
         };
-        writeJsonSync(this.getThreadFilePath(workspacePath, threadId), data);
+        const records = buildCompactedRecords(data);
+        const content = records.map(r => JSON.stringify(r)).join('\n') + '\n';
+        atomicWriteSync(this.getThreadLogFilePath(workspacePath, threadId), content);
+        // The compacted log fully supersedes any legacy whole-file snapshot.
+        this.deleteLegacyThreadFile(workspacePath, threadId);
+        this.appendsSinceCompaction.set(this.compactionKey(workspacePath, threadId), 0);
+    }
+
+    // ============================================
+    // Thread Log — Append API (incremental persistence)
+    // ============================================
+
+    /**
+     * Append a single record to a thread's log, then run amortized compaction.
+     */
+    appendThreadRecord(workspacePath: string, threadId: string, record: ThreadLogRecord): void {
+        appendLineSync(this.getThreadLogFilePath(workspacePath, threadId), JSON.stringify(record));
+        this.noteAppend(workspacePath, threadId);
+    }
+
+    /**
+     * Append an upsert for a generation (covers both add and in-place update).
+     * On replay the latest record for a given `gen.id` wins; the first
+     * occurrence fixes its position in the thread.
+     */
+    appendGeneration(
+        workspacePath: string,
+        threadId: string,
+        generation: PersistedGeneration,
+        updatedAt: number = Date.now()
+    ): void {
+        this.appendThreadRecord(workspacePath, threadId, { t: 'gen', updatedAt, gen: generation });
+    }
+
+    /**
+     * Append a tombstone removing a generation by id.
+     */
+    removeGenerationRecord(
+        workspacePath: string,
+        threadId: string,
+        generationId: string,
+        updatedAt: number = Date.now()
+    ): void {
+        this.appendThreadRecord(workspacePath, threadId, { t: 'del', updatedAt, id: generationId });
+    }
+
+    /**
+     * Append a truncation removing `fromGenerationId` and every generation
+     * appended after it (restore-to-checkpoint).
+     */
+    truncateFromGeneration(
+        workspacePath: string,
+        threadId: string,
+        fromGenerationId: string,
+        updatedAt: number = Date.now()
+    ): void {
+        this.appendThreadRecord(workspacePath, threadId, { t: 'trunc', updatedAt, fromId: fromGenerationId });
+    }
+
+    /**
+     * Append a thread-level metadata update (name / sessionId).
+     */
+    updateThreadMeta(
+        workspacePath: string,
+        threadId: string,
+        meta: { name?: string; sessionId?: string },
+        updatedAt: number = Date.now()
+    ): void {
+        this.appendThreadRecord(workspacePath, threadId, { t: 'meta', updatedAt, ...meta });
+    }
+
+    /**
+     * Rewrite a thread's log in compact form. Safe to call at any time; a no-op
+     * if the thread has no log yet.
+     */
+    compactThread(workspacePath: string, threadId: string): void {
+        const records = readJsonlSync<ThreadLogRecord>(this.getThreadLogFilePath(workspacePath, threadId));
+        if (records === null) {
+            return;
+        }
+        const thread = this.replayThread(threadId, records);
+        if (thread) {
+            this.saveThread(workspacePath, threadId, thread);
+        }
+    }
+
+    // ============================================
+    // Thread Log — internal helpers
+    // ============================================
+
+    /**
+     * Rebuild a {@link PersistedThread} by replaying log records in order.
+     *
+     * Returns `null` only when there is nothing to reconstruct (empty file, or a
+     * file whose every line was unparseable). A `head` record supplies the
+     * thread's precise `id`/`createdAt`; if it is missing but other records
+     * exist (e.g. appends reached disk before an interrupted init), the thread
+     * is still reconstructed using the directory's `threadId` and the earliest
+     * record timestamp — so no committed data is lost.
+     */
+    private replayThread(threadId: string, records: ThreadLogRecord[]): PersistedThread | null {
+        let hasHead = false;
+        let recognized = 0;
+        let minTimestamp = Number.POSITIVE_INFINITY;
+        let id = threadId;
+        let name = '';
+        let sessionId: string | undefined;
+        let createdAt = 0;
+        let updatedAt = 0;
+
+        // Preserve first-seen order while allowing in-place upserts / removals.
+        const order: string[] = [];
+        const byId = new Map<string, PersistedGeneration>();
+
+        for (const record of records) {
+            switch (record.t) {
+                case 'head':
+                    hasHead = true;
+                    recognized++;
+                    id = record.id;
+                    createdAt = record.createdAt;
+                    updatedAt = Math.max(updatedAt, record.createdAt);
+                    minTimestamp = Math.min(minTimestamp, record.createdAt);
+                    break;
+                case 'meta':
+                    recognized++;
+                    if (record.name !== undefined) { name = record.name; }
+                    if (record.sessionId !== undefined) { sessionId = record.sessionId; }
+                    updatedAt = Math.max(updatedAt, record.updatedAt);
+                    minTimestamp = Math.min(minTimestamp, record.updatedAt);
+                    break;
+                case 'gen':
+                    recognized++;
+                    if (!byId.has(record.gen.id)) {
+                        order.push(record.gen.id);
+                    }
+                    byId.set(record.gen.id, record.gen);
+                    updatedAt = Math.max(updatedAt, record.updatedAt);
+                    minTimestamp = Math.min(minTimestamp, record.updatedAt);
+                    break;
+                case 'del':
+                    recognized++;
+                    if (byId.delete(record.id)) {
+                        const idx = order.indexOf(record.id);
+                        if (idx !== -1) { order.splice(idx, 1); }
+                    }
+                    updatedAt = Math.max(updatedAt, record.updatedAt);
+                    minTimestamp = Math.min(minTimestamp, record.updatedAt);
+                    break;
+                case 'trunc': {
+                    recognized++;
+                    const idx = order.indexOf(record.fromId);
+                    if (idx !== -1) {
+                        for (let i = idx; i < order.length; i++) {
+                            byId.delete(order[i]);
+                        }
+                        order.splice(idx);
+                    }
+                    updatedAt = Math.max(updatedAt, record.updatedAt);
+                    minTimestamp = Math.min(minTimestamp, record.updatedAt);
+                    break;
+                }
+            }
+        }
+
+        if (recognized === 0) {
+            // Nothing recoverable — empty file or every line was corrupt.
+            return null;
+        }
+        if (!hasHead && Number.isFinite(minTimestamp)) {
+            // Reconstruct createdAt from the earliest record when head is absent.
+            createdAt = minTimestamp;
+        }
+
+        const generations = order.map(genId => byId.get(genId)!).filter(Boolean);
+        const thread: PersistedThread = {
+            schemaVersion: CURRENT_THREAD_SCHEMA_VERSION,
+            id,
+            name,
+            createdAt,
+            updatedAt,
+            generations,
+        };
+        if (sessionId !== undefined) {
+            thread.sessionId = sessionId;
+        }
+        return thread;
+    }
+
+    /** Increment the append counter and compact once the interval is reached. */
+    private noteAppend(workspacePath: string, threadId: string): void {
+        const key = this.compactionKey(workspacePath, threadId);
+        const next = (this.appendsSinceCompaction.get(key) ?? 0) + 1;
+        if (next >= COMPACT_APPEND_INTERVAL) {
+            // compactThread -> saveThread resets the counter.
+            this.compactThread(workspacePath, threadId);
+        } else {
+            this.appendsSinceCompaction.set(key, next);
+        }
+    }
+
+    /** Compact on load when the log has grown well beyond its compact size. */
+    private compactOnLoadIfNeeded(
+        workspacePath: string,
+        threadId: string,
+        thread: PersistedThread,
+        lineCount: number
+    ): void {
+        const compactSize = thread.generations.length + 2; // head + meta + gens
+        if (lineCount > COMPACT_LOAD_MIN_LINES && lineCount > COMPACT_LOAD_FACTOR * compactSize) {
+            this.saveThread(workspacePath, threadId, thread);
+        }
+    }
+
+    /** Remove a superseded legacy `thread.json`, if present. */
+    private deleteLegacyThreadFile(workspacePath: string, threadId: string): void {
+        const legacyPath = this.getThreadFilePath(workspacePath, threadId);
+        try {
+            if (fs.existsSync(legacyPath)) {
+                fs.unlinkSync(legacyPath);
+            }
+        } catch (err) {
+            console.error(`[CopilotPersistenceStore] Failed to remove legacy thread file ${threadId}:`, err);
+        }
     }
 
     /**
@@ -243,6 +558,7 @@ export class CopilotPersistenceStore {
      */
     deleteThread(workspacePath: string, threadId: string): void {
         removeDirSync(this.getThreadDir(workspacePath, threadId));
+        this.appendsSinceCompaction.delete(this.compactionKey(workspacePath, threadId));
     }
 
     // ============================================
