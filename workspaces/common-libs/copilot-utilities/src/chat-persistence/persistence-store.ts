@@ -64,18 +64,22 @@ const CHECKPOINT_SUFFIX = '.snapshot.gz';
 /**
  * Compaction tuning for the append-only thread log.
  *
- * `COMPACT_APPEND_INTERVAL` bounds live-session growth: after this many appends
- * to a thread since it was last compacted, the log is rewritten to its compact
- * form (one record per live generation). Because a compaction costs
- * O(live records) and happens once per interval, the amortized cost stays
- * ~O(1) per append — this is what keeps the format from regressing to the
- * O(n²)-per-session behaviour of full-file rewrites.
+ * Live-session compaction is **size-proportional** so that per-append cost stays
+ * genuinely amortized O(1) (not just smaller): a thread is compacted once it has
+ * received more than `max(COMPACT_MIN_APPENDS, COMPACT_GROWTH_FACTOR × liveGens)`
+ * appends since its last compaction. A compaction costs O(liveGens) and happens
+ * at most once per that many appends, so the amortized cost per append does not
+ * grow with the conversation length — this is what keeps the format from
+ * regressing to the O(n²)-per-session behaviour of full-file rewrites. Using a
+ * fixed interval instead would make each compaction O(liveGens) every N appends,
+ * i.e. still superlinear for large threads.
  *
  * `COMPACT_LOAD_FACTOR` / `COMPACT_LOAD_MIN_LINES` bound startup replay cost:
  * on load, if the log holds more than `FACTOR ×` the records a compact log
  * would (and more than the minimum), it is compacted opportunistically.
  */
-const COMPACT_APPEND_INTERVAL = 100;
+const COMPACT_MIN_APPENDS = 64;
+const COMPACT_GROWTH_FACTOR = 3;
 const COMPACT_LOAD_FACTOR = 3;
 const COMPACT_LOAD_MIN_LINES = 16;
 
@@ -110,10 +114,12 @@ export class CopilotPersistenceStore {
     private readonly baseDir: string;
     private readonly workspaceIdResolver: (workspacePath: string) => string;
 
-    // Per-thread count of appends since the last compaction (runtime-only).
-    // Keyed by `${workspaceHash}/${threadId}` so it is stable across calls for
-    // the lifetime of the process. Drives amortized compaction.
+    // Per-thread count of appends since the last compaction (runtime-only) and
+    // the size-proportional threshold at which the next compaction fires. Both
+    // are keyed by `${workspaceHash}/${threadId}` and live for the process
+    // lifetime. Drives amortized (size-aware) compaction.
     private readonly appendsSinceCompaction: Map<string, number> = new Map();
+    private readonly compactionThreshold: Map<string, number> = new Map();
 
     constructor(config: PersistenceStoreConfig = {}) {
         this.baseDir = config.baseDir ?? DEFAULT_BASE_DIR;
@@ -229,6 +235,7 @@ export class CopilotPersistenceStore {
         for (const key of this.appendsSinceCompaction.keys()) {
             if (key.startsWith(prefix)) {
                 this.appendsSinceCompaction.delete(key);
+                this.compactionThreshold.delete(key);
             }
         }
     }
@@ -286,14 +293,16 @@ export class CopilotPersistenceStore {
         if (records !== null) {
             // Append-only log is the source of truth once it exists.
             const thread = this.replayThread(threadId, records);
-            if (!thread) {
-                return null;
+            if (thread) {
+                this.compactOnLoadIfNeeded(workspacePath, threadId, thread, records.length);
+                // A stale legacy snapshot may linger if a previous migration was
+                // interrupted after writing the log but before deleting the JSON.
+                this.deleteLegacyThreadFile(workspacePath, threadId);
+                return thread;
             }
-            this.compactOnLoadIfNeeded(workspacePath, threadId, thread, records.length);
-            // A stale legacy snapshot may linger if a previous migration was
-            // interrupted after writing the log but before deleting the JSON.
-            this.deleteLegacyThreadFile(workspacePath, threadId);
-            return thread;
+            // The log exists but yielded nothing recoverable (empty or every line
+            // corrupt). Fall through to the legacy snapshot if one still exists,
+            // rather than reporting the thread as gone.
         }
 
         // Legacy fallback: whole-file thread.json (schema v1).
@@ -332,7 +341,14 @@ export class CopilotPersistenceStore {
         atomicWriteSync(this.getThreadLogFilePath(workspacePath, threadId), content);
         // The compacted log fully supersedes any legacy whole-file snapshot.
         this.deleteLegacyThreadFile(workspacePath, threadId);
-        this.appendsSinceCompaction.set(this.compactionKey(workspacePath, threadId), 0);
+        // Reset the append counter and set the next compaction threshold
+        // proportional to the live generation count.
+        const key = this.compactionKey(workspacePath, threadId);
+        this.appendsSinceCompaction.set(key, 0);
+        this.compactionThreshold.set(
+            key,
+            Math.max(COMPACT_MIN_APPENDS, COMPACT_GROWTH_FACTOR * data.generations.length)
+        );
     }
 
     // ============================================
@@ -516,19 +532,35 @@ export class CopilotPersistenceStore {
         return thread;
     }
 
-    /** Increment the append counter and compact once the interval is reached. */
+    /**
+     * Increment the append counter and compact once the size-proportional
+     * threshold is reached. Compaction is a pure optimization — a write failure
+     * (e.g. transient disk error) must never propagate out of an append, so it
+     * is caught and the counter is reset to back off until the next interval.
+     */
     private noteAppend(workspacePath: string, threadId: string): void {
         const key = this.compactionKey(workspacePath, threadId);
         const next = (this.appendsSinceCompaction.get(key) ?? 0) + 1;
-        if (next >= COMPACT_APPEND_INTERVAL) {
-            // compactThread -> saveThread resets the counter.
-            this.compactThread(workspacePath, threadId);
+        const threshold = this.compactionThreshold.get(key) ?? COMPACT_MIN_APPENDS;
+        if (next >= threshold) {
+            try {
+                // compactThread -> saveThread resets the counter + threshold.
+                this.compactThread(workspacePath, threadId);
+            } catch (err) {
+                console.error(`[CopilotPersistenceStore] Compaction failed for thread ${threadId}:`, err);
+                this.appendsSinceCompaction.set(key, 0); // back off; retry after another interval
+            }
         } else {
             this.appendsSinceCompaction.set(key, next);
         }
     }
 
-    /** Compact on load when the log has grown well beyond its compact size. */
+    /**
+     * Compact on load when the log has grown well beyond its compact size.
+     * Purely an optimization: `loadThread` has already replayed the thread, so a
+     * write failure here must be swallowed rather than fail the (previously
+     * read-only) load and abort the whole workspace restore.
+     */
     private compactOnLoadIfNeeded(
         workspacePath: string,
         threadId: string,
@@ -537,7 +569,12 @@ export class CopilotPersistenceStore {
     ): void {
         const compactSize = thread.generations.length + 2; // head + meta + gens
         if (lineCount > COMPACT_LOAD_MIN_LINES && lineCount > COMPACT_LOAD_FACTOR * compactSize) {
-            this.saveThread(workspacePath, threadId, thread);
+            try {
+                this.saveThread(workspacePath, threadId, thread);
+            } catch (err) {
+                console.error(`[CopilotPersistenceStore] On-load compaction failed for thread ${threadId}:`, err);
+                // Keep the already-replayed thread; compaction will retry later.
+            }
         }
     }
 
@@ -558,7 +595,9 @@ export class CopilotPersistenceStore {
      */
     deleteThread(workspacePath: string, threadId: string): void {
         removeDirSync(this.getThreadDir(workspacePath, threadId));
-        this.appendsSinceCompaction.delete(this.compactionKey(workspacePath, threadId));
+        const key = this.compactionKey(workspacePath, threadId);
+        this.appendsSinceCompaction.delete(key);
+        this.compactionThreshold.delete(key);
     }
 
     // ============================================

@@ -335,6 +335,25 @@ describe('Thread append-only log (JSONL)', () => {
             assert.equal(fs.existsSync(legacyJsonPath('default')), false);
         });
 
+        it('should fall back to a legacy thread.json when the jsonl is empty/unrecoverable', () => {
+            // Defensive: an externally-truncated (0-byte) log must not shadow a
+            // still-present legacy snapshot and report the thread as gone.
+            fs.mkdirSync(threadDir('both'), { recursive: true });
+            fs.writeFileSync(logPath('both'), '');
+            const legacy = {
+                schemaVersion: 1, id: 'both', name: 'Recovered', createdAt: 1, updatedAt: 2,
+                generations: [makeGeneration({ id: 'g1' })],
+            };
+            fs.writeFileSync(legacyJsonPath('both'), JSON.stringify(legacy), 'utf8');
+
+            const loaded = store.loadThread(WORKSPACE_PATH, 'both');
+            assert.ok(loaded);
+            assert.equal(loaded.name, 'Recovered');
+            assert.deepEqual(loaded.generations.map(g => g.id), ['g1']);
+            // Migration rewrote the log and removed the legacy file.
+            assert.equal(fs.existsSync(legacyJsonPath('both')), false);
+        });
+
         it('should return null for a corrupt legacy thread.json', () => {
             fs.mkdirSync(threadDir('corrupt'), { recursive: true });
             fs.writeFileSync(legacyJsonPath('corrupt'), '{ invalid json', 'utf8');
@@ -397,21 +416,62 @@ describe('Thread append-only log (JSONL)', () => {
             assert.equal(fs.existsSync(logPath('ghost')), false);
         });
 
-        it('should auto-compact after the append interval is reached', () => {
+        it('should auto-compact once the size-aware append threshold is reached', () => {
             store.saveThread(WORKSPACE_PATH, 'default', makeThread());
-            // Append well past the interval (100) with in-place updates of one gen.
+            // One live generation -> threshold is the floor (64). Append well past
+            // it with in-place updates so compaction must fire without any explicit
+            // compactThread call.
             for (let i = 0; i < 120; i++) {
                 store.appendGeneration(WORKSPACE_PATH, 'default', makeGeneration({ id: 'g1', uiResponse: `v${i}` }));
             }
-            // Auto-compaction must have fired at least once, so the file is far
-            // smaller than 120 lines even though we never called compactThread.
             const lines = countLines('default');
-            assert.ok(lines < 60, `expected auto-compaction to bound growth, got ${lines} lines`);
+            assert.ok(lines < 70, `expected auto-compaction to bound growth, got ${lines} lines`);
 
             const loaded = store.loadThread(WORKSPACE_PATH, 'default');
             assert.ok(loaded);
             assert.equal(loaded.generations.length, 1);
             assert.equal(loaded.generations[0].uiResponse, 'v119');
+        });
+
+        it('should scale the compaction threshold with live generation count', () => {
+            // 30 live generations -> threshold = max(64, 3*30) = 90.
+            const gens = Array.from({ length: 30 }, (_, i) => makeGeneration({ id: `g${i}` }));
+            store.saveThread(WORKSPACE_PATH, 'big', makeThread({ id: 'big', generations: gens }));
+
+            // 80 in-place updates of one generation stay UNDER the size-aware
+            // threshold (90), so NO auto-compaction fires. A fixed 64-append
+            // interval would have compacted here — this asserts the amortized,
+            // size-proportional behaviour that keeps per-append cost ~O(1).
+            for (let i = 0; i < 80; i++) {
+                store.appendGeneration(WORKSPACE_PATH, 'big', makeGeneration({ id: 'g0', uiResponse: `v${i}` }));
+            }
+            const lines = countLines('big');
+            assert.ok(lines > 100, `expected no compaction below the size-aware threshold, got ${lines} lines`);
+
+            const loaded = store.loadThread(WORKSPACE_PATH, 'big');
+            assert.ok(loaded);
+            assert.equal(loaded.generations.length, 30);
+        });
+
+        it('should not fail load when on-load compaction cannot write (read-only dir)', () => {
+            store.saveThread(WORKSPACE_PATH, 'ro', makeThread({ id: 'ro' }));
+            for (let i = 0; i < 50; i++) {
+                store.appendGeneration(WORKSPACE_PATH, 'ro', makeGeneration({ id: 'g1', uiResponse: `v${i}` }));
+            }
+            // 52 lines: past the on-load compaction trigger. Make the thread dir
+            // read-only so the compaction's atomic write (a new tmp file) fails.
+            const dir = threadDir('ro');
+            fs.chmodSync(dir, 0o555);
+            try {
+                // Must NOT throw and must return the already-replayed thread even
+                // though compaction could not persist. (If the test runs as root,
+                // the write succeeds; either way load returns the thread.)
+                const loaded = store.loadThread(WORKSPACE_PATH, 'ro');
+                assert.ok(loaded, 'load must still return the replayed thread');
+                assert.equal(loaded.generations[0].uiResponse, 'v49');
+            } finally {
+                fs.chmodSync(dir, 0o755);
+            }
         });
 
         it('should compact on load when the log has grown well beyond its compact size', () => {
