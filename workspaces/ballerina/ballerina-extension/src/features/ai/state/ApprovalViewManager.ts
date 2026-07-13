@@ -357,14 +357,14 @@ export class ApprovalViewManager {
     }
 
     /**
-     * Navigate ReviewMode to a specific index.
-     * If ReviewMode is already open, sends navigateReviewIndex notification directly.
-     * If not open and data is cached, re-opens ReviewMode with cached data then navigates.
+     * Navigate ReviewMode to the given index: navigate in place if it is already open,
+     * otherwise re-open it from cached review data (no-op if nothing is cached).
      */
     navigateReviewMode(index: number): void {
         if (!AiPanelWebview.currentPanel) { return; }
         const isReviewModeOpen = StateMachine.context().view === MACHINE_VIEW.ReviewMode && !!VisualizerWebview.currentPanel;
         if (isReviewModeOpen) {
+            VisualizerWebview.currentPanel?.getWebview()?.reveal();
             RPCLayer._messenger.sendNotification(navigateReviewIndex, {
                 type: 'webview',
                 webviewType: VisualizerWebview.viewType
