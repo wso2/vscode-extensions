@@ -231,6 +231,79 @@ describe('Thread append-only log (JSONL)', () => {
             assert.deepEqual(loaded.generations, []);
             assert.equal(loaded.name, 'Default Thread');
         });
+
+        function records(threadId: string): any[] {
+            return fs.readFileSync(logPath(threadId), 'utf8')
+                .split('\n').filter(l => l.trim()).map(l => JSON.parse(l));
+        }
+
+        it('should write each model message exactly once across a multi-step turn (no O(S^2) duplication)', () => {
+            store.saveThread(WORKSPACE_PATH, 'default', makeThread({ generations: [] }));
+
+            // Simulate the agent hot path: same generation, unchanged header, the
+            // modelMessages array grows by one message per step.
+            const S = 30;
+            const msgs: unknown[] = [];
+            for (let step = 1; step <= S; step++) {
+                msgs.push({ role: 'assistant', content: `step-${step}` });
+                store.appendGeneration(WORKSPACE_PATH, 'default', makeGeneration({
+                    id: 'g1',
+                    timestamp: 5,          // fixed so the header never changes
+                    uiResponse: 'fixed',
+                    modelMessages: [...msgs],
+                }));
+            }
+
+            const recs = records('default');
+            const msgRecords = recs.filter(r => r.t === 'msg').length;
+            const genRecords = recs.filter(r => r.t === 'gen').length;
+            // Each message persisted once (S), NOT 1+2+...+S. This is the fix.
+            assert.equal(msgRecords, S, `expected ${S} msg records, got ${msgRecords}`);
+            // The header is written once, since it never changed.
+            assert.equal(genRecords, 1, `expected a single gen header, got ${genRecords}`);
+
+            const loaded = store.loadThread(WORKSPACE_PATH, 'default');
+            assert.ok(loaded);
+            assert.equal(loaded.generations[0].modelMessages.length, S);
+            assert.deepEqual(loaded.generations[0].modelMessages[S - 1], { role: 'assistant', content: `step-${S}` });
+        });
+
+        it('should append a gen header only when a non-message field changes', () => {
+            store.saveThread(WORKSPACE_PATH, 'default', makeThread({ generations: [] }));
+            const base = { id: 'g1', timestamp: 5, modelMessages: [{ role: 'user', content: 'x' }] };
+            // Same header three times -> one header record.
+            store.appendGeneration(WORKSPACE_PATH, 'default', makeGeneration({ ...base, uiResponse: 'a' }));
+            store.appendGeneration(WORKSPACE_PATH, 'default', makeGeneration({ ...base, uiResponse: 'a' }));
+            // uiResponse change -> a second header record.
+            store.appendGeneration(WORKSPACE_PATH, 'default', makeGeneration({ ...base, uiResponse: 'b' }));
+
+            const recs = records('default');
+            assert.equal(recs.filter(r => r.t === 'gen').length, 2);
+            assert.equal(recs.filter(r => r.t === 'msg').length, 1); // one message, written once
+            assert.equal(store.loadThread(WORKSPACE_PATH, 'default')!.generations[0].uiResponse, 'b');
+        });
+
+        it('should emit a msgs reset when modelMessages are rewritten rather than extended', () => {
+            store.saveThread(WORKSPACE_PATH, 'default', makeThread({ generations: [] }));
+            store.appendGeneration(WORKSPACE_PATH, 'default', makeGeneration({
+                id: 'g1', timestamp: 5,
+                modelMessages: [{ role: 'user', content: 'a' }, { role: 'assistant', content: 'b' }],
+            }));
+            // Same length but the last message changed (e.g. server-side rewrite).
+            store.appendGeneration(WORKSPACE_PATH, 'default', makeGeneration({
+                id: 'g1', timestamp: 5,
+                modelMessages: [{ role: 'user', content: 'a' }, { role: 'assistant', content: 'REWRITTEN' }],
+            }));
+
+            const recs = records('default');
+            assert.ok(recs.some(r => r.t === 'msgs'), 'expected a msgs reset record');
+
+            const loaded = store.loadThread(WORKSPACE_PATH, 'default');
+            assert.ok(loaded);
+            assert.deepEqual(loaded.generations[0].modelMessages, [
+                { role: 'user', content: 'a' }, { role: 'assistant', content: 'REWRITTEN' },
+            ]);
+        });
     });
 
     // --- Crash / corruption resilience ---
@@ -272,17 +345,20 @@ describe('Thread append-only log (JSONL)', () => {
         });
 
         it('should reconstruct without data loss when the head record is missing', () => {
-            // Simulate appends that reached disk before an interrupted init:
-            // gen records but no head.
-            const rec1: ThreadLogRecord = { t: 'gen', updatedAt: 2000, gen: makeGeneration({ id: 'g1' }) };
-            const rec2: ThreadLogRecord = { t: 'gen', updatedAt: 2500, gen: makeGeneration({ id: 'g2' }) };
+            // Simulate gen header + message records that reached disk before an
+            // interrupted init wrote the thread `head` record.
+            const { modelMessages: m1, ...h1 } = makeGeneration({ id: 'g1' });
+            const { modelMessages: _m2, ...h2 } = makeGeneration({ id: 'g2' });
             fs.mkdirSync(threadDir('headless'), { recursive: true });
-            appendLineSync(logPath('headless'), JSON.stringify(rec1));
-            appendLineSync(logPath('headless'), JSON.stringify(rec2));
+            appendLineSync(logPath('headless'), JSON.stringify({ t: 'gen', updatedAt: 2000, gen: h1 } as ThreadLogRecord));
+            appendLineSync(logPath('headless'), JSON.stringify({ t: 'msg', updatedAt: 2000, genId: 'g1', message: m1[0] } as ThreadLogRecord));
+            appendLineSync(logPath('headless'), JSON.stringify({ t: 'gen', updatedAt: 2500, gen: h2 } as ThreadLogRecord));
 
             const loaded = store.loadThread(WORKSPACE_PATH, 'headless');
             assert.ok(loaded);
             assert.deepEqual(loaded.generations.map(g => g.id), ['g1', 'g2']);
+            assert.deepEqual(loaded.generations[0].modelMessages, [m1[0]]); // message reconstructed
+            assert.deepEqual(loaded.generations[1].modelMessages, []);
             assert.equal(loaded.id, 'headless');
             assert.equal(loaded.createdAt, 2000); // earliest record timestamp
         });
@@ -393,8 +469,9 @@ describe('Thread append-only log (JSONL)', () => {
 
             // Replayed thread is unchanged by compaction.
             assert.deepEqual(after, before);
-            // The log shrank to head + meta + 1 live generation.
-            assert.equal(linesAfter, 3);
+            // The log shrank to head + meta + 1 gen header + its messages.
+            const msgCount = after!.generations[0].modelMessages.length;
+            assert.equal(linesAfter, 3 + msgCount);
             assert.ok(linesBefore > linesAfter);
             assert.equal(after!.generations[0].uiResponse, 'step-9');
         });
@@ -486,7 +563,8 @@ describe('Thread append-only log (JSONL)', () => {
             const loaded = store.loadThread(WORKSPACE_PATH, 'default');
             assert.ok(loaded);
             assert.equal(loaded.generations[0].uiResponse, 'v49');
-            assert.equal(countLines('default'), 3);
+            // head + meta + 1 gen header + its messages.
+            assert.equal(countLines('default'), 3 + loaded.generations[0].modelMessages.length);
         });
     });
 

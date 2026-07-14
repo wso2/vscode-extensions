@@ -25,6 +25,7 @@ import {
     PersistedThread,
     PersistedCheckpoint,
     PersistedGeneration,
+    PersistedGenerationHeader,
     ThreadLogRecord,
     WorkspaceMetadata,
     ThreadSummary,
@@ -91,8 +92,10 @@ const COMPACT_LOAD_MIN_LINES = 16;
  * Checkpoint writes offer an async variant for large snapshots.
  */
 /**
- * Build the compact record sequence for a thread: a `head`, a `meta`, then one
- * `gen` per generation in order. Replaying this sequence reproduces `thread`.
+ * Build the compact record sequence for a thread: a `head`, a `meta`, then for
+ * each generation in order a `gen` header followed by one `msg` per model
+ * message. Replaying this sequence reproduces `thread`, and every message
+ * appears exactly once (no duplication to compact away later).
  */
 function buildCompactedRecords(thread: PersistedThread): ThreadLogRecord[] {
     const records: ThreadLogRecord[] = [
@@ -105,7 +108,11 @@ function buildCompactedRecords(thread: PersistedThread): ThreadLogRecord[] {
         },
     ];
     for (const gen of thread.generations) {
-        records.push({ t: 'gen', updatedAt: thread.updatedAt, gen });
+        const { modelMessages, ...header } = gen;
+        records.push({ t: 'gen', updatedAt: thread.updatedAt, gen: header });
+        for (const message of modelMessages ?? []) {
+            records.push({ t: 'msg', updatedAt: thread.updatedAt, genId: gen.id, message });
+        }
     }
     return records;
 }
@@ -120,6 +127,15 @@ export class CopilotPersistenceStore {
     // lifetime. Drives amortized (size-aware) compaction.
     private readonly appendsSinceCompaction: Map<string, number> = new Map();
     private readonly compactionThreshold: Map<string, number> = new Map();
+
+    // Per-generation append tracking (runtime-only), keyed by
+    // `${workspaceHash}/${threadId}#${generationId}`. Lets appendGeneration
+    // persist only what changed: the header when it differs, and only the model
+    // messages not yet written. `count` = messages already persisted;
+    // `lastJson` = JSON of the last persisted message (used to detect whether a
+    // new modelMessages array extends what we have or was rewritten).
+    private readonly lastHeaderJson: Map<string, string> = new Map();
+    private readonly msgState: Map<string, { count: number; lastJson: string }> = new Map();
 
     constructor(config: PersistenceStoreConfig = {}) {
         this.baseDir = config.baseDir ?? DEFAULT_BASE_DIR;
@@ -154,6 +170,11 @@ export class CopilotPersistenceStore {
     /** Key used to track per-thread append counts for amortized compaction. */
     private compactionKey(workspacePath: string, threadId: string): string {
         return `${computeWorkspaceHash(this.workspaceIdResolver(workspacePath))}/${threadId}`;
+    }
+
+    /** Key used to track per-generation persisted header/messages. */
+    private genKey(workspacePath: string, threadId: string, generationId: string): string {
+        return `${this.compactionKey(workspacePath, threadId)}#${generationId}`;
     }
 
     /** Resolve the path to a checkpoint snapshot file. */
@@ -232,10 +253,14 @@ export class CopilotPersistenceStore {
     deleteWorkspace(workspacePath: string): void {
         removeDirSync(this.getWorkspaceDir(workspacePath));
         const prefix = `${computeWorkspaceHash(this.workspaceIdResolver(workspacePath))}/`;
-        for (const key of this.appendsSinceCompaction.keys()) {
-            if (key.startsWith(prefix)) {
-                this.appendsSinceCompaction.delete(key);
-                this.compactionThreshold.delete(key);
+        this.clearRuntimeStateByPrefix(prefix);
+    }
+
+    /** Drop all in-memory tracking whose key starts with `prefix`. */
+    private clearRuntimeStateByPrefix(prefix: string): void {
+        for (const map of [this.appendsSinceCompaction, this.compactionThreshold, this.lastHeaderJson, this.msgState]) {
+            for (const key of map.keys()) {
+                if (key.startsWith(prefix)) { map.delete(key); }
             }
         }
     }
@@ -295,6 +320,9 @@ export class CopilotPersistenceStore {
             const thread = this.replayThread(threadId, records);
             if (thread) {
                 this.compactOnLoadIfNeeded(workspacePath, threadId, thread, records.length);
+                // Prime per-generation tracking so subsequent appends persist only
+                // deltas (idempotent if on-load compaction already rebuilt it).
+                this.rebuildGenTracking(workspacePath, threadId, thread.generations);
                 // A stale legacy snapshot may linger if a previous migration was
                 // interrupted after writing the log but before deleting the JSON.
                 this.deleteLegacyThreadFile(workspacePath, threadId);
@@ -349,24 +377,69 @@ export class CopilotPersistenceStore {
             key,
             Math.max(COMPACT_MIN_APPENDS, COMPACT_GROWTH_FACTOR * data.generations.length)
         );
+        // Rebuild per-generation tracking to match what we just wrote.
+        this.rebuildGenTracking(workspacePath, threadId, data.generations);
+    }
+
+    /**
+     * Reset per-generation header/message tracking to match a known-persisted
+     * set of generations (after a full write, compaction, or load). Clears any
+     * stale entries for the thread so removed generations don't linger.
+     */
+    private rebuildGenTracking(
+        workspacePath: string,
+        threadId: string,
+        generations: PersistedGeneration[]
+    ): void {
+        const prefix = `${this.compactionKey(workspacePath, threadId)}#`;
+        for (const k of this.lastHeaderJson.keys()) {
+            if (k.startsWith(prefix)) { this.lastHeaderJson.delete(k); }
+        }
+        for (const k of this.msgState.keys()) {
+            if (k.startsWith(prefix)) { this.msgState.delete(k); }
+        }
+        for (const gen of generations) {
+            const gKey = this.genKey(workspacePath, threadId, gen.id);
+            const { modelMessages, ...header } = gen;
+            const msgs = modelMessages ?? [];
+            this.lastHeaderJson.set(gKey, JSON.stringify(header));
+            this.msgState.set(gKey, {
+                count: msgs.length,
+                lastJson: msgs.length ? JSON.stringify(msgs[msgs.length - 1]) : '',
+            });
+        }
     }
 
     // ============================================
     // Thread Log — Append API (incremental persistence)
     // ============================================
 
+    /** Append one record to the log without touching the compaction counter. */
+    private rawAppendRecord(workspacePath: string, threadId: string, record: ThreadLogRecord): void {
+        appendLineSync(this.getThreadLogFilePath(workspacePath, threadId), JSON.stringify(record));
+    }
+
     /**
      * Append a single record to a thread's log, then run amortized compaction.
      */
     appendThreadRecord(workspacePath: string, threadId: string, record: ThreadLogRecord): void {
-        appendLineSync(this.getThreadLogFilePath(workspacePath, threadId), JSON.stringify(record));
-        this.noteAppend(workspacePath, threadId);
+        this.rawAppendRecord(workspacePath, threadId, record);
+        this.noteAppend(workspacePath, threadId, 1);
     }
 
     /**
-     * Append an upsert for a generation (covers both add and in-place update).
-     * On replay the latest record for a given `gen.id` wins; the first
-     * occurrence fixes its position in the thread.
+     * Persist a generation incrementally (covers both add and in-place update).
+     *
+     * Writes only what actually changed:
+     *  - a `gen` header record iff the header (everything except `modelMessages`)
+     *    differs from what was last persisted for this generation;
+     *  - one `msg` record for each model message not yet persisted, when the new
+     *    `modelMessages` extend what we already have (the normal per-step case);
+     *  - a single `msgs` reset record when `modelMessages` were rewritten rather
+     *    than extended (e.g. server-side context compaction shortened them).
+     *
+     * This is what makes a turn cost O(messages) to persist instead of
+     * O(messages²): a message is written once, not re-written on every step.
      */
     appendGeneration(
         workspacePath: string,
@@ -374,7 +447,45 @@ export class CopilotPersistenceStore {
         generation: PersistedGeneration,
         updatedAt: number = Date.now()
     ): void {
-        this.appendThreadRecord(workspacePath, threadId, { t: 'gen', updatedAt, gen: generation });
+        const gKey = this.genKey(workspacePath, threadId, generation.id);
+        const { modelMessages, ...header } = generation;
+        const msgs = modelMessages ?? [];
+        let written = 0;
+
+        // 1) Header: append only when it changed.
+        const headerJson = JSON.stringify(header);
+        if (this.lastHeaderJson.get(gKey) !== headerJson) {
+            this.rawAppendRecord(workspacePath, threadId, { t: 'gen', updatedAt, gen: header });
+            this.lastHeaderJson.set(gKey, headerJson);
+            written++;
+        }
+
+        // 2) Messages: append only the new ones, or reset if rewritten.
+        const state = this.msgState.get(gKey) ?? { count: 0, lastJson: '' };
+        const extendsPrevious =
+            msgs.length >= state.count &&
+            (state.count === 0 || JSON.stringify(msgs[state.count - 1]) === state.lastJson);
+        if (extendsPrevious) {
+            for (let i = state.count; i < msgs.length; i++) {
+                this.rawAppendRecord(workspacePath, threadId, { t: 'msg', updatedAt, genId: generation.id, message: msgs[i] });
+                written++;
+            }
+        } else {
+            // Prefix changed or list shrank — the incremental model no longer
+            // holds; replace the whole message list for this generation.
+            this.rawAppendRecord(workspacePath, threadId, { t: 'msgs', updatedAt, genId: generation.id, messages: msgs });
+            written++;
+        }
+        this.msgState.set(gKey, {
+            count: msgs.length,
+            lastJson: msgs.length ? JSON.stringify(msgs[msgs.length - 1]) : '',
+        });
+
+        // Trigger amortized compaction once for the whole batch (never mid-batch,
+        // so the log is always in a consistent state when compaction reads it).
+        if (written > 0) {
+            this.noteAppend(workspacePath, threadId, written);
+        }
     }
 
     /**
@@ -386,6 +497,9 @@ export class CopilotPersistenceStore {
         generationId: string,
         updatedAt: number = Date.now()
     ): void {
+        const gKey = this.genKey(workspacePath, threadId, generationId);
+        this.lastHeaderJson.delete(gKey);
+        this.msgState.delete(gKey);
         this.appendThreadRecord(workspacePath, threadId, { t: 'del', updatedAt, id: generationId });
     }
 
@@ -453,9 +567,23 @@ export class CopilotPersistenceStore {
         let createdAt = 0;
         let updatedAt = 0;
 
-        // Preserve first-seen order while allowing in-place upserts / removals.
+        // Preserve first-seen order of generations; headers and messages are
+        // tracked separately and stitched together at the end.
         const order: string[] = [];
-        const byId = new Map<string, PersistedGeneration>();
+        const headers = new Map<string, PersistedGenerationHeader>();
+        const messages = new Map<string, unknown[]>();
+        const seen = (genId: string): boolean => headers.has(genId) || messages.has(genId);
+        const noteGen = (genId: string): void => { if (!seen(genId)) { order.push(genId); } };
+        const removeGen = (genId: string): boolean => {
+            const existed = headers.delete(genId);
+            const existedM = messages.delete(genId);
+            if (existed || existedM) {
+                const idx = order.indexOf(genId);
+                if (idx !== -1) { order.splice(idx, 1); }
+                return true;
+            }
+            return false;
+        };
 
         for (const record of records) {
             switch (record.t) {
@@ -476,19 +604,31 @@ export class CopilotPersistenceStore {
                     break;
                 case 'gen':
                     recognized++;
-                    if (!byId.has(record.gen.id)) {
-                        order.push(record.gen.id);
-                    }
-                    byId.set(record.gen.id, record.gen);
+                    noteGen(record.gen.id);
+                    headers.set(record.gen.id, record.gen);
+                    updatedAt = Math.max(updatedAt, record.updatedAt);
+                    minTimestamp = Math.min(minTimestamp, record.updatedAt);
+                    break;
+                case 'msg': {
+                    recognized++;
+                    noteGen(record.genId);
+                    const arr = messages.get(record.genId) ?? [];
+                    arr.push(record.message);
+                    messages.set(record.genId, arr);
+                    updatedAt = Math.max(updatedAt, record.updatedAt);
+                    minTimestamp = Math.min(minTimestamp, record.updatedAt);
+                    break;
+                }
+                case 'msgs':
+                    recognized++;
+                    noteGen(record.genId);
+                    messages.set(record.genId, [...record.messages]);
                     updatedAt = Math.max(updatedAt, record.updatedAt);
                     minTimestamp = Math.min(minTimestamp, record.updatedAt);
                     break;
                 case 'del':
                     recognized++;
-                    if (byId.delete(record.id)) {
-                        const idx = order.indexOf(record.id);
-                        if (idx !== -1) { order.splice(idx, 1); }
-                    }
+                    removeGen(record.id);
                     updatedAt = Math.max(updatedAt, record.updatedAt);
                     minTimestamp = Math.min(minTimestamp, record.updatedAt);
                     break;
@@ -496,8 +636,9 @@ export class CopilotPersistenceStore {
                     recognized++;
                     const idx = order.indexOf(record.fromId);
                     if (idx !== -1) {
-                        for (let i = idx; i < order.length; i++) {
-                            byId.delete(order[i]);
+                        for (const genId of order.slice(idx)) {
+                            headers.delete(genId);
+                            messages.delete(genId);
                         }
                         order.splice(idx);
                     }
@@ -517,7 +658,14 @@ export class CopilotPersistenceStore {
             createdAt = minTimestamp;
         }
 
-        const generations = order.map(genId => byId.get(genId)!).filter(Boolean);
+        const generations: PersistedGeneration[] = [];
+        for (const genId of order) {
+            const header = headers.get(genId);
+            // A generation needs its header to be reconstructable. In practice the
+            // header is always written before its messages; skip if it is missing.
+            if (!header) { continue; }
+            generations.push({ ...header, modelMessages: messages.get(genId) ?? [] });
+        }
         const thread: PersistedThread = {
             schemaVersion: CURRENT_THREAD_SCHEMA_VERSION,
             id,
@@ -538,9 +686,9 @@ export class CopilotPersistenceStore {
      * (e.g. transient disk error) must never propagate out of an append, so it
      * is caught and the counter is reset to back off until the next interval.
      */
-    private noteAppend(workspacePath: string, threadId: string): void {
+    private noteAppend(workspacePath: string, threadId: string, count: number): void {
         const key = this.compactionKey(workspacePath, threadId);
-        const next = (this.appendsSinceCompaction.get(key) ?? 0) + 1;
+        const next = (this.appendsSinceCompaction.get(key) ?? 0) + count;
         const threshold = this.compactionThreshold.get(key) ?? COMPACT_MIN_APPENDS;
         if (next >= threshold) {
             try {
@@ -598,6 +746,8 @@ export class CopilotPersistenceStore {
         const key = this.compactionKey(workspacePath, threadId);
         this.appendsSinceCompaction.delete(key);
         this.compactionThreshold.delete(key);
+        // Clear per-generation tracking for this thread (keys are `${key}#genId`).
+        this.clearRuntimeStateByPrefix(`${key}#`);
     }
 
     // ============================================

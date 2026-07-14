@@ -146,18 +146,33 @@ export interface PersistedThread {
 // ============================================
 
 /**
+ * A generation's persisted fields WITHOUT its (potentially large, append-only)
+ * `modelMessages`. Stored in a `gen` log record; the messages are stored
+ * separately as individual `msg` records so they are each written exactly once.
+ */
+export type PersistedGenerationHeader = Omit<PersistedGeneration, 'modelMessages'>;
+
+/**
  * A single record in a thread's append-only log (`thread.jsonl`).
  *
  * Instead of rewriting the whole thread on every mutation, each change appends
- * exactly one of these records. On load the records are replayed in order to
- * rebuild an identical {@link PersistedThread}. The log is periodically
- * compacted down to one `gen` record per live generation.
+ * exactly what changed. Crucially, a generation's `modelMessages` grow one
+ * message at a time as the agent runs, so each message is persisted **once** as
+ * its own `msg` record rather than re-writing the whole (growing) generation on
+ * every step — that is what keeps per-turn write cost O(messages) instead of
+ * O(messages²). On load the records are replayed in order to rebuild an
+ * identical {@link PersistedThread}.
  *
  * Replay semantics:
  *  - `head`  — thread identity + schema version. Written once as the first line.
  *  - `meta`  — thread-level mutable fields (name/sessionId). Last write wins.
- *  - `gen`   — upsert a generation by `gen.id`. First occurrence defines its
- *              position; later occurrences replace it in place (last write wins).
+ *  - `gen`   — upsert a generation's header (everything except `modelMessages`)
+ *              by `gen.id`. First occurrence fixes its position; later
+ *              occurrences replace the header in place (last write wins).
+ *  - `msg`   — append one model message to a generation's `modelMessages`.
+ *  - `msgs`  — replace a generation's entire `modelMessages` list. Used only when
+ *              the messages are rewritten rather than extended (e.g. server-side
+ *              context compaction), which the incremental `msg` path can't model.
  *  - `del`   — remove a generation by id (tombstone).
  *  - `trunc` — remove the generation `fromId` and every generation that was
  *              appended after it (restore-to-checkpoint).
@@ -165,7 +180,9 @@ export interface PersistedThread {
 export type ThreadLogRecord =
     | { t: 'head'; v: number; id: string; createdAt: number }
     | { t: 'meta'; updatedAt: number; name?: string; sessionId?: string }
-    | { t: 'gen'; updatedAt: number; gen: PersistedGeneration }
+    | { t: 'gen'; updatedAt: number; gen: PersistedGenerationHeader }
+    | { t: 'msg'; updatedAt: number; genId: string; message: unknown }
+    | { t: 'msgs'; updatedAt: number; genId: string; messages: unknown[] }
     | { t: 'del'; updatedAt: number; id: string }
     | { t: 'trunc'; updatedAt: number; fromId: string };
 
