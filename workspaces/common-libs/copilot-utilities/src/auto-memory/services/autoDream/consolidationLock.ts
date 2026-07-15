@@ -58,6 +58,29 @@ function isProcessRunning(pid: number): boolean {
     }
 }
 
+interface LockHolder {
+    mtime: number;
+    pid: number | undefined;
+}
+
+/** Reads the current lock file's mtime and PID, or null if it does not exist / is unreadable. */
+function readLockHolder(lockPath: string): LockHolder | null {
+    try {
+        const stat = statSync(lockPath);
+        const raw = readFileSync(lockPath, 'utf-8');
+        const parsed = parseInt(raw.trim(), 10);
+        return { mtime: stat.mtimeMs, pid: Number.isFinite(parsed) ? parsed : undefined };
+    } catch {
+        return null;  // ENOENT / unreadable
+    }
+}
+
+/** A lock is "live" — and must not be reclaimed — when it is not stale and its PID is still running. */
+function isLiveHolder(holder: LockHolder): boolean {
+    if (Date.now() - holder.mtime >= HOLDER_STALE_MS) { return false; }
+    return holder.pid !== undefined && isProcessRunning(holder.pid);
+}
+
 /**
  * Attempts to acquire the consolidation lock.
  *
@@ -66,34 +89,27 @@ function isProcessRunning(pid: number): boolean {
  * acquisition time and left in place on success, rolled back on failure.
  */
 export function tryAcquireLock(lockPath: string): number | null {
-    let priorMtime: number | undefined;
-    let holderPid: number | undefined;
-
-    try {
-        const stat = statSync(lockPath);
-        priorMtime = stat.mtimeMs;
-        const raw = readFileSync(lockPath, 'utf-8');
-        const parsed = parseInt(raw.trim(), 10);
-        holderPid = Number.isFinite(parsed) ? parsed : undefined;
-    } catch {
-        // ENOENT — no prior lock, proceed
-    }
+    const prior = readLockHolder(lockPath);
 
     // Abort if a live holder exists and the lock is not stale
-    if (priorMtime !== undefined && Date.now() - priorMtime < HOLDER_STALE_MS) {
-        if (holderPid !== undefined && isProcessRunning(holderPid)) {
-            return null;
-        }
+    if (prior && isLiveHolder(prior)) {
+        return null;
     }
 
-    // Atomically create the lock file; on EEXIST the stale-check above already
-    // cleared the live-holder guard, so unlink and retry once.
     let fd: number;
     try {
         fd = openSync(lockPath, 'wx');
     } catch (e: unknown) {
         if ((e as NodeJS.ErrnoException).code !== 'EEXIST') { return null; }
+        // A lock appeared between our stat and this exclusive create (TOCTOU window).
+        // Re-inspect the file that now exists: only reclaim it if it is stale or its
+        // holder is dead. Never unlink a lock we have confirmed is live — doing so
+        // would let two processes both believe they hold it.
+        const current = readLockHolder(lockPath);
+        if (current && isLiveHolder(current)) { return null; }
         try { unlinkSync(lockPath); } catch { return null; }
+        // If another process recreated the lock in the meantime, this exclusive create
+        // fails with EEXIST again and we back off (return null) rather than force-take it.
         try { fd = openSync(lockPath, 'wx'); } catch { return null; }
     }
     try {
@@ -104,7 +120,7 @@ export function tryAcquireLock(lockPath: string): number | null {
         return null;
     }
 
-    return priorMtime ?? 0;
+    return prior?.mtime ?? 0;
 }
 
 /**
