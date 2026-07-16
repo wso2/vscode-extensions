@@ -76,7 +76,7 @@ function AIEnhancementToggle({ enabled, onChange }: AIEnhancementToggleProps) {
                     <RadioContent>
                         <RadioTitle>Skip for Now – Enhance Later</RadioTitle>
                         <RadioDescription>
-                            Open the project as-is. You can trigger AI enhancement later from the BI Copilot.
+                            Open the project as-is. You can trigger AI enhancement later from the WSO2 Integrator Copilot.
                         </RadioDescription>
                     </RadioContent>
                 </RadioOption>

@@ -153,7 +153,7 @@ export async function getTokenForDefaultModel() {
             const token = await getRefreshedAccessToken();
             return token;
         } else {
-            const errorMessage = 'This feature is only available for BI Intelligence users.';
+            const errorMessage = 'This feature is only available for WSO2 Integrator Copilot users.';
             vscode.window.showErrorMessage(errorMessage);
             throw new Error(errorMessage);
         }
