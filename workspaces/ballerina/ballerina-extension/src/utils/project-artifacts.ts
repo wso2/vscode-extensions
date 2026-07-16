@@ -17,7 +17,7 @@
  */
 import * as vscode from "vscode";
 import { URI, Utils } from "vscode-uri";
-import { ARTIFACT_TYPE, Artifacts, ArtifactsNotification, BaseArtifact, DIRECTORY_MAP, isSamePath, PROJECT_KIND, ProjectInfo, ProjectStructure, ProjectStructureArtifactResponse, ProjectStructureResponse, SHARED_COMMANDS } from "@wso2/ballerina-core";
+import { ARTIFACT_TYPE, Artifacts, ArtifactsNotification, BaseArtifact, DIRECTORY_MAP, PROJECT_KIND, ProjectInfo, ProjectStructure, ProjectStructureArtifactResponse, ProjectStructureResponse, SHARED_COMMANDS } from "@wso2/ballerina-core";
 import { StateMachine } from "../stateMachine";
 import { ExtendedLangClient } from "../core/extended-language-client";
 import { ArtifactsUpdated, ArtifactNotificationHandler } from "./project-artifacts-handler";
@@ -32,6 +32,38 @@ const failedArtifactProjects = new Set<string>();
 // skipped during this window: the rebuild fetches the latest project state anyway, and letting
 // them run the incremental path would race the rebuild with updates based on stale structure.
 let artifactRecoveryInProgress = false;
+
+// Single-flight full refresh of the project info and structure. Every trigger — an explicit
+// refresh (e.g. addProjectToWorkspace after creating a package) or a publishArtifacts
+// notification for a package missing from the structure — funnels through here, so the burst
+// of notifications the LS emits after a workspace-wide change results in one projectInfo
+// request and one rebuild instead of one per notification.
+let projectRefreshInFlight: Promise<void> | null = null;
+
+export function refreshProjectStructure(): Promise<void> {
+    if (!projectRefreshInFlight) {
+        projectRefreshInFlight = (async () => {
+            try {
+                const workspacePath = StateMachine.context().workspacePath ?? StateMachine.context().projectPath;
+                if (!workspacePath) {
+                    console.warn("[refreshProjectStructure] No project or workspace path found in the StateMachine context.");
+                    return;
+                }
+                const projectInfo = await StateMachine.langClient().getProjectInfo({ projectPath: workspacePath });
+                if (!projectInfo) {
+                    console.warn("[refreshProjectStructure] Project info not found for:", workspacePath);
+                    return;
+                }
+                await StateMachine.updateProjectInfoAndWait(projectInfo);
+            } catch (error) {
+                console.error("[refreshProjectStructure] Failed to refresh the project structure:", error);
+            } finally {
+                projectRefreshInFlight = null;
+            }
+        })();
+    }
+    return projectRefreshInFlight;
+}
 
 export async function buildProjectsStructure(
     projectInfo: ProjectInfo,
@@ -150,62 +182,50 @@ export async function updateProjectArtifacts(publishedArtifacts: ArtifactsNotifi
     // Current project structure
     const currentProjectStructure: ProjectStructureResponse = StateMachine.context().projectStructure;
 
-    const rootPath = StateMachine.context().projectPath ?? StateMachine.context().workspacePath;
+    // Use the widest root available so notifications for every package in the workspace are
+    // handled the same way regardless of which view the user has navigated to. The project
+    // path fallback covers standalone integrations/libraries opened without a workspace.
+    const rootPath = StateMachine.context().workspacePath ?? StateMachine.context().projectPath;
     if (!rootPath) {
         console.warn("[updateProjectArtifacts] No project or workspace path found in the StateMachine context.");
         return;
     }
-    const projectUri = URI.file(rootPath);
-    const isWithinProject = URI
-        .parse(publishedArtifacts.uri).fsPath.toLowerCase()
-        .includes(projectUri.fsPath.toLowerCase());
+    const notificationPath = URI.parse(publishedArtifacts.uri).fsPath.toLowerCase();
+    const isWithinProject = notificationPath.includes(URI.file(rootPath).fsPath.toLowerCase());
 
     const isSubmodule = publishedArtifacts?.moduleName;
 
-    const persistDir = Utils.joinPath(projectUri, 'persist').fsPath.toLowerCase();
-    const isInPersistDir = URI.parse(publishedArtifacts.uri).fsPath.toLowerCase().includes(persistDir);
+    if (currentProjectStructure && isWithinProject && !isSubmodule) {
+        // Route the notification to the package it belongs to.
+        const targetProject = currentProjectStructure.projects?.find(project =>
+            project.projectPath && notificationPath.includes(URI.file(project.projectPath).fsPath.toLowerCase()));
 
-    if (currentProjectStructure && isWithinProject && !isSubmodule && !isInPersistDir) {
-        // If user is working on a workspace project pick the workspace path, otherwise fallback to the project path.
-        // Fallback can happen when user is working on a standalone integration/library and
-        // adding another integration/library via AI chat.
-        const workspacePath = StateMachine.context().workspacePath ?? StateMachine.context().projectPath;
-        if (!workspacePath) {
-            console.warn("[updateProjectArtifacts] Workspace path not found in the StateMachine context.");
-            return;
-        }
-        
-        const projectInfo = await StateMachine.langClient().getProjectInfo({ projectPath: workspacePath });
-        if (!projectInfo) {
-            console.warn("[updateProjectArtifacts] Project info not found for the project:", rootPath);
-            return;
-        }
-
-        const isWorkspace = projectInfo.projectKind === PROJECT_KIND.WORKSPACE_PROJECT;
-        const packages = isWorkspace ? projectInfo.children : [projectInfo];
-
-        const untrackedProjectPaths = packages
-            ?.filter(child => child?.projectPath !== undefined)
-            ?.filter(
-                child => !currentProjectStructure.projects
-                    ?.some(project => isSamePath(project.projectPath, child.projectPath))
-            ).map(child => child.projectPath) ?? [];
-
-        // Check if the active project exists in the current structure.
-        // If not (e.g., a new package was added by Copilot), a full rebuild is needed
-        // since we can't incrementally update a project that doesn't exist yet.
-        for (const untrackedProjectPath of untrackedProjectPaths) {
-            console.log("[updateProjectArtifacts] Project not found in structure, triggering full rebuild:", untrackedProjectPath);
+        if (!targetProject) {
+            // The notification is for a package missing from the structure — a package created
+            // without an explicit refresh (e.g., by Ballerina Copilot). Trigger a full refresh;
+            // it is single-flight, so the notification burst the LS emits for a new package
+            // (and an already-running refresh from addProjectToWorkspace) share one rebuild.
+            console.log("[updateProjectArtifacts] Package not found in structure, refreshing project structure:", notificationPath);
             const notificationHandler = ArtifactNotificationHandler.getInstance();
             notificationHandler.publish(ArtifactsUpdated.method, {
                 data: [],
                 timestamp: Date.now()
             });
-            StateMachine.refreshProjectInfo();
+            await refreshProjectStructure();
             return;
         }
 
-        const entryLocations = await traverseUpdatedComponents(publishedArtifacts.artifacts, currentProjectStructure);
+        const persistDir = Utils.joinPath(URI.file(targetProject.projectPath), 'persist').fsPath.toLowerCase();
+        if (notificationPath.includes(persistDir)) {
+            const notificationHandler = ArtifactNotificationHandler.getInstance();
+            notificationHandler.publish(ArtifactsUpdated.method, {
+                data: [],
+                timestamp: Date.now()
+            });
+            return;
+        }
+
+        const entryLocations = await traverseUpdatedComponents(publishedArtifacts.artifacts, targetProject);
         const notificationHandler = ArtifactNotificationHandler.getInstance();
         // Publish a notification to the artifact handler
         notificationHandler.publish(ArtifactsUpdated.method, {
@@ -408,20 +428,13 @@ function getDirectoryMapKeyAndIcon(artifact: BaseArtifact, artifactCategoryKey: 
  * Processes a single artifact deletion.
  * @param artifact The artifact to delete.
  * @param artifactCategoryKey The category key (from ARTIFACT_TYPE).
- * @param projectStructure The project structure to modify.
+ * @param project The project structure of the package the artifact belongs to.
  */
-function processDeletion(artifact: BaseArtifact, artifactCategoryKey: string, projectStructure: ProjectStructureResponse): void {
+function processDeletion(artifact: BaseArtifact, artifactCategoryKey: string, project: ProjectStructure): void {
     const mapping = getDirectoryMapKeyAndIcon(artifact, artifactCategoryKey);
     if (mapping) {
-        try {
-            const projectPath = StateMachine.context().projectPath;
-            const project = projectStructure.projects.find(project => isSamePath(project.projectPath, projectPath));
-            project.directoryMap[mapping.mapKey] =
-                project.directoryMap[mapping.mapKey]?.filter(value => value.id !== artifact.id) ?? [];
-        } catch (error) {
-            //TODO: Hack: Properly fix for the workspace scenario
-            console.error(`Error processing deletion for artifact ${artifact.id} in category ${artifactCategoryKey}:`, error);
-        }
+        project.directoryMap[mapping.mapKey] =
+            project.directoryMap[mapping.mapKey]?.filter(value => value.id !== artifact.id) ?? [];
     } else {
         console.error(`Could not determine directory map key for deletion of artifact ${artifact.id} in category ${artifactCategoryKey}`);
     }
@@ -431,17 +444,15 @@ function processDeletion(artifact: BaseArtifact, artifactCategoryKey: string, pr
  * Processes a single artifact addition.
  * @param artifact The artifact to add.
  * @param artifactCategoryKey The category key (from ARTIFACT_TYPE).
- * @param projectStructure The project structure to modify.
+ * @param project The project structure of the package the artifact belongs to.
  * @returns A promise resolving to the potentially relevant visualization entry, or undefined.
  */
-async function processAddition(artifact: BaseArtifact, artifactCategoryKey: string, projectStructure: ProjectStructureResponse): Promise<ProjectStructureArtifactResponse | undefined> {
+async function processAddition(artifact: BaseArtifact, artifactCategoryKey: string, project: ProjectStructure): Promise<ProjectStructureArtifactResponse | undefined> {
     const mapping = getDirectoryMapKeyAndIcon(artifact, artifactCategoryKey);
     if (mapping) {
         try {
-            const projectPath = StateMachine.context().projectPath;
-            const entryValue = await getEntryValue(artifact, projectPath, mapping.icon);
+            const entryValue = await getEntryValue(artifact, project.projectPath, mapping.icon);
 
-            const project = projectStructure.projects.find(project => isSamePath(project.projectPath, projectPath));
             // Ensure the array exists before pushing
             if (!project.directoryMap[mapping.mapKey]) {
                 project.directoryMap[mapping.mapKey] = [];
@@ -463,16 +474,14 @@ async function processAddition(artifact: BaseArtifact, artifactCategoryKey: stri
  * Processes a single artifact update.
  * @param artifact The artifact to update.
  * @param artifactCategoryKey The category key (from ARTIFACT_TYPE).
- * @param projectStructure The project structure to modify.
+ * @param project The project structure of the package the artifact belongs to.
  * @returns A promise resolving to the potentially relevant visualization entry, or undefined.
  */
-async function processUpdate(artifact: BaseArtifact, artifactCategoryKey: string, projectStructure: ProjectStructureResponse): Promise<ProjectStructureArtifactResponse | undefined> {
+async function processUpdate(artifact: BaseArtifact, artifactCategoryKey: string, project: ProjectStructure): Promise<ProjectStructureArtifactResponse | undefined> {
     const mapping = getDirectoryMapKeyAndIcon(artifact, artifactCategoryKey);
     if (mapping) {
         try {
-            const projectPath = StateMachine.context().projectPath;
-            const entryValue = await getEntryValue(artifact, projectPath, mapping.icon);
-            const project = projectStructure.projects.find(project => isSamePath(project.projectPath, projectPath));
+            const entryValue = await getEntryValue(artifact, project.projectPath, mapping.icon);
             // Ensure the array exists
             if (!project.directoryMap[mapping.mapKey]) {
                 project.directoryMap[mapping.mapKey] = [];
@@ -496,7 +505,7 @@ async function processUpdate(artifact: BaseArtifact, artifactCategoryKey: string
     }
 }
 
-async function traverseUpdatedComponents(publishedArtifacts: Artifacts, currentProjectStructure: ProjectStructureResponse): Promise<ProjectStructureArtifactResponse[]> {
+async function traverseUpdatedComponents(publishedArtifacts: Artifacts, targetProject: ProjectStructure): Promise<ProjectStructureArtifactResponse[]> {
     const entryLocations: ProjectStructureArtifactResponse[] = [];
     const promises: Promise<ProjectStructureArtifactResponse | undefined>[] = [];
 
@@ -505,21 +514,21 @@ async function traverseUpdatedComponents(publishedArtifacts: Artifacts, currentP
         // Process Deletions first (synchronous)
         if (actionMap.deletions) {
             for (const artifact of Object.values(actionMap.deletions) as BaseArtifact[]) {
-                processDeletion(artifact, artifactCategoryKey, currentProjectStructure);
+                processDeletion(artifact, artifactCategoryKey, targetProject);
             }
         }
 
         // Process Additions (asynchronous)
         if (actionMap.additions) {
             for (const artifact of Object.values(actionMap.additions) as BaseArtifact[]) {
-                promises.push(processAddition(artifact, artifactCategoryKey, currentProjectStructure));
+                promises.push(processAddition(artifact, artifactCategoryKey, targetProject));
             }
         }
 
         // Process Updates (asynchronous)
         if (actionMap.updates) {
             for (const artifact of Object.values(actionMap.updates) as BaseArtifact[]) {
-                promises.push(processUpdate(artifact, artifactCategoryKey, currentProjectStructure));
+                promises.push(processUpdate(artifact, artifactCategoryKey, targetProject));
             }
         }
     }
@@ -527,19 +536,10 @@ async function traverseUpdatedComponents(publishedArtifacts: Artifacts, currentP
     // Wait for all additions and updates to complete
     const results = await Promise.all(promises);
 
-    const projectPath = StateMachine.context().projectPath;
-    const project = currentProjectStructure.projects.find(project => isSamePath(project.projectPath, projectPath));
-    try {
-        if (project) {
-            for (const key of Object.keys(project.directoryMap)) {
-                if (project.directoryMap[key]) {
-                    project.directoryMap[key].sort((a, b) => a.name.localeCompare(b.name));
-                }
-            }
+    for (const key of Object.keys(targetProject.directoryMap)) {
+        if (targetProject.directoryMap[key]) {
+            targetProject.directoryMap[key].sort((a, b) => a.name.localeCompare(b.name));
         }
-    } catch (error) {
-        //TODO: Hack: Properly fix for the workspace scenario
-        console.error(`Error sorting directory map entries for project ${projectPath}:`, error);
     }
 
     // Populate addition entry locations

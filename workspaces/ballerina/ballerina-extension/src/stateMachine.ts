@@ -43,7 +43,7 @@ import { AIStateMachine, openAIPanelWithPrompt } from './views/ai-panel/aiMachin
 import { StateMachinePopup } from './stateMachinePopup';
 import { checkIsBallerinaPackage, checkIsBI, fetchScope, getOrgPackageName, UndoRedoManager, getProjectTomlValues, getOrgAndPackageName, checkIsBallerinaWorkspace, isInWI, isInDevant } from './utils';
 import { activateDevantFeatures } from './features/devant/activator';
-import { buildProjectsStructure } from './utils/project-artifacts';
+import { buildProjectsStructure, refreshProjectStructure } from './utils/project-artifacts';
 import { runCommandWithOutput } from './utils/runCommand';
 import { buildOutputChannel } from './utils/logger';
 import { closeOrphanWebviewTabs } from './views/closeOrphanWebviewTabs';
@@ -69,6 +69,7 @@ interface MachineContext extends VisualizerLocation {
 export let history: History;
 export let undoRedoManager: IUndoRedoManager;
 let pendingProjectRootUpdateResolvers: Array<() => void> = [];
+let pendingProjectInfoUpdateResolvers: Array<() => void> = [];
 let scaffoldPromptTriggered = false;
 
 const stateMachine = createMachine<MachineContext>(
@@ -124,24 +125,10 @@ const stateMachine = createMachine<MachineContext>(
             REFRESH_PROJECT_INFO: {
                 actions: [
                     async (context, event) => {
-                        try {
-                            const projectPath = context.workspacePath || context.projectPath;
-                            if (!projectPath) {
-                                console.warn("No project path available for refreshing project info");
-                                return;
-                            }
-
-                            // Fetch updated project info from language server
-                            const projectInfo = await context.langClient.getProjectInfo({ projectPath });
-
-                            // Update context with new project info
-                            stateService.send({
-                                type: 'UPDATE_PROJECT_INFO',
-                                projectInfo
-                            });
-                        } catch (error) {
-                            console.error("Error refreshing project info:", error);
-                        }
+                        // Single-flight: concurrent refresh triggers (explicit refreshes and
+                        // publishArtifacts notifications for untracked packages) share one
+                        // projectInfo fetch and one structure rebuild.
+                        await refreshProjectStructure();
                     }
                 ]
             },
@@ -151,10 +138,15 @@ const stateMachine = createMachine<MachineContext>(
                         projectInfo: (context, event) => event.projectInfo
                     }),
                     async (context, event) => {
-                        // Rebuild project structure with updated project info
-                        await buildProjectsStructure(event.projectInfo, StateMachine.langClient(), true);
-                        if (!event.silent) {
-                            openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.WorkspaceOverview });
+                        try {
+                            // Rebuild project structure with updated project info
+                            await buildProjectsStructure(event.projectInfo, StateMachine.langClient(), true);
+                            if (!event.silent) {
+                                openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.WorkspaceOverview });
+                            }
+                        } finally {
+                            // Resolve the next pending promise waiting for the update to complete
+                            pendingProjectInfoUpdateResolvers.shift()?.();
                         }
                     }
                 ]
@@ -878,6 +870,12 @@ export const StateMachine = {
     },
     updateProjectInfo: (projectInfo: ProjectInfo, options?: { silent?: boolean }) => {
         stateService.send({ type: 'UPDATE_PROJECT_INFO', projectInfo, silent: options?.silent });
+    },
+    updateProjectInfoAndWait: (projectInfo: ProjectInfo, options?: { silent?: boolean }): Promise<void> => {
+        return new Promise<void>((resolve) => {
+            pendingProjectInfoUpdateResolvers.push(resolve);
+            stateService.send({ type: 'UPDATE_PROJECT_INFO', projectInfo, silent: options?.silent });
+        });
     },
     resetToExtensionReady: () => {
         stateService.send({ type: 'RESET_TO_EXTENSION_READY' });
