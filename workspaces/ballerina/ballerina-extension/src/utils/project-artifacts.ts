@@ -40,7 +40,7 @@ let artifactRecoveryInProgress = false;
 // request and one rebuild instead of one per notification.
 let projectRefreshInFlight: Promise<void> | null = null;
 
-export function refreshProjectStructure(): Promise<void> {
+export function refreshProjectStructure(silent: boolean = false): Promise<void> {
     if (!projectRefreshInFlight) {
         projectRefreshInFlight = (async () => {
             try {
@@ -54,7 +54,7 @@ export function refreshProjectStructure(): Promise<void> {
                     console.warn("[refreshProjectStructure] Project info not found for:", workspacePath);
                     return;
                 }
-                await StateMachine.updateProjectInfoAndWait(projectInfo);
+                await StateMachine.updateProjectInfoAndWait(projectInfo, { silent });
             } catch (error) {
                 console.error("[refreshProjectStructure] Failed to refresh the project structure:", error);
             } finally {
@@ -211,7 +211,9 @@ export async function updateProjectArtifacts(publishedArtifacts: ArtifactsNotifi
                 data: [],
                 timestamp: Date.now()
             });
-            await refreshProjectStructure();
+            // Silent: this refresh is triggered by a background LS notification, not a user
+            // action, so it must not steal focus by opening WorkspaceOverview.
+            await refreshProjectStructure(true);
             return;
         }
 
