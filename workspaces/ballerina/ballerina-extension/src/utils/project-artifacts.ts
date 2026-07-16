@@ -17,7 +17,7 @@
  */
 import * as vscode from "vscode";
 import { URI, Utils } from "vscode-uri";
-import { ARTIFACT_TYPE, Artifacts, ArtifactsNotification, BaseArtifact, DIRECTORY_MAP, PROJECT_KIND, ProjectInfo, ProjectStructure, ProjectStructureArtifactResponse, ProjectStructureResponse, SHARED_COMMANDS } from "@wso2/ballerina-core";
+import { ARTIFACT_TYPE, Artifacts, ArtifactsNotification, BaseArtifact, DIRECTORY_MAP, isPathInside, PROJECT_KIND, ProjectInfo, ProjectStructure, ProjectStructureArtifactResponse, ProjectStructureResponse, SHARED_COMMANDS } from "@wso2/ballerina-core";
 import { StateMachine } from "../stateMachine";
 import { ExtendedLangClient } from "../core/extended-language-client";
 import { ArtifactsUpdated, ArtifactNotificationHandler } from "./project-artifacts-handler";
@@ -190,15 +190,15 @@ export async function updateProjectArtifacts(publishedArtifacts: ArtifactsNotifi
         console.warn("[updateProjectArtifacts] No project or workspace path found in the StateMachine context.");
         return;
     }
-    const notificationPath = URI.parse(publishedArtifacts.uri).fsPath.toLowerCase();
-    const isWithinProject = notificationPath.includes(URI.file(rootPath).fsPath.toLowerCase());
+    const notificationPath = URI.parse(publishedArtifacts.uri).fsPath;
+    const isWithinProject = isPathInside(rootPath, notificationPath);
 
     const isSubmodule = publishedArtifacts?.moduleName;
 
     if (currentProjectStructure && isWithinProject && !isSubmodule) {
         // Route the notification to the package it belongs to.
         const targetProject = currentProjectStructure.projects?.find(project =>
-            project.projectPath && notificationPath.includes(URI.file(project.projectPath).fsPath.toLowerCase()));
+            isPathInside(project.projectPath, notificationPath));
 
         if (!targetProject) {
             // The notification is for a package missing from the structure — a package created
@@ -217,8 +217,8 @@ export async function updateProjectArtifacts(publishedArtifacts: ArtifactsNotifi
             return;
         }
 
-        const persistDir = Utils.joinPath(URI.file(targetProject.projectPath), 'persist').fsPath.toLowerCase();
-        if (notificationPath.includes(persistDir)) {
+        const persistDir = Utils.joinPath(URI.file(targetProject.projectPath), 'persist').fsPath;
+        if (isPathInside(persistDir, notificationPath)) {
             const notificationHandler = ArtifactNotificationHandler.getInstance();
             notificationHandler.publish(ArtifactsUpdated.method, {
                 data: [],
