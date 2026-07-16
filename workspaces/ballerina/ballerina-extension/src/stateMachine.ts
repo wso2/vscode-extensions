@@ -69,7 +69,6 @@ interface MachineContext extends VisualizerLocation {
 export let history: History;
 export let undoRedoManager: IUndoRedoManager;
 let pendingProjectRootUpdateResolvers: Array<() => void> = [];
-let pendingProjectInfoUpdateResolvers: Array<() => void> = [];
 let scaffoldPromptTriggered = false;
 
 const stateMachine = createMachine<MachineContext>(
@@ -144,9 +143,11 @@ const stateMachine = createMachine<MachineContext>(
                             if (!event.silent) {
                                 openView(EVENT_TYPE.OPEN_VIEW, { view: MACHINE_VIEW.WorkspaceOverview });
                             }
-                        } finally {
-                            // Resolve the next pending promise waiting for the update to complete
-                            pendingProjectInfoUpdateResolvers.shift()?.();
+                            // Resolve only this invocation's own waiter, if any
+                            event.onComplete?.();
+                        } catch (error) {
+                            // Reject only this invocation's own waiter so callers don't proceed on failed rebuilds
+                            event.onError?.(error);
                         }
                     }
                 ]
@@ -872,9 +873,14 @@ export const StateMachine = {
         stateService.send({ type: 'UPDATE_PROJECT_INFO', projectInfo, silent: options?.silent });
     },
     updateProjectInfoAndWait: (projectInfo: ProjectInfo, options?: { silent?: boolean }): Promise<void> => {
-        return new Promise<void>((resolve) => {
-            pendingProjectInfoUpdateResolvers.push(resolve);
-            stateService.send({ type: 'UPDATE_PROJECT_INFO', projectInfo, silent: options?.silent });
+        return new Promise<void>((resolve, reject) => {
+            stateService.send({
+                type: 'UPDATE_PROJECT_INFO',
+                projectInfo,
+                silent: options?.silent,
+                onComplete: resolve,
+                onError: reject
+            });
         });
     },
     resetToExtensionReady: () => {
