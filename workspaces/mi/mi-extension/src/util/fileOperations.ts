@@ -32,6 +32,7 @@ import { RPCLayer } from "../RPCLayer";
 import { VisualizerWebview } from "../visualizer/webview";
 import { MiVisualizerRpcManager } from "../rpc-managers/mi-visualizer/rpc-manager";
 import { compareVersions, getMIVersionFromPom } from "./onboardingUtils";
+import { escapePowerShellArg } from "./shellEscapeUtils";
 import AdmZip from "adm-zip";
 
 interface ProgressMessage {
@@ -1068,13 +1069,13 @@ async function extractArchive(filePath: string, destination: string) {
     try {
         if (filePath.endsWith('.zip')) {
             if (platform === 'win32') {
-                await runCommand('powershell.exe', ['-NoProfile', '-Command', `Expand-Archive -Path "${filePath}" -DestinationPath "${destination}" -Force`]);
+                await runCommand('powershell.exe', ['-NoProfile', '-Command', `Expand-Archive -LiteralPath ${escapePowerShellArg(filePath)} -DestinationPath ${escapePowerShellArg(destination)} -Force`]);
             } else {
                 await runCommand('unzip', ['-o', filePath, '-d', destination]);
             }
         } else if (filePath.endsWith('.tar') || filePath.endsWith('.tar.gz') || filePath.endsWith('.tgz')) {
             if (platform === 'win32') {
-                await runCommand('powershell.exe', ['-NoProfile', '-Command', `tar -xf "${filePath}" -C "${destination}"`]);
+                await runCommand('powershell.exe', ['-NoProfile', '-Command', `tar -xf ${escapePowerShellArg(filePath)} -C ${escapePowerShellArg(destination)}`]);
             } else {
                 await runCommand('tar', ['-xf', filePath, '-C', destination]);
             }
