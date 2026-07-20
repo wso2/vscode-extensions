@@ -39,26 +39,39 @@ export async function scanMemoryFiles(memoryDir: string): Promise<MemoryHeader[]
             f => f.endsWith('.md') && f !== 'MEMORY.md' && !f.startsWith('.')
         );
 
-        const headers = await Promise.all(
+        // Stat all files first, then read content only for the newest MAX_MEMORY_FILES.
+        // Reading every file up front wastes I/O on entries that get discarded and can
+        // exhaust file descriptors (EMFILE) in large workspaces.
+        const statResults = await Promise.all(
             mdFiles.map(async filename => {
                 const filePath = join(memoryDir, filename);
                 try {
-                    const [stat, content] = await Promise.all([
-                        fsp.stat(filePath),
-                        fsp.readFile(filePath, 'utf-8'),
-                    ]);
-                    const { description, type } = parseFrontmatter(content);
-                    return { filename, mtimeMs: stat.mtimeMs, description, type };
+                    const stat = await fsp.stat(filePath);
+                    return { filename, filePath, mtimeMs: stat.mtimeMs };
                 } catch {
                     return null;
                 }
             })
         );
 
-        return headers
-            .filter((h): h is MemoryHeader => h !== null)
+        const sortedFiles = statResults
+            .filter((s): s is { filename: string; filePath: string; mtimeMs: number } => s !== null)
             .sort((a, b) => b.mtimeMs - a.mtimeMs)
             .slice(0, MAX_MEMORY_FILES);
+
+        const headers = await Promise.all(
+            sortedFiles.map(async ({ filename, filePath, mtimeMs }) => {
+                try {
+                    const content = await fsp.readFile(filePath, 'utf-8');
+                    const { description, type } = parseFrontmatter(content);
+                    return { filename, mtimeMs, description, type };
+                } catch {
+                    return null;
+                }
+            })
+        );
+
+        return headers.filter((h): h is MemoryHeader => h !== null);
     } catch {
         return [];
     }

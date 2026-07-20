@@ -187,27 +187,36 @@ export async function countGenerationsSince(
         return 0;  // threadsDir doesn't exist yet
     }
 
-    const counts = await Promise.all(
-        entries
-            .filter(e => e.isDirectory())
-            .map(async (entry): Promise<number> => {
-                const threadFile = join(threadsDir, entry.name, 'thread.json');
-                try {
-                    const raw = await fsp.readFile(threadFile, 'utf-8');
-                    const thread = JSON.parse(raw) as PersistedThread;
-                    if (!Array.isArray(thread.generations)) { return 0; }
-                    return thread.generations.reduce(
-                        (acc, gen) =>
-                            typeof gen.timestamp === 'number' && gen.timestamp > sinceMs
-                                ? acc + 1
-                                : acc,
-                        0
-                    );
-                } catch {
-                    return 0;  // skip unreadable thread files
-                }
-            })
-    );
+    const countThread = async (entry: import('fs').Dirent): Promise<number> => {
+        const threadFile = join(threadsDir, entry.name, 'thread.json');
+        try {
+            const raw = await fsp.readFile(threadFile, 'utf-8');
+            const thread = JSON.parse(raw) as PersistedThread;
+            if (!Array.isArray(thread.generations)) { return 0; }
+            return thread.generations.reduce(
+                (acc, gen) =>
+                    typeof gen.timestamp === 'number' && gen.timestamp > sinceMs
+                        ? acc + 1
+                        : acc,
+                0
+            );
+        } catch (err) {
+            // Propagate file-descriptor exhaustion instead of counting 0 — silently
+            // undercounting would let the consolidation gate pass incorrectly.
+            const code = (err as NodeJS.ErrnoException)?.code;
+            if (code === 'EMFILE' || code === 'ENFILE') { throw err; }
+            return 0;  // skip genuinely unreadable/invalid thread files
+        }
+    };
 
-    return counts.reduce((a, b) => a + b, 0);
+    // Read in bounded batches so large workspaces don't open every thread.json at once.
+    const dirs = entries.filter(e => e.isDirectory());
+    const READ_CONCURRENCY = 20;
+    let total = 0;
+    for (let i = 0; i < dirs.length; i += READ_CONCURRENCY) {
+        const batch = await Promise.all(dirs.slice(i, i + READ_CONCURRENCY).map(countThread));
+        total += batch.reduce((a, b) => a + b, 0);
+    }
+
+    return total;
 }
