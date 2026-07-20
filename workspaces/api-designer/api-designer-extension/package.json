@@ -135,7 +135,7 @@
     "portfinder": "1.0.32",
     "cors-anywhere": "0.4.4",
     "@apidevtools/json-schema-ref-parser": "11.6.1",
-    "adm-zip": "0.5.14",
+    "adm-zip": "0.6.0",
     "js-yaml": "4.2.0"
   }
 }
