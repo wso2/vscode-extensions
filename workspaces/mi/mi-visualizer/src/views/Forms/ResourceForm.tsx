@@ -37,6 +37,7 @@ import { SIDE_PANEL_WIDTH } from "../../constants";
 import { Resolver, useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { FormKeylookup, ParamManager, ParamConfig, ParamField } from "@wso2/mi-diagram";
+import { QueryParamInfo } from "@wso2/mi-core";
 
 // Styles
 const ActionContainer = styled.div`
@@ -126,6 +127,7 @@ export type ResourceFormData = ResourceType & {
     isInSequenceDirty: boolean;
     isOutSequenceDirty: boolean;
     isFaultSequenceDirty: boolean;
+    queryParams: QueryParamInfo[];
 };
 
 type ResourceFormProps = {
@@ -133,6 +135,7 @@ type ResourceFormProps = {
     isOpen: boolean;
     documentUri: string;
     bindsToOptions?: string[];
+    existingQueryParams?: QueryParamInfo[];
     onCancel: () => void;
     onSave: (data: ResourceFormData) => void;
 };
@@ -168,6 +171,29 @@ const initialValues: ResourceType = {
     bindsTo: "",
 };
 
+const queryParamFields: ParamField[] = [
+    { id: 0, type: "TextField", label: "Key", isRequired: true },
+    { id: 1, type: "Checkbox", label: "Required" },
+];
+
+const queryParamsToParamConfig = (params: QueryParamInfo[]): ParamConfig => ({
+    paramFields: queryParamFields,
+    paramValues: (params ?? []).map((param, index) => ({
+        id: index,
+        key: param.name,
+        value: param.required ? "Required" : "Optional",
+        paramValues: [{ value: param.name }, { value: param.required }],
+    })),
+});
+
+const paramConfigToQueryParams = (config: ParamConfig): QueryParamInfo[] =>
+    config.paramValues
+        .map((param) => ({
+            name: ((param.paramValues[0]?.value as string) ?? "").trim(),
+            required: !!param.paramValues[1]?.value,
+        }))
+        .filter((param) => param.name.length > 0);
+
 const paramConfigToBindsTo = (config: ParamConfig): string =>
     config.paramValues
         .map((param) => (param.paramValues[0]?.value as string)?.trim())
@@ -199,7 +225,7 @@ const bindsToToParamConfig = (bindsTo: string, options: string[]): ParamConfig =
     };
 };
 
-export const ResourceForm = ({ isOpen, documentUri, onCancel, onSave, formData, bindsToOptions = [] }: ResourceFormProps) => {
+export const ResourceForm = ({ isOpen, documentUri, onCancel, onSave, formData, bindsToOptions = [], existingQueryParams = [] }: ResourceFormProps) => {
     const {
         control,
         handleSubmit,
@@ -221,9 +247,9 @@ export const ResourceForm = ({ isOpen, documentUri, onCancel, onSave, formData, 
     const faultSequenceType = watch("faultSequenceType");
 
     const [isHidden, setIsHidden] = useState(false);
-    const [paramType, setParamType] = useState("");
     const [paramValue, setParamValue] = useState("");
     const [bindsToParams, setBindsToParams] = useState<ParamConfig>(bindsToToParamConfig("", bindsToOptions));
+    const [queryParams, setQueryParams] = useState<ParamConfig>(queryParamsToParamConfig(existingQueryParams));
 
     const handleBindsToChange = (config: ParamConfig) => {
         const normalized: ParamConfig = {
@@ -237,6 +263,23 @@ export const ResourceForm = ({ isOpen, documentUri, onCancel, onSave, formData, 
         setValue("bindsTo", paramConfigToBindsTo(normalized), { shouldValidate: true, shouldDirty: true });
     };
 
+    const handleQueryParamsChange = (config: ParamConfig) => {
+        const normalized: ParamConfig = {
+            ...config,
+            paramValues: config.paramValues.map((param, index) => {
+                const name = (param.paramValues[0]?.value as string) ?? "";
+                const required = !!param.paramValues[1]?.value;
+                return { ...param, id: index, key: name, value: required ? "Required" : "Optional" };
+            }),
+        };
+        setQueryParams(normalized);
+    };
+
+    const serializeQueryParams = (params: QueryParamInfo[]): string =>
+        params.map((param) => `${param.name}:${param.required}`).sort().join(",");
+    const isQueryParamsDirty = serializeQueryParams(paramConfigToQueryParams(queryParams)) !==
+        serializeQueryParams(existingQueryParams);
+
     // Functions
     const handleCancel = () => {
         setIsHidden(false);
@@ -249,28 +292,12 @@ export const ResourceForm = ({ isOpen, documentUri, onCancel, onSave, formData, 
             isInSequenceDirty: dirtyFields.inSequenceType,
             isOutSequenceDirty: dirtyFields.outSequenceType,
             isFaultSequenceDirty: dirtyFields.faultSequenceType,
+            queryParams: data.urlStyle === "none" ? [] : paramConfigToQueryParams(queryParams)
         };
         onSave({ ...data, ...metaData });
     };
 
-    const showQueryParam = () => {
-        setParamType("queryParam");
-        setIsHidden(true);
-    }
-
-    const addQueryParam = () => {
-        const urlType = urlStyle === "uri-template" ? "uriTemplate" : "urlMapping";
-        const sanitizedParamValue = paramValue.replace(/[^a-zA-Z0-9 ]+/g, '').replace(/\s+/g, '_');
-        if (watch(urlType).includes('?')) {
-            setValue(urlType, watch(urlType) + `&${sanitizedParamValue}={${sanitizedParamValue}}`, { shouldDirty: true });
-        } else {
-            setValue(urlType, watch(urlType) + `?${sanitizedParamValue}={${sanitizedParamValue}}`, { shouldDirty: true });
-        }
-        handleAddParameterCancel();
-    }
-
     const showPathParam = () => {
-        setParamType("pathParam");
         setIsHidden(true);
     }
 
@@ -297,20 +324,22 @@ export const ResourceForm = ({ isOpen, documentUri, onCancel, onSave, formData, 
     const handleAddParameterCancel = () => {
         setIsHidden(false);
         setParamValue("");
-        setParamType("");
     };
 
     // useEffects
     const bindsToOptionsKey = bindsToOptions.join(",");
+    const existingQueryParamsKey = existingQueryParams.map((param) => `${param.name}:${param.required}`).join(",");
     useEffect(() => {
         if (isOpen && formData) {
             reset(formData);
             setBindsToParams(bindsToToParamConfig(formData.bindsTo ?? "", bindsToOptions));
+            setQueryParams(queryParamsToParamConfig(existingQueryParams));
         } else if (isOpen && !formData) {
             reset(initialValues);
             setBindsToParams(bindsToToParamConfig("", bindsToOptions));
+            setQueryParams(queryParamsToParamConfig([]));
         }
-    }, [formData, isOpen, bindsToOptionsKey])
+    }, [formData, isOpen, bindsToOptionsKey, existingQueryParamsKey])
 
     return (
         <SidePanel
@@ -322,7 +351,7 @@ export const ResourceForm = ({ isOpen, documentUri, onCancel, onSave, formData, 
         >
             <SidePanelTitleContainer>
                 <Typography variant="h3" sx={{margin: 0}}>
-                    {isHidden ? `Add ${paramType === "pathParam" ? "Path" : "Query"} Param` : `${formData ? "Edit" : "Add"} API Resource`}
+                    {isHidden ? "Add Path Param" : `${formData ? "Edit" : "Add"} API Resource`}
                 </Typography>
                 <Button sx={{ marginLeft: "auto" }} onClick={handleCancel} appearance="icon">
                     <Codicon name="close" />
@@ -334,7 +363,7 @@ export const ResourceForm = ({ isOpen, documentUri, onCancel, onSave, formData, 
                         <TextField
                             id="param-name"
                             value={paramValue}
-                            label={`${paramType === "pathParam" ? "Path" : "Query"} Parameter`}
+                            label="Path Parameter"
                             size={150}
                             onTextChange={(value) => setParamValue(value)}
                             required
@@ -364,9 +393,6 @@ export const ResourceForm = ({ isOpen, documentUri, onCancel, onSave, formData, 
                                     <LinkButton onClick={showPathParam}>
                                         <Codicon name="add"/><>Add Path Param</>
                                     </LinkButton>
-                                    <LinkButton onClick={showQueryParam}>
-                                        <Codicon name="add"/><>Add Query Param</>
-                                    </LinkButton>
                                 </AddButtonWrapper>
                             )}
                             <CheckBoxContainer>
@@ -381,6 +407,17 @@ export const ResourceForm = ({ isOpen, documentUri, onCancel, onSave, formData, 
                                     <FormCheckBox name="methods.delete" label="DELETE" control={control as any}/>
                                 </CheckBoxGroup>
                             </CheckBoxContainer>
+                            {urlStyle !== "none" && (
+                                <CheckBoxContainer>
+                                    <label>Query Parameters</label>
+                                    <ParamManager
+                                        paramConfigs={queryParams}
+                                        onChange={handleQueryParamsChange}
+                                        addParamText="Add Query Param"
+                                        allowDuplicates={false}
+                                    />
+                                </CheckBoxContainer>
+                            )}
                             <Fragment>
                                 <FormGroup title="Advanced Options">
                                     <React.Fragment>
@@ -501,7 +538,7 @@ export const ResourceForm = ({ isOpen, documentUri, onCancel, onSave, formData, 
                                 </Button>
                                 <Button
                                     appearance="primary"
-                                    onClick={paramType === "pathParam" ? addPathParam : addQueryParam}
+                                    onClick={addPathParam}
                                     disabled={paramValue === ""}
                                 >
                                     Add
@@ -515,7 +552,7 @@ export const ResourceForm = ({ isOpen, documentUri, onCancel, onSave, formData, 
                                 <Button
                                     appearance="primary"
                                     onClick={handleSubmit(handleResourceSubmit)}
-                                    disabled={!isValid || !isDirty}
+                                    disabled={!isValid || (!isDirty && !isQueryParamsDirty)}
                                 >
                                     {formData ? "Update" : "Create"}
                                 </Button>

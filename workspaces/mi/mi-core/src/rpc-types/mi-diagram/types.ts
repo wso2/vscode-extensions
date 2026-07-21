@@ -1835,6 +1835,9 @@ export interface ExportProjectRequest {
 
 interface GenerateAPIBase {
     apiName: string;
+    context?: string | null;
+    version?: string | null;
+    versionType?: string | null;
     swaggerOrWsdlPath: string;
 }
 
@@ -1871,16 +1874,34 @@ export interface SwaggerFromAPIRequest {
     projectPath?: string;
 }
 
+export interface QueryParamInfo {
+    name: string;
+    required: boolean;
+}
+
 export interface CompareSwaggerAndAPIResponse {
     swaggerExists: boolean;
     isEqual?: boolean;
     generatedSwagger?: string;
     existingSwagger?: string;
+    queryParams?: { [resourcePath: string]: { [method: string]: QueryParamInfo[] } };
 }
 
 export interface UpdateAPIFromSwaggerRequest extends SwaggerTypeRequest {
     resources: any[];
     insertPosition: Position;
+}
+
+export interface UpdateResourceQueryParamsRequest {
+    apiName: string;
+    apiPath: string;
+    resourcePath: string;
+    methods: string[];
+    queryParams: QueryParamInfo[];
+}
+
+export interface UpdateResourceQueryParamsResponse {
+    queryParams: QueryParamInfo[];
 }
 
 export interface UpdateTestSuiteRequest {

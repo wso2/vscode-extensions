@@ -131,8 +131,8 @@ export class API {
         await frame.getByRole('textbox', { name: 'Path Parameter*' }).fill('p1');
         await frame.getByRole('button', { name: 'Add' }).click();
         await frame.getByText('Add Query Param').click();
-        await frame.getByRole('textbox', { name: 'Query Parameter*' }).fill('q1');
-        await frame.getByRole('button', { name: 'Add' }).click();
+        await frame.getByRole('textbox', { name: 'Key*' }).fill('q1');
+        await frame.getByText('Save').click();
         await frame.getByLabel('GET').click();
         await frame.getByLabel('DELETE').click();
         await frame.getByRole('button', { name: 'Create' }).click();
@@ -144,12 +144,12 @@ export class API {
             throw new Error("Failed to switch to Service Designer iframe");
         }
         const frame = webView.locator('div#root');
-        await frame.getByTestId('service-design-view').locator('i').nth(1).click();
-        // wait until go to source text appear
-        await webView.getByRole('gridcell', { name: 'Edit' }).click();
+        const resource = frame.getByTestId('service-design-view-resource').last();
+        await resource.locator('#component-list-menu-btn').click();
+        await webView.getByTestId('context-menu-edit').click();
         await frame.getByText('Add Query Param').click();
-        await frame.getByRole('textbox', { name: 'Query Parameter*' }).fill('q2');
-        await frame.getByRole('button', { name: 'Add' }).click();
+        await frame.getByRole('textbox', { name: 'Key*' }).fill('q2');
+        await frame.getByText('Save').click();
         await frame.getByLabel('POST').click();
         await frame.getByRole('button', { name: 'Update' }).click();
     }

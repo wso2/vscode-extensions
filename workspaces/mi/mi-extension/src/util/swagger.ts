@@ -18,13 +18,14 @@
 
 import { cloneDeep } from "lodash";
 import { COMMANDS, SWAGGER_PATH_TEMPLATE, SWAGGER_REL_DIR } from "../constants";
-import { SwaggerFromAPIResponse } from "@wso2/mi-core";
+import { SwaggerFromAPIResponse, QueryParamInfo } from "@wso2/mi-core";
 import { workspace, window } from "vscode";
 import path from "path";
 import * as vscode from 'vscode';
 import { deleteRegistryResource } from "./fileOperations";
-import { getStateMachine } from "../stateMachine";
 import { MILanguageClient } from "../lang-client/activator";
+import { parse, stringify } from "yaml";
+import { replaceFullContentToFile } from "./workspace";
 
 const fs = require('fs');
 
@@ -58,42 +59,6 @@ interface ResourceInfoResponse {
 }
 
 /**
- * Compares two objects and returns true if they are equal.
- * @param obj1 - Object 1
- * @param obj2 - Object 2
- * @param levels - Number of levels to compare
- * @returns - Equal or not upto the specified levels
- */
-const recursiveComparison = (obj1: Record<string, any>, obj2: Record<string, any>): boolean => {
-    if (Object.keys(obj1).length !== Object.keys(obj2).length) {
-        return false;
-    }
-
-    let isEqual = true;
-    for (const field in obj1) {
-        if (typeof obj2[field] === "undefined") {
-            isEqual = false;
-            break;
-        }
-
-        if (typeof obj1[field] === "object") {
-            isEqual = recursiveComparison(obj1[field], obj2[field]);
-
-            if (!isEqual) {
-                break;
-            }
-        } else {
-            if (obj1[field] !== obj2[field]) {
-                isEqual = false;
-                break;
-            }
-        }
-    }
-
-    return isEqual;
-};
-
-/**
  * Checks if two swagger paths are equal
  * @param path1 - Object 1
  * @param path2 - Object 2
@@ -109,23 +74,26 @@ const isEqualPaths = (
         return true;
     }
 
-    if (Object.keys(path1).length !== Object.keys(path2).length) {
-        return false;
-    }
-
     let isEqual = true;
     const keys = Object.keys(comparisonTemplate.body);
     if (comparisonTemplate.type === "array") {
+        // Query parameters only exist in the swagger file
+        // Their presence/absence must never register as a difference between the API and its swagger.
+        const filteredPath1 = Array.isArray(path1) ? path1.filter((item: any) => item?.in !== "query") : path1;
+        const filteredPath2 = Array.isArray(path2) ? path2.filter((item: any) => item?.in !== "query") : path2;
+        if (Object.keys(filteredPath1).length !== Object.keys(filteredPath2).length) {
+            return false;
+        }
         if (comparisonTemplate.primaryKey?.length) {
             const primaryKey = comparisonTemplate.primaryKey;
-            for (const key in path2) {
-                const obj = path2[key];
-                const index = path1.findIndex((object: Record<string, any>) => {
+            for (const key in filteredPath2) {
+                const obj = filteredPath2[key];
+                const index = filteredPath1.findIndex((object: Record<string, any>) => {
                     return primaryKey.every((pk: string) => object[pk] === obj[pk]);
                 });
 
                 if (index > -1) {
-                    isEqual = isEqualPaths(path1[index], obj, comparisonTemplate.body["*"]);
+                    isEqual = isEqualPaths(filteredPath1[index], obj, comparisonTemplate.body["*"]);
                 } else {
                     isEqual = false;
                 }
@@ -137,6 +105,10 @@ const isEqualPaths = (
         }
     } else {
         if (keys.length === 1 && keys[0] === "*") {
+            // Resource paths/methods are fully derived from the Synapse API, so any added/removed key is a real difference.
+            if (Object.keys(path1).length !== Object.keys(path2).length) {
+                return false;
+            }
             for (const key in path2) {
                 if (path1[key]) {
                     isEqual = isEqualPaths(path1[key], path2[key], comparisonTemplate.body["*"]);
@@ -149,9 +121,13 @@ const isEqualPaths = (
                 }
             }
         } else {
+            // Only compare fields the template tracks, other OpenAPI-only metadata (tags, summary, ...) is not a difference.
             for (const key in comparisonTemplate.body) {
-                if (path2[key] && path1[key]) {
-                    isEqual = isEqualPaths(path1[key], path2[key], comparisonTemplate.body[key]);
+                const fieldTemplate = comparisonTemplate.body[key];
+                if (fieldTemplate.type === "array") {
+                    isEqual = isEqualPaths(path1[key] ?? [], path2[key] ?? [], fieldTemplate);
+                } else if (path2[key] && path1[key]) {
+                    isEqual = isEqualPaths(path1[key], path2[key], fieldTemplate);
                 } else if ((!path2[key] && path1[key]) || (path2[key] && !path1[key])) {
                     isEqual = false;
                 } else {
@@ -171,21 +147,12 @@ const isEqualPaths = (
 export const isEqualSwaggers = (props: SwaggerUtilProps): boolean => {
     const { existingSwagger, generatedSwagger } = props;
 
-    let isEqual = true;
-    for (const field in existingSwagger) {
-        if (field === "paths") {
-            isEqual = isEqualPaths(existingSwagger[field], generatedSwagger[field], SWAGGER_PATH_TEMPLATE);
-        } else {
-            isEqual = recursiveComparison(existingSwagger[field], generatedSwagger[field]);
-        }
-
-        if (!isEqual) {
-            break;
-        }
-    }
-
-    return isEqual;
+    // Only "paths" reflects the Synapse API XML. Other top-level fields are OpenAPI-only metadata and not differences.
+    return isEqualPaths(existingSwagger.paths ?? {}, generatedSwagger.paths ?? {}, SWAGGER_PATH_TEMPLATE);
 };
+
+// Guard against keys that would reach through the prototype chain instead of setting an own property.
+const UNSAFE_OBJECT_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
 /**
  * Merges swagger resources and methods.
@@ -203,13 +170,17 @@ const recursivePathMerge = (
         return newObj;
     }
 
-    const result = cloneDeep(newObj);
     const keys = Object.keys(mergeTemplate.body);
 
     if (mergeTemplate.type === "array") {
+        // Resource/method presence is derived from the Synapse API, so the generated side is authoritative.
+        const result = cloneDeep(newObj);
         if (mergeTemplate.primaryKey?.length) {
             const primaryKey = mergeTemplate.primaryKey;
             for (const key in newObj) {
+                if (UNSAFE_OBJECT_KEYS.has(key)) {
+                    continue;
+                }
                 const obj = newObj[key];
                 const index = oldObj.findIndex((object: Record<string, any>) => {
                     return primaryKey.every((pk: string) => object[pk] === obj[pk]);
@@ -220,22 +191,35 @@ const recursivePathMerge = (
                 }
             }
         }
-    } else {
-        if (keys.length === 1 && keys[0] === "*") {
-            for (const key in newObj) {
-                if (oldObj[key]) {
-                    result[key] = recursivePathMerge(oldObj[key], newObj[key], mergeTemplate.body["*"]);
-                }
-            }
-        } else {
-            for (const key in mergeTemplate.body) {
-                if (newObj[key] && oldObj[key]) {
-                    result[key] = recursivePathMerge(oldObj[key], newObj[key], mergeTemplate.body[key]);
-                }
-            }
-        }
+        return result;
     }
 
+    if (keys.length === 1 && keys[0] === "*") {
+        // resources/methods are authoritative from the generated swagger.
+        const result = cloneDeep(newObj);
+        for (const key in newObj) {
+            if (UNSAFE_OBJECT_KEYS.has(key)) {
+                continue;
+            }
+            if (oldObj[key]) {
+                result[key] = recursivePathMerge(oldObj[key], newObj[key], mergeTemplate.body["*"]);
+            }
+        }
+        return result;
+    }
+
+    // Start from the existing operation so OpenAPI-only metadata survives, then sync just the tracked fields.
+    const result = cloneDeep(oldObj);
+    for (const key in mergeTemplate.body) {
+        if (UNSAFE_OBJECT_KEYS.has(key)) {
+            continue;
+        }
+        if (newObj[key] && oldObj[key]) {
+            result[key] = recursivePathMerge(oldObj[key], newObj[key], mergeTemplate.body[key]);
+        } else if (newObj[key] && !oldObj[key]) {
+            result[key] = newObj[key];
+        }
+    }
     return result;
 };
 
@@ -286,10 +270,129 @@ export const getResourceInfo = (props: SwaggerUtilProps): ResourceInfoResponse =
     return { added, removed, updated };
 };
 
+/**
+ * Extracts the "in: query" parameters of every path/method in a parsed swagger document,
+ * keyed by resource path and lowercase HTTP method.
+ */
+export const extractQueryParams = (swagger: Swagger): Record<string, Record<string, QueryParamInfo[]>> => {
+    const result: Record<string, Record<string, QueryParamInfo[]>> = {};
+    for (const resourcePath in swagger.paths ?? {}) {
+        const methods = swagger.paths[resourcePath] ?? {};
+        for (const method in methods) {
+            const queryParams: QueryParamInfo[] = (methods[method]?.parameters ?? [])
+                .filter((param: any) => param.in === "query")
+                .map((param: any) => ({ name: param.name, required: !!param.required }));
+            if (queryParams.length > 0) {
+                result[resourcePath] = result[resourcePath] ?? {};
+                result[resourcePath][method] = queryParams;
+            }
+        }
+    }
+    return result;
+};
+
+/**
+ * Replaces the "in: query" parameters of the given resource path/methods with the provided list,
+ * leaving path/body parameters and every other field of the swagger document untouched.
+ */
+export const updateQueryParamsInSwagger = (
+        existingSwaggerYaml: string,
+        resourcePath: string,
+        methods: string[],
+        queryParams: QueryParamInfo[],
+        onlyUpdateExisting: boolean = false): string => {
+    const swagger = parse(existingSwaggerYaml);
+    swagger.paths = swagger.paths ?? {};
+    if (onlyUpdateExisting && !swagger.paths[resourcePath]) {
+        return existingSwaggerYaml;
+    }
+    swagger.paths[resourcePath] = swagger.paths[resourcePath] ?? {};
+
+    const newQueryParams = queryParams.map((param) => ({
+        name: param.name,
+        in: "query",
+        required: param.required,
+        schema: { type: "string" },
+    }));
+
+    for (const method of methods) {
+        if (onlyUpdateExisting && !swagger.paths[resourcePath][method]) {
+            continue;
+        }
+        const operation = swagger.paths[resourcePath][method] ?? { responses: { default: { description: "Default response" } } };
+        const remainingParams = (operation.parameters ?? []).filter((param: any) => param.in !== "query");
+        const mergedParams = [...remainingParams, ...newQueryParams];
+        if (mergedParams.length > 0) {
+            operation.parameters = mergedParams;
+        } else {
+            delete operation.parameters;
+        }
+        swagger.paths[resourcePath][method] = operation;
+    }
+
+    return stringify(swagger);
+};
+
+/**
+ * Merges a freshly generated swagger into an existing one, preserving query params and other
+ * OpenAPI-only content that only the existing file has.
+ */
+export const mergeGeneratedSwagger = (existingSwaggerYaml: string, generatedSwaggerYaml: string): string => {
+    const parsedExistingSwagger = parse(existingSwaggerYaml);
+    const queryParams = extractQueryParams(parsedExistingSwagger);
+
+    const mergedContent = mergeSwaggers({
+        existingSwagger: parsedExistingSwagger,
+        generatedSwagger: parse(generatedSwaggerYaml),
+    });
+    let yamlContent = stringify(mergedContent);
+
+    // Synapse API XML has no query param concept, so mergeSwaggers cannot carry them over.
+    // Setting onlyUpdateExisting=true so resources/methods that mergeSwaggers already dropped aren't resurrected.
+    for (const [resourcePath, methodMap] of Object.entries(queryParams)) {
+        for (const [method, methodQueryParams] of Object.entries(methodMap)) {
+            yamlContent = updateQueryParamsInSwagger(yamlContent, resourcePath, [method], methodQueryParams, true);
+        }
+    }
+    return yamlContent;
+};
+
+/**
+ * Copies the "in: query" parameters from a source swagger definition (e.g. an imported OpenAPI
+ * spec) into the generated swagger file for the given API, leaving all other fields untouched.
+ */
+export async function copyQueryParamsFromSource(apiPath: string, sourceSwaggerPath: string): Promise<void> {
+    if (!fs.existsSync(sourceSwaggerPath)) {
+        return;
+    }
+    const sourceQueryParams = extractQueryParams(parse(fs.readFileSync(sourceSwaggerPath, 'utf8')));
+    if (Object.keys(sourceQueryParams).length === 0) {
+        return;
+    }
+
+    const projectUri = workspace.getWorkspaceFolder(vscode.Uri.file(apiPath))?.uri.fsPath;
+    if (!projectUri) {
+        return;
+    }
+    const swaggerPath = path.join(projectUri, SWAGGER_REL_DIR, `${path.basename(apiPath, ".xml")}.yaml`);
+    if (!fs.existsSync(swaggerPath)) {
+        return;
+    }
+
+    let swaggerContent = fs.readFileSync(swaggerPath, 'utf-8');
+    for (const [resourcePath, methodMap] of Object.entries(sourceQueryParams)) {
+        for (const [method, queryParams] of Object.entries(methodMap)) {
+            swaggerContent = updateQueryParamsInSwagger(swaggerContent, resourcePath, [method], queryParams, true);
+        }
+    }
+    await replaceFullContentToFile(swaggerPath, swaggerContent);
+}
+
 export function generateSwagger(apiPath: string): Promise<SwaggerFromAPIResponse> {
     return new Promise(async (resolve) => {
         const projectUri = workspace.getWorkspaceFolder(vscode.Uri.file(apiPath))?.uri.fsPath;
         if (!projectUri) {
+            resolve({ generatedSwagger: undefined });
             return;
         }
         const dirPath = path.join(projectUri, SWAGGER_REL_DIR);
@@ -297,11 +400,17 @@ export function generateSwagger(apiPath: string): Promise<SwaggerFromAPIResponse
         if (!fs.existsSync(dirPath)) {
             fs.mkdirSync(dirPath, { recursive: true });
         }
+        const existingSwaggerYaml = fs.existsSync(swaggerPath) ? fs.readFileSync(swaggerPath, 'utf-8') : undefined;
         const langClient = await MILanguageClient.getInstance(projectUri);
-        const response = await langClient.swaggerFromAPI({ apiPath: apiPath, ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
-        const generatedSwagger = response.swagger;
+        const response = await langClient.swaggerFromAPI({ apiPath: apiPath, ...(existingSwaggerYaml && { swaggerPath: swaggerPath }) });
+        const freshlyGeneratedSwagger = response.swagger;
+        // This runs on every API save, racing against explicit query-param
+        // edits to the same file. Therefore merge rather than overwrite so that race can never discard them.
+        const generatedSwagger = existingSwaggerYaml
+            ? mergeGeneratedSwagger(existingSwaggerYaml, freshlyGeneratedSwagger)
+            : freshlyGeneratedSwagger;
         fs.writeFileSync(swaggerPath, generatedSwagger);
-        resolve({ generatedSwagger: generatedSwagger });
+        resolve({ generatedSwagger });
     });
 }
 
