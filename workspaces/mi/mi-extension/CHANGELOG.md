@@ -2,6 +2,13 @@
 
 All notable changes to the "micro-integrator" extension will be documented in this file.   
 
+## [4.1.3] - 2026-07-15   
+
+### Fixed   
+
+Fixed: ASB inbound-endpoint create form is not rendering   
+Fixed: Connector generation tool fails with JDK 25
+
 ## [4.1.2] - 2026-07-04   
 
 ### Fixed   
