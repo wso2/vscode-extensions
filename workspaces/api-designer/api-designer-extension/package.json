@@ -123,7 +123,7 @@
     "@types/xml2js": "0.4.12",
     "jsonix": "3.0.0",
     "lodash": "4.17.23",
-    "axios": "1.16.0",
+    "axios": "1.18.0",
     "@types/lodash": "4.14.199",
     "xstate": "4.38.3",
     "node-fetch": "2.6.7",
@@ -136,6 +136,6 @@
     "cors-anywhere": "0.4.4",
     "@apidevtools/json-schema-ref-parser": "11.6.1",
     "adm-zip": "0.6.0",
-    "js-yaml": "4.2.0"
+    "js-yaml": "4.3.0"
   }
 }
