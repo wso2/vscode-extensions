@@ -22,18 +22,19 @@ module.exports = {
         if (deps['xmldom']) deps['xmldom'] = 'npm:@xmldom/xmldom@0.8.10';
         if (deps['braces']) deps['braces'] = '3.0.3';
         if (deps['micromatch']) deps['micromatch'] = '4.0.8';
-        if (deps['js-yaml']) deps['js-yaml'] = '4.2.0';
+        if (deps['js-yaml']) deps['js-yaml'] = '4.3.0';
         if (deps['diff']) deps['diff'] = '8.0.3';
         if (deps['eslint']) deps['eslint'] = '^9.27.0';
         if (deps['fast-xml-parser']) deps['fast-xml-parser'] = '5.7.0';
         if (deps['esbuild']) deps['esbuild'] = '0.25.12';
         if (deps['lodash']) deps['lodash'] = '4.18.0';
         if (deps['qs']) deps['qs'] = '6.15.2'; // security fix: CVE-2026-8723
-        if (deps['hono']) deps['hono'] = '4.12.25';
-        if (deps['@hono/node-server']) deps['@hono/node-server'] = '1.19.13';
+        if (deps['hono']) deps['hono'] = '4.12.27';
+        if (deps['@hono/node-server']) deps['@hono/node-server'] = '2.0.10';
         if (deps['@tootallnate/once']) deps['@tootallnate/once'] = '3.0.1';
-        if (deps['dompurify']) deps['dompurify'] = '3.4.11';
-        if (deps['axios']) deps['axios'] = '1.16.0'; // security fix
+        if (deps['dompurify']) deps['dompurify'] = '3.4.12';
+        if (deps['axios']) deps['axios'] = '1.18.0'; // security fix
+        if (deps['body-parser']) deps['body-parser'] = '1.20.6';
         if (deps['http-proxy-middleware']) deps['http-proxy-middleware'] = '3.0.7';
         if (deps['ip-address']) { // security fix: force patch within 10.x range only to avoid breaking consumers on earlier majors
           if (/^[\s\^~><=]*10[.\s]/.test(deps['ip-address'])) {
@@ -48,9 +49,9 @@ module.exports = {
         }
         if (deps['express-rate-limit']) deps['express-rate-limit'] = '8.2.2'; // security fix
         if (deps['file-type']) deps['file-type'] = '21.3.2'; // security fix
-        if (deps['immutable']) deps['immutable'] = '3.8.3'; // security fix
+        if (deps['immutable']) deps['immutable'] = '4.3.9'; // security fix
         if (deps['serialize-javascript']) deps['serialize-javascript'] = '7.0.5'; // security fix: XSS/code injection
-        if (deps['shell-quote']) deps['shell-quote'] = '1.8.4';
+        if (deps['shell-quote']) deps['shell-quote'] = '1.9.0';
         if (deps['flatted']) deps['flatted'] = '3.4.2'; // security fix
         if (deps['handlebars']) deps['handlebars'] = '4.7.9'; // security fix: prototype pollution
         if (deps['tmp']) deps['tmp'] = '0.2.7'; // security fix
@@ -58,12 +59,13 @@ module.exports = {
         if (deps['uuid']) deps['uuid'] = '14.0.0'; // security fix
         if (deps['@nevware21/ts-utils']) deps['@nevware21/ts-utils'] = '0.14.0'; // security fix: CVE-2026-46681 (prototype pollution)
         if (deps['@opentelemetry/core']) deps['@opentelemetry/core'] = '2.8.0';
+        if (deps['@opentelemetry/propagator-jaeger']) deps['@opentelemetry/propagator-jaeger'] = '2.9.0';
         if (deps['protobufjs']) {
           const currentVersion = deps['protobufjs'];
           if (currentVersion.startsWith('^8') || currentVersion.startsWith('8')) {
-            deps['protobufjs'] = '8.6.0';
+            deps['protobufjs'] = '8.6.6';
           } else {
-            deps['protobufjs'] = '7.6.3'; // security fix: CVE-2026-45740 (DoS via recursive JSON descriptor expansion)
+            deps['protobufjs'] = '7.6.5';
           }
         }
         if (deps['vite']) deps['vite'] = '6.0.14';
@@ -100,13 +102,13 @@ module.exports = {
           const currentVersion = deps['brace-expansion'];
           let newVersion;
           if (currentVersion.startsWith('^1') || currentVersion.startsWith('1')) {
-            newVersion = '1.1.13';
+            newVersion = '1.1.16';
           } else if (currentVersion.startsWith('^2') || currentVersion.startsWith('2')) {
-            newVersion = '2.0.3';
+            newVersion = '2.1.2';
           } else if (currentVersion.startsWith('^3') || currentVersion.startsWith('3')) {
             newVersion = '3.0.2';
           } else if (currentVersion.startsWith('^5') || currentVersion.startsWith('5')) {
-            newVersion = '5.0.6'; // security fix: CVE-2026-45149 (DoS numeric range)
+            newVersion = '5.0.7';
           } else {
             context.log(`Unexpected brace-expansion version: ${currentVersion}`);
             newVersion = currentVersion;

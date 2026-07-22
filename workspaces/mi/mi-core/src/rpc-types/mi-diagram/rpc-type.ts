@@ -182,6 +182,8 @@ import {
     SwaggerTypeRequest,
     UpdateAPIFromSwaggerRequest,
     CompareSwaggerAndAPIResponse,
+    UpdateResourceQueryParamsRequest,
+    UpdateResourceQueryParamsResponse,
     UpdateTestSuiteRequest,
     UpdateTestCaseRequest,
     UpdateTestCaseResponse,
@@ -439,6 +441,7 @@ export const editOpenAPISpec: NotificationType<SwaggerTypeRequest> = { method: `
 export const compareSwaggerAndAPI: RequestType<SwaggerTypeRequest, CompareSwaggerAndAPIResponse> = { method: `${_preFix}/compareSwaggerAndAPI` };
 export const updateSwaggerFromAPI: NotificationType<SwaggerTypeRequest> = { method: `${_preFix}/updateSwaggerFromAPI` };
 export const updateAPIFromSwagger: NotificationType<UpdateAPIFromSwaggerRequest> = { method: `${_preFix}/updateAPIFromSwagger` };
+export const updateResourceQueryParams: RequestType<UpdateResourceQueryParamsRequest, UpdateResourceQueryParamsResponse> = { method: `${_preFix}/updateResourceQueryParams` };
 export const updateTestSuite: RequestType<UpdateTestSuiteRequest, UpdateTestSuiteResponse> = { method: `${_preFix}/updateTestSuite` };
 export const updateTestCase: RequestType<UpdateTestCaseRequest, UpdateTestCaseResponse> = { method: `${_preFix}/updateTestCase` };
 export const updateMockService: RequestType<UpdateMockServiceRequest, UpdateMockServiceResponse> = { method: `${_preFix}/updateMockService` };
