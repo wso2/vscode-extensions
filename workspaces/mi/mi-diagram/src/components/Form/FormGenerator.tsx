@@ -133,6 +133,8 @@ export interface Element {
     defaultValue?: any;
     currentValue?: any;
     allowedConnectionTypes?: string[];
+    inputTypeDisplayName?: string;
+    inputTypeDescription?: string;
     keyType?: any;
     canAddNew?: boolean;
     elements?: any[];
@@ -1276,7 +1278,9 @@ export function FormGenerator(props: FormGeneratorProps) {
                         fetchItems,
                         handleValueChange,
                         props.documentUri,
-                        { allowedConnectionTypes: allowedConnectionTypes },
+                        { allowedConnectionTypes: allowedConnectionTypes,
+                            formTitle: element.inputTypeDisplayName ? element.inputTypeDisplayName : undefined,
+                            formDescription: element.inputTypeDescription ? element.inputTypeDescription : undefined },
                         sidePanelContext
                     );
                 }
@@ -1291,7 +1295,7 @@ export function FormGenerator(props: FormGeneratorProps) {
                                 </div>}
                             </div>
                             {!isDisabled && <LinkButton onClick={() => onCreateButtonClick(name, element.allowedConnectionTypes)}>
-                                <Codicon name="plus" />Add new connection
+                                <Codicon name="plus" />{ element.inputTypeDisplayName ? element.inputTypeDisplayName : 'Add New Connection'}
                             </LinkButton>}
                         </div>
                         <AutoComplete

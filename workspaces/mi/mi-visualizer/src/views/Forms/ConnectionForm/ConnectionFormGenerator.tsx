@@ -39,6 +39,7 @@ export interface AddConnectionProps {
     fromSidePanel?: boolean;
     isPopup?: boolean;
     handlePopupClose?: () => void;
+    formTitle?: string;
 }
 
 export function AddConnection(props: AddConnectionProps) {
@@ -380,7 +381,7 @@ export function AddConnection(props: AddConnectionProps) {
     }
 
     const formTitle = !props.connectionName
-        ? "Add New Connection"
+        ? (props.formTitle ?? "Add New Connection")
         : "Edit Connection : " + props.connectionName;
 
     if (getValues('name') === undefined) {

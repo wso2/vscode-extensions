@@ -210,6 +210,8 @@ export interface ConnectionStoreProps {
     isPopup?: boolean;
     handlePopupClose?: () => void;
     allowedConnectionTypes?: string[];
+    formTitle?: string;
+    formDescription?: string;
 }
 
 const searchIcon = (<Codicon name="search" sx={{ cursor: "auto" }} />);
@@ -696,11 +698,12 @@ export function ConnectionWizard(props: ConnectionStoreProps) {
                             changeConnectionType={changeConnectionType}
                             path={props.path}
                             handlePopupClose={props.handlePopupClose}
+                            formTitle={props.formTitle}
                         />
                     ) : (
-                        <FormView title={`Add New Connection`} onClose={props.handlePopupClose ?? handleOnClose}>
+                        <FormView title={props.formTitle ?? `Add New Connection`} onClose={props.handlePopupClose ?? handleOnClose}>
                             <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between' }}>
-                                <span>Please select a connector to create a connection.</span>
+                                <span>{props.formDescription ?? `Please select a connector to create a connection.`}</span>
                                 {!conOnconfirmation && !allowedConnectionTypes &&
                                     <DropdownButton
                                         tooltip="Import a connection"
