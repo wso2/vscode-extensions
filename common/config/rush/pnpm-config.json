@@ -90,14 +90,14 @@
      */
     "globalOverrides": {
       "lodash": ">=4.18.0",
-      "hono": "4.12.25",
+      "hono": "4.12.27",
       "brace-expansion@>=5.0.0 <6": "5.0.7",
       "@codemirror/view": "6.38.8",
       "@codemirror/lint": "6.8.5",
       "@codemirror/state": "6.5.2",
       "qs": ">=6.15.2",
       "@babel/core": ">=7.29.7",
-      "dompurify": ">=3.4.9",
+      "dompurify": ">=3.4.12",
       "js-yaml": "4.3.0",
       "tmp": ">=0.2.7",
       "form-data": ">=4.0.6",
