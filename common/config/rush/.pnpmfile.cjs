@@ -22,7 +22,7 @@ module.exports = {
         if (deps['xmldom']) deps['xmldom'] = 'npm:@xmldom/xmldom@0.8.10';
         if (deps['braces']) deps['braces'] = '3.0.3';
         if (deps['micromatch']) deps['micromatch'] = '4.0.8';
-        if (deps['js-yaml']) deps['js-yaml'] = '4.1.1';
+        if (deps['js-yaml']) deps['js-yaml'] = '4.3.0'; // security fix: CVE-2026-59869 (DoS); stay on v4 API
         if (deps['diff']) deps['diff'] = '8.0.3';
         if (deps['eslint']) deps['eslint'] = '^9.27.0';
         if (deps['fast-xml-parser']) deps['fast-xml-parser'] = '5.7.0';
@@ -35,7 +35,7 @@ module.exports = {
         if (deps['@hono/node-server']) deps['@hono/node-server'] = '1.19.13';
         if (deps['@tootallnate/once']) deps['@tootallnate/once'] = '3.0.1';
         if (deps['dompurify']) deps['dompurify'] = '3.4.0'; // security fix: XSS vulnerability
-        if (deps['axios']) deps['axios'] = '1.16.0'; // security fix: SSRF + CVE-2026-44489/44490/44492/44494 (prototype pollution / proxy bypass)
+        if (deps['axios']) deps['axios'] = '1.18.0'; // security fix: SSRF + prototype pollution / proxy bypass (GHSA-gcfj-64vw-6mp9 et al.)
         if (deps['ip-address']) { // security fix: force patch within 10.x range only to avoid breaking consumers on earlier majors
           if (/^[\s\^~><=]*10[.\s]/.test(deps['ip-address'])) {
             deps['ip-address'] = '10.1.1';
@@ -49,7 +49,7 @@ module.exports = {
         if (deps['serialize-javascript']) deps['serialize-javascript'] = '7.0.5'; // security fix: XSS/code injection
         if (deps['flatted']) deps['flatted'] = '3.4.2'; // security fix
         if (deps['handlebars']) deps['handlebars'] = '4.7.9'; // security fix: prototype pollution
-        if (deps['shell-quote']) deps['shell-quote'] = '1.8.4'; // security fix: CVE-2026-9277 (command injection)
+        if (deps['shell-quote']) deps['shell-quote'] = '1.9.0'; // security fix: CVE-2026-9277 (command injection), CVE-2026-13311 (DoS)
         if (deps['tmp']) deps['tmp'] = '0.2.6'; // security fix: CVE-2026-44705 (path traversal via prefix/postfix)
         if (deps['undici']) deps['undici'] = '7.28.0'; // security fix: CVE-2026-12151 (DoS via unbounded memory growth); also CVE-2026-9678/9697/6734 (was header injection)
         if (deps['@nevware21/ts-utils']) deps['@nevware21/ts-utils'] = '0.14.0'; // security fix: CVE-2026-46681 (prototype pollution)
@@ -95,13 +95,13 @@ module.exports = {
           const currentVersion = deps['brace-expansion'];
           let newVersion;
           if (currentVersion.startsWith('^1') || currentVersion.startsWith('1')) {
-            newVersion = '1.1.13';
+            newVersion = '1.1.16'; // security fix: CVE-2026-13149 (ReDoS)
           } else if (currentVersion.startsWith('^2') || currentVersion.startsWith('2')) {
-            newVersion = '2.0.3';
+            newVersion = '2.1.2'; // security fix: CVE-2026-13149 (ReDoS)
           } else if (currentVersion.startsWith('^3') || currentVersion.startsWith('3')) {
             newVersion = '3.0.2';
           } else if (currentVersion.startsWith('^5') || currentVersion.startsWith('5')) {
-            newVersion = '5.0.6'; // security fix: CVE-2026-45149 (DoS numeric range)
+            newVersion = '5.0.7'; // security fix: CVE-2026-45149, CVE-2026-13149 (DoS)
           } else {
             context.log(`Unexpected brace-expansion version: ${currentVersion}`);
             newVersion = currentVersion;
