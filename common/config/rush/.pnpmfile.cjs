@@ -29,10 +29,10 @@ module.exports = {
         if (deps['esbuild']) deps['esbuild'] = '0.25.12';
         if (deps['lodash']) deps['lodash'] = '4.18.0';
         if (deps['qs']) deps['qs'] = '6.15.2'; // security fix: CVE-2026-8723
-        if (deps['hono']) deps['hono'] = '4.12.25';
-        if (deps['@hono/node-server']) deps['@hono/node-server'] = '1.19.13';
+        if (deps['hono']) deps['hono'] = '4.12.27';
+        if (deps['@hono/node-server']) deps['@hono/node-server'] = '2.0.10';
         if (deps['@tootallnate/once']) deps['@tootallnate/once'] = '3.0.1';
-        if (deps['dompurify']) deps['dompurify'] = '3.4.11';
+        if (deps['dompurify']) deps['dompurify'] = '3.4.12';
         if (deps['axios']) deps['axios'] = '1.18.0'; // security fix
         if (deps['body-parser']) deps['body-parser'] = '1.20.6';
         if (deps['http-proxy-middleware']) deps['http-proxy-middleware'] = '3.0.7';
@@ -49,7 +49,7 @@ module.exports = {
         }
         if (deps['express-rate-limit']) deps['express-rate-limit'] = '8.2.2'; // security fix
         if (deps['file-type']) deps['file-type'] = '21.3.2'; // security fix
-        if (deps['immutable']) deps['immutable'] = '3.8.3'; // security fix
+        if (deps['immutable']) deps['immutable'] = '4.3.9'; // security fix
         if (deps['serialize-javascript']) deps['serialize-javascript'] = '7.0.5'; // security fix: XSS/code injection
         if (deps['shell-quote']) deps['shell-quote'] = '1.9.0';
         if (deps['flatted']) deps['flatted'] = '3.4.2'; // security fix
@@ -59,6 +59,7 @@ module.exports = {
         if (deps['uuid']) deps['uuid'] = '14.0.0'; // security fix
         if (deps['@nevware21/ts-utils']) deps['@nevware21/ts-utils'] = '0.14.0'; // security fix: CVE-2026-46681 (prototype pollution)
         if (deps['@opentelemetry/core']) deps['@opentelemetry/core'] = '2.8.0';
+        if (deps['@opentelemetry/propagator-jaeger']) deps['@opentelemetry/propagator-jaeger'] = '2.9.0';
         if (deps['protobufjs']) {
           const currentVersion = deps['protobufjs'];
           if (currentVersion.startsWith('^8') || currentVersion.startsWith('8')) {
