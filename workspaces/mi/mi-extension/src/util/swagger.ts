@@ -154,6 +154,17 @@ export const isEqualSwaggers = (props: SwaggerUtilProps): boolean => {
 // Guard against keys that would reach through the prototype chain instead of setting an own property.
 const UNSAFE_OBJECT_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
+// Serializes read-modify-write cycles per swagger file, so concurrent writers (query-param
+// edits, auto-regeneration on API save) can't silently clobber each other.
+const swaggerFileLocks = new Map<string, Promise<unknown>>();
+
+export function withSwaggerFileLock<T>(swaggerPath: string, action: () => Promise<T>): Promise<T> {
+    const previous = swaggerFileLocks.get(swaggerPath) ?? Promise.resolve();
+    const next = previous.then(action, action);
+    swaggerFileLocks.set(swaggerPath, next.catch(() => undefined));
+    return next;
+}
+
 /**
  * Merges swagger resources and methods.
  * @param oldObj - Existing resources object
@@ -292,6 +303,23 @@ export const extractQueryParams = (swagger: Swagger): Record<string, Record<stri
 };
 
 /**
+ * Moves a resource's swagger entry to its new path key (e.g. after a uri-template change),
+ * preserving its operation data. On conflict with a pre-existing entry at the new key, the
+ * old (pre-rename) data wins.
+ */
+const renameResourcePathInSwagger = (swagger: any, oldResourcePath: string | undefined, newResourcePath: string): void => {
+    if (!oldResourcePath || oldResourcePath === newResourcePath) {
+        return;
+    }
+    const oldMethods = swagger.paths?.[oldResourcePath];
+    if (!oldMethods) {
+        return;
+    }
+    swagger.paths[newResourcePath] = { ...(swagger.paths[newResourcePath] ?? {}), ...oldMethods };
+    delete swagger.paths[oldResourcePath];
+};
+
+/**
  * Replaces the "in: query" parameters of the given resource path/methods with the provided list,
  * leaving path/body parameters and every other field of the swagger document untouched.
  */
@@ -300,9 +328,11 @@ export const updateQueryParamsInSwagger = (
         resourcePath: string,
         methods: string[],
         queryParams: QueryParamInfo[],
-        onlyUpdateExisting: boolean = false): string => {
+        onlyUpdateExisting: boolean = false,
+        oldResourcePath?: string): string => {
     const swagger = parse(existingSwaggerYaml);
     swagger.paths = swagger.paths ?? {};
+    renameResourcePathInSwagger(swagger, oldResourcePath, resourcePath);
     if (onlyUpdateExisting && !swagger.paths[resourcePath]) {
         return existingSwaggerYaml;
     }
@@ -388,6 +418,28 @@ export async function copyQueryParamsFromSource(apiPath: string, sourceSwaggerPa
     await replaceFullContentToFile(swaggerPath, swaggerContent);
 }
 
+/**
+ * Core of generateSwagger, without acquiring the file lock. Only call from within an action
+ * already passed to withSwaggerFileLock for the same swaggerPath; otherwise call generateSwagger().
+ */
+export async function generateSwaggerCore(apiPath: string, projectUri: string, swaggerPath: string): Promise<string | undefined> {
+    const dirPath = path.dirname(swaggerPath);
+    if (!fs.existsSync(dirPath)) {
+        fs.mkdirSync(dirPath, { recursive: true });
+    }
+    const existingSwaggerYaml = fs.existsSync(swaggerPath) ? fs.readFileSync(swaggerPath, 'utf-8') : undefined;
+    const langClient = await MILanguageClient.getInstance(projectUri);
+    const response = await langClient.swaggerFromAPI({ apiPath: apiPath, ...(existingSwaggerYaml && { swaggerPath: swaggerPath }) });
+    const freshlyGeneratedSwagger = response.swagger;
+    const merged = existingSwaggerYaml
+        ? mergeGeneratedSwagger(existingSwaggerYaml, freshlyGeneratedSwagger)
+        : freshlyGeneratedSwagger;
+    if (merged) {
+        fs.writeFileSync(swaggerPath, merged);
+    }
+    return merged;
+}
+
 export function generateSwagger(apiPath: string): Promise<SwaggerFromAPIResponse> {
     return new Promise(async (resolve) => {
         const projectUri = workspace.getWorkspaceFolder(vscode.Uri.file(apiPath))?.uri.fsPath;
@@ -395,21 +447,10 @@ export function generateSwagger(apiPath: string): Promise<SwaggerFromAPIResponse
             resolve({ generatedSwagger: undefined });
             return;
         }
-        const dirPath = path.join(projectUri, SWAGGER_REL_DIR);
-        const swaggerPath = path.join(dirPath, path.basename(apiPath, path.extname(apiPath)) + '.yaml');
-        if (!fs.existsSync(dirPath)) {
-            fs.mkdirSync(dirPath, { recursive: true });
-        }
-        const existingSwaggerYaml = fs.existsSync(swaggerPath) ? fs.readFileSync(swaggerPath, 'utf-8') : undefined;
-        const langClient = await MILanguageClient.getInstance(projectUri);
-        const response = await langClient.swaggerFromAPI({ apiPath: apiPath, ...(existingSwaggerYaml && { swaggerPath: swaggerPath }) });
-        const freshlyGeneratedSwagger = response.swagger;
-        // This runs on every API save, racing against explicit query-param
-        // edits to the same file. Therefore merge rather than overwrite so that race can never discard them.
-        const generatedSwagger = existingSwaggerYaml
-            ? mergeGeneratedSwagger(existingSwaggerYaml, freshlyGeneratedSwagger)
-            : freshlyGeneratedSwagger;
-        fs.writeFileSync(swaggerPath, generatedSwagger);
+        const swaggerPath = path.join(projectUri, SWAGGER_REL_DIR, path.basename(apiPath, path.extname(apiPath)) + '.yaml');
+        // Runs on every API save, racing query-param edits to the same file; the lock
+        // serializes them so neither reads a stale write.
+        const generatedSwagger = await withSwaggerFileLock(swaggerPath, () => generateSwaggerCore(apiPath, projectUri, swaggerPath));
         resolve({ generatedSwagger });
     });
 }

@@ -225,8 +225,9 @@ export class API {
             throw new Error("Failed to switch to Service Designer iframe");
         }
         const frame = desWebView.locator('div#root');
-        await frame.getByTestId('service-design-view').locator('i').first().click();
-        await desWebView.getByRole('gridcell', { name: 'Delete' }).click();
+        const resource = frame.getByTestId('service-design-view-resource').last();
+        await resource.locator('#component-list-menu-btn').click();
+        await desWebView.getByTestId('context-menu-delete').click();
     }
 
     public async deleteAPI() {

@@ -366,7 +366,7 @@ import { copyDockerResources, copyMavenWrapper, createFolderStructure, getAPIRes
 import { addNewEntryToArtifactXML, createMetadataFilesForRegistryCollection, deleteApiMetadata, deleteRegistryResource, detectMediaType, getAvailableRegistryResources, getMediatypeAndFileExtension, getRegistryResourceMetadata, updateRegistryResourceMetadata, generatePathFromRegistryPath, updatePomWithParent } from "../../util/fileOperations";
 import { log } from "../../util/logger";
 import { importProjects } from "../../util/migrationUtils";
-import { copyQueryParamsFromSource, deleteSwagger, extractQueryParams, generateSwagger, getResourceInfo, isEqualSwaggers, mergeGeneratedSwagger, updateQueryParamsInSwagger } from "../../util/swagger";
+import { copyQueryParamsFromSource, deleteSwagger, extractQueryParams, generateSwagger, generateSwaggerCore, getResourceInfo, isEqualSwaggers, mergeGeneratedSwagger, updateQueryParamsInSwagger, withSwaggerFileLock } from "../../util/swagger";
 import { getDataSourceXml } from "../../util/template-engine/mustach-templates/DataSource";
 import { getClassMediatorContent } from "../../util/template-engine/mustach-templates/classMediator";
 import { getBallerinaModuleContent, getBallerinaConfigContent } from "../../util/template-engine/mustach-templates/ballerinaModule";
@@ -5581,17 +5581,18 @@ ${keyValuesXML}`;
     }
 
     async compareSwaggerAndAPI(params: SwaggerTypeRequest): Promise<CompareSwaggerAndAPIResponse> {
-        return new Promise(async (resolve) => {
+        const { apiPath, apiName } = params;
+        const swaggerPath = path.join(
+            this.projectUri,
+            SWAGGER_REL_DIR,
+            `${path.basename(params.apiPath, ".xml")}.yaml`
+        );
 
-            const { apiPath, apiName } = params;
-            const swaggerPath = path.join(
-                this.projectUri,
-                SWAGGER_REL_DIR,
-                `${path.basename(params.apiPath, ".xml")}.yaml`
-            );
-
+        // Runs on every syntax-tree refresh, so read under the same lock used for writes
+        // to avoid seeing a mid-write, momentarily-stale copy as a false mismatch.
+        return withSwaggerFileLock(swaggerPath, async () => {
             if (!fs.existsSync(swaggerPath)) {
-                return resolve({ swaggerExists: false });
+                return { swaggerExists: false };
             }
 
             const swaggerContent = fs.readFileSync(swaggerPath, 'utf-8');
@@ -5605,43 +5606,47 @@ ${keyValuesXML}`;
                     existingSwagger: parsedExistingSwagger,
                     generatedSwagger: parse(generatedSwagger!)
                 });
-                return resolve({
+                return {
                     swaggerExists: true,
                     isEqual: isEqualSwagger,
                     generatedSwagger,
                     existingSwagger: swaggerContent,
                     queryParams
-                });
+                };
             } catch (error) {
                 // Read directly from the swagger file on disk.
                 console.error('Error generating swagger from API for comparison:', error);
                 window.showErrorMessage(`Failed to compare the OpenAPI definition with the API '${apiName}'.`);
-                return resolve({
+                return {
                     swaggerExists: true,
                     isEqual: true,
                     existingSwagger: swaggerContent,
                     queryParams
-                });
+                };
             }
         });
     }
 
     async updateResourceQueryParams(params: UpdateResourceQueryParamsRequest): Promise<UpdateResourceQueryParamsResponse> {
-        const { apiPath, resourcePath, methods, queryParams } = params;
+        const { apiPath, resourcePath, oldResourcePath, methods, queryParams } = params;
         const swaggerPath = path.join(this.projectUri, SWAGGER_REL_DIR, `${path.basename(apiPath, ".xml")}.yaml`);
 
-        let existingSwagger: string;
-        if (fs.existsSync(swaggerPath)) {
-            existingSwagger = fs.readFileSync(swaggerPath, 'utf-8');
-        } else {
-            const { generatedSwagger } = await generateSwagger(apiPath);
-            if (!generatedSwagger) {
-                throw new Error(`Failed to generate OpenAPI definition for ${apiPath}`);
+        // Locked so this can't interleave with generateSwagger's auto-regeneration on API
+        // save; both read-modify-write the same file.
+        await withSwaggerFileLock(swaggerPath, async () => {
+            let existingSwagger: string;
+            if (fs.existsSync(swaggerPath)) {
+                existingSwagger = fs.readFileSync(swaggerPath, 'utf-8');
+            } else {
+                const generatedSwagger = await generateSwaggerCore(apiPath, this.projectUri, swaggerPath);
+                if (!generatedSwagger) {
+                    throw new Error(`Failed to generate OpenAPI definition for ${apiPath}`);
+                }
+                existingSwagger = generatedSwagger;
             }
-            existingSwagger = generatedSwagger;
-        }
-        const updatedYaml = updateQueryParamsInSwagger(existingSwagger, resourcePath, methods, queryParams);
-        await replaceFullContentToFile(swaggerPath, updatedYaml);
+            const updatedYaml = updateQueryParamsInSwagger(existingSwagger, resourcePath, methods, queryParams, false, oldResourcePath);
+            await replaceFullContentToFile(swaggerPath, updatedYaml);
+        });
         return { queryParams };
     }
 
@@ -5654,17 +5659,19 @@ ${keyValuesXML}`;
                 `${path.basename(params.apiPath, ".xml")}.yaml`
             );
 
-            let generatedSwagger = params.generatedSwagger;
-            let existingSwagger = params.existingSwagger;
-            if (!generatedSwagger || !existingSwagger) {
-                const langClient = await MILanguageClient.getInstance(this.projectUri);
-                const response = await langClient.swaggerFromAPI({ apiPath: apiPath, ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
-                generatedSwagger = response.swagger;
-                existingSwagger = fs.readFileSync(swaggerPath, 'utf-8');
-            }
+            await withSwaggerFileLock(swaggerPath, async () => {
+                let generatedSwagger = params.generatedSwagger;
+                let existingSwagger = params.existingSwagger;
+                if (!generatedSwagger || !existingSwagger) {
+                    const langClient = await MILanguageClient.getInstance(this.projectUri);
+                    const response = await langClient.swaggerFromAPI({ apiPath: apiPath, ...(fs.existsSync(swaggerPath) && { swaggerPath: swaggerPath }) });
+                    generatedSwagger = response.swagger;
+                    existingSwagger = fs.existsSync(swaggerPath) ? fs.readFileSync(swaggerPath, 'utf-8') : generatedSwagger!;
+                }
 
-            const yamlContent = mergeGeneratedSwagger(existingSwagger, generatedSwagger!);
-            await replaceFullContentToFile(swaggerPath, yamlContent);
+                const yamlContent = mergeGeneratedSwagger(existingSwagger!, generatedSwagger!);
+                await replaceFullContentToFile(swaggerPath, yamlContent);
+            });
         });
     }
 

@@ -1896,6 +1896,7 @@ export interface UpdateResourceQueryParamsRequest {
     apiName: string;
     apiPath: string;
     resourcePath: string;
+    oldResourcePath?: string;
     methods: string[];
     queryParams: QueryParamInfo[];
 }

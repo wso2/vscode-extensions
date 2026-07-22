@@ -45,6 +45,7 @@ export function ServiceDesignerView({ syntaxTree, documentUri }: ServiceDesigner
     const [selectedResource, setSelectedResource] = React.useState<APIResource>(null);
     const [swaggerUpdated, setSwaggerUpdated] = React.useState<boolean>(false);
     const [queryParamsMap, setQueryParamsMap] = React.useState<QueryParamsByResource>({});
+    const isSavingResourceRef = React.useRef(false);
 
     const getResources = (st: any): Resource[] => {
         const resources = st.resource as APIResource[];
@@ -156,10 +157,12 @@ export function ServiceDesignerView({ syntaxTree, documentUri }: ServiceDesigner
             apiName: serviceData.apiName,
             apiPath: documentUri
         }).then(response => {
-            if (response.queryParams) {
+            // Skipped mid-save: handleResourceCreate's response is more current than this
+            // comparison, which may predate that save's write.
+            if (response.queryParams && !isSavingResourceRef.current) {
                 setQueryParamsMap(response.queryParams);
             }
-            if (response.swaggerExists && !response.isEqual) {
+            if (response.swaggerExists && !response.isEqual && !isSavingResourceRef.current) {
                 rpcClient.getMiVisualizerRpcClient().showNotification({
                     message: "The OpenAPI definition is different from the Synapse API.",
                     type: "warning",
@@ -243,40 +246,60 @@ export function ServiceDesignerView({ syntaxTree, documentUri }: ServiceDesigner
     };
 
     const handleResourceCreate = async (formData: ResourceFormData) => {
-        switch (formData.mode) {
-            case "create":
-                await onResourceCreate(formData, resourceBodyRange, documentUri, rpcClient);
-                break;
-            case "edit":
-                const ranges: Range[] = getResourceDeleteRanges(selectedResource, formData);
-                await onResourceEdit(formData, selectedResource.range, ranges, documentUri, rpcClient);
-                break;
-        }
+        isSavingResourceRef.current = true;
+        try {
+            // Captured before the edit so a path param addition (or any other resource-path change)
+            // can be carried over to the resource's new path instead of orphaning it under the old one.
+            const oldResourcePath = formData.mode === "edit"
+                ? (selectedResource.uriTemplate || selectedResource.urlMapping)?.split("?")[0]
+                : undefined;
 
-        // Query params only modify the OpenAPI spec, never the synapse XML.
-        const newQueryParams = formData.queryParams ?? [];
-        if (newQueryParams.length > 0 || existingQueryParams.length > 0) {
+            switch (formData.mode) {
+                case "create":
+                    await onResourceCreate(formData, resourceBodyRange, documentUri, rpcClient);
+                    break;
+                case "edit":
+                    const ranges: Range[] = getResourceDeleteRanges(selectedResource, formData);
+                    await onResourceEdit(formData, selectedResource.range, ranges, documentUri, rpcClient);
+                    break;
+            }
+
+            // Query params only modify the OpenAPI spec, never the synapse XML.
+            const newQueryParams = formData.queryParams ?? [];
             const rawPath = formData.urlStyle === "url-mapping" ? formData.urlMapping : formData.uriTemplate;
             const resourcePath = rawPath?.split("?")[0];
-            const methods = Object.entries(formData.methods ?? {})
-                .filter(([, enabled]) => enabled)
-                .map(([method]) => method);
+            const pathChanged = !!oldResourcePath && oldResourcePath !== resourcePath;
+            // A changed path needs its swagger entry renamed promptly even with no query params,
+            // rather than waiting on the slower fire-and-forget auto regeneration.
+            if (newQueryParams.length > 0 || existingQueryParams.length > 0 || pathChanged) {
+                const methods = Object.entries(formData.methods ?? {})
+                    .filter(([, enabled]) => enabled)
+                    .map(([method]) => method);
 
-            rpcClient.getMiDiagramRpcClient().updateResourceQueryParams({
-                apiName: serviceData.apiName,
-                apiPath: documentUri,
-                resourcePath,
-                methods,
-                queryParams: newQueryParams,
-            }).then((response) => {
+                const response = await rpcClient.getMiDiagramRpcClient().updateResourceQueryParams({
+                    apiName: serviceData.apiName,
+                    apiPath: documentUri,
+                    resourcePath,
+                    oldResourcePath: pathChanged ? oldResourcePath : undefined,
+                    methods,
+                    queryParams: newQueryParams,
+                });
                 setQueryParamsMap((prev) => {
-                    const next = { ...prev, [resourcePath]: { ...(prev[resourcePath] ?? {}) } };
+                    const next = { ...prev };
+                    if (pathChanged) {
+                        delete next[oldResourcePath];
+                    }
+                    // Rebuilt from scratch so a method unchecked in this
+                    // edit doesn't keep a stale, no-longer-applicable entry under this path.
+                    next[resourcePath] = {};
                     methods.forEach((method) => {
                         next[resourcePath][method] = response.queryParams;
                     });
                     return next;
                 });
-            });
+            }
+        } finally {
+            isSavingResourceRef.current = false;
         }
 
         setResourceFormOpen(false);

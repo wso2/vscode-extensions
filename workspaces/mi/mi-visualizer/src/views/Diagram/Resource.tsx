@@ -103,6 +103,7 @@ export const ResourceView = ({ model: resourceModel, documentUri, diagnostics }:
                 apiName,
                 apiPath: documentUri,
                 resourcePath: newResourcePath,
+                oldResourcePath: resourcePath !== newResourcePath ? resourcePath : undefined,
                 methods,
                 queryParams: newQueryParams,
             }).then((response) => {
