@@ -22,7 +22,7 @@ import { PersistedThread, PersistedCheckpoint, WorkspaceMetadata } from './types
 // Current Schema Versions
 // ============================================
 
-export const CURRENT_THREAD_SCHEMA_VERSION = 1;
+export const CURRENT_THREAD_SCHEMA_VERSION = 2;
 export const CURRENT_WORKSPACE_SCHEMA_VERSION = 1;
 export const CURRENT_CHECKPOINT_SCHEMA_VERSION = 1;
 
@@ -67,9 +67,51 @@ function applyMigrations<T>(
 // Thread Migrations
 // ============================================
 
-// Add future migrations here:
-// { fromVersion: 1, toVersion: 2, migrate: (data) => { ... } }
-const threadMigrations: SchemaMigration<PersistedThread>[] = [];
+// No live process resumes across a restart, so any non-terminal v1 status folds into 'accepted'.
+const V1_TO_V2_STATUS: Record<string, string> = {
+    pending: 'accepted',
+    under_review: 'accepted',
+    accepted: 'accepted',
+    error: 'error',
+};
+
+function migrateThreadV1ToV2(data: Record<string, unknown>): Record<string, unknown> {
+    // Fail closed on malformed data rather than coercing it: loadThread re-saves a successful
+    // migration, so silently defaulting here would permanently erase generations or stamp
+    // corrupt work as (unrevertible) 'accepted'. Throwing makes loadThread treat the thread as
+    // corrupt and leave the on-disk file untouched.
+    if (!Array.isArray(data.generations)) {
+        throw new Error('Invalid persisted thread: generations is not an array');
+    }
+    return {
+        ...data,
+        schemaVersion: 2,
+        generations: data.generations.map((gen) => {
+            if (!gen || typeof gen !== 'object') {
+                throw new Error('Invalid persisted generation entry');
+            }
+            const g = gen as Record<string, unknown>;
+            const reviewState = (g.reviewState && typeof g.reviewState === 'object')
+                ? g.reviewState as Record<string, unknown>
+                : {};
+            const oldStatus = reviewState.status;
+            if (typeof oldStatus !== 'string' || !Object.prototype.hasOwnProperty.call(V1_TO_V2_STATUS, oldStatus)) {
+                throw new Error(`Invalid persisted review status: ${String(oldStatus)}`);
+            }
+            return {
+                ...g,
+                reviewState: {
+                    ...reviewState,
+                    status: V1_TO_V2_STATUS[oldStatus],
+                },
+            };
+        }),
+    };
+}
+
+const threadMigrations: SchemaMigration<PersistedThread>[] = [
+    { fromVersion: 1, toVersion: 2, migrate: (data) => migrateThreadV1ToV2(data as Record<string, unknown>) as unknown as PersistedThread },
+];
 
 /**
  * Migrate a raw thread object to the current schema version.
