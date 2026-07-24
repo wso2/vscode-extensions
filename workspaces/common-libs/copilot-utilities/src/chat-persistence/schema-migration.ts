@@ -22,7 +22,12 @@ import { PersistedThread, PersistedCheckpoint, WorkspaceMetadata } from './types
 // Current Schema Versions
 // ============================================
 
-export const CURRENT_THREAD_SCHEMA_VERSION = 1;
+// v2: threads persist as an append-only JSONL log (`thread.jsonl`) instead of a
+// single whole-file JSON snapshot (`thread.json`). The generation data shape is
+// unchanged between v1 and v2 — only the on-disk storage format differs — so the
+// v1 -> v2 migration is a pure identity on the data. Legacy `thread.json` files
+// are read once, rewritten as `thread.jsonl`, and then removed.
+export const CURRENT_THREAD_SCHEMA_VERSION = 2;
 export const CURRENT_WORKSPACE_SCHEMA_VERSION = 1;
 export const CURRENT_CHECKPOINT_SCHEMA_VERSION = 1;
 
@@ -68,8 +73,21 @@ function applyMigrations<T>(
 // ============================================
 
 // Add future migrations here:
-// { fromVersion: 1, toVersion: 2, migrate: (data) => { ... } }
-const threadMigrations: SchemaMigration<PersistedThread>[] = [];
+// { fromVersion: 2, toVersion: 3, migrate: (data) => { ... } }
+const threadMigrations: SchemaMigration<PersistedThread>[] = [
+    {
+        // v1 (whole-file thread.json) -> v2 (append-only thread.jsonl).
+        // Data shape is identical; only the storage format changes. The store
+        // handles the file-format conversion, so this migration just stamps the
+        // new version onto the in-memory object.
+        fromVersion: 1,
+        toVersion: 2,
+        migrate: (data) => ({
+            ...(data as Record<string, unknown>),
+            schemaVersion: 2,
+        }) as unknown as PersistedThread,
+    },
+];
 
 /**
  * Migrate a raw thread object to the current schema version.

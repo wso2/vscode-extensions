@@ -31,6 +31,8 @@ export type {
     PersistedLinePosition,
     WorkspaceMetadata,
     ThreadSummary,
+    ThreadLogRecord,
+    PersistedGenerationHeader,
     PersistenceStoreConfig,
 } from './types';
 
