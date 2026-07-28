@@ -1,0 +1,24 @@
+vulnerabilities:
+  # No fix released by the author
+  # https://github.com/wso2/vscode-extensions/issues/550
+  - id: CVE-2020-36851
+
+  # No fix released by the author
+  - id: CVE-2025-14505
+
+  # Library is used in nested dependencies and not directly used by our codebase. No fix released by the author.
+  - id: CVE-2025-69873
+
+  # used in nested dependencies and not directly used by our codebase. No fix released by the author.
+  - id: CVE-2026-26996
+
+  # file-type v19+ is ESM-only which is incompatible with the CommonJS VS Code extension build.
+  # Upgrading requires significant refactoring. Risk is low as this package handles binary file detection.
+  - id: CVE-2026-31808
+
+  # brace-expansion 1.1.16 version is currently getting picked from the package-lock.json of the
+  # workspaces/ballerina/ballerina-extension/grammar/ballerina-grammar git submodule and not from this repo directly.
+  # Also this submodule is not required for the mi-extension.
+  - id: CVE-2026-14257
+    paths:
+      - "workspaces/ballerina/ballerina-extension/grammar/ballerina-grammar/package-lock.json"

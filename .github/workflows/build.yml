@@ -248,6 +248,7 @@ jobs:
           timeout: '10m'
           skip-dirs: 'common/temp'
           ignore-unfixed: true
+          trivyignores: '.trivyignore.yaml'
 
   ExtTest_Ballerina:
     name: Run Ballerina extension tests
