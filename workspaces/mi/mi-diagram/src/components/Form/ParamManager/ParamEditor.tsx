@@ -153,7 +153,7 @@ export function ParamEditor(props: ParamProps) {
                     <EditorContent>
                         {parameters?.parameters.map(param => getParamComponent({
                             ...param, label: getParamFieldLabelFromParamId(paramFields, param.id),
-                            errorMessage: param.id === 0 ? errorMessage : param.errorMessage
+                            errorMessage: param.id === 0 ? (errorMessage ?? param.errorMessage) : param.errorMessage
                         }))}
                     </EditorContent>
                     <ActionButtons
@@ -169,7 +169,7 @@ export function ParamEditor(props: ParamProps) {
                         {parameters?.parameters.map(param => getParamComponent({
                             ...param,
                             label: getParamFieldLabelFromParamId(paramFields, param.id),
-                            errorMessage: param.id === 0 ? errorMessage : param.errorMessage
+                            errorMessage: param.id === 0 ? (errorMessage ?? param.errorMessage) : param.errorMessage
                         })
                         )}
                         <ActionButtons
