@@ -792,7 +792,7 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
                             ))}
                         </FieldGroup>
                     </FormGroup>
-                    <FormGroup title="Bindings" isCollapsed={true}>
+                    <FormGroup title="Binds to" isCollapsed={true}>
                         <ParamManager
                             paramConfigs={bindsToParams}
                             onChange={handleBindsToChange}

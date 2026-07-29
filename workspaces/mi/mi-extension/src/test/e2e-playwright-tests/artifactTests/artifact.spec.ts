@@ -127,17 +127,17 @@ export default function createTests() {
       });
       await test.step('Open Diagram View for API', async () => {
         console.log('Opening Diagram View for API');
-        await api.openDiagramView("NewOpenAPI" + testAttempt + ":v1.0.27-SNAPSHOT", "/pet/findByStatus");
+        await api.openDiagramView("NewOpenAPI" + testAttempt + ":v1.0.0", "/pet/findByStatus");
 
         await page.page.waitForTimeout(2000);
         await page.executePaletteCommand('View: Close All Editors');
         console.log("Closed editor groups");
         console.log('Opening Diagram View for API again without existing webview');
-        await api.openDiagramView("NewOpenAPI" + testAttempt + ":v1.0.27-SNAPSHOT", "/pet/findByStatus");
+        await api.openDiagramView("NewOpenAPI" + testAttempt + ":v1.0.0", "/pet/findByStatus");
 
         // Collapse APIs section
         const projectExplorer = new ProjectExplorer(page.page);
-        await projectExplorer.findItem(['Project testProject', 'APIs', "NewOpenAPI" + testAttempt + ":v1.0.27-SNAPSHOT"], true);
+        await projectExplorer.findItem(['Project testProject', 'APIs', "NewOpenAPI" + testAttempt + ":v1.0.0"], true);
         await projectExplorer.findItem(['Project testProject', 'APIs'], true);
       });
     });

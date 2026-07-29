@@ -102,13 +102,13 @@ module.exports = {
           const currentVersion = deps['brace-expansion'];
           let newVersion;
           if (currentVersion.startsWith('^1') || currentVersion.startsWith('1')) {
-            newVersion = '1.1.16';
+            newVersion = '5.0.8';
           } else if (currentVersion.startsWith('^2') || currentVersion.startsWith('2')) {
-            newVersion = '2.1.2';
+            newVersion = '5.0.8';
           } else if (currentVersion.startsWith('^3') || currentVersion.startsWith('3')) {
             newVersion = '3.0.2';
           } else if (currentVersion.startsWith('^5') || currentVersion.startsWith('5')) {
-            newVersion = '5.0.7';
+            newVersion = '5.0.8';
           } else {
             context.log(`Unexpected brace-expansion version: ${currentVersion}`);
             newVersion = currentVersion;

@@ -505,7 +505,7 @@ export const ResourceForm = ({ isOpen, documentUri, onCancel, onSave, formData, 
                                         )}
                                         {bindsToOptions.length > 0 && (
                                             <CheckBoxContainer>
-                                                <label>Bindings</label>
+                                                <label>Binds to</label>
                                                 <ParamManager
                                                     paramConfigs={{
                                                         ...bindsToParams,
