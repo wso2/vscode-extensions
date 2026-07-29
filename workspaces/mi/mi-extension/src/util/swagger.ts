@@ -351,7 +351,7 @@ export const updateQueryParamsInSwagger = (
         }
         const operation = swagger.paths[resourcePath][method] ?? { responses: { default: { description: "Default response" } } };
         const remainingParams = (operation.parameters ?? []).filter((param: any) => param.in !== "query");
-        const mergedParams = [...remainingParams, ...newQueryParams];
+        const mergedParams = [...remainingParams, ...newQueryParams.map((param) => ({ ...param, schema: { ...param.schema } }))];
         if (mergedParams.length > 0) {
             operation.parameters = mergedParams;
         } else {
@@ -360,7 +360,7 @@ export const updateQueryParamsInSwagger = (
         swagger.paths[resourcePath][method] = operation;
     }
 
-    return stringify(swagger);
+    return stringify(swagger, { aliasDuplicateObjects: false });
 };
 
 /**
@@ -375,7 +375,7 @@ export const mergeGeneratedSwagger = (existingSwaggerYaml: string, generatedSwag
         existingSwagger: parsedExistingSwagger,
         generatedSwagger: parse(generatedSwaggerYaml),
     });
-    let yamlContent = stringify(mergedContent);
+    let yamlContent = stringify(mergedContent, { aliasDuplicateObjects: false });
 
     // Synapse API XML has no query param concept, so mergeSwaggers cannot carry them over.
     // Setting onlyUpdateExisting=true so resources/methods that mergeSwaggers already dropped aren't resurrected.

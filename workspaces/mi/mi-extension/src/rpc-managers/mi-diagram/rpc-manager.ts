@@ -829,7 +829,7 @@ export class MiDiagramRpcManager implements MiDiagramAPI {
                     fs.mkdirSync(path.dirname(swaggerRegPath), { recursive: true });
                     if (ext === ".json" || ext === ".yml") {
                         const swaggerContent = parse(fs.readFileSync(swaggerDefPath, "utf8"));
-                        fs.writeFileSync(swaggerRegPath, stringify(swaggerContent));
+                        fs.writeFileSync(swaggerRegPath, stringify(swaggerContent, { aliasDuplicateObjects: false }));
                     } else {
                         fs.copyFileSync(swaggerDefPath, swaggerRegPath);
                     }
