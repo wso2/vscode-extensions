@@ -25,9 +25,7 @@ import type * as vscode from 'vscode';
 export type { ProxyEnvelope, TransportMode } from './types';
 
 const DEFAULT_WS_PORT = 8787;
-// Bind the backend to the loopback interface only. The webview client always
-// connects to `127.0.0.1`, so listening on all interfaces would needlessly
-// expose the socket to other hosts on the network.
+// The webview client always connects to 127.0.0.1, so bind loopback only.
 const DEFAULT_WS_HOST = '127.0.0.1';
 const DEFAULT_WS_URL_BASE = 'ws://127.0.0.1';
 const INVALID_JSON_PAYLOAD_ERROR = 'Invalid JSON payload.';
@@ -324,10 +322,7 @@ function createWsBackend<TRequest, TResponse>(options: WebSocketBackendOptions<T
   const server = new WebSocketServer({
     port,
     host,
-    // Reject the upgrade during the handshake when a token is required and the
-    // client did not present a matching one. This gates both requests and any
-    // broadcast traffic, and — because a cross-site page cannot know the
-    // token — also defends against cross-site WebSocket hijacking.
+    // Refuse the upgrade unless the client presents a matching token.
     verifyClient: authToken
       ? (info: { req: IncomingMessage }) => {
         const provided = readRequestToken(info.req);
@@ -335,10 +330,51 @@ function createWsBackend<TRequest, TResponse>(options: WebSocketBackendOptions<T
       }
       : undefined
   });
-  const address = server.address();
-  if (!address || typeof address === 'string') {
-    throw new Error('Failed to allocate the WebSocket port.');
-  }
+  // With an explicit host, Node resolves the host before binding, so
+  // `address()` is null until `listening` fires. Read the port from there.
+  let resolvedPort = port;
+
+  const readAssignedPort = () => {
+    const address = server.address();
+    if (address && typeof address !== 'string') {
+      resolvedPort = address.port;
+    }
+  };
+
+  readAssignedPort();
+
+  const ready = new Promise<number>((resolve, reject) => {
+    if (server.address()) {
+      resolve(resolvedPort);
+      return;
+    }
+
+    // `close` counts too: disposing before the bind completes would otherwise
+    // leave this pending forever.
+    const settle = (finish: () => void) => {
+      server.off('listening', onListening);
+      server.off('error', onError);
+      server.off('close', onClose);
+      finish();
+    };
+
+    const onListening = () => settle(() => {
+      readAssignedPort();
+      resolve(resolvedPort);
+    });
+
+    const onError = (error: Error) => settle(() => {
+      reject(error instanceof Error ? error : new Error('Failed to allocate the WebSocket port.'));
+    });
+
+    const onClose = () => settle(() => {
+      reject(new Error('WebSocket server closed before it finished binding.'));
+    });
+
+    server.on('listening', onListening);
+    server.on('error', onError);
+    server.on('close', onClose);
+  });
 
   const send = (socket: WebSocket, payload: TResponse) => {
     socket.send(serialize(payload));
@@ -392,7 +428,11 @@ function createWsBackend<TRequest, TResponse>(options: WebSocketBackendOptions<T
   });
 
   return {
-    port: address.port,
+    /** Assigned port. Accurate once `ready` has resolved. */
+    get port() {
+      return resolvedPort;
+    },
+    ready,
     broadcastResponse(payload: TResponse) {
       broadcast(payload);
     },
@@ -421,7 +461,8 @@ export function createExtensionTransportManager<TRequest, TResponse>(
   const proxyClients = new Set<(message: ProxyEnvelope) => void>();
   let backend:
     | {
-      port: number;
+      readonly port: number;
+      ready: Promise<number>;
       broadcastResponse: (payload: TResponse) => void;
       dispose: () => void;
     }
@@ -458,12 +499,16 @@ export function createExtensionTransportManager<TRequest, TResponse>(
     }
   };
 
-  const startWebSocketServer = () => {
+  /**
+   * Starts the internal WebSocket backend and resolves with the bound port.
+   * Await this before reading `getWebviewBootstrap()` when `wsPort` is 0.
+   */
+  const startWebSocketServer = (): Promise<number> => {
     if (backend) {
-      return backend.port;
+      return backend.ready;
     }
 
-    backend = createWsBackend<TRequest, TResponse>({
+    const nextBackend = createWsBackend<TRequest, TResponse>({
       port: wsPort,
       host: wsHost,
       authToken,
@@ -472,7 +517,19 @@ export function createExtensionTransportManager<TRequest, TResponse>(
       serialize,
       initialResponse: options.initialResponse
     });
-    return backend.port;
+    backend = nextBackend;
+
+    // Drop a backend that failed to bind so the running state stays accurate and
+    // a later call can retry. Also keeps the rejection observed if the caller
+    // ignores the returned promise.
+    nextBackend.ready.catch(() => {
+      if (backend === nextBackend) {
+        backend = undefined;
+      }
+      nextBackend.dispose();
+    });
+
+    return nextBackend.ready;
   };
 
   const registerWebviewInternal = (panel: WebviewPanelLike) => {
@@ -558,12 +615,26 @@ export function createExtensionTransportManager<TRequest, TResponse>(
     getMode() {
       return mode;
     },
-    /** Switches runtime transport mode. */
-    switchMode(nextMode: TransportMode) {
+    /**
+     * Switches runtime transport mode. Switching to `websocket` resolves with
+     * the bound port; await it before reading an OS-allocated port.
+     */
+    switchMode(nextMode: TransportMode): Promise<number> | undefined {
+      const previousMode = mode;
       mode = nextMode;
-      if (mode === 'websocket') {
-        startWebSocketServer();
+      if (mode !== 'websocket') {
+        return undefined;
       }
+
+      return startWebSocketServer().catch((error: unknown) => {
+        // Websocket mode silences the proxy path, so staying here would leave the
+        // webview with no transport at all.
+        if (mode === 'websocket') {
+          mode = previousMode;
+        }
+
+        throw error;
+      });
     },
     /** Returns `true` when internal WebSocket backend is running. */
     isWebSocketServerRunning() {
@@ -576,10 +647,16 @@ export function createExtensionTransportManager<TRequest, TResponse>(
       backend = undefined;
     },
     publish,
-    /** Returns bootstrap metadata consumed by webview startup. */
+    /**
+     * Returns bootstrap metadata consumed by webview startup.
+     *
+     * Synchronous, so it can be called while building webview HTML. Reports the
+     * port the backend is bound to, so in `websocket` mode the start must be
+     * awaited first; otherwise the configured `wsPort` is reported.
+     */
     getWebviewBootstrap() {
       const currentMode = mode;
-      const port = currentMode === 'websocket' ? startWebSocketServer() : backend?.port ?? wsPort;
+      const port = backend?.port ?? wsPort;
       const server = wsUrlBase.replace(/^wss?:\/\//, '');
       return {
         mode: currentMode,
