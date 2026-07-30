@@ -17,3 +17,13 @@ CVE-2026-26996
 # file-type v19+ is ESM-only which is incompatible with the CommonJS VS Code extension build.
 # Upgrading requires significant refactoring. Risk is low as this package handles binary file detection.
 CVE-2026-31808
+
+# brace-expansion DoS (GHSA-mh99-v99m-4gvg). The patched releases are already pinned:
+# 1.x -> 1.1.17, 2.x -> 2.1.3, 3.x -> 3.0.5, 5.x -> 5.0.8 (all carry the
+# EXPANSION_MAX / EXPANSION_MAX_LENGTH expansion caps that fix this CVE).
+# The advisory declares a single npm range "introduced=0, fixed=5.0.8", so Trivy still
+# flags the patched 1.x/2.x/3.x backports even though they contain the fix.
+# We cannot move every consumer to 5.x: brace-expansion 5.x changed `module.exports`
+# from a callable function to an object ({ expand, ... }), which breaks CommonJS
+# dependents such as minimatch@3 that call `require('brace-expansion')(...)` directly.
+CVE-2026-14257

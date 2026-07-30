@@ -7,12 +7,14 @@
   "types": "lib/index.d.ts",
   "exports": {
     "./context-management": "./lib/context-management/index.js",
-    "./chat-persistence": "./lib/chat-persistence/index.js"
+    "./chat-persistence": "./lib/chat-persistence/index.js",
+    "./auto-memory": "./lib/auto-memory/index.js"
   },
   "typesVersions": {
     "*": {
       "context-management": ["lib/context-management/index.d.ts"],
-      "chat-persistence": ["lib/chat-persistence/index.d.ts"]
+      "chat-persistence": ["lib/chat-persistence/index.d.ts"],
+      "auto-memory": ["lib/auto-memory/index.d.ts"]
     }
   },
   "scripts": {
