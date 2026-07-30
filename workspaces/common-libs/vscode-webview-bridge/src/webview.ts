@@ -162,6 +162,11 @@ type WebviewTransportOptions<TRequest, TResponse> = {
   port?: number;
   /** WebSocket protocol when `mode` is `websocket`. */
   protocol?: 'ws' | 'wss';
+  /**
+   * Authentication token when `mode` is `websocket`. Sent as a `token` query
+   * parameter so the extension backend can validate it during the handshake.
+   */
+  token?: string;
   /** Optional VS Code API accessor override (useful for tests). */
   acquireVsCodeApi?: () => VSCodeApi | undefined;
   /** Request serializer override. */
@@ -216,7 +221,8 @@ function buildWebSocketUrl(options: WebviewTransportOptions<unknown, unknown>) {
   const protocol = options.protocol ?? 'ws';
   const server = options.server ?? DEFAULT_WS_SERVER;
   const port = options.port ?? DEFAULT_WS_PORT;
-  return `${protocol}://${server}:${port}`;
+  const base = `${protocol}://${server}:${port}`;
+  return options.token ? `${base}/?token=${encodeURIComponent(options.token)}` : base;
 }
 
 function resolveVSCodeApi(acquire: (() => VSCodeApi | undefined) | undefined) {

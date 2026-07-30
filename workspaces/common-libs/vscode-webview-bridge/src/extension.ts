@@ -17,15 +17,48 @@
  */
 
 import { WebSocket, WebSocketServer } from 'ws';
+import type { IncomingMessage } from 'http';
+import { timingSafeEqual } from 'crypto';
 import type { ProxyEnvelope, TransportMode } from './types';
 import type * as vscode from 'vscode';
 
 export type { ProxyEnvelope, TransportMode } from './types';
 
 const DEFAULT_WS_PORT = 8787;
+// Bind the backend to the loopback interface only. The webview client always
+// connects to `127.0.0.1`, so listening on all interfaces would needlessly
+// expose the socket to other hosts on the network.
+const DEFAULT_WS_HOST = '127.0.0.1';
 const DEFAULT_WS_URL_BASE = 'ws://127.0.0.1';
 const INVALID_JSON_PAYLOAD_ERROR = 'Invalid JSON payload.';
 const WEBSOCKET_PROXY_ERROR = 'WebSocket proxy error';
+const AUTH_TOKEN_QUERY_KEY = 'token';
+
+/**
+ * Constant-time comparison of a client-supplied token against the expected
+ * value. Returns `false` for length mismatches instead of throwing.
+ */
+function tokensMatch(provided: string, expected: string): boolean {
+  const providedBuffer = Buffer.from(provided);
+  const expectedBuffer = Buffer.from(expected);
+  if (providedBuffer.length !== expectedBuffer.length) {
+    return false;
+  }
+
+  return timingSafeEqual(providedBuffer, expectedBuffer);
+}
+
+/**
+ * Extracts the `token` query parameter from an upgrade request URL.
+ */
+function readRequestToken(req: IncomingMessage): string | undefined {
+  try {
+    const url = new URL(req.url ?? '', 'ws://127.0.0.1');
+    return url.searchParams.get(AUTH_TOKEN_QUERY_KEY) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 type WebSocketLike = {
   readyState: number;
@@ -53,6 +86,10 @@ type WsProxyBridgeOptions = {
 
 type WebSocketBackendOptions<TRequest, TResponse> = {
   port?: number;
+  /** Interface to bind. Defaults to loopback (`127.0.0.1`). */
+  host?: string;
+  /** When set, connections must present a matching `token` query parameter. */
+  authToken?: string;
   handleRequest: (request: TRequest) => TResponse | void | Promise<TResponse | void>;
   deserialize?: (payload: string) => TRequest;
   serialize?: (payload: TResponse) => string;
@@ -64,6 +101,14 @@ type ExtensionTransportManagerOptions<TRequest, TResponse> = {
   initialMode?: TransportMode;
   /** Port used when starting the internal WebSocket backend. */
   wsPort?: number;
+  /** Interface the internal WebSocket backend binds to. Defaults to `127.0.0.1`. */
+  wsHost?: string;
+  /**
+   * When set, the internal WebSocket backend rejects connections that do not
+   * present a matching `token` query parameter, and the value is surfaced in
+   * `getWebviewBootstrap()` so the webview client can supply it.
+   */
+  authToken?: string;
   /** Base URL used to derive bootstrap websocket host metadata. */
   wsUrlBase?: string;
   /** Core request handler for inbound messages. */
@@ -271,10 +316,25 @@ function createInProcessProxyBridge<TRequest, TResponse>(
 
 function createWsBackend<TRequest, TResponse>(options: WebSocketBackendOptions<TRequest, TResponse>) {
   const port = options.port ?? DEFAULT_WS_PORT;
+  const host = options.host ?? DEFAULT_WS_HOST;
+  const authToken = options.authToken;
   const deserialize = options.deserialize ?? ((payload: string) => JSON.parse(payload) as TRequest);
   const serialize = options.serialize ?? ((payload: TResponse) => JSON.stringify(payload));
 
-  const server = new WebSocketServer({ port });
+  const server = new WebSocketServer({
+    port,
+    host,
+    // Reject the upgrade during the handshake when a token is required and the
+    // client did not present a matching one. This gates both requests and any
+    // broadcast traffic, and — because a cross-site page cannot know the
+    // token — also defends against cross-site WebSocket hijacking.
+    verifyClient: authToken
+      ? (info: { req: IncomingMessage }) => {
+        const provided = readRequestToken(info.req);
+        return provided !== undefined && tokensMatch(provided, authToken);
+      }
+      : undefined
+  });
   const address = server.address();
   if (!address || typeof address === 'string') {
     throw new Error('Failed to allocate the WebSocket port.');
@@ -353,6 +413,8 @@ export function createExtensionTransportManager<TRequest, TResponse>(
 ) {
   const wsUrlBase = options.wsUrlBase ?? DEFAULT_WS_URL_BASE;
   const wsPort = options.wsPort ?? DEFAULT_WS_PORT;
+  const wsHost = options.wsHost ?? DEFAULT_WS_HOST;
+  const authToken = options.authToken;
   const deserialize = options.deserialize ?? ((payload: string) => JSON.parse(payload) as TRequest);
   const serialize = options.serialize ?? ((payload: TResponse) => JSON.stringify(payload));
   let mode: TransportMode = options.initialMode ?? 'proxy';
@@ -403,6 +465,8 @@ export function createExtensionTransportManager<TRequest, TResponse>(
 
     backend = createWsBackend<TRequest, TResponse>({
       port: wsPort,
+      host: wsHost,
+      authToken,
       handleRequest: (request) => applyRequest(request, 'websocket'),
       deserialize,
       serialize,
@@ -520,7 +584,8 @@ export function createExtensionTransportManager<TRequest, TResponse>(
       return {
         mode: currentMode,
         wsServer: server,
-        wsPort: port
+        wsPort: port,
+        wsToken: authToken
       };
     },
     createBridge(postMessage: (message: ProxyEnvelope) => void): TransportBridge {
