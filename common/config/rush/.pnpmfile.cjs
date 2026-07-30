@@ -44,7 +44,8 @@ module.exports = {
         if (deps['follow-redirects']) deps['follow-redirects'] = '1.16.0'; // security fix: redirect bypass vulnerability
         if (deps['express-rate-limit']) deps['express-rate-limit'] = '8.2.2'; // security fix
         if (deps['file-type']) deps['file-type'] = '21.3.2'; // security fix
-        if (deps['postcss']) deps['postcss'] = '8.5.10';
+        if (deps['postcss']) deps['postcss'] = '8.5.25'; // security fix: CVE-2026-45623 (info disclosure/DoS), GHSA-r28c-9q8g-f849 (sourceMappingURL path traversal)
+        if (deps['webpack-dev-server']) deps['webpack-dev-server'] = '5.2.6'; // security fix: CVE-2026-14620 (arbitrary file read), CVE-2026-14631 (DoS), CVE-2026-9595 (info disclosure)
         if (deps['immutable']) deps['immutable'] = '4.3.9'; // security fix: CVE-2026-59879 (no 3.x fix); redux-immutable 4.0.0 accepts ^4
         if (deps['linkify-it']) deps['linkify-it'] = '5.0.2'; // security fix: CVE-2026-59887 (quadratic-complexity DoS)
         if (deps['serialize-javascript']) deps['serialize-javascript'] = '7.0.5'; // security fix: XSS/code injection
@@ -96,13 +97,13 @@ module.exports = {
           const currentVersion = deps['brace-expansion'];
           let newVersion;
           if (currentVersion.startsWith('^1') || currentVersion.startsWith('1')) {
-            newVersion = '1.1.16'; // security fix: CVE-2026-13149 (ReDoS)
+            newVersion = '1.1.17'; // security fix: CVE-2026-14257 (DoS), CVE-2026-13149 (ReDoS)
           } else if (currentVersion.startsWith('^2') || currentVersion.startsWith('2')) {
-            newVersion = '2.1.2'; // security fix: CVE-2026-13149 (ReDoS)
+            newVersion = '2.1.3'; // security fix: CVE-2026-14257 (DoS), CVE-2026-13149 (ReDoS)
           } else if (currentVersion.startsWith('^3') || currentVersion.startsWith('3')) {
-            newVersion = '3.0.2';
+            newVersion = '3.0.5'; // security fix: CVE-2026-14257 (DoS)
           } else if (currentVersion.startsWith('^5') || currentVersion.startsWith('5')) {
-            newVersion = '5.0.7'; // security fix: CVE-2026-45149, CVE-2026-13149 (DoS)
+            newVersion = '5.0.8'; // security fix: CVE-2026-14257 (DoS), CVE-2026-45149, CVE-2026-13149
           } else {
             context.log(`Unexpected brace-expansion version: ${currentVersion}`);
             newVersion = currentVersion;
