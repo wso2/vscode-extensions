@@ -783,13 +783,13 @@
                 "command": "ballerina.icp.start",
                 "title": "Start ICP",
                 "category": "Ballerina",
-                "enablement": "isSupportedProject && !ballerina.icpRunning && !devant.editor"
+                "enablement": "isSupportedProject && ballerina.icpSupported && !ballerina.icpRunning && !devant.editor"
             },
             {
                 "command": "ballerina.icp.stop",
                 "title": "Stop ICP",
                 "category": "Ballerina",
-                "enablement": "isSupportedProject && ballerina.icpRunning && !devant.editor"
+                "enablement": "isSupportedProject && ballerina.icpSupported && ballerina.icpRunning && !devant.editor"
             },
             {
                 "command": "ballerina.showTraceWindow",
