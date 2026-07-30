@@ -243,6 +243,10 @@ jobs:
           timeout: '10m'
           skip-dirs: 'common/temp'
           ignore-unfixed: true
+          # Suppressions live in .trivyignore.yaml. The YAML format is used so
+          # each entry can be scoped to specific lockfiles via `paths`; passed
+          # explicitly because Trivy only auto-detects the plain .trivyignore.
+          trivyignores: '.trivyignore.yaml'
 
   ExtTest_Ballerina:
     name: Run Ballerina extension tests

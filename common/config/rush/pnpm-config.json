@@ -126,9 +126,10 @@
       // CVE-2026-13149 is fixed within each line. CVE-2026-14257 is fixed only
       // in 5.0.8 and was never backported, and 5.x dropped the CommonJS default
       // export that minimatch 3.x/5.x/9.x call — so the 1.x/2.x lines stay at
-      // their latest published releases and CVE-2026-14257 is scoped out in
-      // .trivyignore. Remove that entry once upstream backports the fix, or
-      // once nothing depends on minimatch below v10.
+      // their latest published releases and CVE-2026-14257 is suppressed in
+      // .trivyignore.yaml, scoped to the lockfiles that hold those copies.
+      // Remove that entry once upstream backports the fix, or once nothing
+      // depends on minimatch below v10.
       "brace-expansion@>=1 <2": "1.1.16",
       "brace-expansion@>=2 <3": "2.1.2",
       "brace-expansion@>=5.0.0 <6": "5.0.8",
