@@ -96,13 +96,13 @@ module.exports = {
           const currentVersion = deps['brace-expansion'];
           let newVersion;
           if (currentVersion.startsWith('^1') || currentVersion.startsWith('1')) {
-            newVersion = '1.1.16'; // security fix: CVE-2026-13149 (ReDoS)
+            newVersion = '1.1.17'; // security fix: CVE-2026-14257 (DoS), CVE-2026-13149 (ReDoS)
           } else if (currentVersion.startsWith('^2') || currentVersion.startsWith('2')) {
-            newVersion = '2.1.2'; // security fix: CVE-2026-13149 (ReDoS)
+            newVersion = '2.1.3'; // security fix: CVE-2026-14257 (DoS), CVE-2026-13149 (ReDoS)
           } else if (currentVersion.startsWith('^3') || currentVersion.startsWith('3')) {
-            newVersion = '3.0.2';
+            newVersion = '3.0.5'; // security fix: CVE-2026-14257 (DoS)
           } else if (currentVersion.startsWith('^5') || currentVersion.startsWith('5')) {
-            newVersion = '5.0.7'; // security fix: CVE-2026-45149, CVE-2026-13149 (DoS)
+            newVersion = '5.0.8'; // security fix: CVE-2026-14257 (DoS), CVE-2026-45149, CVE-2026-13149
           } else {
             context.log(`Unexpected brace-expansion version: ${currentVersion}`);
             newVersion = currentVersion;
