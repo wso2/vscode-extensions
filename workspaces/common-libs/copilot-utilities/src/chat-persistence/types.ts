@@ -21,7 +21,7 @@
 // ============================================
 
 export interface PersistedReviewState {
-    status: 'pending' | 'under_review' | 'accepted' | 'error';
+    status: 'generating' | 'done' | 'accepted' | 'reverted' | 'error';
     modifiedFiles: string[];
     errorMessage?: string;
     // NOTE: tempProjectPath and affectedPackagePaths are runtime-only — not persisted
