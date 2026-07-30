@@ -187,6 +187,7 @@ export interface ApprovalOverlayState {
 export interface VisualizerMetadata {
     haveLS?: boolean;
     isBISupported?: boolean;
+    isICPSupported?: boolean; // ICP is only available alongside the WSO2 Integrator extension
     recordFilePath?: string;
     enableSequenceDiagram?: boolean; // Enable sequence diagram view
     target?: LinePosition;
