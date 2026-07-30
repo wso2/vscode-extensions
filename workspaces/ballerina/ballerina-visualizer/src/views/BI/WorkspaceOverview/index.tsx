@@ -780,13 +780,6 @@ export function WorkspaceOverview({ isInDevant, isICPSupported }: WorkspaceOverv
                     .then((res) => {
                         setReadmeContent(res.content);
                     });
-        
-                rpcClient
-                    .getBIDiagramRpcClient()
-                    .getReadmeContent({ projectPath: res.workspacePath })
-                    .then((res) => {
-                        setReadmeContent(res.content);
-                    });
 
                 syncProjectICPStatus(getICPProjectPaths(res.projects));
             });

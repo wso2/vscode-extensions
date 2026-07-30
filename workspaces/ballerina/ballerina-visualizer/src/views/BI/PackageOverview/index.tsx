@@ -826,13 +826,6 @@ export function PackageOverview(props: PackageOverviewProps) {
                     setEnableICP(res.enabled);
                 });
         }
-
-        rpcClient
-            .getBIDiagramRpcClient()
-            .getReadmeContent({ projectPath })
-            .then((res) => {
-                setReadmeContent(res.content);
-            });
     }, [rpcClient, projectPath, isICPSupported]);
 
     useEffect(() => {
