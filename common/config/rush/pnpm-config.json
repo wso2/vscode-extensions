@@ -89,21 +89,69 @@
      * Ppnpmdocumentation: https://pnpm.io/package_json#pnpmoverrides
      */
     "globalOverrides": {
+      // Security overrides MUST use an exact version, never a ">=" range.
+      // A ">=" override is already satisfied by whatever the lockfile holds, so
+      // pnpm never re-resolves it and Trivy keeps reporting the old version.
+      // That is why shell-quote sat at 1.8.4 under ">=1.8.4", webpack-dev-server
+      // at 5.2.5 under ">=5.2.5", and brace-expansion 5.x at 5.0.6. Bump to the
+      // first fix version Trivy lists for the affected line; if a bump breaks a
+      // workspace consumer, narrow the selector (e.g. "pkg@>=1 <2").
+
+      // --- Non-security pins (unchanged; not flagged by the scanner) ---
       "lodash": ">=4.18.0",
-      "brace-expansion@>=5.0.0 <6": "5.0.6",
-      "axios": ">=1.16.0",
-      "hono": ">=4.12.21",
-      "shell-quote": ">=1.8.4",
       "@babel/core": ">=7.29.6",
-      "dompurify": ">=3.4.9",
       "form-data": ">=4.0.6",
-      "js-yaml": ">=4.2.0",
       "markdown-it": ">=14.2.0",
-      "protobufjs": ">=7.6.3 <8",
       "tmp": ">=0.2.7",
-      "webpack-dev-server": ">=5.2.5",
       "undici": ">=7.28.0",
-      "http-proxy-middleware": ">=3.0.6"
+      "http-proxy-middleware": ">=3.0.6",
+
+      // --- Trivy findings, run 30525598800 ---
+
+      // CVE-2026-39244: zip-entry path traversal. 0.5.17 and 0.5.18 are
+      // published but still unpatched, so 0.6.0 is the first fixed release.
+      // This is a major bump on a direct dependency — see PR notes.
+      "adm-zip": "0.6.0",
+      // GHSA-frvp-7c67-39w9: no 1.x fix, so force the 2.x line. Transitive only.
+      "@hono/node-server": "2.0.10",
+      // CVE-2026-59895 / 59896 / 59897
+      "hono": "4.12.27",
+      // 10 advisories (GHSA-jqh4-m9w3-8hp9 and others). 0.33.0 is the 0.x
+      // backport; this selector bumps anything below 1.18.0 onto the 1.x fix.
+      "axios@<1.18.0": "1.18.0",
+      // CVE-2026-12590. Fixed separately in each line, so both need pinning:
+      // the 1.x copy on 1.20.6 and the 2.x copy on 2.3.0.
+      "body-parser@>=1 <2": "1.20.6",
+      "body-parser@>=2 <3": "2.3.0",
+      // CVE-2026-13149 is fixed within each line. CVE-2026-14257 is fixed only
+      // in 5.0.8 and was never backported, and 5.x dropped the CommonJS default
+      // export that minimatch 3.x/5.x/9.x call — so the 1.x/2.x lines stay at
+      // their latest published releases and CVE-2026-14257 is scoped out in
+      // .trivyignore. Remove that entry once upstream backports the fix, or
+      // once nothing depends on minimatch below v10.
+      "brace-expansion@>=1 <2": "1.1.16",
+      "brace-expansion@>=2 <3": "2.1.2",
+      "brace-expansion@>=5.0.0 <6": "5.0.8",
+      // GHSA-c2j3-45gr-mqc4
+      "dompurify": "3.4.12",
+      // CVE-2026-13676 + CVE-2026-16221; 3.1.4 is the first 3.x release fixing both.
+      "fast-uri": "3.1.4",
+      // CVE-2026-59879 / 59880: no 3.x fix, so force the 4.x line. Transitive
+      // only — narrow the selector if a consumer needs the v3 Record API.
+      "immutable@3": "4.3.9",
+      // CVE-2026-59869: v3 has no in-line fix, so this stays unscoped to keep
+      // every consumer on v4 as before.
+      "js-yaml": "4.3.0",
+      // CVE-2026-59887
+      "linkify-it@5": "5.0.2",
+      // CVE-2026-45623 + GHSA-r28c-9q8g-f849 (sourceMappingURL path traversal)
+      "postcss@8": "8.5.18",
+      // CVE-2026-59877
+      "protobufjs@>=7 <8": "7.6.5",
+      // CVE-2026-13311
+      "shell-quote": "1.9.0",
+      // CVE-2026-14620 + CVE-2026-14631
+      "webpack-dev-server": "5.2.6"
     },
   
     /**
