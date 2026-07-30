@@ -357,13 +357,32 @@ function createWsBackend<TRequest, TResponse>(options: WebSocketBackendOptions<T
       return;
     }
 
-    server.once('listening', () => {
+    // Settle on every terminal outcome, including `close` — disposing before the
+    // bind completes would otherwise leave this promise pending forever and hang
+    // anyone awaiting it.
+    const settle = (finish: () => void) => {
+      server.off('listening', onListening);
+      server.off('error', onError);
+      server.off('close', onClose);
+      finish();
+    };
+
+    const onListening = () => settle(() => {
       readAssignedPort();
       resolve(resolvedPort);
     });
-    server.once('error', (error: Error) => {
+
+    const onError = (error: Error) => settle(() => {
       reject(error instanceof Error ? error : new Error('Failed to allocate the WebSocket port.'));
     });
+
+    const onClose = () => settle(() => {
+      reject(new Error('WebSocket server closed before it finished binding.'));
+    });
+
+    server.on('listening', onListening);
+    server.on('error', onError);
+    server.on('close', onClose);
   });
 
   const send = (socket: WebSocket, payload: TResponse) => {
@@ -500,7 +519,7 @@ export function createExtensionTransportManager<TRequest, TResponse>(
       return backend.ready;
     }
 
-    backend = createWsBackend<TRequest, TResponse>({
+    const nextBackend = createWsBackend<TRequest, TResponse>({
       port: wsPort,
       host: wsHost,
       authToken,
@@ -509,7 +528,21 @@ export function createExtensionTransportManager<TRequest, TResponse>(
       serialize,
       initialResponse: options.initialResponse
     });
-    return backend.ready;
+    backend = nextBackend;
+
+    // A backend that failed to bind must not be left in place: it would make
+    // `isWebSocketServerRunning()` lie and pin every later call to the same
+    // rejected promise, so the server could never be retried. Attaching this
+    // handler also keeps the rejection observed when a caller ignores the
+    // returned promise.
+    nextBackend.ready.catch(() => {
+      if (backend === nextBackend) {
+        backend = undefined;
+      }
+      nextBackend.dispose();
+    });
+
+    return nextBackend.ready;
   };
 
   const registerWebviewInternal = (panel: WebviewPanelLike) => {
@@ -601,12 +634,22 @@ export function createExtensionTransportManager<TRequest, TResponse>(
      * before `getWebviewBootstrap()` reports an OS-allocated port.
      */
     switchMode(nextMode: TransportMode): Promise<number> | undefined {
+      const previousMode = mode;
       mode = nextMode;
-      if (mode === 'websocket') {
-        return startWebSocketServer();
+      if (mode !== 'websocket') {
+        return undefined;
       }
 
-      return undefined;
+      return startWebSocketServer().catch((error: unknown) => {
+        // The websocket transport never came up, and websocket mode silences the
+        // proxy path, so staying here would leave the webview with no working
+        // transport at all. Fall back to the mode we switched from.
+        if (mode === 'websocket') {
+          mode = previousMode;
+        }
+
+        throw error;
+      });
     },
     /** Returns `true` when internal WebSocket backend is running. */
     isWebSocketServerRunning() {
