@@ -19,6 +19,13 @@ module.exports = {
       // `common/config/rush/pnpm-config.json`. Where a package appears in both,
       // globalOverrides wins, so a stale pin here is silently ignored — which
       // makes the two files disagree about which version is actually installed.
+      //
+      // That ordering is pnpm 10's observed behaviour (it applies `pnpm.overrides`
+      // after the readPackage hook), and it is the opposite of the precedence
+      // Rush's own docs describe. Verified against the lockfile: `tmp` resolves
+      // to the globalOverrides floor 0.2.7 and `undici` to 8.5.0, not to the
+      // lower pins that used to sit here. Don't "fix" this note without
+      // re-checking the lockfile.
       function applyOverrides(deps) {
         if (!deps) return;
         if (deps['@nevware21/ts-utils']) deps['@nevware21/ts-utils'] = '0.14.0';
@@ -62,12 +69,16 @@ module.exports = {
         // is 4.3.9) and swagger-ui-react 5.x still declares `immutable: ^3.x.x`,
         // so the 3.x line stays pinned and the finding is scoped out in
         // .trivyignore. Drop this pin once swagger-ui-react supports immutable 4.
-        if (deps['immutable']) deps['immutable'] = '3.8.3';
+        // Scoped to 3.x on purpose: an unconditional pin also dragged sass's
+        // `immutable: ^5.0.2` request down to 3.8.3, two majors below its
+        // declared range. The 5.x line is held at a patched release via
+        // globalOverrides instead.
+        if (deps['immutable'] && (deps['immutable'].startsWith('^3') || deps['immutable'].startsWith('3'))) {
+          deps['immutable'] = '3.8.3';
+        }
         if (deps['serialize-javascript']) deps['serialize-javascript'] = '7.0.5';
         if (deps['flatted']) deps['flatted'] = '3.4.2';
         if (deps['handlebars']) deps['handlebars'] = '4.7.9';
-        if (deps['tmp']) deps['tmp'] = '0.2.6';
-        if (deps['undici']) deps['undici'] = '7.24.0';
         if (deps['@nevware21/ts-utils']) deps['@nevware21/ts-utils'] = '0.14.0'; // security fix: CVE-2026-46681 (prototype pollution)
         if (deps['@ai-sdk/provider-utils']) {
           const currentVersion = deps['@ai-sdk/provider-utils'];

@@ -126,6 +126,11 @@
       "form-data": ">=4.0.6",
       "hono": "4.12.27",
       "http-proxy-middleware": ">=3.0.6",
+      // The 3.x line has no fix for CVE-2026-59879/59880 and stays pinned in
+      // .pnpmfile.cjs for swagger-ui-react (see .trivyignore). sass declares
+      // `immutable: ^5.0.2`, so hold the 5.x line at the first patched release
+      // — 5.0.0 through 5.1.7 are affected by the same two advisories.
+      "immutable@>=5 <6": "5.1.8",
       // js-yaml v3 has no in-line fix; the fix only lands in v4.3.0+. Force
       // all consumers to v4 — revert with a narrower selector if a workspace
       // package needs the v3 sync API.
