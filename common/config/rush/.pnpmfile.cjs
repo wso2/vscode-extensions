@@ -15,6 +15,10 @@
 module.exports = {
   hooks: {
     readPackage(pkg, context) {
+      // NOTE: these pins must stay in sync with the `globalOverrides` block in
+      // `common/config/rush/pnpm-config.json`. Where a package appears in both,
+      // globalOverrides wins, so a stale pin here is silently ignored — which
+      // makes the two files disagree about which version is actually installed.
       function applyOverrides(deps) {
         if (!deps) return;
         if (deps['@nevware21/ts-utils']) deps['@nevware21/ts-utils'] = '0.14.0';
@@ -23,26 +27,41 @@ module.exports = {
         if (deps['xmldom']) deps['xmldom'] = 'npm:@xmldom/xmldom@0.8.10';
         if (deps['braces']) deps['braces'] = '3.0.3';
         if (deps['micromatch']) deps['micromatch'] = '4.0.8';
-        if (deps['js-yaml']) deps['js-yaml'] = '4.1.1';
+        if (deps['js-yaml']) deps['js-yaml'] = '4.3.0';
         if (deps['diff']) deps['diff'] = '8.0.3';
         if (deps['eslint']) deps['eslint'] = '^9.27.0';
         if (deps['fast-xml-parser']) deps['fast-xml-parser'] = '5.7.0';
         if (deps['fast-xml-builder']) deps['fast-xml-builder'] = '1.1.7';
-        if (deps['fast-uri']) deps['fast-uri'] = '3.1.2';
+        if (deps['fast-uri']) deps['fast-uri'] = '3.1.4';
         if (deps['esbuild']) deps['esbuild'] = '0.25.12';
         if (deps['lodash']) deps['lodash'] = '4.18.0';
         if (deps['qs']) deps['qs'] = '6.15.2';
-        if (deps['hono']) deps['hono'] = '4.12.21';
-        if (deps['shell-quote']) deps['shell-quote'] = '1.8.4';
-        if (deps['@hono/node-server']) deps['@hono/node-server'] = '1.19.13';
+        if (deps['hono']) deps['hono'] = '4.12.27';
+        if (deps['shell-quote']) deps['shell-quote'] = '1.9.0';
+        if (deps['@hono/node-server']) deps['@hono/node-server'] = '2.0.10';
         if (deps['@tootallnate/once']) deps['@tootallnate/once'] = '3.0.1';
-        if (deps['dompurify']) deps['dompurify'] = '3.4.0';
-        if (deps['axios']) deps['axios'] = '1.16.0';
+        if (deps['dompurify']) deps['dompurify'] = '3.4.12';
+        if (deps['axios']) deps['axios'] = '1.18.0';
         if (deps['ip-address']) deps['ip-address'] = '10.1.1';
         if (deps['follow-redirects']) deps['follow-redirects'] = '1.16.0';
         if (deps['express-rate-limit']) deps['express-rate-limit'] = '8.2.2';
         if (deps['file-type']) deps['file-type'] = '21.3.2';
-        if (deps['postcss']) deps['postcss'] = '8.5.10';
+        if (deps['postcss']) deps['postcss'] = '8.5.18';
+        if (deps['linkify-it'] && (deps['linkify-it'].startsWith('^5') || deps['linkify-it'].startsWith('5'))) {
+          deps['linkify-it'] = '5.0.2';
+        }
+        if (deps['body-parser']) {
+          const currentVersion = deps['body-parser'];
+          if (currentVersion.startsWith('^1') || currentVersion.startsWith('1')) {
+            deps['body-parser'] = '1.20.6';
+          } else if (currentVersion.startsWith('^2') || currentVersion.startsWith('2')) {
+            deps['body-parser'] = '2.3.0';
+          }
+        }
+        // immutable 3.x has no fix for CVE-2026-59879/59880 (first patched release
+        // is 4.3.9) and swagger-ui-react 5.x still declares `immutable: ^3.x.x`,
+        // so the 3.x line stays pinned and the finding is scoped out in
+        // .trivyignore. Drop this pin once swagger-ui-react supports immutable 4.
         if (deps['immutable']) deps['immutable'] = '3.8.3';
         if (deps['serialize-javascript']) deps['serialize-javascript'] = '7.0.5';
         if (deps['flatted']) deps['flatted'] = '3.4.2';
@@ -61,13 +80,13 @@ module.exports = {
         if (deps['protobufjs']) {
           const currentVersion = deps['protobufjs'];
           if (currentVersion.startsWith('^8') || currentVersion.startsWith('8')) {
-            deps['protobufjs'] = '8.2.0';
+            deps['protobufjs'] = '8.6.6';
           } else {
-            deps['protobufjs'] = '7.5.8';
+            deps['protobufjs'] = '7.6.5';
           }
         }
         if (deps['vite']) deps['vite'] = '6.0.14';
-        if (deps['webpack-dev-server']) deps['webpack-dev-server'] = '5.2.4';
+        if (deps['webpack-dev-server']) deps['webpack-dev-server'] = '5.2.6';
         if (deps['yauzl']) deps['yauzl'] = '3.2.1';
         if (deps['bn.js']) {
           deps['bn.js'] = deps['bn.js'].startsWith('^5') ? '5.2.3' : '4.12.3';
@@ -101,13 +120,13 @@ module.exports = {
           const currentVersion = deps['brace-expansion'];
           let newVersion;
           if (currentVersion.startsWith('^1') || currentVersion.startsWith('1')) {
-            newVersion = '1.1.13';
+            newVersion = '1.1.16';
           } else if (currentVersion.startsWith('^2') || currentVersion.startsWith('2')) {
-            newVersion = '2.0.3';
+            newVersion = '2.1.2';
           } else if (currentVersion.startsWith('^3') || currentVersion.startsWith('3')) {
-            newVersion = '3.0.2';
+            newVersion = '3.0.6';
           } else if (currentVersion.startsWith('^5') || currentVersion.startsWith('5')) {
-            newVersion = '5.0.6';
+            newVersion = '5.0.8';
           } else {
             context.log(`Unexpected brace-expansion version: ${currentVersion}`);
             newVersion = currentVersion;
