@@ -197,21 +197,31 @@ export function stringToRawArrayElements(input: string): string[] {
     let current = "";
     let depth = 0;
     let inString = false;
+    // Backtick templates such as `string \`...\``, `xml \`...\`` and `re \`...\``. A comma within a template is never
+    // an element separator, not even inside an interpolation, so the whole span is treated as opaque.
+    let inTemplate = false;
 
     for (let i = 0; i < s.length; i++) {
         const char = s[i];
         const prev = s[i - 1];
 
+        // handle template boundaries
+        if (char === "`" && prev !== "\\" && !inString) {
+            inTemplate = !inTemplate;
+            current += char;
+            continue;
+        }
+
         // handle string boundaries
-        if (char === '"' && prev !== "\\") {
+        if (char === '"' && prev !== "\\" && !inTemplate) {
             inString = !inString;
             current += char;
             continue;
         }
 
-        if (!inString) {
-            if (char === "[" || char === "{") depth++;
-            if (char === "]" || char === "}") depth--;
+        if (!inString && !inTemplate) {
+            if (char === "[" || char === "{" || char === "(") depth++;
+            if (char === "]" || char === "}" || char === ")") depth--;
 
             if (char === "," && depth === 0) {
                 result.push(current);
