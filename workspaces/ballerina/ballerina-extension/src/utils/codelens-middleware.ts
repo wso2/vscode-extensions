@@ -21,9 +21,7 @@ import { CodeLensMiddleware, ProvideCodeLensesSignature } from "vscode-languagec
 import { SHARED_COMMANDS } from "@wso2/ballerina-core";
 import { isSubmoduleFile } from "./file-utils";
 
-export const SUBMODULE_NOT_SUPPORTED_TOOLTIP =
-    "Visualizing submodules is not supported yet. Move this construct to the default module of the package to " +
-    "visualize it.";
+export const SUBMODULE_NOT_SUPPORTED_TOOLTIP = "Visualizer does not support submodules yet";
 
 /**
  * Middleware over the code lenses of the language server.
