@@ -24,9 +24,10 @@ import { useVisualizerContext } from "@wso2/mi-rpc-client";
 import { VSCodeTag } from "@vscode/webview-ui-toolkit/react";
 import { getColorByMethod } from "@wso2/service-designer";
 import { View, ViewContent, ViewHeader } from "../../components/View";
-import { generateResourceData, getApiBindsToOptions, getResourceDeleteRanges, onResourceEdit } from "../../utils/form";
+import { generateResourceData, getApiMetadata, getResourceDeleteRanges, onResourceEdit, unionQueryParams } from "../../utils/form";
 import styled from "@emotion/styled";
 import { ResourceForm, ResourceFormData, ResourceType } from "../Forms/ResourceForm";
+import { QueryParamInfo } from "@wso2/mi-core";
 
 interface ColoredTagProps {
     color: string;
@@ -48,15 +49,29 @@ export interface ResourceViewProps {
 export const ResourceView = ({ model: resourceModel, documentUri, diagnostics }: ResourceViewProps) => {
     const { rpcClient } = useVisualizerContext();
     const model = resourceModel as APIResource;
-    const data = generateResourceData(model) as ResourceType;
     const flowStateKey = `flowState-${documentUri}-${model.uriTemplate || model.urlMapping}`;
     const [isFaultFlow, setFlow] = React.useState<boolean>(localStorage.getItem(flowStateKey) === 'true' ? true : false);
     const [isFormOpen, setFormOpen] = React.useState(false);
+    const [formData, setFormData] = React.useState<ResourceType>(null);
+    const [apiName, setApiName] = React.useState<string>("");
     const [bindsToOptions, setBindsToOptions] = React.useState<string[]>([]);
+    const [existingQueryParams, setExistingQueryParams] = React.useState<QueryParamInfo[]>([]);
+
+    const resourcePath = (model.uriTemplate || model.urlMapping)?.split("?")[0];
 
     useEffect(() => {
         (async () => {
-            setBindsToOptions(await getApiBindsToOptions(rpcClient, documentUri));
+            const metadata = await getApiMetadata(rpcClient, documentUri);
+            setApiName(metadata.name);
+            setBindsToOptions(metadata.bindsToOptions);
+
+            const response = await rpcClient.getMiDiagramRpcClient().compareSwaggerAndAPI({
+                apiName: metadata.name,
+                apiPath: documentUri,
+            });
+            if (response.queryParams) {
+                setExistingQueryParams(unionQueryParams(response.queryParams, resourcePath, model.methods));
+            }
         })();
     }, [documentUri]);
 
@@ -67,12 +82,35 @@ export const ResourceView = ({ model: resourceModel, documentUri, diagnostics }:
     };
 
     const handleEditResource = () => {
+        setFormData(generateResourceData(model));
         setFormOpen(true);
     }
 
-    const onSave = (data: ResourceFormData) => {
+    const onSave = async (data: ResourceFormData) => {
         const ranges: Range[] = getResourceDeleteRanges(model, data);
-        onResourceEdit(data, model.range, ranges, documentUri, rpcClient);
+        await onResourceEdit(data, model.range, ranges, documentUri, rpcClient);
+
+        // Query params only modify the OpenAPI spec, never the synapse XML.
+        const newQueryParams = data.queryParams ?? [];
+        if (newQueryParams.length > 0 || existingQueryParams.length > 0) {
+            const rawPath = data.urlStyle === "url-mapping" ? data.urlMapping : data.uriTemplate;
+            const newResourcePath = rawPath?.split("?")[0];
+            const methods = Object.entries(data.methods ?? {})
+                .filter(([, enabled]) => enabled)
+                .map(([method]) => method);
+
+            rpcClient.getMiDiagramRpcClient().updateResourceQueryParams({
+                apiName,
+                apiPath: documentUri,
+                resourcePath: newResourcePath,
+                oldResourcePath: resourcePath !== newResourcePath ? resourcePath : undefined,
+                methods,
+                queryParams: newQueryParams,
+            }).then((response) => {
+                setExistingQueryParams(response.queryParams);
+            });
+        }
+
         setFormOpen(false);
     }
 
@@ -112,9 +150,10 @@ export const ResourceView = ({ model: resourceModel, documentUri, diagnostics }:
                 />
                 <ResourceForm
                     isOpen={isFormOpen}
-                    formData={data}
+                    formData={formData}
                     documentUri={documentUri}
                     bindsToOptions={bindsToOptions}
+                    existingQueryParams={existingQueryParams}
                     onCancel={() => setFormOpen(false)}
                     onSave={onSave}
                 />

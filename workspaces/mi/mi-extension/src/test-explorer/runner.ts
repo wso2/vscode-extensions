@@ -33,6 +33,7 @@ import treeKill = require("tree-kill");
 import { normalize } from "upath";
 import { MVN_COMMANDS } from "../constants";
 import { loadEnvVariables } from "../debugger/tasks";
+import { escapeShellArg } from "../util/shellEscapeUtils";
 const fs = require('fs');
 const child_process = require('child_process');
 const readline = require('readline');
@@ -196,7 +197,7 @@ export function runHandler(request: TestRunRequest, cancellation: CancellationTo
             } catch (error: any) {
                 // exception.
                 window.showErrorMessage(`Error: ${error}`);
-                error.split('\n').forEach((line) => {
+                String(error).split('\n').forEach((line) => {
                     printToOutput(run, line, true);
                 });
                 failAllTests();
@@ -252,7 +253,7 @@ async function startTestServer(serverPath: string, projectRoot: string, printToO
             const scriptFile = process.platform === "win32" ? "micro-integrator.bat" : "micro-integrator.sh";
             const server = path.join(serverPath, "bin", scriptFile);
 
-            const serverCommand = `${server} -DsynapseTest`;
+            const serverCommand = `${escapeShellArg(server)} -DsynapseTest`;
 
             let serverStarted = false;
 
@@ -279,7 +280,7 @@ async function startTestServer(serverPath: string, projectRoot: string, printToO
             }
 
         } catch (error) {
-            throw error;
+            reject(error instanceof Error ? error.message : String(error));
         }
     });
 }
@@ -319,7 +320,7 @@ async function compileProject(projectRoot: string, printToOutput?: (line: string
         try {
             runCommand(testRunCmd, projectRoot, onData, onError, onClose, printToOutput);
         } catch (error) {
-            throw error;
+            reject(error instanceof Error ? error.message : String(error));
         }
     });
 }
@@ -330,16 +331,23 @@ async function runTests(testNames: string, projectRoot: string, triggerId: strin
         const mvnCmd = config.get("useLocalMaven") ? "mvn" : (process.platform === "win32" ?
             MVN_COMMANDS.MVN_WRAPPER_WIN_COMMAND : MVN_COMMANDS.MVN_WRAPPER_COMMAND);
         const testLevel = triggerId.endsWith(".xml") ? "unitTest" : triggerId.includes(".xml") ? "testCase" : "testSuite";
-        const basicTestCmd = `${mvnCmd + MVN_COMMANDS.TEST_COMMAND} -DtestServerHost=${TestRunnerConfig.getHost()} -DtestServerPort=${TestRunnerConfig.getServerPort()} -P test`;
 
-        let testRunCmd = basicTestCmd;
-        switch (testLevel) {
-            case "unitTest":
-                testRunCmd = basicTestCmd + ` -DtestFile=${path.basename(triggerId)}`;
-                break;
-            case "testCase":
-                testRunCmd = basicTestCmd + ` -DtestFile=${path.basename(path.dirname(triggerId))} -DtestCaseName=${testNames}`;
-                break;
+        let testRunCmd: string;
+        try {
+            const basicTestCmd = `${mvnCmd + MVN_COMMANDS.TEST_COMMAND} -DtestServerHost=${escapeShellArg(TestRunnerConfig.getHost())} -DtestServerPort=${TestRunnerConfig.getServerPort()} -P test`;
+
+            testRunCmd = basicTestCmd;
+            switch (testLevel) {
+                case "unitTest":
+                    testRunCmd = basicTestCmd + ` -DtestFile=${escapeShellArg(path.basename(triggerId))}`;
+                    break;
+                case "testCase":
+                    testRunCmd = basicTestCmd + ` -DtestFile=${escapeShellArg(path.basename(path.dirname(triggerId)))} -DtestCaseName=${escapeShellArg(testNames)}`;
+                    break;
+            }
+        } catch (error) {
+            reject(`Test run failed: ${error instanceof Error ? error.message : error}`);
+            return;
         }
 
         const onData = (data: string) => { }
@@ -352,7 +360,7 @@ async function runTests(testNames: string, projectRoot: string, triggerId: strin
         try {
             runCommand(testRunCmd, projectRoot, onData, onError, onClose, printToOutput);
         } catch (error) {
-            throw error;
+            reject(error instanceof Error ? error.message : String(error));
         }
     });
 }
@@ -370,7 +378,7 @@ export function runCommand(command, pathToRun?: string,
     printToOutput?: (line: string, isError: boolean) => void): ChildProcess {
     try {
         if (pathToRun) {
-            command = `cd "${pathToRun}" && ${command}`
+            command = `cd ${escapeShellArg(pathToRun)} && ${command}`
         }
         const envVariables = {
             ...process.env,
@@ -441,7 +449,7 @@ export function runBasicCommand(
 ) {
 
     if (cwd) {
-        command = `cd "${cwd}" && ${command}`
+        command = `cd ${escapeShellArg(cwd)} && ${command}`
     }
     const proc = child_process.spawn(command, [], { shell: true });
 

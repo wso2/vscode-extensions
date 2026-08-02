@@ -26,10 +26,12 @@ import { extension } from '../MIExtensionContext';
 import { copyMavenWrapper } from '.';
 import { SELECTED_JAVA_HOME, SELECTED_SERVER_PATH } from '../debugger/constants';
 import { COMMANDS, BALLERINA_VERSION } from '../constants';
-import { SetPathRequest, PathDetailsResponse, SetupDetails } from '@wso2/mi-core';
+import { SetPathRequest, PathDetailsResponse, SetupDetails, DependencyDetails } from '@wso2/mi-core';
+import { MiVisualizerRpcManager } from '../rpc-managers/mi-visualizer/rpc-manager';
 import { parseStringPromise } from 'xml2js';
 import { LATEST_CAR_PLUGIN_VERSION } from './templates';
 import { runCommand, runBasicCommand } from '../test-explorer/runner';
+import { escapeShellArg } from './shellEscapeUtils';
 import { XMLParser, XMLBuilder } from "fast-xml-parser";
 
 const AdmZip = require('adm-zip');
@@ -45,6 +47,15 @@ export const javaVersionCompatibilityMap: { [key: string]: { supportedRange: { m
 };
 export const LATEST_MI_VERSION = "4.6.0";
 const COMPATIBLE_JDK_VERSION = "11";
+const DEFAULT_SYNAPSE_CORE_VERSION = "4.0.0-wso2v165";
+export const synapseCoreVersionMap: { [key: string]: string } = {
+    '4.6.0': '4.1.0-wso2v48'
+};
+
+export function getSynapseCoreVersionForRuntime(runtimeVersion?: string | null): string {
+    return (runtimeVersion && synapseCoreVersionMap[runtimeVersion]) || DEFAULT_SYNAPSE_CORE_VERSION;
+}
+
 const miDownloadUrls: { [key: string]: string } = {
     '4.6.0': 'https://mi-distribution.wso2.com/4.6.0/wso2mi-4.6.0.zip',
     '4.6.0-EULA': 'https://mi-distribution.wso2.com/4.6.0/updated/wso2mi-4.6.0.zip',
@@ -727,6 +738,42 @@ async function getJavaAndMIPathsFromWorkspace(projectUri: string, projectMiVersi
     return response;
 }
 
+export async function checkSynapseCoreDependencyVersion(projectUri: string): Promise<void> {
+    try {
+        const visualizerRpcManager = new MiVisualizerRpcManager(projectUri);
+        const projectDetails = await visualizerRpcManager.getProjectDetails();
+        const runtimeVersion = projectDetails?.primaryDetails?.runtimeVersion?.value;
+        const requiredVersion = runtimeVersion ? synapseCoreVersionMap[runtimeVersion] : undefined;
+        if (!requiredVersion) {
+            return;
+        }
+        const synapseCoreDependency = (projectDetails?.dependencies?.otherDependencies ?? []).find(
+            (dependency: DependencyDetails) =>
+                dependency.groupId === 'org.apache.synapse' && dependency.artifact === 'synapse-core');
+        if (!synapseCoreDependency?.version || synapseCoreDependency.version === requiredVersion) {
+            return;
+        }
+        const updateOption = 'Update Version';
+        const selection = await vscode.window.showWarningMessage(
+            `Runtime ${runtimeVersion} requires synapse-core version ${requiredVersion}.\n\n` +
+            `Do you want to update the synapse-core dependency version to ${requiredVersion}?`,
+            { modal: true },
+            updateOption
+        );
+        if (selection !== updateOption) {
+            vscode.window.showWarningMessage(
+                `The project may not build or work as expected with synapse-core ${synapseCoreDependency.version} on runtime ${runtimeVersion}.`);
+            return;
+        }
+        await visualizerRpcManager.updateDependenciesFromOverview({
+            dependencies: [{ ...synapseCoreDependency, version: requiredVersion }]
+        });
+        vscode.window.showInformationMessage(`synapse-core dependency version updated to ${requiredVersion}.`);
+    } catch (error) {
+        console.error('Error while verifying the synapse-core dependency version:', error);
+    }
+}
+
 export async function updatePomForClassMediator(projectUri: string): Promise<void> {
     const pomFiles = await vscode.workspace.findFiles(
         new vscode.RelativePattern(projectUri, 'pom.xml'),
@@ -748,23 +795,35 @@ export async function updatePomForClassMediator(projectUri: string): Promise<voi
     updatePomXml(parsedXml, "project.packaging", "jar");
 
     createTagIfNotFound(parsedXml, "project.dependencies");
-    const dependencyXml = {
-        dependency: [
-            { groupId: [{ "#text": "org.apache.synapse" }] },
-            { artifactId: [{ "#text": "synapse-core" }] },
-            { version: [{ "#text": "4.0.0-wso2v165" }] }
-        ]
-    };
+    const runtimeVersion = await getMIVersionFromPom(projectUri);
+    const synapseCoreVersion = getSynapseCoreVersionForRuntime(runtimeVersion);
+    const hasSynapseCoreDependency = parsedXml.some((node: any) =>
+        Array.isArray(node.project) && node.project.some((projectNode: any) =>
+            Array.isArray(projectNode.dependencies) && projectNode.dependencies.some((dependencyNode: any) =>
+                Array.isArray(dependencyNode.dependency) &&
+                dependencyNode.dependency.some((child: any) => child.groupId?.[0]?.["#text"] === "org.apache.synapse") &&
+                dependencyNode.dependency.some((child: any) => child.artifactId?.[0]?.["#text"] === "synapse-core"))));
+    if (hasSynapseCoreDependency) {
+        updatePomXml(parsedXml, "project.dependencies.dependency[artifactId=synapse-core].version", synapseCoreVersion);
+    } else {
+        const dependencyXml = {
+            dependency: [
+                { groupId: [{ "#text": "org.apache.synapse" }] },
+                { artifactId: [{ "#text": "synapse-core" }] },
+                { version: [{ "#text": synapseCoreVersion }] }
+            ]
+        };
 
-    parsedXml.forEach((node: any) => {
-        if (Array.isArray(node.project)) {
-            node.project.forEach((projectNode: any) => {
-                if (projectNode.dependencies) {
-                    projectNode.dependencies.push(dependencyXml);
-                }
-            });
-        }
-    });
+        parsedXml.forEach((node: any) => {
+            if (Array.isArray(node.project)) {
+                node.project.forEach((projectNode: any) => {
+                    if (projectNode.dependencies) {
+                        projectNode.dependencies.push(dependencyXml);
+                    }
+                });
+            }
+        });
+    }
 
     const builder = new XMLBuilder({
         ignoreAttributes: false,
@@ -1190,19 +1249,18 @@ async function runBallerinaBuildsWithProgress(projectPath: string, isBallerinaIn
                 return;
             }
 
-            // Quote paths on all platforms to handle spaces in directory names
-            const quotedProjectPath = isWindows ? `"${projectPath.replace(/"/g, '""')}"` : projectPath;
-            const quotedBalCommand = isWindows ? `"${balCommand.replace(/"/g, '""')}"` : balCommand;
-            console.debug('[Ballerina Build] Quoted Project Path:', quotedProjectPath);
+            // Escape the bal path so the shell treats it as a literal (handles spaces and metacharacters).
+            // The project path is passed raw; runCommand escapes it when building the cd prefix.
+            const quotedBalCommand = escapeShellArg(balCommand);
             console.debug('[Ballerina Build] Quoted Bal Command:', quotedBalCommand);
 
             // Use global bal if installed, otherwise use local installation
-            const pullCommand = isBallerinaInstalled 
+            const pullCommand = isBallerinaInstalled
                 ? (isWindows ? 'bal.bat tool pull migen' : 'bal tool pull migen')
                 : `${quotedBalCommand} tool pull migen`;
 
             console.debug('[Ballerina Build] Command to execute:', pullCommand);
-            console.debug('[Ballerina Build] Working directory:', quotedProjectPath);
+            console.debug('[Ballerina Build] Working directory:', projectPath);
             console.debug('[Ballerina Build] Using global installation:', isBallerinaInstalled);
 
             // Verify project path exists before running command
@@ -1213,7 +1271,7 @@ async function runBallerinaBuildsWithProgress(projectPath: string, isBallerinaIn
                 return;
             }
 
-            runCommand(pullCommand, quotedProjectPath, onData, onError, buildModule);
+            runCommand(pullCommand, projectPath, onData, onError, buildModule);
             let isModuleAlreadyInstalled = false, commandFailed = false;
 
             function onData(data: string) {
@@ -1278,15 +1336,22 @@ async function runBallerinaBuildsWithProgress(projectPath: string, isBallerinaIn
                     ballerinaOutputChannel = vscode.window.createOutputChannel('Ballerina Module Builder');
                 }
                 ballerinaOutputChannel.clear();
-                const isWindows = process.platform === 'win32';
-                const moduleGenCommand = isBallerinaInstalled
-                    ? (isWindows ? 'bal.bat migen module' : 'bal migen module')
-                    : `"${path.join(balHome, isWindows ? 'bal.bat' : 'bal').replace(/"/g, isWindows ? '""' : '\\"')}" migen module`;
+                try {
+                    const isWindows = process.platform === 'win32';
+                    const moduleGenCommand = isBallerinaInstalled
+                        ? (isWindows ? 'bal.bat migen module' : 'bal migen module')
+                        : `${escapeShellArg(path.join(balHome, isWindows ? 'bal.bat' : 'bal'))} migen module`;
 
-                console.debug('Running module gen command:', moduleGenCommand, 'in directory:', projectPath);
-                runBasicCommand(moduleGenCommand, projectPath,
-                    onData, onError, onComplete, ballerinaOutputChannel
-                );
+                    console.debug('Running module gen command:', moduleGenCommand, 'in directory:', projectPath);
+                    runBasicCommand(moduleGenCommand, projectPath,
+                        onData, onError, onComplete, ballerinaOutputChannel
+                    );
+                } catch (error) {
+                    console.error('[Ballerina Build] Failed to run module generation command:', error);
+                    vscode.window.showErrorMessage(`Failed to run Ballerina module generation: ${error instanceof Error ? error.message : error}`);
+                    reject(error);
+                    return;
+                }
 
                 async function onComplete() {
                     try {
@@ -1466,7 +1531,13 @@ async function getBallerinaVersion(isBallerinaInstalledGlobally: boolean): Promi
             const balHome = path.normalize(path.join(os.homedir(), '.ballerina', 'ballerina-home', 'bin'));
             const balExecutable = isWindows ? 'bal.bat' : 'bal';
             const balCommand = path.join(balHome, balExecutable);
-            command = `"${balCommand}" version`;
+            try {
+                command = `${escapeShellArg(balCommand)} version`;
+            } catch (error) {
+                console.error('[Ballerina] Cannot build version command:', error);
+                resolve(null);
+                return;
+            }
         }
 
         const proc = child_process.spawn(command, [], { shell: true });
@@ -1492,7 +1563,13 @@ async function updateBallerinaDistribution(isBallerinaInstalledGlobally: boolean
             const balHome = path.normalize(path.join(os.homedir(), '.ballerina', 'ballerina-home', 'bin'));
             const balExecutable = isWindows ? 'bal.bat' : 'bal';
             const balCommand = path.join(balHome, balExecutable);
-            command = `"${balCommand}" dist update`;
+            try {
+                command = `${escapeShellArg(balCommand)} dist update`;
+            } catch (error) {
+                console.error('[Ballerina] Cannot build dist update command:', error);
+                resolve(false);
+                return;
+            }
         }
 
         const proc = child_process.spawn(command, [], { shell: true });

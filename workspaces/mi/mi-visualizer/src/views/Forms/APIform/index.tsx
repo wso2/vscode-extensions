@@ -461,12 +461,18 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
             if (swaggerDefPath) {
                 createAPIParams = {
                     ...createAPIParams,
+                    context: values.apiContext,
+                    version: values.version,
+                    versionType: values.versionType,
                     saveSwaggerDef: values.saveSwaggerDef,
                     swaggerDefPath: swaggerDefPath
                 }
             } else if (wsdlDefPath) {
                 createAPIParams = {
                     ...createAPIParams,
+                    context: values.apiContext,
+                    version: values.version,
+                    versionType: values.versionType,
                     wsdlType: values.wsdlType,
                     wsdlDefPath: wsdlDefPath,
                     wsdlEndpointName: values.wsdlEndpointName
@@ -786,7 +792,7 @@ export function APIWizard({ apiData, path }: APIWizardProps) {
                             ))}
                         </FieldGroup>
                     </FormGroup>
-                    <FormGroup title="Bindings" isCollapsed={true}>
+                    <FormGroup title="Binds to" isCollapsed={true}>
                         <ParamManager
                             paramConfigs={bindsToParams}
                             onChange={handleBindsToChange}

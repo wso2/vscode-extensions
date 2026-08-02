@@ -17,6 +17,7 @@
  */
 import { APIResource, Range, NamedSequence, Proxy, TagRange } from "@wso2/mi-syntax-tree/lib/src";
 import { RpcClient } from "@wso2/mi-rpc-client";
+import { QueryParamInfo } from "@wso2/mi-core";
 import { EditSequenceFields } from "../views/Forms/EditForms/EditSequenceForm";
 import { ARTIFACT_TEMPLATES } from "../constants";
 import { getXML } from "./template-engine/mustache-templates/templateUtils";
@@ -27,13 +28,38 @@ import { Method, Protocol, ResourceFormData, ResourceType } from "../views/Forms
 export const bindsToToList = (bindsTo?: string): string[] =>
     bindsTo ? bindsTo.split(",").map((s) => s.trim()).filter(Boolean) : [];
 
-export const getApiBindsToOptions = async (rpcClient: RpcClient, documentUri: string): Promise<string[]> => {
+export interface ApiMetadata {
+    name: string;
+    bindsToOptions: string[];
+}
+
+export const getApiMetadata = async (rpcClient: RpcClient, documentUri: string): Promise<ApiMetadata> => {
     try {
         const st = await rpcClient.getMiDiagramRpcClient().getSyntaxTree({ documentUri });
-        return bindsToToList((st as any)?.syntaxTree?.api?.bindsTo);
+        const api = (st as any)?.syntaxTree?.api;
+        return { name: api?.name ?? "", bindsToOptions: bindsToToList(api?.bindsTo) };
     } catch {
+        return { name: "", bindsToOptions: [] };
+    }
+};
+
+export type QueryParamsByResource = Record<string, Record<string, QueryParamInfo[]>>;
+
+// Unions the query params (by name) declared for a resource's methods in the OpenAPI spec.
+export const unionQueryParams = (
+    map: QueryParamsByResource,
+    path: string | undefined,
+    methods: string[] | undefined
+): QueryParamInfo[] => {
+    if (!path) {
         return [];
     }
+    const strippedPath = path.split("?")[0];
+    const byName = new Map<string, QueryParamInfo>();
+    (methods ?? []).forEach((method) => {
+        (map[strippedPath]?.[method.toLowerCase()] ?? []).forEach((param) => byName.set(param.name, param));
+    });
+    return Array.from(byName.values());
 };
 
 /**
@@ -146,7 +172,7 @@ const inlineFormatter = (inlineWsdl: string) => {
  * Function to handle resource create
  */
 
-export const onResourceCreate = (data: ResourceFormData, range: Range, documentUri: string, rpcClient: RpcClient) => {
+export const onResourceCreate = async (data: ResourceFormData, range: Range, documentUri: string, rpcClient: RpcClient): Promise<void> => {
     const { uriTemplate, urlMapping, methods, protocol, bindsTo } = data;
     const formValues = {
         // Extract selected methods and create string containing the methods for the XML
@@ -164,7 +190,7 @@ export const onResourceCreate = (data: ResourceFormData, range: Range, documentU
     };
 
     const xml = getXML(ARTIFACT_TEMPLATES.ADD_RESOURCE, formValues);
-    rpcClient.getMiDiagramRpcClient().applyEdit({
+    await rpcClient.getMiDiagramRpcClient().applyEdit({
         text: xml,
         documentUri: documentUri,
         range: {
@@ -184,13 +210,13 @@ export const onResourceCreate = (data: ResourceFormData, range: Range, documentU
  * Function to handle resource editing
  */
 
-export const onResourceEdit = (
+export const onResourceEdit = async (
     data: ResourceFormData,
     resourceRange: TagRange,
     deleteRanges: Range[],
     documentUri: string,
     rpcClient: RpcClient
-) => {
+): Promise<void> => {
     const startTagRange = resourceRange.startTagRange;
     const endTagRange = resourceRange.endTagRange;
     const {
@@ -236,36 +262,32 @@ export const onResourceEdit = (
         (a, b) => b.start.line - a.start.line || b.start.character - a.start.character
     );
     let deleteLineCount = 0
-    rpcClient
+    await rpcClient
         .getMiDiagramRpcClient()
         .applyEdit({
             text: xml,
             documentUri: documentUri,
             range: startTagRange,
             addNewLine: false
-        })
-        .then(async () => {
-            for (const range of sortedRanges) {
-                deleteLineCount += range.end.line - range.start.line;
-                await rpcClient.getMiDiagramRpcClient().applyEdit({
-                    text: "",
-                    documentUri: documentUri,
-                    range: range,
-                });
-            }
-        })
-        .then(async () => {
-            await rpcClient.getMiDiagramRpcClient().rangeFormat({
-                uri: documentUri,
-                range: {
-                    start: startTagRange.start,
-                    end: {
-                        line: endTagRange.end.line - deleteLineCount,
-                        character: endTagRange.end.character,
-                    },
-                }
-            })
         });
+    for (const range of sortedRanges) {
+        deleteLineCount += range.end.line - range.start.line;
+        await rpcClient.getMiDiagramRpcClient().applyEdit({
+            text: "",
+            documentUri: documentUri,
+            range: range,
+        });
+    }
+    await rpcClient.getMiDiagramRpcClient().rangeFormat({
+        uri: documentUri,
+        range: {
+            start: startTagRange.start,
+            end: {
+                line: endTagRange.end.line - deleteLineCount,
+                character: endTagRange.end.character,
+            },
+        }
+    });
 };
 
 export const onSequenceEdit = (

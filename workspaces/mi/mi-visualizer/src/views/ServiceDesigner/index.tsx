@@ -17,17 +17,18 @@
  */
 
 import React, { useEffect } from "react";
-import { Document, EVENT_TYPE, MACHINE_VIEW } from "@wso2/mi-core";
+import { Document, EVENT_TYPE, MACHINE_VIEW, QueryParamInfo } from "@wso2/mi-core";
 import { useVisualizerContext } from "@wso2/mi-rpc-client";
-import { Resource, Service, ServiceDesigner } from "@wso2/service-designer";
-import { Item } from "@wso2/ui-toolkit";
+import { Resource, Service } from "@wso2/service-designer";
+import { Item, Typography } from "@wso2/ui-toolkit";
 import { Position, Range, APIResource } from "@wso2/mi-syntax-tree/lib/src";
 import { APIData, APIWizardProps } from "../Forms/APIform";
 import { View, ViewHeader, ViewContent } from "../../components/View";
 import { VSCodeButton } from "@vscode/webview-ui-toolkit/react";
 import { Codicon } from "@wso2/ui-toolkit";
-import { generateResourceData, getResourceDeleteRanges, onResourceCreate, onResourceEdit } from "../../utils/form";
+import { generateResourceData, getResourceDeleteRanges, onResourceCreate, onResourceEdit, unionQueryParams, QueryParamsByResource, } from "../../utils/form";
 import { ResourceForm, ResourceFormData, ResourceType } from "../Forms/ResourceForm";
+import { ResourceRow } from "./ResourceRow";
 
 interface ServiceDesignerProps {
     syntaxTree: any;
@@ -43,6 +44,8 @@ export function ServiceDesignerView({ syntaxTree, documentUri }: ServiceDesigner
     const [mode, setMode] = React.useState<"create" | "edit">("create");
     const [selectedResource, setSelectedResource] = React.useState<APIResource>(null);
     const [swaggerUpdated, setSwaggerUpdated] = React.useState<boolean>(false);
+    const [queryParamsMap, setQueryParamsMap] = React.useState<QueryParamsByResource>({});
+    const isSavingResourceRef = React.useRef(false);
 
     const getResources = (st: any): Resource[] => {
         const resources = st.resource as APIResource[];
@@ -61,7 +64,6 @@ export function ServiceDesignerView({ syntaxTree, documentUri }: ServiceDesigner
                     endLine: resource.range.endTagRange.end.line,
                     endColumn: resource.range.endTagRange.end.character,
                 },
-                expandable: false,
             };
             const goToSourceAction: Item = {
                 id: "go-to-source",
@@ -155,7 +157,12 @@ export function ServiceDesignerView({ syntaxTree, documentUri }: ServiceDesigner
             apiName: serviceData.apiName,
             apiPath: documentUri
         }).then(response => {
-            if (response.swaggerExists && !response.isEqual) {
+            // Skipped mid-save: handleResourceCreate's response is more current than this
+            // comparison, which may predate that save's write.
+            if (response.queryParams && !isSavingResourceRef.current) {
+                setQueryParamsMap(response.queryParams);
+            }
+            if (response.swaggerExists && !response.isEqual && !isSavingResourceRef.current) {
                 rpcClient.getMiVisualizerRpcClient().showNotification({
                     message: "The OpenAPI definition is different from the Synapse API.",
                     type: "warning",
@@ -195,6 +202,18 @@ export function ServiceDesignerView({ syntaxTree, documentUri }: ServiceDesigner
         })
     }, [syntaxTree, documentUri, swaggerUpdated]);
 
+    // Existing query params for the resource currently open in the edit panel, used to pre-populate its Param Manager.
+    const existingQueryParams: QueryParamInfo[] = React.useMemo(() => {
+        if (mode !== "edit" || !selectedResource) {
+            return [];
+        }
+        return unionQueryParams(
+            queryParamsMap,
+            selectedResource.uriTemplate || selectedResource.urlMapping,
+            selectedResource.methods
+        );
+    }, [mode, selectedResource, queryParamsMap]);
+
     const highlightCode = (resource: Resource, force?: boolean) => {
         rpcClient.getMiDiagramRpcClient().highlightCode({
             range: {
@@ -213,7 +232,7 @@ export function ServiceDesignerView({ syntaxTree, documentUri }: ServiceDesigner
     };
 
     const openDiagram = (resource: Resource) => {
-        const resourceIndex = serviceModel.resources.findIndex((res) => res === resource);
+        const resourceIndex = serviceModel.resources.findIndex((res) => res.position === resource.position);
         rpcClient.getMiVisualizerRpcClient().openView({ type: EVENT_TYPE.OPEN_VIEW, location: { view: MACHINE_VIEW.ResourceView, documentUri: documentUri, identifier: resourceIndex.toString() } })
     }
 
@@ -226,16 +245,63 @@ export function ServiceDesignerView({ syntaxTree, documentUri }: ServiceDesigner
         setResourceFormOpen(false);
     };
 
-    const handleResourceCreate = (formData: ResourceFormData) => {
-        switch (formData.mode) {
-            case "create":
-                onResourceCreate(formData, resourceBodyRange, documentUri, rpcClient);
-                break;
-            case "edit":
-                const ranges: Range[] = getResourceDeleteRanges(selectedResource, formData);
-                onResourceEdit(formData, selectedResource.range, ranges, documentUri, rpcClient);
-                break;
+    const handleResourceCreate = async (formData: ResourceFormData) => {
+        isSavingResourceRef.current = true;
+        try {
+            // Captured before the edit so a path param addition (or any other resource-path change)
+            // can be carried over to the resource's new path instead of orphaning it under the old one.
+            const oldResourcePath = formData.mode === "edit"
+                ? (selectedResource.uriTemplate || selectedResource.urlMapping)?.split("?")[0]
+                : undefined;
+
+            switch (formData.mode) {
+                case "create":
+                    await onResourceCreate(formData, resourceBodyRange, documentUri, rpcClient);
+                    break;
+                case "edit":
+                    const ranges: Range[] = getResourceDeleteRanges(selectedResource, formData);
+                    await onResourceEdit(formData, selectedResource.range, ranges, documentUri, rpcClient);
+                    break;
+            }
+
+            // Query params only modify the OpenAPI spec, never the synapse XML.
+            const newQueryParams = formData.queryParams ?? [];
+            const rawPath = formData.urlStyle === "url-mapping" ? formData.urlMapping : formData.uriTemplate;
+            const resourcePath = rawPath?.split("?")[0];
+            const pathChanged = !!oldResourcePath && oldResourcePath !== resourcePath;
+            // A changed path needs its swagger entry renamed promptly even with no query params,
+            // rather than waiting on the slower fire-and-forget auto regeneration.
+            if (newQueryParams.length > 0 || existingQueryParams.length > 0 || pathChanged) {
+                const methods = Object.entries(formData.methods ?? {})
+                    .filter(([, enabled]) => enabled)
+                    .map(([method]) => method);
+
+                const response = await rpcClient.getMiDiagramRpcClient().updateResourceQueryParams({
+                    apiName: serviceData.apiName,
+                    apiPath: documentUri,
+                    resourcePath,
+                    oldResourcePath: pathChanged ? oldResourcePath : undefined,
+                    methods,
+                    queryParams: newQueryParams,
+                });
+                setQueryParamsMap((prev) => {
+                    const next = { ...prev };
+                    if (pathChanged) {
+                        delete next[oldResourcePath];
+                    }
+                    // Rebuilt from scratch so a method unchecked in this
+                    // edit doesn't keep a stale, no-longer-applicable entry under this path.
+                    next[resourcePath] = {};
+                    methods.forEach((method) => {
+                        next[resourcePath][method] = response.queryParams;
+                    });
+                    return next;
+                });
+            }
+        } finally {
+            isSavingResourceRef.current = false;
         }
+
         setResourceFormOpen(false);
     };
 
@@ -310,11 +376,23 @@ export function ServiceDesignerView({ syntaxTree, documentUri }: ServiceDesigner
                         </VSCodeButton>
                     </ViewHeader>
                     <ViewContent padding>
-                        <ServiceDesigner
-                            model={serviceModel}
-                            disableServiceHeader={true}
-                            onResourceClick={handleResourceClick}
-                        />
+                        <Typography sx={{ marginBlockEnd: 10 }} variant="h3">Available resources</Typography>
+                        {serviceModel.resources.length > 0 ? (
+                            serviceModel.resources.map((resource, index) => (
+                                <ResourceRow
+                                    key={index}
+                                    methods={resource.methods}
+                                    path={resource.path}
+                                    queryParams={unionQueryParams(queryParamsMap, resource.path, resource.methods)}
+                                    additionalActions={resource.additionalActions}
+                                    onRowClick={() => handleResourceClick(resource)}
+                                />
+                            ))
+                        ) : (
+                            <Typography variant="h3" sx={{ textAlign: "center" }}>
+                                No resources found. Add a new resource.
+                            </Typography>
+                        )}
                     </ViewContent>
                 </View>
             )}
@@ -324,6 +402,7 @@ export function ServiceDesignerView({ syntaxTree, documentUri }: ServiceDesigner
                 onCancel={handleCancel}
                 documentUri={documentUri}
                 bindsToOptions={serviceData?.bindsTo ? serviceData.bindsTo.split(",").map((s) => s.trim()).filter(Boolean) : []}
+                existingQueryParams={existingQueryParams}
                 onSave={handleResourceCreate}
             />
         </>

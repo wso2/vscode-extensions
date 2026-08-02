@@ -23,6 +23,7 @@ import { createTempDebugBatchFile, setJavaHomeInEnvironmentAndPath } from './deb
 import { LogLevel, logDebug } from '../util/logger';
 import { Uri, workspace } from "vscode";
 import { MVN_COMMANDS } from "../constants";
+import { escapeShellArg } from '../util/shellEscapeUtils';
 
 export function getBuildTask(projectUri: string): vscode.Task {
     const config = workspace.getConfiguration('MI', Uri.file(projectUri));
@@ -89,6 +90,7 @@ export function getDockerTask(projectUri: string, consolidatedProjectRoot?: stri
 export async function getRunTask(serverPath: string, isDebug: boolean): Promise<vscode.Task | undefined> {
     let command;
     let binFile;
+    const args: string[] = [];
 
     if (process.platform === 'win32') {
         binFile = 'micro-integrator.bat';
@@ -110,7 +112,8 @@ export async function getRunTask(serverPath: string, isDebug: boolean): Promise<
                 return undefined;
             }
         } else {
-            command = `${binPath} -Desb.debug=true`;
+            command = binPath;
+            args.push('-Desb.debug=true');
         }
     } else {
         command = binPath;
@@ -120,7 +123,7 @@ export async function getRunTask(serverPath: string, isDebug: boolean): Promise<
         vscode.TaskScope.Workspace,
         'run',
         'mi',
-        new vscode.ShellExecution(command),
+        new vscode.ShellExecution({ value: command, quoting: vscode.ShellQuoting.Strong }, args),
     );
     return runTask;
 }
@@ -141,25 +144,25 @@ export async function getRunCommand(serverPath: string, isDebug: boolean): Promi
         // HACK to get the server to run as the debugger since MI 4.2.0 version's .bat file is not supported to run java variables
         if (process.platform === 'win32') {
             const binDirectoryPath = path.join(serverPath, 'bin');
+            let copiedBatchFile: string;
             try {
-                const copiedBatchFile = await createTempDebugBatchFile(binPath, binDirectoryPath);
-                command = copiedBatchFile;
+                copiedBatchFile = await createTempDebugBatchFile(binPath, binDirectoryPath);
             } catch (error) {
                 vscode.window.showErrorMessage(`Error while creating temporary debug batch file: ${error}`);
                 return undefined;
             }
+            command = escapeShellArg(copiedBatchFile);
         } else {
-            command = `"${binPath}" -Desb.debug=true`;
+            command = `${escapeShellArg(binPath)} -Desb.debug=true`;
         }
     } else {
-        command = `"${binPath}"`;
+        command = escapeShellArg(binPath);
     }
     return command;
 }
 
 export function getStopTask(serverPath: string): vscode.Task | undefined {
     const binPath = path.join(serverPath, 'bin', 'micro-integrator.sh');
-    const command = `${binPath} stop`;
 
     if (!fs.existsSync(binPath)) {
         logDebug(`${binPath} does not exist`, LogLevel.ERROR);
@@ -171,7 +174,7 @@ export function getStopTask(serverPath: string): vscode.Task | undefined {
         vscode.TaskScope.Workspace,
         'stop',
         'mi',
-        new vscode.ShellExecution(command)
+        new vscode.ShellExecution({ value: binPath, quoting: vscode.ShellQuoting.Strong }, ['stop'])
     );
     return stopTask;
 }
@@ -185,7 +188,7 @@ export function getStopCommand(serverPath: string): string | undefined {
         scriptFile = 'micro-integrator.sh';
     }
     const binPath = path.join(serverPath, 'bin', scriptFile);
-    const command = `"${binPath}" stop`;
+    const command = `${escapeShellArg(binPath)} stop`;
 
     if (!fs.existsSync(binPath)) {
         logDebug(`${binPath} does not exist`, LogLevel.ERROR);

@@ -31,6 +31,7 @@ import { updatePomForClassMediator, LATEST_MI_VERSION } from './onboardingUtils'
 import { setJavaHomeInEnvironmentAndPath } from '../debugger/debugHelper';
 import { MVN_COMMANDS } from "../constants";
 import { updatePomWithParent } from './fileOperations';
+import { escapeShellArg } from './shellEscapeUtils';
 
 enum Nature {
     MULTIMODULE,
@@ -1113,7 +1114,14 @@ export async function getResolvedPomXmlContent(pomFilePath: string): Promise<Pom
     const config = workspace.getConfiguration('MI', Uri.file(pomDir));
     const mvnCmd = config.get("useLocalMaven") ? "mvn" : (process.platform === "win32" ?
         MVN_COMMANDS.MVN_WRAPPER_WIN_COMMAND : MVN_COMMANDS.MVN_WRAPPER_COMMAND);
-    const command = `${mvnCmd} -f "${pomFilePath}" ${MVN_COMMANDS.GEN_POM_COMMAND}`;
+    let command: string;
+    try {
+        command = `${mvnCmd} -f ${escapeShellArg(pomFilePath)} ${MVN_COMMANDS.GEN_POM_COMMAND}`;
+    } catch (err) {
+        const errMsg = `Failed to obtain effective-pom for '${pomFilePath}': ${err instanceof Error ? err.message : err}`;
+        logError(errMsg);
+        return { success: false, error: errMsg };
+    }
     logInfo(`Running command: ${command} in directory: ${pomDir}`);
 
     return new Promise((resolve, reject) => {

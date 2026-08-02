@@ -300,6 +300,8 @@ import {
     ResetConnectorDependencyOverridesRequest,
     UpdateConnectorFlagsRequest,
     UpdateGlobalConnectorFlagsRequest,
+    UpdateResourceQueryParamsRequest,
+    UpdateResourceQueryParamsResponse,
 } from "./types";
 
 export interface MiDiagramAPI {
@@ -432,6 +434,7 @@ export interface MiDiagramAPI {
     compareSwaggerAndAPI: (params: SwaggerTypeRequest) => Promise<CompareSwaggerAndAPIResponse>;
     updateSwaggerFromAPI: (params: SwaggerTypeRequest) => void;
     updateAPIFromSwagger: (params: UpdateAPIFromSwaggerRequest) => void;
+    updateResourceQueryParams: (params: UpdateResourceQueryParamsRequest) => Promise<UpdateResourceQueryParamsResponse>;
     updateTestSuite: (params: UpdateTestSuiteRequest) => Promise<UpdateTestSuiteResponse>;
     updateTestCase: (params: UpdateTestCaseRequest) => Promise<UpdateTestCaseResponse>;
     updateMockService: (params: UpdateMockServiceRequest) => Promise<UpdateMockServiceResponse>;

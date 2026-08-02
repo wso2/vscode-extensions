@@ -1,0 +1,19 @@
+diff --git a/changelog.md b/changelog.md
+deleted file mode 100644
+index 07decf76e641ab01e743dd6182081f41d02ae904..0000000000000000000000000000000000000000
+diff --git a/minimatch.js b/minimatch.js
+index 731ed17c6852768f4e1636aabbf532c30dcbca5e..d837472c59877b1f9128ab0a3aea84906d2e025d 100644
+--- a/minimatch.js
++++ b/minimatch.js
+@@ -16,7 +16,10 @@ minimatch.sep = path.sep
+ 
+ const GLOBSTAR = Symbol('globstar **')
+ minimatch.GLOBSTAR = GLOBSTAR
+-const expand = require('brace-expansion')
++const braceExpansionModule = require('brace-expansion')
++const expand = typeof braceExpansionModule === 'function'
++  ? braceExpansionModule
++  : braceExpansionModule.expand
+ 
+ const plTypes = {
+   '!': { open: '(?:(?!(?:', close: '))[^/]*?)'},
