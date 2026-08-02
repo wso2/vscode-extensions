@@ -457,6 +457,48 @@ export async function findBallerinaPackageRoot(filePath: string) {
     return null;
 }
 
+// The directories that hold the non-default modules of a package. `generated` holds the modules that the connector
+// generation emits, and it is a module root in the same manner as `modules`.
+const MODULE_ROOT_DIRS = ['modules', 'generated'];
+
+/**
+ * Checks whether the given file belongs to a non-default module of a Ballerina package.
+ *
+ * The package root is located by walking up until a `Ballerina.toml` is found, and the file is in a non-default module
+ * when the directory below that root is a module root, i.e. `<root>/modules/<name>/...` or `<root>/generated/<name>/...`.
+ * A file of a package that holds no `Ballerina.toml`, such as a single `.bal` file, belongs to no submodule.
+ *
+ * Note that this is deliberately synchronous and holds no cache. It performs one `existsSync` per level of the path,
+ * which is negligible beside the language server round trip that its callers already await, and it cannot go stale
+ * when a package is created or removed.
+ *
+ * @param filePath the absolute path of the file
+ * @return true if the file belongs to a non-default module
+ */
+export function isSubmoduleFile(filePath: string): boolean {
+    if (!filePath) {
+        return false;
+    }
+
+    let currentFolderPath = path.dirname(filePath);
+    // The directory below `currentFolderPath`, which names the module root once the package root is reached.
+    let childFolderPath: string | undefined;
+
+    while (true) {
+        if (existsSync(path.join(currentFolderPath, 'Ballerina.toml'))) {
+            return childFolderPath !== undefined && MODULE_ROOT_DIRS.includes(path.basename(childFolderPath));
+        }
+
+        const parentPath = path.dirname(currentFolderPath);
+        if (parentPath === currentFolderPath) {
+            // The file system root is reached without a package root, so the file belongs to no package.
+            return false;
+        }
+        childFolderPath = currentFolderPath;
+        currentFolderPath = parentPath;
+    }
+}
+
 export async function handleResolveMissingDependencies(ballerinaExtInstance: BallerinaExtension) {
     openClonedTempFile(ballerinaExtInstance);
     const langClient = ballerinaExtInstance.langClient;

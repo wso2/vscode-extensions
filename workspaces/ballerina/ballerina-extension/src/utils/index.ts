@@ -20,6 +20,7 @@ export * from './config';
 export * from './logger';
 export * from './webview-utils';
 export * from './file-utils';
+export * from './codelens-middleware';
 export * from './source-utils';
 export * from './pull-module-progress';
 export * from './undo-redo-manager';

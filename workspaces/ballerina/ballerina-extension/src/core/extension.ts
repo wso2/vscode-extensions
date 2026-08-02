@@ -46,7 +46,8 @@ import {
     isSupportedSLVersion,
     createVersionNumber,
     checkIsBallerinaWorkspace,
-    isInWI
+    isInWI,
+    codeLensMiddleware
 } from '../utils';
 import { AssertionError } from "assert";
 import {
@@ -268,6 +269,7 @@ export class BallerinaExtension {
                     synchronize: { configurationSection: LANGUAGE.BALLERINA },
                     outputChannel: getOutputChannel(),
                     revealOutputChannelOn: RevealOutputChannelOn.Never,
+                    middleware: codeLensMiddleware,
                     initializationOptions: {
                         "enableSemanticHighlighting": <string>workspace.getConfiguration().get(ENABLE_SEMANTIC_HIGHLIGHTING),
                         "enableBackgroundDriftCheck": <string>workspace.getConfiguration().get(ENABLE_BACKGROUND_DRIFT_CHECK),
