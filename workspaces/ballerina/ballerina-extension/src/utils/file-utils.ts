@@ -464,6 +464,8 @@ const MODULE_ROOT_DIRS = ['modules', 'generated'];
 /**
  * Checks whether the given file belongs to a non-default module of a Ballerina package.
  *
+ * TODO: Remove this along with `codeLensMiddleware`, its only caller, once the visualizer supports submodules.
+ *
  * The package root is located by walking up until a `Ballerina.toml` is found, and the file is in a non-default module
  * when the directory below that root is a module root, i.e. `<root>/modules/<name>/...` or `<root>/generated/<name>/...`.
  * A file of a package that holds no `Ballerina.toml`, such as a single `.bal` file, belongs to no submodule.

@@ -34,8 +34,13 @@ export const SUBMODULE_NOT_SUPPORTED_TOOLTIP =
  * and the command silently lands on the package overview rather than on the view of the construct.
  *
  * The lens of such a construct is disabled here rather than removed, so that the reason is reported to the user
- * instead of the affordance disappearing without an explanation. This is held on the client, since the limitation is
- * one of the visualizer rather than of the language server, and it is a single deletion once submodules are supported.
+ * instead of the affordance disappearing without an explanation.
+ *
+ * TODO: Remove this middleware, along with `isSubmoduleFile()`, once the visualizer supports submodules.
+ * It is not the intended design: `isSubmoduleFile()` re-derives from the file system what the language server already knows
+ * through `Module.isDefaultModule()`, and it hardcodes the `modules` and `generated` convention. The durable fix belongs
+ * on the server, where `VisualizeCodeLensProvider` and `ArtifactsGenerator` should share one notion of what can be
+ * visualized, so that a lens is offered only where an artifact is reported..
  */
 export const codeLensMiddleware: CodeLensMiddleware = {
     provideCodeLenses: async (document: TextDocument, token: CancellationToken,
