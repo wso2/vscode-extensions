@@ -24,7 +24,16 @@ export interface PersistedReviewState {
     status: 'generating' | 'done' | 'accepted' | 'reverted' | 'error';
     modifiedFiles: string[];
     errorMessage?: string;
-    // NOTE: tempProjectPath and affectedPackagePaths are runtime-only — not persisted
+    /**
+     * Only ever set while the generation is 'done' — settling clears it — so at most one
+     * generation per thread carries this. tempProjectPath and affectedPackagePaths stay
+     * runtime-only: they are absolute paths that a moved workspace would silently invalidate.
+     */
+    reviewView?: {
+        semanticDiffs: object[];
+        loadDesignDiagrams: boolean;
+        isWorkspace: boolean;
+    };
 }
 
 // ============================================
