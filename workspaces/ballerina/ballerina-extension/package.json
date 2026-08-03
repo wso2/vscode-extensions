@@ -2,7 +2,7 @@
     "name": "ballerina",
     "displayName": "Ballerina",
     "description": "Ballerina Language support, debugging, graphical visualization, AI-based data-mapping and many more.",
-    "version": "5.12.3",
+    "version": "5.12.4",
     "publisher": "wso2",
     "icon": "resources/images/ballerina.png",
     "homepage": "https://wso2.com/ballerina/vscode/docs",
@@ -783,13 +783,13 @@
                 "command": "ballerina.icp.start",
                 "title": "Start ICP",
                 "category": "Ballerina",
-                "enablement": "isSupportedProject && !ballerina.icpRunning && !devant.editor"
+                "enablement": "isSupportedProject && ballerina.icpSupported && !ballerina.icpRunning && !devant.editor"
             },
             {
                 "command": "ballerina.icp.stop",
                 "title": "Stop ICP",
                 "category": "Ballerina",
-                "enablement": "isSupportedProject && ballerina.icpRunning && !devant.editor"
+                "enablement": "isSupportedProject && ballerina.icpSupported && ballerina.icpRunning && !devant.editor"
             },
             {
                 "command": "ballerina.showTraceWindow",
@@ -1513,7 +1513,7 @@
         "@types/tcp-port-used": "1.0.3",
         "@types/vscode": "1.100.0",
         "@types/vscode-notebook-renderer": "1.72.2",
-        "adm-zip": "0.5.16",
+        "adm-zip": "0.6.0",
         "axios": "1.15.2",
         "chai": "4.3.10",
         "copyfiles": "2.4.1",

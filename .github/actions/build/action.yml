@@ -201,6 +201,7 @@ runs:
         node common/scripts/install-run-rush.js build --verbose
       env:
         isPreRelease: ${{ inputs.isPreRelease == 'true' }}
+        GITHUB_TOKEN: ${{ inputs.token }}
         BALLERINA_LS_TAG: ${{ inputs.enableLSCache == 'true' && steps.resolve-ballerina-ls-version.outputs.version || (inputs.ballerinaLsTag != '' && inputs.ballerinaLsTag || (inputs.isPreRelease == 'true' && 'prerelease' || 'latest')) }}
         BALLERINA_AUTH_ORG: ${{ inputs.BALLERINA_AUTH_ORG }}
         BALLERINA_AUTH_CLIENT_ID: ${{ inputs.BALLERINA_AUTH_CLIENT_ID }}

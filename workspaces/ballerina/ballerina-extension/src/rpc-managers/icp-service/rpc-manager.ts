@@ -31,6 +31,7 @@ import { updateSourceCode } from "../../utils/source-utils";
 import { parse, stringify } from "@iarna/toml";
 import { getProjectHandle, getStoredICPSecret } from "../../features/icp/setup";
 import { ensureICPServerRunning, isICPServerRunning, getICPUrl } from "../../features/icp";
+import { isICPSupported } from "../../utils/config";
 
 const ICP_IMPORTS = [
     'import wso2/icp.runtime.bridge as _;',
@@ -272,6 +273,9 @@ function removeICPConfigToml(projectPath: string): void {
 export class ICPServiceRpcManager implements ICPServiceAPI {
 
     async addICP(params: ICPEnabledRequest): Promise<ICPEnabledResponse> {
+        if (!isICPSupported()) {
+            return { enabled: false };
+        }
         return new Promise(async (resolve) => {
             const context = StateMachine.context();
             try {
@@ -292,6 +296,9 @@ export class ICPServiceRpcManager implements ICPServiceAPI {
     }
 
     async disableICP(params: ICPEnabledRequest): Promise<ICPEnabledResponse> {
+        if (!isICPSupported()) {
+            return { enabled: false };
+        }
         return new Promise(async (resolve) => {
             const context = StateMachine.context();
             try {
@@ -313,10 +320,13 @@ export class ICPServiceRpcManager implements ICPServiceAPI {
 
 
     async isICPServerRunning(params: ICPEnabledRequest): Promise<ICPEnabledResponse> {
-        return { enabled: isICPServerRunning() };
+        return { enabled: isICPSupported() && isICPServerRunning() };
     }
 
     async viewInICP(params: ICPEnabledRequest): Promise<ICPEnabledResponse> {
+        if (!isICPSupported()) {
+            return { enabled: false };
+        }
         try {
             const icpUrl = getICPUrl();
 
@@ -350,6 +360,9 @@ export class ICPServiceRpcManager implements ICPServiceAPI {
     }
 
     async isIcpEnabled(params: ICPEnabledRequest): Promise<ICPEnabledResponse> {
+        if (!isICPSupported()) {
+            return { enabled: false };
+        }
         return new Promise(async (resolve) => {
             const context = StateMachine.context();
             try {
