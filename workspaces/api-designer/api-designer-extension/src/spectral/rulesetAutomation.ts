@@ -228,6 +228,12 @@ async function handleNewFolderSelection(
             // suppressPrompt only affects whether we show user prompts, not whether we use auth
             const discovered = await fetchRulesetsFromFolders([normalizedFolder], normalizedFolder, true);
 
+            if (discovered === null) {
+                // Folder scan failed (already logged/warned inside fetchRulesetsFromFolders) —
+                // signal failure so the caller doesn't mark this folder as processed.
+                return null;
+            }
+
             if (discovered.length === 0) {
                 logWarning(`[Spectral] No rulesets found in ${normalizedFolder}`);
                 vscode.window.showWarningMessage(`No Spectral rulesets found in ${normalizedFolder}.`);

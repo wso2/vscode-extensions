@@ -358,18 +358,21 @@ async function fetchSpectralRuleset(filePathOrUrl: string, rulesetContentPath: s
         const isRemote = isUrl(cleanedPathOrUrl);
         // Resolve local file paths (relative paths are resolved from git root if available)
         let rulesetPath = cleanedPathOrUrl;
-        if (!isRemote && gitRootPath && !filePathOrUrl.startsWith('/')) {
+        if (!isRemote && gitRootPath && !path.isAbsolute(filePathOrUrl)) {
             rulesetPath = path.join(gitRootPath, filePathOrUrl);
         }
 
         // For local files, use mtime to detect edits — the TTL alone is too coarse to catch
         // a ruleset that was just edited and immediately re-validated.
         let currentMtimeMs: number | undefined;
+        let statFailed = false;
         if (!isRemote) {
             try {
                 currentMtimeMs = (await fsPromises.stat(rulesetPath)).mtimeMs;
             } catch {
-                // Ignore — the read below will surface the real error (e.g. file not found).
+                // Treat as a cache miss below — the read further down will surface the
+                // real error (e.g. file not found) instead of silently reusing stale content.
+                statFailed = true;
             }
         }
 
@@ -377,7 +380,7 @@ async function fetchSpectralRuleset(filePathOrUrl: string, rulesetContentPath: s
         const cached = rulesetCache.get(cacheKey);
         let rulesetContent: string | null = null;
         const isCacheFresh = !!cached && Date.now() - cached.cachedAt < RULESET_CACHE_TTL_MS;
-        const isCacheStaleByEdit = !isRemote && cached?.mtimeMs !== currentMtimeMs;
+        const isCacheStaleByEdit = !isRemote && (statFailed || cached?.mtimeMs !== currentMtimeMs);
         if (cached && isCacheFresh && !isCacheStaleByEdit) {
             rulesetContent = cached.rulesetContent;
         }

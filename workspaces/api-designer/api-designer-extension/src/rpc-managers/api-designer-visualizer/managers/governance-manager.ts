@@ -795,7 +795,7 @@ export class GovernanceManager extends BaseRpcManager {
             let authError = false;
             
             try {
-                rulesets = await fetchRulesetsFromFolders([fetchFolderUrl], displayFolder, true);
+                rulesets = await fetchRulesetsFromFolders([fetchFolderUrl], displayFolder, true) ?? [];
             } catch (error: unknown) {
                 // Check if it's an auth-related error
                 const errorObj = error as { status?: number; message?: string };
