@@ -47,6 +47,7 @@ import {
     stripAnalysisFromCompactionBlocks,
     COMPACTION_BLOCK_PREFIX,
 } from '@wso2/copilot-utilities/context-management';
+import { sanitizeMessages } from './resilience';
 import { getLoginMethod } from '../../../utils/ai/auth';
 import {
     sendTelemetryEvent,
@@ -368,6 +369,9 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
                     if (cleanedCompactionSummary) {
                         stripAnalysisFromCompactionBlocks(stepMessages);
                     }
+                    // Must run before addCacheControlToMessages: cache control switches Anthropic
+                    // to a strict path that 400s on string `tool_use.input`.
+                    sanitizeMessages(stepMessages);
                     return { messages: addCacheControlToMessages({ messages: stepMessages, model }) };
                 },
 

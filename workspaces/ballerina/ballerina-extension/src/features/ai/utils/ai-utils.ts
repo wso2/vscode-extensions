@@ -45,6 +45,7 @@ import { AiPanelWebview } from "../../../views/ai-panel/webview";
 import { MigrationPanelWebview } from "../../../views/migration-panel/webview";
 import { VisualizerWebview } from "../../../views/visualizer/webview";
 import { GenerationType } from "./libs/libraries";
+import { sanitizeMessages } from "../agent/resilience";
 // import { REQUIREMENTS_DOCUMENT_KEY } from "./code/np_prompts";
 
 export function populateHistory(chatHistory: ChatEntry[]): ModelMessage[] {
@@ -78,6 +79,8 @@ export function populateHistoryForAgent(chatHistory: any[]): ModelMessage[] {
             });
         }
     }
+    // Keep replayed history provider-valid (e.g. coerce malformed tool-call inputs).
+    sanitizeMessages(messages);
     return messages;
 }
 
