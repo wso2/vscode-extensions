@@ -33,7 +33,7 @@ import {
 import { AiReadinessMetricsCollector, createAiReadinessFunctions, applyAiReadinessFunctionsToRuleset } from './ai-readiness-functions';
 
 const RULESET_CACHE_TTL_MS = 5 * 60 * 1000;
-const rulesetCache = new Map<string, { cachedAt: number; rulesetContent: string }>();
+const rulesetCache = new Map<string, { cachedAt: number; rulesetContent: string; mtimeMs?: number }>();
 
 function getRulesetCacheKey(
     filePathOrUrl: string,
@@ -349,30 +349,44 @@ function extractRulesetContent(yamlText: string, rulesetContentPath: string): st
  */
 async function fetchSpectralRuleset(filePathOrUrl: string, rulesetContentPath: string, gitRootPath?: string, authToken?: string): Promise<{ ruleset: any }> {
     try {
-        const cacheKey = getRulesetCacheKey(filePathOrUrl, rulesetContentPath, gitRootPath, authToken);
-        const cached = rulesetCache.get(cacheKey);
-        let rulesetContent: string | null = null;
-        if (cached && Date.now() - cached.cachedAt < RULESET_CACHE_TTL_MS) {
-            rulesetContent = cached.rulesetContent;
-        }
-
         // Fix corrupted URLs (https:/ -> https://)
         let cleanedPathOrUrl = filePathOrUrl;
         if (filePathOrUrl.includes('https:/') && !filePathOrUrl.includes('https://')) {
             cleanedPathOrUrl = filePathOrUrl.replace(/https:\//g, 'https://');
         }
 
+        const isRemote = isUrl(cleanedPathOrUrl);
+        // Resolve local file paths (relative paths are resolved from git root if available)
+        let rulesetPath = cleanedPathOrUrl;
+        if (!isRemote && gitRootPath && !filePathOrUrl.startsWith('/')) {
+            rulesetPath = path.join(gitRootPath, filePathOrUrl);
+        }
+
+        // For local files, use mtime to detect edits — the TTL alone is too coarse to catch
+        // a ruleset that was just edited and immediately re-validated.
+        let currentMtimeMs: number | undefined;
+        if (!isRemote) {
+            try {
+                currentMtimeMs = (await fsPromises.stat(rulesetPath)).mtimeMs;
+            } catch {
+                // Ignore — the read below will surface the real error (e.g. file not found).
+            }
+        }
+
+        const cacheKey = getRulesetCacheKey(filePathOrUrl, rulesetContentPath, gitRootPath, authToken);
+        const cached = rulesetCache.get(cacheKey);
+        let rulesetContent: string | null = null;
+        const isCacheFresh = !!cached && Date.now() - cached.cachedAt < RULESET_CACHE_TTL_MS;
+        const isCacheStaleByEdit = !isRemote && cached?.mtimeMs !== currentMtimeMs;
+        if (cached && isCacheFresh && !isCacheStaleByEdit) {
+            rulesetContent = cached.rulesetContent;
+        }
+
         if (!rulesetContent) {
             // Handle URLs - download content directly
-            if (isUrl(cleanedPathOrUrl)) {
+            if (isRemote) {
                 rulesetContent = await downloadRulesetContent(cleanedPathOrUrl, rulesetContentPath, authToken);
             } else {
-                // Resolve local file paths (relative paths are resolved from git root if available)
-                let rulesetPath = cleanedPathOrUrl;
-                if (gitRootPath && !filePathOrUrl.startsWith('/')) {
-                    rulesetPath = path.join(gitRootPath, filePathOrUrl);
-                }
-                
                 // Read local file content
                 rulesetContent = await fsPromises.readFile(rulesetPath, 'utf8');
             }
@@ -383,7 +397,8 @@ async function fetchSpectralRuleset(filePathOrUrl: string, rulesetContentPath: s
             }
             rulesetCache.set(cacheKey, {
                 cachedAt: Date.now(),
-                rulesetContent
+                rulesetContent,
+                mtimeMs: currentMtimeMs
             });
         }
         

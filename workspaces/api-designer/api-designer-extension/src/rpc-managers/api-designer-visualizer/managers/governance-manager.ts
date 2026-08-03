@@ -245,6 +245,8 @@ export class GovernanceManager extends BaseRpcManager {
     private readonly cacheStore: AssessmentCacheStore;
     private readonly llmService: LlmValidationService;
     private readonly llmJobOrchestrator: LlmJobOrchestrator;
+    /** Ruleset keys (sourceFolder::fileName) already alerted about falling back to the bundled default, so the alert doesn't repeat on every Analyze run. */
+    private readonly warnedRulesetFallbackKeys = new Set<string>();
 
     private normalizeGuidelineRuleRef(rule: string): string | null {
         const raw = String(rule || '').trim();
@@ -472,8 +474,12 @@ export class GovernanceManager extends BaseRpcManager {
             return result as SpectralGovernancePayload;
         };
 
+        const fallbackKey = `${requestedRuleset.sourceFolder}::${requestedRuleset.fileName}`;
+
         try {
-            return { result: await runValidation(requestedRuleset), usedRuleset: requestedRuleset };
+            const result = await runValidation(requestedRuleset);
+            this.warnedRulesetFallbackKeys.delete(fallbackKey);
+            return { result, usedRuleset: requestedRuleset };
         } catch (primaryError: unknown) {
             const isSameAsDefault =
                 requestedRuleset.sourceFolder === bundledDefaultRuleset.sourceFolder &&
@@ -490,7 +496,15 @@ export class GovernanceManager extends BaseRpcManager {
             );
 
             try {
-                return { result: await runValidation(bundledDefaultRuleset), usedRuleset: bundledDefaultRuleset };
+                const result = await runValidation(bundledDefaultRuleset);
+                if (!this.warnedRulesetFallbackKeys.has(fallbackKey)) {
+                    this.warnedRulesetFallbackKeys.add(fallbackKey);
+                    const errorMessage = primaryError instanceof Error ? primaryError.message : String(primaryError);
+                    vscode.window.showWarningMessage(
+                        `API Designer: ${reportDisplayName} custom ruleset failed to load (${errorMessage}). Showing the default ruleset instead.`
+                    );
+                }
+                return { result, usedRuleset: bundledDefaultRuleset };
             } catch {
                 throw primaryError;
             }
