@@ -248,6 +248,11 @@ async function handleNewFolderSelection(
 
             progress.report({ increment: 30, message: 'Saving selection...' });
 
+            const plural = discovered.length > 1;
+            vscode.window.showInformationMessage(
+                `Found ${discovered.length} Spectral ruleset${plural ? 's' : ''} in ${getFolderLabel(normalizedFolder)}.`
+            );
+
             return updated;
         });
     } catch (error) {

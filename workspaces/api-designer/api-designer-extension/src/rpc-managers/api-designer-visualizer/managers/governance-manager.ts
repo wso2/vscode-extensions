@@ -793,9 +793,17 @@ export class GovernanceManager extends BaseRpcManager {
             // Will prompt for auth if request fails with 401/403
             let rulesets: unknown[] = [];
             let authError = false;
-            
+            let scanFailed = false;
+
             try {
-                rulesets = await fetchRulesetsFromFolders([fetchFolderUrl], displayFolder, true) ?? [];
+                const discoveryResult = await fetchRulesetsFromFolders([fetchFolderUrl], displayFolder, true);
+                if (discoveryResult === null) {
+                    // A null result means the scan itself failed (e.g. folder not found) —
+                    // distinct from a scan that succeeded but found nothing.
+                    scanFailed = true;
+                } else {
+                    rulesets = discoveryResult;
+                }
             } catch (error: unknown) {
                 // Check if it's an auth-related error
                 const errorObj = error as { status?: number; message?: string };
@@ -807,7 +815,16 @@ export class GovernanceManager extends BaseRpcManager {
                     throw error;
                 }
             }
-            
+
+            if (scanFailed) {
+                return {
+                    success: false,
+                    rulesets: [],
+                    message: `Failed to read rulesets from ${displayFolder}. Check that the folder exists and is accessible.`,
+                    requiresAuth: false
+                };
+            }
+
             if (rulesets.length === 0) {
                 // Check if it might be a private repo that needs auth
                 if (params.folderUrl.includes('github.com')) {

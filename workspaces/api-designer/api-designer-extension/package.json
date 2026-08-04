@@ -2,7 +2,7 @@
   "name": "api-designer",
   "displayName": "API Designer",
   "description": "OpenAPI-first API Designer for visual editing, governance validation, and AI readiness analysis in VS Code.",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "publisher": "wso2",
   "icon": "assets/icon.png",
   "license": "Apache-2.0",
@@ -230,7 +230,7 @@
           "default": "",
           "scope": "window",
           "description": "Folder of custom Spectral rulesets — a GitHub folder URL or an absolute local directory path. Files must be named the same as the bundled rulesets (ai-readiness.yaml, owasp_top_10.yaml, wso2_rest_api_design_guidelines.yaml) to override them. Can be set per-workspace to use a different ruleset folder per project. A broken custom ruleset shows a warning and falls back to the bundled default. Leave empty to use the bundled rulesets.",
-          "markdownDescription": "A GitHub folder URL or an absolute local path containing custom Spectral ruleset files.\n\n**Naming:** to override a built-in report (AI Readiness, OWASP, REST API Design Guidelines), name your file the same as its bundled counterpart — `ai-readiness.yaml`, `owasp_top_10.yaml`, or `wso2_rest_api_design_guidelines.yaml`. The simplest way to get started is to copy a bundled ruleset and customize it.\n\n**Local paths must be absolute** — relative paths are not resolved against your workspace.\n\n**Per-workspace:** set this in your workspace settings (`.vscode/settings.json`) to use a different ruleset folder for each project, instead of one shared folder for all of VS Code.\n\n**On save**, the extension scans the folder and automatically enables every ruleset file found there.\n\n**On failure**, if a custom ruleset fails to load or validate, a warning is shown and that report falls back to the bundled default instead of blocking analysis.\n\nLeave this empty to always use the bundled rulesets under `<extension>/spectral-rulesets`.",
+          "markdownDescription": "A GitHub folder URL or an absolute local path containing custom Spectral ruleset files.\n\n**Naming:** to override a built-in report (AI Readiness, OWASP, REST API Design Guidelines), name your file the same as its bundled counterpart — `ai-readiness.yaml`, `owasp_top_10.yaml`, or `wso2_rest_api_design_guidelines.yaml`. The simplest way to get started is to copy a bundled ruleset and customize it.\n\n**Local paths must be absolute** — relative paths are not resolved against your workspace.\n\n**Per-workspace:** set this in your workspace settings (`.vscode/settings.json`) to use a different ruleset folder for each project, instead of one shared folder for all of VS Code.\n\n**On save**, the extension scans the folder and uses every ruleset file found there.\n\n**On failure**, if a custom ruleset fails to load or validate, a warning is shown and that report falls back to the bundled default instead of blocking analysis.\n\nLeave this empty to always use the bundled rulesets under `<extension>/spectral-rulesets`.",
           "order": 4
         }
       }

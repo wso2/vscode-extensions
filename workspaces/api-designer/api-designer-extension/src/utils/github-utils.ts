@@ -358,8 +358,9 @@ export async function fetchRulesetsFromFolders(folderUrls: string[], sourceFolde
     }
 
     // Distinguish "folder(s) failed to scan" from "scanned fine, just empty" so callers can
-    // avoid treating a failed scan as a successfully-processed (if empty) folder.
-    return (allRulesets.length === 0 && hadError) ? null : allRulesets;
+    // avoid treating a failed scan as a successfully-processed (if empty) folder. Any error
+    // invalidates the whole result, even if other folders in the batch partially succeeded.
+    return hadError ? null : allRulesets;
 }
 
 /**
