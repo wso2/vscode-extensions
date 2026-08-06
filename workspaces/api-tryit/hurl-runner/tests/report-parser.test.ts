@@ -19,8 +19,9 @@
 import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
-import { parseFileResult } from '../src/report-parser';
+import { mapFileResultToCellOutcomes, parseFileResult } from '../src/report-parser';
 import { ProcessExecResult } from '../src/process-adapter';
+import { HurlFileResult } from '../src/types';
 
 function makeExecResult(overrides: Partial<ProcessExecResult> = {}): ProcessExecResult {
 	return {
@@ -479,5 +480,50 @@ describe('parseFileResult', () => {
 		expect(parsed.entries[1].name).toBe('Delete post');
 		expect(parsed.entries[1].status).toBe('passed');
 		expect(parsed.assertions).toHaveLength(3);
+	});
+});
+
+describe('mapFileResultToCellOutcomes', () => {
+	function makeFileResult(entryCount: number): HurlFileResult {
+		return {
+			filePath: '/tmp/combined.hurl',
+			status: 'passed',
+			startedAt: '2026-02-23T00:00:00.000Z',
+			finishedAt: '2026-02-23T00:00:00.010Z',
+			durationMs: 10,
+			entries: Array.from({ length: entryCount }, (_, index) => ({
+				name: `Entry ${index + 1}`,
+				status: 'passed' as const,
+				line: index * 4 + 1
+			})),
+			assertions: []
+		};
+	}
+
+	it('maps every entry to its cell in submission order when counts match', () => {
+		const fileResult = makeFileResult(3);
+		const outcomes = mapFileResultToCellOutcomes(fileResult, 3);
+
+		expect(outcomes).toHaveLength(3);
+		expect(outcomes.map(o => o.skipped)).toEqual([false, false, false]);
+		expect(outcomes.map(o => o.entry?.name)).toEqual(['Entry 1', 'Entry 2', 'Entry 3']);
+		expect(outcomes.map(o => o.cellIndex)).toEqual([0, 1, 2]);
+	});
+
+	it('marks trailing cells as skipped when hurl stopped before reaching them', () => {
+		const fileResult = makeFileResult(2);
+		const outcomes = mapFileResultToCellOutcomes(fileResult, 5);
+
+		expect(outcomes).toHaveLength(5);
+		expect(outcomes.slice(0, 2).map(o => o.skipped)).toEqual([false, false]);
+		expect(outcomes.slice(2).every(o => o.skipped)).toBe(true);
+		expect(outcomes.slice(2).every(o => o.entry === undefined)).toBe(true);
+	});
+
+	it('marks every cell as skipped when the file produced no entries at all', () => {
+		const fileResult = makeFileResult(0);
+		const outcomes = mapFileResultToCellOutcomes(fileResult, 3);
+
+		expect(outcomes.every(o => o.skipped)).toBe(true);
 	});
 });

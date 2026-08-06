@@ -706,6 +706,29 @@ function deriveFileStatus(execResult: ProcessExecResult, report?: GenericReport,
 	return 'passed';
 }
 
+export interface CellRunOutcome {
+	cellIndex: number;
+	entry?: HurlEntryResult;
+	skipped: boolean;
+}
+
+/**
+ * Maps a HurlFileResult produced by a combined, multi-entry run back onto one
+ * outcome per submitted cell, in submission order. Hurl with
+ * `--continue-on-error` always attempts every entry in file order, so a
+ * shortfall (fewer entries than cells) only happens when execution stopped
+ * before reaching the later cells (e.g. a crash or cancellation) - those
+ * cells are reported as skipped rather than throwing.
+ */
+export function mapFileResultToCellOutcomes(fileResult: HurlFileResult, cellCount: number): CellRunOutcome[] {
+	const outcomes: CellRunOutcome[] = [];
+	for (let cellIndex = 0; cellIndex < cellCount; cellIndex++) {
+		const entry = fileResult.entries[cellIndex];
+		outcomes.push({ cellIndex, entry, skipped: entry === undefined });
+	}
+	return outcomes;
+}
+
 export async function parseFileResult(context: ParseContext): Promise<HurlFileResult> {
 	const durationMs = context.finishedAt.getTime() - context.startedAt.getTime();
 	let report: GenericReport | undefined;

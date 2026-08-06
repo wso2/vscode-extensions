@@ -156,7 +156,28 @@
           "type": "string",
           "default": "",
           "scope": "resource",
-          "description": "Default file root directory for Hurl notebook execution. If set, overrides the notebook's directory. Used as the base path for file references in Hurl requests."
+          "description": "Default file root directory for Hurl notebook execution. If set, overrides the notebook's directory. Used as the base path for file references in Hurl requests. Also the folder Hurl Client looks in for a shared 'hurl.vars' Variables File."
+        },
+        "hurl-client.insecure": {
+          "type": "boolean",
+          "default": false,
+          "scope": "resource",
+          "description": "Skip TLS certificate verification (passes hurl's -k/--insecure flag). Useful for local servers with self-signed certificates."
+        },
+        "hurl-client.followRedirects": {
+          "type": "boolean",
+          "default": false,
+          "scope": "resource",
+          "description": "Follow HTTP redirects (passes hurl's -L/--location flag)."
+        },
+        "hurl-client.extraArgs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "scope": "resource",
+          "description": "Additional command-line arguments passed to hurl verbatim, for options Hurl Client does not expose its own setting for."
         }
       }
     }
