@@ -26,7 +26,10 @@ function activateCreateConfigTomlCommand() {
     // register the create Config.toml code action command handler
     commands.registerCommand(CREATE_CONFIG_TOML_COMMAND, async (configTomlPath: string, content: string) => {
         try {
-            if (!configTomlPath || content === undefined) {
+            // The arguments arrive through command execution, so they are unchecked at runtime.
+            if (typeof configTomlPath !== 'string' || !configTomlPath || typeof content !== 'string') {
+                window.showErrorMessage(
+                    `${CREATE_CONFIG_TOML_COMMAND} expects a non-empty configTomlPath string and a content string.`);
                 return;
             }
 
@@ -51,7 +54,12 @@ function activateCreateConfigTomlCommand() {
             }
 
             const document: TextDocument = await workspace.openTextDocument(uri);
-            await document.save();
+            // save() also resolves false for an already-clean document, so only treat it as a
+            // failure while there are still unpersisted changes.
+            if (!await document.save() && document.isDirty) {
+                window.showErrorMessage(`Failed to save ${configTomlPath}.`);
+                return;
+            }
             await window.showTextDocument(document, { preview: false });
         } catch (error) {
             const message = error instanceof Error ? error.message : "Unknown error occurred.";
