@@ -28,7 +28,7 @@ import {
     HurlAssertionResult,
     HurlRunOptions
 } from '@wso2/api-tryit-hurl-runner';
-import { composeHurlDocument } from '@wso2/api-tryit-hurl-parser';
+import { composeHurlDocumentWithBoundaries } from '@wso2/api-tryit-hurl-parser';
 import { getHurlBinaryManager } from '../hurl/hurl-binary-manager';
 
 const CONTROLLER_ID = 'HurlClient-controller';
@@ -36,6 +36,7 @@ const NOTEBOOK_TYPE = 'HurlClient';
 const CONTROLLER_LABEL = 'Hurl Client Runner';
 const SHARED_VARIABLES_FILE_NAME = 'hurl.vars';
 const UNDEFINED_VARIABLE_PATTERN = /undefined variable/i;
+const REQUEST_LINE_PATTERN = /^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS|CONNECT|TRACE|PROPFIND|PROPPATCH|MKCOL|COPY|MOVE|LOCK|UNLOCK)\s+\S/mi;
 
 interface ResolvedRunOptions {
     commandPath: string;
@@ -207,7 +208,14 @@ export class HurlNotebookController {
         let tempDir: string | undefined;
         try {
             const runOptions = await this.resolveRunOptions(notebook);
-            const combinedContent = composeHurlDocument('', executions.map(item => item.content));
+            // A "cell" here isn't guaranteed to be exactly one request - e.g. a
+            // notebook's leading comment block becomes its own code cell with
+            // no request line at all. Boundaries (not array position) are what
+            // let a zero-entry cell sit in the middle of a chain without
+            // shifting every entry after it onto the wrong cell.
+            const { document: combinedContent, boundaries } = composeHurlDocumentWithBoundaries(
+                executions.map(item => item.content)
+            );
 
             tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'http-book-'));
             const tempFile = path.join(tempDir, 'combined.hurl');
@@ -235,20 +243,26 @@ export class HurlNotebookController {
                 return;
             }
 
-            const outcomes = mapFileResultToCellOutcomes(fileResult, executions.length);
-            for (let index = 0; index < executions.length; index++) {
-                const { execution } = executions[index];
-                const outcome = outcomes[index];
+            const outcomes = mapFileResultToCellOutcomes(
+                fileResult,
+                boundaries.map(b => ({ startLine: b.startLine, endLine: b.endLine }))
+            );
+            const entriesBySourceIndex = new Map(boundaries.map((b, i) => [b.sourceIndex, outcomes[i].entries]));
 
-                if (outcome.skipped || !outcome.entry) {
-                    await execution.appendOutput([this.buildSkippedOutput(fileResult)]);
-                    execution.end(false, Date.now());
+            for (let index = 0; index < executions.length; index++) {
+                const { execution, content } = executions[index];
+                const entries = entriesBySourceIndex.get(index) || [];
+
+                if (entries.length === 0) {
+                    const hasRequest = REQUEST_LINE_PATTERN.test(content);
+                    await execution.appendOutput([this.buildSkippedOutput(fileResult, hasRequest)]);
+                    execution.end(!hasRequest, Date.now());
                     continue;
                 }
 
-                const output = this.buildEntryOutput(outcome.entry, fileResult, outcome.entry.responseBody);
-                await execution.appendOutput([output]);
-                execution.end(outcome.entry.status === 'passed', Date.now());
+                const outputs = entries.map(entry => this.buildEntryOutput(entry, fileResult, entry.responseBody));
+                await execution.appendOutput(outputs);
+                execution.end(entries.every(entry => entry.status === 'passed'), Date.now());
             }
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
@@ -357,7 +371,14 @@ export class HurlNotebookController {
         ]);
     }
 
-    private buildSkippedOutput(fileResult: HurlFileResult): vscode.NotebookCellOutput {
+    private buildSkippedOutput(fileResult: HurlFileResult, hasRequest: boolean): vscode.NotebookCellOutput {
+        if (!hasRequest) {
+            const md = '##### ℹ️ NO REQUEST\n\nThis cell has no request to run.';
+            return new vscode.NotebookCellOutput([
+                vscode.NotebookCellOutputItem.text(md, 'text/markdown')
+            ]);
+        }
+
         const detail = fileResult.errorMessage || fileResult.stderr;
         const detailBlock = detail ? `\n\n\`\`\`\n${detail}\n\`\`\`` : '';
         const md = `##### ⏭️ NOT RUN\n\nThis request was not executed because the chained run stopped before reaching it.${detailBlock}`;

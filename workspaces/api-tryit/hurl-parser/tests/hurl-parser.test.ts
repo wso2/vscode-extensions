@@ -23,7 +23,7 @@ import {
 	parseHurlCollection,
 } from '../src';
 import type { ApiCollection } from '@wso2/api-tryit-core';
-import { composeHurlDocument, parseHurlDocument } from '../src';
+import { composeHurlDocument, composeHurlDocumentWithBoundaries, parseHurlDocument } from '../src';
 
 // verify that the utility for splitting Hurl documents is available
 
@@ -103,6 +103,45 @@ describe('composeHurlDocument for combining notebook cells into one Chained Run'
 		const { blocks } = parseHurlDocument(combined);
 
 		expect(blocks).toHaveLength(1);
+	});
+});
+
+describe('composeHurlDocumentWithBoundaries', () => {
+	it('reports the line range each block occupies in the combined document', () => {
+		const blocks = ['GET https://example.com/one\nHTTP 200', 'GET https://example.com/two\nHTTP 200'];
+		const { document, boundaries } = composeHurlDocumentWithBoundaries(blocks);
+
+		expect(document.split('\n')).toEqual([
+			'GET https://example.com/one', 'HTTP 200', '', 'GET https://example.com/two', 'HTTP 200', ''
+		]);
+		expect(boundaries).toEqual([
+			{ sourceIndex: 0, startLine: 1, endLine: 2 },
+			{ sourceIndex: 1, startLine: 4, endLine: 5 }
+		]);
+	});
+
+	it('leaves a gap in source indices for blocks dropped as blank, without shifting later boundaries', () => {
+		// Mirrors the notebook header-cell bug: a comment-only block that
+		// survives (it's non-blank, just has no request) still gets its own
+		// boundary and line range - callers correlate back to their original
+		// cell list via sourceIndex, not array position.
+		const blocks = [
+			'GET https://example.com/one\nHTTP 200',
+			'# just a comment, no request',
+			'GET https://example.com/two\nHTTP 200'
+		];
+		const { boundaries } = composeHurlDocumentWithBoundaries(blocks);
+
+		expect(boundaries.map(b => b.sourceIndex)).toEqual([0, 1, 2]);
+		expect(boundaries[1].startLine).toBe(4);
+		expect(boundaries[2].startLine).toBe(6);
+	});
+
+	it('drops genuinely blank blocks entirely, leaving a gap in sourceIndex', () => {
+		const blocks = ['GET https://example.com/one\nHTTP 200', '   ', 'GET https://example.com/two\nHTTP 200'];
+		const { boundaries } = composeHurlDocumentWithBoundaries(blocks);
+
+		expect(boundaries.map(b => b.sourceIndex)).toEqual([0, 2]);
 	});
 });
 

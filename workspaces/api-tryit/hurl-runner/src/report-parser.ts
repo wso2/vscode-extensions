@@ -706,27 +706,32 @@ function deriveFileStatus(execResult: ProcessExecResult, report?: GenericReport,
 	return 'passed';
 }
 
+export interface CellBoundary {
+	startLine: number;
+	endLine: number;
+}
+
 export interface CellRunOutcome {
-	cellIndex: number;
-	entry?: HurlEntryResult;
-	skipped: boolean;
+	entries: HurlEntryResult[];
 }
 
 /**
- * Maps a HurlFileResult produced by a combined, multi-entry run back onto one
- * outcome per submitted cell, in submission order. Hurl with
- * `--continue-on-error` always attempts every entry in file order, so a
- * shortfall (fewer entries than cells) only happens when execution stopped
- * before reaching the later cells (e.g. a crash or cancellation) - those
- * cells are reported as skipped rather than throwing.
+ * Maps a HurlFileResult produced by a combined, multi-entry run back onto
+ * one outcome per submitted cell boundary, using each entry's own `line`
+ * rather than array position. Index-based zipping breaks as soon as any
+ * cell produces zero entries (e.g. a comment-only cell with no request) or
+ * more than one (a cell containing multiple requests) - line-range matching
+ * handles both without shifting every cell after it. A cell whose range
+ * matches no entry at all is reported with an empty `entries` array, which
+ * covers both "this cell has no request" and "hurl stopped before reaching
+ * it" - the caller distinguishes those by inspecting the cell's own source.
  */
-export function mapFileResultToCellOutcomes(fileResult: HurlFileResult, cellCount: number): CellRunOutcome[] {
-	const outcomes: CellRunOutcome[] = [];
-	for (let cellIndex = 0; cellIndex < cellCount; cellIndex++) {
-		const entry = fileResult.entries[cellIndex];
-		outcomes.push({ cellIndex, entry, skipped: entry === undefined });
-	}
-	return outcomes;
+export function mapFileResultToCellOutcomes(fileResult: HurlFileResult, boundaries: CellBoundary[]): CellRunOutcome[] {
+	return boundaries.map(boundary => ({
+		entries: fileResult.entries.filter(entry =>
+			typeof entry.line === 'number' && entry.line >= boundary.startLine && entry.line <= boundary.endLine
+		)
+	}));
 }
 
 export async function parseFileResult(context: ParseContext): Promise<HurlFileResult> {

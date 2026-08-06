@@ -484,46 +484,89 @@ describe('parseFileResult', () => {
 });
 
 describe('mapFileResultToCellOutcomes', () => {
-	function makeFileResult(entryCount: number): HurlFileResult {
+	// Entries at lines 1, 5, 9 - matching three 3-line blocks joined with a
+	// blank separator line each (block, blank, block, blank, block).
+	function makeFileResult(entryLines: number[]): HurlFileResult {
 		return {
 			filePath: '/tmp/combined.hurl',
 			status: 'passed',
 			startedAt: '2026-02-23T00:00:00.000Z',
 			finishedAt: '2026-02-23T00:00:00.010Z',
 			durationMs: 10,
-			entries: Array.from({ length: entryCount }, (_, index) => ({
+			entries: entryLines.map((line, index) => ({
 				name: `Entry ${index + 1}`,
 				status: 'passed' as const,
-				line: index * 4 + 1
+				line
 			})),
 			assertions: []
 		};
 	}
 
-	it('maps every entry to its cell in submission order when counts match', () => {
-		const fileResult = makeFileResult(3);
-		const outcomes = mapFileResultToCellOutcomes(fileResult, 3);
+	it('matches each boundary to the entry whose line falls inside it', () => {
+		const fileResult = makeFileResult([1, 5, 9]);
+		const boundaries = [
+			{ startLine: 1, endLine: 3 },
+			{ startLine: 5, endLine: 7 },
+			{ startLine: 9, endLine: 11 }
+		];
+
+		const outcomes = mapFileResultToCellOutcomes(fileResult, boundaries);
 
 		expect(outcomes).toHaveLength(3);
-		expect(outcomes.map(o => o.skipped)).toEqual([false, false, false]);
-		expect(outcomes.map(o => o.entry?.name)).toEqual(['Entry 1', 'Entry 2', 'Entry 3']);
-		expect(outcomes.map(o => o.cellIndex)).toEqual([0, 1, 2]);
+		expect(outcomes.map(o => o.entries.map(e => e.name))).toEqual([['Entry 1'], ['Entry 2'], ['Entry 3']]);
 	});
 
-	it('marks trailing cells as skipped when hurl stopped before reaching them', () => {
-		const fileResult = makeFileResult(2);
-		const outcomes = mapFileResultToCellOutcomes(fileResult, 5);
+	it('reports an empty-entries outcome for a boundary with no request, without shifting later boundaries', () => {
+		// Reproduces the header-cell bug: a comment-only block (no request line,
+		// so it produces zero report entries) sits between two real requests.
+		// Index-based zipping would misattribute entry 2 to the comment block's
+		// slot and leave the real last request unmatched; line-range matching
+		// must not.
+		const fileResult = makeFileResult([1, 9]); // no entry inside the middle (comment) boundary
+		const boundaries = [
+			{ startLine: 1, endLine: 3 },  // real request - has an entry
+			{ startLine: 5, endLine: 6 },  // comment-only cell - no entry
+			{ startLine: 9, endLine: 11 }  // real request - has an entry
+		];
 
-		expect(outcomes).toHaveLength(5);
-		expect(outcomes.slice(0, 2).map(o => o.skipped)).toEqual([false, false]);
-		expect(outcomes.slice(2).every(o => o.skipped)).toBe(true);
-		expect(outcomes.slice(2).every(o => o.entry === undefined)).toBe(true);
+		const outcomes = mapFileResultToCellOutcomes(fileResult, boundaries);
+
+		expect(outcomes).toHaveLength(3);
+		expect(outcomes[0].entries.map(e => e.name)).toEqual(['Entry 1']);
+		expect(outcomes[1].entries).toEqual([]);
+		expect(outcomes[2].entries.map(e => e.name)).toEqual(['Entry 2']);
 	});
 
-	it('marks every cell as skipped when the file produced no entries at all', () => {
-		const fileResult = makeFileResult(0);
-		const outcomes = mapFileResultToCellOutcomes(fileResult, 3);
+	it('marks trailing boundaries with empty entries when hurl stopped before reaching them', () => {
+		const fileResult = makeFileResult([1, 5]);
+		const boundaries = [
+			{ startLine: 1, endLine: 3 },
+			{ startLine: 5, endLine: 7 },
+			{ startLine: 9, endLine: 11 },
+			{ startLine: 13, endLine: 15 }
+		];
 
-		expect(outcomes.every(o => o.skipped)).toBe(true);
+		const outcomes = mapFileResultToCellOutcomes(fileResult, boundaries);
+
+		expect(outcomes.slice(0, 2).every(o => o.entries.length === 1)).toBe(true);
+		expect(outcomes.slice(2).every(o => o.entries.length === 0)).toBe(true);
+	});
+
+	it('reports every boundary as empty when the file produced no entries at all', () => {
+		const fileResult = makeFileResult([]);
+		const boundaries = [{ startLine: 1, endLine: 3 }, { startLine: 5, endLine: 7 }];
+
+		const outcomes = mapFileResultToCellOutcomes(fileResult, boundaries);
+
+		expect(outcomes.every(o => o.entries.length === 0)).toBe(true);
+	});
+
+	it('attributes multiple entries to a single boundary when a cell contains more than one request', () => {
+		const fileResult = makeFileResult([1, 2]);
+		const boundaries = [{ startLine: 1, endLine: 3 }];
+
+		const outcomes = mapFileResultToCellOutcomes(fileResult, boundaries);
+
+		expect(outcomes[0].entries.map(e => e.name)).toEqual(['Entry 1', 'Entry 2']);
 	});
 });
