@@ -31,3 +31,51 @@ Content-Type: application/json
   "name": "Alice"
 }
 ```
+
+## Chaining requests
+
+Each request is its own notebook cell. Run a single cell by itself, and it runs on its own — with no access to variables captured by other cells.
+
+To chain requests, so a variable captured in one is available to the next, run them **together**: select multiple cells (or use **Run All**) instead of running one at a time.
+
+```hurl
+POST https://api.example.com/login
+Content-Type: application/json
+{
+  "username": "alice",
+  "password": "secret"
+}
+HTTP 200
+[Captures]
+token: jsonpath "$.token"
+
+GET https://api.example.com/profile
+Authorization: Bearer {{token}}
+HTTP 200
+```
+
+Select both cells above and run them together — `{{token}}` only resolves because the cell that captures it ran in the same invocation.
+
+## Variables
+
+To set your own variables (like a base URL or API key), create a file named `hurl.vars` in the same folder as your `.hurl` files:
+
+```
+base_url=https://api.example.com
+api_key=your-api-key
+```
+
+Hurl Client picks this up automatically — no extra setup needed. Reference the values as `{{base_url}}`, `{{api_key}}`, etc. in your requests.
+
+Need a different value for just one file? Add `<filename>.hurl.vars` (e.g. `requests.hurl.vars` for `requests.hurl`) — it overrides the shared file for the values it defines.
+
+Keep real secrets out of `hurl.vars` if you commit it to version control.
+
+## Settings
+
+| Setting | What it does |
+|---------|---------------|
+| `hurl-client.fileRoot` | Folder used for file references and for the shared `hurl.vars` file |
+| `hurl-client.insecure` | Skip TLS certificate checks |
+| `hurl-client.followRedirects` | Follow HTTP redirects |
+| `hurl-client.extraArgs` | Pass any other hurl command-line flag not listed above |
