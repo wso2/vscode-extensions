@@ -11,13 +11,6 @@ on:
         description: "Select the package to release"
         required: true
         options:
-          - 'ballerina/data-mapper'
-          - 'ballerina/low-code-diagram'
-          - 'ballerina/low-code-editor'
-          - 'ballerina/low-code-integration-tests'
-          - 'ballerina/statement-editor'
-          - 'ballerina/syntax-tree'
-          - 'ballerina/project-design-diagrams'                                                                          
           - 'common-libs/ui-toolkit'
           - 'common-libs/font-wso2-vscode'
       version:
@@ -41,7 +34,6 @@ jobs:
     with:
       isPreRelease: ${{ inputs.isPreRelease }}
       enableCache: false
-      ballerina: false
       wso2-platform: false
       choreo: false
       apk: false
@@ -105,17 +97,14 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
 
-      - name: Create PR and notify
+      - name: Create PR
         uses: ./.github/actions/pr
         with:
           version: ${{ steps.publish.outputs.version }}${{ inputs.package }}
-          threadId: ${{ github.run_id }}
           bot_username: ${{ secrets.CHOREO_BOT_USERNAME }}
           bot_email: ${{ secrets.CHOREO_BOT_EMAIL }}
           bot_token: ${{ secrets.CHOREO_BOT_TOKEN }}
           ref_name: ${{ github.ref_name }}
           commonLibs: true
           choreo: true
-          ballerina: true
           apk: true
-          chatAPI: ${{ secrets.TOOLING_TEAM_CHAT_API }}

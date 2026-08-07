@@ -1,6 +1,0 @@
-<conditionalRouter continueAfter="true" description="" >
-        <conditionalRoute asynchronous="true" breakRoute="true" >
-            <condition><equal  type="param" source="foo" value="bar"/></condition>
-            <target sequence="defseq" />
-        </conditionalRoute>
-    </conditionalRouter>

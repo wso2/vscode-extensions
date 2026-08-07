@@ -1,3 +1,0 @@
-└─ @wso2/syntax-tree-generator@1.0.0
-   ├─ licenses: Apache-2.0
-   └─ path: /syntax-tree/generator

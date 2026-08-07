@@ -151,6 +151,12 @@
           "type": "string",
           "default": "7.1.0",
           "description": "Managed hurl version to install."
+        },
+        "hurl-client.fileRoot": {
+          "type": "string",
+          "default": "",
+          "scope": "resource",
+          "description": "Default file root directory for Hurl notebook execution. If set, overrides the notebook's directory. Used as the base path for file references in Hurl requests."
         }
       }
     }

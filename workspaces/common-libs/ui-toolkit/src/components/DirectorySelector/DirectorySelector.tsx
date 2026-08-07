@@ -33,6 +33,7 @@ export interface DirectorySelectorProps {
     'data-testid'?: string;
     onSelect: () => void;
     onChange?: (value: string) => void;
+    onBlur?: () => void;
 }
 
 interface ContainerProps {
@@ -117,23 +118,41 @@ const BrowseButton = styled(VSCodeButton)`
 `;
 
 export const DirectorySelector: React.FC<DirectorySelectorProps> = props => {
-    const { 
-        id, 
-        label, 
-        placeholder = "Enter or browse to select a folder...", 
-        selectedPath, 
-        required, 
+    const {
+        id,
+        label,
+        placeholder = "Enter or browse to select a folder...",
+        selectedPath,
+        required,
         description,
-        errorMsg, 
+        errorMsg,
         sx,
         'data-testid': dataTestId,
         onSelect,
-        onChange 
+        onChange,
+        onBlur,
     } = props;
 
+    // Keep a local copy of the field text so manual path entry works even though the
+    // parent normalizes the value it feeds back (it splits the path into base + folder and
+    // re-joins, which drops a just-typed trailing separator — making "/" appear to do
+    // nothing). Sync only when `selectedPath` genuinely changes from the outside (browse,
+    // name-derived updates), never in response to our own keystrokes.
+    const [text, setText] = React.useState(selectedPath ?? '');
+    React.useEffect(() => {
+        setText(selectedPath ?? '');
+    }, [selectedPath]);
+
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setText(e.target.value);
         if (onChange) {
             onChange(e.target.value);
+        }
+    };
+
+    const handleInputBlur = () => {
+        if (onBlur) {
+            onBlur();
         }
     };
 
@@ -151,14 +170,15 @@ export const DirectorySelector: React.FC<DirectorySelectorProps> = props => {
                     <Input
                         id={`${id}-input`}
                         type="text"
-                        value={selectedPath || ''}
+                        value={text}
                         placeholder={placeholder}
                         onChange={handleInputChange}
+                        onBlur={handleInputBlur}
                     />
                 </InputWrapper>
-                <BrowseButton 
+                <BrowseButton
                     data-testid="directory-selector-btn"
-                    appearance="primary" 
+                    appearance="primary"
                     onClick={onSelect}
                 >
                     Browse

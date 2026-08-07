@@ -1,3 +1,0 @@
-<syn:builder xmlns:syn="http://ws.apache.org/ns/synapse">
-        <messageBuilder class="BClass" contentType="Content Type" formatterClass="FClass"/>
-    </syn:builder>

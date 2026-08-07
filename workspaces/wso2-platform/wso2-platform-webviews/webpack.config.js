@@ -27,6 +27,8 @@ module.exports = {
 			handlebars: "handlebars/dist/handlebars.min.js",
 			react: path.resolve(__dirname, "node_modules/react"),
 			"react-dom": path.resolve(__dirname, "node_modules/react-dom"),
+			// Keep resolver imports on the package-local Zod v4 instead of a hoisted Zod v3 copy.
+			zod: path.resolve(__dirname, "node_modules/zod"),
 			crypto: false,
 			net: false,
 			os: false,

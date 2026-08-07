@@ -1,4 +1,4 @@
-name: 'Release vsix to github and notify'
+name: 'Release vsix to github'
 inputs:
   repo:
     description: 'Github repository name'
@@ -9,12 +9,6 @@ inputs:
   token:
     description: 'Publish token'
     required: true 
-  chatAPI:
-    description: 'Google chat API'
-    required: true
-  threadId:
-    description: 'Google chat thread ID'
-    required: true   
 
 runs:
   using: "composite"
@@ -43,52 +37,3 @@ runs:
           uploadResponse=`curl -X POST -H "Authorization:token ${{ inputs.token }}" -H "Content-Type:application/octet-stream" \
           --data-binary @${{ steps.vsix.outputs.vsixName }} \
           https://uploads.github.com/repos/${{ inputs.repo }}/releases/$id/assets?name=${{ steps.vsix.outputs.vsixName }}`
-
-    - name: "Release Notification"
-      shell: bash
-      run: |
-        body=$(cat << EOF
-        {
-          "cards": [
-            { 
-              "header": {
-                  "title": "New Release - ${{ inputs.name }}"
-              },
-              "sections": [
-                {
-                  "widgets": [
-                    {
-                      "keyValue": {
-                        "topLabel": "VSIX",
-                        "content": "v${{ steps.vsix.outputs.version }}",
-                        "onClick": {
-                          "openLink": {
-                            "url": "https://github.com/${{ inputs.repo }}/releases/tag/v${{ steps.vsix.outputs.version }}"
-                          }
-                        },
-                        "iconUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/Visual_Studio_Code_1.35_icon.svg/512px-Visual_Studio_Code_1.35_icon.svg.png",
-                        "button": {
-                          "textButton": {
-                            "text": "Download VSIX",
-                            "onClick": {
-                              "openLink": {
-                                "url": "https://github.com/${{ inputs.repo }}/releases/download/v${{ steps.vsix.outputs.version }}/${{ steps.vsix.outputs.vsixName }}"
-                              }
-                            }
-                          }
-                        }
-                      }
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        }
-        EOF
-        )
-        curl \
-          -X POST \
-          -H 'Content-Type: application/json' \
-          "${{ inputs.chatAPI }}" \
-          -d "$body"

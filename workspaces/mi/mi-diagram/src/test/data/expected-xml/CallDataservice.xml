@@ -1,9 +1,0 @@
-<dataServiceCall  serviceName="sdfa">
-        <operations type="single">
-            <operation name="OP Name">
-                <param name="Prop Name" value="Prop Value"  />
-            </operation>
-        </operations>
-        <source type="inline"/>
-        <target type="body"/>
-    </dataServiceCall>

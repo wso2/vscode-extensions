@@ -134,7 +134,14 @@ export const getComponentTypeText = (componentType: string): string => {
 export const getIntegrationComponentTypeText = (componentType: string, subType: string): string => {
 	switch (componentType) {
 		case ChoreoComponentType.Service:
-			return subType === ChoreoComponentSubType.AiAgent ? "AI Agent" : "Integration as API";
+			switch (subType) {
+				case ChoreoComponentSubType.AiAgent:
+					return "AI Agent";
+				case ChoreoComponentSubType.MCP:
+					return "MCP Server";
+				default:
+					return "Integration as API";
+			}
 		case ChoreoComponentType.ManualTrigger:
 			return "Automation";
 		case ChoreoComponentType.ScheduledTask:
@@ -158,6 +165,8 @@ export const getIntegrationScopeText = (integrationScope: string): string => {
 			return "File Integration";
 		case DevantScopes.AI_AGENT:
 			return "AI Agent";
+		case DevantScopes.MCP:
+			return "MCP Server";
 		case DevantScopes.LIBRARY:
 			return "Library";
 		default:
@@ -177,6 +186,8 @@ export const getTypeOfIntegrationType = (integrationScope: string): { type?: str
 			return { type: ChoreoComponentType.EventHandler, subType: ChoreoComponentSubType.fileIntegration };
 		case DevantScopes.AI_AGENT:
 			return { type: ChoreoComponentType.Service, subType: ChoreoComponentSubType.AiAgent };
+		case DevantScopes.MCP:
+			return { type: ChoreoComponentType.Service, subType: ChoreoComponentSubType.MCP };
 		case DevantScopes.LIBRARY:
 			return { type: ChoreoComponentType.Library };
 		default:
@@ -194,6 +205,9 @@ export const getIntegrationTypeFromComponentType = (componentType: string, subTy
 	// Handle subTypes first for more specific matches
 	if (componentType === ChoreoComponentType.Service && subType === ChoreoComponentSubType.AiAgent) {
 		return DevantScopes.AI_AGENT;
+	}
+	if (componentType === ChoreoComponentType.Service && subType === ChoreoComponentSubType.MCP) {
+		return DevantScopes.MCP;
 	}
 	if (componentType === ChoreoComponentType.EventHandler && subType === ChoreoComponentSubType.fileIntegration) {
 		return DevantScopes.FILE_INTEGRATION;
@@ -342,3 +356,74 @@ export const getComponentKindRepoSource = (source: ComponentKindSource) => {
 		path: source?.github?.path || source?.bitbucket?.path || source?.gitlab?.path || "",
 	};
 };
+
+/** Scopes whose deployment target is a long-running service. */
+const SERVICE_SCOPES: ReadonlySet<string> = new Set([
+	DevantScopes.INTEGRATION_AS_API,
+	DevantScopes.AI_AGENT,
+	DevantScopes.MCP,
+]);
+
+/** Scopes that represent passive listeners which run alongside whatever else is deployed. */
+const LISTENER_SCOPES: ReadonlySet<string> = new Set([
+	DevantScopes.EVENT_INTEGRATION,
+	DevantScopes.FILE_INTEGRATION,
+]);
+
+export type ResolveIntegrationTypeResult =
+	| { kind: "autoPick"; scope: string }
+	| { kind: "autoPickWithWarning"; scope: string }
+	| { kind: "ask"; choices: string[] };
+
+/**
+ * Decide whether the user must be prompted for an integration type, or whether
+ * one can be chosen automatically (with or without a warning) based on which
+ * scopes are present together.
+ *
+ * Rules:
+ *   1. Exactly one SERVICE scope + zero or more LISTENER scopes → silently pick the SERVICE.
+ *   2. AUTOMATION + ≥1 LISTENER scope + zero SERVICE scopes → pick AUTOMATION with warning.
+ *   3. Otherwise → ask the user (return the de-duplicated input as choices).
+ */
+export const resolveIntegrationType = (
+	supportedIntegrationTypes: readonly string[],
+): ResolveIntegrationTypeResult => {
+	const unique = Array.from(new Set(supportedIntegrationTypes));
+
+	if (unique.length === 0) {
+		return { kind: "ask", choices: [] };
+	}
+
+	if (unique.length === 1) {
+		return { kind: "autoPick", scope: unique[0] };
+	}
+
+	const services = unique.filter((s) => SERVICE_SCOPES.has(s));
+	const listeners = unique.filter((s) => LISTENER_SCOPES.has(s));
+	const hasAutomation = unique.includes(DevantScopes.AUTOMATION);
+	const classifiedCount = services.length + listeners.length + (hasAutomation ? 1 : 0);
+
+	// Any unclassified scope (LIBRARY, ANY, or future additions) blocks auto-pick.
+	if (classifiedCount !== unique.length) {
+		return { kind: "ask", choices: unique };
+	}
+
+	// Rule 1: exactly one SERVICE + only LISTENER scopes alongside → silent pick.
+	if (services.length === 1 && !hasAutomation) {
+		return { kind: "autoPick", scope: services[0] };
+	}
+
+	// Rule 2: AUTOMATION + ≥1 LISTENER + no SERVICE → pick automation, warn.
+	if (hasAutomation && services.length === 0 && listeners.length >= 1) {
+		return { kind: "autoPickWithWarning", scope: DevantScopes.AUTOMATION };
+	}
+
+	return { kind: "ask", choices: unique };
+};
+
+/**
+ * The standard warning message shown when {@link resolveIntegrationType} returns
+ * `autoPickWithWarning`. Callers may wrap this in their own UI (modal, banner, etc.).
+ */
+export const AUTOMATION_WITH_LISTENER_WARNING =
+	"This integration contains a listener that will run continuously while the automation is running. The automation will be deployed, and the listener will be active for the duration of every automation run.";

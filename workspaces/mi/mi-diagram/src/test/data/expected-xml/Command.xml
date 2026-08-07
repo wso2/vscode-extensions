@@ -1,3 +1,0 @@
-<pojoCommand name="NewClass" >
-        <property action="ReadMessage" name="Prop Name" expression="Value Message Element Xpath" />
-</pojoCommand>

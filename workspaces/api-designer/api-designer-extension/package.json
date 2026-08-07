@@ -289,20 +289,20 @@
     "node-fetch": "2.6.7",
     "node-loader": "2.0.0",
     "to-json-schema": "0.2.5",
-    "@babel/core": "7.24.4",
+    "@babel/core": "^7.29.7",
     "@types/json-schema": "7.0.15",
     "json-schema": "0.4.0",
     "portfinder": "1.0.32",
     "cors-anywhere": "0.4.4",
     "@apidevtools/json-schema-ref-parser": "11.6.1",
-    "adm-zip": "0.5.14",
-    "js-yaml": "4.1.1",
     "jsonc-parser": "3.3.1",
     "yaml": "2.8.3",
     "@stoplight/spectral-core": "1.22.0",
     "@stoplight/spectral-formats": "1.8.2",
     "@stoplight/spectral-functions": "1.10.2",
     "@stoplight/spectral-parsers": "1.0.5",
-    "@stoplight/spectral-rulesets": "1.22.1"
+    "@stoplight/spectral-rulesets": "1.22.1", 
+    "adm-zip": "0.6.0",
+    "js-yaml": "4.1.1"
   }
 }
