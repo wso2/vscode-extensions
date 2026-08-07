@@ -2,7 +2,7 @@
   "name": "hurl-client",
   "displayName": "Hurl Client",
   "description": "Open and run .hurl files as interactive notebooks",
-  "version": "0.9.3",
+  "version": "0.9.5",
   "publisher": "wso2",
   "repository": {
     "type": "git",
@@ -22,7 +22,6 @@
   ],
   "activationEvents": [
     "onNotebook:HurlClient",
-    "onCommand:HurlClient.importHurlString",
     "onCommand:HTTPClient.importHurlString"
   ],
   "icon": "images/icon.png",
