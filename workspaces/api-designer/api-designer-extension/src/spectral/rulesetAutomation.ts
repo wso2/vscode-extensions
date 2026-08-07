@@ -19,8 +19,15 @@
 import * as vscode from 'vscode';
 import { fetchRulesetsFromFolders, RulesetMetadata } from '../utils/github-utils';
 import { logDebug, logError, logWarning } from '../utils/logger';
+import { extension } from '../APIDesignerExtensionContext';
 
 const FOLDER_STATE_KEY = 'apiDesigner.spectral.cachedRulesetFolders';
+
+/**
+ * workspaceState key for the auto-discovered ruleset cache. Internal only — not a user-facing
+ * setting. Scoped per-workspace because `rulesetFolder` itself is workspace-overridable.
+ */
+const DISCOVERED_RULESETS_STATE_KEY = 'apiDesigner.spectral.discoveredRulesets';
 
 /** Read a single ruleset folder from config. */
 export function getRulesetFolderFromConfigValue(value: unknown): string | undefined {
@@ -33,6 +40,10 @@ export function getRulesetFolderFromConfigValue(value: unknown): string | undefi
 
 /** Current setting key (singular). */
 const RULESET_FOLDER_KEY = 'spectral.rulesetFolder' as const;
+
+function readDiscoveredRulesets(context: vscode.ExtensionContext): StoredRuleset[] {
+    return context.workspaceState.get<StoredRuleset[]>(DISCOVERED_RULESETS_STATE_KEY, []) || [];
+}
 
 /**
  * Raw value from `spectral.rulesetFolder`.
@@ -77,9 +88,10 @@ export interface StoredRuleset {
 
 
 export function getAllSpectralRulesets(): StoredRuleset[] {
-    const config = vscode.workspace.getConfiguration('apiDesigner');
-    const stored = config.get<StoredRuleset[]>('spectral.selectedRulesets', []);
-    return stored || [];
+    if (!extension.context) {
+        return [];
+    }
+    return readDiscoveredRulesets(extension.context);
 }
 
 function scheduleSync(context: vscode.ExtensionContext, reason: SyncReason): void {
@@ -97,9 +109,9 @@ async function syncRulesetsWithSettings(context: vscode.ExtensionContext, reason
     const { values: configuredFolders, changed: foldersSanitized } = sanitizeFolders(folderSetting);
     const folders = configuredFolders;
     const foldersChanged = foldersSanitized;
-    const rawRulesets = config.get<StoredRuleset[]>('spectral.selectedRulesets', []);
+    const rawRulesets = readDiscoveredRulesets(context);
     const { values: storedRulesets, changed: sanitizeChanged } = sanitizeRulesets(rawRulesets);
-    const cachedFolders = context.globalState.get<string[]>(FOLDER_STATE_KEY);
+    const cachedFolders = context.workspaceState.get<string[]>(FOLDER_STATE_KEY);
 
     // Default from package.json (empty string -> no extra default folders)
     const defaultFolder = getRulesetFolderFromConfigValue(config.inspect<unknown>(RULESET_FOLDER_KEY)?.defaultValue);
@@ -138,6 +150,9 @@ async function syncRulesetsWithSettings(context: vscode.ExtensionContext, reason
 
     let updatedRulesets = storedRulesets;
     let didChangeRules = sanitizeChanged;
+    // Folders that failed to scan this round (network/filesystem error) — kept out of
+    // FOLDER_STATE_KEY so they're retried on the next sync instead of being skipped forever.
+    const erroredFolders = new Set<string>();
 
     if (removedFolders.length > 0) {
         logDebug(`[Spectral] Removing rulesets from deleted folders: ${removedFolders.join(', ')}`);
@@ -157,26 +172,38 @@ async function syncRulesetsWithSettings(context: vscode.ExtensionContext, reason
                       normalizedFolderToProcess;
         
         const next = await handleNewFolderSelection(folder, updatedRulesets);
-        if (next && next !== updatedRulesets) {
+        if (next === null) {
+            erroredFolders.add(normalizedFolderToProcess);
+            continue;
+        }
+        if (next !== updatedRulesets) {
             updatedRulesets = next;
             didChangeRules = true;
         }
     }
 
     if (didChangeRules) {
-        await config.update('spectral.selectedRulesets', updatedRulesets.map(toStoredRuleset), vscode.ConfigurationTarget.Global);
+        await context.workspaceState.update(DISCOVERED_RULESETS_STATE_KEY, updatedRulesets.map(toStoredRuleset));
     }
 
     const nextFolder = folders[0];
     if (foldersChanged && typeof nextFolder === 'string' && nextFolder.length > 0 && nextFolder !== configuredFolder) {
+        // Write the normalized value back to whichever scope it actually came from, so a
+        // workspace-level override doesn't get shadowed by a stray copy in Global settings.
+        // (The setting is window-scoped, so only Workspace vs. Global are possible here.)
+        const inspected = config.inspect<string>(RULESET_FOLDER_KEY);
+        const writeTarget = inspected?.workspaceValue !== undefined
+            ? vscode.ConfigurationTarget.Workspace
+            : vscode.ConfigurationTarget.Global;
         await config.update(
             RULESET_FOLDER_KEY,
             nextFolder,
-            vscode.ConfigurationTarget.Global
+            writeTarget
         );
     }
 
-    await context.globalState.update(FOLDER_STATE_KEY, folders);
+    const foldersToPersist = folders.filter(folder => !erroredFolders.has(normalizeFolder(folder)));
+    await context.workspaceState.update(FOLDER_STATE_KEY, foldersToPersist);
 }
 
 async function handleNewFolderSelection(
@@ -201,6 +228,12 @@ async function handleNewFolderSelection(
             // suppressPrompt only affects whether we show user prompts, not whether we use auth
             const discovered = await fetchRulesetsFromFolders([normalizedFolder], normalizedFolder, true);
 
+            if (discovered === null) {
+                // Folder scan failed (already logged/warned inside fetchRulesetsFromFolders) —
+                // signal failure so the caller doesn't mark this folder as processed.
+                return null;
+            }
+
             if (discovered.length === 0) {
                 logWarning(`[Spectral] No rulesets found in ${normalizedFolder}`);
                 vscode.window.showWarningMessage(`No Spectral rulesets found in ${normalizedFolder}.`);
@@ -215,12 +248,17 @@ async function handleNewFolderSelection(
 
             progress.report({ increment: 30, message: 'Saving selection...' });
 
+            const plural = discovered.length > 1;
+            vscode.window.showInformationMessage(
+                `Found ${discovered.length} Spectral ruleset${plural ? 's' : ''} in ${getFolderLabel(normalizedFolder)}.`
+            );
+
             return updated;
         });
     } catch (error) {
         logError(`[Spectral] Failed to load rulesets from ${normalizedFolder}`, error);
         vscode.window.showErrorMessage(`Failed to read rulesets from ${normalizedFolder}: ${error instanceof Error ? error.message : error}`);
-        return currentRulesets;
+        return null;
     }
 }
 

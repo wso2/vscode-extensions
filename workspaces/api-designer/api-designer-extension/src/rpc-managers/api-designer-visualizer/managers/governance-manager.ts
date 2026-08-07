@@ -245,6 +245,8 @@ export class GovernanceManager extends BaseRpcManager {
     private readonly cacheStore: AssessmentCacheStore;
     private readonly llmService: LlmValidationService;
     private readonly llmJobOrchestrator: LlmJobOrchestrator;
+    /** Ruleset keys (sourceFolder::fileName) already alerted about falling back to the bundled default, so the alert doesn't repeat on every Analyze run. */
+    private readonly warnedRulesetFallbackKeys = new Set<string>();
 
     private normalizeGuidelineRuleRef(rule: string): string | null {
         const raw = String(rule || '').trim();
@@ -472,8 +474,12 @@ export class GovernanceManager extends BaseRpcManager {
             return result as SpectralGovernancePayload;
         };
 
+        const fallbackKey = `${requestedRuleset.sourceFolder}::${requestedRuleset.fileName}`;
+
         try {
-            return { result: await runValidation(requestedRuleset), usedRuleset: requestedRuleset };
+            const result = await runValidation(requestedRuleset);
+            this.warnedRulesetFallbackKeys.delete(fallbackKey);
+            return { result, usedRuleset: requestedRuleset };
         } catch (primaryError: unknown) {
             const isSameAsDefault =
                 requestedRuleset.sourceFolder === bundledDefaultRuleset.sourceFolder &&
@@ -490,7 +496,15 @@ export class GovernanceManager extends BaseRpcManager {
             );
 
             try {
-                return { result: await runValidation(bundledDefaultRuleset), usedRuleset: bundledDefaultRuleset };
+                const result = await runValidation(bundledDefaultRuleset);
+                if (!this.warnedRulesetFallbackKeys.has(fallbackKey)) {
+                    this.warnedRulesetFallbackKeys.add(fallbackKey);
+                    const errorMessage = primaryError instanceof Error ? primaryError.message : String(primaryError);
+                    vscode.window.showWarningMessage(
+                        `API Designer: ${reportDisplayName} custom ruleset failed to load (${errorMessage}). Showing the default ruleset instead.`
+                    );
+                }
+                return { result, usedRuleset: bundledDefaultRuleset };
             } catch {
                 throw primaryError;
             }
@@ -779,9 +793,17 @@ export class GovernanceManager extends BaseRpcManager {
             // Will prompt for auth if request fails with 401/403
             let rulesets: unknown[] = [];
             let authError = false;
-            
+            let scanFailed = false;
+
             try {
-                rulesets = await fetchRulesetsFromFolders([fetchFolderUrl], displayFolder, true);
+                const discoveryResult = await fetchRulesetsFromFolders([fetchFolderUrl], displayFolder, true);
+                if (discoveryResult === null) {
+                    // A null result means the scan itself failed (e.g. folder not found) —
+                    // distinct from a scan that succeeded but found nothing.
+                    scanFailed = true;
+                } else {
+                    rulesets = discoveryResult;
+                }
             } catch (error: unknown) {
                 // Check if it's an auth-related error
                 const errorObj = error as { status?: number; message?: string };
@@ -793,7 +815,16 @@ export class GovernanceManager extends BaseRpcManager {
                     throw error;
                 }
             }
-            
+
+            if (scanFailed) {
+                return {
+                    success: false,
+                    rulesets: [],
+                    message: `Failed to read rulesets from ${displayFolder}. Check that the folder exists and is accessible.`,
+                    requiresAuth: false
+                };
+            }
+
             if (rulesets.length === 0) {
                 // Check if it might be a private repo that needs auth
                 if (params.folderUrl.includes('github.com')) {
