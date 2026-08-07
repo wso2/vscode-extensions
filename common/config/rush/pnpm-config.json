@@ -135,8 +135,9 @@
       "ip-address@10": "10.3.1",
       // js-yaml v3 has no in-line fix; the fix only lands in v4.3.0+. Force
       // all consumers to v4 — revert with a narrower selector if a workspace
-      // package needs the v3 sync API.
-      "js-yaml": "4.3.0",
+      // package needs the v3 sync API. 4.3.1 additionally fixes the quadratic
+      // !!omap resolution DoS (GHSA-5p4m-2wfm-xmqj / CVE-2026-59870).
+      "js-yaml": "4.3.1",
       // Security fix: scoped to the 5.x line (the only one in the tree, via
       // markdown-it 14) so a v6 consumer is not forced backwards.
       "linkify-it@5": "5.0.2",
