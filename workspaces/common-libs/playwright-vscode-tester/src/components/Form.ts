@@ -100,8 +100,20 @@ export class Form {
                         break;
                     }
                     case 'textarea': {
-                        const input = this.container.locator(`textarea[aria-label="${key}"]`);
-                        await input.fill(data.value);
+                        let input = this.container.locator(
+                            `textarea[aria-label="${key}"], ` +
+                            `textarea[ariaLabel="${key}"], ` +
+                            `vscode-text-area[aria-label="${key}"] textarea, ` +
+                            `vscode-text-area[ariaLabel="${key}"] textarea`
+                        );
+
+                        // Fallback: some fields are label-associated but don't expose aria attributes on the inner textarea.
+                        if (await input.count() === 0) {
+                            const labeledParent = this.container.locator(`label:text("${key}")`).first().locator('../..');
+                            input = labeledParent.locator(`textarea, vscode-text-area textarea`);
+                        }
+
+                        await input.first().fill(data.value);
                         if (data.additionalProps?.clickLabel) {
                             await this.container.locator(`label:text("${key}")`).click();
                         }
@@ -202,10 +214,29 @@ export class Form {
 
                             cmEditor = containerDiv.locator('.cm-editor');
                             await cmEditor.waitFor();
-                            const editorInput = cmEditor.locator('div[contenteditable="true"]');
-                            await editorInput.waitFor();
-                            await editorInput.click({ clickCount: 3 }); // Focus and select for replacement
-                            await editorInput.fill(data.value);
+                            // Use view.dispatch to update CodeMirror state directly — Playwright's
+                            // fill() on contenteditable doesn't reliably trigger CM6's onChange handler.
+                            let dispatched = false;
+                            try {
+                                dispatched = await containerDiv.evaluate((container, text) => {
+                                    const cmContent = container.querySelector('.cm-content');
+                                    if (!cmContent) return false;
+                                    const view = (cmContent as any).cmView?.view;
+                                    if (!view) return false;
+                                    view.focus();
+                                    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } });
+                                    return true;
+                                }, data.value);
+                            } catch (e) {
+                                console.warn('cmEditor view.dispatch failed, falling back to DOM fill:', e);
+                            }
+                            if (!dispatched) {
+                                // Fallback: direct DOM fill if view reference is unavailable
+                                const editorInput = cmEditor.locator('div[contenteditable="true"]');
+                                await editorInput.waitFor();
+                                await editorInput.click({ clickCount: 3 });
+                                await editorInput.fill(data.value);
+                            }
                         }
                         break;
                     }

@@ -24,6 +24,7 @@ import type { AuthState, ContextItemEnriched, ContextStoreState, WebviewState } 
 export type ExtensionName = "WSO2" | "Choreo" | "Devant";
 
 export interface IWso2PlatformExtensionAPI {
+	isActive?(): boolean;
 	getAuthState(): AuthState;
 	isLoggedIn(): boolean;
 	getDirectoryComponents(fsPath: string): ComponentKind[];

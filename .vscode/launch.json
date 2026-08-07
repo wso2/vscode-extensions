@@ -231,40 +231,6 @@
             "preLaunchTask": "compile:choreo-tests"
         },
         {
-            "name": "MI Extension",
-            "type": "extensionHost",
-            "request": "launch",
-            "env": {
-                "WEB_VIEW_WATCH_MODE": "true",
-                "WEB_VIEW_DEV_HOST": "http://localhost:9000"
-            },
-            "debugWebviews": true,
-            "args": [
-                "--extensionDevelopmentPath=${workspaceFolder}/workspaces/mi/mi-extension"
-            ],
-            "outFiles": [
-                "${workspaceFolder}/workspaces/mi/mi-extension/dist/**/*.js",
-            ],
-            "skipFiles": [
-                "**/node_modules/**"
-            ],
-            "preLaunchTask": "npm: watch-mi",
-            "envFile": "${workspaceFolder}/workspaces/mi/mi-extension/.env"
-        },
-        {
-            "name": "MI Extension Tests",
-            "type": "extensionHost",
-            "request": "launch",
-            "args": [
-                "--extensionDevelopmentPath=${workspaceFolder}/workspaces/mi/mi-extension",
-                "--extensionTestsPath=${workspaceFolder}/workspaces/mi/mi-extension/dist/test/suite/index"
-            ],
-            "outFiles": [
-                "${workspaceFolder}/workspaces/mi/mi-extension/dist/**/*.js"
-            ],
-            "preLaunchTask": "watch-mi-tests"
-        },
-        {
             "name": "Ballerina Extension AI Tests",
             "type": "extensionHost",
             "request": "launch",

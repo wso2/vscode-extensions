@@ -1,5 +1,0 @@
-<rewrite description="" inProperty="In Prop" outProperty="Out Prop" >
-        <rewriterule>
-            <condition>URLRewrite Condition</condition>
-        </rewriterule>
-    </rewrite>

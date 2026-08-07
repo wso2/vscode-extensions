@@ -1,1 +1,0 @@
-int varName = 12;

@@ -4,7 +4,7 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			"label": "mi-extension: watch",
+			"label": "api-designer: watch",
 			"type": "npm",
 			"script": "watch",
 			"problemMatcher": "$tsc-watch",
@@ -20,7 +20,7 @@
 			"dependsOrder": "parallel",
 		},
 		{
-			"label": "mi-extension: watch-tests",
+			"label": "api-designer: watch-tests",
 			"type": "npm",
 			"script": "watch-tests",
 			"problemMatcher": "$tsc-watch",
@@ -32,10 +32,10 @@
 			"group": "build"
 		},
 		{
-			"label": "mi-visualizer",
+			"label": "api-designer-visualizer",
 			"type": "npm",
 			"script": "start",
-			"path": "../mi-visualizer",
+			"path": "../api-designer-visualizer",
 			"problemMatcher": "$ts-webpack-watch",
 			"isBackground": true,
 			"presentation": {

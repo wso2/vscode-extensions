@@ -6,7 +6,7 @@ This document describes the structure and organization of the `vscode-extensions
 
 ## Overview
 
-This monorepo contains all Visual Studio Code extensions, shared libraries, and supporting tools developed and maintained by WSO2 for the Choreo, Ballerina, MI, and related platforms. It is managed using [Rush](https://rushjs.io/) for consistent dependency management and builds.
+This monorepo contains all Visual Studio Code extensions, shared libraries, and supporting tools developed and maintained by WSO2 for Ballerina, BI, Choreo, API Designer, and related platforms. It is managed using [Rush](https://rushjs.io/) for consistent dependency management and builds.
 
 ---
 
@@ -17,8 +17,6 @@ vscode-extensions/
 │
 ├── workspaces/
 │   ├── ballerina/                # Contains the Ballerina extension packages
-│   │  
-│   ├── mi/                       # Contains the MI extension packages
 │   │  
 │   ├── wso2-platform/            # Contains the WSO2 Platform extension packages
 │   │
@@ -31,14 +29,13 @@ vscode-extensions/
 
 ## Key Components
 
-- **Extensions**: Each extension (e.g., `ballerina-extension`, `mi-extension`, `wso2-platform-extension`, `choreo-extension`) resides in its own folder under `workspaces/`.
+- **Extensions**: Each extension (e.g., `ballerina-extension`, `wso2-platform-extension`, `choreo-extension`, `api-designer-extension`) resides in its own folder under `workspaces/`.
 - **Shared Libraries**: Common code and utilities are placed in `workspaces/common-libs/`.
 ---
 
 ## Environment Variables
 
 A `.env` file is **required** for the following extensions:
-- `workspaces/mi/mi-extension`
 - `workspaces/ballerina/ballerina-extension`
 - `workspaces/wso2-platform/wso2-platform-extension`
 

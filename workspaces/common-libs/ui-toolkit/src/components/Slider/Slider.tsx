@@ -15,11 +15,15 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import React, { ComponentProps } from "react";
+import React, { ComponentProps, ReactNode } from "react";
 import "@wso2/font-wso2-vscode/dist/wso2-vscode.css";
 import styled from "@emotion/styled";
 
 interface SliderContainerProps {
+    sx?: any;
+}
+
+interface DescriptionProps {
     sx?: any;
 }
 
@@ -36,12 +40,23 @@ const LabelContainer = styled.div`
     justify-content: space-between;
     align-items: center;
     color: var(--vscode-editor-foreground);
-    margin-bottom: 4px;
+`;
+
+const DescriptionRow = styled.div`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+`;
+
+const Description = styled.div<DescriptionProps>`
+    color: var(--vscode-list-deemphasizedForeground);
+    text-align: left;
+    ${(props: DescriptionProps) => props.sx};
 `;
 
 const Label = styled.label`
-    font-size: 13px;
-    font-weight: 400;
+    color: var(--vscode-editor-foreground);
 `;
 
 const ValueDisplay = styled.span`
@@ -128,6 +143,8 @@ export interface SliderProps extends Omit<ComponentProps<"input">, "type"> {
     id?: string;
     className?: string;
     label?: string;
+    description?: string | ReactNode;
+    descriptionSx?: any;
     sx?: any;
     showValue?: boolean;
     valueFormatter?: (value: number) => string;
@@ -140,6 +157,8 @@ export const Slider = React.forwardRef<HTMLInputElement, SliderProps>((props, re
         id,
         className,
         label,
+        description,
+        descriptionSx,
         sx,
         showValue = true,
         valueFormatter,
@@ -186,13 +205,22 @@ export const Slider = React.forwardRef<HTMLInputElement, SliderProps>((props, re
             {label && (
                 <LabelContainer>
                     <Label htmlFor={`${resolvedId}-slider`}>{label}</Label>
-                    {showValue && (
+                    {showValue && !description && (
                         <ValueDisplay>{formatValue(currentValue)}</ValueDisplay>
                     )}
                 </LabelContainer>
             )}
+            {description && (
+                <DescriptionRow>
+                    <Description id={`${resolvedId}-description`} sx={descriptionSx}>{description}</Description>
+                    {showValue && (
+                        <ValueDisplay>{formatValue(currentValue)}</ValueDisplay>
+                    )}
+                </DescriptionRow>
+            )}
             <SliderTrack>
                 <StyledSlider
+                    {...rest}
                     ref={ref}
                     id={`${resolvedId}-slider`}
                     type="range"
@@ -202,7 +230,7 @@ export const Slider = React.forwardRef<HTMLInputElement, SliderProps>((props, re
                     value={currentValue}
                     onChange={handleChange}
                     percentage={percentage}
-                    {...rest}
+                    aria-describedby={description ? `${resolvedId}-description` : undefined}
                 />
             </SliderTrack>
             {showMarkers && (
