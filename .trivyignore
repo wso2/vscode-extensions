@@ -28,17 +28,6 @@ CVE-2026-26996
 # Upgrading requires significant refactoring. Risk is low as this package handles binary file detection.
 CVE-2026-31808
 
-# brace-expansion — DoS via unbounded expansion length causing an OOM crash.
-# The advisory covers every release <= 5.0.7 and the fix exists only in 5.0.8;
-# upstream has not backported it, so no release on the 1.x or 2.x line is out
-# of range. 5.x is not a drop-in replacement for those lines either — it
-# dropped the CommonJS default export that minimatch 3.x/5.x call — so forcing
-# them to 5.0.8 would break them at runtime. The 5.x line IS bumped to 5.0.8
-# via globalOverrides; this entry only covers the 1.x/2.x transitives reached
-# through minimatch 3.1.5 and 5.1.8. Remove it once upstream backports the fix,
-# or once nothing depends on minimatch below v9.
-CVE-2026-14257
-
 # immutable@3.8.3 — List 32-bit trie overflow (CVE-2026-59879) and
 # hash-collision algorithmic complexity in Map/Set (CVE-2026-59880), both DoS.
 # The first patched release is 4.3.9 and there is no 3.x fix. immutable 3 -> 4

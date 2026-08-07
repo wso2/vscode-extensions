@@ -241,7 +241,13 @@ jobs:
           format: 'table'
           exit-code: '1'
           timeout: '10m'
-          skip-dirs: 'common/temp'
+          # ballerina-grammar is a submodule of ballerina-platform/ballerina-grammar
+          # and `init-submodules` pulls its master, so its lockfile is whatever that
+          # repo's master holds and cannot be pinned or patched from here. Nothing in
+          # that tree ships either - .vscodeignore excludes its package.json and
+          # package-lock.json, and the only packaged artifact is the static
+          # syntaxes/ballerina.tmLanguage. Its dependencies are scanned by its own repo.
+          skip-dirs: 'common/temp,workspaces/ballerina/ballerina-extension/grammar/ballerina-grammar'
           ignore-unfixed: true
 
   ExtTest_Ballerina:
