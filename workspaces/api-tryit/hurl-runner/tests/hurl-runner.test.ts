@@ -318,6 +318,27 @@ describe('HurlRunnerImpl', () => {
 		expect(overrideIndex).toBeGreaterThan(sharedIndex);
 	});
 
+	it('puts --variables-file entries before -k/-L, not after', async () => {
+		const collection = await createCollection(['variables-file-order.hurl']);
+		createdDirs.push(collection.root);
+		const scenarios = new Map<string, MockScenario>([
+			[collection.files[0], { report: buildPassReport('variables-file-order') }]
+		]);
+		const adapter = new MockProcessAdapter(scenarios);
+		const runner = createRunner(adapter);
+
+		await runner.run(
+			{ collectionPath: collection.root },
+			{ parallelism: 1, variablesFilePaths: ['/vars/shared.vars'], insecure: true, followRedirects: true }
+		);
+
+		const hurlCall = adapter.calls.find(call => call.args.includes('--report-json'));
+		expect(hurlCall).toBeDefined();
+		const args = hurlCall!.args;
+		expect(args.indexOf('--variables-file')).toBeLessThan(args.indexOf('-k'));
+		expect(args.indexOf('--variables-file')).toBeLessThan(args.indexOf('-L'));
+	});
+
 	it('appends extraArgs verbatim at the end of the argument list', async () => {
 		const collection = await createCollection(['extra-args.hurl']);
 		createdDirs.push(collection.root);

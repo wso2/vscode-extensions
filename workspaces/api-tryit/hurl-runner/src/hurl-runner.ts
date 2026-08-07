@@ -407,6 +407,12 @@ export class HurlRunnerImpl implements HurlRunner {
 		if (options.includeResponseOutput) {
 			args.push('-i');
 		}
+		// Order matters: later --variables-file entries override earlier ones for
+		// values they both define, so callers pass the shared file before any
+		// per-file override.
+		for (const variablesFilePath of options.variablesFilePaths || []) {
+			args.push('--variables-file', variablesFilePath);
+		}
 		if (options.insecure) {
 			args.push('-k');
 		}
@@ -415,12 +421,6 @@ export class HurlRunnerImpl implements HurlRunner {
 		}
 		for (const [key, value] of Object.entries(options.variables || {})) {
 			args.push('--variable', `${key}=${value}`);
-		}
-		// Order matters: later --variables-file entries override earlier ones for
-		// values they both define, so callers pass the shared file before any
-		// per-file override.
-		for (const variablesFilePath of options.variablesFilePaths || []) {
-			args.push('--variables-file', variablesFilePath);
 		}
 		if (options.extraArgs && options.extraArgs.length > 0) {
 			args.push(...options.extraArgs);
