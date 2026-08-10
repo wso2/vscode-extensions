@@ -58,14 +58,14 @@ Select both cells above and run them together — `{{token}}` only resolves beca
 
 ## Variables
 
-To set your own variables (like a base URL or API key), create a file named `hurl.vars` in the same folder as your `.hurl` files:
+To set your own variables (like a base URL or API key), create a file named `hurl.vars`:
 
-```
+```ini
 base_url=https://api.example.com
 api_key=your-api-key
 ```
 
-Hurl Client picks this up automatically — no extra setup needed. Reference the values as `{{base_url}}`, `{{api_key}}`, etc. in your requests.
+Hurl Client looks for it in the folder set by `hurl-client.fileRoot`, which defaults to the notebook's own folder — so if you haven't changed that setting, put `hurl.vars` next to your `.hurl` files and it is picked up automatically. Reference the values as `{{base_url}}`, `{{api_key}}`, etc. in your requests.
 
 Need a different value for just one file? Add `<filename>.hurl.vars` (e.g. `requests.hurl.vars` for `requests.hurl`) — it overrides the shared file for the values it defines.
 

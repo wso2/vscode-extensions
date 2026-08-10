@@ -180,12 +180,13 @@ export class HurlNotebookController {
                 const entries = outcomes[index].entries;
 
                 if (entries.length === 0) {
-                    const hasRequest = cellHasRequest(content);
+                    const kind = classifyCellWithoutResult(content);
                     const laterEntryExists = outcomes.slice(index + 1).some(o => o.entries.length > 0);
-                    await execution.appendOutput([this.buildSkippedOutput(fileResult, hasRequest, laterEntryExists)]);
-                    // Nothing ran for this cell, so report no elapsed time
-                    // rather than the whole batch's.
-                    execution.end(!hasRequest, startedAt);
+                    await execution.appendOutput([this.buildSkippedOutput(fileResult, kind, laterEntryExists)]);
+                    // Only a comments-only cell is a success - a cell that
+                    // holds a request, or content hurl could not parse, failed.
+                    // Report no elapsed time either way, since nothing ran.
+                    execution.end(kind === 'comments', startedAt);
                     endedCount = index + 1;
                     continue;
                 }
@@ -340,9 +341,22 @@ export class HurlNotebookController {
         return isLastEntry ? extractResponseBody(fileResult.stdout) : undefined;
     }
 
-    private buildSkippedOutput(fileResult: HurlFileResult, hasRequest: boolean, laterEntryExists: boolean): vscode.NotebookCellOutput {
-        if (!hasRequest) {
+    private buildSkippedOutput(
+        fileResult: HurlFileResult,
+        kind: CellWithoutResultKind,
+        laterEntryExists: boolean
+    ): vscode.NotebookCellOutput {
+        if (kind === 'comments') {
             const md = '##### ℹ️ NO REQUEST\n\nThis cell has no request to run.';
+            return new vscode.NotebookCellOutput([
+                vscode.NotebookCellOutputItem.text(md, 'text/markdown')
+            ]);
+        }
+
+        if (kind === 'unparsed') {
+            const detail = fileResult.errorMessage || fileResult.stderr;
+            const detailBlock = detail ? `\n\n\`\`\`\n${detail}\n\`\`\`` : '';
+            const md = `##### ❌ NOT PARSED\n\nNo runnable request was found in this cell. If it is meant to be a request, check its syntax - a malformed request also stops the rest of the run.${detailBlock}`;
             return new vscode.NotebookCellOutput([
                 vscode.NotebookCellOutputItem.text(md, 'text/markdown')
             ]);
@@ -501,9 +515,28 @@ async function pathExists(filePath: string): Promise<boolean> {
     }
 }
 
-/** Does this cell's own text contain an actual hurl request, or is it just comments/notes? */
-function cellHasRequest(content: string): boolean {
-    return parseHurlDocument(content).blocks.length > 0;
+/**
+ * Why a cell produced no result:
+ *  - `request`      it does contain a request, so hurl either never reached it
+ *                   or refused to run it
+ *  - `comments`     nothing but comments/blank lines - genuinely nothing to run
+ *  - `unparsed`     it has real content that the parser found no request in,
+ *                   i.e. it is most likely malformed
+ *
+ * `comments` and `unparsed` must stay distinct: reporting a malformed request
+ * as "nothing to run" would end the cell successfully and hide the error.
+ */
+type CellWithoutResultKind = 'request' | 'comments' | 'unparsed';
+
+function classifyCellWithoutResult(content: string): CellWithoutResultKind {
+    if (parseHurlDocument(content).blocks.length > 0) {
+        return 'request';
+    }
+    const meaningfulLines = content
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0 && !line.startsWith('#'));
+    return meaningfulLines.length === 0 ? 'comments' : 'unparsed';
 }
 
 /**

@@ -21,8 +21,7 @@
     "Notebooks"
   ],
   "activationEvents": [
-    "onNotebook:HurlClient",
-    "onCommand:HTTPClient.importHurlString"
+    "onNotebook:HurlClient"
   ],
   "icon": "images/icon.png",
   "main": "./dist/extension.js",

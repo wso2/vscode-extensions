@@ -587,6 +587,24 @@ describe('mapFileResultToCellOutcomes', () => {
 		expect(outcomes[1].entries.map(e => e.name)).toEqual(['Lineless entry']);
 	});
 
+	it('never discards a lineless entry when every boundary is already claimed', () => {
+		// Both boundaries are taken by line-matched entries, so there is no
+		// free slot left - the extra entry must still surface somewhere
+		// rather than vanishing from the notebook entirely.
+		const fileResult = makeFileResult([1, 5]);
+		fileResult.entries.push({ name: 'Lineless entry', status: 'passed' });
+		const boundaries = [
+			{ startLine: 1, endLine: 3 },
+			{ startLine: 5, endLine: 7 }
+		];
+
+		const outcomes = mapFileResultToCellOutcomes(fileResult, boundaries);
+
+		const rendered = outcomes.flatMap(o => o.entries.map(e => e.name));
+		expect(rendered).toContain('Lineless entry');
+		expect(rendered).toHaveLength(3);
+	});
+
 	it('does not let a lineless entry displace a boundary a line-matched entry already claimed', () => {
 		const fileResult = makeFileResult([5]); // matches the second boundary
 		fileResult.entries.push({ name: 'Lineless entry', status: 'passed' });

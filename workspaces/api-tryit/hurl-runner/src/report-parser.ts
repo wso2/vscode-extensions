@@ -750,14 +750,20 @@ export function mapFileResultToCellOutcomes(fileResult: HurlFileResult, boundari
 	}
 
 	let cursor = 0;
-	for (const entry of unplaced) {
+	for (let i = 0; i < unplaced.length; i++) {
 		while (cursor < outcomes.length && outcomes[cursor].entries.length > 0) {
 			cursor++;
 		}
 		if (cursor >= outcomes.length) {
+			// Every boundary is already claimed. Rather than discard the
+			// remainder - which would hide requests that really executed -
+			// attach them to the last boundary so they still surface.
+			if (outcomes.length > 0) {
+				outcomes[outcomes.length - 1].entries.push(...unplaced.slice(i));
+			}
 			break;
 		}
-		outcomes[cursor].entries.push(entry);
+		outcomes[cursor].entries.push(unplaced[i]);
 		cursor++;
 	}
 
