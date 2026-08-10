@@ -17,25 +17,72 @@
  * 
  * THIS FILE INCLUDES AUTO GENERATED CODE
  */
-import { HistoryEntry } from "../../history";
 import {
     OpenViewRequest,
-    HistoryEntryResponse,
-    GoToSourceRequest,
-    GetOpenAPIContentRequest,
-    GetOpenAPIContentResponse,
-    WriteOpenAPIContentResponse,
-    WriteOpenAPIContentRequest,
+    GetAPISpecContentRequest,
+    GetAPISpecContentResponse,
+    WriteAPISpecContentResponse,
+    WriteAPISpecContentRequest,
+    GetGovernanceRequest,
+    GetGovernanceResponse,
+    FileChangedNotification,
+    ValidateAPISpecRequest,
+    ValidateAPISpecResponse,
+    FetchRulesetsFromFolderRequest,
+    FetchRulesetsFromFolderResponse,
+    GetApplicableRulesetsRequest,
+    GetApplicableRulesetsResponse,
+    ReadFileRequest,
+    ReadFileResponse,
+    WriteFileRequest,
+    WriteFileResponse,
+    DeleteFileRequest,
+    DeleteFileResponse,
+    GetWorkspaceFileTreeRequest,
+    GetWorkspaceFileTreeResponse,
+    DocumentFileChangedNotification,
+    CheckAIAvailabilityRequest,
+    CheckAIAvailabilityResponse,
+    GetAllSpectralRulesetsRequest,
+    GetAllSpectralRulesetsResponse,
+    GenerateWithAIRequest,
+    GenerateWithAIResponse,
+    SaveSpecNotification,
+    RequestValidationNotification,
+    NavigateToNotification,
+    OpenExternalNotification,
 } from "./types";
+
+
+
 import { NotificationType, RequestType } from "vscode-messenger-common";
 
 const _preFix = "api-designer-visualizer";
+
+// API Designer Related RPC Types
 export const openView: NotificationType<OpenViewRequest> = { method: `${_preFix}/openView` };
-export const goBack: NotificationType<void> = { method: `${_preFix}/goBack` };
-export const getHistory: RequestType<void, HistoryEntryResponse> = { method: `${_preFix}/getHistory` };
-export const addToHistory: NotificationType<HistoryEntry> = { method: `${_preFix}/addToHistory` };
-export const goHome: NotificationType<void> = { method: `${_preFix}/goHome` };
-export const goToSource: NotificationType<GoToSourceRequest> = { method: `${_preFix}/goToSource` };
-export const getOpenApiContent: RequestType<GetOpenAPIContentRequest, GetOpenAPIContentResponse> = { method: `${_preFix}/getOpenApiContent` };
-export const writeOpenApiContent: RequestType<WriteOpenAPIContentRequest, WriteOpenAPIContentResponse> = { method: `${_preFix}/writeOpenApiContent` };
+export const getAPISpecContent: RequestType<GetAPISpecContentRequest, GetAPISpecContentResponse> = { method: `${_preFix}/getAPISpecContent` };
+export const writeAPISpecContent: RequestType<WriteAPISpecContentRequest, WriteAPISpecContentResponse> = { method: `${_preFix}/writeAPISpecContent` };
 export const importJSON: NotificationType<void> = { method: `${_preFix}/importJSON` };
+
+export const getGovernance: RequestType<GetGovernanceRequest, GetGovernanceResponse> = { method: `${_preFix}/getGovernance` };
+export const validateApiSpec: RequestType<ValidateAPISpecRequest, ValidateAPISpecResponse> = { method: `${_preFix}/validateApiSpec` };
+export const fetchRulesetsFromFolder: RequestType<FetchRulesetsFromFolderRequest, FetchRulesetsFromFolderResponse> = { method: `${_preFix}/fetchRulesetsFromFolder` };
+export const getApplicableRulesets: RequestType<GetApplicableRulesetsRequest, GetApplicableRulesetsResponse> = { method: `${_preFix}/getApplicableRulesets` };
+export const checkAIAvailability: RequestType<CheckAIAvailabilityRequest, CheckAIAvailabilityResponse> = { method: `${_preFix}/checkAIAvailability` };
+export const getAllSpectralRulesets: RequestType<GetAllSpectralRulesetsRequest, GetAllSpectralRulesetsResponse> = { method: `${_preFix}/getAllSpectralRulesets` };
+
+export const generateWithAI: RequestType<GenerateWithAIRequest, GenerateWithAIResponse> = { method: 'ai/generateWithAI' };
+export const saveSpec: NotificationType<SaveSpecNotification> = { method: `${_preFix}/saveSpec` };
+export const requestValidation: NotificationType<RequestValidationNotification> = { method: `${_preFix}/requestValidation` };
+export const navigateTo: NotificationType<NavigateToNotification> = { method: `${_preFix}/navigateTo` };
+export const openExternal: NotificationType<OpenExternalNotification> = { method: `${_preFix}/openExternal` };
+
+export const onDocumentFileChanged: NotificationType<DocumentFileChangedNotification> = { method: `${_preFix}/onDocumentFileChanged` };
+
+export const onFileChanged: NotificationType<FileChangedNotification> = { method: `${_preFix}/onFileChanged` };
+export const readFile: RequestType<ReadFileRequest, ReadFileResponse> = { method: `${_preFix}/readFile` };
+export const writeFile: RequestType<WriteFileRequest, WriteFileResponse> = { method: `${_preFix}/writeFile` };
+export const deleteFile: RequestType<DeleteFileRequest, DeleteFileResponse> = { method: `${_preFix}/deleteFile` };
+export const getWorkspaceFileTree: RequestType<GetWorkspaceFileTreeRequest, GetWorkspaceFileTreeResponse> = { method: `${_preFix}/getWorkspaceFileTree` };
+

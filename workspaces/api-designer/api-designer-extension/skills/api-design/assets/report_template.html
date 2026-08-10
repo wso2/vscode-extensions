@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Readiness Assessment Report</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      background: #f0f2f5;
+      color: #1a1a2e;
+      min-height: 100vh;
+    }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    .header {
+      background: #1a1a2e;
+      color: #fff;
+      padding: 24px 32px;
+    }
+    .header h1 {
+      margin: 0 0 10px;
+      font-size: 1.4rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+    .header-meta {
+      display: flex;
+      gap: 28px;
+      flex-wrap: wrap;
+      font-size: 0.82rem;
+      opacity: 0.75;
+    }
+    .header-meta span b { opacity: 1; font-weight: 600; }
+
+    /* ── Summary strip ──────────────────────────────────────── */
+    .summary-strip {
+      display: flex;
+      gap: 14px;
+      padding: 20px 32px;
+      background: #fff;
+      border-bottom: 1px solid #e5e7eb;
+      flex-wrap: wrap;
+    }
+    .summary-card {
+      border-radius: 10px;
+      padding: 14px 20px;
+      min-width: 170px;
+      flex: 1;
+    }
+    .summary-card .card-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .summary-card .card-rating {
+      font-size: 1.5rem;
+      font-weight: 800;
+      margin-bottom: 6px;
+      line-height: 1;
+    }
+    .summary-card .card-counts {
+      font-size: 0.78rem;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      opacity: 0.85;
+    }
+    .card-poor    { background: #fde8e8; color: #b91c1c; }
+    .card-fair    { background: #fef3cd; color: #b45309; }
+    .card-good    { background: #dcfce7; color: #15803d; }
+    .card-excellent { background: #dbeafe; color: #1d4ed8; }
+
+    /* ── Page body ──────────────────────────────────────────── */
+    .content {
+      padding: 24px 32px;
+      max-width: 1440px;
+      margin: 0 auto;
+    }
+
+    /* ── Section ────────────────────────────────────────────── */
+    .section {
+      background: #fff;
+      border-radius: 10px;
+      margin-bottom: 18px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+    .section-header {
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+      border-bottom: 1px solid #f3f4f6;
+    }
+    .section-header:hover { background: #fafafa; }
+    .section-title-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .section-header h2 {
+      margin: 0;
+      font-size: 0.95rem;
+      font-weight: 700;
+    }
+    .section-subtitle {
+      font-size: 0.78rem;
+      color: #6b7280;
+      font-weight: 400;
+    }
+    .section-header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .chevron {
+      width: 18px;
+      height: 18px;
+      fill: none;
+      stroke: #9ca3af;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      transition: transform 0.2s;
+      flex-shrink: 0;
+    }
+    .section.collapsed .chevron { transform: rotate(-90deg); }
+    .section.collapsed .section-body { display: none; }
+
+    /* ── Filter bar ─────────────────────────────────────────── */
+    .filter-bar {
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #f9fafb;
+      border-bottom: 1px solid #f0f0f0;
+      flex-wrap: wrap;
+    }
+    .filter-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #9ca3af;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-right: 2px;
+    }
+    .filter-btn {
+      padding: 3px 12px;
+      border: 1.5px solid #e5e7eb;
+      border-radius: 20px;
+      background: #fff;
+      cursor: pointer;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #374151;
+      transition: all 0.15s;
+    }
+    .filter-btn:hover { background: #f3f4f6; }
+    .filter-btn.active { color: #fff; border-color: transparent; }
+    .filter-btn.active.f-all      { background: #374151; }
+    .filter-btn.active.f-critical { background: #dc2626; }
+    .filter-btn.active.f-high     { background: #d97706; }
+    .filter-btn.active.f-medium   { background: #ca8a04; }
+    .filter-btn.active.f-low      { background: #2563eb; }
+    .filter-count {
+      margin-left: 2px;
+      background: rgba(0,0,0,0.12);
+      border-radius: 8px;
+      padding: 0 5px;
+      font-size: 0.7rem;
+    }
+
+    /* ── Issue table ─────────────────────────────────────────── */
+    .table-wrap { overflow-x: auto; }
+    .issue-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    .issue-table th {
+      padding: 9px 14px;
+      text-align: left;
+      background: #f9fafb;
+      font-size: 0.73rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #6b7280;
+      border-bottom: 2px solid #e5e7eb;
+      white-space: nowrap;
+    }
+    .issue-table td {
+      padding: 11px 14px;
+      border-bottom: 1px solid #f3f4f6;
+      vertical-align: top;
+    }
+    .issue-table tr:last-child td { border-bottom: none; }
+    .issue-table tr.hidden { display: none; }
+    .issue-table tr:hover td { background: #fafafa; }
+
+    .cell-sev   { width: 90px; }
+    .cell-id    { font-family: ui-monospace, monospace; font-size: 0.78rem; color: #9ca3af; white-space: nowrap; }
+    .cell-rule  { font-family: ui-monospace, monospace; font-size: 0.78rem; max-width: 200px; word-break: break-all; color: #374151; }
+    .cell-path  { font-family: ui-monospace, monospace; font-size: 0.78rem; max-width: 220px; word-break: break-all; color: #6b7280; }
+    .cell-issue { max-width: 260px; }
+    .issue-main { font-weight: 600; color: #111827; }
+    .issue-desc { font-size: 0.78rem; color: #6b7280; margin-top: 4px; line-height: 1.45; }
+    .cell-fix   { max-width: 240px; font-size: 0.82rem; color: #065f46; line-height: 1.45; }
+
+    /* ── Badges ─────────────────────────────────────────────── */
+    .badge {
+      display: inline-block;
+      padding: 2px 9px;
+      border-radius: 12px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .badge-critical { background: #fde8e8; color: #b91c1c; }
+    .badge-high     { background: #fef3cd; color: #b45309; }
+    .badge-medium   { background: #fef9c3; color: #854d0e; }
+    .badge-low      { background: #dbeafe; color: #1e40af; }
+    .badge-rating   { padding: 2px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 700; }
+
+    /* ── Empty state ────────────────────────────────────────── */
+    .empty-state {
+      padding: 40px;
+      text-align: center;
+      color: #9ca3af;
+    }
+    .empty-state-icon { font-size: 2rem; margin-bottom: 8px; }
+    .empty-state-text { font-size: 0.9rem; font-weight: 600; }
+
+    /* ── Footer ─────────────────────────────────────────────── */
+    .footer {
+      text-align: center;
+      padding: 28px;
+      color: #d1d5db;
+      font-size: 0.78rem;
+    }
+
+    /* ── Print ──────────────────────────────────────────────── */
+    @media print {
+      body { background: #fff; }
+      .section.collapsed .section-body { display: block !important; }
+      .filter-bar { display: none !important; }
+      .chevron { display: none; }
+      .section-header { cursor: default; border-bottom: 1px solid #e5e7eb; }
+      .content { padding: 8px; }
+    }
+  </style>
+</head>
+<body>
+
+<script>
+const reportData = __REPORT_DATA_JSON__;
+</script>
+
+<script>
+(function () {
+  const SEVERITY_ORDER = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
+
+  function ratingClass(rating) {
+    const r = (rating || '').toLowerCase();
+    if (r === 'poor') return 'card-poor';
+    if (r === 'fair') return 'card-fair';
+    if (r === 'good') return 'card-good';
+    return 'card-excellent';
+  }
+
+  function severityBadgeClass(sev) {
+    switch ((sev || '').toUpperCase()) {
+      case 'CRITICAL': return 'badge-critical';
+      case 'HIGH':     return 'badge-high';
+      case 'MEDIUM':   return 'badge-medium';
+      default:         return 'badge-low';
+    }
+  }
+
+  function ratingBadgeClass(rating) {
+    const r = (rating || '').toLowerCase();
+    if (r === 'poor') return 'badge-critical';
+    if (r === 'fair') return 'badge-high';
+    if (r === 'good') return 'badge-medium';
+    return 'badge-low';
+  }
+
+  function esc(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function formatDate(iso) {
+    try {
+      return new Date(iso).toLocaleString(undefined, {
+        year: 'numeric', month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      });
+    } catch {
+      return iso;
+    }
+  }
+
+  function countsByScore(score) {
+    if (!score) return '';
+    const parts = [];
+    if (score.critical) parts.push(`${score.critical} critical`);
+    if (score.high)     parts.push(`${score.high} high`);
+    if (score.medium)   parts.push(`${score.medium} medium`);
+    if (score.low)      parts.push(`${score.low} low`);
+    return parts.join(' · ') || 'No issues';
+  }
+
+  function buildFilterBar(issues, tableEl) {
+    const counts = { ALL: issues.length, CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
+    issues.forEach(i => { counts[(i.severity || 'LOW').toUpperCase()]++; });
+
+    const bar = document.createElement('div');
+    bar.className = 'filter-bar';
+    bar.innerHTML = '<span class="filter-label">Filter</span>';
+
+    ['ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].forEach(sev => {
+      const btn = document.createElement('button');
+      btn.className = `filter-btn f-${sev.toLowerCase()}${sev === 'ALL' ? ' active' : ''}`;
+      btn.innerHTML = `${sev} <span class="filter-count">${counts[sev] || 0}</span>`;
+      btn.addEventListener('click', () => {
+        bar.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        tableEl.querySelectorAll('tr[data-sev]').forEach(row => {
+          if (sev === 'ALL' || row.dataset.sev === sev) {
+            row.classList.remove('hidden');
+          } else {
+            row.classList.add('hidden');
+          }
+        });
+      });
+      bar.appendChild(btn);
+    });
+
+    return bar;
+  }
+
+  function buildIssueTable(issues) {
+    const wrap = document.createElement('div');
+    wrap.className = 'table-wrap';
+
+    if (!issues || issues.length === 0) {
+      wrap.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">✅</div>
+          <div class="empty-state-text">No issues found — Excellent!</div>
+        </div>`;
+      return wrap;
+    }
+
+    const table = document.createElement('table');
+    table.className = 'issue-table';
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th class="cell-sev">Severity</th>
+          <th>ID</th>
+          <th>Rule</th>
+          <th>Path</th>
+          <th>Issue</th>
+          <th>Fix Suggestion</th>
+        </tr>
+      </thead>`;
+
+    const tbody = document.createElement('tbody');
+    issues.forEach(issue => {
+      const sev = (issue.severity || 'LOW').toUpperCase();
+      const tr = document.createElement('tr');
+      tr.dataset.sev = sev;
+      tr.innerHTML = `
+        <td class="cell-sev">
+          <span class="badge ${severityBadgeClass(sev)}">${esc(sev)}</span>
+        </td>
+        <td class="cell-id">${esc(issue.id)}</td>
+        <td class="cell-rule">${esc(issue.rule)}</td>
+        <td class="cell-path">${esc(issue.path)}</td>
+        <td class="cell-issue">
+          <div class="issue-main">${esc(issue.issue)}</div>
+          ${issue.description ? `<div class="issue-desc">${esc(issue.description)}</div>` : ''}
+        </td>
+        <td class="cell-fix">${esc(issue.fixSuggestion || '—')}</td>`;
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    return wrap;
+  }
+
+  function buildSection(title, subtitle, sectionData) {
+    if (!sectionData) return null;
+    const issues = sectionData.issues || [];
+    const score  = sectionData.score  || {};
+    const rating = score.rating || 'Unknown';
+
+    const section = document.createElement('div');
+    section.className = 'section';
+
+    // Header
+    const header = document.createElement('div');
+    header.className = 'section-header';
+    header.innerHTML = `
+      <div class="section-title-row">
+        <div>
+          <h2>${esc(title)}</h2>
+          ${subtitle ? `<div class="section-subtitle">${esc(subtitle)}</div>` : ''}
+        </div>
+      </div>
+      <div class="section-header-right">
+        <span class="badge badge-rating ${ratingBadgeClass(rating)}">${esc(rating)}</span>
+        <svg class="chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>`;
+    header.addEventListener('click', () => section.classList.toggle('collapsed'));
+    section.appendChild(header);
+
+    // Body
+    const body = document.createElement('div');
+    body.className = 'section-body';
+
+    if (issues.length > 0) {
+      const table = buildIssueTable(issues);
+      const filterBar = buildFilterBar(issues, table);
+      body.appendChild(filterBar);
+      body.appendChild(table);
+    } else {
+      body.appendChild(buildIssueTable([]));
+    }
+
+    section.appendChild(body);
+    return section;
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const d = reportData;
+    const meta = d.meta || {};
+
+    // Header
+    document.querySelector('title').textContent =
+      `API Readiness — ${meta.specFile || 'Report'}`;
+
+    document.body.insertAdjacentHTML('afterbegin', `
+      <div class="header">
+        <h1>API Readiness Assessment Report</h1>
+        <div class="header-meta">
+          <span><b>Spec:</b> ${esc(meta.specFile || '—')}</span>
+          <span><b>Assessed:</b> ${esc(formatDate(meta.assessedAt))}</span>
+          <span><b>Model:</b> ${esc(meta.model || '—')}</span>
+          <span><b>Spectral:</b> ${esc(meta.spectralVersion || '—')}</span>
+        </div>
+      </div>`);
+
+    // Summary strip
+    const strip = document.createElement('div');
+    strip.className = 'summary-strip';
+
+    const sections = [
+      { key: 'agent-spectral',  label: 'Agent Readiness · Spectral', data: d.agentReadiness && d.agentReadiness.spectral },
+      { key: 'agent-ai',        label: 'Agent Readiness · AI Analysis', data: d.agentReadiness && d.agentReadiness.aiAnalysis },
+      { key: 'security',        label: 'Security · OWASP Top 10', data: d.securityReadiness && d.securityReadiness.spectral },
+      { key: 'design',          label: 'Design Guidelines · WSO2', data: d.designReadiness && d.designReadiness.spectral },
+    ].filter(s => s.data);
+
+    sections.forEach(({ label, data }) => {
+      const score  = data.score  || {};
+      const rating = score.rating || 'Unknown';
+      const card   = document.createElement('div');
+      card.className = `summary-card ${ratingClass(rating)}`;
+      card.innerHTML = `
+        <div class="card-label">${esc(label)}</div>
+        <div class="card-rating">${esc(rating)}</div>
+        <div class="card-counts">${esc(countsByScore(score))}</div>`;
+      strip.appendChild(card);
+    });
+
+    document.body.appendChild(strip);
+
+    // Content
+    const content = document.createElement('div');
+    content.className = 'content';
+
+    const sectionDefs = [
+      { title: 'Agent Readiness — Spectral Rules', subtitle: 'Automated checks via ai-readiness ruleset', data: d.agentReadiness && d.agentReadiness.spectral },
+      { title: 'Agent Readiness — AI Analysis',    subtitle: 'Guideline-based LLM review (11 categories)', data: d.agentReadiness && d.agentReadiness.aiAnalysis },
+      { title: 'Security Readiness — OWASP Top 10', subtitle: 'Automated checks via OWASP API Security ruleset', data: d.securityReadiness && d.securityReadiness.spectral },
+      { title: 'API Design Guidelines — WSO2', subtitle: 'Automated checks via WSO2 REST API design ruleset (28 rules)', data: d.designReadiness && d.designReadiness.spectral },
+    ];
+
+    sectionDefs.forEach(({ title, subtitle, data }) => {
+      if (!data) return;
+      const el = buildSection(title, subtitle, data);
+      if (el) content.appendChild(el);
+    });
+
+    document.body.appendChild(content);
+    document.body.insertAdjacentHTML('beforeend',
+      '<div class="footer">Generated by <b>api-readiness-assessment</b> skill</div>');
+  });
+})();
+</script>
+</body>
+</html>

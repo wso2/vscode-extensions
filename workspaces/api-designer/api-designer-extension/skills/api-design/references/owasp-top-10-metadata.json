@@ -1,0 +1,64 @@
+{
+  "rules": {
+    "owasp:api2:2023-no-http-basic": {
+      "description": "Basic authentication credentials transported over network are more susceptible to interception than other forms of authentication, and as they are not encrypted it means passwords and tokens are more easily leaked.",
+      "fixSuggestion": "Replace HTTP Basic with OAuth 2.0 (e.g. client credentials or authorization code) or OpenID Connect; document flows in your securitySchemes and avoid sending credentials in plain headers."
+    },
+    "owasp:api2:2023-jwt-best-practices": {
+      "description": "JSON Web Tokens RFC7519 is a compact, URL-safe, means of representing claims to be transferred between two parties. RFC8725 describes common pitfalls in the JWx specifications and in their implementations, such as: the ability to ignore algorithms, eg. {\"alg\": \"none\"}; using insecure algorithms like RSASSA-PKCS1-v1_5 eg. {\"alg\": \"RS256\"}. An API using JWT should be explicit in the description that the implementation conforms to RFC8725.",
+      "fixSuggestion": "On each affected OAuth2 or JWT bearer securitySchemes entry, set a non-empty description that explicitly states conformance to RFC 8725 (e.g. algorithm allowlists, signature validation, and rejection of \"none\" / weak algorithms)."
+    },
+    "owasp:api3:2023-no-additionalProperties": {
+      "description": "By default JSON Schema allows additional properties, which can potentially lead to mass assignment issues, where unspecified fields are passed to the API without validation. Disable them with additionalProperties: false or add maxProperties.",
+      "fixSuggestion": "For each flagged object schema, set additionalProperties: false after listing all expected properties, or model extensions via explicit named properties / oneOf instead of an open-ended object."
+    },
+    "owasp:api3:2023-constrained-additionalProperties": {
+      "description": "By default JSON Schema allows additional properties, which can potentially lead to mass assignment issues, where unspecified fields are passed to the API without validation. Disable them with additionalProperties: false or add maxProperties.",
+      "fixSuggestion": "When additionalProperties is a sub-schema (not boolean), add a reasonable maxProperties cap, or replace with additionalProperties: false and enumerate fields explicitly to prevent unbounded or mass-assignment risk."
+    },
+    "owasp:api3:2023-no-unevaluatedProperties": {
+      "description": "By default JSON Schema allows unevaluated properties, which can potentially lead to mass assignment issues, where unspecified fields are passed to the API without validation. Disable them with unevaluatedProperties: false or add maxProperties.",
+      "fixSuggestion": "For OpenAPI 3.1 object schemas, set unevaluatedProperties: false (especially alongside allOf/oneOf) so undeclared properties are rejected unless you intentionally document every allowed key."
+    },
+    "owasp:api3:2023-constrained-unevaluatedProperties": {
+      "description": "By default JSON Schema allows unevaluated properties, which can potentially lead to mass assignment issues, where unspecified fields are passed to the API without validation. Disable them with unevaluatedProperties: false or add maxProperties.",
+      "fixSuggestion": "If unevaluatedProperties is a schema, add maxProperties to bound the object, or restructure to unevaluatedProperties: false with an explicit properties map for all allowed keys."
+    },
+    "owasp:api4:2023-rate-limit-retry-after": {
+      "description": "Define proper rate limiting to avoid attackers overloading the API. Part of that involves setting a Retry-After header so well meaning consumers are not polling and potentially exacerbating problems.",
+      "fixSuggestion": "Under each operation's 429 response, add headers.Retry-After (string or integer per RFC 7231) so clients know when to retry; align with your gateway or reverse-proxy rate-limit behavior."
+    },
+    "owasp:api4:2023-rate-limit-responses-429": {
+      "description": "OWASP API Security recommends defining schemas for all responses, even errors. A HTTP 429 response signals the API client is making too many requests, and will supply information about when to retry so that the client can back off calmly without everything breaking. Defining this response is important not just for documentation, but to empower contract testing to make sure the proper JSON structure is being returned instead of leaking implementation details in backtraces. It also ensures your API/framework/gateway actually has rate limiting set up.",
+      "fixSuggestion": "For each operation under paths, add a 429 response with a content entry (e.g. application/json) and a schema describing the rate-limit / retry body. Document retry semantics and reference gateway rate limits so clients and tests can rely on a stable contract."
+    },
+    "owasp:api8:2023-no-scheme-http": {
+      "description": "Server interactions must use the http protocol as it's inherently insecure and can lead to PII and other sensitive information being leaked through traffic sniffing or man-in-the-middle attacks. Use the https or wss schemes instead.",
+      "fixSuggestion": "In the root schemes array, list only https (and wss for WebSockets if applicable); remove http and ensure all published base URLs use TLS."
+    },
+    "owasp:api8:2023-no-server-http": {
+      "description": "Server interactions must not use the http:// as it's inherently insecure and can lead to PII and other sensitive information being leaked through traffic sniffing or man-in-the-middle attacks. Use https:// or wss:// protocols instead.",
+      "fixSuggestion": "Change every servers[].url to https:// (or wss:// for WebSockets); avoid plain http:// in any environment, including \"internal\" servers documented in the spec."
+    },
+    "owasp:api8:2023-define-error-validation": {
+      "description": "Carefully define schemas for all the API responses, including either 400, 422 or 4XX responses which describe errors caused by invalid requests.",
+      "fixSuggestion": "For each operation, document at least one client-error response: 400 or 422 with a body schema, or a shared 4XX response, so validation failures are part of the contract and testable."
+    },
+    "owasp:api8:2023-define-error-responses-401": {
+      "description": "OWASP API Security recommends defining schemas for all responses, even errors. The 401 describes what happens when a request is unauthorized, so its important to define this not just for documentation, but to empower contract testing to make sure the proper JSON structure is being returned instead of leaking implementation details in backtraces.",
+      "fixSuggestion": "Add a 401 response to each protected operation, including content (e.g. application/json) and a schema for the unauthorized error body, matching what your API actually returns."
+    },
+    "owasp:api8:2023-define-error-responses-500": {
+      "description": "OWASP API Security recommends defining schemas for all responses, even errors. The 500 describes what happens when a request fails with an internal server error, so its important to define this not just for documentation, but to empower contract testing to make sure the proper JSON structure is being returned instead of leaking implementation details in backtraces.",
+      "fixSuggestion": "Add a 500 response on each operation with content and a schema for a generic server-error payload (avoid stack traces); reuse a shared component if all operations return the same error shape."
+    },
+    "owasp:api9:2023-inventory-access": {
+      "description": "Servers are required to use vendor extension x-internal set to true or false to explicitly explain the audience for the API, which will be picked up by most documentation tools.",
+      "fixSuggestion": "On every entry in servers, add x-internal: true (intranet-only, partners, VPN) or x-internal: false (public or external-facing) so tools and consumers know the intended audience."
+    },
+    "owasp:api9:2023-inventory-environment": {
+      "description": "Make it clear which servers are expected to run as which environment to avoid unexpected problems, exposing test data to the public, or letting bad actors bypass security measures to get to production-like environments.",
+      "fixSuggestion": "In each servers[].description, name the environment using conventional terms (e.g. local, sandbox, staging, production) so deployment intent is unambiguous to humans and automation."
+    }
+  }
+}

@@ -1,0 +1,583 @@
+/**
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ *
+ * WSO2 LLC. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import type { GovernanceReportId } from "./types";
+
+export const AI_READINESS_RULE_CATEGORY_MAP: Record<string, string> = {
+    "ai-readiness-operation-summary": "summaries",
+    "ai-readiness-callback-operation-summary": "summaries",
+    "ai-readiness-webhook-operation-summary": "summaries",
+    "ai-readiness-path-item-summary": "summaries",
+    "ai-readiness-api-description": "descriptions",
+    "ai-readiness-server-description": "descriptions",
+    "ai-readiness-path-item-description": "descriptions",
+    "ai-readiness-operation-description": "descriptions",
+    "ai-readiness-operation-id": "operationIds",
+    "ai-readiness-operation-id-casing": "operationIds",
+    "ai-readiness-operation-id-unique": "operationIds",
+    "ai-readiness-operation-tags": "descriptions",
+    "ai-readiness-parameter-description": "descriptions",
+    "ai-readiness-parameter-description-length": "descriptions",
+    "ai-readiness-request-body-description": "descriptions",
+    "ai-readiness-response-description": "descriptions",
+    "ai-readiness-error-response-description-length": "descriptions",
+    "ai-readiness-schema-description": "descriptions",
+    "ai-readiness-schema-description-length": "descriptions",
+    "ai-readiness-schema-title": "descriptions",
+    "ai-readiness-schema-property-description": "descriptions",
+    "ai-readiness-schema-enum-description": "descriptions",
+    "ai-readiness-tags-description": "descriptions",
+    "ai-readiness-tags-external-docs": "descriptions",
+    "ai-readiness-deprecation-notice": "descriptions",
+    "ai-readiness-parameter-example": "examples",
+    "ai-readiness-path-parameter-example": "examples",
+    "ai-readiness-parameter-content-example": "examples",
+    "ai-readiness-path-parameter-content-example": "examples",
+    "ai-readiness-request-body-example": "examples",
+    "ai-readiness-response-example": "examples",
+    "ai-readiness-response-header-example": "examples",
+    "ai-readiness-schema-example": "examples",
+    "ai-readiness-schema-property-example": "examples",
+    "ai-readiness-component-header-example": "examples",
+    "ai-readiness-success-response": "errors",
+    "ai-readiness-success-response-content": "errors",
+    "ai-readiness-success-response-json-schema": "errors",
+    "ai-readiness-error-responses-4xx": "errors",
+    "ai-readiness-error-responses-5xx": "errors",
+    "ai-readiness-error-response-content": "errors",
+    "ai-readiness-error-response-json-schema": "errors",
+    "ai-readiness-response-content-type": "errors",
+    "ai-readiness-error-response-schema": "errors",
+    "ai-readiness-request-body-schema-typed": "typing",
+    "ai-readiness-request-body-schema-required": "typing",
+    "ai-readiness-response-schema-typed": "typing",
+    "ai-readiness-schema-property-type": "typing",
+    "ai-readiness-parameter-schema-type": "typing",
+    "ai-readiness-schema-string-format": "typing",
+    "ai-readiness-schema-no-empty-object": "typing",
+    "ai-readiness-schema-property-no-empty-object": "typing",
+    "ai-readiness-array-items-defined": "typing",
+    "ai-readiness-array-property-items-defined": "typing",
+    "ai-readiness-schema-validation-constraints": "typing",
+    "ai-readiness-discriminator": "typing",
+    "ai-readiness-error-schema-fields": "errorSemantics",
+    "ai-readiness-error-schema-rfc7807": "errorSemantics",
+    "ai-readiness-error-schema-details": "errorSemantics",
+    "ai-readiness-error-schema-actionable": "errorSemantics",
+    "ai-readiness-429-rate-limit-headers": "headers",
+    "ai-readiness-list-pagination-params": "pagination",
+    "ai-readiness-pagination-response-meta": "pagination",
+    "ai-readiness-api-contact": "security",
+    "ai-readiness-no-interactive-auth": "security",
+    "ai-readiness-security-defined": "security",
+    "ai-readiness-security-description": "security",
+    "ai-readiness-security-on-mutating-ops": "security",
+    "ai-readiness-idempotency-key": "idempotency",
+    "ai-readiness-llm-operation-id-verb-noun": "operationIds",
+    "ai-readiness-llm-operation-id-distinctiveness": "operationIds",
+    "ai-readiness-llm-summary-imperative-verb": "summaries",
+    "ai-readiness-llm-summary-business-semantics": "summaries",
+    "ai-readiness-llm-description-preconditions": "descriptions",
+    "ai-readiness-llm-description-side-effects": "descriptions",
+    "ai-readiness-llm-description-draft-finalized": "descriptions",
+    "ai-readiness-llm-description-required-scopes": "descriptions",
+    "ai-readiness-llm-description-workflow-position": "descriptions",
+    "ai-readiness-llm-destructive-irreversible-warning": "security",
+    "ai-readiness-llm-destructive-cascade-effects": "security",
+    "ai-readiness-llm-destructive-reasoning-instructions": "security",
+    "ai-readiness-llm-parameter-business-meaning": "descriptions",
+    "ai-readiness-llm-parameter-enum-value-explanations": "descriptions",
+    "ai-readiness-llm-parameter-id-sourcing": "descriptions",
+    "ai-readiness-llm-errors-structured-4xx": "errorSemantics",
+    "ai-readiness-llm-errors-401-403-distinction": "errorSemantics",
+    "ai-readiness-llm-errors-429-retry-guidance": "headers",
+    "ai-readiness-llm-workflow-response-to-parameter-linkage": "descriptions",
+    "ai-readiness-llm-workflow-hateoas-links": "examples",
+    "ai-readiness-llm-bulk-batch-operations": "pagination",
+    "ai-readiness-llm-sparse-fieldsets": "pagination",
+    "ai-readiness-llm-agent-discovery-endpoints": "summaries",
+    "ai-readiness-llm-naming-singular-plural": "operationIds",
+    "ai-readiness-llm-naming-property-casing": "typing",
+    "ai-readiness-llm-naming-ambiguous-properties": "descriptions",
+    "ai-readiness-llm-general": "descriptions",
+};
+
+const LLM_RULE_PREFIX = "ai-readiness-llm-";
+export const AI_READINESS_LLM_RULES: string[] = Object.keys(AI_READINESS_RULE_CATEGORY_MAP).filter((rule) =>
+    rule.startsWith(LLM_RULE_PREFIX)
+);
+
+
+export const AI_READINESS_DIMENSIONS = [
+    {
+        key: "discovery",
+        label: "Semantic Discovery",
+        description: "Ensures AI agents can find the right endpoint and understand intent using clear summaries, rich descriptions, and stable operation IDs so they avoid guesswork and incorrect calls.",
+        icon: "search",
+        subBucketKeys: ["summaries", "descriptions", "operationIds"],
+        aggregationWeight: 0.26,
+    },
+    {
+        key: "contract",
+        label: "Contract Integrity",
+        description: "Ensures AI agents can construct valid requests and interpret responses confidently by relying on strong schemas, explicit typing, and practical examples instead of assumptions.",
+        icon: "symbol-interface",
+        subBucketKeys: ["examples", "typing", "errors"],
+        aggregationWeight: 0.26,
+    },
+    {
+        key: "resilience",
+        label: "Resilience & Recovery",
+        description: "Ensures AI agents can recover from failures and operate safely at scale through actionable error semantics, clear rate-limit signals, and pagination guidance.",
+        icon: "refresh",
+        subBucketKeys: ["errorSemantics", "headers", "pagination"],
+        aggregationWeight: 0.24,
+    },
+    {
+        key: "security",
+        label: "Security & Integrity",
+        description: "Ensures autonomous agent access remains safe over time by defining non-interactive security requirements and idempotent mutation behavior that reduces unintended side effects.",
+        icon: "shield",
+        subBucketKeys: ["security", "idempotency"],
+        aggregationWeight: 0.24,
+    },
+] as const;
+
+export const AI_READINESS_BUCKET_DEFINITIONS = [
+    { key: "summaries", label: "Summaries", description: "Clear operation summaries help agents pick the right endpoint quickly.", icon: "list-unordered", metricKey: "summaries", weight: 1.2 },
+    { key: "descriptions", label: "Descriptions", description: "Detailed descriptions reduce ambiguity in agent execution flows.", icon: "note", metricKey: "descriptions", weight: 1.0 },
+    { key: "operationIds", label: "Operation IDs", description: "Stable operation IDs improve deterministic tool calling for agents.", icon: "symbol-method", metricKey: "operationIds", weight: 1.3 },
+    { key: "examples", label: "Examples", description: "Request and response examples help agents construct valid payloads.", icon: "symbol-field", metricKey: "examples", weight: 1.0 },
+    { key: "errors", label: "Responses", description: "Defined success and error responses help agents interpret outcomes correctly and avoid invalid request/response handling.", icon: "error", metricKey: "errorResponses", weight: 1.25 },
+    { key: "typing", label: "Strict Typing", description: "Strong typing keeps agent-generated requests aligned with schema constraints.", icon: "symbol-parameter", metricKey: "typing", weight: 1.1 },
+    { key: "errorSemantics", label: "Error Semantics", description: "Consistent status semantics let agents reason about failures correctly.", icon: "feedback", metricKey: "errorSemantics", weight: 1.35 },
+    { key: "headers", label: "Rate Limit Headers", description: "Rate limit and retry headers prevent unsafe autonomous request bursts.", icon: "server-process", metricKey: "headers", weight: 1.15 },
+    { key: "pagination", label: "Pagination", description: "Pagination metadata helps agents iterate large datasets safely.", icon: "list-flat", metricKey: "pagination", weight: 1.1 },
+    { key: "security", label: "Agent Auth", description: "Explicit security requirements reduce risk in autonomous access.", icon: "shield", metricKey: "security", weight: 1.5 },
+    { key: "idempotency", label: "Idempotency", description: "Idempotency protection avoids duplicate side effects on retries.", icon: "sync", metricKey: "idempotency", weight: 1.4 },
+] as const;
+
+export const AI_READINESS_BUCKET_WEIGHTS: Record<string, number> = AI_READINESS_BUCKET_DEFINITIONS.reduce(
+    (acc: Record<string, number>, def) => {
+        acc[def.key] = def.weight;
+        return acc;
+    },
+    {}
+);
+
+export const AI_READINESS_BUCKET_RULE_MAP: Record<string, string[]> = {
+    summaries: [
+        "ai-readiness-operation-summary",
+        "ai-readiness-callback-operation-summary",
+        "ai-readiness-webhook-operation-summary",
+        "ai-readiness-path-item-summary",
+        "ai-readiness-llm-summary-imperative-verb",
+        "ai-readiness-llm-summary-business-semantics",
+        "ai-readiness-llm-agent-discovery-endpoints",
+    ],
+    descriptions: [
+        "ai-readiness-api-description",
+        "ai-readiness-server-description",
+        "ai-readiness-path-item-description",
+        "ai-readiness-operation-description",
+        "ai-readiness-operation-tags",
+        "ai-readiness-parameter-description",
+        "ai-readiness-parameter-description-length",
+        "ai-readiness-request-body-description",
+        "ai-readiness-response-description",
+        "ai-readiness-error-response-description-length",
+        "ai-readiness-schema-description",
+        "ai-readiness-schema-description-length",
+        "ai-readiness-schema-title",
+        "ai-readiness-schema-property-description",
+        "ai-readiness-schema-enum-description",
+        "ai-readiness-tags-description",
+        "ai-readiness-tags-external-docs",
+        "ai-readiness-deprecation-notice",
+        "ai-readiness-llm-description-preconditions",
+        "ai-readiness-llm-description-side-effects",
+        "ai-readiness-llm-description-draft-finalized",
+        "ai-readiness-llm-description-required-scopes",
+        "ai-readiness-llm-description-workflow-position",
+        "ai-readiness-llm-parameter-business-meaning",
+        "ai-readiness-llm-parameter-enum-value-explanations",
+        "ai-readiness-llm-parameter-id-sourcing",
+        "ai-readiness-llm-workflow-response-to-parameter-linkage",
+        "ai-readiness-llm-naming-ambiguous-properties",
+        "ai-readiness-llm-general",
+    ],
+    operationIds: [
+        "ai-readiness-operation-id",
+        "ai-readiness-operation-id-casing",
+        "ai-readiness-operation-id-unique",
+        "ai-readiness-llm-operation-id-verb-noun",
+        "ai-readiness-llm-operation-id-distinctiveness",
+        "ai-readiness-llm-naming-singular-plural",
+    ],
+    examples: [
+        "ai-readiness-parameter-example",
+        "ai-readiness-path-parameter-example",
+        "ai-readiness-parameter-content-example",
+        "ai-readiness-path-parameter-content-example",
+        "ai-readiness-request-body-example",
+        "ai-readiness-response-example",
+        "ai-readiness-response-header-example",
+        "ai-readiness-schema-example",
+        "ai-readiness-schema-property-example",
+        "ai-readiness-component-header-example",
+        "ai-readiness-llm-workflow-hateoas-links",
+    ],
+    typing: [
+        "ai-readiness-request-body-schema-typed",
+        "ai-readiness-request-body-schema-required",
+        "ai-readiness-response-schema-typed",
+        "ai-readiness-schema-property-type",
+        "ai-readiness-parameter-schema-type",
+        "ai-readiness-schema-string-format",
+        "ai-readiness-schema-no-empty-object",
+        "ai-readiness-schema-property-no-empty-object",
+        "ai-readiness-array-items-defined",
+        "ai-readiness-array-property-items-defined",
+        "ai-readiness-schema-validation-constraints",
+        "ai-readiness-discriminator",
+        "ai-readiness-llm-naming-property-casing",
+    ],
+    errors: [
+        "ai-readiness-success-response",
+        "ai-readiness-success-response-content",
+        "ai-readiness-success-response-json-schema",
+        "ai-readiness-error-responses-4xx",
+        "ai-readiness-error-responses-5xx",
+        "ai-readiness-error-response-content",
+        "ai-readiness-error-response-json-schema",
+        "ai-readiness-response-content-type",
+        "ai-readiness-error-response-schema",
+    ],
+    errorSemantics: [
+        "ai-readiness-error-schema-fields",
+        "ai-readiness-error-schema-rfc7807",
+        "ai-readiness-error-schema-details",
+        "ai-readiness-error-schema-actionable",
+        "ai-readiness-llm-errors-structured-4xx",
+        "ai-readiness-llm-errors-401-403-distinction",
+    ],
+    headers: ["ai-readiness-429-rate-limit-headers", "ai-readiness-llm-errors-429-retry-guidance"],
+    pagination: [
+        "ai-readiness-list-pagination-params",
+        "ai-readiness-pagination-response-meta",
+        "ai-readiness-llm-bulk-batch-operations",
+        "ai-readiness-llm-sparse-fieldsets",
+    ],
+    security: [
+        "ai-readiness-api-contact",
+        "ai-readiness-no-interactive-auth",
+        "ai-readiness-security-defined",
+        "ai-readiness-security-description",
+        "ai-readiness-security-on-mutating-ops",
+        "ai-readiness-llm-destructive-irreversible-warning",
+        "ai-readiness-llm-destructive-cascade-effects",
+        "ai-readiness-llm-destructive-reasoning-instructions",
+    ],
+    idempotency: ["ai-readiness-idempotency-key"],
+};
+
+export const AI_READINESS_GUIDELINE_RULE_TO_INTERNAL_RULE: Record<string, string> = {
+    "rule 1.1": "ai-readiness-llm-operation-id-verb-noun",
+    "rule 1.2": "ai-readiness-llm-operation-id-distinctiveness",
+    "rule 2.1": "ai-readiness-llm-summary-imperative-verb",
+    "rule 2.2": "ai-readiness-llm-summary-business-semantics",
+    "rule 3.1": "ai-readiness-llm-description-preconditions",
+    "rule 3.2": "ai-readiness-llm-description-side-effects",
+    "rule 3.3": "ai-readiness-llm-description-draft-finalized",
+    "rule 3.4": "ai-readiness-llm-description-required-scopes",
+    "rule 3.5": "ai-readiness-llm-description-workflow-position",
+    "rule 4.1": "ai-readiness-llm-destructive-irreversible-warning",
+    "rule 4.2": "ai-readiness-llm-destructive-cascade-effects",
+    "rule 4.3": "ai-readiness-llm-destructive-reasoning-instructions",
+    "rule 5.1": "ai-readiness-llm-parameter-business-meaning",
+    "rule 5.2": "ai-readiness-llm-parameter-enum-value-explanations",
+    "rule 5.3": "ai-readiness-llm-parameter-id-sourcing",
+    "rule 6.1": "ai-readiness-llm-errors-structured-4xx",
+    "rule 6.2": "ai-readiness-llm-errors-401-403-distinction",
+    "rule 6.3": "ai-readiness-llm-errors-429-retry-guidance",
+    "rule 7.1": "ai-readiness-llm-workflow-response-to-parameter-linkage",
+    "rule 7.2": "ai-readiness-llm-workflow-hateoas-links",
+    "rule 8.1": "ai-readiness-llm-bulk-batch-operations",
+    "rule 9.1": "ai-readiness-llm-sparse-fieldsets",
+    "rule 10.1": "ai-readiness-llm-agent-discovery-endpoints",
+    "rule 11.1": "ai-readiness-llm-naming-singular-plural",
+    "rule 11.2": "ai-readiness-llm-naming-property-casing",
+    "rule 11.3": "ai-readiness-llm-naming-ambiguous-properties",
+};
+
+export const OWASP_DIMENSIONS = [
+    {
+        key: "api1:2023",
+        label: "Broken Object Level Authorization",
+        description: "Ensures object-level access controls are enforced so users cannot read or modify resources they do not own.",
+        docsUrl: "https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/",
+        icon: "shield",
+        subBucketKeys: ["api1:2023"],
+        aggregationWeight: 1,
+    },
+    {
+        key: "api2:2023",
+        label: "Broken Authentication",
+        description: "Validates authentication flows and token handling to prevent account takeover and credential abuse.",
+        docsUrl: "https://owasp.org/API-Security/editions/2023/en/0xa2-broken-authentication/",
+        icon: "shield",
+        subBucketKeys: ["api2:2023"],
+        aggregationWeight: 1,
+    },
+    {
+        key: "api3:2023",
+        label: "Broken Object Property Level Authorization",
+        description: "Checks that sensitive object properties are protected from overexposure, mass assignment, and unauthorized updates.",
+        docsUrl: "https://owasp.org/API-Security/editions/2023/en/0xa3-broken-object-property-level-authorization/",
+        icon: "shield",
+        subBucketKeys: ["api3:2023"],
+        aggregationWeight: 1,
+    },
+    {
+        key: "api4:2023",
+        label: "Unrestricted Resource Consumption",
+        description: "Identifies missing limits and throttling controls that can allow denial of service through excessive consumption.",
+        docsUrl: "https://owasp.org/API-Security/editions/2023/en/0xa4-unrestricted-resource-consumption/",
+        icon: "shield",
+        subBucketKeys: ["api4:2023"],
+        aggregationWeight: 1,
+    },
+    {
+        key: "api5:2023",
+        label: "Broken Function Level Authorization",
+        description: "Verifies that privileged operations are properly restricted and cannot be invoked by lower-privilege users.",
+        docsUrl: "https://owasp.org/API-Security/editions/2023/en/0xa5-broken-function-level-authorization/",
+        icon: "shield",
+        subBucketKeys: ["api5:2023"],
+        aggregationWeight: 1,
+    },
+    {
+        key: "api6:2023",
+        label: "Unrestricted Access to Sensitive Business Flows",
+        description: "Highlights business-critical workflows that need stronger anti-abuse controls and transaction safeguards.",
+        docsUrl: "https://owasp.org/API-Security/editions/2023/en/0xa6-unrestricted-access-to-sensitive-business-flows/",
+        icon: "shield",
+        subBucketKeys: ["api6:2023"],
+        aggregationWeight: 1,
+    },
+    {
+        key: "api7:2023",
+        label: "Server Side Request Forgery",
+        description: "Detects opportunities for untrusted input to trigger server-side outbound requests to internal or protected systems.",
+        docsUrl: "https://owasp.org/API-Security/editions/2023/en/0xa7-server-side-request-forgery/",
+        icon: "shield",
+        subBucketKeys: ["api7:2023"],
+        aggregationWeight: 1,
+    },
+    {
+        key: "api8:2023",
+        label: "Security Misconfiguration",
+        description: "Flags insecure defaults, weak transport/security settings, and missing hardening controls across API surfaces.",
+        docsUrl: "https://owasp.org/API-Security/editions/2023/en/0xa8-security-misconfiguration/",
+        icon: "shield",
+        subBucketKeys: ["api8:2023"],
+        aggregationWeight: 1,
+    },
+    {
+        key: "api9:2023",
+        label: "Improper Inventory Management",
+        description: "Ensures API assets, versions, and environments are properly documented and governed to avoid unmanaged exposure.",
+        docsUrl: "https://owasp.org/API-Security/editions/2023/en/0xa9-improper-inventory-management/",
+        icon: "shield",
+        subBucketKeys: ["api9:2023"],
+        aggregationWeight: 1,
+    },
+    {
+        key: "api10:2023",
+        label: "Unsafe Consumption of APIs",
+        description: "Evaluates trust boundaries and validation when integrating third-party or downstream APIs and services.",
+        docsUrl: "https://owasp.org/API-Security/editions/2023/en/0xaa-unsafe-consumption-of-apis/",
+        icon: "shield",
+        subBucketKeys: ["api10:2023"],
+        aggregationWeight: 1,
+    },
+] as const;
+
+export const OWASP_BUCKET_DEFINITIONS = [
+    ...OWASP_DIMENSIONS.map((dimension) => ({
+        key: dimension.subBucketKeys[0] || dimension.key.toLowerCase(),
+        label: dimension.label,
+        description: dimension.description,
+        icon: dimension.icon,
+        metricKey: dimension.subBucketKeys[0] || dimension.key.toLowerCase(),
+        weight: dimension.aggregationWeight,
+    })),
+] as const;
+
+export const OWASP_SUB_BUCKET_WEIGHTS: Record<string, number> = OWASP_BUCKET_DEFINITIONS.reduce(
+    (acc: Record<string, number>, def) => {
+        acc[def.key] = def.weight;
+        return acc;
+    },
+    {}
+);
+
+export const OWASP_SUBBUCKET_RULE_MAP: Record<string, string[]> = Object.fromEntries(
+    OWASP_DIMENSIONS.map((dimension) => {
+        const key = dimension.subBucketKeys[0] || dimension.key.toLowerCase();
+        return [key, [key]];
+    })
+);
+
+export const OWASP_DIMENSION_WEIGHTS: Record<string, number> = {
+    "api1:2023": 1.4,
+    "api2:2023": 1.3,
+    "api3:2023": 1.2,
+    "api4:2023": 1.1,
+    "api5:2023": 1.3,
+    "api6:2023": 1.1,
+    "api7:2023": 1.2,
+    "api8:2023": 1.0,
+    "api9:2023": 0.8,
+    "api10:2023": 0.9,
+};
+
+export const REST_API_READINESS_RULE_CATEGORY_MAP: Record<string, string> = {
+    "contact-url": "documentation",
+    "contact-email": "documentation",
+    "contact-name": "documentation",
+    "info-contact": "documentation",
+    "info-description": "documentation",
+    "info-license": "documentation",
+    "license-url": "documentation",
+    "no-eval-in-markdown": "security-governance",
+    "no-script-tags-in-markdown": "security-governance",
+    "openapi-tags-alphabetical": "documentation",
+    "openapi-tags": "documentation",
+    "tag-description": "documentation",
+    "parameter-description": "documentation",
+    "operation-description": "documentation",
+    "operation-operationid": "operations-methods",
+    "operation-operationid-valid-in-url": "operations-methods",
+    "operation-tags": "documentation",
+    "path-declarations-must-exist": "resource-design",
+    "paths-no-trailing-slash": "resource-design",
+    "path-not-include-query": "resource-design",
+    "path-parameters-on-path-only": "contracts-responses",
+    "paths-no-query-params": "resource-design",
+    "path-casing": "resource-design",
+    "resource-names-plural": "resource-design",
+    "paths-no-http-verbs": "resource-design",
+    "paths-avoid-special-characters": "resource-design",
+    "oas3-examples-value-or-externalvalue": "contracts-responses",
+    "array-items": "contracts-responses",
+};
+
+export const REST_API_READINESS_DIMENSIONS = [
+    {
+        key: "resource-design",
+        label: "Resource Design",
+        description: "Resource paths, naming, and URL structure quality.",
+        icon: "symbol-interface",
+        subBucketKeys: ["resource-design"],
+        aggregationWeight: 1,
+    },
+    {
+        key: "operations-methods",
+        label: "Operations & Methods",
+        description: "Operation metadata and method semantics consistency.",
+        icon: "symbol-interface",
+        subBucketKeys: ["operations-methods"],
+        aggregationWeight: 1,
+    },
+    {
+        key: "contracts-responses",
+        label: "Contracts & Responses",
+        description: "Request/response schema and contract correctness checks.",
+        icon: "symbol-interface",
+        subBucketKeys: ["contracts-responses"],
+        aggregationWeight: 1,
+    },
+    {
+        key: "documentation",
+        label: "Documentation Quality",
+        description: "API documentation completeness and usability checks.",
+        icon: "symbol-interface",
+        subBucketKeys: ["documentation"],
+        aggregationWeight: 1,
+    },
+    {
+        key: "security-governance",
+        label: "Security & Governance",
+        description: "Basic security and governance hygiene checks.",
+        icon: "symbol-interface",
+        subBucketKeys: ["security-governance"],
+        aggregationWeight: 1,
+    },
+    {
+        key: "other",
+        label: "Others",
+        description: "Other checks",
+        icon: "symbol-interface",
+        subBucketKeys: ["other"],
+        aggregationWeight: 1,
+    },
+] as const;
+
+
+export const REST_API_READINESS_BUCKET_DEFINITIONS = [
+    ...REST_API_READINESS_DIMENSIONS.map((dimension) => ({
+        key: dimension.subBucketKeys[0] || dimension.key.toLowerCase(),
+        label: dimension.label,
+        description: dimension.description,
+        icon: dimension.icon,
+        metricKey: dimension.subBucketKeys[0] || dimension.key.toLowerCase(),
+        weight: dimension.aggregationWeight,
+    })),
+] as const;
+
+
+export const REST_API_READINESS_BUCKET_WEIGHTS: Record<string, number> = REST_API_READINESS_BUCKET_DEFINITIONS.reduce(
+    (acc: Record<string, number>, def) => {
+        acc[def.key] = def.weight;
+        return acc;
+    },
+    {}
+);
+
+export const REPORT_TITLE_BY_ID: Record<GovernanceReportId, string> = {
+    "ai-readiness": "AI Readiness",
+    "owasp": "Security (OWASP)",
+    "rest-api-readiness": "REST Compliance",
+};
+
+export const REPORT_BREAKDOWN_META: Record<GovernanceReportId, { title: string; subtitle: string }> = {
+    "ai-readiness": {
+        title: "AI Readiness Breakdown",
+        subtitle: "Evaluate how well your API is prepared for AI agent consumption",
+    },
+    "owasp": {
+        title: "Security (OWASP) Breakdown",
+        subtitle: "OWASP API Security themes for which this analysis found issues.",
+    },
+    "rest-api-readiness": {
+        title: "REST Compliance Breakdown",
+        subtitle: "Compliance with WSO2 REST API design guidelines",
+    },
+};
+

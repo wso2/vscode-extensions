@@ -125,7 +125,7 @@ export async function activate(context: vscode.ExtensionContext) {
                         editBuilder.insert(activeEditor.selection.start, templateContent);
                     });
                 } else {
-                    vscode.window.showErrorMessage('Please open an "apk-config.apk-conf" file.');
+                    vscode.window.showErrorMessage('Please open an ".apk-conf" file.');
                 }
             }
 

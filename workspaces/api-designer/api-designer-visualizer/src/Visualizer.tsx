@@ -22,13 +22,21 @@ import { MachineStateValue } from "@wso2/api-designer-core";
 import MainPanel from "./MainPanel";
 import styled from "@emotion/styled";
 import { ErrorBoundary } from "@wso2/ui-toolkit";
+import { LoadingOverlay } from "./components/common/LoadingOverlay";
+
+const VisualizerRoot = styled.div`
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+`;
 
 const LoaderWrapper = styled.div`
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 50vh;
-    width: 100vw;
+    height: 100%;
+    width: 100%;
 `;
 
 const MODES = {
@@ -54,18 +62,20 @@ export function Visualizer({ mode }: { mode: string }) {
     });
 
     useEffect(() => {
-        rpcClient.webviewReady();
+        rpcClient?.webviewReady();
     }, []);
 
     return (
-        <ErrorBoundary errorMsg="An error occurred in the API Designer" ref={errorBoundaryRef}>
-            {(() => {
-                switch (mode) {
-                    case MODES.VISUALIZER:
-                        return <VisualizerComponent state={state as MachineStateValue} handleResetError={handleResetError} />
-                }
-            })()}
-        </ErrorBoundary>
+        <VisualizerRoot>
+            <ErrorBoundary errorMsg="An error occurred in the API Designer" ref={errorBoundaryRef}>
+                {(() => {
+                    switch (mode) {
+                        case MODES.VISUALIZER:
+                            return <VisualizerComponent state={state as MachineStateValue} handleResetError={handleResetError} />
+                    }
+                })()}
+            </ErrorBoundary>
+        </VisualizerRoot>
     );
 };
 
@@ -73,14 +83,9 @@ const VisualizerComponent = React.memo(({ state, handleResetError }: { state: Ma
     switch (true) {
         case typeof state === 'object' && 'ready' in state && state.ready === "viewReady":
             return <MainPanel handleResetError={handleResetError} />;
-        // case typeof state === 'object' && 'newProject' in state && state.newProject === "viewReady":
-        //     return <APIDesigner openAPIDefinition={apiDefinition} fileUri={fileUri}/>;
         case state === 'disabled':
             return <>Disabled View</>
         default:
-            return (
-                <LoaderWrapper>
-                </LoaderWrapper>
-            );
+            return <LoadingOverlay message="Initializing..." fullScreen />;
     }
 });
