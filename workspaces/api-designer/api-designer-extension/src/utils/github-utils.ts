@@ -285,8 +285,9 @@ function extractNameFromFilename(url: string): string {
 /**
  * Fetch all rulesets from configured folders
  */
-export async function fetchRulesetsFromFolders(folderUrls: string[], sourceFolder?: string, promptForAuth: boolean = false): Promise<RulesetMetadata[]> {
+export async function fetchRulesetsFromFolders(folderUrls: string[], sourceFolder?: string, promptForAuth: boolean = false): Promise<RulesetMetadata[] | null> {
     const allRulesets: RulesetMetadata[] = [];
+    let hadError = false;
     // If promptForAuth is true, try to get existing session first (user might already be signed in)
     let authToken: string | undefined = promptForAuth ? await getGitHubAuth(false) : undefined;
     
@@ -352,10 +353,14 @@ export async function fetchRulesetsFromFolders(folderUrls: string[], sourceFolde
         } catch (error) {
             logError(`Error fetching rulesets from ${folderUrl}:`, error);
             vscode.window.showWarningMessage(`Failed to fetch rulesets from ${folderUrl}`);
+            hadError = true;
         }
     }
-    
-    return allRulesets;
+
+    // Distinguish "folder(s) failed to scan" from "scanned fine, just empty" so callers can
+    // avoid treating a failed scan as a successfully-processed (if empty) folder. Any error
+    // invalidates the whole result, even if other folders in the batch partially succeeded.
+    return hadError ? null : allRulesets;
 }
 
 /**
