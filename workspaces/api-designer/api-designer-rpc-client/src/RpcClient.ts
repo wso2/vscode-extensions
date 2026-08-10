@@ -17,7 +17,7 @@
  */
 
 import { Messenger } from "vscode-messenger-webview";
-import { MachineStateValue, stateChanged, vscode, getVisualizerState, VisualizerLocation, webviewReady, onFileContentUpdate, PopupMachineStateValue, popupStateChanged, PopupVisualizerLocation, getPopupVisualizerState, onParentPopupSubmitted, ParentPopupData, APIDesignerVisualizerAPI, SelectQuickPickItemReq, WebviewQuickPickItem, selectQuickPickItem, selectQuickPickItems, showConfirmMessage, ShowConfirmBoxReq, showInputBox, ShowWebviewInputBoxReq, showInfoNotification, showErrorNotification  } from "@wso2/api-designer-core";
+import { MachineStateValue, stateChanged, vscode, getVisualizerState, VisualizerLocation, webviewReady, onFileContentUpdate, PopupMachineStateValue, popupStateChanged, PopupVisualizerLocation, getPopupVisualizerState, onParentPopupSubmitted, ParentPopupData, APIDesignerVisualizerAPI, SelectQuickPickItemReq, WebviewQuickPickItem, selectQuickPickItem, selectQuickPickItems, showConfirmMessage, ShowConfirmBoxReq, showInputBox, ShowWebviewInputBoxReq, showInfoNotification, showErrorNotification, onDocumentFileChanged, DocumentFileChangedNotification, generateWithAI, saveSpec, requestValidation, navigateTo, openExternal, GenerateWithAIResponse } from "@wso2/api-designer-core";
 import { HOST_EXTENSION } from "vscode-messenger-common";
 import { ApiDesignerVisualizerRpcClient } from "./rpc-clients/api-designer-visualizer/rpc-client";
 
@@ -55,6 +55,10 @@ export class RpcClient {
     onFileContentUpdate(callback: () => void): void {
         this.messenger.onNotification(onFileContentUpdate, callback);
     }
+
+    onDocumentFileChanged(callback: (notification: DocumentFileChangedNotification) => void): void {
+        this.messenger.onNotification(onDocumentFileChanged, callback);
+    }
     
     webviewReady(): void {
         this.messenger.sendNotification(webviewReady, HOST_EXTENSION);
@@ -87,5 +91,43 @@ export class RpcClient {
     showErrorNotification(message: string): void {
         this.messenger.sendNotification(showErrorNotification, HOST_EXTENSION, message);
     }
+
+    getMessenger(): Messenger {
+        return this.messenger;
+    }
+
+    // Copilot Assistant Method
+    /**
+     * Generate content using AI (GitHub Copilot)
+     * @param context - The context/existing content (can be empty string)
+     * @param prompt - The prompt/instructions for the AI
+     * @returns AI-generated content
+     */
+    generateWithAI(context: string, prompt: string): Promise<GenerateWithAIResponse> {
+        return this.messenger.sendRequest(
+            generateWithAI,
+            HOST_EXTENSION,
+            { context, prompt }
+        );
+    }
+
+    saveSpec(data: unknown): void {
+        this.messenger.sendNotification(saveSpec, HOST_EXTENSION, { data });
+    }
+
+    requestValidation(source: "design-view" | "analyze-view" | "unknown" = "unknown"): void {
+        this.messenger.sendNotification(requestValidation, HOST_EXTENSION, { source });
+    }
+
+    navigateTo(focusPath: Array<string | number>): void {
+        this.messenger.sendNotification(navigateTo, HOST_EXTENSION, {
+            data: { focusPath }
+        });
+    }
+
+    openExternal(url: string): void {
+        this.messenger.sendNotification(openExternal, HOST_EXTENSION, { url });
+    }
+
 }
 

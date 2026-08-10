@@ -2,14 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { PopupMachineStateValue, MACHINE_VIEW, MachineStateValue } from '@wso2/api-designer-core';
 import { useVisualizerContext } from '@wso2/api-designer-rpc-client';
 import styled from '@emotion/styled';
-import { APIDesignerView } from './views/APIDesignerView/APIDesigner';
 
 const LoaderWrapper = styled.div`
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 50vh;
-    width: 100vw;
+    height: 100vh;
+    width: 100%;
 `;
 
 const PopUpContainer = styled.div`
@@ -22,7 +21,12 @@ const PopUpContainer = styled.div`
     background: var(--background);
 `;
 
-const ViewContainer = styled.div({});
+const ViewContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+`;
 
 const MainPanel = ({ handleResetError }: { handleResetError: () => void }) => {
     const { rpcClient } = useVisualizerContext();
@@ -32,6 +36,8 @@ const MainPanel = ({ handleResetError }: { handleResetError: () => void }) => {
     const [showNavigator, setShowNavigator] = useState<boolean>(true);
     const [formState, setFormState] = useState<PopupMachineStateValue>('initialize');
     const [stateUpdated, setStateUpdated] = React.useState<boolean>(false);
+    const [refreshTrigger, setRefreshTrigger] = React.useState<number>(0);
+    const [currentDocumentUri, setCurrentDocumentUri] = React.useState<string>('');
 
     rpcClient?.onStateChanged((newState: MachineStateValue) => {
         if (typeof newState === 'object' && 'newProject' in newState && newState.newProject === 'viewReady') {
@@ -41,6 +47,8 @@ const MainPanel = ({ handleResetError }: { handleResetError: () => void }) => {
             handleResetError();
             setStateUpdated(!stateUpdated);
         }
+        // Trigger a refresh whenever state changes to catch documentUri updates
+        setRefreshTrigger(prev => prev + 1);
     });
 
     rpcClient?.onPopupStateChanged((newState: PopupMachineStateValue) => {
@@ -49,11 +57,33 @@ const MainPanel = ({ handleResetError }: { handleResetError: () => void }) => {
 
     useEffect(() => {
         fetchContext();
-    }, [stateUpdated]);
+    }, [stateUpdated, refreshTrigger]);
+
+    // Poll for documentUri changes every 200ms to catch updates quickly
+    useEffect(() => {
+        const checkDocumentUri = () => {
+            rpcClient?.getVisualizerState().then((machineView) => {
+                if (machineView.documentUri && machineView.documentUri !== currentDocumentUri) {
+                    // Document URI changed, trigger immediate refresh
+                    // Document URI changed - handled by file change notifications
+                    setCurrentDocumentUri(machineView.documentUri);
+                    setRefreshTrigger(prev => prev + 1);
+                }
+            });
+        };
+
+        // Check immediately on mount
+        checkDocumentUri();
+
+        // Then poll regularly
+        const interval = setInterval(checkDocumentUri, 200);
+
+        return () => clearInterval(interval);
+    }, [currentDocumentUri, rpcClient]);
 
     useEffect(() => {
-        rpcClient.getVisualizerState().then((machineView) => {
-            setMachineView(machineView.view);
+        rpcClient?.getVisualizerState().then((machineView) => {
+            setMachineView(machineView.view ?? undefined);
             if (viewComponent && machineView.view == MACHINE_VIEW.Overview) {
                 setShowAIWindow(true);
             }
@@ -75,14 +105,21 @@ const MainPanel = ({ handleResetError }: { handleResetError: () => void }) => {
     }, []);
 
     const fetchContext = () => {
-        rpcClient.getVisualizerState().then(async (machineView) => {
+        rpcClient?.getVisualizerState().then(async (machineView) => {
             let shouldShowNavigator = true;
             switch (machineView?.view) {
                 case MACHINE_VIEW.Overview:
                     // setViewComponent(<Overview stateUpdated />);
                     break;
                 case MACHINE_VIEW.Welcome:
-                    setViewComponent(<APIDesignerView fileUri={machineView.documentUri}/>);
+                    // Use key prop to force remount when fileUri changes
+                    // setViewComponent(
+                    //     <HomePage
+                    //         key={machineView.documentUri}
+                    //         fileUri={machineView.documentUri}
+                    //         launchIntent={machineView.identifier}
+                    //     />
+                    // );
                     break;
                 default:
                     setViewComponent(null);

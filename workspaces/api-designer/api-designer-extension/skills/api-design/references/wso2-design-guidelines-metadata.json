@@ -1,0 +1,172 @@
+{
+  "rules": {
+    "contact-url": {
+      "effectiveSeverity": "LOW",
+      "autoFixable": false,
+      "description": "The info.contact object is missing a url field. API consumers cannot find the organization's homepage or support portal.",
+      "fixSuggestion": "Add a url field to the info.contact object, e.g. \"url\": \"https://example.com\"."
+    },
+    "contact-email": {
+      "effectiveSeverity": "LOW",
+      "autoFixable": false,
+      "description": "The info.contact object is missing an email field. API consumers have no direct contact address for support.",
+      "fixSuggestion": "Add an email field to the info.contact object, e.g. \"email\": \"support@example.com\"."
+    },
+    "info-contact": {
+      "effectiveSeverity": "MEDIUM",
+      "autoFixable": false,
+      "description": "The info object has no contact section. Consumers cannot determine who owns or supports this API.",
+      "fixSuggestion": "Add an info.contact object with at least name, email, and url fields."
+    },
+    "info-description": {
+      "effectiveSeverity": "MEDIUM",
+      "autoFixable": false,
+      "description": "The info object has no description. Consumers and tools cannot understand the API's purpose without reading its paths.",
+      "fixSuggestion": "Add an info.description string summarising what the API does and who it is for."
+    },
+    "info-license": {
+      "effectiveSeverity": "MEDIUM",
+      "autoFixable": false,
+      "description": "The info object has no license section. Consumers cannot determine the terms under which they may use the API.",
+      "fixSuggestion": "Add an info.license object with name and url, e.g. Apache 2.0 or MIT."
+    },
+    "license-url": {
+      "effectiveSeverity": "LOW",
+      "autoFixable": false,
+      "description": "The license object is missing a url. Consumers must look up the full license text manually.",
+      "fixSuggestion": "Add a url field to info.license pointing to the canonical license text."
+    },
+    "no-eval-in-markdown": {
+      "effectiveSeverity": "MEDIUM",
+      "autoFixable": false,
+      "description": "A description field contains eval() which is a JavaScript injection vector. Documentation renderers that execute scripts may be exploited.",
+      "fixSuggestion": "Remove or escape the eval() call in the affected description field."
+    },
+    "no-script-tags-in-markdown": {
+      "effectiveSeverity": "MEDIUM",
+      "autoFixable": false,
+      "description": "A description field contains a <script> tag, which can execute arbitrary JavaScript in documentation renderers.",
+      "fixSuggestion": "Remove or escape the <script> tag from the affected description field."
+    },
+    "openapi-tags-alphabetical": {
+      "effectiveSeverity": "LOW",
+      "autoFixable": true,
+      "description": "Global tags are not in alphabetical order, making the tag list harder to scan in generated documentation.",
+      "fixSuggestion": "Sort the root-level tags array alphabetically by the name property."
+    },
+    "openapi-tags": {
+      "effectiveSeverity": "MEDIUM",
+      "autoFixable": false,
+      "description": "The spec has no global tags array. Operations cannot be grouped in documentation and discovery tools.",
+      "fixSuggestion": "Add a root-level tags array with at least one entry, each having a name and description."
+    },
+    "operation-description": {
+      "effectiveSeverity": "MEDIUM",
+      "autoFixable": false,
+      "description": "One or more operations have no description. Consumers cannot understand what the operation does beyond its HTTP method and path.",
+      "fixSuggestion": "Add a non-empty description string to each operation explaining its purpose and behaviour."
+    },
+    "operation-operationId": {
+      "effectiveSeverity": "MEDIUM",
+      "autoFixable": false,
+      "description": "One or more operations are missing an operationId. Code generators, SDKs, and documentation tools rely on operationId to name methods.",
+      "fixSuggestion": "Add a unique operationId to each operation using kebab-case or camelCase, e.g. list-users or getOrder."
+    },
+    "operation-operationId-valid-in-url": {
+      "effectiveSeverity": "HIGH",
+      "autoFixable": false,
+      "description": "An operationId contains characters that are invalid in URLs. This breaks SDK generators, deep-link URLs, and tool integrations.",
+      "fixSuggestion": "Replace invalid characters (spaces, pipes, brackets, etc.) in the operationId with hyphens or underscores."
+    },
+    "operation-tags": {
+      "effectiveSeverity": "MEDIUM",
+      "autoFixable": false,
+      "description": "One or more operations have no tags. Documentation tools cannot group or filter operations without tags.",
+      "fixSuggestion": "Add a non-empty tags array to each operation referencing a tag defined in the global tags list."
+    },
+    "path-declarations-must-exist": {
+      "effectiveSeverity": "HIGH",
+      "autoFixable": false,
+      "description": "A path contains an empty parameter placeholder {} which is not a valid path parameter. Routers and validators will reject or misparse the path.",
+      "fixSuggestion": "Replace {} with a named parameter such as {userId}."
+    },
+    "paths-no-trailing-slash": {
+      "effectiveSeverity": "HIGH",
+      "autoFixable": true,
+      "description": "A path ends with a trailing slash. /users and /users/ are treated as different resources, causing inconsistent routing and client confusion.",
+      "fixSuggestion": "Remove the trailing slash from the affected path, e.g. change /users/ to /users."
+    },
+    "contact-name": {
+      "effectiveSeverity": "LOW",
+      "autoFixable": false,
+      "description": "The contact object is missing a name field. Consumers cannot identify the team or organisation responsible for the API.",
+      "fixSuggestion": "Add a name field to info.contact, e.g. \"name\": \"API Support Team\"."
+    },
+    "path-not-include-query": {
+      "effectiveSeverity": "MEDIUM",
+      "autoFixable": false,
+      "description": "A path key contains a query string character. Query parameters embedded in paths are not properly parsed by OpenAPI tooling.",
+      "fixSuggestion": "Remove the query string from the path and define the parameter with in: query under parameters."
+    },
+    "tag-description": {
+      "effectiveSeverity": "LOW",
+      "autoFixable": false,
+      "description": "A global tag has no description. Documentation tools display the tag without any context about what operations it groups.",
+      "fixSuggestion": "Add a description field to each entry in the root-level tags array."
+    },
+    "parameter-description": {
+      "effectiveSeverity": "MEDIUM",
+      "autoFixable": false,
+      "description": "One or more parameters have no description. Consumers cannot understand what value to provide or its expected format.",
+      "fixSuggestion": "Add a description string to each parameter object explaining its purpose, format, and valid values."
+    },
+    "oas3-examples-value-or-externalValue": {
+      "effectiveSeverity": "MEDIUM",
+      "autoFixable": false,
+      "description": "An example object has both value and externalValue set, or neither. The OpenAPI spec requires exactly one.",
+      "fixSuggestion": "Keep either value (inline example) or externalValue (URL to example), and remove the other."
+    },
+    "array-items": {
+      "effectiveSeverity": "HIGH",
+      "autoFixable": false,
+      "description": "An array-type schema is missing its items field. Validators and code generators cannot determine the element type.",
+      "fixSuggestion": "Add an items field to every schema with type: array describing the element's type and constraints."
+    },
+    "path-parameters-on-path-only": {
+      "effectiveSeverity": "MEDIUM",
+      "autoFixable": false,
+      "description": "Path parameters are defined at the operation level instead of the path level. This leads to duplication and inconsistency across operations on the same path.",
+      "fixSuggestion": "Move path parameters from individual operations up to the path-level parameters array so they apply to all operations on that path."
+    },
+    "paths-no-query-params": {
+      "effectiveSeverity": "MEDIUM",
+      "autoFixable": false,
+      "description": "A path key contains query parameters embedded in the URL string. These are invisible to OpenAPI tooling and cannot be validated.",
+      "fixSuggestion": "Remove query parameters from the path string and define them as parameters with in: query."
+    },
+    "path-casing": {
+      "effectiveSeverity": "HIGH",
+      "autoFixable": false,
+      "description": "A path segment uses non-kebab-case naming (e.g. camelCase, PascalCase, or underscores). Inconsistent casing makes URLs harder to read and breaks case-sensitive routing.",
+      "fixSuggestion": "Rename path segments to kebab-case, e.g. change /userInfo to /user-info."
+    },
+    "resource-names-plural": {
+      "effectiveSeverity": "MEDIUM",
+      "autoFixable": false,
+      "description": "A resource name in the path appears to be singular. REST conventions use plural nouns for collection resources (e.g. /users, not /user).",
+      "fixSuggestion": "Rename the path segment to a plural noun, e.g. change /user to /users."
+    },
+    "paths-no-http-verbs": {
+      "effectiveSeverity": "HIGH",
+      "autoFixable": false,
+      "description": "A path contains an HTTP verb (get, post, delete, etc.) in the URL. This duplicates information already conveyed by the HTTP method and is an anti-pattern in RESTful design.",
+      "fixSuggestion": "Remove the verb from the path and express the action through the HTTP method, e.g. change /getUsers to /users with GET."
+    },
+    "paths-avoid-special-characters": {
+      "effectiveSeverity": "MEDIUM",
+      "autoFixable": false,
+      "description": "A path contains special characters such as $ & + , ; = ? @%. These characters have reserved meanings in URLs and cause encoding issues.",
+      "fixSuggestion": "Remove special characters from path segments. Use hyphens or underscores if word separation is needed."
+    }
+  }
+}
