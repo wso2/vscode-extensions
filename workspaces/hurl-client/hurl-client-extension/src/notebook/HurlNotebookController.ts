@@ -28,15 +28,17 @@ import {
     HurlAssertionResult,
     HurlRunOptions
 } from '@wso2/api-tryit-hurl-runner';
-import { composeHurlDocumentWithBoundaries } from '@wso2/api-tryit-hurl-parser';
+import { composeHurlDocumentWithBoundaries, parseHurlDocument } from '@wso2/api-tryit-hurl-parser';
 import { getHurlBinaryManager } from '../hurl/hurl-binary-manager';
 
 const CONTROLLER_ID = 'HurlClient-controller';
 const NOTEBOOK_TYPE = 'HurlClient';
 const CONTROLLER_LABEL = 'Hurl Client Runner';
 const SHARED_VARIABLES_FILE_NAME = 'hurl.vars';
-const UNDEFINED_VARIABLE_PATTERN = /undefined variable/i;
-const REQUEST_LINE_PATTERN = /^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS|CONNECT|TRACE|PROPFIND|PROPPATCH|MKCOL|COPY|MOVE|LOCK|UNLOCK)\s+\S/mi;
+// hurl's raw stderr heading is "Undefined variable", but the per-entry
+// errorMessage report-parser extracts is just the detail line beneath it
+// ("you must set the variable X") - match both forms.
+const UNDEFINED_VARIABLE_PATTERN = /undefined variable|you must set the variable/i;
 
 interface ResolvedRunOptions {
     commandPath: string;
@@ -50,12 +52,13 @@ interface ResolvedRunOptions {
 /**
  * Notebook controller that executes Hurl request cells.
  *
- * A single cell run is an Isolated Run: its text is written to its own temp
- * file and executed on its own, with no variables captured by other cells.
- * Running more than one cell together (Run All, or a selected range) is a
- * Chained Run: the cells are combined into one temp file and executed as a
- * single `hurl` invocation, so a variable captured by an earlier entry is
- * available to later ones - matching hurl's own native behavior.
+ * Every submitted cell with non-empty content runs together, combined into
+ * one temp file and executed as a single `hurl` invocation - a Chained Run,
+ * so a variable captured by an earlier entry is available to later ones,
+ * matching hurl's own native behavior. When only one cell is submitted
+ * (running it alone via its own play button), this reduces to that cell
+ * running by itself - an Isolated Run in effect, since there's nothing else
+ * to combine with or capture from.
  *
  * Results are rendered as Markdown in each cell's own output area.
  */
@@ -71,7 +74,7 @@ export class HurlNotebookController {
         );
         this.controller.supportedLanguages = ['plaintext', 'hurl'];
         this.controller.supportsExecutionOrder = true;
-        this.controller.executeHandler = this.executeHandler.bind(this);
+        this.controller.executeHandler = this.executeCells.bind(this);
 
         // Auto-select this controller as the preferred kernel for every notebook of our type,
         // so VS Code never shows the "Select Kernel" prompt.
@@ -89,103 +92,12 @@ export class HurlNotebookController {
         this.controller.dispose();
     }
 
-    private async executeHandler(
+    private async executeCells(
         cells: vscode.NotebookCell[],
         notebook: vscode.NotebookDocument,
         controller: vscode.NotebookController
     ): Promise<void> {
-        if (cells.length <= 1) {
-            for (const cell of cells) {
-                await this.executeIsolatedCell(cell, notebook, controller);
-            }
-            return;
-        }
-
-        await this.executeChainedRun(cells, notebook, controller);
-    }
-
-    /**
-     * Runs a single cell alone, in its own `hurl` process. No Captured
-     * Variables from other cells are available; if the cell depends on one,
-     * hurl reports it as an undefined variable and the output hints at
-     * running all cells instead.
-     */
-    private async executeIsolatedCell(
-        cell: vscode.NotebookCell,
-        notebook: vscode.NotebookDocument,
-        controller: vscode.NotebookController
-    ): Promise<void> {
-        const execution = controller.createNotebookCellExecution(cell);
-        execution.start(Date.now());
-        execution.clearOutput();
-
-        const hurlContent = cell.document.getText().trim();
-        if (!hurlContent) {
-            execution.end(true, Date.now());
-            return;
-        }
-
-        let tempDir: string | undefined;
-        try {
-            const runOptions = await this.resolveRunOptions(notebook);
-            tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'http-book-'));
-            const tempFile = path.join(tempDir, 'cell.hurl');
-            await fs.writeFile(tempFile, hurlContent, 'utf-8');
-
-            const runner = createHurlRunner();
-            const result = await runner.run(
-                { collectionPath: tempDir, includePatterns: ['cell.hurl'] },
-                { ...this.toHurlRunOptions(runOptions), includeResponseOutput: true, continueOnError: true }
-            );
-
-            const fileResult = result.files[0];
-            if (!fileResult) {
-                await execution.appendOutput([
-                    new vscode.NotebookCellOutput([
-                        vscode.NotebookCellOutputItem.text(
-                            '> No output returned from hurl execution.',
-                            'text/markdown'
-                        )
-                    ])
-                ]);
-                execution.end(false, Date.now());
-                return;
-            }
-
-            const outputs = this.buildOutputs(fileResult);
-            if (fileResult.status !== 'passed' && this.isUndefinedVariableFailure(fileResult)) {
-                outputs.push(this.buildUndefinedVariableHintOutput());
-            }
-            await execution.appendOutput(outputs);
-            execution.end(fileResult.status === 'passed', Date.now());
-        } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            await execution.appendOutput([
-                new vscode.NotebookCellOutput([
-                    vscode.NotebookCellOutputItem.error({ name: 'HurlNotebookError', message })
-                ])
-            ]);
-            execution.end(false, Date.now());
-        } finally {
-            if (tempDir) {
-                await fs.rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
-            }
-        }
-    }
-
-    /**
-     * Runs every cell with non-empty content together as a single `hurl`
-     * invocation over their combined source, so a variable captured by an
-     * earlier entry is available to later ones (a Chained Run). Cells with
-     * empty content are skipped and end immediately, matching the isolated
-     * path's behavior for empty cells.
-     */
-    private async executeChainedRun(
-        cells: vscode.NotebookCell[],
-        notebook: vscode.NotebookDocument,
-        controller: vscode.NotebookController
-    ): Promise<void> {
-        const executions: Array<{ cell: vscode.NotebookCell; execution: vscode.NotebookCellExecution; content: string }> = [];
+        const executions: Array<{ execution: vscode.NotebookCellExecution; content: string }> = [];
 
         for (const cell of cells) {
             const execution = controller.createNotebookCellExecution(cell);
@@ -198,7 +110,7 @@ export class HurlNotebookController {
                 continue;
             }
 
-            executions.push({ cell, execution, content });
+            executions.push({ execution, content });
         }
 
         if (executions.length === 0) {
@@ -211,8 +123,8 @@ export class HurlNotebookController {
             // A "cell" here isn't guaranteed to be exactly one request - e.g. a
             // notebook's leading comment block becomes its own code cell with
             // no request line at all. Boundaries (not array position) are what
-            // let a zero-entry cell sit in the middle of a chain without
-            // shifting every entry after it onto the wrong cell.
+            // let a zero-entry cell sit anywhere in the chain without shifting
+            // every entry after it onto the wrong cell.
             const { document: combinedContent, boundaries } = composeHurlDocumentWithBoundaries(
                 executions.map(item => item.content)
             );
@@ -243,24 +155,32 @@ export class HurlNotebookController {
                 return;
             }
 
+            // boundaries is built from executions in order with no filtering
+            // (every execution's content is already non-empty), so boundaries
+            // and outcomes always line up 1:1 with executions by position.
             const outcomes = mapFileResultToCellOutcomes(
                 fileResult,
                 boundaries.map(b => ({ startLine: b.startLine, endLine: b.endLine }))
             );
-            const entriesBySourceIndex = new Map(boundaries.map((b, i) => [b.sourceIndex, outcomes[i].entries]));
 
             for (let index = 0; index < executions.length; index++) {
                 const { execution, content } = executions[index];
-                const entries = entriesBySourceIndex.get(index) || [];
+                const entries = outcomes[index].entries;
 
                 if (entries.length === 0) {
-                    const hasRequest = REQUEST_LINE_PATTERN.test(content);
-                    await execution.appendOutput([this.buildSkippedOutput(fileResult, hasRequest)]);
+                    const hasRequest = cellHasRequest(content);
+                    const laterEntryExists = outcomes.slice(index + 1).some(o => o.entries.length > 0);
+                    await execution.appendOutput([this.buildSkippedOutput(fileResult, hasRequest, laterEntryExists)]);
                     execution.end(!hasRequest, Date.now());
                     continue;
                 }
 
-                const outputs = entries.map(entry => this.buildEntryOutput(entry, fileResult, entry.responseBody));
+                const outputs = entries.map(entry =>
+                    this.buildEntryOutput(entry, fileResult, this.resolveResponseBody(entry, fileResult))
+                );
+                if (entries.some(entry => entry.status !== 'passed' && this.isUndefinedVariableEntryFailure(entry, fileResult))) {
+                    outputs.push(this.buildUndefinedVariableHintOutput());
+                }
                 await execution.appendOutput(outputs);
                 execution.end(entries.every(entry => entry.status === 'passed'), Date.now());
             }
@@ -283,8 +203,7 @@ export class HurlNotebookController {
 
     /**
      * Resolves commandPath, fileRoot, the Variables File(s), and the CLI
-     * flag settings once per run (isolated or chained) from the notebook's
-     * configuration scope.
+     * flag settings once per run from the notebook's configuration scope.
      */
     private async resolveRunOptions(notebook: vscode.NotebookDocument): Promise<ResolvedRunOptions> {
         const commandPath = await getHurlBinaryManager().resolveCommandPath({ promptOnFailure: true });
@@ -310,18 +229,18 @@ export class HurlNotebookController {
      * whether each one exists.
      */
     private async resolveVariablesFilePaths(fileRoot: string, notebookPath: string): Promise<string[]> {
-        const paths: string[] = [];
-
         const sharedPath = path.join(fileRoot, SHARED_VARIABLES_FILE_NAME);
-        if (await pathExists(sharedPath)) {
+        const perFilePath = `${notebookPath}.vars`;
+
+        const [sharedExists, perFileExists] = await Promise.all([pathExists(sharedPath), pathExists(perFilePath)]);
+
+        const paths: string[] = [];
+        if (sharedExists) {
             paths.push(sharedPath);
         }
-
-        const perFilePath = `${notebookPath}.vars`;
-        if (await pathExists(perFilePath)) {
+        if (perFileExists) {
             paths.push(perFilePath);
         }
-
         return paths;
     }
 
@@ -336,11 +255,21 @@ export class HurlNotebookController {
         };
     }
 
-    private isUndefinedVariableFailure(fileResult: HurlFileResult): boolean {
-        if (UNDEFINED_VARIABLE_PATTERN.test(fileResult.stderr || '') || UNDEFINED_VARIABLE_PATTERN.test(fileResult.errorMessage || '')) {
+    /**
+     * hurl surfaces an undefined variable either on the entry itself, or (for
+     * a run with only one entry) on the file-level stderr/errorMessage. We
+     * only trust the file-level signal for a single-entry run, so a failure
+     * in one cell's request is never misattributed to a sibling cell that
+     * happened to share the same combined invocation.
+     */
+    private isUndefinedVariableEntryFailure(entry: HurlEntryResult, fileResult: HurlFileResult): boolean {
+        if (UNDEFINED_VARIABLE_PATTERN.test(entry.errorMessage || '')) {
             return true;
         }
-        return fileResult.entries.some(entry => UNDEFINED_VARIABLE_PATTERN.test(entry.errorMessage || ''));
+        if (fileResult.entries.length === 1) {
+            return UNDEFINED_VARIABLE_PATTERN.test(fileResult.stderr || '') || UNDEFINED_VARIABLE_PATTERN.test(fileResult.errorMessage || '');
+        }
+        return false;
     }
 
     private buildUndefinedVariableHintOutput(): vscode.NotebookCellOutput {
@@ -350,28 +279,19 @@ export class HurlNotebookController {
         ]);
     }
 
-    private buildOutputs(fileResult: HurlFileResult): vscode.NotebookCellOutput[] {
-        if (fileResult.entries.length > 0) {
-            return fileResult.entries.map(entry => {
-                const responseBody = entry.responseBody
-                    ?? (fileResult.entries.length === 1 ? extractResponseBody(fileResult.stdout) : undefined);
-                return this.buildEntryOutput(entry, fileResult, responseBody);
-            });
-        }
-
-        return [this.buildNoEntryOutput(fileResult)];
+    /**
+     * A single-entry run's `-i` stdout is exactly that one response, so it's
+     * a safe fallback when the report itself didn't capture a body. For a
+     * multi-entry run there's no reliable way to slice stdout back into
+     * per-entry chunks, so entries beyond the first only ever get a body
+     * from the report.
+     */
+    private resolveResponseBody(entry: HurlEntryResult, fileResult: HurlFileResult): string | undefined {
+        return entry.responseBody
+            ?? (fileResult.entries.length === 1 ? extractResponseBody(fileResult.stdout) : undefined);
     }
 
-    private buildNoEntryOutput(fileResult: HurlFileResult): vscode.NotebookCellOutput {
-        const statusIcon = fileResult.status === 'passed' ? '✅' : '❌';
-        const detail = fileResult.errorMessage || fileResult.stderr || 'No response data available.';
-        const md = `## ${statusIcon} ${fileResult.status.toUpperCase()}\n\n\`\`\`\n${detail}\n\`\`\``;
-        return new vscode.NotebookCellOutput([
-            vscode.NotebookCellOutputItem.text(md, 'text/markdown')
-        ]);
-    }
-
-    private buildSkippedOutput(fileResult: HurlFileResult, hasRequest: boolean): vscode.NotebookCellOutput {
+    private buildSkippedOutput(fileResult: HurlFileResult, hasRequest: boolean, laterEntryExists: boolean): vscode.NotebookCellOutput {
         if (!hasRequest) {
             const md = '##### ℹ️ NO REQUEST\n\nThis cell has no request to run.';
             return new vscode.NotebookCellOutput([
@@ -379,9 +299,20 @@ export class HurlNotebookController {
             ]);
         }
 
+        if (laterEntryExists) {
+            // A later cell in the same run did produce an entry, so the run
+            // didn't stop - hurl reached this request and skipped or failed
+            // to parse/execute it specifically, which is a different problem
+            // than the run being cut short.
+            const md = '##### ⚠️ NOT EXECUTED\n\nHurl could not run this request (it was skipped or failed to parse), but later requests in this run still executed.';
+            return new vscode.NotebookCellOutput([
+                vscode.NotebookCellOutputItem.text(md, 'text/markdown')
+            ]);
+        }
+
         const detail = fileResult.errorMessage || fileResult.stderr;
         const detailBlock = detail ? `\n\n\`\`\`\n${detail}\n\`\`\`` : '';
-        const md = `##### ⏭️ NOT RUN\n\nThis request was not executed because the chained run stopped before reaching it.${detailBlock}`;
+        const md = `##### ⏭️ NOT RUN\n\nThis request was not executed because the run stopped before reaching it.${detailBlock}`;
         return new vscode.NotebookCellOutput([
             vscode.NotebookCellOutputItem.text(md, 'text/markdown')
         ]);
@@ -407,10 +338,35 @@ export class HurlNotebookController {
         if (entryAssertions.length > 0) {
             return entryAssertions;
         }
-        return fileResult.assertions.filter(a =>
-            (entry.name && a.entryName === entry.name) ||
-            (!a.entryName && fileResult.entries.indexOf(entry) === 0)
-        );
+        // report-parser already attributes assertions to entries by name or
+        // line range, so entry.assertions being empty usually just means
+        // this entry genuinely has none. This fallback only matters for a
+        // stray assertion with no entryName at all - attribute it to
+        // whichever entry's own line is the closest one at or before it,
+        // rather than always assuming the first entry in the run (which only
+        // held true before chaining, when a run always had one entry).
+        return fileResult.assertions.filter(a => {
+            if (a.entryName) {
+                return entry.name === a.entryName;
+            }
+            return this.findEntryForLine(fileResult, a.line) === entry;
+        });
+    }
+
+    private findEntryForLine(fileResult: HurlFileResult, line: number | undefined): HurlEntryResult | undefined {
+        if (typeof line !== 'number') {
+            return fileResult.entries[0];
+        }
+        let closest: HurlEntryResult | undefined;
+        for (const candidate of fileResult.entries) {
+            if (typeof candidate.line !== 'number' || candidate.line > line) {
+                continue;
+            }
+            if (!closest || (closest.line ?? -Infinity) < candidate.line) {
+                closest = candidate;
+            }
+        }
+        return closest ?? fileResult.entries[0];
     }
 
     private formatEntry(
@@ -466,6 +422,11 @@ async function pathExists(filePath: string): Promise<boolean> {
     } catch {
         return false;
     }
+}
+
+/** Does this cell's own text contain an actual hurl request, or is it just comments/notes? */
+function cellHasRequest(content: string): boolean {
+    return parseHurlDocument(content).blocks.length > 0;
 }
 
 /**

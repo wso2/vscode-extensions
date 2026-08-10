@@ -194,21 +194,15 @@ export function composeHurlDocumentWithBoundaries(blocks: string[]): { document:
 
 export function composeHurlDocument(header: string, blocks: string[]): string {
 	const normalizedHeader = normalizeHurlLineEndings(header).trim();
-	const normalizedBlocks = blocks
-		.map(block => normalizeHurlLineEndings(block).trim())
-		.filter(block => block.length > 0);
+	const { document: blocksDocument } = composeHurlDocumentWithBoundaries(blocks);
 
-	const sections: string[] = [];
-	if (normalizedHeader) {
-		sections.push(normalizedHeader);
+	if (!normalizedHeader) {
+		return blocksDocument;
 	}
-	sections.push(...normalizedBlocks);
-
-	if (sections.length === 0) {
-		return '';
+	if (!blocksDocument) {
+		return `${normalizedHeader}\n`;
 	}
-
-	return `${sections.join('\n\n').trimEnd()}\n`;
+	return `${normalizedHeader}\n\n${blocksDocument}`;
 }
 
 export function upsertCollectionNameInHurl(content: string, collectionName: string): string {
