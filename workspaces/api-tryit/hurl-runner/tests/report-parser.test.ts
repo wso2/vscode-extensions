@@ -569,4 +569,37 @@ describe('mapFileResultToCellOutcomes', () => {
 
 		expect(outcomes[0].entries.map(e => e.name)).toEqual(['Entry 1', 'Entry 2']);
 	});
+
+	it('places an entry whose line could not be resolved instead of dropping it', () => {
+		// An entry hurl reported but whose line neither the report nor the
+		// source scan could pin down. Dropping it would render a request that
+		// really ran as "not run".
+		const fileResult = makeFileResult([1]);
+		fileResult.entries.push({ name: 'Lineless entry', status: 'passed' });
+		const boundaries = [
+			{ startLine: 1, endLine: 3 },
+			{ startLine: 5, endLine: 7 }
+		];
+
+		const outcomes = mapFileResultToCellOutcomes(fileResult, boundaries);
+
+		expect(outcomes[0].entries.map(e => e.name)).toEqual(['Entry 1']);
+		expect(outcomes[1].entries.map(e => e.name)).toEqual(['Lineless entry']);
+	});
+
+	it('does not let a lineless entry displace a boundary a line-matched entry already claimed', () => {
+		const fileResult = makeFileResult([5]); // matches the second boundary
+		fileResult.entries.push({ name: 'Lineless entry', status: 'passed' });
+		const boundaries = [
+			{ startLine: 1, endLine: 3 },
+			{ startLine: 5, endLine: 7 }
+		];
+
+		const outcomes = mapFileResultToCellOutcomes(fileResult, boundaries);
+
+		// The lineless entry takes the free first boundary; the line-matched
+		// one keeps the boundary its own line actually falls inside.
+		expect(outcomes[0].entries.map(e => e.name)).toEqual(['Lineless entry']);
+		expect(outcomes[1].entries.map(e => e.name)).toEqual(['Entry 1']);
+	});
 });

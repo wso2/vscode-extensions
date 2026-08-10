@@ -97,20 +97,21 @@ export class HurlNotebookController {
         notebook: vscode.NotebookDocument,
         controller: vscode.NotebookController
     ): Promise<void> {
-        const executions: Array<{ execution: vscode.NotebookCellExecution; content: string }> = [];
+        const executions: Array<{ execution: vscode.NotebookCellExecution; content: string; startedAt: number }> = [];
 
         for (const cell of cells) {
             const execution = controller.createNotebookCellExecution(cell);
-            execution.start(Date.now());
+            const startedAt = Date.now();
+            execution.start(startedAt);
             execution.clearOutput();
 
             const content = cell.document.getText().trim();
             if (!content) {
-                execution.end(true, Date.now());
+                execution.end(true, startedAt);
                 continue;
             }
 
-            executions.push({ execution, content });
+            executions.push({ execution, content, startedAt });
         }
 
         if (executions.length === 0) {
@@ -118,6 +119,11 @@ export class HurlNotebookController {
         }
 
         let tempDir: string | undefined;
+        // Tracks how many of `executions` (in order) have already had end()
+        // called on them, so the catch block below never re-ends a cell the
+        // try block already finished - VS Code's NotebookCellExecution does
+        // not support ending or appending to an already-ended execution.
+        let endedCount = 0;
         try {
             const runOptions = await this.resolveRunOptions(notebook);
             // A "cell" here isn't guaranteed to be exactly one request - e.g. a
@@ -151,6 +157,7 @@ export class HurlNotebookController {
                         ])
                     ]);
                     execution.end(false, Date.now());
+                    endedCount++;
                 }
                 return;
             }
@@ -163,30 +170,46 @@ export class HurlNotebookController {
                 boundaries.map(b => ({ startLine: b.startLine, endLine: b.endLine }))
             );
 
+            // Both indexes are whole-run properties, so they're resolved once
+            // here rather than re-derived from scratch for every entry.
+            const assertionsByEntry = this.buildAssertionIndex(fileResult);
+            const undefinedVariableEntries = this.findUndefinedVariableEntries(fileResult);
+
             for (let index = 0; index < executions.length; index++) {
-                const { execution, content } = executions[index];
+                const { execution, content, startedAt } = executions[index];
                 const entries = outcomes[index].entries;
 
                 if (entries.length === 0) {
                     const hasRequest = cellHasRequest(content);
                     const laterEntryExists = outcomes.slice(index + 1).some(o => o.entries.length > 0);
                     await execution.appendOutput([this.buildSkippedOutput(fileResult, hasRequest, laterEntryExists)]);
-                    execution.end(!hasRequest, Date.now());
+                    // Nothing ran for this cell, so report no elapsed time
+                    // rather than the whole batch's.
+                    execution.end(!hasRequest, startedAt);
+                    endedCount = index + 1;
                     continue;
                 }
 
-                const outputs = entries.map(entry =>
-                    this.buildEntryOutput(entry, fileResult, this.resolveResponseBody(entry, fileResult))
-                );
-                if (entries.some(entry => entry.status !== 'passed' && this.isUndefinedVariableEntryFailure(entry, fileResult))) {
+                const outputs = entries.map(entry => this.buildEntryOutput(
+                    entry,
+                    assertionsByEntry.get(entry) || [],
+                    this.resolveResponseBody(entry, fileResult)
+                ));
+                if (entries.some(entry => undefinedVariableEntries.has(entry))) {
                     outputs.push(this.buildUndefinedVariableHintOutput());
                 }
                 await execution.appendOutput(outputs);
-                execution.end(entries.every(entry => entry.status === 'passed'), Date.now());
+                execution.end(
+                    entries.every(entry => entry.status === 'passed'),
+                    cellFinishedAt(startedAt, entries)
+                );
+                endedCount = index + 1;
             }
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            for (const { execution } of executions) {
+            // Only the executions the try block never got to end are still
+            // "running" - re-ending ones it already finished would throw.
+            for (const { execution } of executions.slice(endedCount)) {
                 await execution.appendOutput([
                     new vscode.NotebookCellOutput([
                         vscode.NotebookCellOutputItem.error({ name: 'HurlNotebookError', message })
@@ -256,20 +279,37 @@ export class HurlNotebookController {
     }
 
     /**
-     * hurl surfaces an undefined variable either on the entry itself, or (for
-     * a run with only one entry) on the file-level stderr/errorMessage. We
-     * only trust the file-level signal for a single-entry run, so a failure
-     * in one cell's request is never misattributed to a sibling cell that
-     * happened to share the same combined invocation.
+     * Which entries failed on an unset variable, resolved once for the whole
+     * run. hurl normally pins this to the entry itself; when it only reports
+     * it at file level (no entry attribution), fall back to flagging the
+     * entries that actually failed, so the hint still reaches the user
+     * instead of being lost. Passing entries are never flagged, so the hint
+     * can't attach to a sibling cell that ran fine.
      */
-    private isUndefinedVariableEntryFailure(entry: HurlEntryResult, fileResult: HurlFileResult): boolean {
-        if (UNDEFINED_VARIABLE_PATTERN.test(entry.errorMessage || '')) {
-            return true;
+    private findUndefinedVariableEntries(fileResult: HurlFileResult): Set<HurlEntryResult> {
+        const flagged = new Set<HurlEntryResult>();
+
+        for (const entry of fileResult.entries) {
+            if (entry.status !== 'passed' && UNDEFINED_VARIABLE_PATTERN.test(entry.errorMessage || '')) {
+                flagged.add(entry);
+            }
         }
-        if (fileResult.entries.length === 1) {
-            return UNDEFINED_VARIABLE_PATTERN.test(fileResult.stderr || '') || UNDEFINED_VARIABLE_PATTERN.test(fileResult.errorMessage || '');
+        if (flagged.size > 0) {
+            return flagged;
         }
-        return false;
+
+        const fileLevelSignal = UNDEFINED_VARIABLE_PATTERN.test(fileResult.stderr || '')
+            || UNDEFINED_VARIABLE_PATTERN.test(fileResult.errorMessage || '');
+        if (!fileLevelSignal) {
+            return flagged;
+        }
+
+        for (const entry of fileResult.entries) {
+            if (entry.status !== 'passed') {
+                flagged.add(entry);
+            }
+        }
+        return flagged;
     }
 
     private buildUndefinedVariableHintOutput(): vscode.NotebookCellOutput {
@@ -280,15 +320,24 @@ export class HurlNotebookController {
     }
 
     /**
-     * A single-entry run's `-i` stdout is exactly that one response, so it's
-     * a safe fallback when the report itself didn't capture a body. For a
-     * multi-entry run there's no reliable way to slice stdout back into
-     * per-entry chunks, so entries beyond the first only ever get a body
-     * from the report.
+     * Falls back to hurl's `-i` stdout when the report didn't capture a body.
+     *
+     * hurl writes exactly one response to stdout - the run's last entry -
+     * regardless of how many entries the file has, so the fallback belongs to
+     * the last entry rather than to a single-entry run (which is just the
+     * special case where the only entry is also the last). Earlier entries
+     * are absent from stdout entirely, so there is nothing to fall back to
+     * for them. When the last entry got no response at all, hurl leaves
+     * stdout empty rather than emitting an earlier entry's body, so this
+     * can't attribute someone else's response to it.
      */
     private resolveResponseBody(entry: HurlEntryResult, fileResult: HurlFileResult): string | undefined {
-        return entry.responseBody
-            ?? (fileResult.entries.length === 1 ? extractResponseBody(fileResult.stdout) : undefined);
+        if (entry.responseBody !== undefined) {
+            return entry.responseBody;
+        }
+        const isLastEntry = fileResult.entries.length > 0
+            && entry === fileResult.entries[fileResult.entries.length - 1];
+        return isLastEntry ? extractResponseBody(fileResult.stdout) : undefined;
     }
 
     private buildSkippedOutput(fileResult: HurlFileResult, hasRequest: boolean, laterEntryExists: boolean): vscode.NotebookCellOutput {
@@ -320,42 +369,70 @@ export class HurlNotebookController {
 
     private buildEntryOutput(
         entry: HurlEntryResult,
-        fileResult: HurlFileResult,
+        assertions: HurlAssertionResult[],
         responseBody: string | undefined
     ): vscode.NotebookCellOutput {
-        const entryAssertions = this.assertionsForEntry(entry, fileResult);
-        const md = this.formatEntry(entry, entryAssertions, responseBody);
+        const md = this.formatEntry(entry, assertions, responseBody);
         return new vscode.NotebookCellOutput([
             vscode.NotebookCellOutputItem.text(md, 'text/markdown')
         ]);
     }
 
-    private assertionsForEntry(
-        entry: HurlEntryResult,
-        fileResult: HurlFileResult
-    ): HurlAssertionResult[] {
-        const entryAssertions = entry.assertions || [];
-        if (entryAssertions.length > 0) {
-            return entryAssertions;
-        }
-        // report-parser already attributes assertions to entries by name or
-        // line range, so entry.assertions being empty usually just means
-        // this entry genuinely has none. This fallback only matters for a
-        // stray assertion with no entryName at all - attribute it to
-        // whichever entry's own line is the closest one at or before it,
-        // rather than always assuming the first entry in the run (which only
-        // held true before chaining, when a run always had one entry).
-        return fileResult.assertions.filter(a => {
-            if (a.entryName) {
-                return entry.name === a.entryName;
+    /**
+     * Groups assertions per entry in one pass over the run, instead of
+     * re-filtering the whole assertion list for every entry rendered.
+     *
+     * report-parser already attaches assertions to entries by name or line
+     * range, so an entry that has its own list keeps exactly that. The
+     * fallback below only exists for entries report-parser left empty, and
+     * only claims assertions it can tie to that specific entry - a stray
+     * assertion that resolves to nobody is left out rather than parked on
+     * the first entry, which would put it under the wrong cell in a chain.
+     */
+    private buildAssertionIndex(fileResult: HurlFileResult): Map<HurlEntryResult, HurlAssertionResult[]> {
+        const index = new Map<HurlEntryResult, HurlAssertionResult[]>();
+        const needsFallback = new Set<HurlEntryResult>();
+
+        for (const entry of fileResult.entries) {
+            const own = entry.assertions || [];
+            index.set(entry, own.length > 0 ? own : []);
+            if (own.length === 0) {
+                needsFallback.add(entry);
             }
-            return this.findEntryForLine(fileResult, a.line) === entry;
-        });
+        }
+
+        if (needsFallback.size === 0) {
+            return index;
+        }
+
+        const entriesByName = new Map<string, HurlEntryResult>();
+        for (const entry of fileResult.entries) {
+            if (entry.name && !entriesByName.has(entry.name)) {
+                entriesByName.set(entry.name, entry);
+            }
+        }
+
+        for (const assertion of fileResult.assertions) {
+            const owner = assertion.entryName
+                ? entriesByName.get(assertion.entryName)
+                : this.findEntryForLine(fileResult, assertion.line);
+            if (owner && needsFallback.has(owner)) {
+                index.get(owner)!.push(assertion);
+            }
+        }
+
+        return index;
     }
 
+    /**
+     * Returns undefined, rather than guessing, when an assertion can't be
+     * tied to a specific entry - in a chained run showing it under the wrong
+     * cell would be worse than not showing it at all (before chaining, a run
+     * always had exactly one entry, so any default was harmless).
+     */
     private findEntryForLine(fileResult: HurlFileResult, line: number | undefined): HurlEntryResult | undefined {
         if (typeof line !== 'number') {
-            return fileResult.entries[0];
+            return undefined;
         }
         let closest: HurlEntryResult | undefined;
         for (const candidate of fileResult.entries) {
@@ -366,7 +443,7 @@ export class HurlNotebookController {
                 closest = candidate;
             }
         }
-        return closest ?? fileResult.entries[0];
+        return closest;
     }
 
     private formatEntry(
@@ -427,6 +504,23 @@ async function pathExists(filePath: string): Promise<boolean> {
 /** Does this cell's own text contain an actual hurl request, or is it just comments/notes? */
 function cellHasRequest(content: string): boolean {
     return parseHurlDocument(content).blocks.length > 0;
+}
+
+/**
+ * The end timestamp to report for a cell, so VS Code's per-cell timer shows
+ * how long that cell's own request(s) took rather than how long the whole
+ * batch took. Every cell in a run is started at once and ended once the
+ * single combined `hurl` process exits, so using wall-clock here would label
+ * a 30ms request with the full run duration - and disagree with the
+ * per-request timing already shown in the cell's own output. Falls back to
+ * wall-clock when hurl reported no timings at all.
+ */
+function cellFinishedAt(startedAt: number, entries: HurlEntryResult[]): number {
+    const timed = entries.filter(entry => typeof entry.durationMs === 'number');
+    if (timed.length === 0) {
+        return Date.now();
+    }
+    return startedAt + timed.reduce((total, entry) => total + (entry.durationMs || 0), 0);
 }
 
 /**

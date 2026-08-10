@@ -725,13 +725,43 @@ export interface CellRunOutcome {
  * matches no entry at all is reported with an empty `entries` array, which
  * covers both "this cell has no request" and "hurl stopped before reaching
  * it" - the caller distinguishes those by inspecting the cell's own source.
+ *
+ * An entry whose `line` could not be resolved at all still ran, so it is
+ * handed to the next boundary no line-matched entry claimed (hurl reports
+ * entries in file order). Dropping it would report a request that really
+ * executed as "not run", which misleads far worse than an approximate
+ * attribution does.
  */
 export function mapFileResultToCellOutcomes(fileResult: HurlFileResult, boundaries: CellBoundary[]): CellRunOutcome[] {
-	return boundaries.map(boundary => ({
-		entries: fileResult.entries.filter(entry =>
-			typeof entry.line === 'number' && entry.line >= boundary.startLine && entry.line <= boundary.endLine
-		)
-	}));
+	const outcomes: CellRunOutcome[] = boundaries.map(() => ({ entries: [] }));
+	const unplaced: HurlEntryResult[] = [];
+
+	for (const entry of fileResult.entries) {
+		const line = entry.line;
+		const boundaryIndex = typeof line === 'number'
+			? boundaries.findIndex(boundary => line >= boundary.startLine && line <= boundary.endLine)
+			: -1;
+
+		if (boundaryIndex >= 0) {
+			outcomes[boundaryIndex].entries.push(entry);
+		} else {
+			unplaced.push(entry);
+		}
+	}
+
+	let cursor = 0;
+	for (const entry of unplaced) {
+		while (cursor < outcomes.length && outcomes[cursor].entries.length > 0) {
+			cursor++;
+		}
+		if (cursor >= outcomes.length) {
+			break;
+		}
+		outcomes[cursor].entries.push(entry);
+		cursor++;
+	}
+
+	return outcomes;
 }
 
 export async function parseFileResult(context: ParseContext): Promise<HurlFileResult> {
