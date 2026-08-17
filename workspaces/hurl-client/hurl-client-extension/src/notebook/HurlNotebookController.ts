@@ -233,9 +233,9 @@ export class HurlNotebookController {
         const commandPath = await getHurlBinaryManager().resolveCommandPath({ promptOnFailure: true });
         const config = vscode.workspace.getConfiguration('hurl-client', notebook.uri);
 
-        const configuredFileRoot = config.get<string>('fileRoot');
+        const configuredFileRoot = config.get<string>('fileRoot')?.trim();
         const notebookPath = notebook.uri.fsPath;
-        const fileRoot = configuredFileRoot || path.dirname(notebookPath);
+        const fileRoot = this.resolveFileRoot(notebook, configuredFileRoot);
 
         const insecure = config.get<boolean>('insecure') ?? false;
         const followRedirects = config.get<boolean>('followRedirects') ?? false;
@@ -243,6 +243,25 @@ export class HurlNotebookController {
         const variablesFilePaths = await this.resolveVariablesFilePaths(fileRoot, notebookPath);
 
         return { commandPath, fileRoot, variablesFilePaths, insecure, followRedirects, extraArgs };
+    }
+
+    /**
+     * `hurl-client.fileRoot` is free text, so it can be relative. Resolving
+     * it here means it lands where the user meant rather than against the
+     * extension host's process cwd - which is neither the notebook nor the
+     * workspace, and would silently skip the shared Variables File and
+     * mis-root file references inside requests. Relative values resolve
+     * against the workspace folder owning the notebook (the usual VS Code
+     * convention for a resource-scoped path setting), falling back to the
+     * notebook's own folder when it sits outside any workspace folder.
+     */
+    private resolveFileRoot(notebook: vscode.NotebookDocument, configuredFileRoot: string | undefined): string {
+        const notebookDir = path.dirname(notebook.uri.fsPath);
+        if (!configuredFileRoot) {
+            return notebookDir;
+        }
+        const workspaceRoot = vscode.workspace.getWorkspaceFolder(notebook.uri)?.uri.fsPath ?? notebookDir;
+        return path.resolve(workspaceRoot, configuredFileRoot);
     }
 
     /**

@@ -154,7 +154,7 @@
           "type": "string",
           "default": "",
           "scope": "resource",
-          "description": "Default file root directory for Hurl notebook execution. If set, overrides the notebook's directory. Used as the base path for file references in Hurl requests. Also the folder Hurl Client looks in for a shared 'hurl.vars' Variables File."
+          "description": "Default file root directory for Hurl notebook execution. If set, overrides the notebook's directory. A relative path is resolved against the workspace folder containing the notebook. Used as the base path for file references in Hurl requests. Also the folder Hurl Client looks in for a shared 'hurl.vars' Variables File."
         },
         "hurl-client.insecure": {
           "type": "boolean",

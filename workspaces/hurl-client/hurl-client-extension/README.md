@@ -75,7 +75,7 @@ Keep real secrets out of `hurl.vars` if you commit it to version control.
 
 | Setting | What it does |
 |---------|---------------|
-| `hurl-client.fileRoot` | Folder used for file references and for the shared `hurl.vars` file |
+| `hurl-client.fileRoot` | Folder used for file references and for the shared `hurl.vars` file. A relative path is resolved against the workspace folder containing the notebook |
 | `hurl-client.insecure` | Skip TLS certificate checks |
 | `hurl-client.followRedirects` | Follow HTTP redirects |
 | `hurl-client.extraArgs` | Pass any other hurl command-line flag not listed above |
