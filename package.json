@@ -50,7 +50,7 @@
   },
   "scripts": {
     "prebuild": "pnpm run init-submodules && rush install",
-    "init-submodules": "git submodule update --init --recursive && git submodule foreach git pull origin master",
+    "init-submodules": "git submodule update --init --recursive",
     "build:wso2PlatformWebviews": "rush build -o @wso2/wso2-platform-vscode-webviews",
     "build:choreoWebviews": "rush build -o @wso2/choreo-vscode-webviews",
     "build:dataMapper": "rush build -o @wso2/ballerina-data-mapper",
