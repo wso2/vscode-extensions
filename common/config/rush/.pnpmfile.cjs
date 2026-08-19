@@ -34,26 +34,26 @@ module.exports = {
         if (deps['xmldom']) deps['xmldom'] = 'npm:@xmldom/xmldom@0.8.10';
         if (deps['braces']) deps['braces'] = '3.0.3';
         if (deps['micromatch']) deps['micromatch'] = '4.0.8';
-        if (deps['js-yaml']) deps['js-yaml'] = '4.3.0';
+        if (deps['js-yaml']) deps['js-yaml'] = '4.3.1';
         if (deps['diff']) deps['diff'] = '8.0.3';
         if (deps['eslint']) deps['eslint'] = '^9.27.0';
         if (deps['fast-xml-parser']) deps['fast-xml-parser'] = '5.7.0';
         if (deps['fast-xml-builder']) deps['fast-xml-builder'] = '1.1.7';
-        if (deps['fast-uri']) deps['fast-uri'] = '3.1.4';
+        if (deps['fast-uri']) deps['fast-uri'] = '3.1.5';
         if (deps['esbuild']) deps['esbuild'] = '0.25.12';
         if (deps['lodash']) deps['lodash'] = '4.18.0';
         if (deps['qs']) deps['qs'] = '6.15.2';
-        if (deps['hono']) deps['hono'] = '4.12.27';
+        if (deps['hono']) deps['hono'] = '4.12.34';
         if (deps['shell-quote']) deps['shell-quote'] = '1.9.0';
         if (deps['@hono/node-server']) deps['@hono/node-server'] = '2.0.10';
         if (deps['@tootallnate/once']) deps['@tootallnate/once'] = '3.0.1';
-        if (deps['dompurify']) deps['dompurify'] = '3.4.12';
+        if (deps['dompurify']) deps['dompurify'] = '3.4.13';
         if (deps['axios']) deps['axios'] = '1.18.0';
-        if (deps['ip-address']) deps['ip-address'] = '10.1.1';
+        if (deps['ip-address']) deps['ip-address'] = '10.3.1';
         if (deps['follow-redirects']) deps['follow-redirects'] = '1.16.0';
         if (deps['express-rate-limit']) deps['express-rate-limit'] = '8.2.2';
         if (deps['file-type']) deps['file-type'] = '21.3.2';
-        if (deps['postcss']) deps['postcss'] = '8.5.18';
+        if (deps['postcss']) deps['postcss'] = '8.5.23';
         if (deps['linkify-it'] && (deps['linkify-it'].startsWith('^5') || deps['linkify-it'].startsWith('5'))) {
           deps['linkify-it'] = '5.0.2';
         }
@@ -131,13 +131,13 @@ module.exports = {
           const currentVersion = deps['brace-expansion'];
           let newVersion;
           if (currentVersion.startsWith('^1') || currentVersion.startsWith('1')) {
-            newVersion = '1.1.16';
+            newVersion = '1.1.18';
           } else if (currentVersion.startsWith('^2') || currentVersion.startsWith('2')) {
-            newVersion = '2.1.2';
+            newVersion = '2.1.4';
           } else if (currentVersion.startsWith('^3') || currentVersion.startsWith('3')) {
             newVersion = '3.0.6';
           } else if (currentVersion.startsWith('^5') || currentVersion.startsWith('5')) {
-            newVersion = '5.0.8';
+            newVersion = '5.0.9';
           } else {
             context.log(`Unexpected brace-expansion version: ${currentVersion}`);
             newVersion = currentVersion;

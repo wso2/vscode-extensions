@@ -33,7 +33,7 @@ CVE-2026-31808
 # upstream has not backported it, so no release on the 1.x or 2.x line is out
 # of range. 5.x is not a drop-in replacement for those lines either — it
 # dropped the CommonJS default export that minimatch 3.x/5.x call — so forcing
-# them to 5.0.8 would break them at runtime. The 5.x line IS bumped to 5.0.8
+# them to 5.0.8 would break them at runtime. The 5.x line IS bumped past 5.0.8
 # via globalOverrides; this entry only covers the 1.x/2.x transitives reached
 # through minimatch 3.1.5 and 5.1.8. Remove it once upstream backports the fix,
 # or once nothing depends on minimatch below v9.
