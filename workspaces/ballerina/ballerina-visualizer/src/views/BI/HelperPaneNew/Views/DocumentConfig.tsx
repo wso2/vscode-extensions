@@ -223,7 +223,7 @@ export const DocumentConfig = ({ onChange, onClose, targetLineRange, filteredCom
         const typeInfo = description || labelDescription;
 
         // Build full path from navigation; use ?. when the parent step is optional
-        const fullPath = navigationPath ? `${navigationPath}${getLeafSeparator()}${value}` : value;
+        const fullPath = navigationPath ? `${navigationPath}${getLeafSeparator(item.value)}${value}` : value;
 
         // Check if the variable is already an AI document type
         const isAIDocumentType = AI_DOCUMENT_TYPES.some(type => typeInfo.includes(type));
@@ -253,7 +253,7 @@ export const DocumentConfig = ({ onChange, onClose, targetLineRange, filteredCom
 
     const handleVariablesMoreIconClick = (item: CompletionItem) => {
         const typeDetail = item?.labelDetails?.detail || item?.description;
-        navigateToNext(item.label, navigationPath, typeDetail);
+        navigateToNext(item.label, navigationPath, typeDetail, item.value);
     };
 
     const handleBreadCrumbItemClicked = (step: BreadCrumbStep) => {

@@ -205,9 +205,9 @@ export const Variables = (props: VariablesPageProps) => {
         setSearchValue(searchText);
     };
 
-    const handleItemSelect = (value: string, _item?: CompletionItem) => {
-        // Build full path from navigation; use ?. when the parent step is optional
-        const fullPath = navigationPath ? `${navigationPath}${getLeafSeparator()}${value}` : value;
+    const handleItemSelect = (value: string, item?: CompletionItem) => {
+        // Use ?. when the parent step is optional
+        const fullPath = navigationPath ? `${navigationPath}${getLeafSeparator(item?.value)}${value}` : value;
         onChange(fullPath, false);
     }
 
@@ -229,7 +229,7 @@ export const Variables = (props: VariablesPageProps) => {
     }
     const handleVariablesMoreIconClick = (item: CompletionItem) => {
         const typeDetail = item?.labelDetails?.detail || item?.description;
-        navigateToNext(item.label, navigationPath, typeDetail);
+        navigateToNext(item.label, navigationPath, typeDetail, item.value);
     }
 
     const handleBreadCrumbItemClicked = (step: BreadCrumbStep) => {
