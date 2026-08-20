@@ -294,6 +294,70 @@ describe('HurlRunnerImpl', () => {
 		expect(hurlCall?.args).not.toContain('--continue-on-error');
 	});
 
+	it('appends --variables-file for each configured path, shared before per-file override', async () => {
+		const collection = await createCollection(['variables-file.hurl']);
+		createdDirs.push(collection.root);
+		const scenarios = new Map<string, MockScenario>([
+			[collection.files[0], { report: buildPassReport('variables-file') }]
+		]);
+		const adapter = new MockProcessAdapter(scenarios);
+		const runner = createRunner(adapter);
+
+		await runner.run(
+			{ collectionPath: collection.root },
+			{ parallelism: 1, variablesFilePaths: ['/vars/shared.vars', '/vars/per-file.vars'] }
+		);
+
+		const hurlCall = adapter.calls.find(call => call.args.includes('--report-json'));
+		expect(hurlCall).toBeDefined();
+		const args = hurlCall!.args;
+		const sharedIndex = args.indexOf('/vars/shared.vars');
+		const overrideIndex = args.indexOf('/vars/per-file.vars');
+		expect(args).toEqual(expect.arrayContaining(['--variables-file', '/vars/shared.vars', '--variables-file', '/vars/per-file.vars']));
+		expect(sharedIndex).toBeGreaterThan(-1);
+		expect(overrideIndex).toBeGreaterThan(sharedIndex);
+	});
+
+	it('puts --variables-file entries before -k/-L, not after', async () => {
+		const collection = await createCollection(['variables-file-order.hurl']);
+		createdDirs.push(collection.root);
+		const scenarios = new Map<string, MockScenario>([
+			[collection.files[0], { report: buildPassReport('variables-file-order') }]
+		]);
+		const adapter = new MockProcessAdapter(scenarios);
+		const runner = createRunner(adapter);
+
+		await runner.run(
+			{ collectionPath: collection.root },
+			{ parallelism: 1, variablesFilePaths: ['/vars/shared.vars'], insecure: true, followRedirects: true }
+		);
+
+		const hurlCall = adapter.calls.find(call => call.args.includes('--report-json'));
+		expect(hurlCall).toBeDefined();
+		const args = hurlCall!.args;
+		expect(args.indexOf('--variables-file')).toBeLessThan(args.indexOf('-k'));
+		expect(args.indexOf('--variables-file')).toBeLessThan(args.indexOf('-L'));
+	});
+
+	it('appends extraArgs verbatim at the end of the argument list', async () => {
+		const collection = await createCollection(['extra-args.hurl']);
+		createdDirs.push(collection.root);
+		const scenarios = new Map<string, MockScenario>([
+			[collection.files[0], { report: buildPassReport('extra-args') }]
+		]);
+		const adapter = new MockProcessAdapter(scenarios);
+		const runner = createRunner(adapter);
+
+		await runner.run(
+			{ collectionPath: collection.root },
+			{ parallelism: 1, extraArgs: ['--max-redirs', '3', '--retry'] }
+		);
+
+		const hurlCall = adapter.calls.find(call => call.args.includes('--report-json'));
+		expect(hurlCall).toBeDefined();
+		expect(hurlCall!.args.slice(-3)).toEqual(['--max-redirs', '3', '--retry']);
+	});
+
 	it('runStream emits progress events in expected order', async () => {
 		const collection = await createCollection(['one.hurl', 'two.hurl']);
 		createdDirs.push(collection.root);

@@ -23,7 +23,7 @@ import {
 	parseHurlCollection,
 } from '../src';
 import type { ApiCollection } from '@wso2/api-tryit-core';
-import { parseHurlDocument } from '../src';
+import { composeHurlDocument, composeHurlDocumentWithBoundaries, parseHurlDocument } from '../src';
 
 // verify that the utility for splitting Hurl documents is available
 
@@ -53,6 +53,97 @@ describe('parseHurlDocument helper', () => {
 	});
 });
 
+describe('composeHurlDocument for combining notebook cells into one Chained Run', () => {
+	it('combines separately-authored entry sources into one document that reparses in the same order', () => {
+		// Mirrors the marketplace review's exact scenario: a GET that captures
+		// api_key, followed by an entry that uses {{api_key}} - each string here
+		// stands in for one notebook cell's own text.
+		const capturingCell = [
+			'GET http://localhost:3333',
+			'HTTP 200',
+			'[Captures]',
+			'api_key: jsonpath "$.api_key"',
+		].join('\n');
+		const dependentCell = [
+			'GET http://localhost:3333/protected',
+			'Authorization: Bearer {{api_key}}',
+			'HTTP 200',
+		].join('\n');
+
+		const combined = composeHurlDocument('', [capturingCell, dependentCell]);
+		const { blocks } = parseHurlDocument(combined);
+
+		expect(blocks).toHaveLength(2);
+		expect(blocks[0].text).toContain('[Captures]');
+		expect(blocks[0].text).toContain('api_key: jsonpath "$.api_key"');
+		expect(blocks[1].text).toContain('{{api_key}}');
+		expect(blocks[1].method).toBe('GET');
+		expect(blocks[1].url).toBe('http://localhost:3333/protected');
+	});
+
+	it('preserves cell order for more than two combined cells', () => {
+		const cells = [
+			'GET https://example.com/one\nHTTP 200',
+			'GET https://example.com/two\nHTTP 200',
+			'GET https://example.com/three\nHTTP 200',
+		];
+
+		const combined = composeHurlDocument('', cells);
+		const { blocks } = parseHurlDocument(combined);
+
+		expect(blocks.map(b => b.url)).toEqual([
+			'https://example.com/one',
+			'https://example.com/two',
+			'https://example.com/three',
+		]);
+	});
+
+	it('drops cells that are blank after trimming rather than producing an empty block', () => {
+		const combined = composeHurlDocument('', ['GET https://example.com/one\nHTTP 200', '   ', '']);
+		const { blocks } = parseHurlDocument(combined);
+
+		expect(blocks).toHaveLength(1);
+	});
+});
+
+describe('composeHurlDocumentWithBoundaries', () => {
+	it('reports the line range each block occupies in the combined document', () => {
+		const blocks = ['GET https://example.com/one\nHTTP 200', 'GET https://example.com/two\nHTTP 200'];
+		const { document, boundaries } = composeHurlDocumentWithBoundaries(blocks);
+
+		expect(document.split('\n')).toEqual([
+			'GET https://example.com/one', 'HTTP 200', '', 'GET https://example.com/two', 'HTTP 200', ''
+		]);
+		expect(boundaries).toEqual([
+			{ sourceIndex: 0, startLine: 1, endLine: 2 },
+			{ sourceIndex: 1, startLine: 4, endLine: 5 }
+		]);
+	});
+
+	it('leaves a gap in source indices for blocks dropped as blank, without shifting later boundaries', () => {
+		// Mirrors the notebook header-cell bug: a comment-only block that
+		// survives (it's non-blank, just has no request) still gets its own
+		// boundary and line range - callers correlate back to their original
+		// cell list via sourceIndex, not array position.
+		const blocks = [
+			'GET https://example.com/one\nHTTP 200',
+			'# just a comment, no request',
+			'GET https://example.com/two\nHTTP 200'
+		];
+		const { boundaries } = composeHurlDocumentWithBoundaries(blocks);
+
+		expect(boundaries.map(b => b.sourceIndex)).toEqual([0, 1, 2]);
+		expect(boundaries[1].startLine).toBe(4);
+		expect(boundaries[2].startLine).toBe(6);
+	});
+
+	it('drops genuinely blank blocks entirely, leaving a gap in sourceIndex', () => {
+		const blocks = ['GET https://example.com/one\nHTTP 200', '   ', 'GET https://example.com/two\nHTTP 200'];
+		const { boundaries } = composeHurlDocumentWithBoundaries(blocks);
+
+		expect(boundaries.map(b => b.sourceIndex)).toEqual([0, 2]);
+	});
+});
 
 describe('parseHurlCollection', () => {
 	it('parses a single Hurl request into an ApiCollection model', () => {

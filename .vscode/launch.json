@@ -290,7 +290,7 @@
             "preLaunchTask": "npm: watch-apk"
         },
         {
-            "name": "HTTP Client Extension",
+            "name": "Hurl Client Extension",
             "type": "extensionHost",
             "request": "launch",
             "debugWebviews": true,

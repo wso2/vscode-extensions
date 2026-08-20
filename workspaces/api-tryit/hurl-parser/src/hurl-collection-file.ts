@@ -158,23 +158,51 @@ export function splitHurlRequestBlocks(content: string): string[] {
 	return parseHurlDocument(content).blocks.map(block => block.text);
 }
 
+export interface HurlDocumentBoundary {
+	/** Index into the `blocks` array passed to composeHurlDocumentWithBoundaries. */
+	sourceIndex: number;
+	startLine: number;
+	endLine: number;
+}
+
+/**
+ * Like composeHurlDocument, but also reports the line range each surviving
+ * block occupies in the combined document. Blocks that are empty after
+ * trimming are dropped, exactly as composeHurlDocument drops them, and are
+ * simply absent from `boundaries` - callers that need to correlate back to
+ * their original block list should use `sourceIndex`, not array position.
+ */
+export function composeHurlDocumentWithBoundaries(blocks: string[]): { document: string; boundaries: HurlDocumentBoundary[] } {
+	const boundaries: HurlDocumentBoundary[] = [];
+	const survivingBlocks: string[] = [];
+	let currentLine = 1;
+
+	blocks.forEach((block, sourceIndex) => {
+		const normalized = normalizeHurlLineEndings(block).trim();
+		if (!normalized) {
+			return;
+		}
+		const lineCount = normalized.split('\n').length;
+		boundaries.push({ sourceIndex, startLine: currentLine, endLine: currentLine + lineCount - 1 });
+		survivingBlocks.push(normalized);
+		currentLine += lineCount + 1; // account for the blank separator line
+	});
+
+	const document = survivingBlocks.length > 0 ? `${survivingBlocks.join('\n\n').trimEnd()}\n` : '';
+	return { document, boundaries };
+}
+
 export function composeHurlDocument(header: string, blocks: string[]): string {
 	const normalizedHeader = normalizeHurlLineEndings(header).trim();
-	const normalizedBlocks = blocks
-		.map(block => normalizeHurlLineEndings(block).trim())
-		.filter(block => block.length > 0);
+	const { document: blocksDocument } = composeHurlDocumentWithBoundaries(blocks);
 
-	const sections: string[] = [];
-	if (normalizedHeader) {
-		sections.push(normalizedHeader);
+	if (!normalizedHeader) {
+		return blocksDocument;
 	}
-	sections.push(...normalizedBlocks);
-
-	if (sections.length === 0) {
-		return '';
+	if (!blocksDocument) {
+		return `${normalizedHeader}\n`;
 	}
-
-	return `${sections.join('\n\n').trimEnd()}\n`;
+	return `${normalizedHeader}\n\n${blocksDocument}`;
 }
 
 export function upsertCollectionNameInHurl(content: string, collectionName: string): string {

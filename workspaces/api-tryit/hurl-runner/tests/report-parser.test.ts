@@ -19,8 +19,9 @@
 import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
-import { parseFileResult } from '../src/report-parser';
+import { mapFileResultToCellOutcomes, parseFileResult } from '../src/report-parser';
 import { ProcessExecResult } from '../src/process-adapter';
+import { HurlFileResult } from '../src/types';
 
 function makeExecResult(overrides: Partial<ProcessExecResult> = {}): ProcessExecResult {
 	return {
@@ -479,5 +480,144 @@ describe('parseFileResult', () => {
 		expect(parsed.entries[1].name).toBe('Delete post');
 		expect(parsed.entries[1].status).toBe('passed');
 		expect(parsed.assertions).toHaveLength(3);
+	});
+});
+
+describe('mapFileResultToCellOutcomes', () => {
+	// Entries at lines 1, 5, 9 - matching three 3-line blocks joined with a
+	// blank separator line each (block, blank, block, blank, block).
+	function makeFileResult(entryLines: number[]): HurlFileResult {
+		return {
+			filePath: '/tmp/combined.hurl',
+			status: 'passed',
+			startedAt: '2026-02-23T00:00:00.000Z',
+			finishedAt: '2026-02-23T00:00:00.010Z',
+			durationMs: 10,
+			entries: entryLines.map((line, index) => ({
+				name: `Entry ${index + 1}`,
+				status: 'passed' as const,
+				line
+			})),
+			assertions: []
+		};
+	}
+
+	it('matches each boundary to the entry whose line falls inside it', () => {
+		const fileResult = makeFileResult([1, 5, 9]);
+		const boundaries = [
+			{ startLine: 1, endLine: 3 },
+			{ startLine: 5, endLine: 7 },
+			{ startLine: 9, endLine: 11 }
+		];
+
+		const outcomes = mapFileResultToCellOutcomes(fileResult, boundaries);
+
+		expect(outcomes).toHaveLength(3);
+		expect(outcomes.map(o => o.entries.map(e => e.name))).toEqual([['Entry 1'], ['Entry 2'], ['Entry 3']]);
+	});
+
+	it('reports an empty-entries outcome for a boundary with no request, without shifting later boundaries', () => {
+		// Reproduces the header-cell bug: a comment-only block (no request line,
+		// so it produces zero report entries) sits between two real requests.
+		// Index-based zipping would misattribute entry 2 to the comment block's
+		// slot and leave the real last request unmatched; line-range matching
+		// must not.
+		const fileResult = makeFileResult([1, 9]); // no entry inside the middle (comment) boundary
+		const boundaries = [
+			{ startLine: 1, endLine: 3 },  // real request - has an entry
+			{ startLine: 5, endLine: 6 },  // comment-only cell - no entry
+			{ startLine: 9, endLine: 11 }  // real request - has an entry
+		];
+
+		const outcomes = mapFileResultToCellOutcomes(fileResult, boundaries);
+
+		expect(outcomes).toHaveLength(3);
+		expect(outcomes[0].entries.map(e => e.name)).toEqual(['Entry 1']);
+		expect(outcomes[1].entries).toEqual([]);
+		expect(outcomes[2].entries.map(e => e.name)).toEqual(['Entry 2']);
+	});
+
+	it('marks trailing boundaries with empty entries when hurl stopped before reaching them', () => {
+		const fileResult = makeFileResult([1, 5]);
+		const boundaries = [
+			{ startLine: 1, endLine: 3 },
+			{ startLine: 5, endLine: 7 },
+			{ startLine: 9, endLine: 11 },
+			{ startLine: 13, endLine: 15 }
+		];
+
+		const outcomes = mapFileResultToCellOutcomes(fileResult, boundaries);
+
+		expect(outcomes.slice(0, 2).every(o => o.entries.length === 1)).toBe(true);
+		expect(outcomes.slice(2).every(o => o.entries.length === 0)).toBe(true);
+	});
+
+	it('reports every boundary as empty when the file produced no entries at all', () => {
+		const fileResult = makeFileResult([]);
+		const boundaries = [{ startLine: 1, endLine: 3 }, { startLine: 5, endLine: 7 }];
+
+		const outcomes = mapFileResultToCellOutcomes(fileResult, boundaries);
+
+		expect(outcomes.every(o => o.entries.length === 0)).toBe(true);
+	});
+
+	it('attributes multiple entries to a single boundary when a cell contains more than one request', () => {
+		const fileResult = makeFileResult([1, 2]);
+		const boundaries = [{ startLine: 1, endLine: 3 }];
+
+		const outcomes = mapFileResultToCellOutcomes(fileResult, boundaries);
+
+		expect(outcomes[0].entries.map(e => e.name)).toEqual(['Entry 1', 'Entry 2']);
+	});
+
+	it('places an entry whose line could not be resolved instead of dropping it', () => {
+		// An entry hurl reported but whose line neither the report nor the
+		// source scan could pin down. Dropping it would render a request that
+		// really ran as "not run".
+		const fileResult = makeFileResult([1]);
+		fileResult.entries.push({ name: 'Lineless entry', status: 'passed' });
+		const boundaries = [
+			{ startLine: 1, endLine: 3 },
+			{ startLine: 5, endLine: 7 }
+		];
+
+		const outcomes = mapFileResultToCellOutcomes(fileResult, boundaries);
+
+		expect(outcomes[0].entries.map(e => e.name)).toEqual(['Entry 1']);
+		expect(outcomes[1].entries.map(e => e.name)).toEqual(['Lineless entry']);
+	});
+
+	it('never discards a lineless entry when every boundary is already claimed', () => {
+		// Both boundaries are taken by line-matched entries, so there is no
+		// free slot left - the extra entry must still surface somewhere
+		// rather than vanishing from the notebook entirely.
+		const fileResult = makeFileResult([1, 5]);
+		fileResult.entries.push({ name: 'Lineless entry', status: 'passed' });
+		const boundaries = [
+			{ startLine: 1, endLine: 3 },
+			{ startLine: 5, endLine: 7 }
+		];
+
+		const outcomes = mapFileResultToCellOutcomes(fileResult, boundaries);
+
+		const rendered = outcomes.flatMap(o => o.entries.map(e => e.name));
+		expect(rendered).toContain('Lineless entry');
+		expect(rendered).toHaveLength(3);
+	});
+
+	it('does not let a lineless entry displace a boundary a line-matched entry already claimed', () => {
+		const fileResult = makeFileResult([5]); // matches the second boundary
+		fileResult.entries.push({ name: 'Lineless entry', status: 'passed' });
+		const boundaries = [
+			{ startLine: 1, endLine: 3 },
+			{ startLine: 5, endLine: 7 }
+		];
+
+		const outcomes = mapFileResultToCellOutcomes(fileResult, boundaries);
+
+		// The lineless entry takes the free first boundary; the line-matched
+		// one keeps the boundary its own line actually falls inside.
+		expect(outcomes[0].entries.map(e => e.name)).toEqual(['Lineless entry']);
+		expect(outcomes[1].entries.map(e => e.name)).toEqual(['Entry 1']);
 	});
 });
