@@ -118,7 +118,8 @@ export enum ChoreoComponentType {
 export enum ChoreoComponentSubType {
 	AiAgent = "aiAgent",
 	fileIntegration = "fileIntegration",
-	MCP = "MCP"
+	MCP = "MCP",
+	Workflow = "workflow"
 }
 
 export enum DevantScopes {
@@ -128,6 +129,7 @@ export enum DevantScopes {
 	FILE_INTEGRATION = "file-integration",
 	AI_AGENT = "ai-agent",
 	MCP = "mcp-server",
+	WORKFLOW = "workflow",
 	ANY = "any",
 	LIBRARY = "library", 
 }

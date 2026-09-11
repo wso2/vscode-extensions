@@ -139,6 +139,8 @@ export const getIntegrationComponentTypeText = (componentType: string, subType: 
 					return "AI Agent";
 				case ChoreoComponentSubType.MCP:
 					return "MCP Server";
+				case ChoreoComponentSubType.Workflow:
+					return "Workflow";
 				default:
 					return "Integration as API";
 			}
@@ -167,6 +169,8 @@ export const getIntegrationScopeText = (integrationScope: string): string => {
 			return "AI Agent";
 		case DevantScopes.MCP:
 			return "MCP Server";
+		case DevantScopes.WORKFLOW:
+			return "Workflow";
 		case DevantScopes.LIBRARY:
 			return "Library";
 		default:
@@ -188,6 +192,8 @@ export const getTypeOfIntegrationType = (integrationScope: string): { type?: str
 			return { type: ChoreoComponentType.Service, subType: ChoreoComponentSubType.AiAgent };
 		case DevantScopes.MCP:
 			return { type: ChoreoComponentType.Service, subType: ChoreoComponentSubType.MCP };
+		case DevantScopes.WORKFLOW:
+			return { type: ChoreoComponentType.Service, subType: ChoreoComponentSubType.Workflow };
 		case DevantScopes.LIBRARY:
 			return { type: ChoreoComponentType.Library };
 		default:
@@ -208,6 +214,9 @@ export const getIntegrationTypeFromComponentType = (componentType: string, subTy
 	}
 	if (componentType === ChoreoComponentType.Service && subType === ChoreoComponentSubType.MCP) {
 		return DevantScopes.MCP;
+	}
+	if (componentType === ChoreoComponentType.Service && subType === ChoreoComponentSubType.Workflow) {
+		return DevantScopes.WORKFLOW;
 	}
 	if (componentType === ChoreoComponentType.EventHandler && subType === ChoreoComponentSubType.fileIntegration) {
 		return DevantScopes.FILE_INTEGRATION;
@@ -362,6 +371,7 @@ const SERVICE_SCOPES: ReadonlySet<string> = new Set([
 	DevantScopes.INTEGRATION_AS_API,
 	DevantScopes.AI_AGENT,
 	DevantScopes.MCP,
+	DevantScopes.WORKFLOW,
 ]);
 
 /** Scopes that represent passive listeners which run alongside whatever else is deployed. */
