@@ -6,7 +6,7 @@ settings:
 
 overrides:
   lodash: '>=4.18.0'
-  hono: 4.12.34
+  hono: 4.13.5
   brace-expansion@>=5.0.0 <6: 5.0.9
   '@codemirror/view': 6.38.8
   '@codemirror/lint': 6.8.5
@@ -15,7 +15,8 @@ overrides:
   fast-uri: ^3.1.6
   '@babel/core': '>=7.29.7'
   dompurify: '>=3.4.12'
-  js-yaml: 4.3.1
+  js-yaml: 4.3.2
+  nanoid: 3.3.18
   tmp: '>=0.2.7'
   form-data: '>=4.0.6'
   shell-quote: 1.9.0
@@ -33,8 +34,8 @@ importers:
         specifier: 1.57.3
         version: 1.57.3
       js-yaml:
-        specifier: 4.3.1
-        version: 4.3.1
+        specifier: 4.3.2
+        version: 4.3.2
       vscode-messenger-common:
         specifier: 0.4.5
         version: 0.4.5
@@ -115,8 +116,8 @@ importers:
         specifier: 0.4.4
         version: 0.4.4
       js-yaml:
-        specifier: 4.3.1
-        version: 4.3.1
+        specifier: 4.3.2
+        version: 4.3.2
       json-schema:
         specifier: 0.4.0
         version: 0.4.0
@@ -279,8 +280,8 @@ importers:
         specifier: workspace:*
         version: link:../../common-libs/ui-toolkit
       js-yaml:
-        specifier: 4.3.1
-        version: 4.3.1
+        specifier: 4.3.2
+        version: 4.3.2
       lodash:
         specifier: '>=4.18.0'
         version: 4.18.1
@@ -592,8 +593,8 @@ importers:
         specifier: 21.3.2
         version: 21.3.2
       js-yaml:
-        specifier: 4.3.1
-        version: 4.3.1
+        specifier: 4.3.2
+        version: 4.3.2
       jschardet:
         specifier: 3.0.0
         version: 3.0.0
@@ -710,8 +711,8 @@ importers:
         specifier: 2.5.1
         version: 2.5.1
       js-yaml:
-        specifier: 4.3.1
-        version: 4.3.1
+        specifier: 4.3.2
+        version: 4.3.2
       lodash.debounce:
         specifier: 4.0.8
         version: 4.0.8
@@ -1274,8 +1275,8 @@ importers:
         specifier: 21.3.2
         version: 21.3.2
       js-yaml:
-        specifier: 4.3.1
-        version: 4.3.1
+        specifier: 4.3.2
+        version: 4.3.2
       jschardet:
         specifier: 3.1.4
         version: 3.1.4
@@ -1404,8 +1405,8 @@ importers:
         specifier: 4.0.0
         version: 4.0.0
       js-yaml:
-        specifier: 4.3.1
-        version: 4.3.1
+        specifier: 4.3.2
+        version: 4.3.2
       lodash.debounce:
         specifier: 4.0.8
         version: 4.0.8
@@ -3016,7 +3017,7 @@ packages:
     resolution: {integrity: sha512-bjD221KPLoJTWUwso1J6fGKiTXEUFedG/s0visavY4zakFPkeGURMRNly+FhBHs7T8Dz4qHaZIMX9ZoJHSJtKA==}
     engines: {node: '>=20'}
     peerDependencies:
-      hono: 4.12.34
+      hono: 4.13.5
 
   '@hookform/resolvers@3.3.4':
     resolution: {integrity: sha512-o5cgpGOuJYrd+iMKvkttOclgwRW86EsWJZZRC23prf0uU2i48Htq4PuT73AVb9ionFyZrwYEITuOFGF+BydEtQ==}
@@ -5894,7 +5895,6 @@ packages:
   '@xmldom/xmldom@0.8.10':
     resolution: {integrity: sha512-2WALfTl4xo2SkGCYRt6rDTFfk9R1czmBvUQy12gK2KuRKIpWEhcbbzy8EZXtz/jkRqHX8bFEc6FC1HjX4TUWYw==}
     engines: {node: '>=10.0.0'}
-    deprecated: this version has critical issues, please update to the latest version
 
   '@xmldom/xmldom@0.9.10':
     resolution: {integrity: sha512-A9gOqLdi6cV4ibazAjcQufGj0B1y/vDqYrcuP6d/6x8P27gRS8643Dj9o1dEKtB6O7fwxb2FgBmJS2mX7gpvdw==}
@@ -8087,8 +8087,8 @@ packages:
   hoist-non-react-statics@3.3.2:
     resolution: {integrity: sha512-/gGivxi8JPKWNm/W0jSmzcMPpfpPLc3dY/6GxhX2hQ9iGj3aDfklV4ET7NjKpSinLpJ5vafa9iiGIEZg10SfBw==}
 
-  hono@4.12.34:
-    resolution: {integrity: sha512-GqXJqY/xJkJmuloTrnV1ZEXG3fqte+VjkUqoRNZXcrUidiUOP4fMSIHHY4tsqZBK++kVyWmt/AAfSUuy57/eSA==}
+  hono@4.13.5:
+    resolution: {integrity: sha512-O6+/eCYRkzzzy0rPWwKLiGBR1nFuUPZynnwjxN1MBA62NNqbT0wQEzQyK2gSO5yDIDB336sXQleAhOHrzlYyKw==}
     engines: {node: '>=16.9.0'}
 
   hosted-git-info@4.1.0:
@@ -8848,8 +8848,8 @@ packages:
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
 
-  js-yaml@4.3.1:
-    resolution: {integrity: sha512-CY6crGq313MX8GkwvB7tzgp99vjQxY1++5y10/BKN/GUfHqWaOGQMNZkBvqSzsZKWk/ijwHlWzzkLulsGHhjWQ==}
+  js-yaml@4.3.2:
+    resolution: {integrity: sha512-SFNOvSJ+Dgf/9An904Yx+CgSlIPCkIpao4qo51lpee25TIRejdH3rhR4EZMGoNx3/TP3O+wzWuiTFl4sqbltzA==}
     hasBin: true
 
   jsbn@0.1.1:
@@ -9580,13 +9580,8 @@ packages:
   nan@2.28.0:
     resolution: {integrity: sha512-fTsDz99OTq2sVePhGdp4qQhggZFtKr64ZNVyVajRKtMOkJxYekplBh577PiJB12v/D3s2E5cGtOI45LWp6rnLQ==}
 
-  nanoid@3.3.17:
-    resolution: {integrity: sha512-xQLf0A3HOMlgHq0n247/LRuAOYmB7dXJ/DvAxGvsSBij45XtBSmQycu+F8ODbHwns/XyFZagyL1+J0Offw1E0g==}
-    engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
-    hasBin: true
-
-  nanoid@3.3.3:
-    resolution: {integrity: sha512-p1sjXuopFs0xg+fPASzQ28agW1oHD7xDsd9Xkf3T15H3c/cifrFHVwrh74PdoklAPi+i7MdRsE47vm2r6JoB+w==}
+  nanoid@3.3.18:
+    resolution: {integrity: sha512-DTg4MJbGMWkfi6VZFdNt2/caMbQy4Ou+Op/hJQvGEWcnVfoA1QA+xzRKAzw9jD6+GVOOeYr/mIcuDSdug6F6+w==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
 
@@ -12690,7 +12685,7 @@ snapshots:
     dependencies:
       '@jsdevtools/ono': 7.1.3
       '@types/json-schema': 7.0.15
-      js-yaml: 4.3.1
+      js-yaml: 4.3.2
 
   '@asyncapi/specs@6.11.1':
     dependencies:
@@ -14822,7 +14817,7 @@ snapshots:
       globals: 14.0.0
       ignore: 5.3.2
       import-fresh: 3.3.1
-      js-yaml: 4.3.1
+      js-yaml: 4.3.2
       minimatch: 3.1.5
       strip-json-comments: 3.1.1
     transitivePeerDependencies:
@@ -14836,7 +14831,7 @@ snapshots:
       globals: 14.0.0
       ignore: 5.3.2
       import-fresh: 3.3.1
-      js-yaml: 4.3.1
+      js-yaml: 4.3.2
       minimatch: 3.1.5
       strip-json-comments: 3.1.1
     transitivePeerDependencies:
@@ -14904,9 +14899,9 @@ snapshots:
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
 
-  '@hono/node-server@2.0.11(hono@4.12.34)':
+  '@hono/node-server@2.0.11(hono@4.13.5)':
     dependencies:
-      hono: 4.12.34
+      hono: 4.13.5
 
   '@hookform/resolvers@3.3.4(react-hook-form@7.56.4(react@18.2.0))':
     dependencies:
@@ -14968,7 +14963,7 @@ snapshots:
       camelcase: 5.3.1
       find-up: 4.1.0
       get-package-type: 0.1.0
-      js-yaml: 4.3.1
+      js-yaml: 4.3.2
       resolve-from: 5.0.0
 
   '@istanbuljs/schema@0.1.6': {}
@@ -15660,7 +15655,7 @@ snapshots:
       cm6-theme-basic-light: 0.2.0(@codemirror/language@6.12.4)(@codemirror/state@6.5.2)(@codemirror/view@6.38.8)(@lezer/highlight@1.2.3)
       codemirror: 6.0.2
       downshift: 7.6.2(react@18.2.0)
-      js-yaml: 4.3.1
+      js-yaml: 4.3.2
       lexical: 0.17.1
       mdast-util-directive: 3.1.0
       mdast-util-from-markdown: 2.0.3
@@ -15905,7 +15900,7 @@ snapshots:
 
   '@modelcontextprotocol/sdk@1.30.0':
     dependencies:
-      '@hono/node-server': 2.0.11(hono@4.12.34)
+      '@hono/node-server': 2.0.11(hono@4.13.5)
       ajv: 8.20.0
       ajv-formats: 3.0.1
       content-type: 1.0.5
@@ -15915,7 +15910,7 @@ snapshots:
       eventsource-parser: 3.1.0
       express: 5.2.1
       express-rate-limit: 8.2.2(express@5.2.1)
-      hono: 4.12.34
+      hono: 4.13.5
       jose: 6.2.8
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
@@ -18579,7 +18574,7 @@ snapshots:
       '@textlint/resolver': 15.8.0
       '@textlint/types': 15.8.0
       debug: 4.4.3(supports-color@8.1.1)
-      js-yaml: 4.3.1
+      js-yaml: 4.3.2
       lodash: 4.18.1
       pluralize: 2.0.0
       string-width: 4.2.3
@@ -20570,7 +20565,7 @@ snapshots:
     dependencies:
       env-paths: 2.2.1
       import-fresh: 3.3.1
-      js-yaml: 4.3.1
+      js-yaml: 4.3.2
       parse-json: 5.2.0
     optionalDependencies:
       typescript: 5.8.3
@@ -22236,7 +22231,7 @@ snapshots:
     dependencies:
       react-is: 16.13.1
 
-  hono@4.12.34: {}
+  hono@4.13.5: {}
 
   hosted-git-info@4.1.0:
     dependencies:
@@ -23214,7 +23209,7 @@ snapshots:
 
   js-tokens@4.0.0: {}
 
-  js-yaml@4.3.1:
+  js-yaml@4.3.2:
     dependencies:
       argparse: 2.0.1
 
@@ -24215,11 +24210,11 @@ snapshots:
       find-up: 5.0.0
       glob: 7.2.0
       he: 1.2.0
-      js-yaml: 4.3.1
+      js-yaml: 4.3.2
       log-symbols: 4.1.0
       minimatch: 5.1.8
       ms: 2.1.3
-      nanoid: 3.3.3
+      nanoid: 3.3.18
       serialize-javascript: 7.0.5
       strip-json-comments: 3.1.1
       supports-color: 8.1.1
@@ -24238,7 +24233,7 @@ snapshots:
       find-up: 5.0.0
       glob: 10.5.0
       he: 1.2.0
-      js-yaml: 4.3.1
+      js-yaml: 4.3.2
       log-symbols: 4.1.0
       minimatch: 5.1.8
       ms: 2.1.3
@@ -24261,7 +24256,7 @@ snapshots:
       find-up: 5.0.0
       glob: 10.5.0
       he: 1.2.0
-      js-yaml: 4.3.1
+      js-yaml: 4.3.2
       log-symbols: 4.1.0
       minimatch: 9.0.7
       ms: 2.1.3
@@ -24303,9 +24298,7 @@ snapshots:
 
   nan@2.28.0: {}
 
-  nanoid@3.3.17: {}
-
-  nanoid@3.3.3: {}
+  nanoid@3.3.18: {}
 
   napi-build-utils@2.0.0:
     optional: true
@@ -24954,7 +24947,7 @@ snapshots:
 
   postcss@8.5.25:
     dependencies:
-      nanoid: 3.3.17
+      nanoid: 3.3.18
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
@@ -25148,7 +25141,7 @@ snapshots:
   rc-config-loader@4.1.4:
     dependencies:
       debug: 4.4.3(supports-color@8.1.1)
-      js-yaml: 4.3.1
+      js-yaml: 4.3.2
       json5: 2.2.3
       require-from-string: 2.0.2
     transitivePeerDependencies:
@@ -26482,7 +26475,7 @@ snapshots:
       '@swaggerexpert/cookie': 2.0.2
       deepmerge: 4.3.1
       fast-json-patch: 3.1.1
-      js-yaml: 4.3.1
+      js-yaml: 4.3.2
       neotraverse: 0.6.18
       node-abort-controller: 3.1.1
       openapi-path-templating: 2.2.1
@@ -26527,7 +26520,7 @@ snapshots:
       ieee754: 1.2.1
       immutable: 4.3.9
       js-file-download: 0.4.12
-      js-yaml: 4.3.1
+      js-yaml: 4.3.2
       lodash: 4.18.1
       prop-types: 15.8.1
       randexp: 0.5.3
@@ -27504,7 +27497,7 @@ snapshots:
       glob: 11.1.0
       got: 14.4.7
       hpagent: 1.2.0
-      js-yaml: 4.3.1
+      js-yaml: 4.3.2
       mocha: 11.5.0
       sanitize-filename: 1.6.4
       selenium-webdriver: 4.46.0
