@@ -290,7 +290,7 @@
     "node-fetch": "2.6.7",
     "node-loader": "2.0.0",
     "to-json-schema": "0.2.5",
-    "@babel/core": "^7.29.7",
+    "@babel/core": "7.29.7",
     "@types/json-schema": "7.0.15",
     "json-schema": "0.4.0",
     "portfinder": "1.0.32",
@@ -303,7 +303,7 @@
     "@stoplight/spectral-functions": "1.10.2",
     "@stoplight/spectral-parsers": "1.0.5",
     "@stoplight/spectral-rulesets": "1.22.1", 
-    "adm-zip": "0.6.0",
+    "adm-zip": "0.6.1",
     "js-yaml": "4.1.1"
   }
 }
