@@ -356,12 +356,34 @@ export const AutoComplete = React.forwardRef<HTMLInputElement, AutoCompleteProps
     const inputRef = useRef(null);
     const inputWrapperRef = useRef(null);
     const btnId = useMemo(() => name || label || identifier || getItemKey(items[0]), [name, items, label, identifier]);
+    // True from the input's blur until its next focus. Headless UI runs our onBlur before its own, so
+    // this is already set when Headless UI emits its blur-time change.
+    const isInputBlurredRef = useRef(false);
 
-    const handleChange = (item: string | ItemComponent) => {
+    // On blur, a nullable Combobox whose value is null emits onChange(null) instead of committing the
+    // active option, which would drop text the user typed but never confirmed. Resolve that null to an
+    // item whose key exactly matches the typed text or, when item creation is allowed, to the typed
+    // text itself (the value of the hidden create option). An empty query still yields null, so
+    // clearing an optional field keeps working. Only the blur path is handled: the input's own
+    // onChange(null) (text cleared) and Escape both run while focused and must keep clearing/reverting.
+    const resolveBlurItem = (item: string | ItemComponent) => {
+        if ((item !== null && item !== undefined) || !isInputBlurredRef.current || query === '') {
+            return item;
+        }
+        const match = items.find(i => getItemKey(i) === query);
+        if (match !== undefined) {
+            return match;
+        }
+        return allowItemCreate && !requireValidation ? query : item;
+    };
+
+    const handleChange = (changedItem: string | ItemComponent) => {
+        const item = resolveBlurItem(changedItem);
         const index = items.findIndex(i => i === item);
         onValueChange && onValueChange(getItemKey(item), index);
     };
     const handleTextFieldFocused = () => {
+        isInputBlurredRef.current = false;
         setIsTextFieldFocused(true);
     };
     const handleTextFieldClick = () => {
@@ -374,6 +396,7 @@ export const AutoComplete = React.forwardRef<HTMLInputElement, AutoCompleteProps
         }
     };
     const handleTextFieldOutFocused = (e: any) => {
+        isInputBlurredRef.current = true;
         setIsTextFieldFocused(false);
         setIsUpButton(false);
         onBlur && onBlur(e);
