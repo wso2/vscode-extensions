@@ -359,16 +359,22 @@ export const AutoComplete = React.forwardRef<HTMLInputElement, AutoCompleteProps
     // True from the input's blur until its next focus. Headless UI runs our onBlur before its own, so
     // this is already set when Headless UI emits its blur-time change.
     const isInputBlurredRef = useRef(false);
+    // The Combobox's active (highlighted) option as of the last render.
+    const activeOptionRef = useRef<string | ItemComponent | null>(null);
 
     // On blur, a nullable Combobox whose value is null emits onChange(null) instead of committing the
-    // active option, which would drop text the user typed but never confirmed. Resolve that null to an
-    // item whose key exactly matches the typed text or, when item creation is allowed, to the typed
-    // text itself (the value of the hidden create option). An empty query still yields null, so
-    // clearing an optional field keeps working. Only the blur path is handled: the input's own
-    // onChange(null) (text cleared) and Escape both run while focused and must keep clearing/reverting.
+    // active option, which would drop text the user typed but never confirmed. Resolve that null to the
+    // active option, as a non-nullable Combobox commits on blur, falling back to an item whose key
+    // exactly matches the typed text or, when item creation is allowed, to the typed text itself (the
+    // value of the hidden create option). An empty query still yields null, so clearing an optional
+    // field keeps working. Only the blur path is handled: the input's own onChange(null) (text cleared)
+    // and Escape both run while focused and must keep clearing/reverting.
     const resolveBlurItem = (item: string | ItemComponent) => {
         if ((item !== null && item !== undefined) || !isInputBlurredRef.current || query === '') {
             return item;
+        }
+        if (activeOptionRef.current !== null && activeOptionRef.current !== undefined) {
+            return activeOptionRef.current;
         }
         const match = items.find(i => getItemKey(i) === query);
         if (match !== undefined) {
@@ -444,142 +450,151 @@ export const AutoComplete = React.forwardRef<HTMLInputElement, AutoCompleteProps
     return (
         <Container sx={sx}>
             <Combobox disabled={props.disabled} value={value} onChange={handleChange} name={name} {...(nullable && { nullable })}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    {label && (
-                        <LabelContainer>
-                            <label htmlFor={id}>{label}</label>
-                            {(required && label) && (<RequiredFormInput />)}
-                            {labelAdornment && labelAdornment}
-                        </LabelContainer>
-                    )}
-                    {allowItemCreate && onCreateButtonClick && <LinkButton onClick={onCreateButtonClick}>
-                        <Codicon name="plus" />Add new
-                    </LinkButton>}
-                </div>
-                {description && (
-                    <Description sx={descriptionSx}>
-                        {description}
-                    </Description>
-                )}
-                <ComboboxContent>
-                    <ComboboxInputWrapper ref={inputWrapperRef} hideDropdown={hideDropdown}>
-                        <Combobox.Input
-                            id={id}
-                            ref={inputRef}
-                            displayValue={displayItemValue}
-                            onChange={handleInputQueryChange}
-                            className={cx(SearchableInput(hideDropdown), borderBox && cx(css`
-                                height: 26px;
-                            `))}
-                            onFocus={handleTextFieldFocused}
-                            onClick={handleTextFieldClick}
-                            onBlur={handleTextFieldOutFocused}
-                        />
-                        {actionBtns?.length && (
-                            <div className={cx(
-                                ActionButtonStyles,
-                                isTextFieldFocused ? ActionButtonContainerActive : ActionButtonContainer
-                            )}>
-                                {actionBtns.map((btn, index) => (
-                                    <React.Fragment key={index}>
-                                        {btn}
-                                    </React.Fragment>
-                                ))}
-                            </div>
-                        )}
-                        <Combobox.Button
-                            id={`autocomplete-dropdown-button-${btnId}`}
-                            hidden={hideDropdown}
-                            className={isTextFieldFocused ? ComboboxButtonContainerActive : ComboboxButtonContainer}
-                        >
-                            {isUpButton ? (
-                                <i
-                                    className={`codicon codicon-chevron-up ${DropdownIcon}`}
-                                    onClick={handleComboButtonClick}
-                                    onMouseDown={(e: React.MouseEvent) => {
-                                        e.preventDefault()
-                                    }}
-                                />
-                            ) : (
-                                <i
-                                    className={`codicon codicon-chevron-down ${DropdownIcon}`}
-                                    onClick={handleComboButtonClick}
-                                    onMouseDown={(e: React.MouseEvent) => {
-                                        e.preventDefault()
-                                    }}
-                                />
-                            )}
-                        </Combobox.Button>
-                    </ComboboxInputWrapper>
-                    <Transition
-                        as={Fragment}
-                        afterLeave={handleAfterLeave}
-                        ref={ref}
-                    >
-                        <DropdownContainer
-                            // condition to display the dropdown
-                            id={"dropdown-container"}
-                            display={!(filteredResults.length === 0 && query !== "" && allowItemCreate && !onCreateButtonClick)}
-                            widthOffset={widthOffset}
-                            dropdownWidth={dropdownWidth}
-                        >
-                            <Combobox.Options>
-                                {/* A hidden Combobox.Option which is used to create a new item */}
-                                {filteredResults.length === 0 && query !== "" && !onCreateButtonClick ? (
-                                    allowItemCreate && !requireValidation ? (
-                                        <ComboboxOption key={0}>
-                                            <Combobox.Option className={ComboboxOptionContainer} value={query} key={0}>
-                                                {query}
-                                            </Combobox.Option>
-                                        </ComboboxOption>
-                                    ) : (
-                                        <NothingFound>{notItemsFoundMessage || "No options"}</NothingFound>
-                                    )
-                                ) : (
-                                    <Fragment>
-                                        {/**
-                                         * A hidden Combobox.Option which is used to create a new item when the query is a
-                                         * substring of the filtered results
-                                        **/}
-                                        {allowItemCreate && !requireValidation && extactMatch.length === 0 && (
-                                            <ComboboxOption display={false} key={0}>
-                                                <Combobox.Option className={ComboboxOptionContainer} value={query} key={0}>
-                                                    {query}
-                                                </Combobox.Option>
-                                            </ComboboxOption>
-                                        )}
-                                        {filteredResults.map((filteredItem: string | ItemComponent, i: number) => {
-                                            const item = getItem(filteredItem);
-                                            const itemKey = getItemKey(filteredItem);
-                                            return (
-                                                <ComboboxOption key={i + indexOffset}>
-                                                    <Combobox.Option
-                                                        className={ComboboxOptionContainer}
-                                                        value={filteredItem}
-                                                        key={i}
-                                                    >
-                                                        {({ active }) => (
-                                                            <div
-                                                                className={active ? OptionContainer : ActiveOptionContainer}
-                                                                data-tooltip={itemKey}
-                                                                title={itemKey}
-                                                            >
-                                                                {item}
-                                                            </div>
-                                                        )}
-                                                    </Combobox.Option>
-                                                </ComboboxOption>
-                                            );
-                                        })}
-                                    </Fragment>
+                {({ activeOption }) => {
+                    // Recorded for resolveBlurItem: the blur-time onChange(null) happens after this render, and
+                    // Headless UI exposes the active option only through this render prop.
+                    activeOptionRef.current = activeOption;
+                    return (
+                        <>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                {label && (
+                                    <LabelContainer>
+                                        <label htmlFor={id}>{label}</label>
+                                        {(required && label) && (<RequiredFormInput />)}
+                                        {labelAdornment && labelAdornment}
+                                    </LabelContainer>
                                 )}
-                            </Combobox.Options>
-                        </DropdownContainer>
-                    </Transition>
-                </ComboboxContent>
-                {errorMsg && (
-                    <ErrorBanner errorMsg={errorMsg} />
-                )}
+                                {allowItemCreate && onCreateButtonClick && <LinkButton onClick={onCreateButtonClick}>
+                                    <Codicon name="plus" />Add new
+                                </LinkButton>}
+                            </div>
+                            {description && (
+                                <Description sx={descriptionSx}>
+                                    {description}
+                                </Description>
+                            )}
+                            <ComboboxContent>
+                                <ComboboxInputWrapper ref={inputWrapperRef} hideDropdown={hideDropdown}>
+                                    <Combobox.Input
+                                        id={id}
+                                        ref={inputRef}
+                                        displayValue={displayItemValue}
+                                        onChange={handleInputQueryChange}
+                                        className={cx(SearchableInput(hideDropdown), borderBox && cx(css`
+                                            height: 26px;
+                                        `))}
+                                        onFocus={handleTextFieldFocused}
+                                        onClick={handleTextFieldClick}
+                                        onBlur={handleTextFieldOutFocused}
+                                    />
+                                    {actionBtns?.length && (
+                                        <div className={cx(
+                                            ActionButtonStyles,
+                                            isTextFieldFocused ? ActionButtonContainerActive : ActionButtonContainer
+                                        )}>
+                                            {actionBtns.map((btn, index) => (
+                                                <React.Fragment key={index}>
+                                                    {btn}
+                                                </React.Fragment>
+                                            ))}
+                                        </div>
+                                    )}
+                                    <Combobox.Button
+                                        id={`autocomplete-dropdown-button-${btnId}`}
+                                        hidden={hideDropdown}
+                                        className={isTextFieldFocused ? ComboboxButtonContainerActive : ComboboxButtonContainer}
+                                    >
+                                        {isUpButton ? (
+                                            <i
+                                                className={`codicon codicon-chevron-up ${DropdownIcon}`}
+                                                onClick={handleComboButtonClick}
+                                                onMouseDown={(e: React.MouseEvent) => {
+                                                    e.preventDefault()
+                                                }}
+                                            />
+                                        ) : (
+                                            <i
+                                                className={`codicon codicon-chevron-down ${DropdownIcon}`}
+                                                onClick={handleComboButtonClick}
+                                                onMouseDown={(e: React.MouseEvent) => {
+                                                    e.preventDefault()
+                                                }}
+                                            />
+                                        )}
+                                    </Combobox.Button>
+                                </ComboboxInputWrapper>
+                                <Transition
+                                    as={Fragment}
+                                    afterLeave={handleAfterLeave}
+                                    ref={ref}
+                                >
+                                    <DropdownContainer
+                                        // condition to display the dropdown
+                                        id={"dropdown-container"}
+                                        display={!(filteredResults.length === 0 && query !== "" && allowItemCreate && !onCreateButtonClick)}
+                                        widthOffset={widthOffset}
+                                        dropdownWidth={dropdownWidth}
+                                    >
+                                        <Combobox.Options>
+                                            {/* A hidden Combobox.Option which is used to create a new item */}
+                                            {filteredResults.length === 0 && query !== "" && !onCreateButtonClick ? (
+                                                allowItemCreate && !requireValidation ? (
+                                                    <ComboboxOption key={0}>
+                                                        <Combobox.Option className={ComboboxOptionContainer} value={query} key={0}>
+                                                            {query}
+                                                        </Combobox.Option>
+                                                    </ComboboxOption>
+                                                ) : (
+                                                    <NothingFound>{notItemsFoundMessage || "No options"}</NothingFound>
+                                                )
+                                            ) : (
+                                                <Fragment>
+                                                    {/**
+                                                     * A hidden Combobox.Option which is used to create a new item when the query is a
+                                                     * substring of the filtered results
+                                                    **/}
+                                                    {allowItemCreate && !requireValidation && extactMatch.length === 0 && (
+                                                        <ComboboxOption display={false} key={0}>
+                                                            <Combobox.Option className={ComboboxOptionContainer} value={query} key={0}>
+                                                                {query}
+                                                            </Combobox.Option>
+                                                        </ComboboxOption>
+                                                    )}
+                                                    {filteredResults.map((filteredItem: string | ItemComponent, i: number) => {
+                                                        const item = getItem(filteredItem);
+                                                        const itemKey = getItemKey(filteredItem);
+                                                        return (
+                                                            <ComboboxOption key={i + indexOffset}>
+                                                                <Combobox.Option
+                                                                    className={ComboboxOptionContainer}
+                                                                    value={filteredItem}
+                                                                    key={i}
+                                                                >
+                                                                    {({ active }) => (
+                                                                        <div
+                                                                            className={active ? OptionContainer : ActiveOptionContainer}
+                                                                            data-tooltip={itemKey}
+                                                                            title={itemKey}
+                                                                        >
+                                                                            {item}
+                                                                        </div>
+                                                                    )}
+                                                                </Combobox.Option>
+                                                            </ComboboxOption>
+                                                        );
+                                                    })}
+                                                </Fragment>
+                                            )}
+                                        </Combobox.Options>
+                                    </DropdownContainer>
+                                </Transition>
+                            </ComboboxContent>
+                            {errorMsg && (
+                                <ErrorBanner errorMsg={errorMsg} />
+                            )}
+                        </>
+                    );
+                }}
             </Combobox>
         </Container>
     )
