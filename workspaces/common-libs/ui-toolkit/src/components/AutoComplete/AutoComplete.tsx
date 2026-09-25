@@ -323,6 +323,10 @@ const Description = styled.div<ContainerProps>`
     ${(props: ContainerProps) => props.sx};
 `;
 
+// data-option-index of the hidden option that creates an item from the typed text; other options carry
+// their index in `items`.
+const CREATE_OPTION_INDEX = 'create';
+
 export const AutoComplete = React.forwardRef<HTMLInputElement, AutoCompleteProps>((props, ref) => {
     const {
         id,
@@ -356,12 +360,40 @@ export const AutoComplete = React.forwardRef<HTMLInputElement, AutoCompleteProps
     const inputRef = useRef(null);
     const inputWrapperRef = useRef(null);
     const btnId = useMemo(() => name || label || identifier || getItemKey(items[0]), [name, items, label, identifier]);
+    // True from the input's blur until its next focus. Headless UI runs our onBlur before its own, so
+    // this is already set when Headless UI emits its blur-time change.
+    const isInputBlurredRef = useRef(false);
+    // The Combobox's active (highlighted) option, captured when the input blurs.
+    const blurActiveOptionRef = useRef<string | ItemComponent | null>(null);
 
-    const handleChange = (item: string | ItemComponent) => {
+    // On blur, a nullable Combobox whose value is null emits onChange(null) instead of committing the
+    // active option, which would drop text the user typed but never confirmed. Resolve that null to the
+    // active option, as a non-nullable Combobox commits on blur, falling back to an item whose key
+    // exactly matches the typed text or, when item creation is allowed, to the typed text itself (the
+    // value of the hidden create option). An empty query still yields null, so clearing an optional
+    // field keeps working. Only the blur path is handled: the input's own onChange(null) (text cleared)
+    // and Escape both run while focused and must keep clearing/reverting.
+    const resolveBlurItem = (item: string | ItemComponent) => {
+        if ((item !== null && item !== undefined) || !isInputBlurredRef.current || query === '') {
+            return item;
+        }
+        if (blurActiveOptionRef.current !== null) {
+            return blurActiveOptionRef.current;
+        }
+        const match = items.find(i => getItemKey(i) === query);
+        if (match !== undefined) {
+            return match;
+        }
+        return allowItemCreate && !requireValidation ? query : item;
+    };
+
+    const handleChange = (changedItem: string | ItemComponent) => {
+        const item = resolveBlurItem(changedItem);
         const index = items.findIndex(i => i === item);
         onValueChange && onValueChange(getItemKey(item), index);
     };
     const handleTextFieldFocused = () => {
+        isInputBlurredRef.current = false;
         setIsTextFieldFocused(true);
     };
     const handleTextFieldClick = () => {
@@ -373,7 +405,22 @@ export const AutoComplete = React.forwardRef<HTMLInputElement, AutoCompleteProps
             document.getElementById(props.value as string)?.focus();
         }
     };
+    // The active option as Headless UI currently sees it, read from the input's aria-activedescendant.
+    // Headless UI's activeOption render prop is not usable here: it is memoized on the Combobox state,
+    // so it goes stale while typing changes the value of an option that is already active.
+    const getActiveOption = (): string | ItemComponent | null => {
+        const input: HTMLInputElement | null = inputRef.current;
+        const activeId = input?.getAttribute('aria-activedescendant');
+        const optionIndex = activeId ? input.ownerDocument.getElementById(activeId)?.dataset.optionIndex : undefined;
+        if (optionIndex === undefined) {
+            return null;
+        }
+        return optionIndex === CREATE_OPTION_INDEX ? query : items[Number(optionIndex)] ?? null;
+    };
+
     const handleTextFieldOutFocused = (e: any) => {
+        isInputBlurredRef.current = true;
+        blurActiveOptionRef.current = getActiveOption();
         setIsTextFieldFocused(false);
         setIsUpButton(false);
         onBlur && onBlur(e);
@@ -505,7 +552,7 @@ export const AutoComplete = React.forwardRef<HTMLInputElement, AutoCompleteProps
                                 {filteredResults.length === 0 && query !== "" && !onCreateButtonClick ? (
                                     allowItemCreate && !requireValidation ? (
                                         <ComboboxOption key={0}>
-                                            <Combobox.Option className={ComboboxOptionContainer} value={query} key={0}>
+                                            <Combobox.Option className={ComboboxOptionContainer} value={query} key={0} data-option-index={CREATE_OPTION_INDEX}>
                                                 {query}
                                             </Combobox.Option>
                                         </ComboboxOption>
@@ -520,7 +567,7 @@ export const AutoComplete = React.forwardRef<HTMLInputElement, AutoCompleteProps
                                         **/}
                                         {allowItemCreate && !requireValidation && extactMatch.length === 0 && (
                                             <ComboboxOption display={false} key={0}>
-                                                <Combobox.Option className={ComboboxOptionContainer} value={query} key={0}>
+                                                <Combobox.Option className={ComboboxOptionContainer} value={query} key={0} data-option-index={CREATE_OPTION_INDEX}>
                                                     {query}
                                                 </Combobox.Option>
                                             </ComboboxOption>
@@ -534,6 +581,7 @@ export const AutoComplete = React.forwardRef<HTMLInputElement, AutoCompleteProps
                                                         className={ComboboxOptionContainer}
                                                         value={filteredItem}
                                                         key={i}
+                                                        data-option-index={items.indexOf(filteredItem)}
                                                     >
                                                         {({ active }) => (
                                                             <div
