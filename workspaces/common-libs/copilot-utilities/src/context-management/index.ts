@@ -151,7 +151,7 @@ export function extractCompactionSummary(rawContent: string): string | null {
 
 /**
  * Strips <analysis>...</analysis> blocks from compaction parts in model messages.
- * Run it on both live step messages and replayed history so the cached prefix matches.
+ * Run it on both live step messages and messages before saving, so the replayed prefix matches.
  */
 export function stripAnalysisFromCompactionBlocks(messages: any[]): void {
     for (const msg of messages) {
