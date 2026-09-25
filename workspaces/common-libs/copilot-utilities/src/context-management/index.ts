@@ -150,21 +150,20 @@ export function extractCompactionSummary(rawContent: string): string | null {
 }
 
 /**
- * Strips <analysis>...</analysis> blocks from compaction text in model messages.
- * Called in prepareStep to avoid re-sending verbose reasoning tokens on every
- * subsequent turn after compaction.
+ * Strips <analysis>...</analysis> blocks from compaction parts in model messages.
+ * Run it on both live step messages and replayed history so the cached prefix matches.
  */
 export function stripAnalysisFromCompactionBlocks(messages: any[]): void {
     for (const msg of messages) {
-        if (msg.role !== 'assistant') continue;
-        const content = msg.content;
-        if (typeof content === 'string' && content.includes('<analysis>')) {
-            msg.content = content.replace(/<analysis>[\s\S]*?<\/analysis>\s*/g, '');
-        } else if (Array.isArray(content)) {
-            for (const part of content) {
-                if (part.type === 'text' && typeof part.text === 'string' && part.text.includes('<analysis>')) {
-                    part.text = part.text.replace(/<analysis>[\s\S]*?<\/analysis>\s*/g, '');
-                }
+        if (msg.role !== 'assistant' || !Array.isArray(msg.content)) continue;
+        for (const part of msg.content) {
+            if (
+                part.type === 'text' &&
+                part.providerOptions?.anthropic?.type === 'compaction' &&
+                typeof part.text === 'string' &&
+                part.text.includes('<analysis>')
+            ) {
+                part.text = part.text.replace(/<analysis>[\s\S]*?<\/analysis>\s*/g, '');
             }
         }
     }
