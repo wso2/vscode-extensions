@@ -366,6 +366,16 @@ export const AutoComplete = React.forwardRef<HTMLInputElement, AutoCompleteProps
     // The Combobox's active (highlighted) option, captured when the input blurs.
     const blurActiveOptionRef = useRef<string | ItemComponent | null>(null);
 
+    // The item the typed text stands for: an item whose key exactly matches it or, when item creation
+    // is allowed, the typed text itself (the value of the hidden create option).
+    const resolveTypedText = (): string | ItemComponent | null => {
+        const match = items.find(i => getItemKey(i) === query);
+        if (match !== undefined) {
+            return match;
+        }
+        return allowItemCreate && !requireValidation ? query : null;
+    };
+
     // On blur, a nullable Combobox whose value is null emits onChange(null) instead of committing the
     // active option, which would drop text the user typed but never confirmed. Resolve that null to the
     // active option, as a non-nullable Combobox commits on blur, falling back to an item whose key
@@ -380,11 +390,7 @@ export const AutoComplete = React.forwardRef<HTMLInputElement, AutoCompleteProps
         if (blurActiveOptionRef.current !== null) {
             return blurActiveOptionRef.current;
         }
-        const match = items.find(i => getItemKey(i) === query);
-        if (match !== undefined) {
-            return match;
-        }
-        return allowItemCreate && !requireValidation ? query : item;
+        return resolveTypedText() ?? item;
     };
 
     const handleChange = (changedItem: string | ItemComponent) => {
@@ -401,7 +407,11 @@ export const AutoComplete = React.forwardRef<HTMLInputElement, AutoCompleteProps
             inputRef.current?.select();
             // This is to open the dropdown when the text field is focused.
             // This is a hacky way to do it since the Combobox component does not have a prop to open the dropdown.
-            document.getElementById(`autocomplete-dropdown-button-${btnId}`)?.click();
+            // An ArrowDown on the button opens it like a click does, but unlike a click it is not recorded in
+            // Headless UI's focus history. A recorded button makes a later blur with no relatedTarget (e.g.
+            // focus leaving the webview) look like focus moving to the button, so the typed text is dropped.
+            document.getElementById(`autocomplete-dropdown-button-${btnId}`)
+                ?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
             document.getElementById(props.value as string)?.focus();
         }
     };
@@ -418,9 +428,34 @@ export const AutoComplete = React.forwardRef<HTMLInputElement, AutoCompleteProps
         return optionIndex === CREATE_OPTION_INDEX ? query : items[Number(optionIndex)] ?? null;
     };
 
+    // With no active option, Headless UI's blur commits nothing, except for a nullable Combobox whose
+    // value is null (it emits onChange(null), which resolveBlurItem handles). Moving the pointer over
+    // the options and off them again leaves no option active, so text typed over a saved value would be
+    // dropped and the old value shown again. Commit the typed text here instead. Skipped when focus
+    // moves into this Combobox's options or button, where Headless UI leaves the choice to the user.
+    const commitTypedTextOnBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+        const input = e.currentTarget;
+        if (query === '' || blurActiveOptionRef.current !== null || (nullable && value === null)
+            || input.getAttribute('aria-expanded') !== 'true') {
+            return;
+        }
+        const next = e.relatedTarget instanceof Element ? e.relatedTarget : null;
+        const optionsId = input.getAttribute('aria-controls');
+        if (next && ((optionsId && next.closest(`[id="${optionsId}"]`))
+            || next.closest(`[id="autocomplete-dropdown-button-${btnId}"]`))) {
+            return;
+        }
+        const item = resolveTypedText();
+        if (item === null || (value !== null && value !== undefined && getItemKey(item) === getItemKey(value))) {
+            return;
+        }
+        onValueChange && onValueChange(getItemKey(item), items.findIndex(i => i === item));
+    };
+
     const handleTextFieldOutFocused = (e: any) => {
         isInputBlurredRef.current = true;
         blurActiveOptionRef.current = getActiveOption();
+        commitTypedTextOnBlur(e);
         setIsTextFieldFocused(false);
         setIsUpButton(false);
         onBlur && onBlur(e);
