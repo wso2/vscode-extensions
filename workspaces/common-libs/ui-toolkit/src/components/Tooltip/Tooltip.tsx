@@ -253,16 +253,21 @@ export const Tooltip: React.FC<PropsWithChildren<TooltipProps>> = (props: PropsW
         }, 500);
     }
 
+    // Give the pointer time to cross between the trigger and the tooltip before hiding.
+    const scheduleHide = () => {
+        clearHideTimer();
+        hideTimer.current = setTimeout(() => {
+            if (!isHovering.current) hide();
+        }, HIDE_DELAY_MS);
+    }
+
     const onMouseLeave = () => {
         clearShowTimer();
         if (!expandable) {
             setIsVisible(false);
             return;
         }
-        clearHideTimer();
-        hideTimer.current = setTimeout(() => {
-            if (!isHovering.current) hide();
-        }, HIDE_DELAY_MS);
+        scheduleHide();
     }
 
     const onTooltipMouseEnter = () => {
@@ -272,7 +277,8 @@ export const Tooltip: React.FC<PropsWithChildren<TooltipProps>> = (props: PropsW
 
     const onTooltipMouseLeave = () => {
         isHovering.current = false;
-        if (expandable) hide();
+        // Going back onto the trigger doesn't fire its onMouseLeave, and its mousemove cancels this hide.
+        if (expandable) scheduleHide();
     }
 
     const toggleExpanded = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -301,9 +307,10 @@ export const Tooltip: React.FC<PropsWithChildren<TooltipProps>> = (props: PropsW
 
     // Expanding, new content or the toggle appearing changes the tooltip's size, so re-anchor it:
     // a "top" tooltip has to grow upwards.
+    // Limited to expandable tooltips so existing ones keep their placement behaviour.
     useLayoutEffect(() => {
-        if (isVisible) placeAtAnchor();
-    }, [isExpanded, isVisible, placeAtAnchor, content, maxWidth, lines, isOverflowing]);
+        if (expandable && isVisible) placeAtAnchor();
+    }, [expandable, isExpanded, isVisible, placeAtAnchor, content, maxWidth, lines, isOverflowing]);
 
     useEffect(() => () => {
         clearShowTimer();
