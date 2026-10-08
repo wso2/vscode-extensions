@@ -15,7 +15,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import React, { PropsWithChildren, ReactNode, useEffect, useState } from 'react';
+import React, { PropsWithChildren, ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import styled from "@emotion/styled";
 
@@ -49,6 +49,14 @@ export interface TooltipProps {
     containerSx?: any;
     containerPosition?: string;
     offset?: Position;
+    /**
+     * Wraps the content at this width instead of keeping it on one line. Content taller than
+     * `maxLines` is clamped behind a "Show more" toggle, and the tooltip stays open while hovered
+     * so the toggle can be clicked.
+     */
+    maxWidth?: number | string;
+    /** Lines shown before "Show more" when `maxWidth` is set. Defaults to 3. */
+    maxLines?: number;
 }
 
 export interface TooltipConatinerProps {
@@ -81,6 +89,35 @@ const TooltipContent = styled.div<TooltipProps>`
     z-index: 999999;
     ${(props: TooltipProps) => props.sx}
 `;
+
+const ClampedContent = styled.div<{ lines?: number }>`
+    ${(props: { lines?: number }) => props.lines ? `
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: ${props.lines};
+        overflow: hidden;
+    ` : ''}
+`;
+
+const ShowMoreButton = styled.button`
+    margin-top: 4px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--vscode-textLink-foreground);
+    font-size: inherit;
+    font-family: inherit;
+    cursor: pointer;
+    &:hover {
+        text-decoration: underline;
+    }
+`;
+
+const DEFAULT_MAX_LINES = 3;
+// Grace period to move the pointer from the anchor into an expandable tooltip before it hides.
+const HIDE_DELAY_MS = 200;
+// Vertical padding + border of TooltipContent, so an expanded tooltip's outer height fits the window.
+const TOOLTIP_CHROME_HEIGHT = 18;
 
 const getOffsetByPosition = (position: PositionType, height: number, width: number): Position => {
     const offset: Position = { top: 0, left: 0 };
@@ -143,49 +180,142 @@ const getPositionOnOverflow = (
 }
 
 export const Tooltip: React.FC<PropsWithChildren<TooltipProps>> = (props: PropsWithChildren<TooltipProps>) => {
-    const { id, className, content, position, offset, children, sx, containerPosition, containerSx } = props;
+    const {
+        id, className, content, position, offset, children, sx, containerPosition, containerSx, maxWidth, maxLines
+    } = props;
+    const expandable = maxWidth !== undefined;
+    const lines = maxLines ?? DEFAULT_MAX_LINES;
 
-    const tooltipEl = React.useRef<HTMLDivElement>(null);
+    const tooltipEl = useRef<HTMLDivElement>(null);
+    const contentEl = useRef<HTMLDivElement>(null);
+    const isHovering = useRef<boolean>(false);
+    const showTimer = useRef<number | null>(null);
+    const hideTimer = useRef<number | null>(null);
+    // Pointer position the tooltip is anchored to, kept so a resize can re-anchor it.
+    const anchor = useRef<Position | null>(null);
 
     const [isVisible, setIsVisible] = useState<boolean>(false);
-    const [isHovering, setIsHovering] = useState<boolean>(false);
+    const [isExpanded, setIsExpanded] = useState<boolean>(false);
+    const [isOverflowing, setIsOverflowing] = useState<boolean>(false);
     const [tooltipElPosition, setTooltipElPosition] = useState<Position>({ top: 0, left: 0 });
-    const [timer, setTimer] = useState<number | null>(null);
+
+    const clearShowTimer = () => {
+        if (showTimer.current) {
+            clearTimeout(showTimer.current);
+            showTimer.current = null;
+        }
+    }
+
+    const clearHideTimer = () => {
+        if (hideTimer.current) {
+            clearTimeout(hideTimer.current);
+            hideTimer.current = null;
+        }
+    }
+
+    const hide = () => {
+        clearHideTimer();
+        setIsVisible(false);
+        setIsExpanded(false);
+    }
+
+    const placeAtAnchor = useCallback(() => {
+        if (!anchor.current || !tooltipEl.current) return;
+        const { height, width } = tooltipEl.current.getBoundingClientRect() as ElementProperties;
+        const { top: offsetTop, left: offsetLeft } = getOffsetByPosition(position || 'bottom-end', height, width);
+        const topOffset = offset ? offsetTop + offset.top : offsetTop;
+        const leftOffset = offset ? offsetLeft + offset.left : offsetLeft;
+        // Reset the position if it overflows the window
+        const { top, left } = getPositionOnOverflow(
+            window.innerWidth,
+            window.innerHeight,
+            anchor.current.top + topOffset,
+            anchor.current.left + leftOffset,
+            height,
+            width
+        );
+
+        // Skip no-op updates; this also runs from an effect that may fire on every render.
+        setTooltipElPosition(current => current.top === top && current.left === left ? current : { top, left });
+    }, [position, offset]);
 
     const updatePosition = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (timer) clearTimeout(timer);
-        setTimer(setTimeout(() => {
-            if (!isHovering && tooltipEl.current) {
-                const { height, width } = tooltipEl.current.getBoundingClientRect() as ElementProperties;
-                const { top: offsetTop, left: offsetLeft } = getOffsetByPosition(position || 'bottom-end', height, width);
-                const topOffset = offset ? offsetTop + offset.top : offsetTop;
-                const leftOffset = offset ? offsetLeft + offset.left : offsetLeft;
-                // Reset the position if it overflows the window
-                const { top, left } = getPositionOnOverflow(
-                    window.innerWidth,
-                    window.innerHeight,
-                    e.clientY + topOffset,
-                    e.clientX + leftOffset,
-                    height,
-                    width
-                );
-
-                setTooltipElPosition({ top, left });
+        // Moves inside the portaled tooltip bubble up here too; don't chase the pointer while it's on the tooltip.
+        if (isHovering.current) return;
+        clearHideTimer();
+        clearShowTimer();
+        showTimer.current = setTimeout(() => {
+            if (!isHovering.current && tooltipEl.current) {
+                anchor.current = { top: e.clientY, left: e.clientX };
+                placeAtAnchor();
                 if (!isVisible) setIsVisible(true);
             }
-        }, 500))
+        }, 500);
+    }
+
+    // Give the pointer time to cross between the trigger and the tooltip before hiding.
+    const scheduleHide = () => {
+        clearHideTimer();
+        hideTimer.current = setTimeout(() => {
+            if (!isHovering.current) hide();
+        }, HIDE_DELAY_MS);
     }
 
     const onMouseLeave = () => {
-        if (timer) clearTimeout(timer);
-        setIsVisible(false);
+        clearShowTimer();
+        if (!expandable) {
+            setIsVisible(false);
+            return;
+        }
+        scheduleHide();
     }
 
-    useEffect(() => {
-        return () => {
-            if (timer) clearTimeout(timer);
+    const onTooltipMouseEnter = () => {
+        isHovering.current = true;
+        clearHideTimer();
+    }
+
+    const onTooltipMouseLeave = () => {
+        isHovering.current = false;
+        // Going back onto the trigger doesn't fire its onMouseLeave, and its mousemove cancels this hide.
+        if (expandable) scheduleHide();
+    }
+
+    const toggleExpanded = (e: React.MouseEvent<HTMLButtonElement>) => {
+        // The tooltip is portaled but still bubbles through the React tree to the anchor's handlers.
+        e.stopPropagation();
+        setIsExpanded(!isExpanded);
+    }
+
+    useLayoutEffect(() => {
+        const el = contentEl.current;
+        if (!expandable || !el) return;
+        // Wrapped text keeps its box at maxWidth even when the longest line is much shorter,
+        // so shrink the box to the widest rendered line.
+        el.style.width = '';
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        const lineWidth = Math.ceil(range.getBoundingClientRect().width);
+        if (lineWidth > 0 && lineWidth < el.clientWidth) {
+            el.style.width = `${lineWidth}px`;
         }
-    }, [timer])
+        // Detect whether the clamped content is cut off, so "Show more" only appears when it reveals something.
+        if (!isExpanded) {
+            setIsOverflowing(el.scrollHeight > el.clientHeight + 1);
+        }
+    }, [expandable, isExpanded, isVisible, content, lines, maxWidth]);
+
+    // Expanding, new content or the toggle appearing changes the tooltip's size, so re-anchor it:
+    // a "top" tooltip has to grow upwards.
+    // Limited to expandable tooltips so existing ones keep their placement behaviour.
+    useLayoutEffect(() => {
+        if (expandable && isVisible) placeAtAnchor();
+    }, [expandable, isExpanded, isVisible, placeAtAnchor, content, maxWidth, lines, isOverflowing]);
+
+    useEffect(() => () => {
+        clearShowTimer();
+        clearHideTimer();
+    }, []);
 
     return (
         <TooltipContainer
@@ -200,16 +330,36 @@ export const Tooltip: React.FC<PropsWithChildren<TooltipProps>> = (props: PropsW
             {content !== undefined && content !== "" && createPortal(
                 <TooltipContent
                     ref={tooltipEl}
-                    onMouseEnter={() => setIsHovering(true)}
-                    onMouseLeave={() => setIsHovering(false)}
+                    onMouseEnter={onTooltipMouseEnter}
+                    onMouseLeave={onTooltipMouseLeave}
                     style={{
                         opacity: isVisible ? 1 : 0,
                         visibility: isVisible ? 'visible' : 'hidden',
+                        ...(expandable && {
+                            whiteSpace: 'normal',
+                            // Long unbroken strings (URLs, paths) would otherwise spill past maxWidth.
+                            overflowWrap: 'anywhere',
+                            maxWidth,
+                            // An expanded tooltip taller than the window scrolls instead of losing its top.
+                            maxHeight: `calc(100vh - ${TOOLTIP_CHROME_HEIGHT}px)`,
+                            overflowY: 'auto'
+                        }),
                         ...tooltipElPosition
                     }}
                     sx={sx}
                 >
-                    {content}
+                    {expandable ? (
+                        <>
+                            <ClampedContent ref={contentEl} lines={isExpanded ? undefined : lines}>
+                                {content}
+                            </ClampedContent>
+                            {(isOverflowing || isExpanded) && (
+                                <ShowMoreButton onClick={toggleExpanded}>
+                                    {isExpanded ? 'Show less' : 'Show more'}
+                                </ShowMoreButton>
+                            )}
+                        </>
+                    ) : content}
                 </TooltipContent>,
                 document.body
             )}

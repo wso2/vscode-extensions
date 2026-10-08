@@ -87,3 +87,19 @@ export const Overflow: Story = {
         </Tooltip>,
     args: { content: <TooltipContent />, position: "bottom" },
 };
+
+export const LongContent: Story = {
+    render: (args: TooltipProps) =>
+        <Container>
+            <Tooltip {...args}>
+                <TextContainer>Hover Over Me</TextContainer>
+            </Tooltip>
+        </Container>,
+    args: {
+        content: "Triggered by row-level changes captured from a Microsoft SQL Server database. Each insert, " +
+            "update, and delete is delivered as an event, so downstream systems stay in sync without polling " +
+            "the source tables or running scheduled batch exports.",
+        position: "bottom",
+        maxWidth: 280,
+    },
+};
