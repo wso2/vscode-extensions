@@ -189,6 +189,7 @@ export const Tooltip: React.FC<PropsWithChildren<TooltipProps>> = (props: PropsW
     const tooltipEl = useRef<HTMLDivElement>(null);
     const contentEl = useRef<HTMLDivElement>(null);
     const isHovering = useRef<boolean>(false);
+    const showTimer = useRef<number | null>(null);
     const hideTimer = useRef<number | null>(null);
     // Pointer position the tooltip is anchored to, kept so a resize can re-anchor it.
     const anchor = useRef<Position | null>(null);
@@ -197,7 +198,13 @@ export const Tooltip: React.FC<PropsWithChildren<TooltipProps>> = (props: PropsW
     const [isExpanded, setIsExpanded] = useState<boolean>(false);
     const [isOverflowing, setIsOverflowing] = useState<boolean>(false);
     const [tooltipElPosition, setTooltipElPosition] = useState<Position>({ top: 0, left: 0 });
-    const [timer, setTimer] = useState<number | null>(null);
+
+    const clearShowTimer = () => {
+        if (showTimer.current) {
+            clearTimeout(showTimer.current);
+            showTimer.current = null;
+        }
+    }
 
     const clearHideTimer = () => {
         if (hideTimer.current) {
@@ -236,18 +243,18 @@ export const Tooltip: React.FC<PropsWithChildren<TooltipProps>> = (props: PropsW
         // Moves inside the portaled tooltip bubble up here too; don't chase the pointer while it's on the tooltip.
         if (isHovering.current) return;
         clearHideTimer();
-        if (timer) clearTimeout(timer);
-        setTimer(setTimeout(() => {
+        clearShowTimer();
+        showTimer.current = setTimeout(() => {
             if (!isHovering.current && tooltipEl.current) {
                 anchor.current = { top: e.clientY, left: e.clientX };
                 placeAtAnchor();
                 if (!isVisible) setIsVisible(true);
             }
-        }, 500))
+        }, 500);
     }
 
     const onMouseLeave = () => {
-        if (timer) clearTimeout(timer);
+        clearShowTimer();
         if (!expandable) {
             setIsVisible(false);
             return;
@@ -298,13 +305,10 @@ export const Tooltip: React.FC<PropsWithChildren<TooltipProps>> = (props: PropsW
         if (isVisible) placeAtAnchor();
     }, [isExpanded, isVisible, placeAtAnchor, content, maxWidth, lines, isOverflowing]);
 
-    useEffect(() => {
-        return () => {
-            if (timer) clearTimeout(timer);
-        }
-    }, [timer])
-
-    useEffect(() => clearHideTimer, []);
+    useEffect(() => () => {
+        clearShowTimer();
+        clearHideTimer();
+    }, []);
 
     return (
         <TooltipContainer
