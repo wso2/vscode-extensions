@@ -15,7 +15,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import React, { PropsWithChildren, ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { PropsWithChildren, ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import styled from "@emotion/styled";
 
@@ -116,6 +116,8 @@ const ShowMoreButton = styled.button`
 const DEFAULT_MAX_LINES = 3;
 // Grace period to move the pointer from the anchor into an expandable tooltip before it hides.
 const HIDE_DELAY_MS = 200;
+// Vertical padding + border of TooltipContent, so an expanded tooltip's outer height fits the window.
+const TOOLTIP_CHROME_HEIGHT = 18;
 
 const getOffsetByPosition = (position: PositionType, height: number, width: number): Position => {
     const offset: Position = { top: 0, left: 0 };
@@ -188,6 +190,8 @@ export const Tooltip: React.FC<PropsWithChildren<TooltipProps>> = (props: PropsW
     const contentEl = useRef<HTMLDivElement>(null);
     const isHovering = useRef<boolean>(false);
     const hideTimer = useRef<number | null>(null);
+    // Pointer position the tooltip is anchored to, kept so a resize can re-anchor it.
+    const anchor = useRef<Position | null>(null);
 
     const [isVisible, setIsVisible] = useState<boolean>(false);
     const [isExpanded, setIsExpanded] = useState<boolean>(false);
@@ -208,6 +212,26 @@ export const Tooltip: React.FC<PropsWithChildren<TooltipProps>> = (props: PropsW
         setIsExpanded(false);
     }
 
+    const placeAtAnchor = useCallback(() => {
+        if (!anchor.current || !tooltipEl.current) return;
+        const { height, width } = tooltipEl.current.getBoundingClientRect() as ElementProperties;
+        const { top: offsetTop, left: offsetLeft } = getOffsetByPosition(position || 'bottom-end', height, width);
+        const topOffset = offset ? offsetTop + offset.top : offsetTop;
+        const leftOffset = offset ? offsetLeft + offset.left : offsetLeft;
+        // Reset the position if it overflows the window
+        const { top, left } = getPositionOnOverflow(
+            window.innerWidth,
+            window.innerHeight,
+            anchor.current.top + topOffset,
+            anchor.current.left + leftOffset,
+            height,
+            width
+        );
+
+        // Skip no-op updates; this also runs from an effect that may fire on every render.
+        setTooltipElPosition(current => current.top === top && current.left === left ? current : { top, left });
+    }, [position, offset]);
+
     const updatePosition = (e: React.MouseEvent<HTMLDivElement>) => {
         // Moves inside the portaled tooltip bubble up here too; don't chase the pointer while it's on the tooltip.
         if (isHovering.current) return;
@@ -215,21 +239,8 @@ export const Tooltip: React.FC<PropsWithChildren<TooltipProps>> = (props: PropsW
         if (timer) clearTimeout(timer);
         setTimer(setTimeout(() => {
             if (!isHovering.current && tooltipEl.current) {
-                const { height, width } = tooltipEl.current.getBoundingClientRect() as ElementProperties;
-                const { top: offsetTop, left: offsetLeft } = getOffsetByPosition(position || 'bottom-end', height, width);
-                const topOffset = offset ? offsetTop + offset.top : offsetTop;
-                const leftOffset = offset ? offsetLeft + offset.left : offsetLeft;
-                // Reset the position if it overflows the window
-                const { top, left } = getPositionOnOverflow(
-                    window.innerWidth,
-                    window.innerHeight,
-                    e.clientY + topOffset,
-                    e.clientX + leftOffset,
-                    height,
-                    width
-                );
-
-                setTooltipElPosition({ top, left });
+                anchor.current = { top: e.clientY, left: e.clientX };
+                placeAtAnchor();
                 if (!isVisible) setIsVisible(true);
             }
         }, 500))
@@ -281,14 +292,10 @@ export const Tooltip: React.FC<PropsWithChildren<TooltipProps>> = (props: PropsW
         }
     }, [expandable, isExpanded, isVisible, content, lines, maxWidth]);
 
-    // Expanding grows the tooltip, so keep it inside the window.
+    // Expanding changes the tooltip's size, so re-anchor it: a "top" tooltip has to grow upwards.
     useLayoutEffect(() => {
-        if (!isVisible || !tooltipEl.current) return;
-        const { height, width } = tooltipEl.current.getBoundingClientRect() as ElementProperties;
-        setTooltipElPosition(current =>
-            getPositionOnOverflow(window.innerWidth, window.innerHeight, current.top, current.left, height, width)
-        );
-    }, [isExpanded, isVisible]);
+        if (isVisible) placeAtAnchor();
+    }, [isExpanded, isVisible, placeAtAnchor]);
 
     useEffect(() => {
         return () => {
@@ -316,7 +323,13 @@ export const Tooltip: React.FC<PropsWithChildren<TooltipProps>> = (props: PropsW
                     style={{
                         opacity: isVisible ? 1 : 0,
                         visibility: isVisible ? 'visible' : 'hidden',
-                        ...(expandable && { whiteSpace: 'normal', maxWidth }),
+                        ...(expandable && {
+                            whiteSpace: 'normal',
+                            maxWidth,
+                            // An expanded tooltip taller than the window scrolls instead of losing its top.
+                            maxHeight: `calc(100vh - ${TOOLTIP_CHROME_HEIGHT}px)`,
+                            overflowY: 'auto'
+                        }),
                         ...tooltipElPosition
                     }}
                     sx={sx}
