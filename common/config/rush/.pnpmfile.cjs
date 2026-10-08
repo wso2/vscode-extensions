@@ -25,20 +25,20 @@ module.exports = {
         if (deps['js-yaml']) deps['js-yaml'] = '4.3.1'; // security fix: CVE-2026-59869 (DoS), GHSA-5p4m-2wfm-xmqj (quadratic CPU via !!omap); stay on v4 API
         if (deps['diff']) deps['diff'] = '8.0.3';
         if (deps['eslint']) deps['eslint'] = '^9.27.0';
-        if (deps['axios']) deps['axios'] = '1.18.0'; // security fix: SSRF + prototype pollution / proxy bypass (GHSA-gcfj-64vw-6mp9 et al.)
+        if (deps['axios']) deps['axios'] = '1.20.0'; // security fix: CVE-2026-101898..101909 (SSRF, header injection, DoS) + SSRF + prototype pollution / proxy bypass (GHSA-gcfj-64vw-6mp9 et al.)
         if (deps['fast-xml-parser']) deps['fast-xml-parser'] = '5.7.0';
         if (deps['fast-xml-builder']) deps['fast-xml-builder'] = '1.1.7';
-        if (deps['fast-uri']) deps['fast-uri'] = '3.1.5'; // security fix: CVE-2026-13676, CVE-2026-16221, CVE-2026-18446 (host confusion via backslash)
+        if (deps['fast-uri']) deps['fast-uri'] = '3.1.8'; // security fix: CVE-2026-86472 (host confusion), CVE-2026-13676, CVE-2026-16221, CVE-2026-18446 (host confusion via backslash)
         if (deps['esbuild']) deps['esbuild'] = '0.25.12';
         if (deps['lodash']) deps['lodash'] = '4.18.0';
         if (deps['qs']) deps['qs'] = '6.15.2'; // security fix: CVE-2026-8723
-        if (deps['hono']) deps['hono'] = '4.12.34'; // security fix: CVE-2026-59895 (XSS in cx()), CVE-2026-69207 (ReDoS in CORS middleware) + earlier middleware/cookie/router
+        if (deps['hono']) deps['hono'] = '4.13.7'; // security fix: CVE-2026-93981 (hono/jsx XSS), CVE-2026-59895 (XSS in cx()), CVE-2026-69207 (ReDoS in CORS middleware) + earlier middleware/cookie/router
         if (deps['@hono/node-server']) deps['@hono/node-server'] = '2.0.11'; // security fix: GHSA-frvp-7c67-39w9, GHSA-9mqv-5hh9-4cgg; requires hono ^4
         if (deps['@tootallnate/once']) deps['@tootallnate/once'] = '3.0.1';
-        if (deps['dompurify']) deps['dompurify'] = '3.4.12'; // security fix: XSS + GHSA-c2j3-45gr-mqc4 (CUSTOM_ELEMENT_HANDLING bypass)
+        if (deps['dompurify']) deps['dompurify'] = '3.4.16'; // security fix: GHSA-6688-9rhm-gjv2, GHSA-p98j-92pf-mc4p (IN_PLACE), XSS + GHSA-c2j3-45gr-mqc4 (CUSTOM_ELEMENT_HANDLING bypass)
         if (deps['ip-address']) { // security fix: force patch within 10.x range only to avoid breaking consumers on earlier majors
           if (/^[\s\^~><=]*10[.\s]/.test(deps['ip-address'])) {
-            deps['ip-address'] = '10.3.1'; // CVE-2026-69192 (SSRF via inconsistent parsing), CVE-2026-54272, CVE-2026-69198 (SSRF/trust-boundary bypass)
+            deps['ip-address'] = '10.7.1'; // CVE-2026-101910..101913, CVE-2026-69192 (SSRF via inconsistent parsing), CVE-2026-54272, CVE-2026-69198 (SSRF/trust-boundary bypass)
           }
         }
         if (deps['follow-redirects']) deps['follow-redirects'] = '1.16.0'; // security fix: redirect bypass vulnerability
@@ -51,9 +51,9 @@ module.exports = {
         if (deps['serialize-javascript']) deps['serialize-javascript'] = '7.0.5'; // security fix: XSS/code injection
         if (deps['flatted']) deps['flatted'] = '3.4.2'; // security fix
         if (deps['handlebars']) deps['handlebars'] = '4.7.9'; // security fix: prototype pollution
-        if (deps['shell-quote']) deps['shell-quote'] = '1.9.0'; // security fix: CVE-2026-9277 (command injection), CVE-2026-13311 (DoS)
+        if (deps['shell-quote']) deps['shell-quote'] = '1.11.0'; // security fix: CVE-2026-102422, CVE-2026-9277 (command injection), CVE-2026-13311 (DoS)
         if (deps['tmp']) deps['tmp'] = '0.2.6'; // security fix: CVE-2026-44705 (path traversal via prefix/postfix)
-        if (deps['undici']) deps['undici'] = '7.29.0'; // security fix: CVE-2026-12151 (DoS via unbounded memory growth), CVE-2026-13697 (Cache-Control info disclosure/DoS), CVE-2026-14643, CVE-2026-15157 (header injection), CVE-2026-16728, CVE-2026-16729
+        if (deps['undici']) deps['undici'] = '7.29.1'; // security fix: CVE-2026-19534, CVE-2026-84961, CVE-2026-18149, CVE-2026-84890, CVE-2026-84933, CVE-2026-85014, CVE-2026-85024, CVE-2026-18540, CVE-2026-84947, CVE-2026-85008, CVE-2026-12151 (DoS via unbounded memory growth), CVE-2026-13697 (Cache-Control info disclosure/DoS), CVE-2026-14643, CVE-2026-15157 (header injection), CVE-2026-16728, CVE-2026-16729
         if (deps['@nevware21/ts-utils']) deps['@nevware21/ts-utils'] = '0.14.0'; // security fix: CVE-2026-46681 (prototype pollution)
         if (deps['@opentelemetry/exporter-prometheus']) deps['@opentelemetry/exporter-prometheus'] = '0.217.0';
         if (deps['@opentelemetry/sdk-node']) deps['@opentelemetry/sdk-node'] = '0.217.0';
@@ -75,7 +75,7 @@ module.exports = {
         if (deps['markdown-it']) {
           const currentVersion = deps['markdown-it'];
           if (currentVersion.startsWith('^14') || currentVersion.startsWith('~14') || currentVersion.startsWith('14')) {
-            deps['markdown-it'] = '14.2.0';
+            deps['markdown-it'] = '14.3.1'; // security fix: GHSA-253c-mchw-3w2r (quadratic linkify)
           }
         }
         if (deps['protobufjs']) {
@@ -120,13 +120,13 @@ module.exports = {
           const currentVersion = deps['brace-expansion'];
           let newVersion;
           if (currentVersion.startsWith('^1') || currentVersion.startsWith('1')) {
-            newVersion = '1.1.18'; // security fix: CVE-2026-14257 (DoS), CVE-2026-13149 (ReDoS), CVE-2026-69152 (DoS via unbounded intermediate arrays)
+            newVersion = '1.1.21'; // security fix: CVE-2026-102276, CVE-2026-102277, CVE-2026-102278, CVE-2026-14257 (DoS), CVE-2026-13149 (ReDoS), CVE-2026-69152 (DoS via unbounded intermediate arrays)
           } else if (currentVersion.startsWith('^2') || currentVersion.startsWith('2')) {
-            newVersion = '2.1.4'; // security fix: CVE-2026-14257 (DoS), CVE-2026-13149 (ReDoS), CVE-2026-69152
+            newVersion = '2.1.7'; // security fix: CVE-2026-102276, CVE-2026-102277, CVE-2026-102278, CVE-2026-14257 (DoS), CVE-2026-13149 (ReDoS), CVE-2026-69152
           } else if (currentVersion.startsWith('^3') || currentVersion.startsWith('3')) {
-            newVersion = '3.0.6'; // security fix: CVE-2026-14257 (DoS), CVE-2026-69152
+            newVersion = '3.0.9'; // security fix: CVE-2026-102276, CVE-2026-102277, CVE-2026-102278, CVE-2026-14257 (DoS), CVE-2026-69152
           } else if (currentVersion.startsWith('^5') || currentVersion.startsWith('5')) {
-            newVersion = '5.0.9'; // security fix: CVE-2026-14257 (DoS), CVE-2026-45149, CVE-2026-13149, CVE-2026-69152
+            newVersion = '5.0.12'; // security fix: CVE-2026-102276, CVE-2026-102277, CVE-2026-102278, CVE-2026-14257 (DoS), CVE-2026-45149, CVE-2026-13149, CVE-2026-69152
           } else {
             context.log(`Unexpected brace-expansion version: ${currentVersion}`);
             newVersion = currentVersion;
