@@ -263,12 +263,23 @@ export const Tooltip: React.FC<PropsWithChildren<TooltipProps>> = (props: PropsW
         setIsExpanded(!isExpanded);
     }
 
-    // Detect whether the clamped content is cut off, so "Show more" only appears when it reveals something.
     useLayoutEffect(() => {
-        if (!expandable || isExpanded || !contentEl.current) return;
-        const { scrollHeight, clientHeight } = contentEl.current;
-        setIsOverflowing(scrollHeight > clientHeight + 1);
-    }, [expandable, isExpanded, isVisible, content, lines]);
+        const el = contentEl.current;
+        if (!expandable || !el) return;
+        // Wrapped text keeps its box at maxWidth even when the longest line is much shorter,
+        // so shrink the box to the widest rendered line.
+        el.style.width = '';
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        const lineWidth = Math.ceil(range.getBoundingClientRect().width);
+        if (lineWidth > 0 && lineWidth < el.clientWidth) {
+            el.style.width = `${lineWidth}px`;
+        }
+        // Detect whether the clamped content is cut off, so "Show more" only appears when it reveals something.
+        if (!isExpanded) {
+            setIsOverflowing(el.scrollHeight > el.clientHeight + 1);
+        }
+    }, [expandable, isExpanded, isVisible, content, lines, maxWidth]);
 
     // Expanding grows the tooltip, so keep it inside the window.
     useLayoutEffect(() => {
