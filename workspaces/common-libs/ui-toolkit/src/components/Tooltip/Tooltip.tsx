@@ -292,10 +292,11 @@ export const Tooltip: React.FC<PropsWithChildren<TooltipProps>> = (props: PropsW
         }
     }, [expandable, isExpanded, isVisible, content, lines, maxWidth]);
 
-    // Expanding changes the tooltip's size, so re-anchor it: a "top" tooltip has to grow upwards.
+    // Expanding, new content or the toggle appearing changes the tooltip's size, so re-anchor it:
+    // a "top" tooltip has to grow upwards.
     useLayoutEffect(() => {
         if (isVisible) placeAtAnchor();
-    }, [isExpanded, isVisible, placeAtAnchor]);
+    }, [isExpanded, isVisible, placeAtAnchor, content, maxWidth, lines, isOverflowing]);
 
     useEffect(() => {
         return () => {
@@ -325,6 +326,8 @@ export const Tooltip: React.FC<PropsWithChildren<TooltipProps>> = (props: PropsW
                         visibility: isVisible ? 'visible' : 'hidden',
                         ...(expandable && {
                             whiteSpace: 'normal',
+                            // Long unbroken strings (URLs, paths) would otherwise spill past maxWidth.
+                            overflowWrap: 'anywhere',
                             maxWidth,
                             // An expanded tooltip taller than the window scrolls instead of losing its top.
                             maxHeight: `calc(100vh - ${TOOLTIP_CHROME_HEIGHT}px)`,
