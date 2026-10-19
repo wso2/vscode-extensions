@@ -154,18 +154,32 @@ export interface PersistedThread {
 // Persisted Checkpoint
 // ============================================
 
+export type CheckpointFileEntry =
+    | { hash: string; size: number; mtimeMs: number }
+    | { skipped: 'tooLarge' | 'unreadable'; size?: number; mtimeMs?: number };
+
+export type CheckpointStorage =
+    | { kind: 'inline' }
+    | { kind: 'content-store'; files: Record<string, CheckpointFileEntry> };
+
 /**
- * Checkpoint snapshot stored in a separate gzipped file.
- * Contains full workspace file contents at a point in time.
+ * Checkpoint stored in a separate gzipped file. `storage.kind` says where the file contents live:
+ * inline in `workspaceSnapshot`, or in the content store referenced by `storage.files`.
  */
 export interface PersistedCheckpoint {
     schemaVersion: number;
     id: string;
     messageId: string;
     timestamp: number;
+    /** Every file at capture, stored or not — restore never deletes these. */
     fileList: string[];
+    /** Bytes newly stored by this capture (informational). */
     snapshotSize: number;
-    workspaceSnapshot: Record<string, string>;
+    workspaceRoot?: string;
+    ignorePatterns?: string[];
+    storage: CheckpointStorage;
+    /** Only with `storage.kind === 'inline'`. */
+    workspaceSnapshot?: Record<string, string>;
 }
 
 // ============================================

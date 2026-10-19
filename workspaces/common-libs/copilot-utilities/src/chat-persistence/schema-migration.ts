@@ -24,7 +24,7 @@ import { PersistedThread, PersistedCheckpoint, WorkspaceMetadata } from './types
 
 export const CURRENT_THREAD_SCHEMA_VERSION = 2;
 export const CURRENT_WORKSPACE_SCHEMA_VERSION = 1;
-export const CURRENT_CHECKPOINT_SCHEMA_VERSION = 1;
+export const CURRENT_CHECKPOINT_SCHEMA_VERSION = 2;
 
 // ============================================
 // Migration Infrastructure
@@ -148,7 +148,20 @@ export function migrateWorkspaceMetadata(raw: Record<string, unknown>): Workspac
 // Checkpoint Migrations
 // ============================================
 
-const checkpointMigrations: SchemaMigration<PersistedCheckpoint>[] = [];
+function migrateCheckpointV1ToV2(data: Record<string, unknown>): Record<string, unknown> {
+    // loadCheckpoint never re-saves, so fail closed instead of coercing malformed data.
+    if ('storage' in data) {
+        throw new Error('Invalid persisted checkpoint: v1 checkpoint already has storage');
+    }
+    if (!data.workspaceSnapshot || typeof data.workspaceSnapshot !== 'object') {
+        throw new Error('Invalid persisted checkpoint: workspaceSnapshot is not an object');
+    }
+    return { ...data, schemaVersion: 2, storage: { kind: 'inline' } };
+}
+
+const checkpointMigrations: SchemaMigration<PersistedCheckpoint>[] = [
+    { fromVersion: 1, toVersion: 2, migrate: (data) => migrateCheckpointV1ToV2(data as Record<string, unknown>) as unknown as PersistedCheckpoint },
+];
 
 /**
  * Migrate a raw checkpoint object to the current schema version.
