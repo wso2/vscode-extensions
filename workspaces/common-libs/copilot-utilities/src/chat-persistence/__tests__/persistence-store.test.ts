@@ -360,7 +360,7 @@ describe('CopilotPersistenceStore', () => {
             });
 
             it('should refuse a v1 file whose workspaceSnapshot is not an object', () => {
-                for (const [i, bad] of [undefined, null, 'text'].entries()) {
+                for (const [i, bad] of [undefined, null, 'text', ['main.bal']].entries()) {
                     const genId = `gen-bad-snap-${i}`;
                     writeRawCheckpoint(genId, { ...v1Checkpoint(genId), workspaceSnapshot: bad });
                     assert.equal(store.loadCheckpoint(WORKSPACE_PATH, 'default', genId), null);

@@ -153,7 +153,7 @@ function migrateCheckpointV1ToV2(data: Record<string, unknown>): Record<string, 
     if ('storage' in data) {
         throw new Error('Invalid persisted checkpoint: v1 checkpoint already has storage');
     }
-    if (!data.workspaceSnapshot || typeof data.workspaceSnapshot !== 'object') {
+    if (!data.workspaceSnapshot || typeof data.workspaceSnapshot !== 'object' || Array.isArray(data.workspaceSnapshot)) {
         throw new Error('Invalid persisted checkpoint: workspaceSnapshot is not an object');
     }
     return { ...data, schemaVersion: 2, storage: { kind: 'inline' } };
