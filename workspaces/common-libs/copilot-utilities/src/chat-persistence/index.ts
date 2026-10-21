@@ -21,6 +21,8 @@ export type {
     PersistedGeneration,
     PersistedThread,
     PersistedCheckpoint,
+    CheckpointStorage,
+    CheckpointFileEntry,
     PersistedReviewState,
     PersistedGenerationMetadata,
     PersistedCompactionMetadata,

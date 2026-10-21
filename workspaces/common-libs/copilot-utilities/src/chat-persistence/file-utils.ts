@@ -119,6 +119,22 @@ export function readGzipSync<T>(filePath: string): T | null {
 }
 
 /**
+ * Read and decompress a gzip-compressed JSON file asynchronously.
+ * Returns `null` if the file does not exist or is corrupt.
+ */
+export async function readGzipAsync<T>(filePath: string): Promise<T | null> {
+    try {
+        const compressed = await fs.promises.readFile(filePath);
+        const json = await new Promise<Buffer>((resolve, reject) => {
+            zlib.gunzip(compressed, (err, result) => (err ? reject(err) : resolve(result)));
+        });
+        return JSON.parse(json.toString('utf8')) as T;
+    } catch {
+        return null;
+    }
+}
+
+/**
  * Write data as gzip-compressed JSON atomically (async variant).
  * Preferred for large checkpoint snapshots to avoid blocking the event loop.
  */

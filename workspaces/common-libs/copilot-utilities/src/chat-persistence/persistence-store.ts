@@ -31,6 +31,7 @@ import {
     readJsonSync,
     writeJsonSync,
     readGzipSync,
+    readGzipAsync,
     writeGzipSync,
     writeGzipAsync,
     removeDirSync,
@@ -255,6 +256,24 @@ export class CopilotPersistenceStore {
      */
     loadCheckpoint(workspacePath: string, threadId: string, generationId: string): PersistedCheckpoint | null {
         const raw = readGzipSync<Record<string, unknown>>(
+            this.getCheckpointFilePath(workspacePath, threadId, generationId)
+        );
+        if (!raw) {
+            return null;
+        }
+        try {
+            return migrateCheckpoint(raw);
+        } catch (err) {
+            console.error(`[CopilotPersistenceStore] Failed to migrate checkpoint for gen ${generationId}:`, err);
+            return null;
+        }
+    }
+
+    /**
+     * Async variant of `loadCheckpoint`, to avoid blocking the event loop on large files.
+     */
+    async loadCheckpointAsync(workspacePath: string, threadId: string, generationId: string): Promise<PersistedCheckpoint | null> {
+        const raw = await readGzipAsync<Record<string, unknown>>(
             this.getCheckpointFilePath(workspacePath, threadId, generationId)
         );
         if (!raw) {

@@ -21,6 +21,7 @@ import * as assert from 'node:assert/strict';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import * as zlib from 'zlib';
 
 import { CopilotPersistenceStore } from '../persistence-store';
 import { computeWorkspaceHash } from '../workspace-hash';
@@ -101,6 +102,7 @@ function makeCheckpoint(generationId: string): PersistedCheckpoint {
         timestamp: Date.now(),
         fileList: ['main.bal', 'Ballerina.toml', 'modules/greet/greet.bal'],
         snapshotSize: 1234,
+        storage: { kind: 'inline' },
         workspaceSnapshot: {
             'main.bal': 'import ballerina/http;\n\nservice / on new http:Listener(8080) {\n    resource function get hello() returns string {\n        return "Hello, World!";\n    }\n}\n',
             'Ballerina.toml': '[package]\norg = "wso2"\nname = "myapp"\nversion = "0.1.0"\n',
@@ -301,7 +303,7 @@ describe('CopilotPersistenceStore', () => {
             // Create a large snapshot with repetitive content (compresses well)
             const largeContent = 'import ballerina/http;\n'.repeat(10000);
             const checkpoint = makeCheckpoint(genId);
-            checkpoint.workspaceSnapshot['large-file.bal'] = largeContent;
+            checkpoint.workspaceSnapshot!['large-file.bal'] = largeContent;
             checkpoint.snapshotSize = largeContent.length;
 
             store.saveCheckpoint(WORKSPACE_PATH, 'default', genId, checkpoint);
@@ -318,7 +320,91 @@ describe('CopilotPersistenceStore', () => {
             // Verify data integrity after roundtrip
             const loaded = store.loadCheckpoint(WORKSPACE_PATH, 'default', genId);
             assert.ok(loaded);
-            assert.equal(loaded.workspaceSnapshot['large-file.bal'], largeContent);
+            assert.equal(loaded.workspaceSnapshot!['large-file.bal'], largeContent);
+        });
+
+        describe('schema v2', () => {
+            function writeRawCheckpoint(genId: string, data: Record<string, unknown>): string {
+                const dir = path.join(store.getWorkspaceDir(WORKSPACE_PATH), 'threads', 'default', 'checkpoints');
+                fs.mkdirSync(dir, { recursive: true });
+                const file = path.join(dir, `${genId}.snapshot.gz`);
+                fs.writeFileSync(file, zlib.gzipSync(JSON.stringify(data)));
+                return file;
+            }
+
+            function v1Checkpoint(genId: string): Record<string, unknown> {
+                const { storage: _storage, ...rest } = makeCheckpoint(genId);
+                return { ...rest, schemaVersion: 1 };
+            }
+
+            it('should migrate a v1 file to v2 inline without re-saving it', () => {
+                const raw = v1Checkpoint('gen-v1');
+                const file = writeRawCheckpoint('gen-v1', raw);
+                const past = new Date(Date.now() - 60_000);
+                fs.utimesSync(file, past, past);
+                const mtimeBefore = fs.statSync(file).mtimeMs;
+                const bytesBefore = fs.readFileSync(file);
+
+                const loaded = store.loadCheckpoint(WORKSPACE_PATH, 'default', 'gen-v1');
+                assert.ok(loaded);
+                assert.equal(loaded.schemaVersion, 2);
+                assert.deepEqual(loaded.storage, { kind: 'inline' });
+                assert.deepEqual(loaded.workspaceSnapshot, raw.workspaceSnapshot);
+                assert.equal(fs.statSync(file).mtimeMs, mtimeBefore);
+                assert.ok(fs.readFileSync(file).equals(bytesBefore));
+            });
+
+            it('should refuse a v1 file that already has storage', () => {
+                writeRawCheckpoint('gen-bad-storage', { ...v1Checkpoint('gen-bad-storage'), storage: { kind: 'inline' } });
+                assert.equal(store.loadCheckpoint(WORKSPACE_PATH, 'default', 'gen-bad-storage'), null);
+            });
+
+            it('should refuse a v1 file whose workspaceSnapshot is not an object', () => {
+                for (const [i, bad] of [undefined, null, 'text', ['main.bal']].entries()) {
+                    const genId = `gen-bad-snap-${i}`;
+                    writeRawCheckpoint(genId, { ...v1Checkpoint(genId), workspaceSnapshot: bad });
+                    assert.equal(store.loadCheckpoint(WORKSPACE_PATH, 'default', genId), null);
+                }
+            });
+
+            it('should round-trip a v2 content-store checkpoint', async () => {
+                const checkpoint: Omit<PersistedCheckpoint, 'schemaVersion'> = {
+                    id: 'cp-cs',
+                    messageId: 'gen-cs',
+                    timestamp: 1,
+                    fileList: ['a.bal', 'big.bin', 'locked.bal'],
+                    snapshotSize: 10,
+                    workspaceRoot: '/ws',
+                    ignorePatterns: ['target'],
+                    storage: {
+                        kind: 'content-store',
+                        files: {
+                            'a.bal': { hash: 'abc', size: 10, mtimeMs: 5 },
+                            'big.bin': { skipped: 'tooLarge', size: 99, mtimeMs: 6 },
+                            'locked.bal': { skipped: 'unreadable', mtimeMs: 7 },
+                        },
+                    },
+                };
+                store.saveCheckpoint(WORKSPACE_PATH, 'default', 'gen-cs', checkpoint);
+                const loaded = store.loadCheckpoint(WORKSPACE_PATH, 'default', 'gen-cs');
+                assert.deepEqual(loaded, { ...checkpoint, schemaVersion: 2 });
+                assert.equal(loaded!.workspaceSnapshot, undefined);
+                assert.deepEqual(await store.loadCheckpointAsync(WORKSPACE_PATH, 'default', 'gen-cs'), loaded);
+            });
+
+            it('should load asynchronously the same as synchronously', async () => {
+                writeRawCheckpoint('gen-a1', v1Checkpoint('gen-a1'));
+                store.saveCheckpoint(WORKSPACE_PATH, 'default', 'gen-a2', makeCheckpoint('gen-a2'));
+                for (const id of ['gen-a1', 'gen-a2']) {
+                    assert.deepEqual(
+                        await store.loadCheckpointAsync(WORKSPACE_PATH, 'default', id),
+                        store.loadCheckpoint(WORKSPACE_PATH, 'default', id)
+                    );
+                }
+                assert.equal(await store.loadCheckpointAsync(WORKSPACE_PATH, 'default', 'missing'), null);
+                writeRawCheckpoint('gen-a3', { ...v1Checkpoint('gen-a3'), storage: { kind: 'inline' } });
+                assert.equal(await store.loadCheckpointAsync(WORKSPACE_PATH, 'default', 'gen-a3'), null);
+            });
         });
 
         it('should delete a checkpoint', () => {
