@@ -60,7 +60,7 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           always-auth: true
-          node-version: 16.x
+          node-version: 22.23.4
           registry-url: "https://npm.pkg.github.com"
   
       - name: Setup Rush
