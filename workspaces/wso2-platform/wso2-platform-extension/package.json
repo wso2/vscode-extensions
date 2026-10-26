@@ -290,6 +290,6 @@
     "vscode-jsonrpc": "8.2.1",
     "zustand": "5.0.5",
     "@aws-sdk/client-s3": "3.817.0",
-    "zod":"3.22.4"
+    "zod":"4.6.7"
   }
 }
