@@ -57,10 +57,10 @@ jobs:
           unzip build.zip
           rm build.zip
 
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
           always-auth: true
-          node-version: 16.x
+          node-version: 22.23.4
           registry-url: "https://npm.pkg.github.com"
   
       - name: Setup Rush
