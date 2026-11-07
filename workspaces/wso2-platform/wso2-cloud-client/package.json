@@ -42,6 +42,7 @@
 		"build": "tsc --pretty",
 		"watch": "tsc --pretty --watch",
 		"test": "mocha",
+		"check-access": "node scripts/check-access.js",
 		"deploy": "npm publish"
 	},
 	"author": "WSO2",
