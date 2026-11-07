@@ -1,0 +1,29 @@
+{
+	"compilerOptions": {
+		"outDir": "./lib",
+		"rootDir": "./src",
+		"skipLibCheck": true,
+		"module": "commonjs",
+		"target": "es2020",
+		"lib": ["es2020"],
+		"types": ["node"],
+		"strict": true,
+		"sourceMap": true,
+		"allowJs": false,
+		"declaration": true,
+		"declarationDir": "lib",
+		"moduleResolution": "node",
+		"forceConsistentCasingInFileNames": true,
+		"noImplicitReturns": true,
+		"noImplicitThis": true,
+		"noImplicitAny": true,
+		"strictNullChecks": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"allowSyntheticDefaultImports": true,
+		"resolveJsonModule": true,
+		"esModuleInterop": true
+	},
+	"include": ["src"],
+	"exclude": ["node_modules", "lib", "test"]
+}
