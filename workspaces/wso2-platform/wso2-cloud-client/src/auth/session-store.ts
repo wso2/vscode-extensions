@@ -1,0 +1,42 @@
+/**
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ *
+ * WSO2 LLC. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import type { CloudEnvName } from "../config/environments";
+import type { SessionStore, StoredSession } from "./types";
+
+/** The key a session is kept under, one per environment. */
+export function sessionKey(env: CloudEnvName): string {
+	return `wso2-cloud.session.${env}`;
+}
+
+/** A store that forgets on restart, for tests and for hosts without secure storage. */
+export class InMemorySessionStore implements SessionStore {
+	private readonly sessions = new Map<CloudEnvName, StoredSession>();
+
+	async load(env: CloudEnvName): Promise<StoredSession | undefined> {
+		return this.sessions.get(env);
+	}
+
+	async save(session: StoredSession): Promise<void> {
+		this.sessions.set(session.env, session);
+	}
+
+	async clear(env: CloudEnvName): Promise<void> {
+		this.sessions.delete(env);
+	}
+}
