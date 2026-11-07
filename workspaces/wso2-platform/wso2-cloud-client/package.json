@@ -2,17 +2,17 @@
 	"name": "@wso2/wso2-cloud-client",
 	"version": "0.1.0",
 	"description": "Sign-in and a typed client for the WSO2 Cloud Integration Platform API, for VS Code extensions",
-	"files": [
-		"lib",
-		"docs",
-		"README.md"
-	],
+	"files": ["lib", "docs", "README.md"],
 	"main": "lib/index.js",
 	"types": "lib/index.d.ts",
 	"exports": {
 		".": {
 			"types": "./lib/index.d.ts",
 			"default": "./lib/index.js"
+		},
+		"./contract": {
+			"types": "./lib/contract/index.d.ts",
+			"default": "./lib/contract/index.js"
 		},
 		"./testing": {
 			"types": "./lib/testing/index.d.ts",
@@ -25,12 +25,9 @@
 	},
 	"typesVersions": {
 		"*": {
-			"testing": [
-				"lib/testing/index.d.ts"
-			],
-			"openapi": [
-				"lib/api/generated/ipaas.d.ts"
-			]
+			"contract": ["lib/contract/index.d.ts"],
+			"testing": ["lib/testing/index.d.ts"],
+			"openapi": ["lib/api/generated/ipaas.d.ts"]
 		}
 	},
 	"scripts": {
