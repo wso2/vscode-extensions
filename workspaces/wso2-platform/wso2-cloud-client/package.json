@@ -10,6 +10,10 @@
 			"types": "./lib/index.d.ts",
 			"default": "./lib/index.js"
 		},
+		"./contract": {
+			"types": "./lib/contract/index.d.ts",
+			"default": "./lib/contract/index.js"
+		},
 		"./openapi": {
 			"types": "./lib/api/generated/ipaas.d.ts",
 			"default": "./lib/api/generated/ipaas.js"
@@ -17,6 +21,7 @@
 	},
 	"typesVersions": {
 		"*": {
+			"contract": ["lib/contract/index.d.ts"],
 			"openapi": ["lib/api/generated/ipaas.d.ts"]
 		}
 	},

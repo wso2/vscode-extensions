@@ -35,3 +35,4 @@ export * from "./api/logs";
 export * from "./api/repos";
 export * from "./api/platform-services";
 export * from "./api/wait";
+export * from "./contract";
