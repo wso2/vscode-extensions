@@ -179,7 +179,7 @@ export class HttpClient {
 		const url = this.urlFor(path, options.query);
 		let forceRefresh = false;
 		for (;;) {
-			const token = await this.tokenSource.getAccessToken({ resource: this.baseUrl, forceRefresh, signal: options.signal });
+			const token = await this.tokenSource.getAccessToken({ forceRefresh, signal: options.signal });
 			const { response, abort } = await this.fetchOnce(method, url, token, options);
 			try {
 				if (response.status === 401 && !forceRefresh && options.retryOn401 !== false) {
@@ -262,7 +262,7 @@ export class HttpClient {
 				throw new TimeoutError(`WSO2 Cloud did not answer ${path} within ${Math.round(timeoutMs / 1000)} seconds.`, { path, cause: error });
 			}
 			if (abort.signal.aborted) {
-				throw new TimeoutError(`The call to ${path} was cancelled.`, { path, cause: error });
+				throw new TimeoutError(`The call to ${path} was cancelled.`, { path, cause: error, reason: "cancelled", retryable: false });
 			}
 			throw new NetworkError(`WSO2 Cloud could not be reached at ${this.baseUrl}: ${errorMessage(error)}`, { path, cause: error });
 		}
@@ -280,7 +280,7 @@ async function readWithin(response: Response, path: string, abort: LinkedAbort):
 		if (!isCloudError(error) && abort.signal.aborted) {
 			throw abort.timedOut()
 				? new TimeoutError(`WSO2 Cloud did not finish answering ${path} in time.`, { path, cause: error })
-				: new TimeoutError(`The call to ${path} was cancelled.`, { path, cause: error });
+				: new TimeoutError(`The call to ${path} was cancelled.`, { path, cause: error, reason: "cancelled", retryable: false });
 		}
 		throw error;
 	}

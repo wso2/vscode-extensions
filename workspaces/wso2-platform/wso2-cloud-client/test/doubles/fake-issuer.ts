@@ -120,8 +120,6 @@ export class FakeIssuer {
 				return this.answerCode(form);
 			case "refresh_token":
 				return this.answerRefresh(form);
-			case "urn:ietf:params:oauth:grant-type:token-exchange":
-				return this.answerExchange(form);
 			default:
 				return json(400, { error: "unsupported_grant_type" });
 		}
@@ -155,18 +153,6 @@ export class FakeIssuer {
 			this.refreshTokens.delete(form.refresh_token);
 		}
 		return json(200, this.tokens({ rotate: this.options.rotateRefreshTokens !== false }));
-	}
-
-	private answerExchange(form: Record<string, string>): Response {
-		if (!form.subject_token || !form.resource) {
-			return json(400, { error: "invalid_request" });
-		}
-		return json(200, {
-			access_token: this.accessToken({ aud: form.resource }),
-			token_type: "Bearer",
-			expires_in: this.options.expiresIn ?? 3600,
-			issued_token_type: "urn:ietf:params:oauth:token-type:access_token",
-		});
 	}
 
 	private tokens(options: { nonce?: string; rotate?: boolean }): Record<string, unknown> {

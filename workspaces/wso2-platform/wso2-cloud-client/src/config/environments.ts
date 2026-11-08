@@ -23,12 +23,9 @@ export const CLOUD_ENV_NAMES: readonly CloudEnvName[] = ["dev", "stage", "prod"]
 
 /**
  * Everything the client needs to know about one WSO2 Cloud deployment.
- *
- * `tokenExchange` says how the login token reaches the API: `"none"` sends the
- * ThunderID login token itself, as the platform console does; `"resource"`
- * exchanges it (RFC 8693) for one bound to the API's resource first. The
- * platform accepts the login token today, so `"none"` is the default and the
- * exchange stays available as a one-line switch.
+
+ * The ThunderID login token is sent to the API as it is, as the platform
+ * console does.
  */
 export interface CloudEnvironment {
 	readonly name: CloudEnvName;
@@ -42,7 +39,6 @@ export interface CloudEnvironment {
 	readonly consoleUrl: string;
 	/** The public OAuth client registered for VS Code at this deployment's ThunderID. */
 	readonly clientId: string;
-	readonly tokenExchange: "none" | "resource";
 }
 
 // Stage and prod carry the documented API and issuer hosts; their observability
@@ -59,7 +55,6 @@ export const ENVIRONMENTS: Readonly<Record<CloudEnvName, CloudEnvironment>> = {
 		observabilityBaseUrl: "",
 		consoleUrl: "",
 		clientId: "WSO2_INTEGRATOR_EXTENSION",
-		tokenExchange: "none",
 	},
 	stage: {
 		name: "stage",
@@ -68,7 +63,6 @@ export const ENVIRONMENTS: Readonly<Record<CloudEnvName, CloudEnvironment>> = {
 		observabilityBaseUrl: "https://cloud-obs-proxy.obs.dp.stg.cloud.wso2.com/wso2cloud-obs",
 		consoleUrl: "https://console.stg.cloud.wso2.com",
 		clientId: "WSO2_INTEGRATOR_EXTENSION",
-		tokenExchange: "none",
 	},
 	prod: {
 		name: "prod",
@@ -77,7 +71,6 @@ export const ENVIRONMENTS: Readonly<Record<CloudEnvName, CloudEnvironment>> = {
 		observabilityBaseUrl: "https://cloud-obs-proxy.obs.dp.cloud.wso2.com/wso2cloud-obs",
 		consoleUrl: "https://console.cloud.wso2.com",
 		clientId: "WSO2_INTEGRATOR_EXTENSION",
-		tokenExchange: "none",
 	},
 };
 

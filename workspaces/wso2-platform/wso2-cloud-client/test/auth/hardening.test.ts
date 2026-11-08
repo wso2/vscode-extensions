@@ -157,6 +157,38 @@ describe("LoginFlow", () => {
 		assert.equal(attempt, 2);
 	});
 
+	it("ends at once, with nothing unhandled, when cancelled while the browser is still opening", async () => {
+		const issuer = new FakeIssuer();
+		const receiver = new DeferredReceiver("vscode://x/signin");
+		let opening = false;
+		const flow = new LoginFlow({
+			env,
+			fetch: issuer.fetch,
+			receiver,
+			// VS Code still asking whether to open the link: the promise never settles.
+			openBrowser: () => {
+				opening = true;
+				return new Promise<void>(() => undefined);
+			},
+		});
+		const unhandled: unknown[] = [];
+		const onUnhandled = (reason: unknown) => unhandled.push(reason);
+		process.on("unhandledRejection", onUnhandled);
+		try {
+			const run = flow.run();
+			while (!opening) {
+				await new Promise((resolve) => setImmediate(resolve));
+			}
+			flow.cancel();
+			const error = (await rejection(run)) as CloudError;
+			assert.equal(error.code, "login_cancelled");
+			await new Promise((resolve) => setTimeout(resolve, 20));
+			assert.deepEqual(unhandled, []);
+		} finally {
+			process.off("unhandledRejection", onUnhandled);
+		}
+	});
+
 	it("refuses a second sign-in while one is waiting, and forgets it once cancelled", async () => {
 		const issuer = new FakeIssuer();
 		const receiver = new DeferredReceiver("vscode://x/signin");

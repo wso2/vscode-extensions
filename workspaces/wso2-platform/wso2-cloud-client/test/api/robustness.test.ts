@@ -136,6 +136,20 @@ describe("poll", () => {
 		assert.equal(error.details.reason, "cancelled");
 		assert.ok(Date.now() - started < 1_000, "the interval was not waited out");
 	});
+
+	it("reports a cancel seen after a check as a cancel, not as a timeout, when the deadline is near", async () => {
+		const controller = new AbortController();
+		const error = (await rejection(
+			poll(
+				async () => {
+					controller.abort();
+					return { done: false, value: undefined };
+				},
+				{ timeoutMs: 10, intervalMs: 50, signal: controller.signal, sleep: async () => undefined },
+			),
+		)) as CloudError;
+		assert.equal(error.details.reason, "cancelled");
+	});
 });
 
 describe("wait bounds", () => {

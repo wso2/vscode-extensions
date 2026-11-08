@@ -17,13 +17,10 @@
  */
 
 import { readFileSync } from "node:fs";
-import type { FetchLike } from "../api/http";
 import { UnauthenticatedError } from "../errors";
 import type { PlatformClaims } from "../jwt";
-import { audiencesOf, isExpired, readPlatformClaims } from "../jwt";
-import { discover } from "./discovery";
+import { isExpired, readPlatformClaims } from "../jwt";
 import type { SessionManager } from "./session-manager";
-import { exchangeToken } from "./token-endpoint";
 import type { GetAccessTokenOptions, SessionChangeEvent, TokenSource } from "./types";
 
 /** The tokens of a session a person signed in to with the browser. */
@@ -48,8 +45,6 @@ export class BrowserLoginTokenSource implements TokenSource {
 /** The names a hosting environment may hand a token in by. */
 export const INJECTED_TOKEN_ENV = "WSO2_CLOUD_TOKEN";
 export const INJECTED_TOKEN_FILE_ENV = "WSO2_CLOUD_TOKEN_FILE";
-/** The old Choreo CLI name, read for one release so an unchanged cloud editor keeps working. */
-export const LEGACY_INJECTED_TOKEN_ENV = "CLOUD_STS_TOKEN";
 
 export interface InjectedTokenOptions {
 	/** Where the token comes from; defaults to the environment variables above. */
@@ -70,12 +65,12 @@ export function readInjectedToken(env: NodeJS.ProcessEnv = process.env): string 
 			// A missing or unreadable file is the same as no token.
 		}
 	}
-	return env[INJECTED_TOKEN_ENV]?.trim() || env[LEGACY_INJECTED_TOKEN_ENV]?.trim() || undefined;
+	return env[INJECTED_TOKEN_ENV]?.trim() || undefined;
 }
 
 /** Whether the editor was started with a WSO2 Cloud token (the cloud editor), which replaces the browser sign-in. */
 export function hasInjectedToken(env: NodeJS.ProcessEnv = process.env): boolean {
-	return !!(env[INJECTED_TOKEN_FILE_ENV] || env[INJECTED_TOKEN_ENV] || env[LEGACY_INJECTED_TOKEN_ENV]);
+	return !!(env[INJECTED_TOKEN_FILE_ENV] || env[INJECTED_TOKEN_ENV]);
 }
 
 /**
@@ -108,100 +103,5 @@ export class InjectedTokenSource implements TokenSource {
 	async getClaims(): Promise<PlatformClaims | undefined> {
 		const token = this.read();
 		return token ? readPlatformClaims(token) : undefined;
-	}
-}
-
-export interface ExchangingTokenOptions {
-	issuer: string;
-	clientId: string;
-	fetch: FetchLike;
-	now?: () => Date;
-	/** A token this close to expiry is exchanged again. */
-	marginMs?: number;
-}
-
-/**
- * Wraps a source so that each resource gets a token bound to it (RFC 8693),
- * for a platform that wants `aud` to name the API rather than the client.
- * Off by default: `CloudEnvironment.tokenExchange` turns it on.
- */
-export class ExchangingTokenSource implements TokenSource {
-	readonly kind = "exchanging" as const;
-	private readonly cache = new Map<string, { token: string; expiresAt: number }>();
-	private readonly inFlight = new Map<string, Promise<string>>();
-	/** Bumped when the session changes, so an exchange started for the old one is not cached. */
-	private generation = 0;
-
-	constructor(
-		private readonly inner: TokenSource,
-		private readonly options: ExchangingTokenOptions,
-	) {
-		// A token exchanged for one session must not outlive it.
-		inner.onDidChange?.(() => {
-			this.generation++;
-			this.cache.clear();
-			this.inFlight.clear();
-		});
-	}
-
-	/** The clock, in milliseconds. */
-	private now(): number {
-		return (this.options.now ?? (() => new Date()))().getTime();
-	}
-
-	async getAccessToken(options: GetAccessTokenOptions = {}): Promise<string> {
-		if (!options.resource) {
-			return this.inner.getAccessToken(options);
-		}
-		const resource = options.resource;
-		const now = this.now();
-		const cached = this.cache.get(resource);
-		if (cached && !options.forceRefresh && cached.expiresAt - (this.options.marginMs ?? 60_000) > now) {
-			return cached.token;
-		}
-		let pending = this.inFlight.get(resource);
-		if (!pending) {
-			pending = this.exchange(resource, options).finally(() => this.inFlight.delete(resource));
-			this.inFlight.set(resource, pending);
-		}
-		return pending;
-	}
-
-	/** One RFC 8693 exchange of the session's token for `resource`, checked for that audience and cached until shortly before it expires. */
-	private async exchange(resource: string, options: GetAccessTokenOptions): Promise<string> {
-		const generation = this.generation;
-		const subject = await this.inner.getAccessToken({ forceRefresh: options.forceRefresh, signal: options.signal });
-		const discovery = await discover(this.options.issuer, this.options.fetch, { signal: options.signal });
-		const issued = await exchangeToken({
-			tokenEndpoint: discovery.token_endpoint,
-			clientId: this.options.clientId,
-			fetch: this.options.fetch,
-			subjectToken: subject,
-			resource,
-			signal: options.signal,
-		});
-		const claims = readPlatformClaims(issued.access_token);
-		const audiences = audiencesOf(claims?.aud);
-		if (!audiences.includes(resource)) {
-			throw new UnauthenticatedError(
-				"rejected",
-				`The identity provider issued a token for ${audiences.join(", ") || "no audience"}, not ${resource}.`,
-			);
-		}
-		const issuedAt = this.now();
-		const expiresAt = issued.expires_in ? issuedAt + issued.expires_in * 1000 : claims ? claims.exp * 1000 : issuedAt;
-		if (generation !== this.generation) {
-			throw new UnauthenticatedError("no_session", "The session changed while its token was being exchanged.");
-		}
-		this.cache.set(resource, { token: issued.access_token, expiresAt });
-		return issued.access_token;
-	}
-
-	getClaims(): Promise<PlatformClaims | undefined> {
-		return this.inner.getClaims();
-	}
-
-	onDidChange(listener: (event: SessionChangeEvent) => void): () => void {
-		return this.inner.onDidChange?.(listener) ?? (() => undefined);
 	}
 }
