@@ -18,6 +18,7 @@
 
 import { BadRequestError, isCloudError } from "../errors";
 import type { HttpClient } from "./http";
+import { segment } from "./path";
 import type { Schemas } from "./schema";
 import { itemsOf } from "./schema";
 
@@ -25,6 +26,9 @@ export type Project = Schemas["Project"];
 export type CreateProjectRequest = Schemas["CreateProjectRequest"];
 export type UpdateProjectRequest = Schemas["UpdateProjectRequest"];
 export type ProjectRepository = Schemas["ProjectRepository"];
+/** What linking a repository sends: every store rewrites all four fields, so all four are required (the generated type lost that). */
+export type LinkProjectRepositoryRequest = ProjectRepository &
+	Required<Pick<ProjectRepository, "gitProvider" | "gitOrganization" | "repository" | "branch">>;
 export type ProjectHandlerAvailability = Schemas["ProjectHandlerAvailability"];
 export type ProjectContributor = Schemas["ProjectContributor"];
 
@@ -55,7 +59,7 @@ export function parseProjectRepository(url: string): { gitProvider: string; gitO
 
 /** The API path of a project, its name encoded. */
 export function projectPath(name: string): string {
-	return `/projects/${encodeURIComponent(name)}`;
+	return `/projects/${segment(name)}`;
 }
 
 export class ProjectsApi {
@@ -68,7 +72,7 @@ export class ProjectsApi {
 	}
 
 	/** `GET /projects/{projectName}`. */
-	get(name: string): Promise<Project> {
+	async get(name: string): Promise<Project> {
 		return this.http.get<Project>(projectPath(name));
 	}
 
@@ -95,22 +99,22 @@ export class ProjectsApi {
 	}
 
 	/** `PUT /projects/{projectName}`. */
-	update(name: string, request: UpdateProjectRequest): Promise<Project> {
+	async update(name: string, request: UpdateProjectRequest): Promise<Project> {
 		return this.http.put<Project>(projectPath(name), request);
 	}
 
 	/** `DELETE /projects/{projectName}`: accepted; the project lists as `deleting` until gone. */
-	delete(name: string): Promise<void> {
+	async delete(name: string): Promise<void> {
 		return this.http.delete(projectPath(name));
 	}
 
 	/** `PUT /projects/{projectName}/repository`: the link is sent whole or not at all. */
-	linkRepository(name: string, repository: ProjectRepository): Promise<Project> {
+	async linkRepository(name: string, repository: LinkProjectRepositoryRequest): Promise<Project> {
 		return this.http.put<Project>(`${projectPath(name)}/repository`, repository);
 	}
 
 	/** `GET /projects/handler-availability?candidate=`. */
-	checkHandler(candidate: string): Promise<ProjectHandlerAvailability> {
+	async checkHandler(candidate: string): Promise<ProjectHandlerAvailability> {
 		return this.http.get<ProjectHandlerAvailability>("/projects/handler-availability", { query: { candidate } });
 	}
 

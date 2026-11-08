@@ -18,6 +18,7 @@
 
 import { NotFoundError } from "../errors";
 import type { HttpClient } from "./http";
+import { segment } from "./path";
 import { projectPath } from "./projects";
 import type { Schemas } from "./schema";
 import { itemsOf } from "./schema";
@@ -121,8 +122,8 @@ export class EnvironmentsApi {
 	}
 
 	/** `GET /environments/{environmentName}`. */
-	get(environmentName: string): Promise<Environment> {
-		return this.http.get<Environment>(`/environments/${encodeURIComponent(environmentName)}`);
+	async get(environmentName: string): Promise<Environment> {
+		return this.http.get<Environment>(`/environments/${segment(environmentName)}`);
 	}
 
 	/** Lists, then picks the one `ref` names by id or display name. */
@@ -147,8 +148,8 @@ export class PipelinesApi {
 	}
 
 	/** `GET /deploymentpipelines/{pipelineName}`. */
-	get(pipelineName: string): Promise<DeploymentPipeline> {
-		return this.http.get<DeploymentPipeline>(`/deploymentpipelines/${encodeURIComponent(pipelineName)}`);
+	async get(pipelineName: string): Promise<DeploymentPipeline> {
+		return this.http.get<DeploymentPipeline>(`/deploymentpipelines/${segment(pipelineName)}`);
 	}
 
 	/**

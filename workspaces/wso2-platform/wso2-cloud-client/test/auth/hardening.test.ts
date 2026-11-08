@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { connect } from "node:net";
 import {
 	type CloudError,
 	DeferredReceiver,
@@ -99,7 +100,31 @@ describe("LoopbackReceiver", () => {
 
 		const real = await fetch(`${base}?code=the-code&state=mine`);
 		assert.equal(real.status, 200);
-		assert.match(await real.text(), /You are signed in/);
+		assert.match(await real.text(), /Sign-in received/);
+		assert.equal(await waiting, "the-code");
+		receiver.dispose();
+	});
+
+	it("answers a request target no URL can be made of with a 400, without throwing", async () => {
+		const receiver = new LoopbackReceiver([0]);
+		await receiver.start();
+		const waiting = receiver.waitForCode("mine");
+		const { port } = new URL(receiver.redirectUri);
+		const answer = await new Promise<string>((resolve, reject) => {
+			const socket = connect(Number(port), "127.0.0.1", () =>
+				socket.write("GET http://[x/ HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n"),
+			);
+			let text = "";
+			socket.on("data", (chunk) => {
+				text += chunk.toString();
+			});
+			socket.on("end", () => resolve(text));
+			socket.on("error", reject);
+		});
+		assert.match(answer, /^HTTP\/1\.1 400/);
+
+		const real = await fetch(`${receiver.redirectUri}?code=the-code&state=mine`);
+		assert.equal(real.status, 200, "the sign-in is still waiting");
 		assert.equal(await waiting, "the-code");
 		receiver.dispose();
 	});

@@ -19,9 +19,10 @@
 import type { Server } from "node:http";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
+import { untilAborted } from "../../abort";
 import { LoginError, errorMessage } from "../../errors";
 import type { CallbackReceiver } from "./types";
-import { abortable, isCallbackFor, parseCallback } from "./types";
+import { cancelledSignIn, isCallbackFor, parseCallback } from "./types";
 
 /**
  * The ports registered for the VS Code client's loopback redirect. They are
@@ -99,7 +100,10 @@ export class LoopbackReceiver implements CallbackReceiver {
 		const promise = new Promise<string>((resolve, reject) => {
 			this.pending = { state, resolve, reject };
 		});
-		return abortable(promise, signal, () => this.dispose());
+		return untilAborted(promise, signal, () => {
+			this.dispose();
+			return cancelledSignIn();
+		});
 	}
 
 	/**
@@ -108,7 +112,14 @@ export class LoopbackReceiver implements CallbackReceiver {
 	 * state) is answered and ignored, so it cannot end the sign-in.
 	 */
 	private handle(method: string, rawUrl: string, response: import("node:http").ServerResponse): void {
-		const url = new URL(rawUrl, this.redirectUri);
+		let url: URL;
+		try {
+			url = new URL(rawUrl, this.redirectUri);
+		} catch {
+			// A request target no URL can be made of (`GET http://[x/`); only a local process sends one.
+			response.writeHead(400).end();
+			return;
+		}
 		if (url.pathname !== CALLBACK_PATH) {
 			response.writeHead(404).end();
 			return;
@@ -145,7 +156,7 @@ export class LoopbackReceiver implements CallbackReceiver {
 			const code = parseCallback(url, pending.state);
 			response
 				.writeHead(200)
-				.end(PAGE("You are signed in", "The editor can now use WSO2 Cloud for you.", "You can close this tab and return to the editor."));
+				.end(PAGE("Sign-in received", "The editor is finishing the sign-in to WSO2 Cloud.", "You can close this tab and return to the editor."));
 			pending.resolve(code);
 		} catch (error) {
 			response.writeHead(400).end(PAGE("Sign-in failed", escapeHtml(errorMessage(error)), "Start the sign-in again from the editor."));

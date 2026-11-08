@@ -2,7 +2,7 @@
 	"name": "@wso2/wso2-cloud-client",
 	"version": "0.1.0",
 	"description": "Sign-in and a typed client for the WSO2 Cloud Integration Platform API, for VS Code extensions",
-	"files": ["lib", "README.md"],
+	"files": ["lib", "src", "README.md"],
 	"main": "lib/index.js",
 	"types": "lib/index.d.ts",
 	"exports": {
@@ -24,7 +24,8 @@
 		"generate": "npx --yes openapi-typescript@7.13.0 spec/ipaas-openapi.yaml -o src/api/generated/ipaas.ts --alphabetize --root-types && npx --yes @biomejs/biome@1.9.4 format --write src/api/generated/ipaas.ts",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
-		"build": "tsc --pretty",
+		"clean": "node -e \"require('node:fs').rmSync('lib', { recursive: true, force: true })\"",
+		"build": "npm run clean && tsc --pretty",
 		"prepublishOnly": "npm run build",
 		"watch": "tsc --pretty --watch",
 		"test": "mocha",

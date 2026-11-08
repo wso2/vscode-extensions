@@ -85,6 +85,13 @@ export interface RequestOptions {
 	 * thrown but `onUnauthenticated` is not called.
 	 */
 	passThrough?: boolean;
+	/**
+	 * Whether a 401 is retried once with a refreshed token (the default). Off
+	 * for a route whose 401 is an upstream's verdict a new token cannot
+	 * change, such as git-app-service's audience allowlist, so each such call
+	 * does not spend a refresh and a second request.
+	 */
+	retryOn401?: boolean;
 }
 
 /**
@@ -163,17 +170,6 @@ export class HttpClient {
 	}
 
 	/**
-	 * Sends one request and hands back the successful answer unread, for the
-	 * pass-through routes (`/git/{proxyPath}`, `/observability/{proxyPath}`).
-	 */
-	async send(method: HttpMethod, path: string, options: RequestOptions = {}): Promise<Response> {
-		// The caller reads the body at its own pace; the bound covers the headers only.
-		const { response, abort } = await this.exchange(method, path, options);
-		abort.dispose();
-		return response;
-	}
-
-	/**
 	 * One exchange with the platform: the token, one retry on 401, the error
 	 * mapping. A successful answer comes back with its abort still linked, so
 	 * the caller's cancellation and the timeout cover reading the body too;
@@ -186,7 +182,7 @@ export class HttpClient {
 			const token = await this.tokenSource.getAccessToken({ resource: this.baseUrl, forceRefresh, signal: options.signal });
 			const { response, abort } = await this.fetchOnce(method, url, token, options);
 			try {
-				if (response.status === 401 && !forceRefresh) {
+				if (response.status === 401 && !forceRefresh && options.retryOn401 !== false) {
 					this.logger.debug(`${method} ${path} answered 401; refreshing the token and retrying once`);
 					// The unread body would otherwise hold the connection until it is collected.
 					await response.body?.cancel().catch(() => undefined);

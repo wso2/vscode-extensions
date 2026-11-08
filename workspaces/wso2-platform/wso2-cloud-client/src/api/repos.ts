@@ -18,6 +18,7 @@
 
 import { BadRequestError } from "../errors";
 import type { HttpClient, HttpMethod } from "./http";
+import { segment } from "./path";
 import type { Schemas } from "./schema";
 import { itemsOf } from "./schema";
 
@@ -107,13 +108,13 @@ export class ReposApi {
 
 	/** `GET /repos/{owner}/{repo}/branches`. */
 	async listBranches(owner: string, repo: string): Promise<RepoBranch[]> {
-		const listing = await this.http.get<Schemas["RepoBranchList"]>(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/branches`);
+		const listing = await this.http.get<Schemas["RepoBranchList"]>(`/repos/${segment(owner)}/${segment(repo)}/branches`);
 		return itemsOf(listing);
 	}
 
 	/** `GET /repos/{owner}/{repo}/contents?branch=`. */
 	async getTree(owner: string, repo: string, branch?: string): Promise<RepoTreeNode[]> {
-		const tree = await this.http.get<Schemas["RepoTree"]>(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents`, {
+		const tree = await this.http.get<Schemas["RepoTree"]>(`/repos/${segment(owner)}/${segment(repo)}/contents`, {
 			query: { branch },
 		});
 		return tree?.items ?? [];
@@ -135,7 +136,7 @@ export class GitProxyApi {
 
 	/** One call to the git integration at `/git/{proxyPath}`; its 401 is relayed without ending the session. */
 	async raw<T = unknown>(method: HttpMethod, proxyPath: string, body?: unknown, signal?: AbortSignal): Promise<T> {
-		return this.http.request<T>(method, `/git/${encodeProxyPath(proxyPath)}`, { body, signal, passThrough: true });
+		return this.http.request<T>(method, `/git/${encodeProxyPath(proxyPath)}`, { body, signal, passThrough: true, retryOn401: false });
 	}
 }
 

@@ -221,3 +221,85 @@ describe("ExchangingTokenSource", () => {
 		assert.notEqual(await source.getAccessToken(), first, "without a resource the login token itself is answered");
 	});
 });
+
+describe("SessionManager races", () => {
+	beforeEach(() => resetDiscoveryCache());
+
+	it("revokes the refresh token of a session that a new sign-in replaces", async () => {
+		const issuer = new FakeIssuer();
+		const manager = new SessionManager({ env, store: new InMemorySessionStore(), fetch: issuer.fetch });
+		const first = await signIn(issuer);
+		await manager.setSession(first);
+		const second = await signIn(issuer);
+		await manager.setSession(second);
+		await new Promise((resolve) => setTimeout(resolve, 10));
+
+		assert.deepEqual(issuer.revoked, [first.tokens.refreshToken]);
+		assert.equal((await manager.current())?.tokens.accessToken, second.tokens.accessToken);
+	});
+
+	it("does not let a slow first read of the store overwrite a sign-in made meanwhile", async () => {
+		const issuer = new FakeIssuer();
+		const stale = await signIn(issuer);
+		const fresh = await signIn(issuer);
+		const gates: (() => void)[] = [];
+		const store = new InMemorySessionStore();
+		await store.save(stale);
+		const slowStore = {
+			load: async (name: "dev" | "stage" | "prod") => {
+				const value = await store.load(name);
+				await new Promise<void>((resolve) => gates.push(resolve));
+				return value;
+			},
+			save: (session: StoredSession) => store.save(session),
+			clear: (name: "dev" | "stage" | "prod") => store.clear(name),
+		};
+		const manager = new SessionManager({ env, store: slowStore, fetch: issuer.fetch });
+		const tick = () => new Promise((resolve) => setImmediate(resolve));
+
+		const reading = manager.current();
+		await tick();
+		const signingIn = manager.setSession(fresh);
+		await tick();
+		// The sign-in's own read of what it replaces finishes first, then the slow first read.
+		gates[1]();
+		await signingIn;
+		gates[0]();
+		await reading;
+
+		assert.equal((await manager.current())?.tokens.accessToken, fresh.tokens.accessToken);
+	});
+
+	it("leaves no unhandled rejection when the only caller of a failing refresh had already given up", async () => {
+		let t = Date.parse("2026-11-05T10:00:00Z");
+		const now = () => new Date(t);
+		const issuer = new FakeIssuer({ expiresIn: 600, now });
+		const manager = new SessionManager({ env, store: new InMemorySessionStore(), fetch: issuer.fetch, now });
+		await manager.setSession(await signIn(issuer, now));
+		t += 11 * 60_000;
+		issuer.refreshRefusal = "invalid_grant";
+		const unhandled: unknown[] = [];
+		const onUnhandled = (reason: unknown) => unhandled.push(reason);
+		process.on("unhandledRejection", onUnhandled);
+		try {
+			const gaveUp = AbortSignal.abort();
+			const error = (await rejection(manager.getAccessToken({ signal: gaveUp }))) as CloudError;
+			assert.equal(error.details.reason, "cancelled");
+			await new Promise((resolve) => setTimeout(resolve, 20));
+		} finally {
+			process.off("unhandledRejection", onUnhandled);
+		}
+		assert.deepEqual(unhandled, []);
+		assert.equal(await manager.current(), undefined, "the refused refresh still ended the session");
+	});
+
+	it("drops an update decided before the session was replaced", async () => {
+		const issuer = new FakeIssuer();
+		const manager = new SessionManager({ env, store: new InMemorySessionStore(), fetch: issuer.fetch });
+		await manager.setSession(await signIn(issuer));
+		await manager.signOut({ revoke: false });
+
+		assert.equal(await manager.update((s) => ({ ...s, org: { ...s.org, uuid: "late" } })), undefined);
+		assert.equal(await manager.current(), undefined);
+	});
+});

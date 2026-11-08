@@ -82,30 +82,49 @@ export class SessionManager {
 	/** The stored session, if any, without refreshing it. */
 	async current(): Promise<StoredSession | undefined> {
 		if (!this.loaded) {
-			this.session = await this.deps.store.load(this.deps.env.name);
-			this.loaded = true;
+			const generation = this.generation;
+			const stored = await this.deps.store.load(this.deps.env.name);
+			// A sign-in or sign-out while the store was read is newer than what it held.
+			if (!this.loaded && generation === this.generation) {
+				this.session = stored;
+				this.loaded = true;
+			}
 		}
 		return this.session;
 	}
 
-	/** Keeps a session a sign-in produced. */
+	/** Keeps a session a sign-in produced. The refresh token of a session it replaces is revoked, best effort. */
 	async setSession(session: StoredSession): Promise<void> {
+		const replaced = await this.current();
 		this.generation++;
 		this.session = session;
 		this.loaded = true;
 		await this.deps.store.save(session);
 		this.emit({ reason: "signed-in" });
+		if (replaced?.tokens.refreshToken && replaced.tokens.refreshToken !== session.tokens.refreshToken) {
+			void this.revoke(replaced);
+		}
 	}
 
-	/** Changes members of the stored session, such as the organization's uuid once read. */
+	/**
+	 * Changes members of the stored session, such as the organization's uuid
+	 * once read. Nothing changes, and the answer is undefined, when the session
+	 * was replaced or ended while `change` was being decided.
+	 */
 	async update(change: (session: StoredSession) => StoredSession): Promise<StoredSession | undefined> {
+		const generation = this.generation;
 		const session = await this.current();
-		if (!session) {
+		if (!session || generation !== this.generation) {
 			return undefined;
 		}
 		this.session = change(session);
 		await this.deps.store.save(this.session);
 		return this.session;
+	}
+
+	/** The generation of the session held now; a later sign-in or sign-out changes it. */
+	get sessionGeneration(): number {
+		return this.generation;
 	}
 
 	/** A token that is good for at least the refresh margin, refreshing when it is not. */
@@ -229,24 +248,32 @@ export class SessionManager {
 		this.generation++;
 		this.session = undefined;
 		await this.deps.store.clear(this.deps.env.name);
-		if (session && options.revoke !== false && session.tokens.refreshToken) {
-			try {
-				const discovery = await discover(session.issuer, this.deps.fetch, { signal: options.signal });
-				if (discovery.revocation_endpoint) {
-					await revokeToken({
-						revocationEndpoint: discovery.revocation_endpoint,
-						clientId: session.clientId,
-						token: session.tokens.refreshToken,
-						tokenTypeHint: "refresh_token",
-						fetch: this.deps.fetch,
-						signal: options.signal,
-					});
-				}
-			} catch {
-				// Revocation is best effort; the session is gone locally either way.
-			}
+		if (session && options.revoke !== false) {
+			await this.revoke(session, options.signal);
 		}
 		this.emit({ reason: "signed-out" });
+	}
+
+	/** Asks the issuer to revoke a session's refresh token; best effort, it never throws. */
+	private async revoke(session: StoredSession, signal?: AbortSignal): Promise<void> {
+		if (!session.tokens.refreshToken) {
+			return;
+		}
+		try {
+			const discovery = await discover(session.issuer, this.deps.fetch, { signal });
+			if (discovery.revocation_endpoint) {
+				await revokeToken({
+					revocationEndpoint: discovery.revocation_endpoint,
+					clientId: session.clientId,
+					token: session.tokens.refreshToken,
+					tokenTypeHint: "refresh_token",
+					fetch: this.deps.fetch,
+					signal,
+				});
+			}
+		} catch {
+			// The session is gone locally either way.
+		}
 	}
 
 	onDidChange(listener: (event: SessionChangeEvent) => void): () => void {

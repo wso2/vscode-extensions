@@ -40,7 +40,7 @@ describe("LoginFlow", () => {
 		assert.equal(tokenCall?.form.client_id, "WSO2_INTEGRATOR_EXTENSION");
 	});
 
-	it("keeps a callback that arrives before the login waits for it", async () => {
+	it("takes a callback pushed while the browser is being opened", async () => {
 		const issuer = new FakeIssuer();
 		const receiver = new DeferredReceiver("vscode://wso2.wso2-integrator/signin");
 		const flow = new LoginFlow({
@@ -133,7 +133,7 @@ describe("LoginFlow", () => {
 				// The browser follows the redirect to the listener.
 				const response = await fetch(back.toString());
 				assert.equal(response.status, 200);
-				assert.ok((await response.text()).includes("You are signed in"));
+				assert.ok((await response.text()).includes("Sign-in received"));
 			},
 		});
 

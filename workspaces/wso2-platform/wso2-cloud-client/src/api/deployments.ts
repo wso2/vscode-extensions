@@ -95,7 +95,7 @@ export class DeploymentsApi {
 	 * platform answers 200 with no body when the integration was never
 	 * deployed there, which is `undefined` here.
 	 */
-	get(componentName: string, environmentId: string, projectName?: string): Promise<Deployment | undefined> {
+	async get(componentName: string, environmentId: string, projectName?: string): Promise<Deployment | undefined> {
 		return this.http.get<Deployment | undefined>(`${componentPath(componentName)}/deployments`, {
 			query: { environmentId, projectName },
 		});
@@ -183,8 +183,10 @@ export class DeploymentsApi {
 	}
 
 	/**
-	 * Reads the environment until a deployment other than `before` is there:
-	 * a first one, another release, or the same release rolling out again.
+	 * Reads the environment until the deployment asked for is there: one that
+	 * runs the build named by `imageId` (when one was named) and is not the
+	 * deployment `before`, by release, build, or a rollout started again from
+	 * a settled state. A rollout of `before` that merely finishes is not it.
 	 * Undefined when nothing changed within the time given.
 	 */
 	private async observeDeployment(
@@ -193,18 +195,24 @@ export class DeploymentsApi {
 		before: Deployment | undefined,
 		input: DeployInput,
 	): Promise<Deployment | undefined> {
+		const imageId = input.imageId;
 		const changed = (current: Deployment | undefined): boolean => {
 			if (!current?.releaseId) {
+				return false;
+			}
+			// `imageId` is the build's WorkflowRun name, which the deployment reports as both.
+			if (imageId && current.build?.buildId !== imageId && current.build?.runId !== imageId) {
 				return false;
 			}
 			if (!before?.releaseId) {
 				return true;
 			}
-			return (
-				current.releaseId !== before.releaseId ||
-				current.deploymentStatusV2 !== before.deploymentStatusV2 ||
-				(current.build?.buildId ?? "") !== (before.build?.buildId ?? "")
-			);
+			if (current.releaseId !== before.releaseId || (current.build?.buildId ?? "") !== (before.build?.buildId ?? "")) {
+				return true;
+			}
+			// The same release: only a rollout started again from where `before` had settled.
+			const settled = before.deploymentStatusV2 !== undefined && before.deploymentStatusV2 !== "IN_PROGRESS";
+			return settled && current.deploymentStatusV2 !== before.deploymentStatusV2;
 		};
 		try {
 			return await poll(
@@ -213,8 +221,8 @@ export class DeploymentsApi {
 					return { done: changed(current), value: current };
 				},
 				{
-					timeoutMs: DEPLOY_OBSERVE_MS,
 					...input.observe,
+					timeoutMs: input.observe?.timeoutMs ?? DEPLOY_OBSERVE_MS,
 					describe: () => `Looking for the deployment of ${componentName} in ${environmentId}`,
 				},
 			);
@@ -227,12 +235,12 @@ export class DeploymentsApi {
 	}
 
 	/** `POST /components/{componentName}/deploy?environment=`: the current image, no build named. */
-	deployCurrent(componentName: string, environmentId: string, projectName?: string): Promise<Deployment> {
+	async deployCurrent(componentName: string, environmentId: string, projectName?: string): Promise<Deployment> {
 		return this.http.post<Deployment>(`${componentPath(componentName)}/deploy`, undefined, { query: { environment: environmentId, projectName } });
 	}
 
 	/** `POST /components/{componentName}/deploy-prebuilt`. */
-	deployPrebuilt(componentName: string, request: DeployPrebuiltRequest, projectName?: string): Promise<void> {
+	async deployPrebuilt(componentName: string, request: DeployPrebuiltRequest, projectName?: string): Promise<void> {
 		return this.http.post(`${componentPath(componentName)}/deploy-prebuilt`, request, { query: { projectName } });
 	}
 

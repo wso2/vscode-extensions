@@ -19,10 +19,11 @@
 import { BadRequestError, NotFoundError, ServerError } from "../errors";
 import { componentPath } from "./components";
 import type { HttpClient } from "./http";
+import { segment } from "./path";
 import type { Schemas } from "./schema";
 import { itemsOf } from "./schema";
 import type { PollOptions } from "./wait";
-import { poll } from "./wait";
+import { poll, waitTimeout } from "./wait";
 
 export type Build = Schemas["WorkflowRun"];
 export type DeployableBuild = Schemas["DeploymentTrackImage"];
@@ -56,7 +57,7 @@ export class BuildsApi {
 	 * reported as not found, which is what it is.
 	 */
 	async get(componentName: string, buildName: string, projectName?: string): Promise<Build> {
-		const build = await this.http.get<Build>(`${componentPath(componentName)}/builds/${encodeURIComponent(buildName)}`, {
+		const build = await this.http.get<Build>(`${componentPath(componentName)}/builds/${segment(buildName)}`, {
 			query: { projectName },
 			mapStatus: (status, body) =>
 				status === 500
@@ -86,13 +87,17 @@ export class BuildsApi {
 
 	/**
 	 * Starts a build and follows it until it finishes. The build is found as
-	 * the name the listing did not hold before the request. A build that does
-	 * not succeed is a {@link ServerError} whose `reason` is `build_failed`.
+	 * the name the listing did not hold before the request; finding it and
+	 * following it share one `timeoutMs`. A build that does not succeed is a
+	 * {@link ServerError} whose `reason` is `build_failed`.
 	 */
 	async triggerAndWait(
 		componentName: string,
 		options: { sha?: string; projectName?: string; onProgress?: (build: Build) => void } & PollOptions = {},
 	): Promise<Build> {
+		const now = options.now ?? Date.now;
+		const timeoutMs = waitTimeout(options.timeoutMs);
+		const startedAt = now();
 		const before = new Set((await this.list(componentName, options.projectName)).map((b) => b.name));
 		await this.trigger(componentName, options);
 		const describe = () => `The build of ${componentName}`;
@@ -102,7 +107,7 @@ export class BuildsApi {
 				const fresh = listed.find((b) => b.name && !before.has(b.name));
 				return { done: fresh !== undefined, value: fresh as Build };
 			},
-			{ ...options, describe },
+			{ ...options, timeoutMs, describe },
 		);
 		const name = started.name as string;
 		const finished = await poll(
@@ -111,7 +116,7 @@ export class BuildsApi {
 				options.onProgress?.(build);
 				return { done: !buildInProgress(build.status), value: build };
 			},
-			{ ...options, describe: () => `The build ${name} of ${componentName}` },
+			{ ...options, timeoutMs: Math.max(0, timeoutMs - (now() - startedAt)), describe: () => `The build ${name} of ${componentName}` },
 		);
 		if (finished.status !== "Succeeded") {
 			throw new ServerError(`The build ${name} of ${componentName} finished as ${finished.status ?? "unknown"}.`, { reason: "build_failed" });
