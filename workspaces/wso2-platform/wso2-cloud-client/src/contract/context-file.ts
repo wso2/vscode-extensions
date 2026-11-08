@@ -21,8 +21,6 @@ import type { ContextEntry } from "./types";
 /** Where a repository records which cloud project it belongs to. */
 export const CONTEXT_FILE_DIR = ".wso2";
 export const CONTEXT_FILE_NAME = "context.yaml";
-/** The directory the Choreo-era extensions used; read for one release, never written. */
-export const LEGACY_CONTEXT_FILE_DIR = ".choreo";
 
 export const CONTEXT_DOCUMENT_VERSION = 2 as const;
 
@@ -33,30 +31,22 @@ export interface ContextDocument {
 }
 
 /**
- * Reads a parsed context document of any shape this extension has ever
- * written: the v2 document, the v1 list `[{org, project, local?}]`, or
- * the oldest form, one object. Entries without an org and a project are
- * dropped. The host parses the YAML itself; this takes the result.
+ * The entries of a parsed context document (`{version: 2, contexts: [...]}`).
+ * Anything else holds no entries, and entries without an org and a project
+ * are dropped. The host parses the YAML itself; this takes the result.
  */
 export function readContextDocument(data: unknown): ContextEntry[] {
-	if (!data) {
+	if (typeof data !== "object" || data === null || Array.isArray(data)) {
 		return [];
 	}
-	if (Array.isArray(data)) {
-		return data.map(toEntry).filter((e): e is ContextEntry => e !== undefined);
+	const record = data as Record<string, unknown>;
+	if (record.version !== CONTEXT_DOCUMENT_VERSION || !Array.isArray(record.contexts)) {
+		return [];
 	}
-	if (typeof data === "object") {
-		const record = data as Record<string, unknown>;
-		if (Array.isArray(record.contexts)) {
-			return readContextDocument(record.contexts);
-		}
-		const single = toEntry(record);
-		return single ? [single] : [];
-	}
-	return [];
+	return record.contexts.map(toEntry).filter((e): e is ContextEntry => e !== undefined);
 }
 
-/** One context entry from whatever a file holds; undefined when it has no org or project. */
+/** One context entry; undefined when it has no org or project. */
 function toEntry(value: unknown): ContextEntry | undefined {
 	if (typeof value !== "object" || value === null) {
 		return undefined;
@@ -123,10 +113,9 @@ export function upsertContextEntry(entries: ContextEntry[], entry: ContextEntry)
 	if (index < 0) {
 		return [...entries, entry];
 	}
-	const merged: ContextEntry = { ...entries[index], ...entry };
-	if (!entry.local) {
-		merged.local = undefined;
-	}
+	// Once the project exists the key goes, rather than staying as `local: undefined`.
+	const { local: _local, ...rest } = { ...entries[index], ...entry };
+	const merged: ContextEntry = entry.local ? { ...rest, local: true } : rest;
 	return entries.map((e, i) => (i === index ? merged : e));
 }
 

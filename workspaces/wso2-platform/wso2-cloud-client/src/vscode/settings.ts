@@ -27,8 +27,8 @@ export const CLOUD_ENV_SETTING = "integrator.advanced.cloudEnv";
 export const CLOUD_CLIENT_ID_SETTING = "integrator.advanced.cloudClientId";
 export const CLOUD_API_URL_SETTING = "integrator.advanced.cloudApiBaseUrl";
 
-/** The environment variables an environment may be chosen by, newest name first. */
-export const CLOUD_ENV_VARS = ["WSO2_CLOUD_ENV", "CLOUD_ENV", "CHOREO_ENV"] as const;
+/** The environment variables an environment may be chosen by, in the order they are read. */
+export const CLOUD_ENV_VARS = ["WSO2_CLOUD_ENV", "CLOUD_ENV"] as const;
 
 /** `WSO2_CLOUD_API_URL` overrides the API host, for a developer pointing at a local service or at the internal development deployment. */
 export const CLOUD_API_URL_VAR = "WSO2_CLOUD_API_URL";

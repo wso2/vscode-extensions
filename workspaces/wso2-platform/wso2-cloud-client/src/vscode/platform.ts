@@ -23,7 +23,7 @@ import type { FetchLike } from "../api/http";
 import { defaultFetch } from "../api/http";
 import { LoginFlow } from "../auth/login-flow";
 import { SessionManager } from "../auth/session-manager";
-import { BrowserLoginTokenSource, ExchangingTokenSource, InjectedTokenSource, hasInjectedToken } from "../auth/sources";
+import { BrowserLoginTokenSource, InjectedTokenSource, hasInjectedToken } from "../auth/sources";
 import type { StoredSession, TokenSource } from "../auth/types";
 import type { CloudEnvironment } from "../config/environments";
 import { LoginError, errorMessage } from "../errors";
@@ -80,7 +80,6 @@ export function createPlatformClients(options: PlatformClientsOptions): Platform
 	const environment = options.environment ?? readCloudEnvironment();
 	const fetchImpl: FetchLike = options.fetch ?? defaultFetch;
 	const store = new SecretStorageSessionStore(options.context.secrets);
-	store.removeLegacy().catch(() => undefined);
 	const sessions = new SessionManager({ env: environment, store, fetch: fetchImpl, logger });
 	const injected = !options.tokenSource && hasInjectedToken();
 
@@ -115,9 +114,6 @@ export function createPlatformClients(options: PlatformClientsOptions): Platform
 				})
 			: undefined;
 		tokenSource = new BrowserLoginTokenSource(sessions);
-	}
-	if (environment.tokenExchange === "resource") {
-		tokenSource = new ExchangingTokenSource(tokenSource, { issuer: environment.issuer, clientId: environment.clientId, fetch: fetchImpl });
 	}
 
 	const cloud = createCloudClient({

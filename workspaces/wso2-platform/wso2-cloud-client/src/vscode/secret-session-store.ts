@@ -22,9 +22,6 @@ import type { SessionStore, StoredSession } from "../auth/types";
 import { parseStoredSession } from "../auth/types";
 import type { CloudEnvName } from "../config/environments";
 
-/** The key the old WSO2 Integrator auth provider kept its placeholder sessions under. */
-export const LEGACY_SECRET_KEY = "wso2-wi.sessions";
-
 /**
  * Sessions in VS Code's secret storage, which the desktop keeps in the OS
  * keychain and a remote session forwards to the local client, so no
@@ -46,10 +43,5 @@ export class SecretStorageSessionStore implements SessionStore {
 	/** Removes the session for `env` from SecretStorage. */
 	async clear(env: CloudEnvName): Promise<void> {
 		await this.secrets.delete(sessionKey(env));
-	}
-
-	/** Forgets what the CLI-era auth provider stored; it held no tokens. */
-	async removeLegacy(): Promise<void> {
-		await this.secrets.delete(LEGACY_SECRET_KEY);
 	}
 }

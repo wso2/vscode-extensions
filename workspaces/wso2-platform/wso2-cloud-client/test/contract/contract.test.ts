@@ -16,12 +16,15 @@ import {
 } from "../../src";
 
 describe("context document", () => {
-	it("reads the v2 document, the v1 list and the oldest single object", () => {
+	it("reads the v2 document and nothing else", () => {
 		const v2 = { version: 2, contexts: [{ org: "acme", project: "orders", env: "development", integrations: [{ name: "a", path: "svc/a" }] }] };
 		assert.deepEqual(readContextDocument(v2), [{ org: "acme", project: "orders", env: "development", integrations: [{ name: "a", path: "svc/a" }] }]);
-		assert.deepEqual(readContextDocument([{ org: "acme", project: "orders", local: true }]), [{ org: "acme", project: "orders", local: true }]);
-		assert.deepEqual(readContextDocument({ org: "acme", project: "orders" }), [{ org: "acme", project: "orders" }]);
-		assert.deepEqual(readContextDocument([{ org: "acme" }, null, "x"]), []);
+		assert.deepEqual(readContextDocument({ version: 2, contexts: [{ org: "acme", project: "orders", local: true }, { org: "acme" }, null, "x"] }), [
+			{ org: "acme", project: "orders", local: true },
+		]);
+		// Only the v2 document is read; lists and single objects from the Choreo-era extensions are not.
+		assert.deepEqual(readContextDocument([{ org: "acme", project: "orders" }]), []);
+		assert.deepEqual(readContextDocument({ org: "acme", project: "orders" }), []);
 		assert.deepEqual(readContextDocument(undefined), []);
 	});
 
@@ -43,7 +46,8 @@ describe("context document", () => {
 	it("upserts by org and project, clearing local once the project exists", () => {
 		const entries = [{ org: "acme", project: "orders", local: true }];
 		const updated = upsertContextEntry(entries, { org: "acme", project: "orders", env: "development" });
-		assert.deepEqual(updated, [{ org: "acme", project: "orders", env: "development", local: undefined }]);
+		assert.deepEqual(updated, [{ org: "acme", project: "orders", env: "development" }]);
+		assert.equal("local" in updated[0], false);
 		assert.equal(upsertContextEntry(entries, { org: "acme", project: "billing" }).length, 2);
 		assert.deepEqual(removeContextEntry(updated, { org: "acme", project: "orders" }), []);
 		assert.equal(contextKey({ org: "acme", project: "orders" }), "acme/orders");
@@ -70,6 +74,14 @@ describe("console links", () => {
 			buildConsoleUrl("https://console.example", { orgHandle: "acme", project: "orders", integration: "order-api", page: "deploy" }),
 			"https://console.example/integration/organizations/acme/projects/orders/components/order-api/deploy",
 		);
+		assert.equal(
+			buildConsoleUrl("https://console.example", { orgHandle: "acme", section: "admin/a b", project: "x" }),
+			"https://console.example/integration/organizations/acme/admin/a%20b",
+		);
+		assert.equal(
+			buildConsoleUrl("https://console.example", { orgHandle: "acme", project: "orders", integration: "order-api", page: "a?b" }),
+			"https://console.example/integration/organizations/acme/projects/orders/components/order-api/a%3Fb",
+		);
 	});
 });
 
@@ -94,7 +106,7 @@ describe("connection variables", () => {
 	it("reads a variable back by its suffix, with or without a prefix", () => {
 		const suffixes = Object.values(DATABASE_CONNECTION_VARS);
 		assert.equal(connectionVarSuffix("ORDERS_DB_PASSWORD", suffixes), "DB_PASSWORD");
-		assert.equal(connectionVarSuffix("DB_HOST", suffixes), "DB_HOST");
+		assert.equal(connectionVarSuffix("DB_HOST", suffixes), undefined, "every variable carries its connection's prefix");
 		assert.equal(connectionVarSuffix("LOG_LEVEL", suffixes), undefined);
 	});
 });

@@ -48,7 +48,8 @@ export function buildConsoleUrl(consoleUrl: string, link: ConsoleLink = {}): str
 	}
 	let url = `${base}${CONSOLE_PRODUCT_PATH}/organizations/${encodeURIComponent(link.orgHandle)}`;
 	if (link.section) {
-		return `${url}/${link.section.replace(/^\/+|\/+$/g, "")}`;
+		const segments = link.section.split("/").filter((segment) => segment.length > 0);
+		return `${url}/${segments.map(encodeURIComponent).join("/")}`;
 	}
 	if (!link.project) {
 		return url;
@@ -58,5 +59,5 @@ export function buildConsoleUrl(consoleUrl: string, link: ConsoleLink = {}): str
 		return url;
 	}
 	url += `/components/${encodeURIComponent(link.integration)}`;
-	return `${url}/${link.page ?? "overview"}`;
+	return `${url}/${encodeURIComponent(link.page ?? "overview")}`;
 }

@@ -60,10 +60,7 @@ export function connectionVarName(connectionName: string, suffix: string): strin
 	return `${connectionVarPrefix(connectionName)}_${suffix}`;
 }
 
-/**
- * Which of `suffixes` a variable is, read back from a group. A name without a
- * prefix is matched too: connections written before prefixes have those.
- */
+/** Which of `suffixes` a variable is, read back from a group: the part after its connection's prefix. */
 export function connectionVarSuffix(variable: string, suffixes: readonly string[]): string | undefined {
-	return suffixes.find((suffix) => variable === suffix || variable.endsWith(`_${suffix}`));
+	return suffixes.find((suffix) => variable.endsWith(`_${suffix}`) && variable.length > suffix.length + 1);
 }

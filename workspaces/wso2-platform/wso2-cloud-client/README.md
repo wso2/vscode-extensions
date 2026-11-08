@@ -40,7 +40,7 @@ guessing.
 
 ## Environments
 
-`CLOUD_ENV` (also `WSO2_CLOUD_ENV`, legacy `CHOREO_ENV`) or the setting
+`CLOUD_ENV` (also `WSO2_CLOUD_ENV`) or the setting
 `integrator.advanced.cloudEnv` picks `prod`, `stage` or `dev`. Production and
 staging hosts are built in. The development deployment is internal, so its
 hosts are not in this repository: with `CLOUD_ENV=dev`, set
