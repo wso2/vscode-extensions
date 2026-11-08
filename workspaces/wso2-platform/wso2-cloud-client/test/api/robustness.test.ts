@@ -1,5 +1,17 @@
 import assert from "node:assert/strict";
-import { type CloudError, DEPLOY_OBSERVE_MS, HttpClient, buildCreateComponentRequest, componentTypeFor, poll, workflowNameFor } from "../../src";
+import {
+	type CloudError,
+	DEFAULT_WAIT_TIMEOUT_MS,
+	DEPLOY_OBSERVE_MS,
+	HttpClient,
+	MAX_WAIT_TIMEOUT_MS,
+	MIN_POLL_INTERVAL_MS,
+	buildCreateComponentRequest,
+	componentTypeFor,
+	poll,
+	waitTimeout,
+	workflowNameFor,
+} from "../../src";
 import { StaticTokenSource } from "../doubles";
 import { DEV, api, harness, rejection } from "../support";
 
@@ -123,5 +135,46 @@ describe("poll", () => {
 		)) as CloudError;
 		assert.equal(error.details.reason, "cancelled");
 		assert.ok(Date.now() - started < 1_000, "the interval was not waited out");
+	});
+});
+
+describe("wait bounds", () => {
+	it("falls back to the default timeout when the one given is not a number, instead of waiting forever", async () => {
+		let clock = 0;
+		const error = (await rejection(
+			poll(async () => ({ done: false, value: undefined }), {
+				timeoutMs: Number.NaN,
+				sleep: async () => undefined,
+				now: () => {
+					clock += 60_000;
+					return clock;
+				},
+			}),
+		)) as CloudError;
+		assert.equal(error.details.reason, "wait_timeout");
+		assert.ok(clock <= DEFAULT_WAIT_TIMEOUT_MS + 120_000, "ended near the default timeout");
+	});
+
+	it("keeps a real timer from polling faster than once a second", () => {
+		assert.equal(MIN_POLL_INTERVAL_MS, 1_000);
+		assert.equal(waitTimeout(-5), 0);
+		assert.equal(waitTimeout(Number.POSITIVE_INFINITY), DEFAULT_WAIT_TIMEOUT_MS);
+		assert.equal(waitTimeout(10 * 60 * 60_000), MAX_WAIT_TIMEOUT_MS);
+	});
+});
+
+describe("request paths", () => {
+	it("refuses names that would step out of the route, before any call", async () => {
+		const { client, fake } = harness([]);
+		for (const call of [
+			() => client.config.deleteFile("x", "..", ".."),
+			() => client.components.list(".."),
+			() => client.projects.get(""),
+			() => client.git.raw("GET", "repos/../../projects"),
+		]) {
+			const error = (await rejection(call())) as CloudError;
+			assert.equal(error.code, "bad_request");
+		}
+		assert.equal(fake.calls(/./).length, 0);
 	});
 });

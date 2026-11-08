@@ -107,7 +107,10 @@ export class ObservabilityApi {
 	}
 
 	/** A build's log, by the name of its workflow run. */
-	buildLogs(build: { name?: string; startedAt?: string; completedAt?: string }, options: LogQueryOptions & { now?: Date } = {}): Promise<LogLines> {
+	async buildLogs(
+		build: { name?: string; startedAt?: string; completedAt?: string },
+		options: LogQueryOptions & { now?: Date } = {},
+	): Promise<LogLines> {
 		if (!build.name) {
 			return Promise.resolve({ lines: [], total: 0 });
 		}
@@ -115,7 +118,7 @@ export class ObservabilityApi {
 	}
 
 	/** What an integration logged in one environment over the last `sinceMs`. */
-	runtimeLogs(
+	async runtimeLogs(
 		scope: { project: string; component: string; environment: string },
 		sinceMs: number,
 		options: LogQueryOptions & { now?: Date } = {},
@@ -126,7 +129,7 @@ export class ObservabilityApi {
 	}
 }
 
-/** A date as the proxy expects it: RFC 3339 in UTC, milliseconds kept. */
+/** A date as the proxy expects it: RFC 3339 in UTC, to the second. */
 function toRfc3339(date: Date): string {
 	return date.toISOString().replace(/\.\d{3}Z$/, "Z");
 }

@@ -18,6 +18,7 @@
 
 import { BadRequestError, NotFoundError } from "../errors";
 import type { HttpClient } from "./http";
+import { segment } from "./path";
 import { projectPath } from "./projects";
 import type { Schemas } from "./schema";
 import { itemsOf } from "./schema";
@@ -74,7 +75,7 @@ export const REPORTED_TYPES: Record<ComponentType, IntegrationType | "proxy"> = 
 
 /** The integration type a component's platform type stands for; `proxy` for an API proxy, undefined for a type the extensions do not show. */
 export function integrationTypeOf(component: Pick<Component, "componentType">): IntegrationType | "proxy" | undefined {
-	return component.componentType ? REPORTED_TYPES[component.componentType] : undefined;
+	return component.componentType ? ownValue(REPORTED_TYPES, component.componentType) : undefined;
 }
 
 /** The `buildpackType` the API reports, back in the words create takes. */
@@ -186,7 +187,7 @@ export function buildCreateComponentRequest(input: CreateIntegrationInput): Crea
 
 /** The API path of a component, its name encoded. */
 export function componentPath(name: string): string {
-	return `/components/${encodeURIComponent(name)}`;
+	return `/components/${segment(name)}`;
 }
 
 /**
@@ -213,25 +214,22 @@ export class ComponentsApi {
 	constructor(private readonly http: HttpClient) {}
 
 	/**
-	 * `GET /projects/{projectName}/components`. Without a project name the
-	 * platform's answer is undefined, not organization-wide. At most 100 per
-	 * project, no continuation cursor.
+	 * `GET /projects/{projectName}/components`: at most 100 per project, no
+	 * continuation cursor. There is no organization-wide listing.
 	 * Items carry no repository; see {@link repository}.
 	 */
-	async list(projectName?: string): Promise<Component[]> {
-		const listing = projectName
-			? await this.http.get<Schemas["ComponentList"]>(`${projectPath(projectName)}/components`)
-			: await this.http.get<Schemas["ComponentList"]>("/components");
-		return itemsOf(listing).map((c) => (c.projectId || !projectName ? c : { ...c, projectId: projectName }));
+	async list(projectName: string): Promise<Component[]> {
+		const listing = await this.http.get<Schemas["ComponentList"]>(`${projectPath(projectName)}/components`);
+		return itemsOf(listing).map((c) => (c.projectId ? c : { ...c, projectId: projectName }));
 	}
 
 	/** `GET /projects/{projectName}/components/{componentName}`. */
-	get(projectName: string, name: string): Promise<ComponentDetail> {
-		return this.http.get<ComponentDetail>(`${projectPath(projectName)}/components/${encodeURIComponent(name)}`);
+	async get(projectName: string, name: string): Promise<ComponentDetail> {
+		return this.http.get<ComponentDetail>(`${projectPath(projectName)}/components/${segment(name)}`);
 	}
 
 	/** Lists, then picks the one `ref` names by id or display name. */
-	async find(ref: string, projectName?: string): Promise<Component> {
+	async find(ref: string, projectName: string): Promise<Component> {
 		return findComponent(await this.list(projectName), ref);
 	}
 
@@ -240,7 +238,7 @@ export class ComponentsApi {
 	 * for an integration with no repository (one created prebuilt, or from an
 	 * existing API), which is reported as not found.
 	 */
-	repository(name: string, projectName?: string): Promise<ComponentRepository> {
+	async repository(name: string, projectName?: string): Promise<ComponentRepository> {
 		return this.http.get<ComponentRepository>(`${componentPath(name)}/repository`, {
 			query: { projectName },
 			mapStatus: (status, body) =>
@@ -278,17 +276,17 @@ export class ComponentsApi {
 	}
 
 	/** `PUT /components/{componentName}`. */
-	update(name: string, request: UpdateComponentRequest, projectName?: string): Promise<Component> {
+	async update(name: string, request: UpdateComponentRequest, projectName?: string): Promise<Component> {
 		return this.http.put<Component>(componentPath(name), request, { query: { projectName } });
 	}
 
 	/** `DELETE /components/{componentName}?projectName=`: accepted; lists as `deleting` until gone. */
-	delete(name: string, projectName?: string): Promise<void> {
+	async delete(name: string, projectName?: string): Promise<void> {
 		return this.http.delete(componentPath(name), { query: { projectName } });
 	}
 
 	/** `GET /projects/{projectName}/components/name-availability?candidate=`. */
-	checkName(projectName: string, candidate: string): Promise<ComponentNameAvailability> {
+	async checkName(projectName: string, candidate: string): Promise<ComponentNameAvailability> {
 		return this.http.get<ComponentNameAvailability>(`${projectPath(projectName)}/components/name-availability`, { query: { candidate } });
 	}
 
@@ -297,7 +295,7 @@ export class ComponentsApi {
 	 * another repository, branch or path. Whether it also turns a prebuilt
 	 * integration into a source-built one is for the platform to confirm.
 	 */
-	updateBuildParameters(name: string, workflow: ComponentWorkflowSpec, projectName?: string): Promise<Schemas["ComponentModel"]> {
+	async updateBuildParameters(name: string, workflow: ComponentWorkflowSpec, projectName?: string): Promise<Schemas["ComponentModel"]> {
 		return this.http.put<Schemas["ComponentModel"]>(`${componentPath(name)}/build-parameters`, { workflow }, { query: { projectName } });
 	}
 
@@ -307,17 +305,17 @@ export class ComponentsApi {
 	}
 
 	/** `PUT /components/{componentName}/buildpack-config`. */
-	updateBuildpackConfig(name: string, request: UpdateBuildpackConfigRequest, projectName?: string): Promise<void> {
+	async updateBuildpackConfig(name: string, request: UpdateBuildpackConfigRequest, projectName?: string): Promise<void> {
 		return this.http.put(`${componentPath(name)}/buildpack-config`, request, { query: { projectName } });
 	}
 
 	/** `PATCH /components/{componentName}/auto-build`. */
-	setAutoBuild(name: string, enabled: boolean, projectName?: string): Promise<void> {
+	async setAutoBuild(name: string, enabled: boolean, projectName?: string): Promise<void> {
 		return this.http.patch(`${componentPath(name)}/auto-build`, { autoBuildEnabled: enabled }, { query: { projectName } });
 	}
 
 	/** `PATCH /components/{componentName}/auto-deploy`. */
-	setAutoDeploy(name: string, enabled: boolean, projectName?: string): Promise<void> {
+	async setAutoDeploy(name: string, enabled: boolean, projectName?: string): Promise<void> {
 		return this.http.patch(`${componentPath(name)}/auto-deploy`, { autoDeployEnabled: enabled }, { query: { projectName } });
 	}
 
@@ -334,7 +332,7 @@ export class ComponentsApi {
 	}
 
 	/** `GET /components/{componentName}/deployment-track`: the default track. */
-	getDefaultTrack(name: string, projectName?: string): Promise<DeploymentTrack> {
+	async getDefaultTrack(name: string, projectName?: string): Promise<DeploymentTrack> {
 		return this.http.get<DeploymentTrack>(`${componentPath(name)}/deployment-track`, { query: { projectName } });
 	}
 }

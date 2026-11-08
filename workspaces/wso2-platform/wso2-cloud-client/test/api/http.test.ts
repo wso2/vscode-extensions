@@ -32,7 +32,7 @@ describe("HttpClient", () => {
 
 	it("does not end the session over a 401 a pass-through route relays from upstream", async () => {
 		let unauthenticated = 0;
-		const { client } = harness(
+		const { client, fake } = harness(
 			[
 				{ match: "GET /git/github/sources/p/c", status: 401, body: { message: "token audience not in allowed set" } },
 				{ match: "POST /api/v1/logs/query", status: 401, body: { message: "unauthorized" } },
@@ -42,6 +42,7 @@ describe("HttpClient", () => {
 
 		const git = (await rejection(client.git.raw("GET", "github/sources/p/c"))) as CloudError;
 		assert.equal(git.code, "unauthenticated");
+		assert.equal(fake.calls(/\/git\//).length, 1, "a new token cannot change git-app-service's allowlist, so it is not retried");
 		const logs = (await rejection(
 			client.observability.query(
 				{ project: "orders", component: "a", environment: "development" },

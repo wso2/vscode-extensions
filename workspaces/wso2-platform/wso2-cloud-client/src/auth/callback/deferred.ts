@@ -16,8 +16,9 @@
  * under the License.
  */
 
+import { untilAborted } from "../../abort";
 import type { CallbackReceiver } from "./types";
-import { abortable, isCallbackFor, parseCallback } from "./types";
+import { cancelledSignIn, isCallbackFor, parseCallback } from "./types";
 
 /**
  * A receiver the host feeds: the browser opens a `vscode://` URI, VS Code
@@ -36,8 +37,9 @@ export class DeferredReceiver implements CallbackReceiver {
 		const promise = new Promise<string>((resolve, reject) => {
 			this.pending = { state, resolve, reject };
 		});
-		return abortable(promise, signal, () => {
+		return untilAborted(promise, signal, () => {
 			this.pending = undefined;
+			return cancelledSignIn();
 		});
 	}
 

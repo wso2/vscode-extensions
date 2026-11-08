@@ -17,6 +17,7 @@
  */
 
 import type { HttpClient } from "./http";
+import { segment } from "./path";
 import type { Schemas } from "./schema";
 import { itemsOf } from "./schema";
 
@@ -40,12 +41,12 @@ export class DbServersApi {
 	constructor(private readonly http: HttpClient) {}
 
 	/** `GET /db-servers/availability`: whether the organization may create a database server. */
-	availability(): Promise<DbAvailability> {
+	async availability(): Promise<DbAvailability> {
 		return this.http.get<DbAvailability>("/db-servers/availability");
 	}
 
 	/** `GET /db-servers/offering`: the plans and regions on offer. */
-	offering(): Promise<DbOffering> {
+	async offering(): Promise<DbOffering> {
 		return this.http.get<DbOffering>("/db-servers/offering");
 	}
 
@@ -56,18 +57,18 @@ export class DbServersApi {
 	}
 
 	/** `GET /db-servers/{serverId}`. */
-	get(serverId: string): Promise<DbServer> {
-		return this.http.get<DbServer>(`/db-servers/${encodeURIComponent(serverId)}`);
+	async get(serverId: string): Promise<DbServer> {
+		return this.http.get<DbServer>(`/db-servers/${segment(serverId)}`);
 	}
 
 	/** `POST /db-servers`: accepted; the server lists as provisioning until it is ready. */
-	create(request: CreateDbServerRequest): Promise<DbServer> {
+	async create(request: CreateDbServerRequest): Promise<DbServer> {
 		return this.http.post<DbServer>("/db-servers", request);
 	}
 
 	/** `DELETE /db-servers/{serverId}`. */
-	delete(serverId: string): Promise<void> {
-		return this.http.delete(`/db-servers/${encodeURIComponent(serverId)}`);
+	async delete(serverId: string): Promise<void> {
+		return this.http.delete(`/db-servers/${segment(serverId)}`);
 	}
 
 	/**
@@ -75,13 +76,13 @@ export class DbServersApi {
 	 * platform answers with `Cache-Control: no-store`; the caller shows it once
 	 * and writes it where it is needed.
 	 */
-	revealCredentials(serverId: string): Promise<DbCredentials> {
-		return this.http.get<DbCredentials>(`/db-servers/${encodeURIComponent(serverId)}/credentials`, { timeoutMs: 60_000 });
+	async revealCredentials(serverId: string): Promise<DbCredentials> {
+		return this.http.get<DbCredentials>(`/db-servers/${segment(serverId)}/credentials`, { timeoutMs: 60_000 });
 	}
 
 	/** `POST /db-servers/{serverId}/backups/enable`: turns scheduled backups on. */
-	enableBackups(serverId: string): Promise<void> {
-		return this.http.post(`/db-servers/${encodeURIComponent(serverId)}/backups/enable`);
+	async enableBackups(serverId: string): Promise<void> {
+		return this.http.post(`/db-servers/${segment(serverId)}/backups/enable`);
 	}
 }
 
@@ -95,33 +96,33 @@ export class KnowledgeBasesApi {
 	}
 
 	/** `GET /knowledge-bases/{name}`. */
-	get(name: string): Promise<KnowledgeBase> {
-		return this.http.get<KnowledgeBase>(`/knowledge-bases/${encodeURIComponent(name)}`);
+	async get(name: string): Promise<KnowledgeBase> {
+		return this.http.get<KnowledgeBase>(`/knowledge-bases/${segment(name)}`);
 	}
 
 	/** `POST /knowledge-bases`. */
-	create(request: CreateKnowledgeBaseRequest): Promise<KnowledgeBase> {
+	async create(request: CreateKnowledgeBaseRequest): Promise<KnowledgeBase> {
 		return this.http.post<KnowledgeBase>("/knowledge-bases", request);
 	}
 
 	/** `PUT /knowledge-bases/{name}`. */
-	update(name: string, request: UpdateKnowledgeBaseRequest): Promise<KnowledgeBase> {
-		return this.http.put<KnowledgeBase>(`/knowledge-bases/${encodeURIComponent(name)}`, request);
+	async update(name: string, request: UpdateKnowledgeBaseRequest): Promise<KnowledgeBase> {
+		return this.http.put<KnowledgeBase>(`/knowledge-bases/${segment(name)}`, request);
 	}
 
 	/** `DELETE /knowledge-bases/{name}`. */
-	delete(name: string): Promise<void> {
-		return this.http.delete(`/knowledge-bases/${encodeURIComponent(name)}`);
+	async delete(name: string): Promise<void> {
+		return this.http.delete(`/knowledge-bases/${segment(name)}`);
 	}
 
 	/** `POST /knowledge-bases/{name}/data-sources`. */
-	addDataSource(name: string, request: CreateKnowledgeBaseDataSourceRequest): Promise<Schemas["KnowledgeBaseDataSource"]> {
-		return this.http.post<Schemas["KnowledgeBaseDataSource"]>(`/knowledge-bases/${encodeURIComponent(name)}/data-sources`, request);
+	async addDataSource(name: string, request: CreateKnowledgeBaseDataSourceRequest): Promise<Schemas["KnowledgeBaseDataSource"]> {
+		return this.http.post<Schemas["KnowledgeBaseDataSource"]>(`/knowledge-bases/${segment(name)}/data-sources`, request);
 	}
 
 	/** `POST /knowledge-bases/{name}/retrieve`: a retrieval query, answered as the service shapes it. */
-	retrieve<T = unknown>(name: string, body: unknown): Promise<T> {
-		return this.http.post<T>(`/knowledge-bases/${encodeURIComponent(name)}/retrieve`, body);
+	async retrieve<T = unknown>(name: string, body: unknown): Promise<T> {
+		return this.http.post<T>(`/knowledge-bases/${segment(name)}/retrieve`, body);
 	}
 }
 
@@ -136,23 +137,23 @@ export class ApplicationsApi {
 	}
 
 	/** `GET /applications/{applicationId}`. */
-	get(applicationId: string): Promise<Application> {
-		return this.http.get<Application>(`/applications/${encodeURIComponent(applicationId)}`);
+	async get(applicationId: string): Promise<Application> {
+		return this.http.get<Application>(`/applications/${segment(applicationId)}`);
 	}
 
 	/** `POST /applications`. */
-	create(request: CreateApplicationRequest): Promise<Application> {
+	async create(request: CreateApplicationRequest): Promise<Application> {
 		return this.http.post<Application>("/applications", request);
 	}
 
 	/** `PUT /applications/{applicationId}`. */
-	update(applicationId: string, request: UpdateApplicationRequest): Promise<Application> {
-		return this.http.put<Application>(`/applications/${encodeURIComponent(applicationId)}`, request);
+	async update(applicationId: string, request: UpdateApplicationRequest): Promise<Application> {
+		return this.http.put<Application>(`/applications/${segment(applicationId)}`, request);
 	}
 
 	/** `DELETE /applications/{applicationId}`. */
-	delete(applicationId: string): Promise<void> {
-		return this.http.delete(`/applications/${encodeURIComponent(applicationId)}`);
+	async delete(applicationId: string): Promise<void> {
+		return this.http.delete(`/applications/${segment(applicationId)}`);
 	}
 }
 
@@ -161,12 +162,12 @@ export class CodeServerApi {
 	constructor(private readonly http: HttpClient) {}
 
 	/** `POST /code-server`: gets or creates the editor; poll until `ready`. */
-	ensure(input: CreateCodeServerInput): Promise<CodeServerResult> {
+	async ensure(input: CreateCodeServerInput): Promise<CodeServerResult> {
 		return this.http.post<CodeServerResult>("/code-server", input);
 	}
 
 	/** `GET /code-server?projectId=&componentId=`. */
-	poll(projectId: string, componentId?: string): Promise<CodeServerResult> {
+	async poll(projectId: string, componentId?: string): Promise<CodeServerResult> {
 		return this.http.get<CodeServerResult>("/code-server", { query: { projectId, componentId } });
 	}
 }
@@ -176,17 +177,17 @@ export class BallerinaCentralApi {
 	constructor(private readonly http: HttpClient) {}
 
 	/** `GET /ballerina-central/token`: the stored Ballerina Central token's details, never its value. */
-	getToken(): Promise<Schemas["BalCentralTokenDetails"]> {
+	async getToken(): Promise<Schemas["BalCentralTokenDetails"]> {
 		return this.http.get<Schemas["BalCentralTokenDetails"]>("/ballerina-central/token");
 	}
 
 	/** `PUT /ballerina-central/token`: stores a Ballerina Central token for the organization's builds. */
-	saveToken(request: Schemas["SaveBalCentralTokenRequest"]): Promise<void> {
+	async saveToken(request: Schemas["SaveBalCentralTokenRequest"]): Promise<void> {
 		return this.http.put("/ballerina-central/token", request);
 	}
 
 	/** `DELETE /ballerina-central/token`. */
-	removeToken(): Promise<void> {
+	async removeToken(): Promise<void> {
 		return this.http.delete("/ballerina-central/token");
 	}
 }

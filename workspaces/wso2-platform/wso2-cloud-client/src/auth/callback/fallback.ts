@@ -70,7 +70,7 @@ export class FallbackReceiver implements CallbackReceiver {
 		return this.active.waitForCode(state, signal);
 	}
 
-	/** Disposes every receiver. */
+	/** Disposes the receiver in use; the others never started. */
 	dispose(): void {
 		this.active?.dispose?.();
 		this.active = undefined;

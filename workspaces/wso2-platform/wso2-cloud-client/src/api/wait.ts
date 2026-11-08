@@ -27,6 +27,15 @@ export const DEFAULT_WAIT_TIMEOUT_MS = 15 * 60_000;
 /** The most a wait may be asked to go on. */
 export const MAX_WAIT_TIMEOUT_MS = 25 * 60_000;
 
+/** The least time between two asks on a real timer. */
+export const MIN_POLL_INTERVAL_MS = 1_000;
+
+/** How long a wait with `timeoutMs` goes on: the default when it is not a number, never below zero or above the maximum. */
+export function waitTimeout(timeoutMs: number | undefined): number {
+	const value = typeof timeoutMs === "number" && Number.isFinite(timeoutMs) ? timeoutMs : DEFAULT_WAIT_TIMEOUT_MS;
+	return Math.min(Math.max(value, 0), MAX_WAIT_TIMEOUT_MS);
+}
+
 export interface PollOptions {
 	timeoutMs?: number;
 	intervalMs?: number;
@@ -45,8 +54,10 @@ export interface PollOptions {
  * `signal` aborts. A check that throws ends the wait with its error.
  */
 export async function poll<T>(check: () => Promise<{ done: boolean; value: T }>, options: PollOptions = {}): Promise<T> {
-	const timeoutMs = Math.min(options.timeoutMs ?? DEFAULT_WAIT_TIMEOUT_MS, MAX_WAIT_TIMEOUT_MS);
-	const intervalMs = options.intervalMs ?? DEFAULT_POLL_INTERVAL_MS;
+	const timeoutMs = waitTimeout(options.timeoutMs);
+	const asked = typeof options.intervalMs === "number" && Number.isFinite(options.intervalMs) ? options.intervalMs : DEFAULT_POLL_INTERVAL_MS;
+	// A real timer is never asked to spin; an injected sleep (a test) may go as fast as it likes.
+	const intervalMs = Math.max(asked, options.sleep ? 0 : MIN_POLL_INTERVAL_MS);
 	const now = options.now ?? Date.now;
 	const sleep = options.sleep ?? defaultSleep;
 	const deadline = now() + timeoutMs;

@@ -19,6 +19,7 @@
 import { Buffer } from "node:buffer";
 import { componentPath } from "./components";
 import type { HttpClient } from "./http";
+import { segment } from "./path";
 import type { Schemas } from "./schema";
 import { itemsOf } from "./schema";
 
@@ -38,12 +39,12 @@ export type EndpointPolicyConfig = Schemas["EndpointPolicyConfig"];
 
 /** The API path of a component in one environment. */
 function envPath(componentName: string, environmentName: string): string {
-	return `${componentPath(componentName)}/environments/${encodeURIComponent(environmentName)}`;
+	return `${componentPath(componentName)}/environments/${segment(environmentName)}`;
 }
 
 /** The API path of one endpoint of a component in one environment. */
 function endpointPath(componentName: string, environmentName: string, endpointName: string): string {
-	return `${envPath(componentName, environmentName)}/endpoints/${encodeURIComponent(endpointName)}`;
+	return `${envPath(componentName, environmentName)}/endpoints/${segment(endpointName)}`;
 }
 
 /** An integration's endpoints in one environment, and how they are exposed. */
@@ -64,12 +65,9 @@ export class EndpointsApi {
 
 	/** `GET /components/{componentName}/releases/{releaseId}/endpoints`. */
 	async listForRelease(componentName: string, releaseId: string, projectName?: string): Promise<EndpointResources[]> {
-		const answer = await this.http.get<Schemas["APIResourcesResponse"]>(
-			`${componentPath(componentName)}/releases/${encodeURIComponent(releaseId)}/endpoints`,
-			{
-				query: { projectName },
-			},
-		);
+		const answer = await this.http.get<Schemas["APIResourcesResponse"]>(`${componentPath(componentName)}/releases/${segment(releaseId)}/endpoints`, {
+			query: { projectName },
+		});
 		return answer?.endpoints ?? [];
 	}
 
@@ -84,14 +82,14 @@ export class EndpointsApi {
 	}
 
 	/** `POST …/endpoints/{endpointName}/test-key`: a one-hour key; also turns api-key auth on. */
-	createTestKey(componentName: string, environmentName: string, endpointName: string, projectName?: string): Promise<ApiKeyResult> {
+	async createTestKey(componentName: string, environmentName: string, endpointName: string, projectName?: string): Promise<ApiKeyResult> {
 		return this.http.post<ApiKeyResult>(`${endpointPath(componentName, environmentName, endpointName)}/test-key`, undefined, {
 			query: { projectName },
 		});
 	}
 
 	/** `POST …/endpoints/{endpointName}/api-keys`. */
-	createApiKey(
+	async createApiKey(
 		componentName: string,
 		environmentName: string,
 		endpointName: string,
@@ -113,21 +111,26 @@ export class EndpointsApi {
 	}
 
 	/** `DELETE …/endpoints/{endpointName}/api-keys/{keyName}`. */
-	revokeApiKey(componentName: string, environmentName: string, endpointName: string, keyName: string, projectName?: string): Promise<void> {
-		return this.http.delete(`${endpointPath(componentName, environmentName, endpointName)}/api-keys/${encodeURIComponent(keyName)}`, {
+	async revokeApiKey(componentName: string, environmentName: string, endpointName: string, keyName: string, projectName?: string): Promise<void> {
+		return this.http.delete(`${endpointPath(componentName, environmentName, endpointName)}/api-keys/${segment(keyName)}`, {
 			query: { projectName },
 		});
 	}
 
 	/** `POST …/endpoints/{endpointName}/expose`. */
-	expose(componentName: string, environmentName: string, endpointName: string, projectName?: string): Promise<Schemas["EndpointVisibilityResponse"]> {
+	async expose(
+		componentName: string,
+		environmentName: string,
+		endpointName: string,
+		projectName?: string,
+	): Promise<Schemas["EndpointVisibilityResponse"]> {
 		return this.http.post<Schemas["EndpointVisibilityResponse"]>(`${endpointPath(componentName, environmentName, endpointName)}/expose`, undefined, {
 			query: { projectName },
 		});
 	}
 
 	/** `PUT …/endpoints/{endpointName}/visibility`. */
-	setVisibility(
+	async setVisibility(
 		componentName: string,
 		environmentName: string,
 		endpointName: string,
@@ -140,14 +143,14 @@ export class EndpointsApi {
 	}
 
 	/** `GET …/endpoints/{endpointName}/security`. */
-	getSecurity(componentName: string, environmentName: string, endpointName: string, projectName?: string): Promise<Schemas["SecurityConfig"]> {
+	async getSecurity(componentName: string, environmentName: string, endpointName: string, projectName?: string): Promise<Schemas["SecurityConfig"]> {
 		return this.http.get<Schemas["SecurityConfig"]>(`${endpointPath(componentName, environmentName, endpointName)}/security`, {
 			query: { projectName },
 		});
 	}
 
 	/** `PUT …/endpoints/{endpointName}/security/api-key`. */
-	setApiKeyAuth(
+	async setApiKeyAuth(
 		componentName: string,
 		environmentName: string,
 		endpointName: string,
@@ -160,7 +163,7 @@ export class EndpointsApi {
 	}
 
 	/** `PUT …/endpoints/{endpointName}/security/jwt`. */
-	setJwtAuth(
+	async setJwtAuth(
 		componentName: string,
 		environmentName: string,
 		endpointName: string,
@@ -173,12 +176,12 @@ export class EndpointsApi {
 	}
 
 	/** `GET …/endpoints/{endpointName}/policies`. */
-	getPolicies(componentName: string, environmentName: string, endpointName: string, projectName?: string): Promise<EndpointPolicyConfig> {
+	async getPolicies(componentName: string, environmentName: string, endpointName: string, projectName?: string): Promise<EndpointPolicyConfig> {
 		return this.http.get<EndpointPolicyConfig>(`${endpointPath(componentName, environmentName, endpointName)}/policies`, { query: { projectName } });
 	}
 
 	/** `PUT …/endpoints/{endpointName}/policies`. */
-	setPolicies(
+	async setPolicies(
 		componentName: string,
 		environmentName: string,
 		endpointName: string,
@@ -217,20 +220,20 @@ export class RuntimeConfigApi {
 	}
 
 	/** `GET .../env-groups/{groupName}`; sensitive values read back empty. */
-	getEnvGroup(componentName: string, environmentName: string, groupName: string, projectName?: string): Promise<EnvVarGroup> {
-		return this.http.get<EnvVarGroup>(`${envPath(componentName, environmentName)}/env-groups/${encodeURIComponent(groupName)}`, {
+	async getEnvGroup(componentName: string, environmentName: string, groupName: string, projectName?: string): Promise<EnvVarGroup> {
+		return this.http.get<EnvVarGroup>(`${envPath(componentName, environmentName)}/env-groups/${segment(groupName)}`, {
 			query: { projectName },
 		});
 	}
 
 	/** `PUT …/env-groups/{groupName}`: creates or replaces the group. */
-	putEnvGroup(componentName: string, environmentName: string, groupName: string, group: EnvVarGroup, projectName?: string): Promise<void> {
-		return this.http.put(`${envPath(componentName, environmentName)}/env-groups/${encodeURIComponent(groupName)}`, group, { query: { projectName } });
+	async putEnvGroup(componentName: string, environmentName: string, groupName: string, group: EnvVarGroup, projectName?: string): Promise<void> {
+		return this.http.put(`${envPath(componentName, environmentName)}/env-groups/${segment(groupName)}`, group, { query: { projectName } });
 	}
 
 	/** `DELETE .../env-groups/{groupName}`. */
-	deleteEnvGroup(componentName: string, environmentName: string, groupName: string, projectName?: string): Promise<void> {
-		return this.http.delete(`${envPath(componentName, environmentName)}/env-groups/${encodeURIComponent(groupName)}`, { query: { projectName } });
+	async deleteEnvGroup(componentName: string, environmentName: string, groupName: string, projectName?: string): Promise<void> {
+		return this.http.delete(`${envPath(componentName, environmentName)}/env-groups/${segment(groupName)}`, { query: { projectName } });
 	}
 
 	/** `GET .../files`: the files mounted into the integration in one environment. */
@@ -242,27 +245,32 @@ export class RuntimeConfigApi {
 	}
 
 	/** `GET .../files/{fileName}`. */
-	getFile(componentName: string, environmentName: string, fileName: string, projectName?: string): Promise<FileMount> {
-		return this.http.get<FileMount>(`${envPath(componentName, environmentName)}/files/${encodeURIComponent(fileName)}`, { query: { projectName } });
+	async getFile(componentName: string, environmentName: string, fileName: string, projectName?: string): Promise<FileMount> {
+		return this.http.get<FileMount>(`${envPath(componentName, environmentName)}/files/${segment(fileName)}`, { query: { projectName } });
 	}
 
 	/** `PUT .../files/{fileName}`: creates or replaces a mounted file. */
-	putFile(componentName: string, environmentName: string, fileName: string, file: FileMount, projectName?: string): Promise<void> {
-		return this.http.put(`${envPath(componentName, environmentName)}/files/${encodeURIComponent(fileName)}`, file, { query: { projectName } });
+	async putFile(componentName: string, environmentName: string, fileName: string, file: FileMount, projectName?: string): Promise<void> {
+		return this.http.put(`${envPath(componentName, environmentName)}/files/${segment(fileName)}`, file, { query: { projectName } });
 	}
 
 	/** `DELETE .../files/{fileName}`. */
-	deleteFile(componentName: string, environmentName: string, fileName: string, projectName?: string): Promise<void> {
-		return this.http.delete(`${envPath(componentName, environmentName)}/files/${encodeURIComponent(fileName)}`, { query: { projectName } });
+	async deleteFile(componentName: string, environmentName: string, fileName: string, projectName?: string): Promise<void> {
+		return this.http.delete(`${envPath(componentName, environmentName)}/files/${segment(fileName)}`, { query: { projectName } });
 	}
 
 	/** `GET .../config-schema`: the configurables the integration declares. */
-	getConfigSchema(componentName: string, environmentName: string, projectName?: string): Promise<ConfigSchema> {
+	async getConfigSchema(componentName: string, environmentName: string, projectName?: string): Promise<ConfigSchema> {
 		return this.http.get<ConfigSchema>(`${envPath(componentName, environmentName)}/config-schema`, { query: { projectName } });
 	}
 
 	/** `POST .../config-schema`: saves the values for the integration's configurables. */
-	saveConfigSchema(componentName: string, environmentName: string, request: SaveConfigSchemaRequest, projectName?: string): Promise<ConfigSchema> {
+	async saveConfigSchema(
+		componentName: string,
+		environmentName: string,
+		request: SaveConfigSchemaRequest,
+		projectName?: string,
+	): Promise<ConfigSchema> {
 		return this.http.post<ConfigSchema>(`${envPath(componentName, environmentName)}/config-schema`, request, { query: { projectName } });
 	}
 }

@@ -61,12 +61,15 @@ export function linkAbort(outer: AbortSignal | undefined, timeoutMs?: number): L
 /**
  * Waits for `promise`, or rejects with `onAbort()` as soon as `signal` aborts
  * (at once when it already has). The promise itself runs on: this bounds one
- * caller's wait on work that others share.
+ * caller's wait on work that others share. A promise left behind this way
+ * may still fail; that failure is nobody's, so it is not reported as
+ * unhandled.
  */
 export function untilAborted<T>(promise: Promise<T>, signal: AbortSignal | undefined, onAbort: () => Error): Promise<T> {
 	if (!signal) {
 		return promise;
 	}
+	promise.catch(() => undefined);
 	if (signal.aborted) {
 		return Promise.reject(onAbort());
 	}

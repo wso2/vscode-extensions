@@ -67,30 +67,7 @@ export function parseCallback(uri: URL, expectedState: string): string {
 	return code;
 }
 
-/** Waits for `promise` unless `signal` aborts first, in which case `onAbort` runs and the wait ends as a cancelled sign-in. */
-export function abortable<T>(promise: Promise<T>, signal: AbortSignal | undefined, onAbort: () => void): Promise<T> {
-	if (!signal) {
-		return promise;
-	}
-	return new Promise<T>((resolve, reject) => {
-		const abort = () => {
-			onAbort();
-			reject(new LoginError("cancelled", "The sign-in was cancelled."));
-		};
-		if (signal.aborted) {
-			abort();
-			return;
-		}
-		signal.addEventListener("abort", abort, { once: true });
-		promise.then(
-			(value) => {
-				signal.removeEventListener("abort", abort);
-				resolve(value);
-			},
-			(error) => {
-				signal.removeEventListener("abort", abort);
-				reject(error);
-			},
-		);
-	});
+/** The error a sign-in whose wait was abandoned ends with. */
+export function cancelledSignIn(): LoginError {
+	return new LoginError("cancelled", "The sign-in was cancelled.");
 }

@@ -17,6 +17,7 @@
  */
 
 import type { HttpClient } from "./http";
+import { segment } from "./path";
 import type { Schemas } from "./schema";
 import { itemsOf } from "./schema";
 
@@ -49,7 +50,7 @@ export class OrgsApi {
 	 * platform documents: it activates billing for a new organization.
 	 */
 	async subscriptions(orgUuid: string): Promise<OrgSubscription[]> {
-		const listing = await this.http.get<Schemas["OrgSubscriptionList"]>(`/orgs/${encodeURIComponent(orgUuid)}/subscriptions`);
+		const listing = await this.http.get<Schemas["OrgSubscriptionList"]>(`/orgs/${segment(orgUuid)}/subscriptions`);
 		return itemsOf(listing);
 	}
 
@@ -57,17 +58,12 @@ export class OrgsApi {
 	 * `GET /orgs/{orgUuid}/component-limits`. The platform answers a safe
 	 * default of zero today; the real limit shows as a 402 on create.
 	 */
-	componentLimits(orgUuid: string): Promise<OrgComponentLimits> {
-		return this.http.get<OrgComponentLimits>(`/orgs/${encodeURIComponent(orgUuid)}/component-limits`);
+	async componentLimits(orgUuid: string): Promise<OrgComponentLimits> {
+		return this.http.get<OrgComponentLimits>(`/orgs/${segment(orgUuid)}/component-limits`);
 	}
 
 	/** `POST /orgs/{orgNumericId}/projects/default`. */
-	defaultProject(orgNumericId: number): Promise<DefaultProjectRef> {
+	async defaultProject(orgNumericId: number): Promise<DefaultProjectRef> {
 		return this.http.post<DefaultProjectRef>(`/orgs/${orgNumericId}/projects/default`);
-	}
-
-	/** `GET /orgs/validate?name=`: whether an organization name is free. */
-	validateName(name: string): Promise<Schemas["AvailabilityResponse"]> {
-		return this.http.get<Schemas["AvailabilityResponse"]>("/orgs/validate", { query: { name } });
 	}
 }

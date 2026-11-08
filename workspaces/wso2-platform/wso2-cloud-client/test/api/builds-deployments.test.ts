@@ -149,7 +149,7 @@ describe("DeploymentsApi", () => {
 			{ match: "POST /components/a/deployments", status: 504, body: "upstream request timeout" },
 			{
 				match: "GET /components/a/deployments?environmentId=development&projectName=orders",
-				sequence: [{ body: "" }, { body: "" }, { body: { releaseId: "a-r1", deploymentStatusV2: "IN_PROGRESS" } }],
+				sequence: [{ body: "" }, { body: "" }, { body: { releaseId: "a-r1", deploymentStatusV2: "IN_PROGRESS", build: { buildId: "b2" } } }],
 			},
 		]);
 
@@ -158,6 +158,26 @@ describe("DeploymentsApi", () => {
 		assert.equal(result.releaseId, "a-r1");
 		assert.equal(result.observed, true);
 		assert.equal(fake.calls(api("GET /components/a/deployments")).length, 3);
+	});
+
+	it("does not take a rollout of another build that merely finishes for the lost deployment", async () => {
+		const { client } = harness([
+			...routes().filter((route) => route.match !== "POST /components/a/deployments"),
+			{ match: "POST /components/a/deployments", status: 504, body: "upstream request timeout" },
+			{
+				match: "GET /components/a/deployments?environmentId=development&projectName=orders",
+				sequence: [
+					{ body: { releaseId: "a-r1", deploymentStatusV2: "IN_PROGRESS", build: { buildId: "b1" } } },
+					{ body: { releaseId: "a-r1", deploymentStatusV2: "ACTIVE", build: { buildId: "b1" } } },
+				],
+			},
+		]);
+
+		const error = (await rejection(
+			client.deployments.deploy("a", { environment: "development", imageId: "b2", projectName: "orders", observe: { ...noSleep, timeoutMs: 3 } }),
+		)) as CloudError;
+
+		assert.equal(error.code, "unavailable", "the gateway's error, not a success for b1");
 	});
 
 	it("does not go looking after a 502, which is a refusal rather than a lost answer", async () => {
