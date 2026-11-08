@@ -19,7 +19,7 @@
 import type { CloudEnvName } from "../config/environments";
 import type { PlatformClaims } from "../jwt";
 
-export type TokenSourceKind = "browser" | "injected" | "exchanging" | "static";
+export type TokenSourceKind = "browser" | "injected" | "static";
 
 export type SessionChangeReason = "signed-in" | "refreshed" | "signed-out" | "expired";
 
@@ -28,8 +28,6 @@ export interface SessionChangeEvent {
 }
 
 export interface GetAccessTokenOptions {
-	/** The resource the token must be bound to; ignored by sources that do not exchange. */
-	resource?: string;
 	/** Refresh before answering, because the last token was rejected. */
 	forceRefresh?: boolean;
 	signal?: AbortSignal;

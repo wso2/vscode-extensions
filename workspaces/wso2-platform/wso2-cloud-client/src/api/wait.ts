@@ -66,6 +66,9 @@ export async function poll<T>(check: () => Promise<{ done: boolean; value: T }>,
 		if (result.done) {
 			return result.value;
 		}
+		if (options.signal?.aborted) {
+			throw cancelled(options);
+		}
 		if (now() + intervalMs > deadline) {
 			throw new TimeoutError(`${options.describe?.() ?? "The wait"} did not finish within ${Math.round(timeoutMs / 1000)} seconds.`, {
 				reason: "wait_timeout",
@@ -73,9 +76,13 @@ export async function poll<T>(check: () => Promise<{ done: boolean; value: T }>,
 		}
 		await sleep(intervalMs, options.signal);
 		if (options.signal?.aborted) {
-			throw new TimeoutError(`${options.describe?.() ?? "The wait"} was cancelled.`, { reason: "cancelled" });
+			throw cancelled(options);
 		}
 	}
+}
+
+function cancelled(options: PollOptions): TimeoutError {
+	return new TimeoutError(`${options.describe?.() ?? "The wait"} was cancelled.`, { reason: "cancelled", retryable: false });
 }
 
 /** Sleeps `ms`, or less when `signal` aborts (not at all when it already has). */

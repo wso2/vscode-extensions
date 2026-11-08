@@ -3,7 +3,6 @@ import {
 	BrowserLoginTokenSource,
 	type CloudError,
 	DeferredReceiver,
-	ExchangingTokenSource,
 	InMemorySessionStore,
 	InjectedTokenSource,
 	LoginFlow,
@@ -195,33 +194,6 @@ describe("InjectedTokenSource", () => {
 	});
 });
 
-describe("ExchangingTokenSource", () => {
-	beforeEach(() => resetDiscoveryCache());
-
-	it("exchanges the login token for one bound to the resource, once per resource", async () => {
-		const clock = clockFrom(new Date("2026-11-05T10:00:00Z"));
-		const issuer = new FakeIssuer({ now: clock.now });
-		const manager = new SessionManager({ env, store: new InMemorySessionStore(), fetch: issuer.fetch, now: clock.now });
-		await manager.setSession(await signIn(issuer, clock.now));
-		const source = new ExchangingTokenSource(new BrowserLoginTokenSource(manager), {
-			issuer: env.issuer,
-			clientId: env.clientId,
-			fetch: issuer.fetch,
-			now: clock.now,
-		});
-
-		const first = await source.getAccessToken({ resource: env.apiBaseUrl });
-		const second = await source.getAccessToken({ resource: env.apiBaseUrl });
-
-		assert.equal(first, second);
-		assert.equal(readPlatformClaims(first)?.aud, env.apiBaseUrl);
-		const exchanges = issuer.calls.filter((c) => c.form.grant_type === "urn:ietf:params:oauth:grant-type:token-exchange");
-		assert.equal(exchanges.length, 1);
-		assert.equal(exchanges[0].form.resource, env.apiBaseUrl);
-		assert.notEqual(await source.getAccessToken(), first, "without a resource the login token itself is answered");
-	});
-});
-
 describe("SessionManager races", () => {
 	beforeEach(() => resetDiscoveryCache());
 
@@ -236,6 +208,37 @@ describe("SessionManager races", () => {
 
 		assert.deepEqual(issuer.revoked, [first.tokens.refreshToken]);
 		assert.equal((await manager.current())?.tokens.accessToken, second.tokens.accessToken);
+	});
+
+	it("does not let a new session's caller join the refresh of the session it replaced", async () => {
+		const clock = clockFrom(new Date("2026-11-05T10:00:00Z"));
+		const issuer = new FakeIssuer({ expiresIn: 600, now: clock.now });
+		let release: (() => void) | undefined;
+		// The first refresh (the old session's) is held until the test lets it go.
+		const fetch: typeof issuer.fetch = async (input, init) => {
+			if (!release && String(init?.body ?? "").includes("grant_type=refresh_token")) {
+				await new Promise<void>((resolve) => {
+					release = resolve;
+				});
+			}
+			return issuer.fetch(input, init);
+		};
+		const manager = new SessionManager({ env, store: new InMemorySessionStore(), fetch, now: clock.now });
+		await manager.setSession(await signIn(issuer, clock.now));
+		clock.advance(11 * 60_000);
+		const old = rejection(manager.getAccessToken());
+		while (!release) {
+			await new Promise((resolve) => setImmediate(resolve));
+		}
+
+		const next = await signIn(issuer, clock.now);
+		await manager.setSession(next);
+		const token = await manager.getAccessToken({ forceRefresh: true });
+		release();
+
+		assert.equal(readPlatformClaims(token)?.ouHandle, "acme");
+		assert.notEqual(token, next.tokens.accessToken, "the new session refreshed on its own");
+		assert.equal(((await old) as CloudError).details.reason, "no_session");
 	});
 
 	it("does not let a slow first read of the store overwrite a sign-in made meanwhile", async () => {

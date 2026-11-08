@@ -136,6 +136,32 @@ describe("HttpClient", () => {
 		assert.equal(error.code, "timeout");
 	});
 
+	it("reports a caller's cancel as a cancel that is not retried", async () => {
+		const never = fakeFetch([]);
+		const hanging: typeof never.fetch = (_input, init) =>
+			new Promise((_resolve, reject) => {
+				const abort = () => reject(new DOMException("aborted", "AbortError"));
+				if (init?.signal?.aborted) {
+					abort();
+				}
+				init?.signal?.addEventListener("abort", abort);
+			});
+		const http = new HttpClient({
+			baseUrl: "https://api.example.invalid",
+			tokenSource: new StaticTokenSource("t"),
+			fetch: hanging,
+			timeoutMs: 5_000,
+		});
+		const controller = new AbortController();
+
+		const call = rejection(http.get("/slow", { signal: controller.signal }));
+		controller.abort();
+		const error = (await call) as CloudError;
+		assert.equal(error.code, "timeout");
+		assert.equal(error.details.reason, "cancelled");
+		assert.equal(error.details.retryable, false);
+	});
+
 	it("leaves undefined query members out and encodes the rest", async () => {
 		const { client, fake } = harness([{ match: "GET /components", body: { items: [] } }]);
 

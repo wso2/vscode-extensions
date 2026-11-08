@@ -40,7 +40,7 @@ hosts are not in this repository: with `CLOUD_ENV=dev`, set
 The same variables override the built-in values for any environment.
 
 A token injected by the cloud editor (`WSO2_CLOUD_TOKEN_FILE`, re-read on every
-call, or `WSO2_CLOUD_TOKEN`; `CLOUD_STS_TOKEN` as a legacy name) replaces the
+call, or `WSO2_CLOUD_TOKEN`) replaces the
 browser sign-in.
 
 ## Developing

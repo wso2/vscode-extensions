@@ -68,7 +68,7 @@ export class SessionManager {
 	private readonly now: () => Date;
 	private loaded = false;
 	private session?: StoredSession;
-	private refreshing?: Promise<StoredSession>;
+	private refreshing?: { generation: number; promise: Promise<StoredSession> };
 	/** Bumped whenever the session is replaced or ended, so a refresh in flight for the old one is dropped. */
 	private generation = 0;
 	private readonly listeners = new Set<(event: SessionChangeEvent) => void>();
@@ -153,12 +153,21 @@ export class SessionManager {
 	 * wait only.
 	 */
 	private refresh(session: StoredSession, signal?: AbortSignal): Promise<StoredSession> {
-		if (!this.refreshing) {
-			this.refreshing = this.refreshOnce(session).finally(() => {
-				this.refreshing = undefined;
+		// A refresh started for a session that has since been replaced is not joined: it ends in no_session.
+		if (!this.refreshing || this.refreshing.generation !== this.generation) {
+			const entry = { generation: this.generation, promise: Promise.resolve(session) };
+			entry.promise = this.refreshOnce(session).finally(() => {
+				if (this.refreshing === entry) {
+					this.refreshing = undefined;
+				}
 			});
+			this.refreshing = entry;
 		}
-		return untilAborted(this.refreshing, signal, () => new TimeoutError("Waiting for the session refresh was cancelled.", { reason: "cancelled" }));
+		return untilAborted(
+			this.refreshing.promise,
+			signal,
+			() => new TimeoutError("Waiting for the session refresh was cancelled.", { reason: "cancelled" }),
+		);
 	}
 
 	/** One refresh against the issuer. The result is merged onto the current session and kept only if the session was not replaced or ended meanwhile. */
@@ -172,7 +181,7 @@ export class SessionManager {
 		try {
 			discovery = await discover(session.issuer, this.deps.fetch);
 		} catch (error) {
-			return this.keepIfUnexpired(session, error);
+			return this.keepIfUnexpired(session, error, generation);
 		}
 		try {
 			const tokens = await refreshTokens({
@@ -216,12 +225,16 @@ export class SessionManager {
 				await this.expire(`the identity provider answered ${error.error}`);
 				throw new UnauthenticatedError("session_expired", undefined, { apiError: error.error, apiMessage: error.errorDescription });
 			}
-			return this.keepIfUnexpired(session, error);
+			return this.keepIfUnexpired(session, error, generation);
 		}
 	}
 
 	/** A refresh lost to the network, or to an issuer that is down, is not the end of the session. */
-	private keepIfUnexpired(session: StoredSession, error: unknown): StoredSession {
+	private keepIfUnexpired(session: StoredSession, error: unknown, generation: number): StoredSession {
+		if (generation !== this.generation) {
+			// Signed out, or signed in as someone else, while the refresh ran: the old token is not handed out.
+			throw new UnauthenticatedError("no_session");
+		}
 		const unexpired = Date.parse(session.tokens.expiresAt) > this.now().getTime();
 		if (unexpired) {
 			this.logger.warn(`Could not refresh the WSO2 Cloud session (${errorMessage(error)}); using the current token while it lasts`);

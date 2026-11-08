@@ -113,7 +113,9 @@ export class LoginFlow {
 			});
 			this.logger.info(`Opening the browser to sign in at ${env.issuer}`);
 			const waiting = receiver.waitForCode(state, controller.signal);
-			await this.deps.openBrowser(authorizeUrl);
+			// A cancel or timeout while the browser is still opening (VS Code may be asking whether to
+			// open the link) ends the wait at once; racing also gives `waiting` a handler meanwhile.
+			await Promise.race([this.deps.openBrowser(authorizeUrl), waiting.then(noop, noop)]);
 			const code = await waiting;
 			let tokens: TokenResponse;
 			try {
@@ -213,3 +215,5 @@ export function expiryOf(expiresIn: number | undefined, claims: Pick<PlatformCla
 	}
 	return new Date(claims.exp * 1000).toISOString();
 }
+
+function noop(): void {}

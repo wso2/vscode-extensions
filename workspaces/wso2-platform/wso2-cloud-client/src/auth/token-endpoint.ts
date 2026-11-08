@@ -55,9 +55,6 @@ export interface TokenEndpointOptions {
 	signal?: AbortSignal;
 }
 
-export const TOKEN_EXCHANGE_GRANT = "urn:ietf:params:oauth:grant-type:token-exchange";
-export const ACCESS_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:access_token";
-
 /** `grant_type=authorization_code` with the PKCE verifier. */
 export function exchangeCode(options: TokenEndpointOptions & { code: string; redirectUri: string; codeVerifier: string }): Promise<TokenResponse> {
 	return postForm(options, {
@@ -72,22 +69,6 @@ export function exchangeCode(options: TokenEndpointOptions & { code: string; red
 /** `grant_type=refresh_token`. An `invalid_grant` means the session is over. */
 export function refreshTokens(options: TokenEndpointOptions & { refreshToken: string; scope?: string }): Promise<TokenResponse> {
 	const form: Record<string, string> = { grant_type: "refresh_token", client_id: options.clientId, refresh_token: options.refreshToken };
-	if (options.scope) {
-		form.scope = options.scope;
-	}
-	return postForm(options, form);
-}
-
-/** RFC 8693: a token bound to `resource`, from the login token. */
-export function exchangeToken(options: TokenEndpointOptions & { subjectToken: string; resource: string; scope?: string }): Promise<TokenResponse> {
-	const form: Record<string, string> = {
-		grant_type: TOKEN_EXCHANGE_GRANT,
-		client_id: options.clientId,
-		subject_token: options.subjectToken,
-		subject_token_type: ACCESS_TOKEN_TYPE,
-		requested_token_type: ACCESS_TOKEN_TYPE,
-		resource: options.resource,
-	};
 	if (options.scope) {
 		form.scope = options.scope;
 	}
