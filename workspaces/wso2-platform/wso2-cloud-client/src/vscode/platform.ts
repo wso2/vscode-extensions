@@ -26,7 +26,7 @@ import { SessionManager } from "../auth/session-manager";
 import { BrowserLoginTokenSource, ExchangingTokenSource, InjectedTokenSource, hasInjectedToken } from "../auth/sources";
 import type { StoredSession, TokenSource } from "../auth/types";
 import type { CloudEnvironment } from "../config/environments";
-import { errorMessage } from "../errors";
+import { LoginError, errorMessage } from "../errors";
 import type { UnauthenticatedError } from "../errors";
 import type { Logger } from "../logger";
 import { silentLogger } from "../logger";
@@ -106,7 +106,10 @@ export function createPlatformClients(options: PlatformClientsOptions): Platform
 					fetch: fetchImpl,
 					receiver: chosen.receiver,
 					openBrowser: async (url) => {
-						await vscode.env.openExternal(vscode.Uri.parse(url));
+						// False when the person declined to open the site; waiting for a callback then would only time out.
+						if (!(await vscode.env.openExternal(vscode.Uri.parse(url)))) {
+							throw new LoginError("cancelled", "The sign-in page was not opened.");
+						}
 					},
 					logger,
 				})

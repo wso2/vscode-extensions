@@ -39,12 +39,17 @@ export const SCOPE_TO_INTEGRATION_TYPE: Readonly<Record<string, IntegrationType 
 
 /** The integration type a Ballerina project scope stands for, if any. */
 export function integrationTypeFromScope(scope: string | undefined): IntegrationType | undefined {
-	return scope ? SCOPE_TO_INTEGRATION_TYPE[scope] : undefined;
+	return scope && hasOwn(SCOPE_TO_INTEGRATION_TYPE, scope) ? SCOPE_TO_INTEGRATION_TYPE[scope] : undefined;
 }
 
 /** Whether `value` is one of the integration types. */
 export function isIntegrationType(value: string | undefined): value is IntegrationType {
-	return value !== undefined && value in INTEGRATION_TYPES;
+	return value !== undefined && hasOwn(INTEGRATION_TYPES, value);
+}
+
+/** Only a table's own keys count: `"toString"` or `"constructor"` must not find `Object.prototype`. */
+function hasOwn(table: object, key: string): boolean {
+	return Object.prototype.hasOwnProperty.call(table, key);
 }
 
 /** The runtime for the language a build pack speaks. */

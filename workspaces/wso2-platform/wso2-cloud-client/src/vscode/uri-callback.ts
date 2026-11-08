@@ -59,10 +59,29 @@ export class UriCallbackReceiver extends DeferredReceiver {
 		return uri.path === this.path;
 	}
 
-	/** Hands a VS Code URI in; the query is what the provider appended. */
+	/**
+	 * Hands a VS Code URI in; the query is what the provider appended. VS Code
+	 * has already decoded `uri.query`, so it is split by hand: decoding it a
+	 * second time would turn a `+` in the code into a space.
+	 */
 	pushUri(uri: vscode.Uri): boolean {
-		return this.push(new URL(uri.toString(true)));
+		return this.push(callbackUrl(this.redirectUri, uri.query));
 	}
+}
+
+/** The callback as a URL whose parameters read back as `decodedQuery` holds them, with no second decoding. */
+export function callbackUrl(redirectUri: string, decodedQuery: string): URL {
+	const params = new URLSearchParams();
+	for (const pair of decodedQuery.split("&")) {
+		if (!pair) {
+			continue;
+		}
+		const at = pair.indexOf("=");
+		params.append(at < 0 ? pair : pair.slice(0, at), at < 0 ? "" : pair.slice(at + 1));
+	}
+	const url = new URL(redirectUri);
+	url.search = params.toString();
+	return url;
 }
 
 export interface ChosenReceivers {

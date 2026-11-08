@@ -31,6 +31,9 @@ export const WSO2_CLOUD_AUTH_PROVIDER_ID = "wso2-cloud";
 
 export const WSO2_CLOUD_AUTH_PROVIDER_LABEL = "WSO2 Cloud";
 
+/** The scope that asks for a new sign-in, choosing the organization again, even when a session exists. */
+export const PROMPT_LOGIN_SCOPE = "prompt:login";
+
 /** The scope that names the deployment a session is for. */
 export function scopeForEnv(env: CloudEnvName): string {
 	return `env:${env}`;
@@ -113,6 +116,20 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 		return named.length === 0 || named.includes(scopeForEnv(this.deps.env.name));
 	}
 
+	/**
+	 * Whether `session` answers `scopes`: an `org:` scope must name its
+	 * organization, and `prompt:login` asks for a new sign-in, which no
+	 * existing session answers (VS Code then calls `createSession`).
+	 */
+	private answers(session: vscode.AuthenticationSession, scopes: readonly string[] | undefined): boolean {
+		const asked = scopes ?? [];
+		if (asked.includes(PROMPT_LOGIN_SCOPE)) {
+			return false;
+		}
+		const orgs = asked.filter((s) => s.startsWith("org:"));
+		return orgs.length === 0 || orgs.some((s) => session.scopes.includes(s));
+	}
+
 	/** The session for this environment, refreshed when stale; none when the scopes name another environment or the issuer refused the refresh. */
 	async getSessions(scopes?: readonly string[]): Promise<vscode.AuthenticationSession[]> {
 		if (!this.serves(scopes)) {
@@ -123,7 +140,7 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 			const injected = await this.injectedSession();
 			if (injected) {
 				this.last = injected;
-				return [injected];
+				return this.answers(injected, scopes) ? [injected] : [];
 			}
 			return [];
 		}
@@ -141,7 +158,7 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 			return [];
 		}
 		this.last = this.toSession(current);
-		return [this.last];
+		return this.answers(this.last, scopes) ? [this.last] : [];
 	}
 
 	/** Signs in through the browser and keeps the session; `prompt:login` in the scopes asks to choose the organization again. */
@@ -153,19 +170,28 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 			throw new LoginError("not_available_in_cloud_editor", "This editor was started with a WSO2 Cloud token and cannot sign in as someone else.");
 		}
 		this.deps.cancelLogin?.();
-		const prompt = scopes.includes("prompt:login") ? { prompt: "login" } : undefined;
-		let session = await this.deps.startLogin({ extraAuthParams: prompt });
+		const prompt = scopes.includes(PROMPT_LOGIN_SCOPE) ? { prompt: "login" } : undefined;
+		const session = await this.deps.startLogin({ extraAuthParams: prompt });
 		// Stored first, so the organization is read with the token just issued, not the one before.
 		await this.deps.sessions.setSession(session);
+		const generation = this.deps.sessions.sessionGeneration;
 		if (this.deps.resolveOrg) {
 			try {
 				const org = await this.deps.resolveOrg(session);
-				session = (await this.deps.sessions.update((stored) => ({ ...stored, org: { ...stored.org, ...org } }))) ?? session;
+				// Not onto a session another sign-in put there meanwhile.
+				if (generation === this.deps.sessions.sessionGeneration) {
+					await this.deps.sessions.update((stored) => ({ ...stored, org: { ...stored.org, ...org } }));
+				}
 			} catch (error) {
 				this.logger.warn(`Signed in, but the organization could not be read from the API: ${errorMessage(error)}`);
 			}
 		}
-		this.last = this.toSession(session);
+		// What is held now: a sign-out or another sign-in while the organization was read wins.
+		const current = await this.deps.sessions.current();
+		if (!current) {
+			throw new LoginError("cancelled", "The session ended while the sign-in was finishing.");
+		}
+		this.last = this.toSession(current);
 		return this.last;
 	}
 

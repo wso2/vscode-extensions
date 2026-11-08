@@ -59,7 +59,7 @@ import type {
 	UpdateApplicationRequest,
 	UpdateKnowledgeBaseRequest,
 } from "../api/platform-services";
-import type { CreateProjectRequest, Project, ProjectHandlerAvailability, ProjectRepository, UpdateProjectRequest } from "../api/projects";
+import type { CreateProjectRequest, LinkProjectRepositoryRequest, Project, ProjectHandlerAvailability, UpdateProjectRequest } from "../api/projects";
 import type { RepoBranch, RepoPathInspection, RepoTreeNode } from "../api/repos";
 import type {
 	ApiKeyResult,
@@ -245,13 +245,13 @@ export interface IWso2PlatformExtensionAPI {
 		create(request: CreateProjectRequest): Promise<Project>;
 		update(name: string, request: UpdateProjectRequest): Promise<Project>;
 		delete(name: string): Promise<void>;
-		linkRepository(name: string, repository: ProjectRepository): Promise<Project>;
+		linkRepository(name: string, repository: LinkProjectRepositoryRequest): Promise<Project>;
 		checkHandler(candidate: string): Promise<ProjectHandlerAvailability>;
 	};
 	integrations: {
-		list(projectName?: string): Promise<Component[]>;
+		list(projectName: string): Promise<Component[]>;
 		get(projectName: string, name: string): Promise<ComponentDetail>;
-		find(ref: string, projectName?: string): Promise<Component>;
+		find(ref: string, projectName: string): Promise<Component>;
 		getRepository(name: string, projectName?: string): Promise<ComponentRepository>;
 		create(input: CreateIntegrationInput): Promise<CreatedComponent>;
 		createRaw(projectName: string, request: CreateComponentRequest): Promise<CreatedComponent>;
@@ -359,7 +359,7 @@ export interface IWso2PlatformExtensionAPI {
 		isRepoAuthorized(owner: string, repo: string): Promise<{ retrievedRepos: boolean; isAccessible: boolean; installationId?: number }>;
 		listInstallations(): Promise<{ orgName: string; installationId: number; repositories: { name: string }[] }[]>;
 		connectGitHub(): Promise<void>;
-		raw<T = unknown>(method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE", proxyPath: string, body?: unknown): Promise<T>;
+		raw<T = unknown>(method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE", proxyPath: string, body?: unknown, signal?: AbortSignal): Promise<T>;
 	};
 	dbServers: {
 		availability(): Promise<DbAvailability>;
