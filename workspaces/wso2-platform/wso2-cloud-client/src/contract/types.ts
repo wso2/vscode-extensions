@@ -401,7 +401,7 @@ export interface IWso2PlatformExtensionAPI {
 	connections: {
 		/** The env-var groups of an integration in an environment; sensitive values read back empty. */
 		list(integration: string, environment: string, projectName?: string): Promise<EnvVarGroup[]>;
-		/** Writes a managed database's credentials as a sensitive env group in each environment. */
+		/** Writes a managed database's credentials as a sensitive env group in each environment, the variables named by `connectionVarName`. */
 		createDatabaseConnection(request: {
 			integration: string;
 			dbServerId: string;
@@ -409,7 +409,7 @@ export interface IWso2PlatformExtensionAPI {
 			environments?: string[];
 			projectName?: string;
 		}): Promise<void>;
-		/** Experimental: an API key on the target's exposed endpoint, written as an env group on the consumer. */
+		/** Experimental: an API key on the target's exposed endpoint, written as an env group on the consumer, the variables named by `connectionVarName`. */
 		createServiceConnection(request: {
 			integration: string;
 			target: ConnectionTarget;

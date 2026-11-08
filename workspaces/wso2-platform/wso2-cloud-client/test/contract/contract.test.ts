@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
 import {
+	DATABASE_CONNECTION_VARS,
 	buildConsoleUrl,
+	connectionVarName,
+	connectionVarPrefix,
+	connectionVarSuffix,
 	contextKey,
 	integrationTypeFromScope,
+	isIntegrationType,
 	readContextDocument,
 	removeContextEntry,
 	runtimeForBuildPack,
@@ -75,5 +80,29 @@ describe("vocabulary", () => {
 		assert.equal(integrationTypeFromScope("workflow"), undefined);
 		assert.equal(runtimeForBuildPack("microintegrator"), "wso2-integrator-mi");
 		assert.equal(runtimeForBuildPack("ballerina"), "wso2-integrator");
+	});
+});
+
+describe("connection variables", () => {
+	it("prefixes each connection's variables with its name, so two connections never share one", () => {
+		assert.equal(connectionVarName("orders-db", DATABASE_CONNECTION_VARS.HostName), "ORDERS_DB_DB_HOST");
+		assert.notEqual(connectionVarName("orders", "DB_HOST"), connectionVarName("billing", "DB_HOST"));
+		assert.equal(connectionVarPrefix("2nd db"), "C_2ND_DB", "a variable cannot start with a digit");
+		assert.equal(connectionVarPrefix("--"), "CONNECTION");
+	});
+
+	it("reads a variable back by its suffix, with or without a prefix", () => {
+		const suffixes = Object.values(DATABASE_CONNECTION_VARS);
+		assert.equal(connectionVarSuffix("ORDERS_DB_PASSWORD", suffixes), "DB_PASSWORD");
+		assert.equal(connectionVarSuffix("DB_HOST", suffixes), "DB_HOST");
+		assert.equal(connectionVarSuffix("LOG_LEVEL", suffixes), undefined);
+	});
+});
+
+describe("vocabulary lookups", () => {
+	it("finds only the tables' own keys", () => {
+		assert.equal(isIntegrationType("toString"), false);
+		assert.equal(isIntegrationType("automation"), true);
+		assert.equal(integrationTypeFromScope("constructor"), undefined);
 	});
 });

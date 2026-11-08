@@ -20,3 +20,4 @@ export * from "./types";
 export * from "./context-file";
 export * from "./console";
 export * from "./vocab";
+export * from "./connections";
