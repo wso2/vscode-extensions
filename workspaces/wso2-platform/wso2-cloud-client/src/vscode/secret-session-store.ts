@@ -21,11 +21,13 @@ import { sessionKey } from "../auth/session-store";
 import type { SessionStore, StoredSession } from "../auth/types";
 import { parseStoredSession } from "../auth/types";
 import type { CloudEnvName } from "../config/environments";
+import { CLOUD_ENV_NAMES } from "../config/environments";
 
 /**
  * Sessions in VS Code's secret storage, which the desktop keeps in the OS
  * keychain and a remote session forwards to the local client, so no
- * keyring is needed where the extension host runs.
+ * keyring is needed where the extension host runs. Every window shares
+ * it, so a change one window makes is reported to the others.
  */
 export class SecretStorageSessionStore implements SessionStore {
 	constructor(private readonly secrets: vscode.SecretStorage) {}
@@ -43,5 +45,16 @@ export class SecretStorageSessionStore implements SessionStore {
 	/** Removes the session for `env` from SecretStorage. */
 	async clear(env: CloudEnvName): Promise<void> {
 		await this.secrets.delete(sessionKey(env));
+	}
+
+	/** Reports a change to an environment's session key, whichever window made it. */
+	onDidChange(listener: (env: CloudEnvName) => void): () => void {
+		const subscription = this.secrets.onDidChange((event) => {
+			const env = CLOUD_ENV_NAMES.find((name) => sessionKey(name) === event.key);
+			if (env) {
+				listener(env);
+			}
+		});
+		return () => subscription.dispose();
 	}
 }

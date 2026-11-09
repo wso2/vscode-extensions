@@ -26,13 +26,14 @@ import { SessionManager } from "../auth/session-manager";
 import { BrowserLoginTokenSource, InjectedTokenSource, hasInjectedToken } from "../auth/sources";
 import type { StoredSession, TokenSource } from "../auth/types";
 import type { CloudEnvironment } from "../config/environments";
+import { ENVIRONMENTS, missingEnvironmentUrls } from "../config/environments";
 import { LoginError, errorMessage } from "../errors";
 import type { UnauthenticatedError } from "../errors";
 import type { Logger } from "../logger";
 import { silentLogger } from "../logger";
 import { WSO2CloudAuthenticationProvider } from "./auth-provider";
 import { SecretStorageSessionStore } from "./secret-session-store";
-import { readCloudEnvironment } from "./settings";
+import { readCloudEnvName, readCloudEnvironment } from "./settings";
 import type { UriCallbackReceiver } from "./uri-callback";
 import type { ChosenReceivers } from "./uri-callback";
 import { chooseReceivers } from "./uri-callback";
@@ -73,11 +74,13 @@ export interface PlatformClients extends vscode.Disposable {
 /**
  * Wires the pieces for a hosting extension: secret storage for sessions,
  * the browser login or the injected token, the API client, and the
- * `wso2-cloud` authentication provider, registered on `context`.
+ * `wso2-cloud` authentication provider, registered on `context`. A
+ * configuration that cannot be used does not make it throw; see
+ * {@link readEnvironmentOrFallback}.
  */
 export function createPlatformClients(options: PlatformClientsOptions): PlatformClients {
 	const logger = options.logger ?? silentLogger;
-	const environment = options.environment ?? readCloudEnvironment();
+	const environment = options.environment ?? readEnvironmentOrFallback(logger);
 	const fetchImpl: FetchLike = options.fetch ?? defaultFetch;
 	const store = new SecretStorageSessionStore(options.context.secrets);
 	const sessions = new SessionManager({ env: environment, store, fetch: fetchImpl, logger });
@@ -149,8 +152,30 @@ export function createPlatformClients(options: PlatformClientsOptions): Platform
 		uriReceiver,
 		injected,
 		dispose: () => {
+			sessions.dispose();
 			uriReceiver?.dispose();
 			login?.cancel();
 		},
 	};
+}
+
+/**
+ * The configured environment. A configuration that cannot be used (`dev`
+ * without its URLs, an override that is not https) must not stop the host
+ * from activating, so the named environment is used without any override,
+ * or prod when that environment has no URLs of its own, and a warning names
+ * what was used. Sessions are kept per environment, so none is sent to the
+ * fallback's issuer.
+ */
+function readEnvironmentOrFallback(logger: Logger): CloudEnvironment {
+	try {
+		return readCloudEnvironment();
+	} catch (error) {
+		const named = ENVIRONMENTS[readCloudEnvName()];
+		const fallback = missingEnvironmentUrls(named).length === 0 ? named : ENVIRONMENTS.prod;
+		const message = `The WSO2 Cloud settings cannot be used (${errorMessage(error)}); using the ${fallback.name} environment without overrides instead.`;
+		logger.warn(message);
+		void Promise.resolve(vscode.window.showWarningMessage(message)).catch(() => undefined);
+		return fallback;
+	}
 }

@@ -28,6 +28,18 @@ describe("context document", () => {
 		assert.deepEqual(readContextDocument(undefined), []);
 	});
 
+	it("drops an integration whose path leaves the repository", () => {
+		const paths = ["svc/a", "/etc/passwd", "../outside", "svc/../../outside", "C:\\Windows", "\\\\server\\share", "svc\\..\\..\\x", "svc/..x"];
+		const [entry] = readContextDocument({
+			version: 2,
+			contexts: [{ org: "acme", project: "orders", integrations: paths.map((path, i) => ({ name: `i${i}`, path })) }],
+		});
+		assert.deepEqual(
+			entry.integrations?.map((i) => i.path),
+			["svc/a", "svc/..x"],
+		);
+	});
+
 	it("keys entries so a hyphen in a handle cannot collide", () => {
 		assert.notEqual(contextKey({ org: "a-b", project: "c" }), contextKey({ org: "a", project: "b-c" }));
 	});

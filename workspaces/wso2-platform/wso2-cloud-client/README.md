@@ -38,12 +38,45 @@ The platform has no counterpart for some of what the old CLI did; a host
 implementing the contract throws `NotSupportedError` for those rather than
 guessing.
 
+### The sign-in callback URI
+
+`createPlatformClients` returns a `uriReceiver` when the sign-in can come back
+through a `vscode://` URI (always over a remote, and as the fallback to the
+loopback listener on the desktop), but it does not register a URI handler: an
+extension has only one, and the host may already have its own. The host
+registers (or extends) its `vscode.window.registerUriHandler` and forwards the
+callback URIs to `uriReceiver.pushUri(uri)`, which answers `true` for one it
+took:
+
+```ts
+const clients = createPlatformClients({ extensionId: "wso2.wso2-integrator", context });
+context.subscriptions.push(
+	vscode.window.registerUriHandler({
+		handleUri(uri) {
+			if (clients.uriReceiver?.pushUri(uri)) {
+				return;
+			}
+			// The host's own URIs.
+		},
+	}),
+);
+```
+
+Without it, a sign-in that comes back by URI waits until it times out.
+
 ## Environments
 
-`CLOUD_ENV` (also `WSO2_CLOUD_ENV`) or the setting
-`integrator.advanced.cloudEnv` picks `prod`, `stage` or `dev`. Production and
-staging hosts are built in. The development deployment is internal, so its
-hosts are not in this repository: with `CLOUD_ENV=dev`, set
+The environment, `prod`, `stage` or `dev`, is the first of these that names
+one:
+
+1. the environment variable `WSO2_CLOUD_ENV`,
+2. the environment variable `CLOUD_ENV`,
+3. the user setting `integrator.advanced.cloudEnv` (a workspace or folder
+   value is ignored, so a cloned repository cannot choose it),
+4. `prod`.
+
+Production and staging hosts are built in. The development deployment is
+internal, so its hosts are not in this repository: with `dev`, set
 
 | Variable | Overrides |
 | --- | --- |
@@ -53,7 +86,11 @@ hosts are not in this repository: with `CLOUD_ENV=dev`, set
 | `WSO2_CLOUD_CONSOLE_URL` | the console, for links |
 | `WSO2_CLOUD_CLIENT_ID` | the OAuth client id (also `integrator.advanced.cloudClientId`) |
 
-The same variables override the built-in values for any environment.
+The same variables override the built-in values for any environment. An
+override must be `https` (`http` only for localhost). When the configuration
+cannot be used, `createPlatformClients` does not throw: it warns and uses the
+chosen environment without overrides, or `prod` when that environment has no
+built-in hosts (`dev`).
 
 A token injected by the cloud editor (`WSO2_CLOUD_TOKEN_FILE`, re-read on every
 call, or `WSO2_CLOUD_TOKEN`) replaces the

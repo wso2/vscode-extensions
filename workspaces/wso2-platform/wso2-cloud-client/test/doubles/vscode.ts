@@ -28,6 +28,7 @@ export const state: {
 	remoteName: string | undefined;
 	openExternalAnswer: boolean;
 	opened: string[];
+	warnings: string[];
 	settings: Record<string, { globalValue?: unknown; workspaceValue?: unknown; workspaceFolderValue?: unknown }>;
 } = {
 	uriScheme: "vscode",
@@ -35,6 +36,7 @@ export const state: {
 	remoteName: undefined,
 	openExternalAnswer: true,
 	opened: [],
+	warnings: [],
 	settings: {},
 };
 
@@ -45,6 +47,7 @@ export function resetVscode(): void {
 	state.remoteName = undefined;
 	state.openExternalAnswer = true;
 	state.opened = [];
+	state.warnings = [];
 	state.settings = {};
 }
 
@@ -118,3 +121,31 @@ export const authentication = {
 	registerAuthenticationProvider: () => ({ dispose: () => undefined }),
 	getSession: async () => undefined,
 };
+
+export const window = {
+	async showWarningMessage(message: string): Promise<undefined> {
+		state.warnings.push(message);
+		return undefined;
+	},
+};
+
+/** A SecretStorage in memory that reports every change, as VS Code's reports one any window makes. */
+export class FakeSecretStorage {
+	private readonly values = new Map<string, string>();
+	private readonly emitter = new EventEmitter<{ key: string }>();
+	readonly onDidChange = this.emitter.event;
+
+	async get(key: string): Promise<string | undefined> {
+		return this.values.get(key);
+	}
+
+	async store(key: string, value: string): Promise<void> {
+		this.values.set(key, value);
+		this.emitter.fire({ key });
+	}
+
+	async delete(key: string): Promise<void> {
+		this.values.delete(key);
+		this.emitter.fire({ key });
+	}
+}

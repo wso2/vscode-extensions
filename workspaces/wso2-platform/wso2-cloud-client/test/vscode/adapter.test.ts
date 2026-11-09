@@ -3,23 +3,30 @@ import {
 	BrowserLoginTokenSource,
 	type CloudError,
 	DeferredReceiver,
+	ENVIRONMENTS,
 	FallbackReceiver,
 	InMemorySessionStore,
+	InjectedTokenSource,
 	LoginFlow,
 	SessionManager,
 	type StoredSession,
 } from "../../src";
 import {
+	CLOUD_API_URL_VAR,
 	CLOUD_ENV_SETTING,
+	CLOUD_ENV_VARS,
+	CLOUD_ISSUER_VAR,
+	SecretStorageSessionStore,
 	UriCallbackReceiver,
 	WSO2CloudAuthenticationProvider,
 	chooseReceivers,
+	createPlatformClients,
 	readCloudEnvName,
 	scopeForOrg,
 	userSetting,
 } from "../../src/vscode";
-import { FakeIssuer } from "../doubles";
-import { Uri, resetVscode, state } from "../doubles/vscode";
+import { FakeIssuer, StaticTokenSource } from "../doubles";
+import { FakeSecretStorage, Uri, resetVscode, state } from "../doubles/vscode";
 import { DEV, rejection } from "../support";
 
 const env = { ...DEV, issuer: "https://idp.example.invalid", clientId: "WSO2_INTEGRATOR_EXTENSION" };
@@ -70,6 +77,89 @@ describe("VS Code adapter", () => {
 		);
 	});
 
+	it("activates on a configuration it cannot use, with a warning, instead of throwing", () => {
+		const keys = [
+			...CLOUD_ENV_VARS,
+			CLOUD_API_URL_VAR,
+			CLOUD_ISSUER_VAR,
+			"WSO2_CLOUD_OBSERVABILITY_URL",
+			"WSO2_CLOUD_CONSOLE_URL",
+			"WSO2_CLOUD_CLIENT_ID",
+		];
+		const saved = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+		const create = () =>
+			createPlatformClients({
+				extensionId: "wso2.wso2-integrator",
+				context: { secrets: new FakeSecretStorage(), subscriptions: [] } as never,
+				tokenSource: new StaticTokenSource("t"),
+			});
+		try {
+			for (const key of keys) {
+				delete process.env[key];
+			}
+			process.env.WSO2_CLOUD_ENV = "dev";
+			const dev = create();
+			dev.dispose();
+			assert.equal(dev.environment.name, "prod", "dev has no hosts of its own to fall back to");
+			assert.equal(state.warnings.length, 1);
+			assert.match(state.warnings[0], /dev/);
+
+			process.env.WSO2_CLOUD_ENV = "stage";
+			process.env[CLOUD_API_URL_VAR] = "http://gateway.example.invalid";
+			const stage = create();
+			stage.dispose();
+			assert.equal(stage.environment.name, "stage");
+			assert.equal(stage.environment.apiBaseUrl, ENVIRONMENTS.stage.apiBaseUrl, "the override that is not https is not used");
+			assert.equal(state.warnings.length, 2);
+		} finally {
+			for (const key of keys) {
+				if (saved[key] === undefined) {
+					delete process.env[key];
+				} else {
+					process.env[key] = saved[key];
+				}
+			}
+		}
+	});
+
+	it("picks up a session another window signed in to, refreshed or signed out of", async () => {
+		// From the real clock, since the sign-in here checks the ID token against it.
+		let t = Date.now();
+		const now = () => new Date(t);
+		const issuer = new FakeIssuer({ expiresIn: 600, now });
+		const secrets = new FakeSecretStorage();
+		const windowA = new SessionManager({ env, store: new SecretStorageSessionStore(secrets as never), fetch: issuer.fetch, now });
+		const windowB = new SessionManager({ env, store: new SecretStorageSessionStore(secrets as never), fetch: issuer.fetch, now });
+		const eventsA: string[] = [];
+		const eventsB: string[] = [];
+		windowA.onDidChange((e) => eventsA.push(e.reason));
+		windowB.onDidChange((e) => eventsB.push(e.reason));
+		const settle = async () => {
+			for (let i = 0; i < 5; i++) {
+				await new Promise((resolve) => setImmediate(resolve));
+			}
+		};
+		await windowB.current();
+
+		await windowA.setSession(await signIn(issuer));
+		await settle();
+		assert.equal((await windowB.current())?.tokens.accessToken, (await windowA.current())?.tokens.accessToken);
+
+		t += 9.5 * 60_000;
+		const refreshed = await windowA.getAccessToken();
+		await settle();
+		assert.equal(await windowB.getAccessToken(), refreshed, "window B takes window A's refresh instead of refreshing with a rotated-away token");
+		assert.equal(issuer.calls.filter((c) => c.form.grant_type === "refresh_token").length, 1);
+
+		await windowA.signOut({ revoke: false });
+		await settle();
+		assert.equal(await windowB.current(), undefined);
+		assert.deepEqual(eventsA, ["signed-in", "refreshed", "signed-out"], "a window's own writes are not reported back to it");
+		assert.deepEqual(eventsB, ["signed-in", "refreshed", "signed-out"]);
+		windowA.dispose();
+		windowB.dispose();
+	});
+
 	describe("authentication provider", () => {
 		async function provider(options: { resolveOrg?: (session: StoredSession) => Promise<{ uuid?: string }> } = {}) {
 			const issuer = new FakeIssuer();
@@ -94,6 +184,33 @@ describe("VS Code adapter", () => {
 			assert.deepEqual(await auth.getSessions([scopeForOrg("someone-else")]), [], "another organization's token is not handed out");
 			assert.deepEqual(await auth.getSessions(["prompt:login"]), [], "a new sign-in was asked for");
 			assert.deepEqual(await auth.getSessions(["env:stage"]), []);
+		});
+
+		it("hands out no expired token when the issuer cannot be reached to refresh it", async () => {
+			const issuer = new FakeIssuer();
+			const offline: typeof issuer.fetch = (input, init) =>
+				input === issuer.tokenEndpoint ? Promise.reject(new TypeError("fetch failed")) : issuer.fetch(input, init);
+			const sessions = new SessionManager({ env, store: new InMemorySessionStore(), fetch: offline });
+			const auth = new WSO2CloudAuthenticationProvider({ env, sessions, tokenSource: new BrowserLoginTokenSource(sessions) });
+			const session = await signIn(issuer);
+			await sessions.setSession({ ...session, tokens: { ...session.tokens, expiresAt: new Date(Date.now() - 1000).toISOString() } });
+
+			assert.deepEqual(await auth.getSessions([]), []);
+			assert.ok(await sessions.current(), "the session is kept for when the issuer is back");
+		});
+
+		it("answers only the injected token's session in an editor started with one, whatever storage holds", async () => {
+			const issuer = new FakeIssuer();
+			const sessions = new SessionManager({ env, store: new InMemorySessionStore(), fetch: issuer.fetch });
+			await sessions.setSession(await signIn(issuer));
+			const injected = issuer.accessToken({ sub: "user-2", email: "someone@example.com" });
+			const auth = new WSO2CloudAuthenticationProvider({ env, sessions, tokenSource: new InjectedTokenSource({ read: () => injected }) });
+
+			const handed = await auth.getSessions([]);
+
+			assert.equal(handed.length, 1);
+			assert.equal(handed[0].accessToken, injected);
+			assert.equal(handed[0].account.id, "user-2");
 		});
 
 		it("does not report a session the person signed out of while the organization was read", async () => {

@@ -79,6 +79,10 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 		this.logger = deps.logger ?? silentLogger;
 		this.disposables.push(
 			deps.sessions.onDidChange((event) => {
+				if (deps.tokenSource.kind === "injected") {
+					// The stored session is not this editor's; its changes are not reported.
+					return;
+				}
 				this.deps.sessions.current().then(
 					(session) => {
 						const converted = session ? [this.toSession(session)] : [];
@@ -130,18 +134,22 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 		return orgs.length === 0 || orgs.some((s) => session.scopes.includes(s));
 	}
 
-	/** The session for this environment, refreshed when stale; none when the scopes name another environment or the issuer refused the refresh. */
+	/** The session for this environment, refreshed when stale; none when the scopes name another environment, the issuer refused the refresh, or the token has expired. */
 	async getSessions(scopes?: readonly string[]): Promise<vscode.AuthenticationSession[]> {
 		if (!this.serves(scopes)) {
 			return [];
 		}
-		const session = await this.deps.sessions.current();
-		if (!session) {
+		if (this.deps.tokenSource.kind === "injected") {
+			// The editor's token is what the host uses; a browser session left in storage from before is not handed out.
 			const injected = await this.injectedSession();
 			if (injected) {
 				this.last = injected;
 				return this.answers(injected, scopes) ? [injected] : [];
 			}
+			return [];
+		}
+		const session = await this.deps.sessions.current();
+		if (!session) {
 			return [];
 		}
 		try {
@@ -154,7 +162,8 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 			// A network failure keeps the session; the token may still be good.
 		}
 		const current = await this.deps.sessions.current();
-		if (!current) {
+		if (!current || this.deps.sessions.isExpired(current)) {
+			// An expired token, kept because the issuer could not be reached, is no use to the extension asking.
 			return [];
 		}
 		this.last = this.toSession(current);
@@ -201,8 +210,8 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 	}
 
 	/**
-	 * In an editor started with a WSO2 Cloud token there is no stored session,
-	 * but there is a signed-in person: the token's claims. Other extensions
+	 * In an editor started with a WSO2 Cloud token the signed-in person is
+	 * the token's claims, whatever session storage holds. Other extensions
 	 * asking `vscode.authentication` get that session, read afresh each time
 	 * since the token can be rotated in place.
 	 */

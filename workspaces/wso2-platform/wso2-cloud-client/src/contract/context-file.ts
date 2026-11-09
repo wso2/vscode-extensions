@@ -32,8 +32,9 @@ export interface ContextDocument {
 
 /**
  * The entries of a parsed context document (`{version: 2, contexts: [...]}`).
- * Anything else holds no entries, and entries without an org and a project
- * are dropped. The host parses the YAML itself; this takes the result.
+ * Anything else holds no entries, entries without an org and a project
+ * are dropped, and so are integrations whose path leaves the repository.
+ * The host parses the YAML itself; this takes the result.
  */
 export function readContextDocument(data: unknown): ContextEntry[] {
 	if (typeof data !== "object" || data === null || Array.isArray(data)) {
@@ -71,7 +72,7 @@ function toEntry(value: unknown): ContextEntry | undefined {
 					return undefined;
 				}
 				const { name, path } = item as Record<string, unknown>;
-				return typeof name === "string" && name && typeof path === "string" ? { name, path } : undefined;
+				return typeof name === "string" && name && typeof path === "string" && isInsideRepo(path) ? { name, path } : undefined;
 			})
 			.filter((i): i is { name: string; path: string } => i !== undefined);
 		if (integrations.length > 0) {
@@ -79,6 +80,18 @@ function toEntry(value: unknown): ContextEntry | undefined {
 		}
 	}
 	return entry;
+}
+
+/**
+ * Whether an integration's path stays inside the repository: relative, with
+ * no `..` segment. The file comes from whatever repository was cloned, so a
+ * path that points elsewhere is dropped rather than followed.
+ */
+function isInsideRepo(path: string): boolean {
+	if (path.startsWith("/") || path.startsWith("\\") || /^[a-zA-Z]:/.test(path)) {
+		return false;
+	}
+	return !path.split(/[\\/]/).includes("..");
 }
 
 /** The v2 document to serialize, with members in a stable order and nothing empty. */
