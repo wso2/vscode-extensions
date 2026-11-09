@@ -37,6 +37,44 @@ export type SetApiKeyAuthRequest = Schemas["SetAPIKeyAuthRequest"];
 export type SetJwtAuthRequest = Schemas["SetJWTAuthRequest"];
 export type EndpointPolicyConfig = Schemas["EndpointPolicyConfig"];
 
+/**
+ * One link write: a target of the integration and what fills it. The target
+ * is a Ballerina configurable (`<org>/<module>:<name>`), a connection's
+ * configurables (`connection`) or an env var (`env`); the source is a
+ * resource key (`ref`, `key`) or, for a configurable, an endpoint of the
+ * integration's own project (`endpoint`, `<component>/<endpoint>`). A write
+ * with no source unlinks the target. The platform does not publish these
+ * routes in its OpenAPI, so the shapes are written here.
+ */
+export interface LinkRequest {
+	configurable?: string;
+	connection?: string;
+	env?: string;
+	ref?: string;
+	key?: string;
+	endpoint?: string;
+}
+
+/**
+ * What a link write did to the integration's Workload: `updated` (auto
+ * deploy releases it), `next_deploy` (the next deploy carries it),
+ * `unchanged`, or `no_workload` (its first build carries it). Unknown values
+ * read as `next_deploy`.
+ */
+export interface LinkWriteResult {
+	workload: string;
+}
+
+/** The parts of an integration's links read here. */
+export interface IntegrationLinks {
+	/** `ballerina` or `mi`. */
+	kind: string;
+	/** The Workload is from the integration's `workload.yaml`, so links can't be written. */
+	sourceDefined: boolean;
+	/** Each configurable filled from an endpoint of the integration's own project, to `<component>/<endpoint>`. */
+	endpointLinks?: Record<string, string>;
+}
+
 /** The API path of a component in one environment. */
 function envPath(componentName: string, environmentName: string): string {
 	return `${componentPath(componentName)}/environments/${segment(environmentName)}`;
@@ -257,6 +295,22 @@ export class RuntimeConfigApi {
 	/** `DELETE .../files/{fileName}`. */
 	async deleteFile(componentName: string, environmentName: string, fileName: string, projectName?: string): Promise<void> {
 		return this.http.delete(`${envPath(componentName, environmentName)}/files/${segment(fileName)}`, { query: { projectName } });
+	}
+
+	/** `GET /components/{componentName}/links`: what fills the integration's configurables and env vars. */
+	async listLinks(componentName: string, projectName?: string): Promise<IntegrationLinks> {
+		return this.http.get<IntegrationLinks>(`${componentPath(componentName)}/links`, { query: { projectName } });
+	}
+
+	/**
+	 * `PUT /components/{componentName}/link`: links one target, or unlinks it.
+	 * A configurable linked to an endpoint of its own project gets the
+	 * endpoint's address in every environment, resolved by the platform; the
+	 * link applies from the integration's next deploy of a build that has the
+	 * configurable.
+	 */
+	async putLink(componentName: string, link: LinkRequest, projectName?: string): Promise<LinkWriteResult> {
+		return this.http.put<LinkWriteResult>(`${componentPath(componentName)}/link`, link, { query: { projectName } });
 	}
 
 	/** `GET .../config-schema`: the configurables the integration declares. */

@@ -190,3 +190,29 @@ describe("ComponentsApi", () => {
 		assert.equal(fake.last()?.line, `${api("DELETE /components/a")}?projectName=orders`);
 	});
 });
+
+describe("RuntimeConfigApi links", () => {
+	it("links a configurable to an endpoint of its own project", async () => {
+		const { client, fake } = harness([{ match: "PUT /components/consumer/link", body: { workload: "next_deploy" } }]);
+
+		const result = await client.config.putLink("consumer", { configurable: "acme/consumer:ordersUrl", endpoint: "orders/api" }, "shop");
+
+		assert.equal(fake.last()?.line, `${api("PUT /components/consumer/link")}?projectName=shop`);
+		assert.deepEqual(fake.last()?.body, { configurable: "acme/consumer:ordersUrl", endpoint: "orders/api" });
+		assert.equal(result.workload, "next_deploy");
+	});
+
+	it("reads which configurables endpoints fill", async () => {
+		const { client, fake } = harness([
+			{
+				match: "GET /components/consumer/links",
+				body: { kind: "ballerina", sourceDefined: false, endpointLinks: { "acme/consumer:ordersUrl": "orders/api" } },
+			},
+		]);
+
+		const links = await client.config.listLinks("consumer", "shop");
+
+		assert.equal(fake.last()?.line, `${api("GET /components/consumer/links")}?projectName=shop`);
+		assert.deepEqual(links.endpointLinks, { "acme/consumer:ordersUrl": "orders/api" });
+	});
+});
