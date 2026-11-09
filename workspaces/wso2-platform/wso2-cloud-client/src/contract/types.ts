@@ -219,8 +219,15 @@ export interface OpenInConsoleParams {
 	newComponentParams?: { buildPackLang?: string };
 }
 
-/** A service whose own token WSO2 Integrator gets for its WSO2 Cloud session, by name; where it is, the host decides. */
+/** A service whose own token WSO2 Integrator gets for its WSO2 Cloud session, by name; the host decides which of its endpoints it trusts. */
 export type TokenExchangeTarget = "copilot";
+
+/** What a consumer asks the host to exchange the WSO2 Cloud token for. */
+export interface TokenExchangeRequest {
+	target: TokenExchangeTarget;
+	/** The target's exchange URL; it must be one the host allows for the target. */
+	endpoint: string;
+}
 
 /** A token another service issued for the WSO2 Cloud session. */
 export interface ExchangedToken {
@@ -465,8 +472,12 @@ export interface IWso2PlatformExtensionAPI {
 	};
 
 	// ---- other WSO2 Cloud services, which the host knows by name ----
-	/** The target's own token for the WSO2 Cloud session, exchanged by the host; the WSO2 Cloud token is never handed out. */
-	exchangeToken(request: { target: TokenExchangeTarget }): Promise<ExchangedToken>;
+	/**
+	 * The target's own token for the WSO2 Cloud session, exchanged by the host; the WSO2 Cloud token is never handed out.
+	 * `endpoint` is the target's exchange URL, as the consumer that owns the target knows it; the host exchanges only at
+	 * an endpoint on its own list for the target, and refuses any other with a `ForbiddenError`.
+	 */
+	exchangeToken(request: TokenExchangeRequest): Promise<ExchangedToken>;
 	/** One call to a WSO2 Cloud service, made by the host with its token; HTTP failures are `CloudError`s. */
 	request<T = unknown>(request: CloudServiceRequest): Promise<T>;
 

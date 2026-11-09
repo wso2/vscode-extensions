@@ -52,8 +52,9 @@ with `trustedExtensionAuthAccess` in its `product.json`). It then calls
 window's memory, and is replaced when the person, the organization or the
 window changes; VS Code reports the session change, and calls with the old key
 fail with `api_key_invalid`. The WSO2 Cloud token stays in the host: a service
-that needs its own token gets it through `exchangeToken`, and other WSO2 Cloud
-services are called through `request`, both by a name the host resolves.
+that needs its own token gets it through `exchangeToken`, at an endpoint the
+host allows for that target, and other WSO2 Cloud services are called through
+`request`, by a name the host resolves.
 
 ### The sign-in callback URI
 
