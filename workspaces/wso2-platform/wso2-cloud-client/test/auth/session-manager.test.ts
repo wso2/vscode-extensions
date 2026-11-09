@@ -225,6 +225,26 @@ describe("SessionManager", () => {
 		assert.equal((await store.load("dev"))?.tokens.accessToken, fromA, "the session window A stored is not cleared");
 		assert.deepEqual(events, ["refreshed"]);
 	});
+
+	it("gives a request made before another window switched organization no token of the new one", async () => {
+		const clock = clockFrom(new Date("2026-11-05T10:00:00Z"));
+		const issuer = new FakeIssuer({ expiresIn: 600, now: clock.now });
+		const store = new InMemorySessionStore();
+		const windowA = new SessionManager({ env, store, fetch: issuer.fetch, now: clock.now });
+		const windowB = new SessionManager({ env, store, fetch: issuer.fetch, now: clock.now });
+		await windowA.setSession(await signIn(issuer, clock.now));
+		await windowB.current();
+		clock.advance(9.5 * 60_000);
+		await windowA.getAccessToken();
+		const switched = (await store.load("dev")) as StoredSession;
+		await store.save({ ...switched, org: { ...switched.org, id: "another-org" } });
+
+		const error = (await rejection(windowB.getAccessToken())) as CloudError;
+
+		assert.equal(error.code, "unauthenticated");
+		assert.equal(error.details.reason, "no_session");
+		assert.equal((await windowB.current())?.org.id, "another-org", "the new organization's session is taken for what comes next");
+	});
 });
 
 describe("InjectedTokenSource", () => {
