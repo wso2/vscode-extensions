@@ -181,7 +181,10 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 			if (this.deps.tokenSource.kind === "injected") {
 				throw new LoginError("not_available_in_cloud_editor", "This editor was started with a WSO2 Cloud token and cannot sign in as someone else.");
 			}
-			throw new LoginError("no_redirect_available", `Signing in to WSO2 Cloud is not available in this editor: ${this.deps.loginUnavailable ?? "no sign-in was set up"}`);
+			throw new LoginError(
+				"no_redirect_available",
+				`Signing in to WSO2 Cloud is not available in this editor: ${this.deps.loginUnavailable ?? "no sign-in was set up"}`,
+			);
 		}
 		this.deps.cancelLogin?.();
 		const prompt = scopes.includes(PROMPT_LOGIN_SCOPE) ? { prompt: "login" } : undefined;
