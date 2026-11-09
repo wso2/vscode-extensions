@@ -31,6 +31,7 @@ import { LoginError, errorMessage } from "../errors";
 import type { UnauthenticatedError } from "../errors";
 import type { Logger } from "../logger";
 import { silentLogger } from "../logger";
+import { ApiKeys } from "./api-key";
 import { WSO2CloudAuthenticationProvider } from "./auth-provider";
 import { SecretStorageSessionStore } from "./secret-session-store";
 import { readCloudEnvName, readCloudEnvironment } from "./settings";
@@ -63,6 +64,8 @@ export interface PlatformClients extends vscode.Disposable {
 	readonly tokenSource: TokenSource;
 	readonly cloud: CloudClient;
 	readonly auth: WSO2CloudAuthenticationProvider;
+	/** The key the provider's sessions carry; the host's exported API answers only to it. */
+	readonly apiKeys: ApiKeys;
 	/** Set when sign-in happens in the browser; absent in a cloud editor started with a token. */
 	readonly login?: LoginFlow;
 	/** The URI receiver to feed from the extension's `handleUri`, when the sign-in comes back that way. */
@@ -130,10 +133,12 @@ export function createPlatformClients(options: PlatformClientsOptions): Platform
 		onUnauthenticated: options.onUnauthenticated,
 	});
 
+	const apiKeys = new ApiKeys();
 	const auth = new WSO2CloudAuthenticationProvider({
 		env: environment,
 		sessions,
 		tokenSource,
+		apiKeys,
 		startLogin: login ? (runOptions) => (login as LoginFlow).run(runOptions) : undefined,
 		cancelLogin: login ? () => login?.cancel() : undefined,
 		loginUnavailable,
@@ -149,6 +154,7 @@ export function createPlatformClients(options: PlatformClientsOptions): Platform
 		environment,
 		sessions,
 		tokenSource,
+		apiKeys,
 		cloud,
 		auth,
 		login,

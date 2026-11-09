@@ -13,15 +13,15 @@ No runtime dependencies. `vscode` is an optional peer, needed only by the
 
 | Import | What it holds |
 | --- | --- |
-| `@wso2/wso2-cloud-client` | Environments, errors, JWT helpers, the OAuth login flow and session manager, the API client (`createCloudClient`), the v2 extension contract and the `.wso2/context.yaml` document. |
+| `@wso2/wso2-cloud-client` | Environments, errors, JWT helpers, the OAuth login flow and session manager, the API client (`createCloudClient`), the extension contract and the `.wso2/context.yaml` document. |
 | `@wso2/wso2-cloud-client/vscode` | The `wso2-cloud` authentication provider, a SecretStorage session store, the URI callback receiver, settings readers and `createPlatformClients`, which wires all of it for an extension host. |
-| `@wso2/wso2-cloud-client/contract` | The v2 extension contract, its vocabulary, `buildConsoleUrl` and the context document only: no Node built-ins, so a webview bundle can import it. The root entry pulls in the loopback listener and the token sources, which need `node:http`, `node:crypto` and `node:fs`, and webpack refuses those in a browser target. |
+| `@wso2/wso2-cloud-client/contract` | The extension contract, its vocabulary, `buildConsoleUrl` and the context document only: no Node built-ins, so a webview bundle can import it. The root entry pulls in the loopback listener and the token sources, which need `node:http`, `node:crypto` and `node:fs`, and webpack refuses those in a browser target. |
 | `@wso2/wso2-cloud-client/openapi` | The types generated from the platform's OpenAPI document. |
 
 ## How the pieces fit
 
 ```
-extension host ──createPlatformClients()──▶ PlatformClients { sessions, tokenSource, cloud, auth }
+extension host ──createPlatformClients()──▶ PlatformClients { sessions, tokenSource, cloud, auth, apiKeys }
                                                  │                  │
                             vscode.authentication "wso2-cloud" ◀────┘   CloudClient.{projects, components, builds, deployments, ...}
                                                                                │
@@ -37,6 +37,23 @@ from the OpenAPI document under `spec/` through `openapi-typescript`; run
 The platform has no counterpart for some of what the old CLI did; a host
 implementing the contract throws `NotSupportedError` for those rather than
 guessing.
+
+### Other extensions and the exported API
+
+A host exports the contract's `IWso2PlatformExtensionGate` (WSO2 Integrator as
+`cloudAPIs`). Exports carry no caller identity, so everything past the gate
+answers only to a key: the `wso2-cloud` provider's sessions carry that key
+(`apiKeys`) as their `accessToken`, never the WSO2 Cloud token, and an
+extension gets one with
+`vscode.authentication.getSession("wso2-cloud", ["env:<env>"])`, where VS Code
+checks that extension's access (an editor build can trust extensions up front
+with `trustedExtensionAuthAccess` in its `product.json`). It then calls
+`cloudAPIs.connect(session.accessToken)`. The key is random, lives in the
+window's memory, and is replaced when the person, the organization or the
+window changes; VS Code reports the session change, and calls with the old key
+fail with `api_key_invalid`. The WSO2 Cloud token stays in the host: a service
+that needs its own token gets it through `exchangeToken`, and other WSO2 Cloud
+services are called through `request`, both by a name the host resolves.
 
 ### The sign-in callback URI
 

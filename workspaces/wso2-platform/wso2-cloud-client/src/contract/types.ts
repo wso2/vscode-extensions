@@ -81,7 +81,7 @@ import type { OrgInfo, StoredSession } from "../auth/types";
 import type { CloudEnvName, CloudEnvironment } from "../config/environments";
 
 /** The version a host's exported API carries, which a consumer checks before calling anything. */
-export const PLATFORM_EXTENSION_API_VERSION = 2 as const;
+export const PLATFORM_EXTENSION_API_VERSION = 3 as const;
 
 export interface PlatformUser {
 	/** The `sub` claim. */
@@ -219,14 +219,62 @@ export interface OpenInConsoleParams {
 	newComponentParams?: { buildPackLang?: string };
 }
 
+/** A service whose own token WSO2 Integrator gets for its WSO2 Cloud session, by name; where it is, the host decides. */
+export type TokenExchangeTarget = "copilot";
+
+/** A token another service issued for the WSO2 Cloud session. */
+export interface ExchangedToken {
+	accessToken: string;
+	/** Epoch milliseconds, when the service said. */
+	expiresAt?: number;
+}
+
+/** A WSO2 Cloud service WSO2 Integrator calls on a consumer's behalf, by name; where it is, the host decides. */
+export type CloudServiceName = "managed-tokens";
+
+/** One call to a {@link CloudServiceName}; `path` is relative to the service's base. */
+export interface CloudServiceRequest {
+	service: CloudServiceName;
+	method: "GET" | "POST" | "PUT" | "DELETE";
+	path: string;
+	body?: unknown;
+	timeoutMs?: number;
+}
+
 /**
- * What WSO2 Integrator exports as `cloudAPIs` for other extensions.
+ * What WSO2 Integrator exports as `cloudAPIs`: whether it can be used, the
+ * deployment in use, and the door to the rest.
+ *
+ * Exports carry no caller identity, so the rest answers only to the key a
+ * `wso2-cloud` session carries: a consumer gets the session with
+ * `vscode.authentication.getSession("wso2-cloud", ["env:<env>"])`, where
+ * VS Code checks the consumer's access, and passes its `accessToken` to
+ * {@link connect}. The key changes when the person, the organization or the
+ * window does; VS Code then reports the session change, and an API object
+ * connected with the key before refuses every call with an
+ * `UnauthenticatedError` (`api_key_invalid`).
+ */
+export interface IWso2PlatformExtensionGate {
+	readonly apiVersion: typeof PLATFORM_EXTENSION_API_VERSION;
+	isActive(): boolean;
+	/** Whether someone is signed in; whether the consumer may act for them is what the session tells. */
+	isLoggedIn(): boolean;
+	/** The deployment in use: hosts for links and the Copilot backend. Nothing in it is a secret. */
+	getPlatformConfig(): PlatformEnvConfig;
+	/** The API for the holder of the current key; an `UnauthenticatedError` (`api_key_invalid`) for any other value. */
+	connect(apiKey: string): IWso2PlatformExtensionAPI;
+}
+
+/**
+ * What a consumer holding the key reaches through
+ * {@link IWso2PlatformExtensionGate.connect}.
  *
  * It is namespaced by the platform's own nouns and typed over the API's
- * OpenAPI document. Tokens are not part of it: a consumer that needs one
- * calls `vscode.authentication.getSession("wso2-cloud", ["env:<env>"])`.
- * Methods the platform offers no API for throw a `NotSupportedError`
- * naming the gap, so a consumer degrades rather than guesses.
+ * OpenAPI document. The WSO2 Cloud token is not part of it, and never
+ * leaves the host: calls are made with it there, and a service that needs
+ * its own token gets one through {@link exchangeToken}. Methods the
+ * platform offers no API for throw a `NotSupportedError` naming the gap,
+ * so a consumer degrades rather than guesses.
  */
 export interface IWso2PlatformExtensionAPI {
 	readonly apiVersion: typeof PLATFORM_EXTENSION_API_VERSION;
@@ -415,6 +463,12 @@ export interface IWso2PlatformExtensionAPI {
 		saveToken(request: Schemas["SaveBalCentralTokenRequest"]): Promise<void>;
 		removeToken(): Promise<void>;
 	};
+
+	// ---- other WSO2 Cloud services, which the host knows by name ----
+	/** The target's own token for the WSO2 Cloud session, exchanged by the host; the WSO2 Cloud token is never handed out. */
+	exchangeToken(request: { target: TokenExchangeTarget }): Promise<ExchangedToken>;
+	/** One call to a WSO2 Cloud service, made by the host with its token; HTTP failures are `CloudError`s. */
+	request<T = unknown>(request: CloudServiceRequest): Promise<T>;
 
 	// ---- compositions over the platform, in place of the Choreo "connections" ----
 	connections: {

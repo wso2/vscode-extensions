@@ -16,6 +16,7 @@
  * under the License.
  */
 
+export * from "./api-key";
 export * from "./secret-session-store";
 export * from "./settings";
 export * from "./uri-callback";

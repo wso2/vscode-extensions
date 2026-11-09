@@ -12,6 +12,7 @@ import {
 	type StoredSession,
 } from "../../src";
 import {
+	ApiKeys,
 	CLOUD_API_URL_VAR,
 	CLOUD_ENV_SETTING,
 	CLOUD_ENV_VARS,
@@ -23,6 +24,7 @@ import {
 	createPlatformClients,
 	readCloudEnvName,
 	scopeForOrg,
+	sessionId,
 	userSetting,
 } from "../../src/vscode";
 import { FakeIssuer, StaticTokenSource } from "../doubles";
@@ -167,6 +169,7 @@ describe("VS Code adapter", () => {
 			const auth = new WSO2CloudAuthenticationProvider({
 				env,
 				sessions,
+				apiKeys: new ApiKeys(),
 				tokenSource: new BrowserLoginTokenSource(sessions),
 				startLogin: () => signIn(issuer),
 				resolveOrg: options.resolveOrg as never,
@@ -191,6 +194,7 @@ describe("VS Code adapter", () => {
 			const auth = new WSO2CloudAuthenticationProvider({
 				env,
 				sessions,
+				apiKeys: new ApiKeys(),
 				tokenSource: new BrowserLoginTokenSource(sessions),
 				loginUnavailable: "this editor has no URI scheme the identity provider knows",
 			});
@@ -200,17 +204,38 @@ describe("VS Code adapter", () => {
 			assert.match(error.message, /no URI scheme the identity provider knows/);
 		});
 
-		it("hands out no expired token when the issuer cannot be reached to refresh it", async () => {
+		it("hands out the key to the host's API, never the WSO2 Cloud token, and a new key for a new sign-in", async () => {
 			const issuer = new FakeIssuer();
-			const offline: typeof issuer.fetch = (input, init) =>
-				input === issuer.tokenEndpoint ? Promise.reject(new TypeError("fetch failed")) : issuer.fetch(input, init);
-			const sessions = new SessionManager({ env, store: new InMemorySessionStore(), fetch: offline });
-			const auth = new WSO2CloudAuthenticationProvider({ env, sessions, tokenSource: new BrowserLoginTokenSource(sessions) });
+			const sessions = new SessionManager({ env, store: new InMemorySessionStore(), fetch: issuer.fetch });
+			const apiKeys = new ApiKeys();
+			const auth = new WSO2CloudAuthenticationProvider({ env, sessions, apiKeys, tokenSource: new BrowserLoginTokenSource(sessions) });
 			const session = await signIn(issuer);
-			await sessions.setSession({ ...session, tokens: { ...session.tokens, expiresAt: new Date(Date.now() - 1000).toISOString() } });
+			await sessions.setSession(session);
 
+			const [handed] = await auth.getSessions([]);
+			assert.notEqual(handed.accessToken, session.tokens.accessToken);
+			assert.ok(apiKeys.verify(handed.accessToken));
+
+			await sessions.signOut({ revoke: false });
 			assert.deepEqual(await auth.getSessions([]), []);
-			assert.ok(await sessions.current(), "the session is kept for when the issuer is back");
+			assert.ok(!apiKeys.verify(handed.accessToken), "a key handed out before a sign-out stops working");
+			await sessions.setSession(await signIn(issuer));
+			const [again] = await auth.getSessions([]);
+			assert.notEqual(again.accessToken, handed.accessToken);
+			assert.ok(apiKeys.verify(again.accessToken));
+		});
+
+		it("keeps the key across a refresh of the WSO2 Cloud token", async () => {
+			const issuer = new FakeIssuer();
+			const sessions = new SessionManager({ env, store: new InMemorySessionStore(), fetch: issuer.fetch });
+			const apiKeys = new ApiKeys();
+			const auth = new WSO2CloudAuthenticationProvider({ env, sessions, apiKeys, tokenSource: new BrowserLoginTokenSource(sessions) });
+			await sessions.setSession(await signIn(issuer));
+			const [handed] = await auth.getSessions([]);
+
+			await sessions.getAccessToken({ forceRefresh: true });
+
+			assert.ok(apiKeys.verify(handed.accessToken));
 		});
 
 		it("answers only the injected token's session in an editor started with one, whatever storage holds", async () => {
@@ -218,12 +243,13 @@ describe("VS Code adapter", () => {
 			const sessions = new SessionManager({ env, store: new InMemorySessionStore(), fetch: issuer.fetch });
 			await sessions.setSession(await signIn(issuer));
 			const injected = issuer.accessToken({ sub: "user-2", email: "someone@example.com" });
-			const auth = new WSO2CloudAuthenticationProvider({ env, sessions, tokenSource: new InjectedTokenSource({ read: () => injected }) });
+			const apiKeys = new ApiKeys();
+			const auth = new WSO2CloudAuthenticationProvider({ env, sessions, apiKeys, tokenSource: new InjectedTokenSource({ read: () => injected }) });
 
 			const handed = await auth.getSessions([]);
 
 			assert.equal(handed.length, 1);
-			assert.equal(handed[0].accessToken, injected);
+			assert.ok(apiKeys.verify(handed[0].accessToken), "the key, not the editor's token");
 			assert.equal(handed[0].account.id, "user-2");
 		});
 
@@ -254,8 +280,23 @@ describe("VS Code adapter", () => {
 			held.sessions = built.sessions;
 
 			const handed = await built.auth.createSession([]);
-			assert.equal(handed.accessToken, held.other?.tokens.accessToken, "the session held now is the one reported");
+			assert.equal(handed.id, sessionId(held.other as StoredSession), "the session held now is the one reported");
 			assert.equal((await built.sessions.current())?.org.uuid, undefined);
 		});
+	});
+});
+
+describe("ApiKeys", () => {
+	it("answers only to the key handed out now", () => {
+		const keys = new ApiKeys();
+		assert.ok(!keys.verify("anything"), "no key before one is handed out");
+		const key = keys.current();
+		assert.equal(keys.current(), key);
+		assert.ok(keys.verify(key));
+		assert.ok(!keys.verify(`${key}x`));
+		assert.ok(!keys.verify(undefined));
+		keys.rotate();
+		assert.ok(!keys.verify(key));
+		assert.notEqual(keys.current(), key);
 	});
 });

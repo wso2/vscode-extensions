@@ -22,9 +22,10 @@ import type { SessionManager } from "../auth/session-manager";
 import type { OrgInfo, StoredSession, TokenSource } from "../auth/types";
 import { accountOf, orgOf } from "../auth/types";
 import type { CloudEnvName, CloudEnvironment } from "../config/environments";
-import { LoginError, errorMessage, isCloudError } from "../errors";
+import { LoginError, errorMessage } from "../errors";
 import type { Logger } from "../logger";
 import { silentLogger } from "../logger";
+import type { ApiKeys } from "./api-key";
 
 /** The id other extensions pass to `vscode.authentication.getSession`. */
 export const WSO2_CLOUD_AUTH_PROVIDER_ID = "wso2-cloud";
@@ -48,6 +49,8 @@ export interface AuthProviderDeps {
 	env: CloudEnvironment;
 	sessions: SessionManager;
 	tokenSource: TokenSource;
+	/** The key the sessions carry in place of the WSO2 Cloud token. */
+	apiKeys: ApiKeys;
 	/** Runs a browser sign-in and answers the session it produced. Absent where no browser can be used. */
 	startLogin?: (options: { extraAuthParams?: Record<string, string> }) => Promise<StoredSession>;
 	/** Abandons a sign-in waiting for the browser. */
@@ -60,10 +63,11 @@ export interface AuthProviderDeps {
 }
 
 /**
- * The `wso2-cloud` authentication provider. Sessions carry the real access
- * token, so another extension gets one with
- * `vscode.authentication.getSession("wso2-cloud", ["env:prod"])` and never
- * depends on this extension's exported API for it.
+ * The `wso2-cloud` authentication provider. Its sessions carry the key to
+ * the host's exported API ({@link ApiKeys}), never the WSO2 Cloud token,
+ * which stays in the host. Another extension gets the key with
+ * `vscode.authentication.getSession("wso2-cloud", ["env:prod"])`, which is
+ * where VS Code checks that extension's access to the account.
  *
  * One provider serves the environment it was made for; a session for
  * another environment is not surfaced until the setting changes and the
@@ -85,21 +89,18 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 					// The stored session is not this editor's; its changes are not reported.
 					return;
 				}
+				if (event.reason === "refreshed") {
+					// A new WSO2 Cloud token is no change to the session handed out: its key stays.
+					return;
+				}
+				// Another person or organization, or none: the key handed out for the session before stops working.
+				this.deps.apiKeys.rotate();
 				this.deps.sessions.current().then(
 					(session) => {
 						const converted = session ? [this.toSession(session)] : [];
 						const removed = this.last ? [this.last] : [];
 						this.last = converted[0];
-						switch (event.reason) {
-							case "signed-in":
-								this.emitter.fire({ added: converted, removed, changed: [] });
-								break;
-							case "refreshed":
-								this.emitter.fire({ added: [], removed: [], changed: converted });
-								break;
-							default:
-								this.emitter.fire({ added: [], removed, changed: [] });
-						}
+						this.emitter.fire({ added: event.reason === "signed-in" ? converted : [], removed, changed: [] });
 					},
 					(error) => this.logger.error("The WSO2 Cloud session could not be read after it changed", error),
 				);
@@ -136,7 +137,7 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 		return orgs.length === 0 || orgs.some((s) => session.scopes.includes(s));
 	}
 
-	/** The session for this environment, refreshed when stale; none when the scopes name another environment, the issuer refused the refresh, or the token has expired. */
+	/** The session for this environment; none when the scopes name another environment or no one is signed in. */
 	async getSessions(scopes?: readonly string[]): Promise<vscode.AuthenticationSession[]> {
 		if (!this.serves(scopes)) {
 			return [];
@@ -150,22 +151,9 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 			}
 			return [];
 		}
-		const session = await this.deps.sessions.current();
-		if (!session) {
-			return [];
-		}
-		try {
-			// A stale token is refreshed here, so a session handed out is usable.
-			await this.deps.tokenSource.getAccessToken();
-		} catch (error) {
-			if (isCloudError(error) && (error.code === "session_expired" || error.code === "unauthenticated")) {
-				return [];
-			}
-			// A network failure keeps the session; the token may still be good.
-		}
+		// The WSO2 Cloud token is refreshed where it is used, in the host; the key handed out does not expire with it.
 		const current = await this.deps.sessions.current();
-		if (!current || this.deps.sessions.isExpired(current)) {
-			// An expired token, kept because the issuer could not be reached, is no use to the extension asking.
+		if (!current) {
 			return [];
 		}
 		this.last = this.toSession(current);
@@ -232,12 +220,13 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 			if (!claims) {
 				return undefined;
 			}
-			const accessToken = await this.deps.tokenSource.getAccessToken();
+			// Read to tell a token that can no longer be used from one that can; it is not handed out.
+			await this.deps.tokenSource.getAccessToken();
 			const org = orgOf(claims);
 			const account = accountOf(claims);
 			return {
 				id: sessionId({ env: this.deps.env.name, account, org }),
-				accessToken,
+				accessToken: this.deps.apiKeys.current(),
 				account: { id: account.id, label: `${account.label} (${org.name})` },
 				scopes: [scopeForEnv(this.deps.env.name), scopeForOrg(org.handle)],
 			};
@@ -257,11 +246,11 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 		this.deps.cancelLogin?.();
 	}
 
-	/** A stored session as VS Code shows and hands it out. */
+	/** A stored session as VS Code shows and hands it out, with the key in place of its token. */
 	toSession(session: StoredSession): vscode.AuthenticationSession {
 		return {
 			id: sessionId(session),
-			accessToken: session.tokens.accessToken,
+			accessToken: this.deps.apiKeys.current(),
 			account: { id: session.account.id, label: `${session.account.label} (${session.org.name})` },
 			scopes: [scopeForEnv(session.env), scopeForOrg(session.org.handle)],
 		};
