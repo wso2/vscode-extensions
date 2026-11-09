@@ -34,9 +34,13 @@ describe("LoginFlow", () => {
 		const authorize = new URL(opened[0]);
 		assert.equal(authorize.searchParams.get("code_challenge_method"), "S256");
 		assert.equal(authorize.searchParams.get("redirect_uri"), "vscode://wso2.wso2-integrator/signin");
-		assert.equal(authorize.searchParams.get("scope"), "openid offline_access profile email");
+		const scope = authorize.searchParams.get("scope")?.split(" ") ?? [];
+		assert.deepEqual(scope.slice(0, 4), ["openid", "offline_access", "profile", "email"]);
+		assert.ok(scope.includes("cloud:project:read") && scope.includes("ipaas:integration:read"), "asks for the platform permissions");
+		assert.equal(authorize.searchParams.get("resource"), "urn:wso2:cloud");
 		const tokenCall = issuer.calls.find((c) => c.form.grant_type === "authorization_code");
 		assert.ok(tokenCall?.form.code_verifier);
+		assert.equal(tokenCall?.form.resource, undefined, "the resource is not repeated on the code exchange");
 		assert.equal(tokenCall?.form.client_id, "WSO2_INTEGRATOR_EXTENSION");
 	});
 

@@ -33,8 +33,58 @@ import { OAuthError, exchangeCode } from "./token-endpoint";
 import type { StoredSession, TokenSet } from "./types";
 import { STORED_SESSION_VERSION, accountOf, orgOf } from "./types";
 
-/** The scopes a sign-in asks for: identity, a refresh token, and the profile claims the UI shows. */
-export const LOGIN_SCOPES: readonly string[] = ["openid", "offline_access", "profile", "email"];
+/**
+ * The resource server WSO2 Cloud's permissions are declared on. Sent with the authorization
+ * request, it makes ThunderID grant the permission scopes below that the person's roles hold, and
+ * it becomes the token's audience, as for the WSO2 Cloud consoles.
+ */
+export const CLOUD_RESOURCE = "urn:wso2:cloud";
+
+/**
+ * The WSO2 Cloud permissions the Integration Platform API's routes check, as the Integration
+ * Platform console requests them. ThunderID drops any the person's roles do not grant.
+ */
+export const PLATFORM_SCOPES: readonly string[] = [
+	"cloud:organization:view",
+	"cloud:environment:manage",
+	"cloud:deployment-pipeline:manage",
+	"cloud:resource-type:manage",
+	"cloud:project:create",
+	"cloud:project:read",
+	"cloud:project:update",
+	"cloud:project:delete",
+	"cloud:secret:view",
+	"cloud:secret:manage",
+	"ipaas:environment:read",
+	"ipaas:data-plane:read",
+	"ipaas:deployment-pipeline:read",
+	"ipaas:repository:read",
+	"ipaas:repository:connect",
+	"ipaas:integration:create",
+	"ipaas:integration:read",
+	"ipaas:integration:update",
+	"ipaas:integration:delete",
+	"ipaas:integration:build",
+	"ipaas:integration:deploy",
+	"ipaas:integration:execute",
+	"ipaas:editor:use",
+	"ipaas:config:read",
+	"ipaas:endpoint:read",
+	"ipaas:endpoint:update",
+	"ipaas:endpoint:expose",
+	"ipaas:endpoint:test",
+	"ipaas:endpoint:api-key-manage",
+	"ipaas:application:read",
+	"ipaas:application:manage",
+	"ipaas:alert-rule:read",
+	"ipaas:observability:log-read",
+	"ipaas:observability:metric-read",
+	"ipaas:package-registry:read",
+	"ipaas:package-registry:manage",
+];
+
+/** The scopes a sign-in asks for: identity, a refresh token, the profile claims the UI shows, and the platform permissions. */
+export const LOGIN_SCOPES: readonly string[] = ["openid", "offline_access", "profile", "email", ...PLATFORM_SCOPES];
 
 /** How long the browser is given before the sign-in is abandoned. */
 export const LOGIN_TIMEOUT_MS = 5 * 60_000;
@@ -109,7 +159,8 @@ export class LoginFlow {
 				state,
 				nonce,
 				codeChallenge: challengeS256(verifier),
-				extra: options.extraAuthParams,
+				// At authorization time only: ThunderID decides the granted scopes during sign-in and keeps the resource on the code.
+				extra: { resource: CLOUD_RESOURCE, ...options.extraAuthParams },
 			});
 			this.logger.info(`Opening the browser to sign in at ${env.issuer}`);
 			const waiting = receiver.waitForCode(state, controller.signal);
