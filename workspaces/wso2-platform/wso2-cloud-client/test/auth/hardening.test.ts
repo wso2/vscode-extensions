@@ -92,7 +92,7 @@ describe("LoopbackReceiver", () => {
 
 		const stray = await fetch(`${base}?code=x&state=other`);
 		assert.equal(stray.status, 400);
-		assert.match(await stray.text(), /another sign-in/);
+		assert.match(await stray.text(), /not part of this sign-in/);
 		const elsewhere = await fetch(`${base.replace("/callback", "/nope")}`);
 		assert.equal(elsewhere.status, 404);
 		const posted = await fetch(`${base}?code=x&state=mine`, { method: "POST" });
@@ -100,8 +100,26 @@ describe("LoopbackReceiver", () => {
 
 		const real = await fetch(`${base}?code=the-code&state=mine`);
 		assert.equal(real.status, 200);
-		assert.match(await real.text(), /Sign-in received/);
+		assert.match(await real.text(), /You are signed in/);
 		assert.equal(await waiting, "the-code");
+		receiver.dispose();
+	});
+
+	it("answers a refused sign-in with the failure page, never the provider's words", async () => {
+		const receiver = new LoopbackReceiver([0]);
+		await receiver.start();
+		const waiting = receiver.waitForCode("mine");
+		const failed = waiting.then(
+			() => assert.fail("a refused sign-in must not resolve"),
+			(error: unknown) => error,
+		);
+
+		const refused = await fetch(`${receiver.redirectUri}?error=access_denied&error_description=%3Cb%3Einjected%3C%2Fb%3E&state=mine`);
+		assert.equal(refused.status, 400);
+		const page = await refused.text();
+		assert.match(page, /Sign-in failed/);
+		assert.doesNotMatch(page, /injected|signed in/);
+		assert.ok(await failed);
 		receiver.dispose();
 	});
 
