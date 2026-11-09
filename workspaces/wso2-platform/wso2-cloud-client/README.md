@@ -86,8 +86,9 @@ internal, so its hosts are not in this repository: with `dev`, set
 | `WSO2_CLOUD_CONSOLE_URL` | the console, for links |
 | `WSO2_CLOUD_CLIENT_ID` | the OAuth client id (also `integrator.advanced.cloudClientId`) |
 
-The same variables override the built-in values for any environment. An
-override must be `https` (`http` only for localhost). When the configuration
+The same variables override the built-in values for any environment. A URL
+override must be `https` (`http` only for localhost); the client id is not a
+URL and is taken as it is. When the configuration
 cannot be used, `createPlatformClients` does not throw: it warns and uses the
 chosen environment without overrides, or `prod` when that environment has no
 built-in hosts (`dev`).

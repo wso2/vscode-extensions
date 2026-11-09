@@ -186,6 +186,20 @@ describe("VS Code adapter", () => {
 			assert.deepEqual(await auth.getSessions(["env:stage"]), []);
 		});
 
+		it("says why it cannot sign in, not that the editor holds an injected token", async () => {
+			const sessions = new SessionManager({ env, store: new InMemorySessionStore(), fetch: new FakeIssuer().fetch });
+			const auth = new WSO2CloudAuthenticationProvider({
+				env,
+				sessions,
+				tokenSource: new BrowserLoginTokenSource(sessions),
+				loginUnavailable: "this editor has no URI scheme the identity provider knows",
+			});
+
+			const error = (await rejection(auth.createSession([]))) as CloudError;
+			assert.equal(error.details.reason, "no_redirect_available");
+			assert.match(error.message, /no URI scheme the identity provider knows/);
+		});
+
 		it("hands out no expired token when the issuer cannot be reached to refresh it", async () => {
 			const issuer = new FakeIssuer();
 			const offline: typeof issuer.fetch = (input, init) =>

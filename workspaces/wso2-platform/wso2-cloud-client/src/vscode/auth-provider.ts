@@ -52,6 +52,8 @@ export interface AuthProviderDeps {
 	startLogin?: (options: { extraAuthParams?: Record<string, string> }) => Promise<StoredSession>;
 	/** Abandons a sign-in waiting for the browser. */
 	cancelLogin?: () => void;
+	/** Why no browser sign-in can be started in this editor, when that is the case for a reason other than an injected token. */
+	loginUnavailable?: string;
 	/** Fills in what only the API knows about the organization, once per session. */
 	resolveOrg?: (session: StoredSession) => Promise<OrgInfo>;
 	logger?: Logger;
@@ -176,7 +178,10 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 			throw new LoginError("provider_error", `This provider signs in to ${this.deps.env.name}; ${scopes.join(" ")} names another environment.`);
 		}
 		if (!this.deps.startLogin) {
-			throw new LoginError("not_available_in_cloud_editor", "This editor was started with a WSO2 Cloud token and cannot sign in as someone else.");
+			if (this.deps.tokenSource.kind === "injected") {
+				throw new LoginError("not_available_in_cloud_editor", "This editor was started with a WSO2 Cloud token and cannot sign in as someone else.");
+			}
+			throw new LoginError("no_redirect_available", `Signing in to WSO2 Cloud is not available in this editor: ${this.deps.loginUnavailable ?? "no sign-in was set up"}`);
 		}
 		this.deps.cancelLogin?.();
 		const prompt = scopes.includes(PROMPT_LOGIN_SCOPE) ? { prompt: "login" } : undefined;

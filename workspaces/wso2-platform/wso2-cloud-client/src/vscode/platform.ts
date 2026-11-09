@@ -89,6 +89,7 @@ export function createPlatformClients(options: PlatformClientsOptions): Platform
 	let login: LoginFlow | undefined;
 	let uriReceiver: UriCallbackReceiver | undefined;
 	let tokenSource: TokenSource;
+	let loginUnavailable: string | undefined;
 	if (options.tokenSource) {
 		tokenSource = options.tokenSource;
 	} else if (injected) {
@@ -99,7 +100,8 @@ export function createPlatformClients(options: PlatformClientsOptions): Platform
 			chosen = chooseReceivers({ extensionId: options.extensionId });
 		} catch (error) {
 			// Sign-in is what this editor lacks, not the rest of the extension; a stored session still works.
-			logger.warn(`WSO2 Cloud sign-in is not available in this editor: ${errorMessage(error)}`);
+			loginUnavailable = errorMessage(error);
+			logger.warn(`WSO2 Cloud sign-in is not available in this editor: ${loginUnavailable}`);
 		}
 		uriReceiver = chosen?.uriReceiver;
 		login = chosen
@@ -134,6 +136,7 @@ export function createPlatformClients(options: PlatformClientsOptions): Platform
 		tokenSource,
 		startLogin: login ? (runOptions) => (login as LoginFlow).run(runOptions) : undefined,
 		cancelLogin: login ? () => login?.cancel() : undefined,
+		loginUnavailable,
 		resolveOrg: async (session: StoredSession) => {
 			const org = await cloud.orgs.current();
 			return { ...session.org, uuid: org?.uuid, numericId: org?.numericId };
