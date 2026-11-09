@@ -166,7 +166,7 @@ export class SessionManager {
 		return untilAborted(
 			this.refreshing.promise,
 			signal,
-			() => new TimeoutError("Waiting for the session refresh was cancelled.", { reason: "cancelled" }),
+			() => new TimeoutError("Waiting for the session refresh was cancelled.", { reason: "cancelled", retryable: false }),
 		);
 	}
 

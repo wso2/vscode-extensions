@@ -288,6 +288,7 @@ describe("SessionManager races", () => {
 			const gaveUp = AbortSignal.abort();
 			const error = (await rejection(manager.getAccessToken({ signal: gaveUp }))) as CloudError;
 			assert.equal(error.details.reason, "cancelled");
+			assert.equal(error.details.retryable, false);
 			await new Promise((resolve) => setTimeout(resolve, 20));
 		} finally {
 			process.off("unhandledRejection", onUnhandled);
