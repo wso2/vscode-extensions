@@ -187,12 +187,23 @@ export interface ConnectionTarget {
 }
 
 /**
- * How a service connection reaches its target. `project`: the endpoint's
- * in-cluster URL, with no key, for a target in the consumer's own project.
- * `gateway`: the endpoint's API on the gateway, with an API key issued to
- * the consumer, for an endpoint exposed with organization or public access.
+ * How a service connection reaches its target. `project`: directly, with no
+ * key, for a target in the consumer's own project; the platform fills one of
+ * the consumer's configurables with the endpoint's address in every
+ * environment. `gateway`: the endpoint's API on the gateway, with an API key
+ * issued to the consumer, for an endpoint exposed with organization or
+ * public access.
  */
 export type ServiceConnectionAccess = "project" | "gateway";
+
+/** A configurable the platform fills with the address of an endpoint of the integration's own project. */
+export interface EndpointLink {
+	/** `<org>/<module>:<name>`, as the integration's build declares it. */
+	configurable: string;
+	/** The integration that exposes the endpoint, in the same project. */
+	component: string;
+	endpoint: string;
+}
 
 /**
  * What a consumer passes to WSO2 Integrator's "open in console" command
@@ -418,8 +429,11 @@ export interface IWso2PlatformExtensionAPI {
 			projectName?: string;
 		}): Promise<void>;
 		/**
-		 * The target endpoint's URL, and for `gateway` access an API key issued for it, written as an env group
-		 * on the consumer in each environment, the variables named by `connectionVarName`.
+		 * `project` access links `configurable` to the target endpoint: the platform resolves the endpoint's
+		 * address in every environment and gives it to the configurable from the integration's next deploy
+		 * of a build that declares it. `gateway` access writes the gateway URL and an API key issued for it as
+		 * an env group on the consumer in each environment, the variables named by `connectionVarName`; the
+		 * consumer must be deployed in each of them.
 		 */
 		createServiceConnection(request: {
 			integration: string;
@@ -428,7 +442,13 @@ export interface IWso2PlatformExtensionAPI {
 			name: string;
 			environments?: string[];
 			projectName?: string;
+			/** For `project` access, required: the configurable (`<org>/<module>:<name>`) the endpoint's address fills. */
+			configurable?: string;
 		}): Promise<void>;
+		/** The configurables endpoints of the integration's own project fill. */
+		listEndpointLinks(integration: string, projectName?: string): Promise<EndpointLink[]>;
+		/** Stops filling `configurable` from an endpoint. */
+		unlinkEndpoint(request: { integration: string; configurable: string; projectName?: string }): Promise<void>;
 		delete(request: { integration: string; name: string; environments?: string[]; projectName?: string }): Promise<void>;
 	};
 	runtime: {
