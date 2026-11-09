@@ -187,6 +187,14 @@ export interface ConnectionTarget {
 }
 
 /**
+ * How a service connection reaches its target. `project`: the endpoint's
+ * in-cluster URL, with no key, for a target in the consumer's own project.
+ * `gateway`: the endpoint's API on the gateway, with an API key issued to
+ * the consumer, for an endpoint exposed with organization or public access.
+ */
+export type ServiceConnectionAccess = "project" | "gateway";
+
+/**
  * What a consumer passes to WSO2 Integrator's "open in console" command
  * (`WICommandIds.OpenInConsole`): the integration or project to open, or
  * the directory to find it by.
@@ -409,10 +417,14 @@ export interface IWso2PlatformExtensionAPI {
 			environments?: string[];
 			projectName?: string;
 		}): Promise<void>;
-		/** Experimental: an API key on the target's exposed endpoint, written as an env group on the consumer, the variables named by `connectionVarName`. */
+		/**
+		 * The target endpoint's URL, and for `gateway` access an API key issued for it, written as an env group
+		 * on the consumer in each environment, the variables named by `connectionVarName`.
+		 */
 		createServiceConnection(request: {
 			integration: string;
 			target: ConnectionTarget;
+			access: ServiceConnectionAccess;
 			name: string;
 			environments?: string[];
 			projectName?: string;
