@@ -85,7 +85,7 @@ export class CloudError extends Error {
 	}
 }
 
-export type UnauthenticatedReason = "no_session" | "session_expired" | "rejected" | "injected_token_expired";
+export type UnauthenticatedReason = "no_session" | "session_expired" | "rejected" | "injected_token_expired" | "api_key_invalid";
 
 export class UnauthenticatedError extends CloudError {
 	constructor(reason: UnauthenticatedReason, message?: string, details: CloudErrorDetails = {}) {
@@ -108,6 +108,8 @@ function unauthenticatedMessage(reason: UnauthenticatedReason): string {
 			return "WSO2 Cloud rejected the session's token. Sign in again.";
 		case "injected_token_expired":
 			return "The token this editor was started with has expired.";
+		case "api_key_invalid":
+			return "The WSO2 Cloud session this was connected with has changed. Get the session again and reconnect.";
 	}
 }
 
