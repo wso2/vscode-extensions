@@ -262,7 +262,11 @@ export class SessionManager {
 				}
 				if (stored && stored.tokens.refreshToken !== session.tokens.refreshToken) {
 					this.logger.debug("Took the WSO2 Cloud session another window refreshed");
-					this.adopt(stored);
+					const sameAccount = this.adopt(stored);
+					if (!sameAccount) {
+						// Another person or organization: a request made for the session before must not go out with its token.
+						throw new UnauthenticatedError("no_session");
+					}
 					return { session: stored };
 				}
 				await this.expire(`the identity provider answered ${error.error}`);
@@ -307,8 +311,8 @@ export class SessionManager {
 		}
 	}
 
-	/** Takes a session another window stored as this one's: a refresh when it is the same person and organization, a new sign-in otherwise. */
-	private adopt(stored: StoredSession): void {
+	/** Takes a session another window stored as this one's: a refresh when it is the same person and organization, a new sign-in otherwise. Answers whether it was the same. */
+	private adopt(stored: StoredSession): boolean {
 		const current = this.session;
 		const same = current !== undefined && current.account.id === stored.account.id && current.org.id === stored.org.id;
 		if (!same) {
@@ -317,6 +321,7 @@ export class SessionManager {
 		this.session = stored;
 		this.loaded = true;
 		this.emit({ reason: same ? "refreshed" : "signed-in" });
+		return same;
 	}
 
 	/**
