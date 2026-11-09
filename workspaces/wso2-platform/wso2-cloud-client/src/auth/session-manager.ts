@@ -19,7 +19,7 @@
 import { untilAborted } from "../abort";
 import type { FetchLike } from "../api/http";
 import type { CloudEnvironment } from "../config/environments";
-import { NetworkError, TimeoutError, UnauthenticatedError, errorMessage, isCloudError } from "../errors";
+import { NetworkError, TimeoutError, UnauthenticatedError, UnavailableError, errorMessage, isCloudError } from "../errors";
 import type { Logger } from "../logger";
 import { silentLogger } from "../logger";
 import { discover } from "./discovery";
@@ -42,6 +42,12 @@ export function isRefusal(error: OAuthError): boolean {
 	return REFUSALS.has(error.error);
 }
 
+/** What a refresh produced: the session to use, and the failure when its old token was kept because the issuer could not be reached. */
+interface RefreshOutcome {
+	session: StoredSession;
+	failure?: unknown;
+}
+
 export interface SessionManagerDeps {
 	env: CloudEnvironment;
 	store: SessionStore;
@@ -60,7 +66,12 @@ export interface SessionManagerDeps {
  * request just got a 401 and asked for `forceRefresh`. A refresh the issuer
  * refuses (`invalid_grant` and its kin) ends the session; one lost to the
  * network, or to an issuer that is down, keeps it, and the old token is
- * still handed out while it is not yet expired.
+ * still handed out while it is not yet expired, except to a caller whose
+ * request just got a 401 with it.
+ *
+ * The store is shared with other windows: a change one makes is picked up
+ * here when the store reports it, and a refused refresh first checks
+ * whether another window already rotated the refresh token.
  */
 export class SessionManager {
 	private readonly logger: Logger;
@@ -68,15 +79,24 @@ export class SessionManager {
 	private readonly now: () => Date;
 	private loaded = false;
 	private session?: StoredSession;
-	private refreshing?: { generation: number; promise: Promise<StoredSession> };
+	private refreshing?: { generation: number; promise: Promise<RefreshOutcome> };
 	/** Bumped whenever the session is replaced or ended, so a refresh in flight for the old one is dropped. */
 	private generation = 0;
 	private readonly listeners = new Set<(event: SessionChangeEvent) => void>();
+	/** This manager's own writes to the store still in flight, and how many it has started, so a reload never takes an older value for a newer one. */
+	private readonly pendingWrites = new Set<Promise<void>>();
+	private writeCount = 0;
+	private readonly unsubscribeStore?: () => void;
 
 	constructor(private readonly deps: SessionManagerDeps) {
 		this.logger = deps.logger ?? silentLogger;
 		this.margin = deps.refreshMarginMs ?? REFRESH_MARGIN_MS;
 		this.now = deps.now ?? (() => new Date());
+		this.unsubscribeStore = deps.store.onDidChange?.((env) => {
+			if (env === deps.env.name) {
+				void this.reload();
+			}
+		});
 	}
 
 	/** The stored session, if any, without refreshing it. */
@@ -99,7 +119,7 @@ export class SessionManager {
 		this.generation++;
 		this.session = session;
 		this.loaded = true;
-		await this.deps.store.save(session);
+		await this.persist(this.deps.store.save(session));
 		this.emit({ reason: "signed-in" });
 		if (replaced?.tokens.refreshToken && replaced.tokens.refreshToken !== session.tokens.refreshToken) {
 			void this.revoke(replaced);
@@ -118,7 +138,7 @@ export class SessionManager {
 			return undefined;
 		}
 		this.session = change(session);
-		await this.deps.store.save(this.session);
+		await this.persist(this.deps.store.save(this.session));
 		return this.session;
 	}
 
@@ -137,13 +157,26 @@ export class SessionManager {
 		if (fresh) {
 			return session.tokens.accessToken;
 		}
-		const refreshed = await this.refresh(session, options.signal);
-		return refreshed.tokens.accessToken;
+		const outcome = await this.refresh(session, options.signal);
+		if (options.forceRefresh && outcome.failure !== undefined) {
+			// The API just rejected the token that was kept: handing it out again would only be rejected again and
+			// read as a sign-out, while all that failed is the issuer, for now.
+			throw new UnavailableError(`The session's token was rejected and could not be refreshed right now: ${errorMessage(outcome.failure)}`, {
+				reason: "refresh_unavailable",
+				cause: outcome.failure,
+			});
+		}
+		return outcome.session.tokens.accessToken;
 	}
 
 	/** Whether the session's token is good for at least the refresh margin. */
 	isFresh(session: StoredSession): boolean {
 		return Date.parse(session.tokens.expiresAt) - this.margin > this.now().getTime();
+	}
+
+	/** Whether the session's access token is past its expiry. */
+	isExpired(session: StoredSession): boolean {
+		return Date.parse(session.tokens.expiresAt) <= this.now().getTime();
 	}
 
 	/**
@@ -152,10 +185,10 @@ export class SessionManager {
 	 * giving up does not fail it for the others; `signal` ends this caller's
 	 * wait only.
 	 */
-	private refresh(session: StoredSession, signal?: AbortSignal): Promise<StoredSession> {
+	private refresh(session: StoredSession, signal?: AbortSignal): Promise<RefreshOutcome> {
 		// A refresh started for a session that has since been replaced is not joined: it ends in no_session.
 		if (!this.refreshing || this.refreshing.generation !== this.generation) {
-			const entry = { generation: this.generation, promise: Promise.resolve(session) };
+			const entry = { generation: this.generation, promise: Promise.resolve<RefreshOutcome>({ session }) };
 			entry.promise = this.refreshOnce(session).finally(() => {
 				if (this.refreshing === entry) {
 					this.refreshing = undefined;
@@ -171,7 +204,7 @@ export class SessionManager {
 	}
 
 	/** One refresh against the issuer. The result is merged onto the current session and kept only if the session was not replaced or ended meanwhile. */
-	private async refreshOnce(session: StoredSession): Promise<StoredSession> {
+	private async refreshOnce(session: StoredSession): Promise<RefreshOutcome> {
 		const generation = this.generation;
 		if (!session.tokens.refreshToken) {
 			await this.expire("the session holds no refresh token");
@@ -213,15 +246,25 @@ export class SessionManager {
 				},
 			};
 			this.session = refreshed;
-			await this.deps.store.save(refreshed);
+			await this.persist(this.deps.store.save(refreshed));
 			this.logger.debug("Refreshed the WSO2 Cloud session");
 			this.emit({ reason: "refreshed" });
-			return refreshed;
+			return { session: refreshed };
 		} catch (error) {
 			if (generation !== this.generation) {
 				throw error;
 			}
 			if (error instanceof OAuthError && isRefusal(error)) {
+				// Another window may have refreshed first and rotated the refresh token this one held; its session is not over.
+				const stored = await this.loadQuietly();
+				if (generation !== this.generation) {
+					throw error;
+				}
+				if (stored && stored.tokens.refreshToken !== session.tokens.refreshToken) {
+					this.logger.debug("Took the WSO2 Cloud session another window refreshed");
+					this.adopt(stored);
+					return { session: stored };
+				}
 				await this.expire(`the identity provider answered ${error.error}`);
 				throw new UnauthenticatedError("session_expired", undefined, { apiError: error.error, apiMessage: error.errorDescription });
 			}
@@ -230,15 +273,14 @@ export class SessionManager {
 	}
 
 	/** A refresh lost to the network, or to an issuer that is down, is not the end of the session. */
-	private keepIfUnexpired(session: StoredSession, error: unknown, generation: number): StoredSession {
+	private keepIfUnexpired(session: StoredSession, error: unknown, generation: number): RefreshOutcome {
 		if (generation !== this.generation) {
 			// Signed out, or signed in as someone else, while the refresh ran: the old token is not handed out.
 			throw new UnauthenticatedError("no_session");
 		}
-		const unexpired = Date.parse(session.tokens.expiresAt) > this.now().getTime();
-		if (unexpired) {
+		if (!this.isExpired(session)) {
 			this.logger.warn(`Could not refresh the WSO2 Cloud session (${errorMessage(error)}); using the current token while it lasts`);
-			return session;
+			return { session, failure: error };
 		}
 		if (isCloudError(error)) {
 			throw error;
@@ -251,8 +293,87 @@ export class SessionManager {
 		this.logger.info(`The WSO2 Cloud session has ended: ${why}`);
 		this.generation++;
 		this.session = undefined;
-		await this.deps.store.clear(this.deps.env.name);
+		await this.persist(this.deps.store.clear(this.deps.env.name));
 		this.emit({ reason: "expired" });
+	}
+
+	/** The stored session, or undefined when the store cannot be read. */
+	private async loadQuietly(): Promise<StoredSession | undefined> {
+		try {
+			return await this.deps.store.load(this.deps.env.name);
+		} catch (error) {
+			this.logger.warn(`The stored WSO2 Cloud session could not be read: ${errorMessage(error)}`);
+			return undefined;
+		}
+	}
+
+	/** Takes a session another window stored as this one's: a refresh when it is the same person and organization, a new sign-in otherwise. */
+	private adopt(stored: StoredSession): void {
+		const current = this.session;
+		const same = current !== undefined && current.account.id === stored.account.id && current.org.id === stored.org.id;
+		if (!same) {
+			this.generation++;
+		}
+		this.session = stored;
+		this.loaded = true;
+		this.emit({ reason: same ? "refreshed" : "signed-in" });
+	}
+
+	/**
+	 * Picks up what the store holds after it reported a change, which may be
+	 * another window's sign-in, refresh or sign-out. A change this manager
+	 * made itself finds the same tokens and changes nothing.
+	 */
+	private async reload(): Promise<void> {
+		for (;;) {
+			if (!this.loaded) {
+				// Nothing is cached yet; the first read will see the change.
+				return;
+			}
+			// A write of this manager's own still in flight is newer than what the store would answer now.
+			await Promise.allSettled([...this.pendingWrites]);
+			const generation = this.generation;
+			const writes = this.writeCount;
+			let stored: StoredSession | undefined;
+			try {
+				stored = await this.deps.store.load(this.deps.env.name);
+			} catch (error) {
+				// Unreadable is not signed out: what is cached stays.
+				this.logger.warn(`The stored WSO2 Cloud session could not be read after it changed: ${errorMessage(error)}`);
+				return;
+			}
+			if (generation !== this.generation || writes !== this.writeCount || this.pendingWrites.size > 0) {
+				// Changed here while the store was read: read again once that is stored.
+				continue;
+			}
+			const current = this.session;
+			if (!stored) {
+				if (current) {
+					this.generation++;
+					this.session = undefined;
+					this.emit({ reason: "signed-out" });
+				}
+				return;
+			}
+			if (current && current.tokens.accessToken === stored.tokens.accessToken && current.tokens.refreshToken === stored.tokens.refreshToken) {
+				// The same tokens: this manager's own write, or another window's change to something else, such as the org's uuid.
+				this.session = stored;
+				return;
+			}
+			this.adopt(stored);
+			return;
+		}
+	}
+
+	/** Runs one of this manager's own writes to the store, tracked so a reload waits for it. */
+	private async persist(write: Promise<void>): Promise<void> {
+		this.writeCount++;
+		this.pendingWrites.add(write);
+		try {
+			await write;
+		} finally {
+			this.pendingWrites.delete(write);
+		}
 	}
 
 	/** Ends the session, asking the issuer to revoke the refresh token first when it can. */
@@ -260,7 +381,7 @@ export class SessionManager {
 		const session = await this.current();
 		this.generation++;
 		this.session = undefined;
-		await this.deps.store.clear(this.deps.env.name);
+		await this.persist(this.deps.store.clear(this.deps.env.name));
 		if (session && options.revoke !== false) {
 			await this.revoke(session, options.signal);
 		}
@@ -292,6 +413,11 @@ export class SessionManager {
 	onDidChange(listener: (event: SessionChangeEvent) => void): () => void {
 		this.listeners.add(listener);
 		return () => this.listeners.delete(listener);
+	}
+
+	/** Stops following the store's changes. */
+	dispose(): void {
+		this.unsubscribeStore?.();
 	}
 
 	/** Tells every listener; one that throws does not stop the others. */

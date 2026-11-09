@@ -9,8 +9,10 @@ import {
 	LoopbackReceiver,
 	SessionManager,
 	discover,
+	exchangeCode,
 	parseCallback,
 	resetDiscoveryCache,
+	revokeToken,
 } from "../../src";
 import { linkAbort } from "../../src/abort";
 import { FakeIssuer, fakeFetch } from "../doubles";
@@ -230,6 +232,42 @@ describe("LoginFlow", () => {
 		assert.equal(cancelled.code, "login_cancelled");
 		assert.equal(flow.running, false);
 		assert.equal(opened, 1);
+	});
+});
+
+describe("token endpoint", () => {
+	it("does not follow a redirect with the code, the verifier or a refresh token", async () => {
+		const sent: RequestInit[] = [];
+		const redirecting = async (_input: string, init?: RequestInit) => {
+			sent.push(init ?? {});
+			return new Response(null, { status: 307, headers: { location: "https://elsewhere.example.invalid/token" } });
+		};
+
+		const error = (await rejection(
+			exchangeCode({
+				tokenEndpoint: "https://idp.example.invalid/oauth2/token",
+				clientId: "WSO2_INTEGRATOR_EXTENSION",
+				fetch: redirecting,
+				code: "code-1",
+				redirectUri: "vscode://x/signin",
+				codeVerifier: "verifier",
+			}),
+		)) as CloudError;
+		const revoked = await revokeToken({
+			revocationEndpoint: "https://idp.example.invalid/oauth2/revoke",
+			clientId: "WSO2_INTEGRATOR_EXTENSION",
+			token: "refresh-1",
+			fetch: redirecting,
+		});
+
+		assert.equal(error.code, "login_failed");
+		assert.equal(error.details.status, 307);
+		assert.match(error.message, /redirect/);
+		assert.equal(revoked, false);
+		assert.deepEqual(
+			sent.map((init) => init.redirect),
+			["manual", "manual"],
+		);
 	});
 });
 

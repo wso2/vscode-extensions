@@ -173,6 +173,58 @@ describe("SessionManager", () => {
 		assert.equal(api.requests.length, 2);
 		assert.equal(issuer.calls.filter((c) => c.form.grant_type === "refresh_token").length, 1);
 	});
+
+	it("reports a rejected token the issuer is too down to refresh as a transient failure, not a sign-out", async () => {
+		const clock = clockFrom(new Date("2026-11-05T10:00:00Z"));
+		const issuer = new FakeIssuer({ expiresIn: 600, now: clock.now });
+		const issuerDown: typeof issuer.fetch = (input, init) =>
+			input === issuer.tokenEndpoint ? Promise.resolve(new Response("upstream connect error", { status: 503 })) : issuer.fetch(input, init);
+		const store = new InMemorySessionStore();
+		const manager = new SessionManager({ env, store, fetch: issuerDown, now: clock.now });
+		await manager.setSession(await signIn(issuer, clock.now));
+		const events: string[] = [];
+		manager.onDidChange((e) => events.push(e.reason));
+		const api = fakeFetch([{ match: /GET .*\/projects$/, status: 401, body: { error: "Unauthorized" } }]);
+		let unauthenticated = 0;
+		const client = createCloudClient({
+			environment: env,
+			tokenSource: new BrowserLoginTokenSource(manager),
+			fetch: composeFetch([
+				{ origin: issuer.issuer, fetch: issuerDown },
+				{ origin: env.apiBaseUrl, fetch: api.fetch },
+			]),
+			onUnauthenticated: () => unauthenticated++,
+		});
+
+		const error = (await rejection(client.projects.list())) as CloudError;
+
+		assert.equal(error.code, "unavailable");
+		assert.equal(error.details.retryable, true);
+		assert.equal(api.requests.length, 1, "the rejected token is not sent again");
+		assert.equal(unauthenticated, 0);
+		assert.ok(await store.load("dev"), "the refresh token is kept for when the issuer is back");
+		assert.deepEqual(events, []);
+	});
+
+	it("takes the session another window refreshed when the issuer refuses a refresh token that window rotated away", async () => {
+		const clock = clockFrom(new Date("2026-11-05T10:00:00Z"));
+		const issuer = new FakeIssuer({ expiresIn: 600, now: clock.now });
+		const store = new InMemorySessionStore();
+		const windowA = new SessionManager({ env, store, fetch: issuer.fetch, now: clock.now });
+		const windowB = new SessionManager({ env, store, fetch: issuer.fetch, now: clock.now });
+		await windowA.setSession(await signIn(issuer, clock.now));
+		await windowB.current();
+		const events: string[] = [];
+		windowB.onDidChange((e) => events.push(e.reason));
+		clock.advance(9.5 * 60_000);
+		const fromA = await windowA.getAccessToken();
+
+		const fromB = await windowB.getAccessToken();
+
+		assert.equal(fromB, fromA);
+		assert.equal((await store.load("dev"))?.tokens.accessToken, fromA, "the session window A stored is not cleared");
+		assert.deepEqual(events, ["refreshed"]);
+	});
 });
 
 describe("InjectedTokenSource", () => {

@@ -232,13 +232,20 @@ export interface ApiErrorBody {
 	message?: string;
 }
 
+/** How much of a body that is not the API's JSON (a gateway's HTML page, say) is kept as the message. */
+const ERROR_TEXT_LIMIT = 300;
+
 /** The API's error body (`{ error, message }`), from JSON text or an object; empty for anything else. */
 export function parseApiErrorBody(body: unknown): ApiErrorBody {
 	if (typeof body === "string") {
 		try {
 			return parseApiErrorBody(JSON.parse(body));
 		} catch {
-			return body.trim() ? { message: body.trim() } : {};
+			const text = body.trim();
+			if (!text) {
+				return {};
+			}
+			return { message: text.length > ERROR_TEXT_LIMIT ? `${text.slice(0, ERROR_TEXT_LIMIT)}…` : text };
 		}
 	}
 	if (typeof body === "object" && body !== null) {
