@@ -137,7 +137,7 @@ describe("LoginFlow", () => {
 				// The browser follows the redirect to the listener.
 				const response = await fetch(back.toString());
 				assert.equal(response.status, 200);
-				assert.ok((await response.text()).includes("Sign-in received"));
+				assert.ok((await response.text()).includes("You are signed in"));
 			},
 		});
 
