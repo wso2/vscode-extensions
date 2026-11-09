@@ -52,6 +52,33 @@ describe("BuildsApi", () => {
 		assert.deepEqual(progress, ["Running", "Succeeded"]);
 	});
 
+	it("follows the build of the commit it asked for, not another that started meanwhile", async () => {
+		const sha = "abcdef0123456789abcdef0123456789abcdef01";
+		const { client } = harness([
+			{
+				match: "GET /components/a/builds",
+				sequence: [
+					{ body: { items: [{ name: "b1", status: "Succeeded", trigger: "manual" }] } },
+					{
+						body: {
+							items: [
+								{ name: "b3", status: "Pending", commit: "1111111111111111111111111111111111111111", trigger: "automatic" },
+								{ name: "b2", status: "Pending", commit: sha, trigger: "manual" },
+								{ name: "b1", trigger: "manual" },
+							],
+						},
+					},
+				],
+			},
+			{ match: "POST /components/a/builds", status: 201, body: { message: "queued", success: true } },
+			{ match: "GET /components/a/builds/b2", body: { name: "b2", status: "Succeeded", image: "registry/a:b2" } },
+		]);
+
+		const build = await client.builds.triggerAndWait("a", { ...noSleep, sha: sha.toUpperCase() });
+
+		assert.equal(build.name, "b2");
+	});
+
 	it("reports a build that did not succeed", async () => {
 		const { client } = harness([
 			{ match: "GET /components/a/builds", sequence: [{ body: { items: [] } }, { body: { items: [{ name: "b1" }] } }] },

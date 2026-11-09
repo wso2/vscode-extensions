@@ -98,6 +98,12 @@ export interface SessionStore {
 	load(env: CloudEnvName): Promise<StoredSession | undefined>;
 	save(session: StoredSession): Promise<void>;
 	clear(env: CloudEnvName): Promise<void>;
+	/**
+	 * Calls `listener` when the session kept for an environment may have
+	 * changed, including by another window sharing the store. Optional: a
+	 * store nothing else writes has nothing to report.
+	 */
+	onDidChange?(listener: (env: CloudEnvName) => void): () => void;
 }
 
 /** Who the token is for, labelled by email, then name, then subject. */

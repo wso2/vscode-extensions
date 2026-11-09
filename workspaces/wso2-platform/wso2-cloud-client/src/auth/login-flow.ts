@@ -86,6 +86,19 @@ export const PLATFORM_SCOPES: readonly string[] = [
 /** The scopes a sign-in asks for: identity, a refresh token, the profile claims the UI shows, and the platform permissions. */
 export const LOGIN_SCOPES: readonly string[] = ["openid", "offline_access", "profile", "email", ...PLATFORM_SCOPES];
 
+/** The authorization-request members the flow sets itself; an extra parameter may not replace them. */
+const FLOW_AUTH_PARAMS: readonly string[] = [
+	"response_type",
+	"client_id",
+	"redirect_uri",
+	"scope",
+	"state",
+	"nonce",
+	"code_challenge",
+	"code_challenge_method",
+	"resource",
+];
+
 /** How long the browser is given before the sign-in is abandoned. */
 export const LOGIN_TIMEOUT_MS = 5 * 60_000;
 
@@ -125,6 +138,11 @@ export class LoginFlow {
 	async run(options: LoginRunOptions = {}): Promise<StoredSession> {
 		const { env, fetch, receiver } = this.deps;
 		const now = this.deps.now ?? (() => new Date());
+		// A replaced state or verifier would leave the callback unmatched, or the code unredeemable, until the sign-in times out.
+		const owned = Object.keys(options.extraAuthParams ?? {}).filter((key) => FLOW_AUTH_PARAMS.includes(key));
+		if (owned.length > 0) {
+			throw new LoginError("provider_error", `The sign-in sets ${owned.join(", ")} itself; an extra authorization parameter cannot replace it.`);
+		}
 		if (this.current?.cancelled) {
 			// A cancelled sign-in is still letting go of the receiver; this one waits for that.
 			await this.current.settled;
@@ -187,6 +205,9 @@ export class LoginFlow {
 			}
 			if (tokens.id_token) {
 				validateIdToken({ idToken: tokens.id_token, issuer: discovery.issuer, clientId: env.clientId, nonce, now: now() });
+			} else if (scopes.includes("openid")) {
+				// Without it the nonce, issuer and audience checks would be skipped for a sign-in that asked for them.
+				throw new LoginError("token_endpoint_failed", "The identity provider answered the sign-in without the ID token it was asked for.");
 			}
 			const claims = readClaims(tokens.access_token);
 			const issuedAt = now();

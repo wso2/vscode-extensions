@@ -110,6 +110,17 @@ describe("HttpClient", () => {
 		}
 	});
 
+	it("keeps only the start of an error body that is not the API's JSON", async () => {
+		const page = `<html><body>${"Bad gateway. ".repeat(5000)}</body></html>`;
+		const { client } = harness([{ match: "GET /projects", status: 502, body: page, headers: { "content-type": "text/html" } }]);
+
+		const error = (await rejection(client.projects.list())) as CloudError;
+
+		assert.equal(error.code, "unavailable");
+		assert.ok(error.message.length < 500, `${error.message.length} characters`);
+		assert.ok(error.message.includes("<html><body>Bad gateway."));
+	});
+
 	it("reads an empty 2xx body as undefined", async () => {
 		const { client } = harness([{ match: "GET /components/x/deployments", status: 200, body: "" }]);
 

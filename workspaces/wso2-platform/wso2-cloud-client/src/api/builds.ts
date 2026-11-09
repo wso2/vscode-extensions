@@ -37,6 +37,12 @@ export function buildInProgress(status: string | undefined): boolean {
 	return !status || status === "Pending" || status === "Running";
 }
 
+/** Whether a build is of the full commit `sha`; a run that names an abbreviated commit is matched on its prefix. */
+function buildsCommit(build: Pick<Build, "commit">, sha: string): boolean {
+	const commit = build.commit?.trim().toLowerCase();
+	return !!commit && commit.length >= 7 && sha.startsWith(commit);
+}
+
 /** Whether a build finished well and left an image to deploy. */
 export function buildSucceeded(build: Pick<Build, "status" | "image">): boolean {
 	return build.status === "Succeeded" && !!build.image;
@@ -87,8 +93,10 @@ export class BuildsApi {
 
 	/**
 	 * Starts a build and follows it until it finishes. The build is found as
-	 * the name the listing did not hold before the request; finding it and
-	 * following it share one `timeoutMs`. A build that does not succeed is a
+	 * the name the listing did not hold before the request and, when `sha` is
+	 * given, as one that builds that commit, so a push's automatic build
+	 * started meanwhile is not taken for it; finding it and following it
+	 * share one `timeoutMs`. A build that does not succeed is a
 	 * {@link ServerError} whose `reason` is `build_failed`.
 	 */
 	async triggerAndWait(
@@ -100,11 +108,12 @@ export class BuildsApi {
 		const startedAt = now();
 		const before = new Set((await this.list(componentName, options.projectName)).map((b) => b.name));
 		await this.trigger(componentName, options);
+		const sha = options.sha?.toLowerCase();
 		const describe = () => `The build of ${componentName}`;
 		const started = await poll(
 			async () => {
 				const listed = await this.list(componentName, options.projectName);
-				const fresh = listed.find((b) => b.name && !before.has(b.name));
+				const fresh = listed.find((b) => b.name && !before.has(b.name) && (!sha || buildsCommit(b, sha)));
 				return { done: fresh !== undefined, value: fresh as Build };
 			},
 			{ ...options, timeoutMs, describe },

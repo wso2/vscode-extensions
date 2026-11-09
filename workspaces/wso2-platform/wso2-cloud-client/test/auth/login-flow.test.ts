@@ -163,4 +163,55 @@ describe("LoginFlow", () => {
 		await flow.run({ extraAuthParams: { prompt: "login" } });
 		assert.equal(new URL(authorizeUrl).searchParams.get("prompt"), "login");
 	});
+
+	it("refuses an extra parameter that would replace one the flow sets, before opening the browser", async () => {
+		const issuer = new FakeIssuer();
+		const opened: string[] = [];
+		const flow = new LoginFlow({
+			env,
+			fetch: issuer.fetch,
+			receiver: new DeferredReceiver("vscode://x/signin"),
+			openBrowser: async (url) => {
+				opened.push(url);
+			},
+		});
+
+		const error = (await rejection(flow.run({ extraAuthParams: { prompt: "login", state: "mine" } }))) as CloudError;
+
+		assert.equal(error.code, "login_failed");
+		assert.match(error.message, /state/);
+		assert.deepEqual(opened, []);
+		assert.equal(flow.running, false);
+	});
+
+	it("requires the ID token when openid was asked for, so its checks cannot be skipped", async () => {
+		const issuer = new FakeIssuer();
+		const withoutIdToken: typeof issuer.fetch = async (input, init) => {
+			const response = await issuer.fetch(input, init);
+			if (input !== issuer.tokenEndpoint) {
+				return response;
+			}
+			const { id_token: _dropped, ...rest } = (await response.json()) as Record<string, unknown>;
+			return new Response(JSON.stringify(rest), { status: response.status, headers: { "content-type": "application/json" } });
+		};
+		const run = (scopes?: string[]) => {
+			const receiver = new DeferredReceiver("vscode://x/signin");
+			return new LoginFlow({
+				env,
+				fetch: withoutIdToken,
+				receiver,
+				scopes,
+				openBrowser: async (url) => {
+					setImmediate(() => receiver.push(issuer.authorize(url)));
+				},
+			}).run();
+		};
+
+		const error = (await rejection(run())) as CloudError;
+		assert.equal(error.code, "login_failed");
+		assert.equal(error.details.reason, "token_endpoint_failed");
+
+		const session = await run(["offline_access"]);
+		assert.equal(session.tokens.idToken, undefined, "a sign-in that did not ask for openid needs none");
+	});
 });

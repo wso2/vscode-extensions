@@ -95,6 +95,8 @@ export async function revokeToken(options: {
 			headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
 			body: new URLSearchParams(form).toString(),
 			signal: abort.signal,
+			// The refresh token must not be re-posted to wherever a redirect points; a redirect is not a revocation.
+			redirect: "manual",
 		});
 		return response.ok;
 	} catch {
@@ -114,10 +116,17 @@ async function postForm(options: TokenEndpointOptions, form: Record<string, stri
 			headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
 			body: new URLSearchParams(form).toString(),
 			signal: abort.signal,
+			// The code and verifier, or the refresh token, must not be re-posted to wherever a redirect points.
+			redirect: "manual",
 		});
 	} catch (error) {
 		abort.dispose();
 		throw new NetworkError("The identity provider's token endpoint could not be reached.", { cause: error });
+	}
+	if (isRedirect(response)) {
+		abort.dispose();
+		await response.body?.cancel().catch(() => undefined);
+		throw new OAuthError(`http_${response.status}`, "the token endpoint answered with a redirect, which the client does not follow", response.status);
 	}
 	let text: string;
 	try {
@@ -142,4 +151,9 @@ async function postForm(options: TokenEndpointOptions, form: Record<string, stri
 		throw new OAuthError("invalid_response", "the token endpoint answered without an access token", response.status);
 	}
 	return parsed as unknown as TokenResponse;
+}
+
+/** A 3xx, or the opaque answer a browser-like fetch gives for one under `redirect: "manual"`. */
+function isRedirect(response: Response): boolean {
+	return response.type === "opaqueredirect" || (response.status >= 300 && response.status < 400);
 }
