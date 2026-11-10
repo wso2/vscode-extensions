@@ -95,7 +95,7 @@
       "@codemirror/view": "6.38.8",
       "@codemirror/lint": "6.8.5",
       "@codemirror/state": "6.5.2",
-      "qs": ">=6.16.0",
+      "qs": ">=6.16.1",
       "fast-uri": "^3.1.9",
       "@babel/core": ">=7.29.7",
       "dompurify": ">=3.4.17",
@@ -117,7 +117,10 @@
       // We publish with a PAT (-p), so this path is unused. msal-node 7 drops acquireTokenByUsernamePassword,
       // which breaks only identity's deprecated UsernamePasswordCredential.
       "@azure/msal-node": "^7.1.0",
-      "zod": "^4.6.6"
+      "zod": "^4.6.6",
+      "@hono/node-server": "^2.1.3",
+      "glob@>=11 <14": "^14.0.2",
+      "minimatch@>=10 <11": "^11.0.1"
     },
   
     /**
