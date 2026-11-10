@@ -43,7 +43,7 @@ export const DATABASE_CA_CERT_VAR = "DB_CA_CERT";
  */
 export const SERVICE_CONNECTION_VARS = {
 	ServiceURL: "SERVICE_URL",
-	ChoreoAPIKey: "API_KEY",
+	APIKey: "API_KEY",
 } as const;
 
 /** The prefix of a connection's variables: its name in upper case, with anything but letters and digits as `_`. */

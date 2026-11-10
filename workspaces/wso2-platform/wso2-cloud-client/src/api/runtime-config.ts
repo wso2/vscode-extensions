@@ -41,8 +41,9 @@ export type EndpointPolicyConfig = Schemas["EndpointPolicyConfig"];
  * One link write: a target of the integration and what fills it. The target
  * is a Ballerina configurable (`<org>/<module>:<name>`), a connection's
  * configurables (`connection`) or an env var (`env`); the source is a
- * resource key (`ref`, `key`) or, for a configurable, an endpoint
- * (`endpoint`, `<project>/<component>/<endpoint>`). An endpoint of the
+ * resource key (`ref`, `key`) or an endpoint (`endpoint`,
+ * `<project>/<component>/<endpoint>`), which fills a configurable, or the env
+ * var of an MI integration from another project's endpoint. An endpoint of the
  * integration's own project gives the configurable its address and takes no
  * `key`; an endpoint of another project is reached through a connection the
  * platform makes for the project, and `key` names which of its outputs
@@ -362,9 +363,10 @@ export class RuntimeConfigApi {
 	/**
 	 * `GET /components/{componentName}/connectable-endpoints`: the endpoints of
 	 * the organization the integration may connect to, its own left out, with
-	 * where each can be connected. Binding is still checked at deploy.
+	 * where each can be connected. Binding is still checked at deploy. The
+	 * platform does not work out the component's project here, so it is named.
 	 */
-	async listConnectableEndpoints(componentName: string, projectName?: string): Promise<ConnectableEndpoint[]> {
+	async listConnectableEndpoints(componentName: string, projectName: string): Promise<ConnectableEndpoint[]> {
 		return (
 			(await this.http.get<ConnectableEndpoint[] | null>(`${componentPath(componentName)}/connectable-endpoints`, { query: { projectName } })) ?? []
 		);

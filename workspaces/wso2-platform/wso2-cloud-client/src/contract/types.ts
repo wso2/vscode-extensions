@@ -65,6 +65,7 @@ import type {
 	ApiKeyResult,
 	ConfigSchema,
 	ConnectableEndpoint,
+	ConnectableScope,
 	CreateApiKeyRequest,
 	EndpointPolicyConfig,
 	EndpointResources,
@@ -197,7 +198,7 @@ export interface ConnectionTarget {
  * deploys, binds it with an API key, filling the URL and API key
  * configurables. Either way the values are resolved per environment.
  */
-export type ServiceConnectionAccess = "project" | "organization";
+export type ServiceConnectionAccess = ConnectableScope;
 
 /** A configurable the platform fills from an endpoint: its address, or one output of the project's connection to it. */
 export interface EndpointLink {
@@ -501,23 +502,33 @@ export interface IWso2PlatformExtensionAPI {
 			environments?: string[];
 			projectName?: string;
 		}): Promise<void>;
-		/** The endpoints of the organization the integration may connect to, its own left out, with where each can be connected. */
-		listConnectable(integration: string, projectName?: string): Promise<ConnectableEndpoint[]>;
+		/**
+		 * The endpoints of the organization the integration's project may connect to, the integration's own left out,
+		 * with where each can be connected. The integration need not exist yet: its name only leaves its endpoints out.
+		 */
+		listConnectable(integration: string, projectName: string): Promise<ConnectableEndpoint[]>;
 		/**
 		 * Links the integration's configurables (`<org>/<module>:<name>`) to the target endpoint. `project`
 		 * access fills `url` with the endpoint's address. `organization` access fills `url` and, when given,
 		 * `apiKey` from the project's connection to the endpoint, which the platform makes if there is none.
-		 * The platform resolves the values in every environment, from the integration's next deploy of a
-		 * build that declares the configurables; nothing has to be deployed first.
+		 * The access must match the target: `project` for an endpoint of `projectName`, `organization` for
+		 * another project's, else nothing is written. The platform fills the values from the integration's next
+		 * deploy of a build that declares the configurables, in each environment where the endpoint can be
+		 * connected (see `environments` of `listConnectable`); a deploy where it can't fails to bind.
 		 */
 		createServiceConnection(request: {
 			integration: string;
 			target: ConnectionTarget;
 			access: ServiceConnectionAccess;
 			configurables: { url: string; apiKey?: string };
-			projectName?: string;
+			projectName: string;
 		}): Promise<void>;
-		/** The configurables endpoints fill, whether or not the integration's latest build declares them yet. */
+		/**
+		 * The configurables endpoints fill, whether or not the integration's latest build declares them yet. A link
+		 * to another project's endpoint names only the project's connection, so it is found through
+		 * `listConnectable`: one to an endpoint the platform no longer lists, such as a deleted integration's, is
+		 * not returned.
+		 */
 		listEndpointLinks(integration: string, projectName?: string): Promise<EndpointLink[]>;
 		/** Stops filling `configurable` from an endpoint. */
 		unlinkEndpoint(request: { integration: string; configurable: string; projectName?: string }): Promise<void>;

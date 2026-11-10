@@ -232,6 +232,12 @@ describe("RuntimeConfigApi links", () => {
 		assert.deepEqual(endpoints, [billing]);
 	});
 
+	it("reads an empty connectable list from a null body", async () => {
+		const { client } = harness([{ match: "GET /components/consumer/connectable-endpoints", body: null }]);
+
+		assert.deepEqual(await client.config.listConnectableEndpoints("consumer", "shop"), []);
+	});
+
 	it("reads which configurables endpoints fill", async () => {
 		const { client, fake } = harness([
 			{
