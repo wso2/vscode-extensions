@@ -36,7 +36,11 @@ export const DATABASE_CONNECTION_VARS = {
 /** The database's CA certificate, written when the server has one. */
 export const DATABASE_CA_CERT_VAR = "DB_CA_CERT";
 
-/** The variables of a service connection, by the entry names the editors use. */
+/**
+ * The variables a service connection's configurables read when the
+ * integration runs locally, by the entry names the editors use. On WSO2
+ * Cloud the platform fills the configurables from the endpoint instead.
+ */
 export const SERVICE_CONNECTION_VARS = {
 	ServiceURL: "SERVICE_URL",
 	ChoreoAPIKey: "API_KEY",

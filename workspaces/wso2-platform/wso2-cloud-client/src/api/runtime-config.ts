@@ -41,10 +41,14 @@ export type EndpointPolicyConfig = Schemas["EndpointPolicyConfig"];
  * One link write: a target of the integration and what fills it. The target
  * is a Ballerina configurable (`<org>/<module>:<name>`), a connection's
  * configurables (`connection`) or an env var (`env`); the source is a
- * resource key (`ref`, `key`) or, for a configurable, an endpoint of the
- * integration's own project (`endpoint`, `<component>/<endpoint>`). A write
- * with no source unlinks the target. The platform does not publish these
- * routes in its OpenAPI, so the shapes are written here.
+ * resource key (`ref`, `key`) or, for a configurable, an endpoint
+ * (`endpoint`, `<project>/<component>/<endpoint>`). An endpoint of the
+ * integration's own project gives the configurable its address and takes no
+ * `key`; an endpoint of another project is reached through a connection the
+ * platform makes for the project, and `key` names which of its outputs
+ * (`url`, `apiKey`, …) fills the configurable. A write with no source
+ * unlinks the target. The platform does not publish these routes in its
+ * OpenAPI, so the shapes are written here.
  */
 export interface LinkRequest {
 	configurable?: string;
@@ -65,14 +69,56 @@ export interface LinkWriteResult {
 	workload: string;
 }
 
+/** A resource key a link reads: `ref` is a resource, or the project's connection to another project's endpoint. */
+export interface LinkKeyRef {
+	ref: string;
+	key: string;
+}
+
+/** A link whose target the integration's build does not declare (yet): `kind` is `configurable`, `connection` or `endpoint`. */
+export interface OrphanedLink {
+	target: string;
+	kind: string;
+	/** For `endpoint`, the endpoint (`<project>/<component>/<endpoint>`); otherwise the resource. */
+	ref: string;
+	key?: string;
+}
+
 /** The parts of an integration's links read here. */
 export interface IntegrationLinks {
 	/** `ballerina` or `mi`. */
 	kind: string;
 	/** The Workload is from the integration's `workload.yaml`, so links can't be written. */
 	sourceDefined: boolean;
-	/** Each configurable filled from an endpoint of the integration's own project, to `<component>/<endpoint>`. */
+	/** Each configurable of the build filled from an endpoint of the integration's own project, to `<project>/<component>/<endpoint>`. */
 	endpointLinks?: Record<string, string>;
+	/** Each configurable of the build filled from a resource key, a connection to another project's endpoint among them. */
+	fieldLinks?: Record<string, LinkKeyRef>;
+	/** Links the build has no target for, such as one written before the build that declares its configurable. */
+	orphaned?: OrphanedLink[];
+}
+
+/**
+ * How an integration reaches an endpoint: `project`, directly, for an
+ * endpoint of its own project; `organization`, through the gateway with an
+ * API key, for one of another project.
+ */
+export type ConnectableScope = "project" | "organization";
+
+/** An endpoint an integration may connect to, from `GET /components/{componentName}/connectable-endpoints`. */
+export interface ConnectableEndpoint {
+	project: string;
+	component: string;
+	endpoint: string;
+	/** The component's display name, or its name when it has none. */
+	displayName: string;
+	scope: ConnectableScope;
+	/** The project's connection to the endpoint, when it has one; a link to the endpoint makes one otherwise. */
+	ref?: string;
+	/** For `organization` scope: the values a link may take, one per configurable (`url`, `apiKeyHeader`, `apiKey`). */
+	outputs?: { name: string; secret: boolean }[];
+	/** One per environment, in deployment pipeline order. `reason` is `endpoint_not_internal`, `not_deployed` or `upstream_error`. */
+	environments: { name: string; connectable: boolean; reason?: string; detail?: string }[];
 }
 
 /** The API path of a component in one environment. */
@@ -304,13 +350,24 @@ export class RuntimeConfigApi {
 
 	/**
 	 * `PUT /components/{componentName}/link`: links one target, or unlinks it.
-	 * A configurable linked to an endpoint of its own project gets the
-	 * endpoint's address in every environment, resolved by the platform; the
-	 * link applies from the integration's next deploy of a build that has the
-	 * configurable.
+	 * A configurable linked to an endpoint gets the endpoint's address (or,
+	 * for another project's, the connection output `key` names) in every
+	 * environment, resolved by the platform; the link applies from the
+	 * integration's next deploy of a build that has the configurable.
 	 */
 	async putLink(componentName: string, link: LinkRequest, projectName?: string): Promise<LinkWriteResult> {
 		return this.http.put<LinkWriteResult>(`${componentPath(componentName)}/link`, link, { query: { projectName } });
+	}
+
+	/**
+	 * `GET /components/{componentName}/connectable-endpoints`: the endpoints of
+	 * the organization the integration may connect to, its own left out, with
+	 * where each can be connected. Binding is still checked at deploy.
+	 */
+	async listConnectableEndpoints(componentName: string, projectName?: string): Promise<ConnectableEndpoint[]> {
+		return (
+			(await this.http.get<ConnectableEndpoint[] | null>(`${componentPath(componentName)}/connectable-endpoints`, { query: { projectName } })) ?? []
+		);
 	}
 
 	/** `GET .../config-schema`: the configurables the integration declares. */

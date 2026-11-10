@@ -64,6 +64,7 @@ import type { RepoBranch, RepoPathInspection, RepoTreeNode } from "../api/repos"
 import type {
 	ApiKeyResult,
 	ConfigSchema,
+	ConnectableEndpoint,
 	CreateApiKeyRequest,
 	EndpointPolicyConfig,
 	EndpointResources,
@@ -187,22 +188,27 @@ export interface ConnectionTarget {
 }
 
 /**
- * How a service connection reaches its target. `project`: directly, with no
- * key, for a target in the consumer's own project; the platform fills one of
- * the consumer's configurables with the endpoint's address in every
- * environment. `gateway`: the endpoint's API on the gateway, with an API key
- * issued to the consumer, for an endpoint exposed with organization or
- * public access.
+ * How a service connection reaches its target, as the platform's
+ * connectable endpoints scope it. `project`: directly, with no key, for an
+ * endpoint of the consumer's own project; the platform fills the URL
+ * configurable with the endpoint's address. `organization`: through the
+ * gateway, for an endpoint of another project exposed to the organization;
+ * the platform makes the project's connection to it and, when the consumer
+ * deploys, binds it with an API key, filling the URL and API key
+ * configurables. Either way the values are resolved per environment.
  */
-export type ServiceConnectionAccess = "project" | "gateway";
+export type ServiceConnectionAccess = "project" | "organization";
 
-/** A configurable the platform fills with the address of an endpoint of the integration's own project. */
+/** A configurable the platform fills from an endpoint: its address, or one output of the project's connection to it. */
 export interface EndpointLink {
 	/** `<org>/<module>:<name>`, as the integration's build declares it. */
 	configurable: string;
-	/** The integration that exposes the endpoint, in the same project. */
+	/** The project, integration and endpoint the value comes from. */
+	project: string;
 	component: string;
 	endpoint: string;
+	/** For an endpoint of another project, the connection output that fills the configurable (`url`, `apiKey`, …); absent for the address of one of the integration's own project. */
+	key?: string;
 }
 
 /**
@@ -374,6 +380,8 @@ export interface IWso2PlatformExtensionAPI {
 		listForEnvironment(name: string, environment: string, projectName?: string): Promise<EndpointResources[]>;
 		listForRelease(name: string, releaseId: string, projectName?: string): Promise<EndpointResources[]>;
 		getOpenApi(name: string, environment: string, endpointName: string, projectName?: string): Promise<string | undefined>;
+		/** The exposed API's auth mode in the environment, and the header an API key goes in. */
+		getSecurity(name: string, environment: string, endpointName: string, projectName?: string): Promise<Schemas["SecurityConfig"]>;
 		createTestKey(name: string, environment: string, endpointName: string, projectName?: string): Promise<ApiKeyResult>;
 		createApiKey(name: string, environment: string, endpointName: string, request: CreateApiKeyRequest, projectName?: string): Promise<ApiKeyResult>;
 		expose(name: string, environment: string, endpointName: string, projectName?: string): Promise<Schemas["EndpointVisibilityResponse"]>;
@@ -483,7 +491,7 @@ export interface IWso2PlatformExtensionAPI {
 
 	// ---- compositions over the platform, in place of the Choreo "connections" ----
 	connections: {
-		/** The env-var groups of an integration in an environment; sensitive values read back empty. */
+		/** The env-var groups of an integration in an environment; sensitive values read back empty. A database connection is one. */
 		list(integration: string, environment: string, projectName?: string): Promise<EnvVarGroup[]>;
 		/** Writes a managed database's credentials as a sensitive env group in each environment, the variables named by `connectionVarName`. */
 		createDatabaseConnection(request: {
@@ -493,24 +501,23 @@ export interface IWso2PlatformExtensionAPI {
 			environments?: string[];
 			projectName?: string;
 		}): Promise<void>;
+		/** The endpoints of the organization the integration may connect to, its own left out, with where each can be connected. */
+		listConnectable(integration: string, projectName?: string): Promise<ConnectableEndpoint[]>;
 		/**
-		 * `project` access links `configurable` to the target endpoint: the platform resolves the endpoint's
-		 * address in every environment and gives it to the configurable from the integration's next deploy
-		 * of a build that declares it. `gateway` access writes the gateway URL and an API key issued for it as
-		 * an env group on the consumer in each environment, the variables named by `connectionVarName`; the
-		 * consumer must be deployed in each of them.
+		 * Links the integration's configurables (`<org>/<module>:<name>`) to the target endpoint. `project`
+		 * access fills `url` with the endpoint's address. `organization` access fills `url` and, when given,
+		 * `apiKey` from the project's connection to the endpoint, which the platform makes if there is none.
+		 * The platform resolves the values in every environment, from the integration's next deploy of a
+		 * build that declares the configurables; nothing has to be deployed first.
 		 */
 		createServiceConnection(request: {
 			integration: string;
 			target: ConnectionTarget;
 			access: ServiceConnectionAccess;
-			name: string;
-			environments?: string[];
+			configurables: { url: string; apiKey?: string };
 			projectName?: string;
-			/** For `project` access, required: the configurable (`<org>/<module>:<name>`) the endpoint's address fills. */
-			configurable?: string;
 		}): Promise<void>;
-		/** The configurables endpoints of the integration's own project fill. */
+		/** The configurables endpoints fill, whether or not the integration's latest build declares them yet. */
 		listEndpointLinks(integration: string, projectName?: string): Promise<EndpointLink[]>;
 		/** Stops filling `configurable` from an endpoint. */
 		unlinkEndpoint(request: { integration: string; configurable: string; projectName?: string }): Promise<void>;
