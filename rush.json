@@ -429,6 +429,11 @@
       "versionPolicyName": "wso2-platform-extension"
     },
     {
+      "packageName": "@wso2/wso2-cloud-client",
+      "projectFolder": "workspaces/wso2-platform/wso2-cloud-client",
+      "versionPolicyName": "wso2-platform-extension"
+    },
+    {
       "packageName": "wso2-platform",
       "projectFolder": "workspaces/wso2-platform/wso2-platform-extension",
       "versionPolicyName": "wso2-platform-extension"
