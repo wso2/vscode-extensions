@@ -195,24 +195,60 @@ describe("RuntimeConfigApi links", () => {
 	it("links a configurable to an endpoint of its own project", async () => {
 		const { client, fake } = harness([{ match: "PUT /components/consumer/link", body: { workload: "next_deploy" } }]);
 
-		const result = await client.config.putLink("consumer", { configurable: "acme/consumer:ordersUrl", endpoint: "orders/api" }, "shop");
+		const result = await client.config.putLink("consumer", { configurable: "acme/consumer:ordersUrl", endpoint: "shop/orders/api" }, "shop");
 
 		assert.equal(fake.last()?.line, `${api("PUT /components/consumer/link")}?projectName=shop`);
-		assert.deepEqual(fake.last()?.body, { configurable: "acme/consumer:ordersUrl", endpoint: "orders/api" });
+		assert.deepEqual(fake.last()?.body, { configurable: "acme/consumer:ordersUrl", endpoint: "shop/orders/api" });
 		assert.equal(result.workload, "next_deploy");
+	});
+
+	it("links a configurable to an output of another project's endpoint", async () => {
+		const { client, fake } = harness([{ match: "PUT /components/consumer/link", body: { workload: "unchanged" } }]);
+
+		await client.config.putLink("consumer", { configurable: "acme/consumer:billingKey", endpoint: "finance/billing/api", key: "apiKey" }, "shop");
+
+		assert.deepEqual(fake.last()?.body, { configurable: "acme/consumer:billingKey", endpoint: "finance/billing/api", key: "apiKey" });
+	});
+
+	it("lists the endpoints the integration may connect to", async () => {
+		const billing = {
+			project: "finance",
+			component: "billing",
+			endpoint: "api",
+			displayName: "Billing",
+			scope: "organization",
+			ref: "finance-billing-api",
+			outputs: [
+				{ name: "url", secret: false },
+				{ name: "apiKey", secret: true },
+			],
+			environments: [{ name: "development", connectable: true }],
+		};
+		const { client, fake } = harness([{ match: "GET /components/consumer/connectable-endpoints", body: [billing] }]);
+
+		const endpoints = await client.config.listConnectableEndpoints("consumer", "shop");
+
+		assert.equal(fake.last()?.line, `${api("GET /components/consumer/connectable-endpoints")}?projectName=shop`);
+		assert.deepEqual(endpoints, [billing]);
+	});
+
+	it("reads an empty connectable list from a null body", async () => {
+		const { client } = harness([{ match: "GET /components/consumer/connectable-endpoints", body: null }]);
+
+		assert.deepEqual(await client.config.listConnectableEndpoints("consumer", "shop"), []);
 	});
 
 	it("reads which configurables endpoints fill", async () => {
 		const { client, fake } = harness([
 			{
 				match: "GET /components/consumer/links",
-				body: { kind: "ballerina", sourceDefined: false, endpointLinks: { "acme/consumer:ordersUrl": "orders/api" } },
+				body: { kind: "ballerina", sourceDefined: false, endpointLinks: { "acme/consumer:ordersUrl": "shop/orders/api" } },
 			},
 		]);
 
 		const links = await client.config.listLinks("consumer", "shop");
 
 		assert.equal(fake.last()?.line, `${api("GET /components/consumer/links")}?projectName=shop`);
-		assert.deepEqual(links.endpointLinks, { "acme/consumer:ordersUrl": "orders/api" });
+		assert.deepEqual(links.endpointLinks, { "acme/consumer:ordersUrl": "shop/orders/api" });
 	});
 });
