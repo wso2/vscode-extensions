@@ -81,6 +81,17 @@ export const PLATFORM_SCOPES: readonly string[] = [
 	"ipaas:observability:metric-read",
 	"ipaas:package-registry:read",
 	"ipaas:package-registry:manage",
+	// The Integration Platform API creates, builds and deploys AI agents through Agent Manager with the caller's token.
+	"amp:agent:create",
+	"amp:agent:read",
+	"amp:agent:update",
+	"amp:agent:delete",
+	"amp:agent:build",
+	"amp:agent:env-non-production",
+	"amp:agent:env-production",
+	"amp:agent:suspend",
+	"amp:agent:api-key-manage",
+	"amp:observability:trace-read",
 ];
 
 /** The scopes a sign-in asks for: identity, a refresh token, the profile claims the UI shows, and the platform permissions. */
