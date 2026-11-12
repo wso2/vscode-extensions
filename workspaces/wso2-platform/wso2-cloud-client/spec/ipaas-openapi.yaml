@@ -7898,6 +7898,66 @@ components:
           $ref: "#/components/schemas/GitHubAppSource"
         azureDevOps:
           $ref: "#/components/schemas/AzureDevOpsSource"
+        modelConfig:
+          type: array
+          description: >
+            AI Agent (`proxy/agent-api`) components only; any other type is
+            rejected with 400. Organization LLM providers to attach. agent-manager
+            creates the agent's proxy and key on each and injects the URL and key
+            as environment variables. An unknown provider is rejected with 400.
+          items:
+            $ref: "#/components/schemas/AgentModelConfig"
+        mcpConfig:
+          type: array
+          description: >
+            AI Agent (`proxy/agent-api`) components only; any other type is
+            rejected with 400. Registered MCP proxies to attach, whose URLs are
+            injected as environment variables. An unknown proxy is rejected with 400.
+          items:
+            $ref: "#/components/schemas/AgentMCPConfig"
+        enableAutoInstrumentation:
+          type: boolean
+          description: >
+            AI Agent (`proxy/agent-api`) components only; any other type is
+            rejected with 400. Turns on agent-manager's tracing: the OTEL
+            instrumentation and the injected OTEL endpoint and API key. Off when
+            omitted.
+
+    AgentModelConfig:
+      type: object
+      required: [providerName]
+      properties:
+        providerName:
+          type: string
+          description: Handle of the organization LLM provider.
+        environmentVariables:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentEnvVarName"
+
+    AgentMCPConfig:
+      type: object
+      required: [proxyName]
+      properties:
+        proxyName:
+          type: string
+          description: Handle of the registered MCP proxy.
+        environmentVariables:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentEnvVarName"
+
+    AgentEnvVarName:
+      type: object
+      description: Renames a variable agent-manager injects.
+      required: [key, name]
+      properties:
+        key:
+          type: string
+          description: agent-manager's key for the variable, `url` or `apikey`.
+        name:
+          type: string
+          description: The environment variable the agent reads.
 
     ComponentMetadata:
       type: object

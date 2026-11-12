@@ -3299,6 +3299,23 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @description Renames a variable agent-manager injects. */
+        AgentEnvVarName: {
+            /** @description agent-manager's key for the variable, `url` or `apikey`. */
+            key: string;
+            /** @description The environment variable the agent reads. */
+            name: string;
+        };
+        AgentMCPConfig: {
+            environmentVariables?: components["schemas"]["AgentEnvVarName"][];
+            /** @description Handle of the registered MCP proxy. */
+            proxyName: string;
+        };
+        AgentModelConfig: {
+            environmentVariables?: components["schemas"]["AgentEnvVarName"][];
+            /** @description Handle of the organization LLM provider. */
+            providerName: string;
+        };
         AlertRule: {
             condition: components["schemas"]["AlertRuleCondition"];
             description?: string;
@@ -3985,8 +4002,14 @@ export interface components {
         /** @description K8s-style body mirroring the OpenChoreo Component resource. Only `metadata.name` is validated by this service (400 when empty); the other required fields are enforced upstream, so a body missing them fails with 500. */
         CreateComponentRequest: {
             azureDevOps?: components["schemas"]["AzureDevOpsSource"];
+            /** @description AI Agent (`proxy/agent-api`) components only; any other type is rejected with 400. Turns on agent-manager's tracing: the OTEL instrumentation and the injected OTEL endpoint and API key. Off when omitted. */
+            enableAutoInstrumentation?: boolean;
             githubApp?: components["schemas"]["GitHubAppSource"];
+            /** @description AI Agent (`proxy/agent-api`) components only; any other type is rejected with 400. Registered MCP proxies to attach, whose URLs are injected as environment variables. An unknown proxy is rejected with 400. */
+            mcpConfig?: components["schemas"]["AgentMCPConfig"][];
             metadata: components["schemas"]["ComponentMetadata"];
+            /** @description AI Agent (`proxy/agent-api`) components only; any other type is rejected with 400. Organization LLM providers to attach. agent-manager creates the agent's proxy and key on each and injects the URL and key as environment variables. An unknown provider is rejected with 400. */
+            modelConfig?: components["schemas"]["AgentModelConfig"][];
             spec: components["schemas"]["ComponentSpec"];
         };
         CreateDatabaseServerRequest: {
@@ -6098,6 +6121,9 @@ export interface components {
     };
     pathItems: never;
 }
+export type SchemaAgentEnvVarName = components['schemas']['AgentEnvVarName'];
+export type SchemaAgentMcpConfig = components['schemas']['AgentMCPConfig'];
+export type SchemaAgentModelConfig = components['schemas']['AgentModelConfig'];
 export type SchemaAlertRule = components['schemas']['AlertRule'];
 export type SchemaAlertRuleCondition = components['schemas']['AlertRuleCondition'];
 export type SchemaAlertRuleEnvConfigRequest = components['schemas']['AlertRuleEnvConfigRequest'];
