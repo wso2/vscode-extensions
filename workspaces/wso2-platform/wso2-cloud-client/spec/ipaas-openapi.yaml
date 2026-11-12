@@ -7915,6 +7915,13 @@ components:
             injected as environment variables. An unknown proxy is rejected with 400.
           items:
             $ref: "#/components/schemas/AgentMCPConfig"
+        enableAutoInstrumentation:
+          type: boolean
+          description: >
+            AI Agent (`proxy/agent-api`) components only; any other type is
+            rejected with 400. Turns on agent-manager's tracing: the OTEL
+            instrumentation and the injected OTEL endpoint and API key. Off when
+            omitted.
 
     AgentModelConfig:
       type: object

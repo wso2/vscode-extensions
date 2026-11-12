@@ -116,6 +116,8 @@ export interface CreateIntegrationInput {
 	modelConfig?: AgentModelConfig[];
 	/** For an `ai-agent`: the MCP proxies Agent Manager attaches. */
 	mcpConfig?: AgentMcpConfig[];
+	/** For an `ai-agent`: turns on Agent Manager's tracing; the platform leaves it off when unset. */
+	autoInstrumentation?: boolean;
 }
 
 /** The repository as a workflow names it; `appPath` only when there is one. */
@@ -193,6 +195,9 @@ export function buildCreateComponentRequest(input: CreateIntegrationInput): Crea
 	}
 	if (input.mcpConfig?.length) {
 		request.mcpConfig = input.mcpConfig;
+	}
+	if (input.autoInstrumentation !== undefined) {
+		request.enableAutoInstrumentation = input.autoInstrumentation;
 	}
 	return request;
 }

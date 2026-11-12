@@ -4002,6 +4002,8 @@ export interface components {
         /** @description K8s-style body mirroring the OpenChoreo Component resource. Only `metadata.name` is validated by this service (400 when empty); the other required fields are enforced upstream, so a body missing them fails with 500. */
         CreateComponentRequest: {
             azureDevOps?: components["schemas"]["AzureDevOpsSource"];
+            /** @description AI Agent (`proxy/agent-api`) components only; any other type is rejected with 400. Turns on agent-manager's tracing: the OTEL instrumentation and the injected OTEL endpoint and API key. Off when omitted. */
+            enableAutoInstrumentation?: boolean;
             githubApp?: components["schemas"]["GitHubAppSource"];
             /** @description AI Agent (`proxy/agent-api`) components only; any other type is rejected with 400. Registered MCP proxies to attach, whose URLs are injected as environment variables. An unknown proxy is rejected with 400. */
             mcpConfig?: components["schemas"]["AgentMCPConfig"][];

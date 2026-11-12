@@ -93,7 +93,7 @@ describe("ComponentsApi", () => {
 		});
 	});
 
-	it("sends an AI agent's LLM providers and MCP servers, and leaves empty lists out", () => {
+	it("sends an AI agent's LLM providers, MCP servers and tracing choice, and leaves unset ones out", () => {
 		const base = {
 			projectName: "p",
 			name: "task-agent",
@@ -119,6 +119,10 @@ describe("ComponentsApi", () => {
 		const bare = buildCreateComponentRequest({ ...base, modelConfig: [], mcpConfig: [] });
 		assert.equal("modelConfig" in bare, false);
 		assert.equal("mcpConfig" in bare, false);
+		assert.equal("enableAutoInstrumentation" in bare, false);
+
+		assert.equal(buildCreateComponentRequest({ ...base, autoInstrumentation: true }).enableAutoInstrumentation, true);
+		assert.equal(buildCreateComponentRequest({ ...base, autoInstrumentation: false }).enableAutoInstrumentation, false);
 	});
 
 	it("refuses a bad name, type, runtime or clone URL before calling", () => {
