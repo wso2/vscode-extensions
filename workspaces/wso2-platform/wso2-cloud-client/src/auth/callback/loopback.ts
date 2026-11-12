@@ -96,17 +96,20 @@ const render = (page: CallbackPage, productName: string): string => `<!doctype h
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${productName}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&display=swap">
 <style>
 :root {
   color-scheme: light dark;
-  --page: #FAFAFA; --card: #FFFFFF; --line: #E5E5E5;
-  --ink: #111111; --muted: #5F5A57;
+  --page: #F4F6FA; --card: #FFFFFFC5; --line: #00000012;
+  --ink: #0B1633; --muted: #5A6072; --accent: #C43300;
   --status: ${page.light};
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --page: #0B0B0B; --card: #141414; --line: #262626;
-    --ink: #F5F5F5; --muted: #A29C97;
+    --page: #050A1C; --card: #0B1633C5; --line: #FFFFFF16;
+    --ink: #FFFFFF; --muted: #D0D3E2; --accent: #FF4600;
     --status: ${page.dark};
   }
 }
@@ -115,34 +118,35 @@ body {
   margin: 0; min-height: 100vh; padding: 32px 20px;
   display: flex; align-items: center; justify-content: center;
   background: var(--page); color: var(--ink);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: "Sora", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   line-height: 1.6;
 }
 main {
-  width: 100%; max-width: 440px;
+  width: 100%; max-width: 460px;
   display: flex; flex-direction: column; gap: 18px;
   background: var(--card); border: 1px solid var(--line);
-  border-radius: 12px; padding: 32px 34px 28px;
+  border-radius: 12px; padding: 36px 34px 28px;
+  text-align: center;
 }
-.brand {
-  margin: 0; font-size: 12px; font-weight: 640; letter-spacing: 0.14em;
-  text-transform: uppercase; color: var(--muted);
+.head { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.badge {
+  flex-shrink: 0; width: 52px; height: 52px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--status) 14%, transparent);
 }
-.head { display: flex; align-items: center; gap: 12px; }
-.head svg { flex-shrink: 0; stroke: var(--status); }
-h1 { margin: 0; font-size: 22px; line-height: 1.25; font-weight: 660; letter-spacing: -0.015em; }
+.badge svg { stroke: var(--status); }
+h1 { margin: 0; font-size: 24px; line-height: 1.25; font-weight: 700; letter-spacing: -0.01em; }
 p { margin: 0; }
-.body { font-size: 15.5px; color: var(--muted); }
-.body strong { font-weight: 600; color: var(--ink); }
+.body { font-size: 15px; color: var(--muted); }
+.body strong { font-weight: 600; color: var(--accent); white-space: nowrap; }
 hr { width: 100%; height: 1px; margin: 2px 0 0; border: 0; background: var(--line); }
 .hint { font-size: 13.5px; color: var(--muted); }
 </style>
 </head>
 <body>
 <main>
-<p class="brand">${productName}</p>
 <div class="head">
-<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${page.icon}</svg>
+<span class="badge"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${page.icon}</svg></span>
 <h1>${page.title}</h1>
 </div>
 <p class="body">${page.body}</p>
