@@ -56,14 +56,17 @@ const ICON_CHECK = '<circle cx="12" cy="12" r="9"/><path d="M8.5 12.4l2.4 2.4 4.
 const ICON_CROSS = '<circle cx="12" cy="12" r="9"/><path d="M9.2 9.2l5.6 5.6M14.8 9.2l-5.6 5.6"/>';
 const ICON_ALERT = '<path d="M12 4.5l8 14.5H4z"/><path d="M12 10v4"/><path d="M12 16.6v.1"/>';
 
-const SIGNED_IN: CallbackPage = {
+/** The product the pages name when the host gives none. */
+export const DEFAULT_PRODUCT_NAME = "WSO2 Integrator";
+
+const signedIn = (productName: string): CallbackPage => ({
 	icon: ICON_CHECK,
 	light: "#1E7A3C",
 	dark: "#4FB871",
 	title: "You are signed in",
-	body: "WSO2 Integrator can now work with <strong>WSO2 Cloud</strong> for you.",
+	body: `${productName} can now work with <strong>WSO2 Cloud</strong> for you.`,
 	hint: "You can close this tab and return to the editor.",
-};
+});
 const FAILED: CallbackPage = {
 	icon: ICON_CROSS,
 	light: "#C0261A",
@@ -87,12 +90,12 @@ const NO_SIGN_IN: CallbackPage = {
 };
 
 /** The whole page. It carries no script: a browser refuses to close a tab a script did not open, so the page asks rather than promises. */
-const render = (page: CallbackPage): string => `<!doctype html>
+const render = (page: CallbackPage, productName: string): string => `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>WSO2 Integrator</title>
+<title>${productName}</title>
 <style>
 :root {
   color-scheme: light dark;
@@ -137,7 +140,7 @@ hr { width: 100%; height: 1px; margin: 2px 0 0; border: 0; background: var(--lin
 </head>
 <body>
 <main>
-<p class="brand">WSO2 Integrator</p>
+<p class="brand">${productName}</p>
 <div class="head">
 <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${page.icon}</svg>
 <h1>${page.title}</h1>
@@ -160,7 +163,10 @@ export class LoopbackReceiver implements CallbackReceiver {
 	private port?: number;
 	private pending?: { state: string; resolve: (code: string) => void; reject: (error: unknown) => void };
 
-	constructor(private readonly ports: readonly number[] = LOOPBACK_PORTS) {}
+	constructor(
+		private readonly ports: readonly number[] = LOOPBACK_PORTS,
+		private readonly productName: string = DEFAULT_PRODUCT_NAME,
+	) {}
 
 	/** `http://127.0.0.1:{port}/callback` once started. */
 	get redirectUri(): string {
@@ -235,21 +241,21 @@ export class LoopbackReceiver implements CallbackReceiver {
 		response.setHeader("Content-Type", "text/html; charset=utf-8");
 		const pending = this.pending;
 		if (pending && !isCallbackFor(url, pending.state)) {
-			response.writeHead(400).end(render(OTHER_SIGN_IN));
+			response.writeHead(400).end(render(OTHER_SIGN_IN, this.productName));
 			return;
 		}
 		this.pending = undefined;
 		if (!pending) {
-			response.writeHead(400).end(render(NO_SIGN_IN));
+			response.writeHead(400).end(render(NO_SIGN_IN, this.productName));
 			return;
 		}
 		try {
 			const code = parseCallback(url, pending.state);
-			response.writeHead(200).end(render(SIGNED_IN));
+			response.writeHead(200).end(render(signedIn(this.productName), this.productName));
 			pending.resolve(code);
 		} catch (error) {
 			// The provider's words stay out of the page; the editor reports them.
-			response.writeHead(400).end(render(FAILED));
+			response.writeHead(400).end(render(FAILED, this.productName));
 			pending.reject(error);
 		} finally {
 			this.dispose();

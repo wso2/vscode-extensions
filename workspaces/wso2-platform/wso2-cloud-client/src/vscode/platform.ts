@@ -42,6 +42,8 @@ import { chooseReceivers } from "./uri-callback";
 export interface PlatformClientsOptions {
 	/** `publisher.name` of the hosting extension; the sign-in URI's authority. */
 	extensionId: string;
+	/** The product the browser's sign-in pages name. */
+	productName?: string;
 	context: vscode.ExtensionContext;
 	environment?: CloudEnvironment;
 	fetch?: FetchLike;
@@ -100,7 +102,7 @@ export function createPlatformClients(options: PlatformClientsOptions): Platform
 	} else {
 		let chosen: ChosenReceivers | undefined;
 		try {
-			chosen = chooseReceivers({ extensionId: options.extensionId });
+			chosen = chooseReceivers({ extensionId: options.extensionId, productName: options.productName });
 		} catch (error) {
 			// Sign-in is what this editor lacks, not the rest of the extension; a stored session still works.
 			loginUnavailable = errorMessage(error);
