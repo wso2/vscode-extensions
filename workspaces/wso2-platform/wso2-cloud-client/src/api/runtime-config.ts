@@ -106,7 +106,14 @@ export interface IntegrationLinks {
  */
 export type ConnectableScope = "project" | "organization";
 
-/** An endpoint an integration may connect to, from `GET /components/{componentName}/connectable-endpoints`. */
+/**
+ * Where another project's endpoint is served on the gateway in an environment: `public` on its external
+ * host, `organization` on its internal host, `none` not at all. A connection to a Public endpoint gets the
+ * external URL, to an Organization one the internal URL.
+ */
+export type ConnectableExposure = "public" | "organization" | "none";
+
+/** An endpoint an integration may connect to, from `GET /components/{componentName}/connectable-services`. */
 export interface ConnectableEndpoint {
 	project: string;
 	component: string;
@@ -118,8 +125,11 @@ export interface ConnectableEndpoint {
 	ref?: string;
 	/** For `organization` scope: the values a link may take, one per configurable (`url`, `apiKeyHeader`, `apiKey`). */
 	outputs?: { name: string; secret: boolean }[];
-	/** One per environment, in deployment pipeline order. `reason` is `endpoint_not_internal`, `not_deployed` or `upstream_error`. */
-	environments: { name: string; connectable: boolean; reason?: string; detail?: string }[];
+	/**
+	 * One per environment, in deployment pipeline order. `reason` is `endpoint_not_internal`, `not_deployed` or
+	 * `upstream_error`. `exposure` is answered for `organization` scope only.
+	 */
+	environments: { name: string; connectable: boolean; reason?: string; detail?: string; exposure?: ConnectableExposure }[];
 }
 
 /** The API path of a component in one environment. */
@@ -361,14 +371,16 @@ export class RuntimeConfigApi {
 	}
 
 	/**
-	 * `GET /components/{componentName}/connectable-endpoints`: the endpoints of
+	 * `GET /components/{componentName}/connectable-services`: the endpoints of
 	 * the organization the integration may connect to, its own left out, with
-	 * where each can be connected. Binding is still checked at deploy. The
-	 * platform does not work out the component's project here, so it is named.
+	 * where each can be connected and, for another project's, where it is
+	 * exposed. Another project's endpoint can be connected where it is Public
+	 * or Organization. Binding is still checked at deploy. The platform does
+	 * not work out the component's project here, so it is named.
 	 */
-	async listConnectableEndpoints(componentName: string, projectName: string): Promise<ConnectableEndpoint[]> {
+	async listConnectableServices(componentName: string, projectName: string): Promise<ConnectableEndpoint[]> {
 		return (
-			(await this.http.get<ConnectableEndpoint[] | null>(`${componentPath(componentName)}/connectable-endpoints`, { query: { projectName } })) ?? []
+			(await this.http.get<ConnectableEndpoint[] | null>(`${componentPath(componentName)}/connectable-services`, { query: { projectName } })) ?? []
 		);
 	}
 

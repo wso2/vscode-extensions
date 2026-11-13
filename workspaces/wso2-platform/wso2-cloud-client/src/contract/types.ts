@@ -504,7 +504,8 @@ export interface IWso2PlatformExtensionAPI {
 		}): Promise<void>;
 		/**
 		 * The endpoints of the organization the integration's project may connect to, the integration's own left out,
-		 * with where each can be connected. The integration need not exist yet: its name only leaves its endpoints out.
+		 * with where each can be connected: the project's own wherever they run, another project's where they are
+		 * Public or Organization. The integration need not exist yet: its name only leaves its endpoints out.
 		 */
 		listConnectable(integration: string, projectName: string): Promise<ConnectableEndpoint[]>;
 		/**

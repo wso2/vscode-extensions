@@ -222,20 +222,20 @@ describe("RuntimeConfigApi links", () => {
 				{ name: "url", secret: false },
 				{ name: "apiKey", secret: true },
 			],
-			environments: [{ name: "development", connectable: true }],
+			environments: [{ name: "development", connectable: true, exposure: "public" }],
 		};
-		const { client, fake } = harness([{ match: "GET /components/consumer/connectable-endpoints", body: [billing] }]);
+		const { client, fake } = harness([{ match: "GET /components/consumer/connectable-services", body: [billing] }]);
 
-		const endpoints = await client.config.listConnectableEndpoints("consumer", "shop");
+		const endpoints = await client.config.listConnectableServices("consumer", "shop");
 
-		assert.equal(fake.last()?.line, `${api("GET /components/consumer/connectable-endpoints")}?projectName=shop`);
+		assert.equal(fake.last()?.line, `${api("GET /components/consumer/connectable-services")}?projectName=shop`);
 		assert.deepEqual(endpoints, [billing]);
 	});
 
 	it("reads an empty connectable list from a null body", async () => {
-		const { client } = harness([{ match: "GET /components/consumer/connectable-endpoints", body: null }]);
+		const { client } = harness([{ match: "GET /components/consumer/connectable-services", body: null }]);
 
-		assert.deepEqual(await client.config.listConnectableEndpoints("consumer", "shop"), []);
+		assert.deepEqual(await client.config.listConnectableServices("consumer", "shop"), []);
 	});
 
 	it("reads which configurables endpoints fill", async () => {
