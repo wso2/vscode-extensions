@@ -244,7 +244,7 @@ export interface ExchangedToken {
 }
 
 /** A WSO2 Cloud service WSO2 Integrator calls on a consumer's behalf, by name; where it is, the host decides. */
-export type CloudServiceName = "managed-tokens";
+export type CloudServiceName = "managed-tokens" | "agent-manager";
 
 /** One call to a {@link CloudServiceName}; `path` is relative to the service's base. */
 export interface CloudServiceRequest {
