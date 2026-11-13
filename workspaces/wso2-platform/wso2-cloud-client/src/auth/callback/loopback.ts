@@ -59,12 +59,12 @@ const ICON_ALERT = '<path d="M12 4.5l8 14.5H4z"/><path d="M12 10v4"/><path d="M1
 /** The product the pages name when the host gives none. */
 export const DEFAULT_PRODUCT_NAME = "WSO2 Integrator";
 
-const signedIn = (productName: string): CallbackPage => ({
+const signedIn = (productName: string, service = "WSO2 Cloud"): CallbackPage => ({
 	icon: ICON_CHECK,
 	light: "#1E7A3C",
 	dark: "#4FB871",
 	title: "You are signed in",
-	body: `${productName} can now work with <strong>WSO2 Cloud</strong> for you.`,
+	body: `${productName} can now work with <strong>${service}</strong> for you.`,
 	hint: "You can close this tab and return to the editor.",
 });
 const FAILED: CallbackPage = {
@@ -88,6 +88,15 @@ const NO_SIGN_IN: CallbackPage = {
 	title: "This tab is not part of a sign-in",
 	body: "It did not come from a sign-in started in the editor, so nothing was authorized.",
 };
+
+const escapeHtml = (text: string) =>
+	text.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char] ?? char);
+
+/** The result page of a sign-in that another listener serves, such as one to a self-hosted service; `error` is said in place of the generic failure. */
+export const renderSignInPage = (outcome: { service: string; error?: string }, productName = DEFAULT_PRODUCT_NAME): string =>
+	outcome.error
+		? render({ ...FAILED, body: escapeHtml(outcome.error) }, productName)
+		: render(signedIn(productName, escapeHtml(outcome.service)), productName);
 
 /** The whole page. It carries no script: a browser refuses to close a tab a script did not open, so the page asks rather than promises. */
 const render = (page: CallbackPage, productName: string): string => `<!doctype html>
