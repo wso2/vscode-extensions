@@ -60,7 +60,7 @@ import type {
 	UpdateKnowledgeBaseRequest,
 } from "../api/platform-services";
 import type { CreateProjectRequest, LinkProjectRepositoryRequest, Project, ProjectHandlerAvailability, UpdateProjectRequest } from "../api/projects";
-import type { RepoBranch, RepoPathInspection, RepoTreeNode } from "../api/repos";
+import type { GitHubInstallation, RepoBranch, RepoPathInspection, RepoTreeNode } from "../api/repos";
 import type {
 	ApiKeyResult,
 	ConfigSchema,
@@ -437,11 +437,11 @@ export interface IWso2PlatformExtensionAPI {
 		getTree(owner: string, repo: string, branch?: string): Promise<RepoTreeNode[]>;
 		inspect(owner: string, repo: string, branch: string | undefined, subPath?: string): Promise<RepoPathInspection>;
 	};
-	/** The git integration behind `/git/{proxyPath}`; its routes are a platform dependency, so these may throw `NotSupportedError`. */
+	/** The git integration behind `/git/{proxyPath}`: the organization's GitHub App installations and what they can read. */
 	git: {
-		isRepoAuthorized(owner: string, repo: string): Promise<{ retrievedRepos: boolean; isAccessible: boolean; installationId?: number }>;
-		listInstallations(): Promise<{ orgName: string; installationId: number; repositories: { name: string }[] }[]>;
-		connectGitHub(): Promise<void>;
+		listGitHubInstallations(): Promise<GitHubInstallation[]>;
+		listGitHubBranches(installationId: number, owner: string, repo: string): Promise<string[]>;
+		inspectGitHubPath(installationId: number, owner: string, repo: string, branch: string, subPath?: string): Promise<RepoPathInspection>;
 		raw<T = unknown>(method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE", proxyPath: string, body?: unknown, signal?: AbortSignal): Promise<T>;
 	};
 	dbServers: {

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
-import { decodeSchemaContent, inspectRepoPath, parseGitHubRepoUrl } from "../../src";
-import { DEV, harness } from "../support";
+import type { CloudError } from "../../src";
+import { decodeSchemaContent, inspectGitHubTree, inspectRepoPath, parseGitHubRepoUrl } from "../../src";
+import { DEV, harness, rejection } from "../support";
 
 const obs = new URL(DEV.observabilityBaseUrl).pathname;
 
@@ -117,5 +118,79 @@ describe("ReposApi", () => {
 	it("decodes a base64 OpenAPI document and leaves plain text alone", () => {
 		assert.equal(decodeSchemaContent(Buffer.from("openapi: 3.0.0").toString("base64")), "openapi: 3.0.0");
 		assert.equal(decodeSchemaContent('{"openapi":"3.0.0"}'), '{"openapi":"3.0.0"}');
+	});
+});
+
+describe("GitApi", () => {
+	it("lists and connects GitHub App installations", async () => {
+		const { client, fake } = harness([
+			{ match: "GET /git/github/installations", body: { items: [{ installationId: 7, githubAccount: "acme" }] } },
+			{ match: "POST /git/github/installations", status: 201, body: { items: [{ installationId: 7, githubAccount: "acme" }] } },
+		]);
+
+		assert.deepEqual(await client.git.listGitHubInstallations(), [{ installationId: 7, githubAccount: "acme" }]);
+		assert.equal((await client.git.connectGitHubInstallations("c0de"))[0].githubAccount, "acme");
+		assert.deepEqual(fake.last()?.body, { code: "c0de" });
+	});
+
+	it("reports a GitHub user with no installation as a conflict", async () => {
+		const { client } = harness([
+			{ match: "POST /git/github/installations", status: 409, body: { error: "no accessible GitHub App installations; install the app first" } },
+		]);
+
+		const err = (await rejection(client.git.connectGitHubInstallations("c0de"))) as CloudError;
+		assert.equal(err.code, "conflict");
+	});
+
+	it("reads branches and the tree through an installation", async () => {
+		const { client, fake } = harness([
+			{ match: "GET /git/github/branches", body: { items: ["main"] } },
+			{
+				match: "GET /git/github/tree",
+				body: {
+					items: [
+						{ path: "svc", type: "tree" },
+						{ path: "svc/Ballerina.toml", type: "blob" },
+					],
+					truncated: false,
+				},
+			},
+		]);
+
+		assert.deepEqual(await client.git.listGitHubBranches(7, "acme", "orders"), ["main"]);
+		assert.ok(fake.last()?.line.endsWith("/git/github/branches?installationId=7&owner=acme&repo=orders"));
+		assert.equal((await client.git.inspectGitHubPath(7, "acme", "orders", "main", "svc")).hasBallerinaToml, true);
+		assert.ok(fake.last()?.line.endsWith("/git/github/tree?installationId=7&owner=acme&repo=orders&branch=main"));
+	});
+
+	it("binds an integration's source", async () => {
+		const { client, fake } = harness([{ match: "PUT /git/github/sources/shop/orders", status: 204 }]);
+
+		await client.git.putGitHubSource("shop", "orders", { installationId: 7, owner: "acme", repo: "orders", branch: "main", appPath: "svc" });
+		assert.deepEqual(fake.last()?.body, { installationId: 7, owner: "acme", repo: "orders", branch: "main", appPath: "svc" });
+	});
+
+	it("inspects a path in a flat tree", () => {
+		const tree = [
+			{ path: "README.md", type: "blob" },
+			{ path: "svc", type: "tree" },
+			{ path: "svc/Ballerina.toml", type: "blob" },
+			{ path: "svc/modules", type: "tree" },
+			{ path: "svc/modules/a.bal", type: "blob" },
+			{ path: "empty", type: "tree" },
+		];
+		assert.deepEqual(inspectGitHubTree(tree, "/svc/"), {
+			isBareRepo: false,
+			isSubPathValid: true,
+			isSubPathEmpty: false,
+			hasBallerinaToml: true,
+			hasPomXml: false,
+			hasDockerfile: false,
+		});
+		assert.equal(inspectGitHubTree(tree, "").hasBallerinaToml, false);
+		assert.equal(inspectGitHubTree(tree, "empty").isSubPathEmpty, true);
+		assert.equal(inspectGitHubTree(tree, "missing").isSubPathValid, false);
+		assert.equal(inspectGitHubTree([], "").isBareRepo, true);
+		assert.equal(inspectGitHubTree([], "deep/path", true).isSubPathValid, true, "a truncated tree does not prove the path missing");
 	});
 });
