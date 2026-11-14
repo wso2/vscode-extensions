@@ -102,13 +102,13 @@ export interface ChosenReceivers {
  * only; anything else is refused with a message that says what to do.
  */
 export function chooseReceivers(
-	options: UriCallbackOptions,
+	options: UriCallbackOptions & { productName?: string },
 	env: Pick<typeof vscode.env, "uriScheme" | "uiKind" | "remoteName"> = vscode.env,
 ): ChosenReceivers {
 	const uriReceiver = REGISTERED_URI_SCHEMES.includes(env.uriScheme) ? new UriCallbackReceiver(options) : undefined;
 	const localDesktop = env.uiKind === vscode.UIKind.Desktop && !env.remoteName;
 	if (localDesktop) {
-		const loopback = new LoopbackReceiver();
+		const loopback = new LoopbackReceiver(undefined, options.productName);
 		return { receiver: uriReceiver ? new FallbackReceiver([loopback, uriReceiver]) : loopback, uriReceiver };
 	}
 	if (uriReceiver) {

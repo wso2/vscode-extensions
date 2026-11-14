@@ -56,14 +56,17 @@ const ICON_CHECK = '<circle cx="12" cy="12" r="9"/><path d="M8.5 12.4l2.4 2.4 4.
 const ICON_CROSS = '<circle cx="12" cy="12" r="9"/><path d="M9.2 9.2l5.6 5.6M14.8 9.2l-5.6 5.6"/>';
 const ICON_ALERT = '<path d="M12 4.5l8 14.5H4z"/><path d="M12 10v4"/><path d="M12 16.6v.1"/>';
 
-const SIGNED_IN: CallbackPage = {
+/** The product the pages name when the host gives none. */
+export const DEFAULT_PRODUCT_NAME = "WSO2 Integrator";
+
+const signedIn = (productName: string, service = "WSO2 Cloud"): CallbackPage => ({
 	icon: ICON_CHECK,
 	light: "#1E7A3C",
 	dark: "#4FB871",
 	title: "You are signed in",
-	body: "WSO2 Integrator can now work with <strong>WSO2 Cloud</strong> for you.",
+	body: `${productName} can now work with <strong>${service}</strong> for you.`,
 	hint: "You can close this tab and return to the editor.",
-};
+});
 const FAILED: CallbackPage = {
 	icon: ICON_CROSS,
 	light: "#C0261A",
@@ -86,24 +89,37 @@ const NO_SIGN_IN: CallbackPage = {
 	body: "It did not come from a sign-in started in the editor, so nothing was authorized.",
 };
 
+const escapeHtml = (text: string) =>
+	text.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char] ?? char);
+
+/** The result page of a sign-in that another listener serves, such as one to a self-hosted service; `error` is said in place of the generic failure. */
+export const renderSignInPage = (outcome: { service: string; error?: string }, productName = DEFAULT_PRODUCT_NAME): string =>
+	outcome.error
+		? render({ ...FAILED, body: escapeHtml(outcome.error) }, productName)
+		: render(signedIn(productName, escapeHtml(outcome.service)), productName);
+
 /** The whole page. It carries no script: a browser refuses to close a tab a script did not open, so the page asks rather than promises. */
-const render = (page: CallbackPage): string => `<!doctype html>
+const render = (page: CallbackPage, productName: string): string => `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>WSO2 Integrator</title>
+<meta name="referrer" content="no-referrer">
+<title>${productName}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&display=swap">
 <style>
 :root {
   color-scheme: light dark;
-  --page: #FAFAFA; --card: #FFFFFF; --line: #E5E5E5;
-  --ink: #111111; --muted: #5F5A57;
+  --page: #F4F6FA; --card: #FFFFFFC5; --line: #00000012;
+  --ink: #0B1633; --muted: #5A6072; --accent: #C43300;
   --status: ${page.light};
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --page: #0B0B0B; --card: #141414; --line: #262626;
-    --ink: #F5F5F5; --muted: #A29C97;
+    --page: #050A1C; --card: #0B1633C5; --line: #FFFFFF16;
+    --ink: #FFFFFF; --muted: #D0D3E2; --accent: #FF4600;
     --status: ${page.dark};
   }
 }
@@ -112,34 +128,35 @@ body {
   margin: 0; min-height: 100vh; padding: 32px 20px;
   display: flex; align-items: center; justify-content: center;
   background: var(--page); color: var(--ink);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: "Sora", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   line-height: 1.6;
 }
 main {
-  width: 100%; max-width: 440px;
+  width: 100%; max-width: 460px;
   display: flex; flex-direction: column; gap: 18px;
   background: var(--card); border: 1px solid var(--line);
-  border-radius: 12px; padding: 32px 34px 28px;
+  border-radius: 12px; padding: 36px 34px 28px;
+  text-align: center;
 }
-.brand {
-  margin: 0; font-size: 12px; font-weight: 640; letter-spacing: 0.14em;
-  text-transform: uppercase; color: var(--muted);
+.head { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.badge {
+  flex-shrink: 0; width: 52px; height: 52px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--status) 14%, transparent);
 }
-.head { display: flex; align-items: center; gap: 12px; }
-.head svg { flex-shrink: 0; stroke: var(--status); }
-h1 { margin: 0; font-size: 22px; line-height: 1.25; font-weight: 660; letter-spacing: -0.015em; }
+.badge svg { stroke: var(--status); }
+h1 { margin: 0; font-size: 24px; line-height: 1.25; font-weight: 700; letter-spacing: -0.01em; }
 p { margin: 0; }
-.body { font-size: 15.5px; color: var(--muted); }
-.body strong { font-weight: 600; color: var(--ink); }
+.body { font-size: 15px; color: var(--muted); }
+.body strong { font-weight: 600; color: var(--accent); white-space: nowrap; }
 hr { width: 100%; height: 1px; margin: 2px 0 0; border: 0; background: var(--line); }
 .hint { font-size: 13.5px; color: var(--muted); }
 </style>
 </head>
 <body>
 <main>
-<p class="brand">WSO2 Integrator</p>
 <div class="head">
-<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${page.icon}</svg>
+<span class="badge"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${page.icon}</svg></span>
 <h1>${page.title}</h1>
 </div>
 <p class="body">${page.body}</p>
@@ -160,7 +177,10 @@ export class LoopbackReceiver implements CallbackReceiver {
 	private port?: number;
 	private pending?: { state: string; resolve: (code: string) => void; reject: (error: unknown) => void };
 
-	constructor(private readonly ports: readonly number[] = LOOPBACK_PORTS) {}
+	constructor(
+		private readonly ports: readonly number[] = LOOPBACK_PORTS,
+		private readonly productName: string = DEFAULT_PRODUCT_NAME,
+	) {}
 
 	/** `http://127.0.0.1:{port}/callback` once started. */
 	get redirectUri(): string {
@@ -235,21 +255,21 @@ export class LoopbackReceiver implements CallbackReceiver {
 		response.setHeader("Content-Type", "text/html; charset=utf-8");
 		const pending = this.pending;
 		if (pending && !isCallbackFor(url, pending.state)) {
-			response.writeHead(400).end(render(OTHER_SIGN_IN));
+			response.writeHead(400).end(render(OTHER_SIGN_IN, this.productName));
 			return;
 		}
 		this.pending = undefined;
 		if (!pending) {
-			response.writeHead(400).end(render(NO_SIGN_IN));
+			response.writeHead(400).end(render(NO_SIGN_IN, this.productName));
 			return;
 		}
 		try {
 			const code = parseCallback(url, pending.state);
-			response.writeHead(200).end(render(SIGNED_IN));
+			response.writeHead(200).end(render(signedIn(this.productName), this.productName));
 			pending.resolve(code);
 		} catch (error) {
 			// The provider's words stay out of the page; the editor reports them.
-			response.writeHead(400).end(render(FAILED));
+			response.writeHead(400).end(render(FAILED, this.productName));
 			pending.reject(error);
 		} finally {
 			this.dispose();
