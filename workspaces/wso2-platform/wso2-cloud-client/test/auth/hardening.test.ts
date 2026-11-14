@@ -102,7 +102,10 @@ describe("LoopbackReceiver", () => {
 
 		const real = await fetch(`${base}?code=the-code&state=mine`);
 		assert.equal(real.status, 200);
-		assert.match(await real.text(), /You are signed in/);
+		const page = await real.text();
+		assert.match(page, /You are signed in/);
+		// The code is in this page's URL, so the fonts the page loads must not get it as the referrer.
+		assert.match(page, /<meta name="referrer" content="no-referrer">/);
 		assert.equal(await waiting, "the-code");
 		receiver.dispose();
 	});
