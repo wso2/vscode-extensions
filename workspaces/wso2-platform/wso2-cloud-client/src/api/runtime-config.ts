@@ -108,8 +108,9 @@ export type ConnectableScope = "project" | "organization";
 
 /**
  * Where another project's endpoint is served on the gateway in an environment: `public` on its external
- * host, `organization` on its internal host, `none` not at all. A connection to a Public endpoint gets the
- * external URL, to an Organization one the internal URL.
+ * host, `organization` on its internal host, `none` not at all. It only says which URL a connection gets:
+ * the external one for a Public endpoint, the internal one for an Organization one. Whether the endpoint
+ * can be connected is `connectable`, never worked out from the exposure.
  */
 export type ConnectableExposure = "public" | "organization" | "none";
 
@@ -126,8 +127,14 @@ export interface ConnectableEndpoint {
 	/** For `organization` scope: the values a link may take, one per configurable (`url`, `apiKeyHeader`, `apiKey`). */
 	outputs?: { name: string; secret: boolean }[];
 	/**
-	 * One per environment, in deployment pipeline order. `reason` is `endpoint_not_internal`, `not_deployed` or
-	 * `upstream_error`. `exposure` is answered for `organization` scope only.
+	 * One per environment, in deployment pipeline order. `connectable` decides whether the endpoint can be
+	 * connected there; when it is false, `reason` says why:
+	 * - `endpoint_not_internal`: another project's endpoint that is visible to its own project only (neither
+	 *   Public nor Organization) in this environment, or in any environment that sets its visibility;
+	 * - `not_deployed`: the endpoint is not running in this environment;
+	 * - `upstream_error`: the platform could not read the endpoint's visibility.
+	 * `exposure` is answered for `organization` scope only, and not where the endpoint is not running. It can be
+	 * `public` or `organization` in an environment that is still not connectable.
 	 */
 	environments: { name: string; connectable: boolean; reason?: string; detail?: string; exposure?: ConnectableExposure }[];
 }
