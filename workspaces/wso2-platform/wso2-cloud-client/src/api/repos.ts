@@ -16,14 +16,39 @@
  * under the License.
  */
 
-import { BadRequestError } from "../errors";
-import type { HttpClient, HttpMethod } from "./http";
+import { BadRequestError, isCloudError } from "../errors";
+import type { HttpClient, HttpMethod, RequestOptions } from "./http";
 import { segment } from "./path";
 import type { Schemas } from "./schema";
 import { itemsOf } from "./schema";
 
 export type RepoBranch = Schemas["RepoBranch"];
 export type RepoTreeNode = Schemas["TreeNode"];
+
+/** A GitHub App installation connected to the organization. */
+export interface GitHubInstallation {
+	installationId: number;
+	githubAccount: string;
+}
+
+/** A repository a GitHub App installation gives the person access to. */
+export interface GitHubRepo {
+	owner: string;
+	name: string;
+	private: boolean;
+	defaultBranch: string;
+}
+
+/** An entry of a repository tree read through the GitHub App, with its full path. */
+export interface GitHubTreeEntry {
+	path: string;
+	type: string;
+}
+
+/** Whether the git integration needs the user to authorize the GitHub App (again) first. */
+export function isGitHubAuthRequired(error: unknown): boolean {
+	return isCloudError(error) && error.code === "conflict" && error.details.apiError === "github-auth-required";
+}
 
 /** What a path inside a repository holds, as the create form needs to know. */
 export interface RepoPathInspection {
@@ -91,6 +116,22 @@ export function inspectRepoPath(tree: RepoTreeNode[], subPath = ""): RepoPathIns
 	};
 }
 
+/** Inspects `subPath` in a flat tree of full paths, as the GitHub App lists it. */
+export function inspectGitHubTree(entries: GitHubTreeEntry[], subPath = ""): RepoPathInspection {
+	const dir = subPath.replace(/^\/+|\/+$/g, "");
+	const prefix = dir ? `${dir}/` : "";
+	const inside = entries.filter((entry) => entry.path.startsWith(prefix)).map((entry) => entry.path.slice(prefix.length));
+	const names = new Set(inside.filter((path) => !path.includes("/")));
+	return {
+		isBareRepo: entries.length === 0,
+		isSubPathValid: !dir || entries.some((entry) => entry.path === dir && entry.type === "tree"),
+		isSubPathEmpty: inside.length === 0,
+		hasBallerinaToml: names.has("Ballerina.toml"),
+		hasPomXml: names.has("pom.xml"),
+		hasDockerfile: names.has("Dockerfile"),
+	};
+}
+
 /** The last segment of a tree node's path. */
 function baseName(node: RepoTreeNode): string {
 	const path = node.path || node.subPath || "";
@@ -128,15 +169,44 @@ export class ReposApi {
 
 /**
  * The git integration (git-app-service) behind `/git/{proxyPath}`. Its routes
- * are not in the platform's OpenAPI document, so this is a raw pass-through
- * for the host to call once they are documented.
+ * are not in the platform's OpenAPI document; the GitHub App ones are those
+ * the console calls. Every call relays a 401 without ending the session.
  */
 export class GitProxyApi {
 	constructor(private readonly http: HttpClient) {}
 
-	/** One call to the git integration at `/git/{proxyPath}`; its 401 is relayed without ending the session. */
+	/** One call to the git integration at `/git/{proxyPath}`. */
 	async raw<T = unknown>(method: HttpMethod, proxyPath: string, body?: unknown, signal?: AbortSignal): Promise<T> {
-		return this.http.request<T>(method, `/git/${encodeProxyPath(proxyPath)}`, { body, signal, passThrough: true, retryOn401: false });
+		return this.call<T>(method, encodeProxyPath(proxyPath), { body, signal });
+	}
+
+	/** `GET /git/github/installations`: needs no GitHub authorization. */
+	async listGitHubInstallations(): Promise<GitHubInstallation[]> {
+		return itemsOf(await this.call<{ items?: GitHubInstallation[] }>("GET", "github/installations"));
+	}
+
+	/** `POST /git/github/installations`: binds every installation the user who authorized with `code` can reach. */
+	async bindGitHubInstallations(code: string): Promise<GitHubInstallation[]> {
+		return itemsOf(await this.call<{ items?: GitHubInstallation[] }>("POST", "github/installations", { body: { code } }));
+	}
+
+	/** `GET /git/github/repos`: the installation's repositories the user can read, which are the only ones a create may bind. */
+	async listGitHubRepos(installationId: number): Promise<GitHubRepo[]> {
+		return itemsOf(await this.call<{ items?: GitHubRepo[] }>("GET", "github/repos", { query: { installationId } }));
+	}
+
+	/** `GET /git/github/branches`, as the user can read them; {@link isGitHubAuthRequired} until they authorize. */
+	async listGitHubBranches(installationId: number, owner: string, repo: string): Promise<string[]> {
+		return itemsOf(await this.call<{ items?: string[] }>("GET", "github/branches", { query: { installationId, owner, repo } }));
+	}
+
+	/** `GET /git/github/tree`, as the user can read it. */
+	async listGitHubTree(installationId: number, owner: string, repo: string, branch: string): Promise<GitHubTreeEntry[]> {
+		return itemsOf(await this.call<{ items?: GitHubTreeEntry[] }>("GET", "github/tree", { query: { installationId, owner, repo, branch } }));
+	}
+
+	private call<T>(method: HttpMethod, path: string, options: Pick<RequestOptions, "body" | "query" | "signal"> = {}): Promise<T> {
+		return this.http.request<T>(method, `/git/${path}`, { ...options, passThrough: true, retryOn401: false });
 	}
 }
 

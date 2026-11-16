@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { decodeSchemaContent, inspectRepoPath, parseGitHubRepoUrl } from "../../src";
-import { DEV, harness } from "../support";
+import { decodeSchemaContent, inspectGitHubTree, inspectRepoPath, isGitHubAuthRequired, parseGitHubRepoUrl } from "../../src";
+import { DEV, harness, rejection } from "../support";
 
 const obs = new URL(DEV.observabilityBaseUrl).pathname;
 
@@ -114,8 +114,67 @@ describe("ReposApi", () => {
 		assert.ok(fake.last()?.line.endsWith("/repos/acme/orders/contents?branch=dev"));
 	});
 
+	it("inspects a path in the GitHub App's flat tree", () => {
+		const tree = [
+			{ path: "README.md", type: "blob" },
+			{ path: "svc", type: "tree" },
+			{ path: "svc/Ballerina.toml", type: "blob" },
+			{ path: "svc/modules/db.bal", type: "blob" },
+			{ path: "empty", type: "tree" },
+		];
+		assert.deepEqual(inspectGitHubTree(tree, "/svc/"), {
+			isBareRepo: false,
+			isSubPathValid: true,
+			isSubPathEmpty: false,
+			hasBallerinaToml: true,
+			hasPomXml: false,
+			hasDockerfile: false,
+		});
+		assert.equal(inspectGitHubTree(tree, "empty").isSubPathEmpty, true);
+		assert.equal(inspectGitHubTree(tree, "sv").isSubPathValid, false);
+		assert.equal(inspectGitHubTree([], "").isBareRepo, true);
+		assert.equal(inspectGitHubTree([], "").isSubPathValid, true);
+	});
+
 	it("decodes a base64 OpenAPI document and leaves plain text alone", () => {
 		assert.equal(decodeSchemaContent(Buffer.from("openapi: 3.0.0").toString("base64")), "openapi: 3.0.0");
 		assert.equal(decodeSchemaContent('{"openapi":"3.0.0"}'), '{"openapi":"3.0.0"}');
+	});
+});
+
+describe("GitProxyApi", () => {
+	it("reads the GitHub App's installations, repositories, branches and tree with their query", async () => {
+		const orders = { fullName: "acme/orders", owner: "acme", name: "orders", private: true, defaultBranch: "main" };
+		const { client, fake } = harness([
+			{ match: "GET /git/github/installations", body: { items: [{ installationId: 7, githubAccount: "acme" }] } },
+			{ match: /^GET \S+\/git\/github\/repos\?installationId=7$/, body: { items: [orders] } },
+			{ match: /^GET \S+\/git\/github\/branches\?/, body: { items: ["main"] } },
+			{ match: /^GET \S+\/git\/github\/tree\?/, body: { items: [{ path: "svc", type: "tree" }], truncated: false } },
+		]);
+
+		assert.deepEqual(await client.git.listGitHubInstallations(), [{ installationId: 7, githubAccount: "acme" }]);
+		assert.deepEqual(await client.git.listGitHubRepos(7), [orders]);
+		assert.deepEqual(await client.git.listGitHubBranches(7, "acme", "orders"), ["main"]);
+		assert.ok(fake.last()?.line.endsWith("/git/github/branches?installationId=7&owner=acme&repo=orders"));
+		assert.deepEqual(await client.git.listGitHubTree(7, "acme", "orders", "main"), [{ path: "svc", type: "tree" }]);
+	});
+
+	it("binds installations with the authorization code alone", async () => {
+		const { client, fake } = harness([
+			{ match: "POST /git/github/installations", status: 201, body: { items: [{ installationId: 7, githubAccount: "acme" }] } },
+		]);
+
+		assert.equal((await client.git.bindGitHubInstallations("c0de"))[0].githubAccount, "acme");
+		assert.deepEqual(fake.last()?.body, { code: "c0de" });
+	});
+
+	it("tells a missing GitHub authorization from other conflicts", async () => {
+		const { client } = harness([
+			{ match: /^GET \S+\/git\/github\/branches\?.*repo=orders/, status: 409, body: { success: false, error: "github-auth-required" } },
+			{ match: /^GET \S+\/git\/github\/branches\?.*repo=other/, status: 409, body: { error: "installation-shared-with-other-org" } },
+		]);
+
+		assert.equal(isGitHubAuthRequired(await rejection(client.git.listGitHubBranches(7, "acme", "orders"))), true);
+		assert.equal(isGitHubAuthRequired(await rejection(client.git.listGitHubBranches(7, "acme", "other"))), false);
 	});
 });

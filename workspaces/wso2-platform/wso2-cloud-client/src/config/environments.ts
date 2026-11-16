@@ -39,6 +39,10 @@ export interface CloudEnvironment {
 	readonly consoleUrl: string;
 	/** The public OAuth client registered for VS Code at this deployment's ThunderID. */
 	readonly clientId: string;
+	/** The GitHub App private repositories are connected through; empty sends the person to the console instead. */
+	readonly githubAppSlug: string;
+	/** That GitHub App's public OAuth client id. */
+	readonly githubAppClientId: string;
 }
 
 // Stage and prod carry the documented API and issuer hosts; their observability
@@ -55,6 +59,8 @@ export const ENVIRONMENTS: Readonly<Record<CloudEnvName, CloudEnvironment>> = {
 		observabilityBaseUrl: "",
 		consoleUrl: "",
 		clientId: "WSO2_INTEGRATOR_EXTENSION",
+		githubAppSlug: "wso2-cloud-git-connect-dev",
+		githubAppClientId: "Iv23liqHy5av68J1G5Wl",
 	},
 	stage: {
 		name: "stage",
@@ -63,6 +69,8 @@ export const ENVIRONMENTS: Readonly<Record<CloudEnvName, CloudEnvironment>> = {
 		observabilityBaseUrl: "https://cloud-obs-proxy.obs.dp.stg.cloud.wso2.com/wso2cloud-obs",
 		consoleUrl: "https://console.stg.cloud.wso2.com",
 		clientId: "WSO2_INTEGRATOR_EXTENSION",
+		githubAppSlug: "",
+		githubAppClientId: "",
 	},
 	prod: {
 		name: "prod",
@@ -71,6 +79,8 @@ export const ENVIRONMENTS: Readonly<Record<CloudEnvName, CloudEnvironment>> = {
 		observabilityBaseUrl: "https://cloud-obs-proxy.obs.dp.cloud.wso2.com/wso2cloud-obs",
 		consoleUrl: "https://console.cloud.wso2.com",
 		clientId: "WSO2_INTEGRATOR_EXTENSION",
+		githubAppSlug: "",
+		githubAppClientId: "",
 	},
 };
 
