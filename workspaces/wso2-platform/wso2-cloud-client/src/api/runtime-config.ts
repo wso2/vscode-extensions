@@ -106,7 +106,15 @@ export interface IntegrationLinks {
  */
 export type ConnectableScope = "project" | "organization";
 
-/** An endpoint an integration may connect to, from `GET /components/{componentName}/connectable-endpoints`. */
+/**
+ * Where another project's endpoint is served on the gateway in an environment: `public` on its external
+ * host, `organization` on its internal host, `none` not at all. It only says which URL a connection gets:
+ * the external one for a Public endpoint, the internal one for an Organization one. Whether the endpoint
+ * can be connected is `connectable`, never worked out from the exposure.
+ */
+export type ConnectableExposure = "public" | "organization" | "none";
+
+/** An endpoint an integration may connect to, from `GET /components/{componentName}/connectable-services`. */
 export interface ConnectableEndpoint {
 	project: string;
 	component: string;
@@ -118,8 +126,17 @@ export interface ConnectableEndpoint {
 	ref?: string;
 	/** For `organization` scope: the values a link may take, one per configurable (`url`, `apiKeyHeader`, `apiKey`). */
 	outputs?: { name: string; secret: boolean }[];
-	/** One per environment, in deployment pipeline order. `reason` is `endpoint_not_internal`, `not_deployed` or `upstream_error`. */
-	environments: { name: string; connectable: boolean; reason?: string; detail?: string }[];
+	/**
+	 * One per environment, in deployment pipeline order. `connectable` decides whether the endpoint can be
+	 * connected there; when it is false, `reason` says why:
+	 * - `endpoint_not_internal`: another project's endpoint that is visible to its own project only (neither
+	 *   Public nor Organization) in this environment, or in any environment that sets its visibility;
+	 * - `not_deployed`: the endpoint is not running in this environment;
+	 * - `upstream_error`: the platform could not read the endpoint's visibility.
+	 * `exposure` is answered for `organization` scope only, and not where the endpoint is not running. It can be
+	 * `public` or `organization` in an environment that is still not connectable.
+	 */
+	environments: { name: string; connectable: boolean; reason?: string; detail?: string; exposure?: ConnectableExposure }[];
 }
 
 /** The API path of a component in one environment. */
@@ -361,14 +378,16 @@ export class RuntimeConfigApi {
 	}
 
 	/**
-	 * `GET /components/{componentName}/connectable-endpoints`: the endpoints of
+	 * `GET /components/{componentName}/connectable-services`: the endpoints of
 	 * the organization the integration may connect to, its own left out, with
-	 * where each can be connected. Binding is still checked at deploy. The
-	 * platform does not work out the component's project here, so it is named.
+	 * where each can be connected and, for another project's, where it is
+	 * exposed. Another project's endpoint can be connected where it is Public
+	 * or Organization. Binding is still checked at deploy. The platform does
+	 * not work out the component's project here, so it is named.
 	 */
-	async listConnectableEndpoints(componentName: string, projectName: string): Promise<ConnectableEndpoint[]> {
+	async listConnectableServices(componentName: string, projectName: string): Promise<ConnectableEndpoint[]> {
 		return (
-			(await this.http.get<ConnectableEndpoint[] | null>(`${componentPath(componentName)}/connectable-endpoints`, { query: { projectName } })) ?? []
+			(await this.http.get<ConnectableEndpoint[] | null>(`${componentPath(componentName)}/connectable-services`, { query: { projectName } })) ?? []
 		);
 	}
 
