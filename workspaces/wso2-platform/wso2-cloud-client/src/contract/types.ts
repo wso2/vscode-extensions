@@ -193,8 +193,9 @@ export interface ConnectionTarget {
  * connectable endpoints scope it. `project`: directly, with no key, for an
  * endpoint of the consumer's own project; the platform fills the URL
  * configurable with the endpoint's address. `organization`: through the
- * gateway, for an endpoint of another project exposed to the organization;
- * the platform makes the project's connection to it and, when the consumer
+ * gateway, for an endpoint of another project that is Public or visible to
+ * the organization (a Public one through the gateway's external URL, an
+ * Organization one through its internal URL); the platform makes the project's connection to it and, when the consumer
  * deploys, binds it with an API key, filling the URL and API key
  * configurables. Either way the values are resolved per environment.
  */
