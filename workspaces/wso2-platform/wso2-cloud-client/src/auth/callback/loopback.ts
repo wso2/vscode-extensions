@@ -64,7 +64,7 @@ const signedIn = (productName: string, service = "WSO2 Cloud"): CallbackPage => 
 	light: "#1E7A3C",
 	dark: "#4FB871",
 	title: "You are signed in",
-	body: `${productName} can now work with <strong>${service}</strong> for you.`,
+	body: `${escapeHtml(productName)} can now work with <strong>${service}</strong> for you.`,
 	hint: "You can close this tab and return to the editor.",
 });
 const FAILED: CallbackPage = {
@@ -105,7 +105,7 @@ const render = (page: CallbackPage, productName: string): string => `<!doctype h
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="referrer" content="no-referrer">
-<title>${productName}</title>
+<title>${escapeHtml(productName)}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&display=swap">

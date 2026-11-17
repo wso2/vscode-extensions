@@ -7,6 +7,7 @@ import {
 	InMemorySessionStore,
 	LoginFlow,
 	LoopbackReceiver,
+	renderSignInPage,
 	SessionManager,
 	discover,
 	exchangeCode,
@@ -86,6 +87,12 @@ describe("discover", () => {
 });
 
 describe("LoopbackReceiver", () => {
+	it("escapes the product name on the sign-in page", () => {
+		const page = renderSignInPage({ service: "WSO2 Cloud" }, "</title><script>x</script>");
+		assert.ok(!page.includes("<script>"));
+		assert.ok(page.includes("&lt;/title&gt;&lt;script&gt;"));
+	});
+
 	it("answers a stray or mismatched request without ending the sign-in", async () => {
 		const receiver = new LoopbackReceiver([0]);
 		await receiver.start();
