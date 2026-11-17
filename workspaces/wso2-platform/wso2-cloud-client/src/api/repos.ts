@@ -45,6 +45,12 @@ export interface GitHubTreeEntry {
 	type: string;
 }
 
+/** A repository tree read through the GitHub App; GitHub truncates one past 100,000 entries or 7 MB. */
+export interface GitHubTree {
+	entries: GitHubTreeEntry[];
+	truncated: boolean;
+}
+
 /** Whether the git integration needs the user to authorize the GitHub App (again) first. */
 export function isGitHubAuthRequired(error: unknown): boolean {
 	return isCloudError(error) && error.code === "conflict" && error.details.apiError === "github-auth-required";
@@ -117,15 +123,16 @@ export function inspectRepoPath(tree: RepoTreeNode[], subPath = ""): RepoPathIns
 }
 
 /** Inspects `subPath` in a flat tree of full paths, as the GitHub App lists it. */
-export function inspectGitHubTree(entries: GitHubTreeEntry[], subPath = ""): RepoPathInspection {
+export function inspectGitHubTree({ entries, truncated }: GitHubTree, subPath = ""): RepoPathInspection {
 	const dir = subPath.replace(/^\/+|\/+$/g, "");
 	const prefix = dir ? `${dir}/` : "";
 	const inside = entries.filter((entry) => entry.path.startsWith(prefix)).map((entry) => entry.path.slice(prefix.length));
 	const names = new Set(inside.filter((path) => !path.includes("/")));
+	// A path missing from a truncated tree may still be in the repository, so only a complete tree reports it missing.
 	return {
-		isBareRepo: entries.length === 0,
-		isSubPathValid: !dir || entries.some((entry) => entry.path === dir && entry.type === "tree"),
-		isSubPathEmpty: inside.length === 0,
+		isBareRepo: entries.length === 0 && !truncated,
+		isSubPathValid: !dir || truncated || entries.some((entry) => entry.path === dir && entry.type === "tree"),
+		isSubPathEmpty: inside.length === 0 && !truncated,
 		hasBallerinaToml: names.has("Ballerina.toml"),
 		hasPomXml: names.has("pom.xml"),
 		hasDockerfile: names.has("Dockerfile"),
@@ -201,8 +208,11 @@ export class GitProxyApi {
 	}
 
 	/** `GET /git/github/tree`, as the user can read it. */
-	async listGitHubTree(installationId: number, owner: string, repo: string, branch: string): Promise<GitHubTreeEntry[]> {
-		return itemsOf(await this.call<{ items?: GitHubTreeEntry[] }>("GET", "github/tree", { query: { installationId, owner, repo, branch } }));
+	async listGitHubTree(installationId: number, owner: string, repo: string, branch: string): Promise<GitHubTree> {
+		const tree = await this.call<{ items?: GitHubTreeEntry[]; truncated?: boolean }>("GET", "github/tree", {
+			query: { installationId, owner, repo, branch },
+		});
+		return { entries: itemsOf(tree), truncated: !!tree?.truncated };
 	}
 
 	private call<T>(method: HttpMethod, path: string, options: Pick<RequestOptions, "body" | "query" | "signal"> = {}): Promise<T> {

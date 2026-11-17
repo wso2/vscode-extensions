@@ -115,13 +115,16 @@ describe("ReposApi", () => {
 	});
 
 	it("inspects a path in the GitHub App's flat tree", () => {
-		const tree = [
-			{ path: "README.md", type: "blob" },
-			{ path: "svc", type: "tree" },
-			{ path: "svc/Ballerina.toml", type: "blob" },
-			{ path: "svc/modules/db.bal", type: "blob" },
-			{ path: "empty", type: "tree" },
-		];
+		const tree = {
+			entries: [
+				{ path: "README.md", type: "blob" },
+				{ path: "svc", type: "tree" },
+				{ path: "svc/Ballerina.toml", type: "blob" },
+				{ path: "svc/modules/db.bal", type: "blob" },
+				{ path: "empty", type: "tree" },
+			],
+			truncated: false,
+		};
 		assert.deepEqual(inspectGitHubTree(tree, "/svc/"), {
 			isBareRepo: false,
 			isSubPathValid: true,
@@ -132,8 +135,15 @@ describe("ReposApi", () => {
 		});
 		assert.equal(inspectGitHubTree(tree, "empty").isSubPathEmpty, true);
 		assert.equal(inspectGitHubTree(tree, "sv").isSubPathValid, false);
-		assert.equal(inspectGitHubTree([], "").isBareRepo, true);
-		assert.equal(inspectGitHubTree([], "").isSubPathValid, true);
+		assert.equal(inspectGitHubTree({ entries: [], truncated: false }, "").isBareRepo, true);
+		assert.equal(inspectGitHubTree({ entries: [], truncated: false }, "").isSubPathValid, true);
+	});
+
+	it("does not report a path missing from a truncated GitHub tree as empty", () => {
+		const inspection = inspectGitHubTree({ entries: [{ path: "README.md", type: "blob" }], truncated: true }, "svc");
+		assert.equal(inspection.isSubPathValid, true);
+		assert.equal(inspection.isSubPathEmpty, false);
+		assert.equal(inspectGitHubTree({ entries: [], truncated: true }, "").isBareRepo, false);
 	});
 
 	it("decodes a base64 OpenAPI document and leaves plain text alone", () => {
@@ -156,7 +166,7 @@ describe("GitProxyApi", () => {
 		assert.deepEqual(await client.git.listGitHubRepos(7), [orders]);
 		assert.deepEqual(await client.git.listGitHubBranches(7, "acme", "orders"), ["main"]);
 		assert.ok(fake.last()?.line.endsWith("/git/github/branches?installationId=7&owner=acme&repo=orders"));
-		assert.deepEqual(await client.git.listGitHubTree(7, "acme", "orders", "main"), [{ path: "svc", type: "tree" }]);
+		assert.deepEqual(await client.git.listGitHubTree(7, "acme", "orders", "main"), { entries: [{ path: "svc", type: "tree" }], truncated: false });
 	});
 
 	it("binds installations with the authorization code alone", async () => {
