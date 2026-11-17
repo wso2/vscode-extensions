@@ -199,5 +199,29 @@ describe("GitApi", () => {
 		assert.equal(inspectGitHubTree(tree, "missing").isSubPathValid, false);
 		assert.equal(inspectGitHubTree([], "").isBareRepo, true);
 		assert.equal(inspectGitHubTree([], "deep/path", true).isSubPathValid, true, "a truncated tree does not prove the path missing");
+		assert.equal(inspectGitHubTree([{ path: "svc", type: "blob" }], "svc", true).isSubPathValid, false, "a file is no directory, truncated or not");
+		assert.equal(
+			inspectGitHubTree([{ path: "svc", type: "tree" }], "svc", true).isSubPathEmpty,
+			false,
+			"a truncated tree may leave the children out",
+		);
+		assert.equal(inspectGitHubTree([{ path: "svc/main.bal", type: "blob" }], "svc", true).isSubPathValid, true, "children prove the directory");
+		const dirs = [
+			{ path: "svc/Dockerfile", type: "tree" },
+			{ path: "svc/Ballerina.toml", type: "tree" },
+			{ path: "svc/pom.xml", type: "tree" },
+		];
+		assert.deepEqual(
+			inspectGitHubTree(dirs, "svc"),
+			{
+				isBareRepo: false,
+				isSubPathValid: true,
+				isSubPathEmpty: false,
+				hasBallerinaToml: false,
+				hasPomXml: false,
+				hasDockerfile: false,
+			},
+			"directories named like project files are not project files",
+		);
 	});
 });

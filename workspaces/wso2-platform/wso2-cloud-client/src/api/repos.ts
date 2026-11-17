@@ -153,21 +153,22 @@ export interface GitHubSource {
 export function inspectGitHubTree(entries: GitHubTreeEntry[], subPath = "", truncated = false): RepoPathInspection {
 	const sub = subPath.replace(/^\/+|\/+$/g, "");
 	const prefix = sub ? `${sub}/` : "";
-	const names = new Set(
-		entries
-			.filter((entry) => entry.path.startsWith(prefix) && entry.path.length > prefix.length && !entry.path.slice(prefix.length).includes("/"))
-			.map((entry) => entry.path.slice(prefix.length)),
+	const children = entries.filter(
+		(entry) => entry.path.startsWith(prefix) && entry.path.length > prefix.length && !entry.path.slice(prefix.length).includes("/"),
 	);
-	const found = sub === "" || entries.some((entry) => entry.path === sub && entry.type === "tree");
-	// A truncated tree may leave the path out; it is not reported missing for that.
-	const isSubPathValid = found || (truncated && names.size === 0);
+	const files = new Set(children.filter((entry) => entry.type === "blob").map((entry) => entry.path.slice(prefix.length)));
+	const self = sub ? entries.find((entry) => entry.path === sub) : undefined;
+	// Listed children prove a directory even where a truncated tree left the directory itself out.
+	const found = sub === "" || self?.type === "tree" || children.length > 0;
+	// A truncated tree may leave the path, or its children, out; it is not reported missing or empty for that.
+	const isSubPathValid = found || (truncated && !self);
 	return {
 		isBareRepo: entries.length === 0 && !truncated,
 		isSubPathValid,
-		isSubPathEmpty: found ? names.size === 0 : !isSubPathValid,
-		hasBallerinaToml: names.has("Ballerina.toml"),
-		hasPomXml: names.has("pom.xml"),
-		hasDockerfile: names.has("Dockerfile"),
+		isSubPathEmpty: found ? children.length === 0 && !truncated : !isSubPathValid,
+		hasBallerinaToml: files.has("Ballerina.toml"),
+		hasPomXml: files.has("pom.xml"),
+		hasDockerfile: files.has("Dockerfile"),
 	};
 }
 
