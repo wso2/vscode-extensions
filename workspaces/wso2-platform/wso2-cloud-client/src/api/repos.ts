@@ -186,11 +186,13 @@ export class GitApi {
 
 	/**
 	 * `POST /git/github/installations`: connects every installation the GitHub
-	 * user who authorized the app can see, with the OAuth `code` GitHub returned.
+	 * user who authorized the app can see, with the OAuth `code` GitHub returned,
+	 * and the PKCE `codeVerifier` when the code was authorized with a challenge.
 	 * A user with no installation is a `ConflictError`: install the app first.
 	 */
-	async connectGitHubInstallations(code: string, signal?: AbortSignal): Promise<GitHubInstallation[]> {
-		return (await this.call<{ items?: GitHubInstallation[] }>("POST", "/git/github/installations", { body: { code }, signal }))?.items ?? [];
+	async connectGitHubInstallations(code: string, codeVerifier?: string, signal?: AbortSignal): Promise<GitHubInstallation[]> {
+		const body = codeVerifier ? { code, codeVerifier } : { code };
+		return (await this.call<{ items?: GitHubInstallation[] }>("POST", "/git/github/installations", { body, signal }))?.items ?? [];
 	}
 
 	/** `GET /git/github/branches`: branch names of a repository the installation can read. */

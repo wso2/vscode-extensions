@@ -133,6 +133,13 @@ describe("GitApi", () => {
 		assert.deepEqual(fake.last()?.body, { code: "c0de" });
 	});
 
+	it("connects with the PKCE verifier of a code authorized with a challenge", async () => {
+		const { client, fake } = harness([{ match: "POST /git/github/installations", status: 201, body: { items: [] } }]);
+
+		await client.git.connectGitHubInstallations("c0de", "the-verifier");
+		assert.deepEqual(fake.last()?.body, { code: "c0de", codeVerifier: "the-verifier" });
+	});
+
 	it("reports a GitHub user with no installation as a conflict", async () => {
 		const { client } = harness([
 			{ match: "POST /git/github/installations", status: 409, body: { error: "no accessible GitHub App installations; install the app first" } },
