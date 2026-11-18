@@ -274,20 +274,67 @@ describe("RuntimeConfigApi links", () => {
 				{ name: "url", secret: false },
 				{ name: "apiKey", secret: true },
 			],
-			environments: [{ name: "development", connectable: true }],
+			environments: [{ name: "development", connectable: true, exposure: "public" }],
 		};
-		const { client, fake } = harness([{ match: "GET /components/consumer/connectable-endpoints", body: [billing] }]);
+		const { client, fake } = harness([{ match: "GET /components/consumer/connectable-services", body: [billing] }]);
 
-		const endpoints = await client.config.listConnectableEndpoints("consumer", "shop");
+		const endpoints = await client.config.listConnectableServices("consumer", "shop");
 
-		assert.equal(fake.last()?.line, `${api("GET /components/consumer/connectable-endpoints")}?projectName=shop`);
+		assert.equal(fake.last()?.line, `${api("GET /components/consumer/connectable-services")}?projectName=shop`);
 		assert.deepEqual(endpoints, [billing]);
 	});
 
-	it("reads an empty connectable list from a null body", async () => {
-		const { client } = harness([{ match: "GET /components/consumer/connectable-endpoints", body: null }]);
+	it("passes through where an endpoint can't be connected, and an own project's endpoint with no exposure", async () => {
+		const orders = {
+			project: "shop",
+			component: "orders",
+			endpoint: "api",
+			displayName: "Orders",
+			scope: "project",
+			environments: [
+				{ name: "development", connectable: true },
+				{ name: "production", connectable: false, reason: "not_deployed", detail: "endpoint api of orders is not running in production" },
+			],
+		};
+		const ledger = {
+			project: "finance",
+			component: "ledger",
+			endpoint: "api",
+			displayName: "Ledger",
+			scope: "organization",
+			ref: "finance-ledger-api",
+			outputs: [{ name: "url", secret: false }],
+			environments: [
+				{
+					name: "development",
+					connectable: false,
+					reason: "endpoint_not_internal",
+					detail: "endpoint api of ledger is not visible in production",
+					exposure: "organization",
+				},
+				{
+					name: "production",
+					connectable: false,
+					reason: "endpoint_not_internal",
+					detail: "endpoint api of ledger is not visible in production",
+					exposure: "none",
+				},
+			],
+		};
+		const { client } = harness([{ match: "GET /components/consumer/connectable-services", body: [orders, ledger] }]);
 
-		assert.deepEqual(await client.config.listConnectableEndpoints("consumer", "shop"), []);
+		const endpoints = await client.config.listConnectableServices("consumer", "shop");
+
+		assert.deepEqual(endpoints, [orders, ledger]);
+		assert.equal(endpoints[0].environments[0].exposure, undefined);
+		assert.equal(endpoints[1].environments[0].connectable, false);
+		assert.equal(endpoints[1].environments[0].exposure, "organization");
+	});
+
+	it("reads an empty connectable list from a null body", async () => {
+		const { client } = harness([{ match: "GET /components/consumer/connectable-services", body: null }]);
+
+		assert.deepEqual(await client.config.listConnectableServices("consumer", "shop"), []);
 	});
 
 	it("reads which configurables endpoints fill", async () => {

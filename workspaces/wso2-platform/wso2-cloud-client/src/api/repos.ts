@@ -25,37 +25,6 @@ import { itemsOf } from "./schema";
 export type RepoBranch = Schemas["RepoBranch"];
 export type RepoTreeNode = Schemas["TreeNode"];
 
-/** A GitHub App installation connected to the organization. */
-export interface GitHubInstallation {
-	installationId: number;
-	githubAccount: string;
-}
-
-/** A repository a GitHub App installation gives the person access to. */
-export interface GitHubRepo {
-	owner: string;
-	name: string;
-	private: boolean;
-	defaultBranch: string;
-}
-
-/** An entry of a repository tree read through the GitHub App, with its full path. */
-export interface GitHubTreeEntry {
-	path: string;
-	type: string;
-}
-
-/** A repository tree read through the GitHub App; GitHub truncates one past 100,000 entries or 7 MB. */
-export interface GitHubTree {
-	entries: GitHubTreeEntry[];
-	truncated: boolean;
-}
-
-/** Whether the git integration needs the user to authorize the GitHub App (again) first. */
-export function isGitHubAuthRequired(error: unknown): boolean {
-	return isCloudError(error) && error.code === "conflict" && error.details.apiError === "github-auth-required";
-}
-
 /** What a path inside a repository holds, as the create form needs to know. */
 export interface RepoPathInspection {
 	/** The repository has no files at all. */
@@ -64,10 +33,18 @@ export interface RepoPathInspection {
 	isSubPathValid: boolean;
 	/** The sub path holds nothing. */
 	isSubPathEmpty: boolean;
+	/**
+	 * The listing was cut short, as GitHub does for a large tree: a missing
+	 * entry proves nothing, so a `false` among the `has*` flags may be wrong.
+	 */
+	isTruncated: boolean;
 	hasBallerinaToml: boolean;
 	hasPomXml: boolean;
 	hasDockerfile: boolean;
 }
+
+/** `subPath` without empty segments or leading and trailing slashes: `/svc//app/` is `svc/app`. */
+const normalizeSubPath = (subPath: string): string => subPath.split("/").filter(Boolean).join("/");
 
 /** Reads `https://github.com/<owner>/<repo>[.git]` and the ssh form into its parts. */
 export function parseGitHubRepoUrl(url: string): { owner: string; repo: string } | undefined {
@@ -92,18 +69,16 @@ export function inspectRepoPath(tree: RepoTreeNode[], subPath = ""): RepoPathIns
 		isBareRepo: tree.length === 0,
 		isSubPathValid: false,
 		isSubPathEmpty: true,
+		isTruncated: false,
 		hasBallerinaToml: false,
 		hasPomXml: false,
 		hasDockerfile: false,
 	};
 	if (tree.length === 0) {
-		return { ...empty, isSubPathValid: subPath.replace(/^\/+|\/+$/g, "") === "" };
+		return { ...empty, isSubPathValid: normalizeSubPath(subPath) === "" };
 	}
 	let nodes = tree;
-	const segments = subPath
-		.replace(/^\/+|\/+$/g, "")
-		.split("/")
-		.filter(Boolean);
+	const segments = normalizeSubPath(subPath).split("/").filter(Boolean);
 	for (const segment of segments) {
 		const dir = nodes.find((node) => baseName(node) === segment && node.type !== "file" && node.type !== "blob");
 		if (!dir) {
@@ -116,23 +91,7 @@ export function inspectRepoPath(tree: RepoTreeNode[], subPath = ""): RepoPathIns
 		isBareRepo: false,
 		isSubPathValid: true,
 		isSubPathEmpty: nodes.length === 0,
-		hasBallerinaToml: names.has("Ballerina.toml"),
-		hasPomXml: names.has("pom.xml"),
-		hasDockerfile: names.has("Dockerfile"),
-	};
-}
-
-/** Inspects `subPath` in a flat tree of full paths, as the GitHub App lists it. */
-export function inspectGitHubTree({ entries, truncated }: GitHubTree, subPath = ""): RepoPathInspection {
-	const dir = subPath.replace(/^\/+|\/+$/g, "");
-	const prefix = dir ? `${dir}/` : "";
-	const inside = entries.filter((entry) => entry.path.startsWith(prefix)).map((entry) => entry.path.slice(prefix.length));
-	const names = new Set(inside.filter((path) => !path.includes("/")));
-	// A path missing from a truncated tree may still be in the repository, so only a complete tree reports it missing; the has* flags see only listed files.
-	return {
-		isBareRepo: entries.length === 0 && !truncated,
-		isSubPathValid: !dir || truncated || entries.some((entry) => entry.path === dir && entry.type === "tree"),
-		isSubPathEmpty: inside.length === 0 && !truncated,
+		isTruncated: false,
 		hasBallerinaToml: names.has("Ballerina.toml"),
 		hasPomXml: names.has("pom.xml"),
 		hasDockerfile: names.has("Dockerfile"),
@@ -174,49 +133,161 @@ export class ReposApi {
 	}
 }
 
+/** A GitHub App installation the organization is connected to. */
+export interface GitHubInstallation {
+	installationId: number;
+	/** The GitHub user or organization the app is installed on. */
+	githubAccount: string;
+}
+
+/** A repository an installation was given, as the GitHub user who authorized the app sees it. */
+export interface GitHubRepo {
+	/** `owner/repo`. */
+	fullName: string;
+	name: string;
+	owner: string;
+	private: boolean;
+	defaultBranch: string;
+}
+
 /**
- * The git integration (git-app-service) behind `/git/{proxyPath}`. Its routes
- * are not in the platform's OpenAPI document; the GitHub App ones are those
- * the console calls. Every call relays a 401 without ending the session.
+ * Whether the git integration refused a call because it holds no GitHub
+ * authorization for the person, or it expired: a 409 `github-auth-required`.
+ * Authorizing the app again lets the call through.
  */
-export class GitProxyApi {
+export function isGitHubAuthRequired(error: unknown): boolean {
+	return isCloudError(error) && error.code === "conflict" && error.details.apiError === "github-auth-required";
+}
+
+/** One path in a repository tree read through an installation; `type` is GitHub's `blob` or `tree`. */
+export interface GitHubTreeEntry {
+	path: string;
+	type: string;
+}
+
+/** The private-repository source of an integration, read through a GitHub App installation. */
+export interface GitHubSource {
+	installationId: number;
+	owner: string;
+	repo: string;
+	branch: string;
+	appPath?: string;
+	repositoryUrl?: string;
+}
+
+/** Inspects `subPath` in a flat tree, as the installation's tree route lists it. */
+export function inspectGitHubTree(entries: GitHubTreeEntry[], subPath = "", truncated = false): RepoPathInspection {
+	const sub = normalizeSubPath(subPath);
+	const prefix = sub ? `${sub}/` : "";
+	const children = entries.filter(
+		(entry) => entry.path.startsWith(prefix) && entry.path.length > prefix.length && !entry.path.slice(prefix.length).includes("/"),
+	);
+	const files = new Set(children.filter((entry) => entry.type === "blob").map((entry) => entry.path.slice(prefix.length)));
+	// A file at the path, or at a directory on the way to it, proves the path is no directory.
+	const blocked = sub !== "" && entries.some((entry) => entry.type !== "tree" && (entry.path === sub || sub.startsWith(`${entry.path}/`)));
+	// Listed children prove a directory even where a truncated tree left the directory itself out.
+	const found = sub === "" || entries.some((entry) => entry.path === sub && entry.type === "tree") || children.length > 0;
+	// A truncated tree may leave the path, or its children, out; it is not reported missing or empty for that.
+	const isSubPathValid = found || (truncated && !blocked);
+	return {
+		isBareRepo: entries.length === 0 && !truncated,
+		isSubPathValid,
+		isSubPathEmpty: found ? children.length === 0 && !truncated : !isSubPathValid,
+		isTruncated: truncated,
+		hasBallerinaToml: files.has("Ballerina.toml"),
+		hasPomXml: files.has("pom.xml"),
+		hasDockerfile: files.has("Dockerfile"),
+	};
+}
+
+/**
+ * The git integration (git-app-service) behind `/git/{proxyPath}`. Its 401 is
+ * the integration's verdict on the token, so it is relayed without ending the
+ * session and without a retry.
+ */
+export class GitApi {
 	constructor(private readonly http: HttpClient) {}
+
+	/** `GET /git/github/installations`: the GitHub App installations connected to the organization. */
+	async listGitHubInstallations(signal?: AbortSignal): Promise<GitHubInstallation[]> {
+		return itemsOf(await this.call<{ items?: GitHubInstallation[] }>("GET", "/git/github/installations", { signal }));
+	}
+
+	/**
+	 * `POST /git/github/installations`: connects every installation the GitHub
+	 * user who authorized the app can see, with the OAuth `code` GitHub returned,
+	 * and the PKCE `codeVerifier` when the code was authorized with a challenge.
+	 * A user with no installation is a `ConflictError`: install the app first.
+	 */
+	async connectGitHubInstallations(code: string, codeVerifier?: string, signal?: AbortSignal): Promise<GitHubInstallation[]> {
+		return itemsOf(await this.call<{ items?: GitHubInstallation[] }>("POST", "/git/github/installations", { body: { code, codeVerifier }, signal }));
+	}
+
+	/**
+	 * `GET /git/github/repos`: the repositories the installation was given that
+	 * the person's GitHub account can see. This, not a branch read, tells
+	 * whether the app was given a repository: branch and tree reads use the
+	 * person's GitHub authorization, which reads any public repository.
+	 */
+	async listGitHubRepos(installationId: number, signal?: AbortSignal): Promise<GitHubRepo[]> {
+		return itemsOf(await this.call<{ items?: GitHubRepo[] }>("GET", "/git/github/repos", { query: { installationId }, signal }));
+	}
+
+	/** `GET /git/github/branches`: branch names of a repository the installation can read. */
+	async listGitHubBranches(installationId: number, owner: string, repo: string, signal?: AbortSignal): Promise<string[]> {
+		return itemsOf(await this.call<{ items?: string[] }>("GET", "/git/github/branches", { query: { installationId, owner, repo }, signal }));
+	}
+
+	/** `GET /git/github/tree`: every path of a branch, flat; `truncated` when GitHub cut a large tree short. */
+	async getGitHubTree(
+		installationId: number,
+		owner: string,
+		repo: string,
+		branch: string,
+		signal?: AbortSignal,
+	): Promise<{ items: GitHubTreeEntry[]; truncated: boolean }> {
+		const tree = await this.call<{ items?: GitHubTreeEntry[]; truncated?: boolean }>("GET", "/git/github/tree", {
+			query: { installationId, owner, repo, branch },
+			signal,
+		});
+		return { items: itemsOf(tree), truncated: tree?.truncated === true };
+	}
+
+	/**
+	 * Reads the tree through the installation and inspects `subPath` in it.
+	 * Each call reads the whole tree; to inspect several paths of one branch,
+	 * read it once with `getGitHubTree` and pass it on with its truncation:
+	 * `inspectGitHubTree(tree.items, subPath, tree.truncated)`.
+	 */
+	async inspectGitHubPath(
+		installationId: number,
+		owner: string,
+		repo: string,
+		branch: string,
+		subPath = "",
+		signal?: AbortSignal,
+	): Promise<RepoPathInspection> {
+		const tree = await this.getGitHubTree(installationId, owner, repo, branch, signal);
+		return inspectGitHubTree(tree.items, subPath, tree.truncated);
+	}
+
+	/** `PUT /git/github/sources/{project}/{component}`: the source an existing integration builds from through the installation. */
+	async putGitHubSource(projectName: string, componentName: string, source: GitHubSource, signal?: AbortSignal): Promise<void> {
+		await this.call("PUT", `/git/github/sources/${segment(projectName)}/${segment(componentName)}`, { body: source, signal });
+	}
+
+	/** `DELETE /git/github/sources/{project}/{component}`: the integration no longer builds through an installation. */
+	async deleteGitHubSource(projectName: string, componentName: string, signal?: AbortSignal): Promise<void> {
+		await this.call("DELETE", `/git/github/sources/${segment(projectName)}/${segment(componentName)}`, { signal });
+	}
 
 	/** One call to the git integration at `/git/{proxyPath}`. */
 	async raw<T = unknown>(method: HttpMethod, proxyPath: string, body?: unknown, signal?: AbortSignal): Promise<T> {
-		return this.call<T>(method, encodeProxyPath(proxyPath), { body, signal });
+		return this.call<T>(method, `/git/${encodeProxyPath(proxyPath)}`, { body, signal });
 	}
 
-	/** `GET /git/github/installations`: needs no GitHub authorization. */
-	async listGitHubInstallations(): Promise<GitHubInstallation[]> {
-		return itemsOf(await this.call<{ items?: GitHubInstallation[] }>("GET", "github/installations"));
-	}
-
-	/** `POST /git/github/installations`: binds every installation the user who authorized with `code` can reach. */
-	async bindGitHubInstallations(code: string): Promise<GitHubInstallation[]> {
-		return itemsOf(await this.call<{ items?: GitHubInstallation[] }>("POST", "github/installations", { body: { code } }));
-	}
-
-	/** `GET /git/github/repos`: the installation's repositories the user can read, which are the only ones a create may bind. */
-	async listGitHubRepos(installationId: number): Promise<GitHubRepo[]> {
-		return itemsOf(await this.call<{ items?: GitHubRepo[] }>("GET", "github/repos", { query: { installationId } }));
-	}
-
-	/** `GET /git/github/branches`, as the user can read them; {@link isGitHubAuthRequired} until they authorize. */
-	async listGitHubBranches(installationId: number, owner: string, repo: string): Promise<string[]> {
-		return itemsOf(await this.call<{ items?: string[] }>("GET", "github/branches", { query: { installationId, owner, repo } }));
-	}
-
-	/** `GET /git/github/tree`, as the user can read it. */
-	async listGitHubTree(installationId: number, owner: string, repo: string, branch: string): Promise<GitHubTree> {
-		const tree = await this.call<{ items?: GitHubTreeEntry[]; truncated?: boolean }>("GET", "github/tree", {
-			query: { installationId, owner, repo, branch },
-		});
-		return { entries: itemsOf(tree), truncated: !!tree?.truncated };
-	}
-
-	private call<T>(method: HttpMethod, path: string, options: Pick<RequestOptions, "body" | "query" | "signal"> = {}): Promise<T> {
-		return this.http.request<T>(method, `/git/${path}`, { ...options, passThrough: true, retryOn401: false });
+	private call<T>(method: HttpMethod, path: string, options: Pick<RequestOptions, "query" | "body" | "signal">): Promise<T> {
+		return this.http.request<T>(method, path, { ...options, passThrough: true, retryOn401: false });
 	}
 }
 
