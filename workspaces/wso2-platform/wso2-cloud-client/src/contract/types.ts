@@ -440,7 +440,10 @@ export interface IWso2PlatformExtensionAPI {
 	};
 	/**
 	 * The git integration behind `/git/{proxyPath}`: the organization's GitHub App
-	 * installations and what they can read. Connecting installations and binding
+	 * installations and the repositories granted to them. Branch and tree reads
+	 * go through the person's GitHub authorization, so they also succeed for a
+	 * public repository no installation was granted: `listGitHubRepos` is the
+	 * check that an installation has the repository. Connecting installations and binding
 	 * an integration's source are left out: the host does both in its own
 	 * flows, as connecting needs GitHub's return to the host's URI handler and
 	 * the PKCE verifier only that window holds.
@@ -448,6 +451,7 @@ export interface IWso2PlatformExtensionAPI {
 	git: {
 		listGitHubInstallations(signal?: AbortSignal): Promise<GitHubInstallation[]>;
 		listGitHubRepos(installationId: number, signal?: AbortSignal): Promise<GitHubRepo[]>;
+		/** A repository's branches, read with the person's GitHub authorization: a successful read does not mean the installation was granted the repository. */
 		listGitHubBranches(installationId: number, owner: string, repo: string, signal?: AbortSignal): Promise<string[]>;
 		inspectGitHubPath(
 			installationId: number,
