@@ -1,5 +1,14 @@
 import assert from "node:assert/strict";
-import { type CloudError, DeferredReceiver, ENVIRONMENTS, LoginFlow, LoopbackReceiver, resetDiscoveryCache } from "../../src";
+import {
+	type CloudError,
+	DeferredReceiver,
+	ENVIRONMENTS,
+	LOGIN_SCOPES,
+	LoginFlow,
+	LoopbackReceiver,
+	PLATFORM_SCOPES,
+	resetDiscoveryCache,
+} from "../../src";
 import { FakeIssuer } from "../doubles";
 import { rejection } from "../support";
 
@@ -213,5 +222,26 @@ describe("LoginFlow", () => {
 
 		const session = await run(["offline_access"]);
 		assert.equal(session.tokens.idToken, undefined, "a sign-in that did not ask for openid needs none");
+	});
+});
+
+describe("Sign-in scopes", () => {
+	it("ask for identity, a refresh token, the profile and every platform permission, each once", () => {
+		assert.deepEqual(LOGIN_SCOPES.slice(0, 4), ["openid", "offline_access", "profile", "email"]);
+		assert.equal(new Set(LOGIN_SCOPES).size, LOGIN_SCOPES.length);
+		assert.ok(PLATFORM_SCOPES.every((scope) => LOGIN_SCOPES.includes(scope)));
+	});
+
+	it("include the Agent Manager permissions that AI agent creates and deploys need", () => {
+		for (const scope of [
+			"amp:agent:create",
+			"amp:agent:read",
+			"amp:agent:update",
+			"amp:agent:build",
+			"amp:agent:env-non-production",
+			"amp:observability:trace-read",
+		]) {
+			assert.ok(LOGIN_SCOPES.includes(scope), scope);
+		}
 	});
 });
