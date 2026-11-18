@@ -60,7 +60,7 @@ import type {
 	UpdateKnowledgeBaseRequest,
 } from "../api/platform-services";
 import type { CreateProjectRequest, LinkProjectRepositoryRequest, Project, ProjectHandlerAvailability, UpdateProjectRequest } from "../api/projects";
-import type { RepoBranch, RepoPathInspection, RepoTreeNode } from "../api/repos";
+import type { GitHubInstallation, GitHubRepo, RepoBranch, RepoPathInspection, RepoTreeNode } from "../api/repos";
 import type {
 	ApiKeyResult,
 	ConfigSchema,
@@ -193,8 +193,9 @@ export interface ConnectionTarget {
  * connectable endpoints scope it. `project`: directly, with no key, for an
  * endpoint of the consumer's own project; the platform fills the URL
  * configurable with the endpoint's address. `organization`: through the
- * gateway, for an endpoint of another project exposed to the organization;
- * the platform makes the project's connection to it and, when the consumer
+ * gateway, for an endpoint of another project that is Public or visible to
+ * the organization (a Public one through the gateway's external URL, an
+ * Organization one through its internal URL); the platform makes the project's connection to it and, when the consumer
  * deploys, binds it with an API key, filling the URL and API key
  * configurables. Either way the values are resolved per environment.
  */
@@ -437,11 +438,29 @@ export interface IWso2PlatformExtensionAPI {
 		getTree(owner: string, repo: string, branch?: string): Promise<RepoTreeNode[]>;
 		inspect(owner: string, repo: string, branch: string | undefined, subPath?: string): Promise<RepoPathInspection>;
 	};
-	/** The git integration behind `/git/{proxyPath}`; its routes are a platform dependency, so these may throw `NotSupportedError`. */
+	/**
+	 * The git integration behind `/git/{proxyPath}`: the organization's GitHub App
+	 * installations and the repositories granted to them. Branch and tree reads
+	 * go through the person's GitHub authorization, so they also succeed for a
+	 * public repository no installation was granted: `listGitHubRepos` is the
+	 * check that an installation has the repository. Connecting installations and binding
+	 * an integration's source are left out: the host does both in its own
+	 * flows, as connecting needs GitHub's return to the host's URI handler and
+	 * the PKCE verifier only that window holds.
+	 */
 	git: {
-		isRepoAuthorized(owner: string, repo: string): Promise<{ retrievedRepos: boolean; isAccessible: boolean; installationId?: number }>;
-		listInstallations(): Promise<{ orgName: string; installationId: number; repositories: { name: string }[] }[]>;
-		connectGitHub(): Promise<void>;
+		listGitHubInstallations(signal?: AbortSignal): Promise<GitHubInstallation[]>;
+		listGitHubRepos(installationId: number, signal?: AbortSignal): Promise<GitHubRepo[]>;
+		/** A repository's branches, read with the person's GitHub authorization: a successful read does not mean the installation was granted the repository. */
+		listGitHubBranches(installationId: number, owner: string, repo: string, signal?: AbortSignal): Promise<string[]>;
+		inspectGitHubPath(
+			installationId: number,
+			owner: string,
+			repo: string,
+			branch: string,
+			subPath?: string,
+			signal?: AbortSignal,
+		): Promise<RepoPathInspection>;
 		raw<T = unknown>(method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE", proxyPath: string, body?: unknown, signal?: AbortSignal): Promise<T>;
 	};
 	dbServers: {
@@ -504,7 +523,8 @@ export interface IWso2PlatformExtensionAPI {
 		}): Promise<void>;
 		/**
 		 * The endpoints of the organization the integration's project may connect to, the integration's own left out,
-		 * with where each can be connected. The integration need not exist yet: its name only leaves its endpoints out.
+		 * with where each can be connected: the project's own wherever they run, another project's where they are
+		 * Public or Organization. The integration need not exist yet: its name only leaves its endpoints out.
 		 */
 		listConnectable(integration: string, projectName: string): Promise<ConnectableEndpoint[]>;
 		/**
