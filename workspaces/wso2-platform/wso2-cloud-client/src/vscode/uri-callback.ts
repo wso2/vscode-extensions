@@ -113,6 +113,6 @@ export function chooseReceivers(
 	}
 	throw new LoginError(
 		"no_redirect_available",
-		`Signing in from this editor (${env.uriScheme}${env.remoteName ? `, remote ${env.remoteName}` : ""}) is not supported: its URI scheme is not registered with WSO2 Cloud. Use the official VS Code build, or start the editor with a WSO2 Cloud token.`,
+		`Signing in from this editor (${env.uriScheme}${env.remoteName ? `, remote ${env.remoteName}` : ""}) is not supported: its URI scheme is not registered with Choreo Cloud. Use the official VS Code build, or start the editor with a Choreo Cloud token.`,
 	);
 }

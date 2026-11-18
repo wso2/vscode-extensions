@@ -60,9 +60,9 @@ const ICON_CROSS = '<circle cx="12" cy="12" r="9"/><path d="M9.2 9.2l5.6 5.6M14.
 const ICON_ALERT = '<path d="M12 4.5l8 14.5H4z"/><path d="M12 10v4"/><path d="M12 16.6v.1"/>';
 
 /** The product the pages name when the host gives none. */
-export const DEFAULT_PRODUCT_NAME = "WSO2 Integrator";
+export const DEFAULT_PRODUCT_NAME = "Choreo Integrator";
 
-const signedIn = (productName: string, service = "WSO2 Cloud"): CallbackPage => ({
+const signedIn = (productName: string, service = "Choreo Cloud"): CallbackPage => ({
 	icon: ICON_CHECK,
 	light: "#1E7A3C",
 	dark: "#4FB871",

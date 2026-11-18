@@ -132,7 +132,7 @@ export function missingEnvironmentUrls(environment: CloudEnvironment): string[] 
 export function assertEnvironmentConfigured(environment: CloudEnvironment, hint = "set WSO2_CLOUD_API_URL and WSO2_CLOUD_ISSUER"): CloudEnvironment {
 	const missing = missingEnvironmentUrls(environment);
 	if (missing.length > 0) {
-		throw new Error(`The WSO2 Cloud environment "${environment.name}" has no ${missing.join(" or ")} configured; ${hint}.`);
+		throw new Error(`The Choreo Cloud environment "${environment.name}" has no ${missing.join(" or ")} configured; ${hint}.`);
 	}
 	return environment;
 }

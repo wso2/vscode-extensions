@@ -101,15 +101,15 @@ export class UnauthenticatedError extends CloudError {
 function unauthenticatedMessage(reason: UnauthenticatedReason): string {
 	switch (reason) {
 		case "no_session":
-			return "Not signed in to WSO2 Cloud.";
+			return "Not signed in to Choreo Cloud.";
 		case "session_expired":
-			return "The WSO2 Cloud session has expired. Sign in again.";
+			return "The Choreo Cloud session has expired. Sign in again.";
 		case "rejected":
-			return "WSO2 Cloud rejected the session's token. Sign in again.";
+			return "Choreo Cloud rejected the session's token. Sign in again.";
 		case "injected_token_expired":
 			return "The token this editor was started with has expired.";
 		case "api_key_invalid":
-			return "The WSO2 Cloud session this was connected with has changed. Get the session again and reconnect.";
+			return "The Choreo Cloud session this was connected with has changed. Get the session again and reconnect.";
 	}
 }
 
@@ -272,27 +272,27 @@ export function fromHttpResponse(
 	const details: CloudErrorDetails = { status, apiError: api.error, apiMessage: api.message, path };
 	switch (status) {
 		case 401:
-			return new UnauthenticatedError("rejected", `WSO2 Cloud rejected the session's token: ${words}`, details);
+			return new UnauthenticatedError("rejected", `Choreo Cloud rejected the session's token: ${words}`, details);
 		case 402:
 			return new PlanLimitError(`The organization's plan does not allow this: ${words}`, details);
 		case 403:
-			return new ForbiddenError(`WSO2 Cloud refused this access: ${words}`, details);
+			return new ForbiddenError(`Choreo Cloud refused this access: ${words}`, details);
 		case 404:
-			return new NotFoundError(`WSO2 Cloud found nothing at ${path}: ${words}`, details);
+			return new NotFoundError(`Choreo Cloud found nothing at ${path}: ${words}`, details);
 		case 409:
 			return new ConflictError(words, details);
 		case 429:
-			return new RateLimitedError(`WSO2 Cloud is rate limiting this client: ${words}`, {
+			return new RateLimitedError(`Choreo Cloud is rate limiting this client: ${words}`, {
 				...details,
 				retryAfterSeconds: options.retryAfterSeconds,
 			});
 		case 502:
 		case 503:
 		case 504:
-			return new UnavailableError(`WSO2 Cloud could not complete this right now: ${words}`, details);
+			return new UnavailableError(`Choreo Cloud could not complete this right now: ${words}`, details);
 		default:
 			if (status >= 500) {
-				return new ServerError(`WSO2 Cloud failed to answer: ${words}`, details);
+				return new ServerError(`Choreo Cloud failed to answer: ${words}`, details);
 			}
 			return new BadRequestError(words, details);
 	}

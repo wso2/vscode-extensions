@@ -247,7 +247,7 @@ export class SessionManager {
 			};
 			this.session = refreshed;
 			await this.persist(this.deps.store.save(refreshed));
-			this.logger.debug("Refreshed the WSO2 Cloud session");
+			this.logger.debug("Refreshed the Choreo Cloud session");
 			this.emit({ reason: "refreshed" });
 			return { session: refreshed };
 		} catch (error) {
@@ -261,7 +261,7 @@ export class SessionManager {
 					throw error;
 				}
 				if (stored && stored.tokens.refreshToken !== session.tokens.refreshToken) {
-					this.logger.debug("Took the WSO2 Cloud session another window refreshed");
+					this.logger.debug("Took the Choreo Cloud session another window refreshed");
 					const sameAccount = this.adopt(stored);
 					if (!sameAccount) {
 						// Another person or organization: a request made for the session before must not go out with its token.
@@ -283,7 +283,7 @@ export class SessionManager {
 			throw new UnauthenticatedError("no_session");
 		}
 		if (!this.isExpired(session)) {
-			this.logger.warn(`Could not refresh the WSO2 Cloud session (${errorMessage(error)}); using the current token while it lasts`);
+			this.logger.warn(`Could not refresh the Choreo Cloud session (${errorMessage(error)}); using the current token while it lasts`);
 			return { session, failure: error };
 		}
 		if (isCloudError(error)) {
@@ -294,7 +294,7 @@ export class SessionManager {
 
 	/** Ends the session because the issuer will not refresh it, and says so. */
 	private async expire(why: string): Promise<void> {
-		this.logger.info(`The WSO2 Cloud session has ended: ${why}`);
+		this.logger.info(`The Choreo Cloud session has ended: ${why}`);
 		this.generation++;
 		this.session = undefined;
 		await this.persist(this.deps.store.clear(this.deps.env.name));
@@ -306,7 +306,7 @@ export class SessionManager {
 		try {
 			return await this.deps.store.load(this.deps.env.name);
 		} catch (error) {
-			this.logger.warn(`The stored WSO2 Cloud session could not be read: ${errorMessage(error)}`);
+			this.logger.warn(`The stored Choreo Cloud session could not be read: ${errorMessage(error)}`);
 			return undefined;
 		}
 	}
@@ -344,7 +344,7 @@ export class SessionManager {
 				stored = await this.deps.store.load(this.deps.env.name);
 			} catch (error) {
 				// Unreadable is not signed out: what is cached stays.
-				this.logger.warn(`The stored WSO2 Cloud session could not be read after it changed: ${errorMessage(error)}`);
+				this.logger.warn(`The stored Choreo Cloud session could not be read after it changed: ${errorMessage(error)}`);
 				return;
 			}
 			if (generation !== this.generation || writes !== this.writeCount || this.pendingWrites.size > 0) {
