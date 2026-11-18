@@ -1,0 +1,28 @@
+<!--
+ ~ Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ ~
+ ~ WSO2 LLC. licenses this file to you under the Apache License,
+ ~ Version 2.0 (the "License"); you may not use this file except
+ ~ in compliance with the License.
+ ~ You may obtain a copy of the License at
+ ~
+ ~     http://www.apache.org/licenses/LICENSE-2.0
+ ~
+ ~ Unless required by applicable law or agreed to in writing,
+ ~ software distributed under the License is distributed on an
+ ~ "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ ~ KIND, either express or implied. See the License for the
+ ~ specific language governing permissions and limitations
+ ~ under the License.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+	<path fill="currentColor" d="M16.131 7.65A3.648 1.644 0 1 0 23.426 7.65A3.648 1.644 0 1 0 16.131 7.65Z" />
+	<path fill="currentColor" d="M14.095 3.665A3.512 1.388 0 1 0 21.119 3.665A3.512 1.388 0 1 0 14.095 3.665Z" />
+	<path fill="currentColor" d="M9.455 0.663A3.83 0.663 0 1 0 17.116 0.663A3.83 0.663 0 1 0 9.455 0.663Z" />
+	<path fill="currentColor" d="M16.131 16.35A3.648 1.644 0 1 0 23.426 16.35A3.648 1.644 0 1 0 16.131 16.35Z" />
+	<path fill="currentColor" d="M14.095 20.334A3.512 1.388 0 1 0 21.119 20.334A3.512 1.388 0 1 0 14.095 20.334Z" />
+	<path fill="currentColor" d="M9.455 23.337A3.83 0.663 0 1 0 17.116 23.337A3.83 0.663 0 1 0 9.455 23.337Z" />
+	<path fill="currentColor" d="M0.574 11.64A3.648 1.644 0 1 0 7.87 11.64A3.648 1.644 0 1 0 0.574 11.64Z" />
+	<path fill="currentColor" d="M2.512 16.438A2.978 1.388 0 1 0 8.469 16.438A2.978 1.388 0 1 0 2.512 16.438Z" />
+	<path fill="currentColor" d="M2.512 6.827A2.978 1.388 0 1 0 8.469 6.827A2.978 1.388 0 1 0 2.512 6.827Z" />
+</svg>
