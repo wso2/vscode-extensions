@@ -196,8 +196,11 @@ export function buildCreateComponentRequest(input: CreateIntegrationInput): Crea
 	if (input.mcpConfig?.length) {
 		request.mcpConfig = input.mcpConfig;
 	}
-	if (input.autoInstrumentation !== undefined) {
-		request.enableAutoInstrumentation = input.autoInstrumentation;
+	if (input.autoInstrumentation) {
+		request.enableAutoInstrumentation = true;
+	}
+	if ((request.modelConfig || request.mcpConfig || request.enableAutoInstrumentation) && input.type !== "ai-agent") {
+		throw new BadRequestError(`${input.type} takes no LLM providers, MCP servers or tracing: only an ai-agent does.`);
 	}
 	return request;
 }

@@ -122,7 +122,27 @@ describe("ComponentsApi", () => {
 		assert.equal("enableAutoInstrumentation" in bare, false);
 
 		assert.equal(buildCreateComponentRequest({ ...base, autoInstrumentation: true }).enableAutoInstrumentation, true);
-		assert.equal(buildCreateComponentRequest({ ...base, autoInstrumentation: false }).enableAutoInstrumentation, false);
+		assert.equal("enableAutoInstrumentation" in buildCreateComponentRequest({ ...base, autoInstrumentation: false }), false);
+	});
+
+	it("refuses LLM providers, MCP servers or tracing for anything but an AI agent", () => {
+		const base = {
+			projectName: "p",
+			name: "order-api",
+			type: "integration-as-api" as const,
+			runtime: "wso2-integrator" as const,
+			repo: { url: "https://github.com/acme/orders.git", branch: "main" },
+		};
+		const environmentVariables = [{ key: "url", name: "URL" }];
+		assert.throws(
+			() => buildCreateComponentRequest({ ...base, modelConfig: [{ providerName: "openai", environmentVariables }] }),
+			/only an ai-agent/,
+		);
+		assert.throws(() => buildCreateComponentRequest({ ...base, mcpConfig: [{ proxyName: "deepwiki", environmentVariables }] }), /only an ai-agent/);
+		assert.throws(() => buildCreateComponentRequest({ ...base, autoInstrumentation: true }), /only an ai-agent/);
+
+		const plain = buildCreateComponentRequest({ ...base, modelConfig: [], mcpConfig: [], autoInstrumentation: false });
+		assert.equal("enableAutoInstrumentation" in plain, false);
 	});
 
 	it("refuses a bad name, type, runtime or clone URL before calling", () => {

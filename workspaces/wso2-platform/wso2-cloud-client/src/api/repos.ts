@@ -128,7 +128,7 @@ export function inspectGitHubTree({ entries, truncated }: GitHubTree, subPath = 
 	const prefix = dir ? `${dir}/` : "";
 	const inside = entries.filter((entry) => entry.path.startsWith(prefix)).map((entry) => entry.path.slice(prefix.length));
 	const names = new Set(inside.filter((path) => !path.includes("/")));
-	// A path missing from a truncated tree may still be in the repository, so only a complete tree reports it missing.
+	// A path missing from a truncated tree may still be in the repository, so only a complete tree reports it missing; the has* flags see only listed files.
 	return {
 		isBareRepo: entries.length === 0 && !truncated,
 		isSubPathValid: !dir || truncated || entries.some((entry) => entry.path === dir && entry.type === "tree"),
