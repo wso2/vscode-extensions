@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { BadRequestError } from "../errors";
+import { BadRequestError, isCloudError } from "../errors";
 import type { HttpClient, HttpMethod, RequestOptions } from "./http";
 import { segment } from "./path";
 import type { Schemas } from "./schema";
@@ -140,6 +140,25 @@ export interface GitHubInstallation {
 	githubAccount: string;
 }
 
+/** A repository an installation was given, as the GitHub user who authorized the app sees it. */
+export interface GitHubRepo {
+	/** `owner/repo`. */
+	fullName: string;
+	name: string;
+	owner: string;
+	private: boolean;
+	defaultBranch: string;
+}
+
+/**
+ * Whether the git integration refused a call because it holds no GitHub
+ * authorization for the person, or it expired: a 409 `github-auth-required`.
+ * Authorizing the app again lets the call through.
+ */
+export function isGitHubAuthRequired(error: unknown): boolean {
+	return isCloudError(error) && error.code === "conflict" && error.details.apiError === "github-auth-required";
+}
+
 /** One path in a repository tree read through an installation; `type` is GitHub's `blob` or `tree`. */
 export interface GitHubTreeEntry {
 	path: string;
@@ -204,6 +223,16 @@ export class GitApi {
 		return itemsOf(await this.call<{ items?: GitHubInstallation[] }>("POST", "/git/github/installations", { body: { code, codeVerifier }, signal }));
 	}
 
+	/**
+	 * `GET /git/github/repos`: the repositories the installation was given that
+	 * the person's GitHub account can see. This, not a branch read, tells
+	 * whether the app was given a repository: branch and tree reads use the
+	 * person's GitHub authorization, which reads any public repository.
+	 */
+	async listGitHubRepos(installationId: number, signal?: AbortSignal): Promise<GitHubRepo[]> {
+		return itemsOf(await this.call<{ items?: GitHubRepo[] }>("GET", "/git/github/repos", { query: { installationId }, signal }));
+	}
+
 	/** `GET /git/github/branches`: branch names of a repository the installation can read. */
 	async listGitHubBranches(installationId: number, owner: string, repo: string, signal?: AbortSignal): Promise<string[]> {
 		return itemsOf(await this.call<{ items?: string[] }>("GET", "/git/github/branches", { query: { installationId, owner, repo }, signal }));
@@ -245,6 +274,11 @@ export class GitApi {
 	/** `PUT /git/github/sources/{project}/{component}`: the source an existing integration builds from through the installation. */
 	async putGitHubSource(projectName: string, componentName: string, source: GitHubSource, signal?: AbortSignal): Promise<void> {
 		await this.call("PUT", `/git/github/sources/${segment(projectName)}/${segment(componentName)}`, { body: source, signal });
+	}
+
+	/** `DELETE /git/github/sources/{project}/{component}`: the integration no longer builds through an installation. */
+	async deleteGitHubSource(projectName: string, componentName: string, signal?: AbortSignal): Promise<void> {
+		await this.call("DELETE", `/git/github/sources/${segment(projectName)}/${segment(componentName)}`, { signal });
 	}
 
 	/** One call to the git integration at `/git/{proxyPath}`. */

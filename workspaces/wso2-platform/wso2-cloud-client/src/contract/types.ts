@@ -60,7 +60,7 @@ import type {
 	UpdateKnowledgeBaseRequest,
 } from "../api/platform-services";
 import type { CreateProjectRequest, LinkProjectRepositoryRequest, Project, ProjectHandlerAvailability, UpdateProjectRequest } from "../api/projects";
-import type { GitHubInstallation, RepoBranch, RepoPathInspection, RepoTreeNode } from "../api/repos";
+import type { GitHubInstallation, GitHubRepo, RepoBranch, RepoPathInspection, RepoTreeNode } from "../api/repos";
 import type {
 	ApiKeyResult,
 	ConfigSchema,
@@ -447,6 +447,7 @@ export interface IWso2PlatformExtensionAPI {
 	 */
 	git: {
 		listGitHubInstallations(signal?: AbortSignal): Promise<GitHubInstallation[]>;
+		listGitHubRepos(installationId: number, signal?: AbortSignal): Promise<GitHubRepo[]>;
 		listGitHubBranches(installationId: number, owner: string, repo: string, signal?: AbortSignal): Promise<string[]>;
 		inspectGitHubPath(
 			installationId: number,

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import type { CloudError } from "../../src";
-import { createCloudClient, decodeSchemaContent, inspectGitHubTree, inspectRepoPath, parseGitHubRepoUrl } from "../../src";
+import { createCloudClient, decodeSchemaContent, inspectGitHubTree, inspectRepoPath, isGitHubAuthRequired, parseGitHubRepoUrl } from "../../src";
 import { StaticTokenSource } from "../doubles";
 import { DEV, harness, rejection } from "../support";
 
@@ -208,6 +208,25 @@ describe("GitApi", () => {
 		controller.abort();
 		const error = (await call) as CloudError;
 		assert.equal(error.details.reason, "cancelled");
+	});
+
+	it("lists the repositories an installation was given, and tells an expired GitHub authorization apart", async () => {
+		const repo = { fullName: "acme/orders", name: "orders", owner: "acme", private: true, defaultBranch: "main" };
+		const { client, fake } = harness([{ match: "GET /git/github/repos", body: { items: [repo] } }]);
+		assert.deepEqual(await client.git.listGitHubRepos(7), [repo]);
+		assert.ok(fake.last()?.line.endsWith("/git/github/repos?installationId=7"));
+
+		const expired = harness([{ match: "GET /git/github/repos", status: 409, body: { error: "github-auth-required" } }]);
+		assert.equal(isGitHubAuthRequired(await rejection(expired.client.git.listGitHubRepos(7))), true);
+		const conflict = harness([{ match: "POST /git/github/installations", status: 409, body: { error: "no accessible GitHub App installations" } }]);
+		assert.equal(isGitHubAuthRequired(await rejection(conflict.client.git.connectGitHubInstallations("c0de"))), false);
+	});
+
+	it("unbinds an integration's source", async () => {
+		const { client, fake } = harness([{ match: "DELETE /git/github/sources/shop/orders", status: 204 }]);
+
+		await client.git.deleteGitHubSource("shop", "orders");
+		assert.ok(fake.last()?.line.endsWith("/git/github/sources/shop/orders"));
 	});
 
 	it("binds an integration's source", async () => {
