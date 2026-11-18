@@ -93,6 +93,14 @@ describe("LoopbackReceiver", () => {
 		assert.ok(page.includes("&lt;/title&gt;&lt;script&gt;"));
 	});
 
+	it("escapes the service once and answers an empty error with the generic failure", () => {
+		assert.match(renderSignInPage({ service: "A & B" }), /<strong>A &amp; B<\/strong>/);
+		const page = renderSignInPage({ service: "WSO2 Cloud", error: "" });
+		assert.match(page, /Sign-in failed/);
+		assert.match(page, /nothing was authorized/);
+		assert.doesNotMatch(page, /signed in/);
+	});
+
 	it("answers a stray or mismatched request without ending the sign-in", async () => {
 		const receiver = new LoopbackReceiver([0]);
 		await receiver.start();
@@ -101,6 +109,7 @@ describe("LoopbackReceiver", () => {
 
 		const stray = await fetch(`${base}?code=x&state=other`);
 		assert.equal(stray.status, 400);
+		assert.equal(stray.headers.get("content-security-policy"), "default-src 'none'; style-src 'unsafe-inline'");
 		assert.match(await stray.text(), /not part of this sign-in/);
 		const elsewhere = await fetch(`${base.replace("/callback", "/nope")}`);
 		assert.equal(elsewhere.status, 404);
@@ -111,7 +120,8 @@ describe("LoopbackReceiver", () => {
 		assert.equal(real.status, 200);
 		const page = await real.text();
 		assert.match(page, /You are signed in/);
-		// The code is in this page's URL, so the fonts the page loads must not get it as the referrer.
+		// The code is in this page's URL, so the page loads nothing and sends no referrer.
+		assert.equal(real.headers.get("content-security-policy"), "default-src 'none'; style-src 'unsafe-inline'");
 		assert.match(page, /<meta name="referrer" content="no-referrer">/);
 		assert.equal(await waiting, "the-code");
 		receiver.dispose();

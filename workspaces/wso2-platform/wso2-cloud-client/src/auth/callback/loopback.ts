@@ -33,6 +33,9 @@ export const LOOPBACK_PORTS: readonly number[] = [10441, 10442, 10443, 10444];
 
 const CALLBACK_PATH = "/callback";
 
+/** The pages carry only an inline stylesheet and inline SVG, so they may load nothing. */
+const PAGE_CSP = "default-src 'none'; style-src 'unsafe-inline'";
+
 /**
  * One answer the listener gives a browser: a card saying what happened, one
  * sentence about it, and what to do next. The pages that authorized nothing
@@ -64,7 +67,7 @@ const signedIn = (productName: string, service = "WSO2 Cloud"): CallbackPage => 
 	light: "#1E7A3C",
 	dark: "#4FB871",
 	title: "You are signed in",
-	body: `${escapeHtml(productName)} can now work with <strong>${service}</strong> for you.`,
+	body: `${escapeHtml(productName)} can now work with <strong>${escapeHtml(service)}</strong> for you.`,
 	hint: "You can close this tab and return to the editor.",
 });
 const FAILED: CallbackPage = {
@@ -94,9 +97,9 @@ const escapeHtml = (text: string) =>
 
 /** The result page of a sign-in that another listener serves, such as one to a self-hosted service; `error` is said in place of the generic failure. */
 export const renderSignInPage = (outcome: { service: string; error?: string }, productName = DEFAULT_PRODUCT_NAME): string =>
-	outcome.error
-		? render({ ...FAILED, body: escapeHtml(outcome.error) }, productName)
-		: render(signedIn(productName, escapeHtml(outcome.service)), productName);
+	outcome.error !== undefined
+		? render({ ...FAILED, body: escapeHtml(outcome.error) || FAILED.body }, productName)
+		: render(signedIn(productName, outcome.service), productName);
 
 /** The whole page. It carries no script: a browser refuses to close a tab a script did not open, so the page asks rather than promises. */
 const render = (page: CallbackPage, productName: string): string => `<!doctype html>
@@ -106,9 +109,6 @@ const render = (page: CallbackPage, productName: string): string => `<!doctype h
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="referrer" content="no-referrer">
 <title>${escapeHtml(productName)}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&display=swap">
 <style>
 :root {
   color-scheme: light dark;
@@ -253,6 +253,7 @@ export class LoopbackReceiver implements CallbackReceiver {
 		}
 		response.setHeader("Cache-Control", "no-store");
 		response.setHeader("Content-Type", "text/html; charset=utf-8");
+		response.setHeader("Content-Security-Policy", PAGE_CSP);
 		const pending = this.pending;
 		if (pending && !isCallbackFor(url, pending.state)) {
 			response.writeHead(400).end(render(OTHER_SIGN_IN, this.productName));
