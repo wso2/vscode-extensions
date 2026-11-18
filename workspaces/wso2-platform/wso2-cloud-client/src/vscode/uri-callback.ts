@@ -101,7 +101,7 @@ export interface ChosenReceivers {
  * what to do.
  */
 export function chooseReceivers(
-	options: UriCallbackOptions,
+	options: UriCallbackOptions & { productName?: string },
 	env: Pick<typeof vscode.env, "uriScheme" | "uiKind" | "remoteName"> = vscode.env,
 ): ChosenReceivers {
 	if (REGISTERED_URI_SCHEMES.includes(env.uriScheme)) {
@@ -109,7 +109,7 @@ export function chooseReceivers(
 		return { receiver: uriReceiver, uriReceiver };
 	}
 	if (env.uiKind === vscode.UIKind.Desktop && !env.remoteName) {
-		return { receiver: new LoopbackReceiver() };
+		return { receiver: new LoopbackReceiver(undefined, options.productName) };
 	}
 	throw new LoginError(
 		"no_redirect_available",
