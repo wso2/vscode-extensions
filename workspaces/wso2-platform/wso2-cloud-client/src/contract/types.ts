@@ -438,11 +438,24 @@ export interface IWso2PlatformExtensionAPI {
 		getTree(owner: string, repo: string, branch?: string): Promise<RepoTreeNode[]>;
 		inspect(owner: string, repo: string, branch: string | undefined, subPath?: string): Promise<RepoPathInspection>;
 	};
-	/** The git integration behind `/git/{proxyPath}`: the organization's GitHub App installations and what they can read. */
+	/**
+	 * The git integration behind `/git/{proxyPath}`: the organization's GitHub App
+	 * installations and what they can read. Connecting installations and binding
+	 * an integration's source are left out: the host does both in its own
+	 * flows, as connecting needs GitHub's return to the host's URI handler and
+	 * the PKCE verifier only that window holds.
+	 */
 	git: {
-		listGitHubInstallations(): Promise<GitHubInstallation[]>;
-		listGitHubBranches(installationId: number, owner: string, repo: string): Promise<string[]>;
-		inspectGitHubPath(installationId: number, owner: string, repo: string, branch: string, subPath?: string): Promise<RepoPathInspection>;
+		listGitHubInstallations(signal?: AbortSignal): Promise<GitHubInstallation[]>;
+		listGitHubBranches(installationId: number, owner: string, repo: string, signal?: AbortSignal): Promise<string[]>;
+		inspectGitHubPath(
+			installationId: number,
+			owner: string,
+			repo: string,
+			branch: string,
+			subPath?: string,
+			signal?: AbortSignal,
+		): Promise<RepoPathInspection>;
 		raw<T = unknown>(method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE", proxyPath: string, body?: unknown, signal?: AbortSignal): Promise<T>;
 	};
 	dbServers: {

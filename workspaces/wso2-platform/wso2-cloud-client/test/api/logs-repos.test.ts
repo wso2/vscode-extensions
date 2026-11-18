@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import type { CloudError } from "../../src";
-import { decodeSchemaContent, inspectGitHubTree, inspectRepoPath, parseGitHubRepoUrl } from "../../src";
+import { createCloudClient, decodeSchemaContent, inspectGitHubTree, inspectRepoPath, parseGitHubRepoUrl } from "../../src";
+import { StaticTokenSource } from "../doubles";
 import { DEV, harness, rejection } from "../support";
 
 const obs = new URL(DEV.observabilityBaseUrl).pathname;
@@ -94,6 +95,7 @@ describe("ReposApi", () => {
 			isBareRepo: false,
 			isSubPathValid: true,
 			isSubPathEmpty: false,
+			isTruncated: false,
 			hasBallerinaToml: true,
 			hasPomXml: false,
 			hasDockerfile: false,
@@ -170,6 +172,24 @@ describe("GitApi", () => {
 		assert.ok(fake.last()?.line.endsWith("/git/github/tree?installationId=7&owner=acme&repo=orders&branch=main"));
 	});
 
+	it("cancels a tree read when the caller's signal aborts", async () => {
+		const hanging: typeof fetch = (_input, init) =>
+			new Promise((_resolve, reject) => {
+				const abort = () => reject(new DOMException("aborted", "AbortError"));
+				if (init?.signal?.aborted) {
+					abort();
+				}
+				init?.signal?.addEventListener("abort", abort);
+			});
+		const client = createCloudClient({ environment: DEV, tokenSource: new StaticTokenSource("t0"), fetch: hanging });
+		const controller = new AbortController();
+
+		const call = rejection(client.git.inspectGitHubPath(7, "acme", "orders", "main", "svc", controller.signal));
+		controller.abort();
+		const error = (await call) as CloudError;
+		assert.equal(error.details.reason, "cancelled");
+	});
+
 	it("binds an integration's source", async () => {
 		const { client, fake } = harness([{ match: "PUT /git/github/sources/shop/orders", status: 204 }]);
 
@@ -190,6 +210,7 @@ describe("GitApi", () => {
 			isBareRepo: false,
 			isSubPathValid: true,
 			isSubPathEmpty: false,
+			isTruncated: false,
 			hasBallerinaToml: true,
 			hasPomXml: false,
 			hasDockerfile: false,
@@ -206,6 +227,10 @@ describe("GitApi", () => {
 			"a truncated tree may leave the children out",
 		);
 		assert.equal(inspectGitHubTree([{ path: "svc/main.bal", type: "blob" }], "svc", true).isSubPathValid, true, "children prove the directory");
+		assert.equal(inspectGitHubTree([{ path: "svc/main.bal", type: "blob" }], "svc", true).isTruncated, true, "a truncated tree says so");
+		assert.equal(inspectGitHubTree(tree, "svc").isTruncated, false);
+		assert.equal(inspectGitHubTree(tree, "svc//modules/").isSubPathValid, true, "empty segments are dropped, as inspectRepoPath does");
+		assert.equal(inspectGitHubTree(tree, "//svc//modules").isSubPathEmpty, false);
 		const dirs = [
 			{ path: "svc/Dockerfile", type: "tree" },
 			{ path: "svc/Ballerina.toml", type: "tree" },
@@ -217,6 +242,7 @@ describe("GitApi", () => {
 				isBareRepo: false,
 				isSubPathValid: true,
 				isSubPathEmpty: false,
+				isTruncated: false,
 				hasBallerinaToml: false,
 				hasPomXml: false,
 				hasDockerfile: false,

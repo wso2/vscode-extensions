@@ -33,10 +33,18 @@ export interface RepoPathInspection {
 	isSubPathValid: boolean;
 	/** The sub path holds nothing. */
 	isSubPathEmpty: boolean;
+	/**
+	 * The listing was cut short, as GitHub does for a large tree: a missing
+	 * entry proves nothing, so a `false` among the `has*` flags may be wrong.
+	 */
+	isTruncated: boolean;
 	hasBallerinaToml: boolean;
 	hasPomXml: boolean;
 	hasDockerfile: boolean;
 }
+
+/** `subPath` without empty segments or leading and trailing slashes: `/svc//app/` is `svc/app`. */
+const normalizeSubPath = (subPath: string): string => subPath.split("/").filter(Boolean).join("/");
 
 /** Reads `https://github.com/<owner>/<repo>[.git]` and the ssh form into its parts. */
 export function parseGitHubRepoUrl(url: string): { owner: string; repo: string } | undefined {
@@ -61,18 +69,16 @@ export function inspectRepoPath(tree: RepoTreeNode[], subPath = ""): RepoPathIns
 		isBareRepo: tree.length === 0,
 		isSubPathValid: false,
 		isSubPathEmpty: true,
+		isTruncated: false,
 		hasBallerinaToml: false,
 		hasPomXml: false,
 		hasDockerfile: false,
 	};
 	if (tree.length === 0) {
-		return { ...empty, isSubPathValid: subPath.replace(/^\/+|\/+$/g, "") === "" };
+		return { ...empty, isSubPathValid: normalizeSubPath(subPath) === "" };
 	}
 	let nodes = tree;
-	const segments = subPath
-		.replace(/^\/+|\/+$/g, "")
-		.split("/")
-		.filter(Boolean);
+	const segments = normalizeSubPath(subPath).split("/").filter(Boolean);
 	for (const segment of segments) {
 		const dir = nodes.find((node) => baseName(node) === segment && node.type !== "file" && node.type !== "blob");
 		if (!dir) {
@@ -85,6 +91,7 @@ export function inspectRepoPath(tree: RepoTreeNode[], subPath = ""): RepoPathIns
 		isBareRepo: false,
 		isSubPathValid: true,
 		isSubPathEmpty: nodes.length === 0,
+		isTruncated: false,
 		hasBallerinaToml: names.has("Ballerina.toml"),
 		hasPomXml: names.has("pom.xml"),
 		hasDockerfile: names.has("Dockerfile"),
@@ -151,7 +158,7 @@ export interface GitHubSource {
 
 /** Inspects `subPath` in a flat tree, as the installation's tree route lists it. */
 export function inspectGitHubTree(entries: GitHubTreeEntry[], subPath = "", truncated = false): RepoPathInspection {
-	const sub = subPath.replace(/^\/+|\/+$/g, "");
+	const sub = normalizeSubPath(subPath);
 	const prefix = sub ? `${sub}/` : "";
 	const children = entries.filter(
 		(entry) => entry.path.startsWith(prefix) && entry.path.length > prefix.length && !entry.path.slice(prefix.length).includes("/"),
@@ -166,6 +173,7 @@ export function inspectGitHubTree(entries: GitHubTreeEntry[], subPath = "", trun
 		isBareRepo: entries.length === 0 && !truncated,
 		isSubPathValid,
 		isSubPathEmpty: found ? children.length === 0 && !truncated : !isSubPathValid,
+		isTruncated: truncated,
 		hasBallerinaToml: files.has("Ballerina.toml"),
 		hasPomXml: files.has("pom.xml"),
 		hasDockerfile: files.has("Dockerfile"),
@@ -182,7 +190,7 @@ export class GitApi {
 
 	/** `GET /git/github/installations`: the GitHub App installations connected to the organization. */
 	async listGitHubInstallations(signal?: AbortSignal): Promise<GitHubInstallation[]> {
-		return (await this.call<{ items?: GitHubInstallation[] }>("GET", "/git/github/installations", { signal }))?.items ?? [];
+		return itemsOf(await this.call<{ items?: GitHubInstallation[] }>("GET", "/git/github/installations", { signal }));
 	}
 
 	/**
@@ -192,13 +200,12 @@ export class GitApi {
 	 * A user with no installation is a `ConflictError`: install the app first.
 	 */
 	async connectGitHubInstallations(code: string, codeVerifier?: string, signal?: AbortSignal): Promise<GitHubInstallation[]> {
-		const body = codeVerifier ? { code, codeVerifier } : { code };
-		return (await this.call<{ items?: GitHubInstallation[] }>("POST", "/git/github/installations", { body, signal }))?.items ?? [];
+		return itemsOf(await this.call<{ items?: GitHubInstallation[] }>("POST", "/git/github/installations", { body: { code, codeVerifier }, signal }));
 	}
 
 	/** `GET /git/github/branches`: branch names of a repository the installation can read. */
 	async listGitHubBranches(installationId: number, owner: string, repo: string, signal?: AbortSignal): Promise<string[]> {
-		return (await this.call<{ items?: string[] }>("GET", "/git/github/branches", { query: { installationId, owner, repo }, signal }))?.items ?? [];
+		return itemsOf(await this.call<{ items?: string[] }>("GET", "/git/github/branches", { query: { installationId, owner, repo }, signal }));
 	}
 
 	/** `GET /git/github/tree`: every path of a branch, flat; `truncated` when GitHub cut a large tree short. */
@@ -213,12 +220,23 @@ export class GitApi {
 			query: { installationId, owner, repo, branch },
 			signal,
 		});
-		return { items: tree?.items ?? [], truncated: tree?.truncated === true };
+		return { items: itemsOf(tree), truncated: tree?.truncated === true };
 	}
 
-	/** Reads the tree through the installation and inspects `subPath` in it. */
-	async inspectGitHubPath(installationId: number, owner: string, repo: string, branch: string, subPath = ""): Promise<RepoPathInspection> {
-		const tree = await this.getGitHubTree(installationId, owner, repo, branch);
+	/**
+	 * Reads the tree through the installation and inspects `subPath` in it.
+	 * Each call reads the whole tree; to inspect several paths of one branch,
+	 * read it once with `getGitHubTree` and pass it to `inspectGitHubTree`.
+	 */
+	async inspectGitHubPath(
+		installationId: number,
+		owner: string,
+		repo: string,
+		branch: string,
+		subPath = "",
+		signal?: AbortSignal,
+	): Promise<RepoPathInspection> {
+		const tree = await this.getGitHubTree(installationId, owner, repo, branch, signal);
 		return inspectGitHubTree(tree.items, subPath, tree.truncated);
 	}
 
