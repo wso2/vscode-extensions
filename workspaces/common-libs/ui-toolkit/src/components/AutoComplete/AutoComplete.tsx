@@ -97,7 +97,7 @@ export const SearchableInput = (hideDropdown: boolean) => cx(css`
     font-size: var(--vscode-font-size);
     color: var(--vscode-input-foreground);
     background-color: var(--vscode-input-background);
-    height: ${hideDropdown ? '100%' : '26px'};
+    height: ${hideDropdown ? '100%' : 'calc(var(--input-height) * 1px)'};
     width: ${hideDropdown ? '100%' : 'calc(100% - 35px)'};
     padding-left: 9px;
     padding-block: ${hideDropdown ? '5px' : '1px'};

@@ -20,12 +20,21 @@ import { css, cx } from "@emotion/css";
 import styled from "@emotion/styled";
 import React from "react";
 
+// A tinted callout in the theme's error colour, so it reads as an error in light, dark and high contrast themes.
 const Container = styled.div<{ sx?: React.CSSProperties }>`
-    align-items: center;
     display: flex;
     flex-direction: row;
-    background-color: var(--vscode-toolbar-activeBackground);
-    padding: 6px;
+    align-items: flex-start;
+    gap: 6px;
+    margin-top: 4px;
+    padding: 6px 10px;
+    border: 1px solid color-mix(in srgb, var(--vscode-errorForeground) 30%, transparent);
+    border-radius: var(--vscode-cornerRadius-small, 4px);
+    background-color: color-mix(in srgb, var(--vscode-errorForeground) 8%, transparent);
+    color: var(--vscode-foreground);
+    font-family: var(--vscode-font-family);
+    font-size: 12px;
+    line-height: 18px;
     ${(props: { sx?: React.CSSProperties }) => props.sx && { ...props.sx }}   
 `;
 
@@ -38,22 +47,24 @@ const ErrorMsg = styled.div`
 `;
 
 const codiconStyles = css`
+    flex-shrink: 0;
     color: var(--vscode-errorForeground);
-    margin-right: 6px;
-    vertical-align: middle;
+    font-size: 14px;
+    line-height: 18px;
 `;
 
 export const ErrorIcon = cx(css`
     color: var(--vscode-errorForeground);
 `);
 
-export function ErrorBanner(props: { id?: string, className?: string, errorMsg: string, sx?: React.CSSProperties }) {
-    const { id, className, errorMsg, sx } = props;
+export function ErrorBanner(props: { id?: string, className?: string, errorMsg: string, sx?: React.CSSProperties, action?: React.ReactNode }) {
+    const { id, className, errorMsg, sx, action } = props;
 
     return (
         <Container id={id} className={className} sx={sx}>
-            <i className={`codicon codicon-warning ${cx(codiconStyles)}`} />
+            <i className={`codicon codicon-error ${cx(codiconStyles)}`} />
             <ErrorMsg>{errorMsg}</ErrorMsg>
+            {action}
         </Container>
     );
 }

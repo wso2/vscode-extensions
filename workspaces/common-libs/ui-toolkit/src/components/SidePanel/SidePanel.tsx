@@ -16,7 +16,7 @@
  * under the License.
  */
 import styled from '@emotion/styled';
-import React, { ReactNode, useEffect, useState } from 'react';
+import React, { ReactNode, useEffect, useRef, useState } from 'react';
 import { Overlay } from './../Commons/Overlay';
 import { colors } from '../Commons/Colors';
 
@@ -36,6 +36,32 @@ export interface SidePanelProps {
     isSubPanelOpen?: boolean;
 }
 
+// Panels open often, so they fade in from a short offset instead of sliding across the screen.
+const ENTER_TRANSITION = "transform 200ms cubic-bezier(0.23, 1, 0.32, 1), opacity 200ms cubic-bezier(0.23, 1, 0.32, 1)";
+const EXIT_TRANSITION = "transform 150ms cubic-bezier(0.23, 1, 0.32, 1), opacity 150ms cubic-bezier(0.23, 1, 0.32, 1)";
+// Rounds the panel edge that faces the canvas, like VS Code's large surfaces.
+const OUTER_RADIUS = "var(--vscode-cornerRadius-large, 8px)";
+// Kept as a transform, not none, so the panel stays the containing block for fixed-position children.
+const OPEN_TRANSFORM = "translate(0, 0)";
+const CLOSED_TRANSFORM: Record<SidePanelProps["alignment"], string> = {
+    left: "translateX(-24px)",
+    right: "translateX(24px)",
+    top: "translateY(-24px)",
+    bottom: "translateY(24px)",
+};
+
+// Runs after the next paint, so a just-mounted panel paints its closed state and the transition has a start.
+const afterPaint = (callback: () => void) => {
+    let inner = 0;
+    const outer = requestAnimationFrame(() => {
+        inner = requestAnimationFrame(callback);
+    });
+    return () => {
+        cancelAnimationFrame(outer);
+        cancelAnimationFrame(inner);
+    };
+};
+
 const SidePanelContainer = styled.div<SidePanelProps>`
     position: fixed;
     top: ${(props: SidePanelProps) => props.alignment === "bottom" ? "auto" : 0};
@@ -49,14 +75,11 @@ const SidePanelContainer = styled.div<SidePanelProps>`
     box-shadow: 0 5px 10px 0 var(--vscode-badge-background);
     z-index: 2000;
     opacity: ${(props: SidePanelProps) => props.isOpen ? 1 : 0};
-    transform: ${(props: SidePanelProps) => {
-        if (props.alignment === 'left') return `translateX(${props.isOpen ? '0%' : '-100%'})`;
-        if (props.alignment === 'right') return `translateX(${props.isOpen ? '0%' : '100%'})`;
-        if (props.alignment === 'bottom') return `translateY(${props.isOpen ? '0%' : '100%'})`;
-        if (props.alignment === 'top') return `translateY(${props.isOpen ? '0%' : '-100%'})`;
-        return 'none';
-    }};
-    transition: transform 0.4s ease, opacity 0.4s ease;
+    transform: ${(props: SidePanelProps) => props.isOpen ? OPEN_TRANSFORM : CLOSED_TRANSFORM[props.alignment]};
+    transition: ${(props: SidePanelProps) => props.isOpen ? ENTER_TRANSITION : EXIT_TRANSITION};
+    @media (prefers-reduced-motion: reduce) {
+        transform: ${OPEN_TRANSFORM};
+    }
     ${(props: SidePanelProps) => props.sx};
 `;
 
@@ -64,6 +87,9 @@ const SubPanelContainer = styled.div<SidePanelProps>`
     position: fixed;
     top: 0;
     ${(props: SidePanelProps) => props.alignment === "left" ? `left: ${props.width}px;` : `right: ${props.width}px;`}
+    ${(props: SidePanelProps) => props.alignment === "left"
+        ? `border-top-right-radius: ${OUTER_RADIUS}; border-bottom-right-radius: ${OUTER_RADIUS};`
+        : `border-top-left-radius: ${OUTER_RADIUS}; border-bottom-left-radius: ${OUTER_RADIUS};`}
     width: ${(props: SidePanelProps) => props?.subPanelWidth ? `${props?.subPanelWidth}px` : `calc(100vw - ${props.width}px)`};
     height: 100%;
     box-shadow: 0 5px 10px 0 var(--vscode-badge-background);
@@ -71,10 +97,14 @@ const SubPanelContainer = styled.div<SidePanelProps>`
     color: var(--vscode-editor-foreground);
     z-index: 1900;
     opacity: ${(props: SidePanelProps) => props.isSubPanelOpen ? 1 : 0};
-    transform: translateX(${(props: SidePanelProps) => props.alignment === 'left'
-        ? (props.isSubPanelOpen ? '0%' : '-100%')
-        : (props.isSubPanelOpen ? '0%' : '100%')});
-    transition: transform 0.4s ease 0.1s, opacity 0.4s ease 0.1s;
+    transform: ${(props: SidePanelProps) => props.isSubPanelOpen
+        ? OPEN_TRANSFORM
+        : CLOSED_TRANSFORM[props.alignment === 'left' ? 'left' : 'right']};
+    transition: ${(props: SidePanelProps) => props.isSubPanelOpen ? ENTER_TRANSITION : EXIT_TRANSITION};
+    @media (prefers-reduced-motion: reduce) {
+        transform: ${OPEN_TRANSFORM};
+    }
+    ${(props: SidePanelProps) => props.sx};
 `;
 
 export const SidePanel: React.FC<SidePanelProps> = (props: SidePanelProps) => {
@@ -83,10 +113,17 @@ export const SidePanel: React.FC<SidePanelProps> = (props: SidePanelProps) => {
     const [open, setOpen] = useState(false);
     const [visible, setVisible] = useState(isOpen);
     const [subPanelOpen, setSubPanelOpen] = useState(isSubPanelOpen);
+    const [subPanelMounted, setSubPanelMounted] = useState(!!subPanel && isOpen);
+
+    const hidePanels = () => {
+        setVisible(false);
+        setSubPanelMounted(false);
+    };
 
     const handleTransitionEnd = (event: React.TransitionEvent) => {
-        if (event.propertyName === 'transform' && !isOpen) {
-            setVisible(false);
+        // Opacity also animates under reduced motion; children's transitions bubble up here.
+        if (event.target === event.currentTarget && event.propertyName === 'opacity' && !isOpen) {
+            hidePanels();
         }
     };
 
@@ -98,26 +135,39 @@ export const SidePanel: React.FC<SidePanelProps> = (props: SidePanelProps) => {
     };
 
     useEffect(() => {
-        if (isOpen) {
-            setVisible(true);
-            requestAnimationFrame(() => {
-                setOpen(true);
-            });
-        } else {
+        if (!isOpen) {
             setOpen(false);
             setSubPanelOpen(false);
+            return;
         }
+        setVisible(true);
+        return afterPaint(() => setOpen(true));
     }, [isOpen]);
 
+    const showSubPanel = !!subPanel && isOpen;
+    // The last sub panel stays mounted while it animates out, so it fades instead of vanishing.
+    const shownSubPanel = useRef({ content: subPanel, width: subPanelWidth, sx });
+    if (subPanel) {
+        shownSubPanel.current = { content: subPanel, width: subPanelWidth, sx };
+    }
     useEffect(() => {
-        setSubPanelOpen(!!subPanel);
-    }, [subPanel]);
+        if (!showSubPanel) {
+            setSubPanelOpen(false);
+            return;
+        }
+        setSubPanelMounted(true);
+        return afterPaint(() => setSubPanelOpen(true));
+    }, [showSubPanel]);
+
+    const handleSubPanelTransitionEnd = (event: React.TransitionEvent) => {
+        if (event.target === event.currentTarget && event.propertyName === 'opacity' && !showSubPanel) {
+            setSubPanelMounted(false);
+        }
+    };
 
     useEffect(() => {
         if (!open && !isOpen) {
-            const timer = setTimeout(() => {
-                setVisible(false);
-            }, 500); // Corresponds to the transition time
+            const timer = setTimeout(hidePanels, 500); // Corresponds to the transition time
             return () => clearTimeout(timer);
         }
     }, [open, isOpen]);
@@ -130,17 +180,18 @@ export const SidePanel: React.FC<SidePanelProps> = (props: SidePanelProps) => {
                     <SidePanelContainer data-testid="side-panel" isOpen={open} alignment={alignment} width={width} isFullWidth={isFullWidth} sx={sx} onTransitionEnd={handleTransitionEnd}>
                         {children}
                     </SidePanelContainer>
-                    {subPanel && (
+                    {subPanelMounted && (
                         <SubPanelContainer
                             data-testid="side-panel-sub-panel"
                             isOpen={open}
                             isSubPanelOpen={subPanelOpen}
                             alignment={alignment}
                             width={width}
-                            subPanelWidth={subPanelWidth}
-                            sx={sx}
+                            subPanelWidth={shownSubPanel.current.width}
+                            sx={shownSubPanel.current.sx}
+                            onTransitionEnd={handleSubPanelTransitionEnd}
                         >
-                            {subPanel}
+                            {shownSubPanel.current.content}
                         </SubPanelContainer>
                     )}
                 </>
