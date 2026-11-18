@@ -60,7 +60,7 @@ import type {
 	UpdateKnowledgeBaseRequest,
 } from "../api/platform-services";
 import type { CreateProjectRequest, LinkProjectRepositoryRequest, Project, ProjectHandlerAvailability, UpdateProjectRequest } from "../api/projects";
-import type { RepoBranch, RepoPathInspection, RepoTreeNode } from "../api/repos";
+import type { GitHubInstallation, GitHubRepo, RepoBranch, RepoPathInspection, RepoTreeNode } from "../api/repos";
 import type {
 	ApiKeyResult,
 	ConfigSchema,
@@ -438,11 +438,29 @@ export interface IWso2PlatformExtensionAPI {
 		getTree(owner: string, repo: string, branch?: string): Promise<RepoTreeNode[]>;
 		inspect(owner: string, repo: string, branch: string | undefined, subPath?: string): Promise<RepoPathInspection>;
 	};
-	/** The git integration behind `/git/{proxyPath}`; its routes are a platform dependency, so these may throw `NotSupportedError`. */
+	/**
+	 * The git integration behind `/git/{proxyPath}`: the organization's GitHub App
+	 * installations and the repositories granted to them. Branch and tree reads
+	 * go through the person's GitHub authorization, so they also succeed for a
+	 * public repository no installation was granted: `listGitHubRepos` is the
+	 * check that an installation has the repository. Connecting installations and binding
+	 * an integration's source are left out: the host does both in its own
+	 * flows, as connecting needs GitHub's return to the host's URI handler and
+	 * the PKCE verifier only that window holds.
+	 */
 	git: {
-		isRepoAuthorized(owner: string, repo: string): Promise<{ retrievedRepos: boolean; isAccessible: boolean; installationId?: number }>;
-		listInstallations(): Promise<{ orgName: string; installationId: number; repositories: { name: string }[] }[]>;
-		connectGitHub(): Promise<void>;
+		listGitHubInstallations(signal?: AbortSignal): Promise<GitHubInstallation[]>;
+		listGitHubRepos(installationId: number, signal?: AbortSignal): Promise<GitHubRepo[]>;
+		/** A repository's branches, read with the person's GitHub authorization: a successful read does not mean the installation was granted the repository. */
+		listGitHubBranches(installationId: number, owner: string, repo: string, signal?: AbortSignal): Promise<string[]>;
+		inspectGitHubPath(
+			installationId: number,
+			owner: string,
+			repo: string,
+			branch: string,
+			subPath?: string,
+			signal?: AbortSignal,
+		): Promise<RepoPathInspection>;
 		raw<T = unknown>(method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE", proxyPath: string, body?: unknown, signal?: AbortSignal): Promise<T>;
 	};
 	dbServers: {

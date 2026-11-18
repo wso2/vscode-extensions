@@ -24,7 +24,6 @@ export * from "./id-token";
 export * from "./callback/types";
 export * from "./callback/deferred";
 export * from "./callback/loopback";
-export * from "./callback/fallback";
 export * from "./login-flow";
 export * from "./session-store";
 export * from "./session-manager";

@@ -18,7 +18,6 @@
 
 import * as vscode from "vscode";
 import { DeferredReceiver } from "../auth/callback/deferred";
-import { FallbackReceiver } from "../auth/callback/fallback";
 import { LoopbackReceiver } from "../auth/callback/loopback";
 import type { CallbackReceiver } from "../auth/callback/types";
 import { LoginError } from "../errors";
@@ -26,7 +25,7 @@ import { LoginError } from "../errors";
 /**
  * The URI schemes the identity provider knows redirects for: VS Code, VS Code
  * Insiders and the WSO2 Integrator desktop app (`urlProtocol` in its product
- * definition). Any other editor signs in through the loopback listener.
+ * definition). Any other desktop editor signs in through the loopback listener.
  */
 export const REGISTERED_URI_SCHEMES: readonly string[] = ["vscode", "vscode-insiders", "wso2-integrator"];
 
@@ -92,27 +91,25 @@ export interface ChosenReceivers {
 }
 
 /**
- * Picks how the sign-in comes back. The local desktop editor listens on the
- * loopback first: its success page ends the browser tab, whereas a
- * `vscode://` redirect leaves the identity provider's page waiting forever,
- * since the browser hands the URI to the editor without navigating. The URI
- * handler is the fallback there, and the only way over a remote (the
- * loopback would be on the remote host, not where the browser is). A desktop
- * fork, whose scheme the identity provider does not know, has the loopback
- * only; anything else is refused with a message that says what to do.
+ * Picks how the sign-in comes back. An editor whose scheme the identity
+ * provider knows always uses its URI handler, locally and over a remote.
+ * WSO2 Cloud's stage and prod edge refuses requests that carry a
+ * `http://127.0.0.1` or `http://localhost` URL, so a loopback redirect fails
+ * there at the token endpoint (and on prod already at the authorize page).
+ * A desktop fork with an unknown scheme has the loopback only, which works
+ * where the edge allows it; anything else is refused with a message that says
+ * what to do.
  */
 export function chooseReceivers(
 	options: UriCallbackOptions,
 	env: Pick<typeof vscode.env, "uriScheme" | "uiKind" | "remoteName"> = vscode.env,
 ): ChosenReceivers {
-	const uriReceiver = REGISTERED_URI_SCHEMES.includes(env.uriScheme) ? new UriCallbackReceiver(options) : undefined;
-	const localDesktop = env.uiKind === vscode.UIKind.Desktop && !env.remoteName;
-	if (localDesktop) {
-		const loopback = new LoopbackReceiver();
-		return { receiver: uriReceiver ? new FallbackReceiver([loopback, uriReceiver]) : loopback, uriReceiver };
-	}
-	if (uriReceiver) {
+	if (REGISTERED_URI_SCHEMES.includes(env.uriScheme)) {
+		const uriReceiver = new UriCallbackReceiver(options);
 		return { receiver: uriReceiver, uriReceiver };
+	}
+	if (env.uiKind === vscode.UIKind.Desktop && !env.remoteName) {
+		return { receiver: new LoopbackReceiver() };
 	}
 	throw new LoginError(
 		"no_redirect_available",

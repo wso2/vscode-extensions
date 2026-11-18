@@ -4,10 +4,10 @@ import {
 	type CloudError,
 	DeferredReceiver,
 	ENVIRONMENTS,
-	FallbackReceiver,
 	InMemorySessionStore,
 	InjectedTokenSource,
 	LoginFlow,
+	LoopbackReceiver,
 	SessionManager,
 	type StoredSession,
 } from "../../src";
@@ -65,13 +65,17 @@ describe("VS Code adapter", () => {
 		assert.equal(readCloudEnvName({ WSO2_CLOUD_ENV: "dev" }), "dev", "the variable comes first");
 	});
 
-	it("listens on the loopback on the local desktop, takes the URI over a remote, and refuses an unknown remote", () => {
+	it("takes the URI for a known scheme, listens on the loopback for an unknown desktop fork, and refuses an unknown remote", () => {
 		const local = chooseReceivers({ extensionId: "wso2.wso2-integrator" }, { uriScheme: "vscode", uiKind: 1, remoteName: undefined });
-		assert.ok(local.receiver instanceof FallbackReceiver);
 		assert.ok(local.uriReceiver);
+		assert.equal(local.receiver, local.uriReceiver, "the stage and prod edge refuses loopback redirects");
 
 		const remote = chooseReceivers({ extensionId: "wso2.wso2-integrator" }, { uriScheme: "vscode", uiKind: 1, remoteName: "ssh-remote" });
 		assert.equal(remote.receiver, remote.uriReceiver);
+
+		const fork = chooseReceivers({ extensionId: "wso2.wso2-integrator" }, { uriScheme: "code-oss", uiKind: 1, remoteName: undefined });
+		assert.ok(fork.receiver instanceof LoopbackReceiver);
+		assert.equal(fork.uriReceiver, undefined);
 
 		assert.throws(
 			() => chooseReceivers({ extensionId: "wso2.wso2-integrator" }, { uriScheme: "code-oss", uiKind: 1, remoteName: "ssh-remote" }),

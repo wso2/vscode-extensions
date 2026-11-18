@@ -30,7 +30,7 @@ import { ObservabilityApi } from "./logs";
 import { OrgsApi } from "./orgs";
 import { ApplicationsApi, BallerinaCentralApi, CodeServerApi, DbServersApi, KnowledgeBasesApi } from "./platform-services";
 import { ProjectsApi } from "./projects";
-import { GitProxyApi, ReposApi } from "./repos";
+import { GitApi, ReposApi } from "./repos";
 import { EndpointsApi, RuntimeConfigApi } from "./runtime-config";
 
 export interface CloudClientOptions {
@@ -62,7 +62,7 @@ export interface CloudClient {
 	readonly config: RuntimeConfigApi;
 	readonly observability: ObservabilityApi;
 	readonly repos: ReposApi;
-	readonly git: GitProxyApi;
+	readonly git: GitApi;
 	readonly dbServers: DbServersApi;
 	readonly knowledgeBases: KnowledgeBasesApi;
 	readonly applications: ApplicationsApi;
@@ -92,7 +92,7 @@ export function createCloudClient(options: CloudClientOptions): CloudClient {
 		config: new RuntimeConfigApi(http),
 		observability: new ObservabilityApi(observabilityHttp),
 		repos: new ReposApi(http),
-		git: new GitProxyApi(http),
+		git: new GitApi(http),
 		dbServers: new DbServersApi(http),
 		knowledgeBases: new KnowledgeBasesApi(http),
 		applications: new ApplicationsApi(http),
