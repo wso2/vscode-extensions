@@ -32,6 +32,8 @@ export type UpdateComponentRequest = Schemas["UpdateComponentRequest"];
 export type ComponentWorkflowSpec = Schemas["ComponentWorkflowSpec"];
 export type GitHubAppSource = Schemas["GitHubAppSource"];
 export type AzureDevOpsSource = Schemas["AzureDevOpsSource"];
+export type AgentModelConfig = Schemas["AgentModelConfig"];
+export type AgentMcpConfig = Schemas["AgentMCPConfig"];
 export type ComponentNameAvailability = Schemas["ComponentNameAvailability"];
 export type UpdateBuildpackConfigRequest = Schemas["UpdateBuildpackConfigRequest"];
 export type DeploymentTrack = Schemas["DeploymentTrack"];
@@ -110,6 +112,12 @@ export interface CreateIntegrationInput {
 	/** For a private GitHub repository, the app installation that may read it. */
 	githubApp?: GitHubAppSource;
 	azureDevOps?: AzureDevOpsSource;
+	/** For an `ai-agent`: the organization LLM providers Agent Manager attaches, and the variables it injects for them. */
+	modelConfig?: AgentModelConfig[];
+	/** For an `ai-agent`: the MCP proxies Agent Manager attaches. */
+	mcpConfig?: AgentMcpConfig[];
+	/** For an `ai-agent`: turns on Agent Manager's tracing; the platform leaves it off when unset. */
+	autoInstrumentation?: boolean;
 }
 
 /** The repository as a workflow names it; `appPath` only when there is one. */
@@ -181,6 +189,18 @@ export function buildCreateComponentRequest(input: CreateIntegrationInput): Crea
 	}
 	if (input.azureDevOps) {
 		request.azureDevOps = input.azureDevOps;
+	}
+	if (input.modelConfig?.length) {
+		request.modelConfig = input.modelConfig;
+	}
+	if (input.mcpConfig?.length) {
+		request.mcpConfig = input.mcpConfig;
+	}
+	if (input.autoInstrumentation) {
+		request.enableAutoInstrumentation = true;
+	}
+	if ((request.modelConfig || request.mcpConfig || request.enableAutoInstrumentation) && input.type !== "ai-agent") {
+		throw new BadRequestError(`${input.type} takes no LLM providers, MCP servers or tracing: only an ai-agent does.`);
 	}
 	return request;
 }
