@@ -383,5 +383,6 @@
   "XQuery": 62078,
   "XSLT": 62079,
   "bi-aws-agentcore": 62080,
-  "bi-azure-foundry": 62081
+  "bi-azure-foundry": 62081,
+  "bi-choreo": 62082
 }
