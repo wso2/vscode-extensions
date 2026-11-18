@@ -30,7 +30,7 @@ import type { ApiKeys } from "./api-key";
 /** The id other extensions pass to `vscode.authentication.getSession`. */
 export const WSO2_CLOUD_AUTH_PROVIDER_ID = "wso2-cloud";
 
-export const WSO2_CLOUD_AUTH_PROVIDER_LABEL = "WSO2 Cloud";
+export const WSO2_CLOUD_AUTH_PROVIDER_LABEL = "Choreo Cloud";
 
 /** The scope that asks for a new sign-in, choosing the organization again, even when a session exists. */
 export const PROMPT_LOGIN_SCOPE = "prompt:login";
@@ -102,7 +102,7 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 						this.last = converted[0];
 						this.emitter.fire({ added: event.reason === "signed-in" ? converted : [], removed, changed: [] });
 					},
-					(error) => this.logger.error("The WSO2 Cloud session could not be read after it changed", error),
+					(error) => this.logger.error("The Choreo Cloud session could not be read after it changed", error),
 				);
 			}),
 		);
@@ -167,11 +167,11 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 		}
 		if (!this.deps.startLogin) {
 			if (this.deps.tokenSource.kind === "injected") {
-				throw new LoginError("not_available_in_cloud_editor", "This editor was started with a WSO2 Cloud token and cannot sign in as someone else.");
+				throw new LoginError("not_available_in_cloud_editor", "This editor was started with a Choreo Cloud token and cannot sign in as someone else.");
 			}
 			throw new LoginError(
 				"no_redirect_available",
-				`Signing in to WSO2 Cloud is not available in this editor: ${this.deps.loginUnavailable ?? "no sign-in was set up"}`,
+				`Signing in to Choreo Cloud is not available in this editor: ${this.deps.loginUnavailable ?? "no sign-in was set up"}`,
 			);
 		}
 		this.deps.cancelLogin?.();
@@ -231,7 +231,7 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 				scopes: [scopeForEnv(this.deps.env.name), scopeForOrg(org.handle)],
 			};
 		} catch (error) {
-			this.logger.warn(`The editor's WSO2 Cloud token could not be read: ${errorMessage(error)}`);
+			this.logger.warn(`The editor's Choreo Cloud token could not be read: ${errorMessage(error)}`);
 			return undefined;
 		}
 	}

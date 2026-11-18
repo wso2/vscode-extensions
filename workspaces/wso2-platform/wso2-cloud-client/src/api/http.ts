@@ -158,14 +158,14 @@ export class HttpClient {
 		}
 		if (text.length === 0) {
 			if (options.emptyBodyAs === "error") {
-				throw new NetworkError(`WSO2 Cloud answered ${path} with no body.`, { status: response.status, path });
+				throw new NetworkError(`Choreo Cloud answered ${path} with no body.`, { status: response.status, path });
 			}
 			return undefined as T;
 		}
 		try {
 			return JSON.parse(text) as T;
 		} catch (error) {
-			throw new NetworkError(`WSO2 Cloud answered ${path} with something other than JSON.`, { status: response.status, path, cause: error });
+			throw new NetworkError(`Choreo Cloud answered ${path} with something other than JSON.`, { status: response.status, path, cause: error });
 		}
 	}
 
@@ -191,7 +191,7 @@ export class HttpClient {
 				}
 				if (response.status >= 300 && response.status < 400) {
 					await response.body?.cancel().catch(() => undefined);
-					throw new ServerError(`WSO2 Cloud answered ${path} with a redirect (${response.status}), which the client does not follow.`, {
+					throw new ServerError(`Choreo Cloud answered ${path} with a redirect (${response.status}), which the client does not follow.`, {
 						status: response.status,
 						path,
 					});
@@ -259,12 +259,12 @@ export class HttpClient {
 			abort.dispose();
 			const path = new URL(url).pathname;
 			if (abort.timedOut()) {
-				throw new TimeoutError(`WSO2 Cloud did not answer ${path} within ${Math.round(timeoutMs / 1000)} seconds.`, { path, cause: error });
+				throw new TimeoutError(`Choreo Cloud did not answer ${path} within ${Math.round(timeoutMs / 1000)} seconds.`, { path, cause: error });
 			}
 			if (abort.signal.aborted) {
 				throw new TimeoutError(`The call to ${path} was cancelled.`, { path, cause: error, reason: "cancelled", retryable: false });
 			}
-			throw new NetworkError(`WSO2 Cloud could not be reached at ${this.baseUrl}: ${errorMessage(error)}`, { path, cause: error });
+			throw new NetworkError(`Choreo Cloud could not be reached at ${this.baseUrl}: ${errorMessage(error)}`, { path, cause: error });
 		}
 	}
 }
@@ -279,7 +279,7 @@ async function readWithin(response: Response, path: string, abort: LinkedAbort):
 	} catch (error) {
 		if (!isCloudError(error) && abort.signal.aborted) {
 			throw abort.timedOut()
-				? new TimeoutError(`WSO2 Cloud did not finish answering ${path} in time.`, { path, cause: error })
+				? new TimeoutError(`Choreo Cloud did not finish answering ${path} in time.`, { path, cause: error })
 				: new TimeoutError(`The call to ${path} was cancelled.`, { path, cause: error, reason: "cancelled", retryable: false });
 		}
 		throw error;
@@ -289,7 +289,7 @@ async function readWithin(response: Response, path: string, abort: LinkedAbort):
 /** Reads the body up to {@link RESPONSE_LIMIT_BYTES}; a longer one is cut off and refused. */
 async function readBounded(response: Response, path: string): Promise<string> {
 	const tooLong = () =>
-		new NetworkError(`WSO2 Cloud answered ${path} with more than ${RESPONSE_LIMIT_BYTES >> 20} MiB.`, { status: response.status, path });
+		new NetworkError(`Choreo Cloud answered ${path} with more than ${RESPONSE_LIMIT_BYTES >> 20} MiB.`, { status: response.status, path });
 	const declared = Number(response.headers.get("content-length"));
 	if (Number.isFinite(declared) && declared > RESPONSE_LIMIT_BYTES) {
 		await response.body?.cancel().catch(() => undefined);

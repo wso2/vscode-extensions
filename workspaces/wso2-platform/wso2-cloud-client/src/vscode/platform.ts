@@ -106,7 +106,7 @@ export function createPlatformClients(options: PlatformClientsOptions): Platform
 		} catch (error) {
 			// Sign-in is what this editor lacks, not the rest of the extension; a stored session still works.
 			loginUnavailable = errorMessage(error);
-			logger.warn(`WSO2 Cloud sign-in is not available in this editor: ${loginUnavailable}`);
+			logger.warn(`Choreo Cloud sign-in is not available in this editor: ${loginUnavailable}`);
 		}
 		uriReceiver = chosen?.uriReceiver;
 		login = chosen
@@ -184,7 +184,7 @@ function readEnvironmentOrFallback(logger: Logger): CloudEnvironment {
 	} catch (error) {
 		const named = ENVIRONMENTS[readCloudEnvName()];
 		const fallback = missingEnvironmentUrls(named).length === 0 ? named : ENVIRONMENTS.prod;
-		const message = `The WSO2 Cloud settings cannot be used (${errorMessage(error)}); using the ${fallback.name} environment without overrides instead.`;
+		const message = `The Choreo Cloud settings cannot be used (${errorMessage(error)}); using the ${fallback.name} environment without overrides instead.`;
 		logger.warn(message);
 		void Promise.resolve(vscode.window.showWarningMessage(message)).catch(() => undefined);
 		return fallback;

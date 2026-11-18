@@ -91,7 +91,7 @@ export class InjectedTokenSource implements TokenSource {
 	async getAccessToken(): Promise<string> {
 		const token = this.read();
 		if (!token) {
-			throw new UnauthenticatedError("no_session", "This editor was started without a WSO2 Cloud token.");
+			throw new UnauthenticatedError("no_session", "This editor was started without a Choreo Cloud token.");
 		}
 		const claims = readPlatformClaims(token);
 		if (claims && isExpired(claims, this.now())) {
