@@ -164,11 +164,12 @@ export function inspectGitHubTree(entries: GitHubTreeEntry[], subPath = "", trun
 		(entry) => entry.path.startsWith(prefix) && entry.path.length > prefix.length && !entry.path.slice(prefix.length).includes("/"),
 	);
 	const files = new Set(children.filter((entry) => entry.type === "blob").map((entry) => entry.path.slice(prefix.length)));
-	const self = sub ? entries.find((entry) => entry.path === sub) : undefined;
+	// A file at the path, or at a directory on the way to it, proves the path is no directory.
+	const blocked = sub !== "" && entries.some((entry) => entry.type !== "tree" && (entry.path === sub || sub.startsWith(`${entry.path}/`)));
 	// Listed children prove a directory even where a truncated tree left the directory itself out.
-	const found = sub === "" || self?.type === "tree" || children.length > 0;
+	const found = sub === "" || entries.some((entry) => entry.path === sub && entry.type === "tree") || children.length > 0;
 	// A truncated tree may leave the path, or its children, out; it is not reported missing or empty for that.
-	const isSubPathValid = found || (truncated && !self);
+	const isSubPathValid = found || (truncated && !blocked);
 	return {
 		isBareRepo: entries.length === 0 && !truncated,
 		isSubPathValid,
@@ -226,7 +227,8 @@ export class GitApi {
 	/**
 	 * Reads the tree through the installation and inspects `subPath` in it.
 	 * Each call reads the whole tree; to inspect several paths of one branch,
-	 * read it once with `getGitHubTree` and pass it to `inspectGitHubTree`.
+	 * read it once with `getGitHubTree` and pass it on with its truncation:
+	 * `inspectGitHubTree(tree.items, subPath, tree.truncated)`.
 	 */
 	async inspectGitHubPath(
 		installationId: number,

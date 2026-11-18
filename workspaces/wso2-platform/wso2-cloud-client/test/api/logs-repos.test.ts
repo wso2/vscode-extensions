@@ -172,7 +172,7 @@ describe("GitApi", () => {
 		assert.ok(fake.last()?.line.endsWith("/git/github/tree?installationId=7&owner=acme&repo=orders&branch=main"));
 	});
 
-	it("cancels a tree read when the caller's signal aborts", async () => {
+	it("cancels a tree read whose signal aborted before it was sent", async () => {
 		const hanging: typeof fetch = (_input, init) =>
 			new Promise((_resolve, reject) => {
 				const abort = () => reject(new DOMException("aborted", "AbortError"));
@@ -185,6 +185,26 @@ describe("GitApi", () => {
 		const controller = new AbortController();
 
 		const call = rejection(client.git.inspectGitHubPath(7, "acme", "orders", "main", "svc", controller.signal));
+		controller.abort();
+		const error = (await call) as CloudError;
+		assert.equal(error.details.reason, "cancelled");
+	});
+
+	it("cancels a tree read that is already in flight", async () => {
+		let started: () => void = () => undefined;
+		const inFlight = new Promise<void>((resolve) => {
+			started = resolve;
+		});
+		const hanging: typeof fetch = (_input, init) =>
+			new Promise((_resolve, reject) => {
+				init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+				started();
+			});
+		const client = createCloudClient({ environment: DEV, tokenSource: new StaticTokenSource("t0"), fetch: hanging });
+		const controller = new AbortController();
+
+		const call = rejection(client.git.inspectGitHubPath(7, "acme", "orders", "main", "svc", controller.signal));
+		await inFlight;
 		controller.abort();
 		const error = (await call) as CloudError;
 		assert.equal(error.details.reason, "cancelled");
@@ -228,6 +248,16 @@ describe("GitApi", () => {
 		);
 		assert.equal(inspectGitHubTree([{ path: "svc/main.bal", type: "blob" }], "svc", true).isSubPathValid, true, "children prove the directory");
 		assert.equal(inspectGitHubTree([{ path: "svc/main.bal", type: "blob" }], "svc", true).isTruncated, true, "a truncated tree says so");
+		assert.equal(
+			inspectGitHubTree([{ path: "svc", type: "blob" }], "svc/app", true).isSubPathValid,
+			false,
+			"a file on the way proves the path missing",
+		);
+		assert.equal(
+			inspectGitHubTree([{ path: "svc-x", type: "blob" }], "svc/app", true).isSubPathValid,
+			true,
+			"ancestors match on whole segments only",
+		);
 		assert.equal(inspectGitHubTree(tree, "svc").isTruncated, false);
 		assert.equal(inspectGitHubTree(tree, "svc//modules/").isSubPathValid, true, "empty segments are dropped, as inspectRepoPath does");
 		assert.equal(inspectGitHubTree(tree, "//svc//modules").isSubPathEmpty, false);
