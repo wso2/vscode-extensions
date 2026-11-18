@@ -58,9 +58,10 @@ host allows for that target, and other WSO2 Cloud services are called through
 
 ### The sign-in callback URI
 
-`createPlatformClients` returns a `uriReceiver` when the sign-in can come back
-through a `vscode://` URI (always over a remote, and as the fallback to the
-loopback listener on the desktop), but it does not register a URI handler: an
+`createPlatformClients` returns a `uriReceiver` when the sign-in comes back
+through a `vscode://` URI (whenever the editor's scheme is one the identity
+provider knows; a desktop fork with another scheme uses the loopback listener),
+but it does not register a URI handler: an
 extension has only one, and the host may already have its own. The host
 registers (or extends) its `vscode.window.registerUriHandler` and forwards the
 callback URIs to `uriReceiver.pushUri(uri)`, which answers `true` for one it

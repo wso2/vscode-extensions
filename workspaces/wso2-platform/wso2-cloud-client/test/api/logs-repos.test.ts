@@ -161,14 +161,16 @@ describe("GitApi", () => {
 						{ path: "svc", type: "tree" },
 						{ path: "svc/Ballerina.toml", type: "blob" },
 					],
-					truncated: false,
+					truncated: true,
 				},
 			},
 		]);
 
 		assert.deepEqual(await client.git.listGitHubBranches(7, "acme", "orders"), ["main"]);
 		assert.ok(fake.last()?.line.endsWith("/git/github/branches?installationId=7&owner=acme&repo=orders"));
-		assert.equal((await client.git.inspectGitHubPath(7, "acme", "orders", "main", "svc")).hasBallerinaToml, true);
+		const inspection = await client.git.inspectGitHubPath(7, "acme", "orders", "main", "svc");
+		assert.equal(inspection.hasBallerinaToml, true);
+		assert.equal(inspection.isTruncated, true, "the client passes the tree's truncation on");
 		assert.ok(fake.last()?.line.endsWith("/git/github/tree?installationId=7&owner=acme&repo=orders&branch=main"));
 	});
 
@@ -220,6 +222,7 @@ describe("GitApi", () => {
 		assert.equal(isGitHubAuthRequired(await rejection(expired.client.git.listGitHubRepos(7))), true);
 		const conflict = harness([{ match: "POST /git/github/installations", status: 409, body: { error: "no accessible GitHub App installations" } }]);
 		assert.equal(isGitHubAuthRequired(await rejection(conflict.client.git.connectGitHubInstallations("c0de"))), false);
+		assert.equal(isGitHubAuthRequired({ cloudError: true, code: "conflict" }), false, "a cloud error without details is no match");
 	});
 
 	it("unbinds an integration's source", async () => {
