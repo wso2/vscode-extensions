@@ -29,9 +29,16 @@ export type RepoTreeNode = Schemas["TreeNode"];
 export interface RepoPathInspection {
 	/** The repository has no files at all. */
 	isBareRepo: boolean;
-	/** The sub path exists (the root always does). */
+	/**
+	 * The sub path exists (the root always does). On a truncated listing
+	 * (`isTruncated`) a path the listing leaves out is taken to exist, so `true`
+	 * confirms nothing there; a path beneath a listed file is still `false`.
+	 */
 	isSubPathValid: boolean;
-	/** The sub path holds nothing. */
+	/**
+	 * The sub path holds nothing. A truncated listing (`isTruncated`) never
+	 * reports a directory empty, so `false` confirms nothing there.
+	 */
 	isSubPathEmpty: boolean;
 	/**
 	 * The listing was cut short, as GitHub does for a large tree: a missing
@@ -156,7 +163,7 @@ export interface GitHubRepo {
  * Authorizing the app again lets the call through.
  */
 export function isGitHubAuthRequired(error: unknown): boolean {
-	return isCloudError(error) && error.code === "conflict" && error.details.apiError === "github-auth-required";
+	return isCloudError(error) && error.code === "conflict" && error.details?.apiError === "github-auth-required";
 }
 
 /** One path in a repository tree read through an installation; `type` is GitHub's `blob` or `tree`. */
