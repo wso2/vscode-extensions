@@ -232,6 +232,55 @@ describe("production regions", () => {
 		}
 	});
 
+	it("does not let a sign-in finishing in a region left write over a newer sign-in there", async () => {
+		const store = new InMemorySessionStore();
+		const fetch = async () => new Response("{}");
+		let orgRead: (org: { id: string; handle: string; name: string }) => void = () => undefined;
+		const region = (env: "prod" | "prod-eu") => ({
+			env: ENVIRONMENTS[env],
+			sessions: new SessionManager({ env: ENVIRONMENTS[env], store, fetch }),
+			tokenSource: new StaticTokenSource("t"),
+		});
+		const usBefore = {
+			...region("prod"),
+			startLogin: async () => session("prod", "first@example.com"),
+			resolveOrg: () =>
+				new Promise<{ id: string; handle: string; name: string }>((resolve) => {
+					orgRead = resolve;
+				}),
+		};
+		const provider = new WSO2CloudAuthenticationProvider({ ...usBefore, apiKeys: new ApiKeys() });
+		try {
+			const first = provider.createSession(["env:prod"]);
+			await tick();
+			await provider.useRegion(region("prod-eu"));
+			const usAgain = region("prod");
+			await provider.useRegion(usAgain);
+			await usAgain.sessions.setSession(session("prod", "second@example.com"));
+			orgRead({ id: "o1", handle: "acme", name: "Acme Renamed" });
+			const refused = await rejection(first);
+			assert.ok(isCloudError(refused) && refused.code === "login_cancelled", String(refused));
+			const kept = await store.load("prod");
+			assert.equal(kept?.account.id, "second@example.com", "the newer sign-in is kept");
+			assert.equal(kept?.org.name, "Acme", "and not given the first sign-in's organization");
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	it("does not remember a region a switch reached after the clients were disposed", async () => {
+		const secrets = new HeldSecretStorage();
+		const globalState = new FakeMemento();
+		const platform = createPlatformClients({ extensionId: "wso2.wso2-integrator", context: context(secrets, globalState) });
+		secrets.hold();
+		const switching = platform.switchEnvironment("prod-eu");
+		await tick();
+		platform.dispose();
+		secrets.release();
+		await switching;
+		assert.equal(globalState.get(CLOUD_REGION_STATE_KEY), undefined);
+	});
+
 	it("does not switch once disposed", async () => {
 		const platform = createPlatformClients({ extensionId: "wso2.wso2-integrator", context: context(new FakeSecretStorage(), new FakeMemento()) });
 		const queued = platform.switchEnvironment("prod-eu");

@@ -249,11 +249,16 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 		if (region.resolveOrg) {
 			try {
 				const org = await region.resolveOrg(session);
+				// Not through a region left meanwhile: coming back builds a new session manager whose
+				// sign-ins this one's generation does not count, so its write could replace a newer session.
+				stillCurrent();
 				// Not onto a session another sign-in put there meanwhile.
 				if (generation === region.sessions.sessionGeneration) {
 					await region.sessions.update((stored) => ({ ...stored, org: { ...stored.org, ...org } }));
 				}
 			} catch (error) {
+				// A region left meanwhile ends the sign-in as cancelled, whatever the read answered.
+				stillCurrent();
 				this.logger.warn(`Signed in, but the organization could not be read from the API: ${errorMessage(error)}`);
 			}
 		}

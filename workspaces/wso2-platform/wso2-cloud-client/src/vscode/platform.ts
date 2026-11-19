@@ -224,7 +224,9 @@ class SwitchablePlatformClients implements PlatformClients {
 		// Before the provider reports the change of session, which waits for the new region's session to be read.
 		this.environmentEmitter.fire(target);
 		await reported;
-		await this.saveRegion(target.name);
+		if (!this.disposed) {
+			await this.saveRegion(target.name);
+		}
 	}
 
 	/** Builds a region's sessions, token source, login and API client. */
