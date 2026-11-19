@@ -22,7 +22,6 @@ import type { SessionManager } from "../auth/session-manager";
 import type { OrgInfo, StoredSession, TokenSource } from "../auth/types";
 import { accountOf, orgOf } from "../auth/types";
 import type { CloudEnvName, CloudEnvironment } from "../config/environments";
-import { ENVIRONMENTS } from "../config/environments";
 import { LoginError, errorMessage } from "../errors";
 import type { Logger } from "../logger";
 import { silentLogger } from "../logger";
@@ -275,7 +274,7 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 			return {
 				id: sessionId({ env: this.region.env.name, account, org }),
 				accessToken: this.deps.apiKeys.current(),
-				account: { id: account.id, label: `${account.label} (${placeOf(org.name, this.region.env.name)})` },
+				account: { id: account.id, label: `${account.label} (${org.name})` },
 				scopes: [scopeForEnv(this.region.env.name), scopeForOrg(org.handle)],
 			};
 		} catch (error) {
@@ -299,7 +298,7 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 		return {
 			id: sessionId(session),
 			accessToken: this.deps.apiKeys.current(),
-			account: { id: session.account.id, label: `${session.account.label} (${placeOf(session.org.name, session.env)})` },
+			account: { id: session.account.id, label: `${session.account.label} (${session.org.name})` },
 			scopes: [scopeForEnv(session.env), scopeForOrg(session.org.handle)],
 		};
 	}
@@ -309,12 +308,6 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 		this.stopListening();
 		this.emitter.dispose();
 	}
-}
-
-/** The organization, and the region for a deployment that runs in several: `Acme, EU`. */
-function placeOf(orgName: string, env: CloudEnvName): string {
-	const region = ENVIRONMENTS[env]?.region;
-	return region ? `${orgName}, ${region.code}` : orgName;
 }
 
 /** Stable across refreshes: the environment, the person and the organization. */

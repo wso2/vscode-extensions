@@ -18,7 +18,7 @@
 
 import * as vscode from "vscode";
 import type { CloudEnvName, CloudEnvironment } from "../config/environments";
-import { assertEnvironmentConfigured, isCloudEnvName, resolveCloudEnvironment } from "../config/environments";
+import { assertEnvironmentConfigured, isCloudDeploymentName, isCloudEnvName, resolveCloudEnvironment } from "../config/environments";
 
 /** The setting both extensions read for the WSO2 Cloud deployment to use. */
 export const CLOUD_ENV_SETTING = "integrator.advanced.cloudEnv";
@@ -40,7 +40,9 @@ export const CLOUD_CLIENT_ID_VAR = "WSO2_CLOUD_CLIENT_ID";
 
 /**
  * Which deployment to use: an environment variable first, then the setting,
- * then `prod`. The cloud editor sets the variable; a person sets the setting.
+ * then `prod`. The cloud editor sets the variable, which may name a region
+ * (`prod-eu`); a person sets the setting, which names a deployment only, and
+ * chooses production's region when signing in.
  */
 export function readCloudEnvName(env: NodeJS.ProcessEnv = process.env): CloudEnvName {
 	for (const name of CLOUD_ENV_VARS) {
@@ -50,7 +52,7 @@ export function readCloudEnvName(env: NodeJS.ProcessEnv = process.env): CloudEnv
 		}
 	}
 	const setting = userSetting(CLOUD_ENV_SETTING)?.toLowerCase();
-	return isCloudEnvName(setting) ? setting : "prod";
+	return isCloudDeploymentName(setting) ? setting : "prod";
 }
 
 /** The variables that point one of an environment's hosts, or its client, elsewhere. */

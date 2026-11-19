@@ -119,7 +119,11 @@ describe("production regions", () => {
 			assert.deepEqual(providerEvents, [{ added: 1, removed: 0 }]);
 			assert.notEqual(platform.apiKeys.current(), usKey, "a key handed out for the other region stops working");
 			const [granted] = await platform.auth.getSessions(["env:prod-eu"]);
-			assert.match(granted.account.label, /\(Acme, EU\)$/);
+			assert.equal(
+				granted.account.label,
+				"eu@example.com (Acme)",
+				"the label stays the same across regions, so access granted to another extension carries over",
+			);
 			assert.deepEqual(await platform.auth.getSessions(["env:prod"]), [], "the region left is not served");
 			assert.deepEqual(globalState.get(CLOUD_REGION_STATE_KEY), { configured: "prod", chosen: "prod-eu" });
 

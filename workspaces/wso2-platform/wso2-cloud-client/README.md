@@ -90,8 +90,9 @@ that names one:
 
 1. the environment variable `WSO2_CLOUD_ENV`,
 2. the environment variable `CLOUD_ENV`,
-3. the user setting `integrator.advanced.cloudEnv` (a workspace or folder
-   value is ignored, so a cloned repository cannot choose it),
+3. the user setting `integrator.advanced.cloudEnv`, which names a deployment
+   (`prod`, `stage` or `dev`) and no region (a workspace or folder value is
+   ignored, so a cloned repository cannot choose it),
 4. `prod`.
 
 Production runs in two regions, each with its own identity provider, API and
@@ -99,7 +100,8 @@ hosts: `prod` in the United States and `prod-eu` in Europe. The host can move
 between them while the editor runs (`PlatformClients.switchEnvironment`, with
 `regions` listing the choice). Each region keeps its own session, so a person
 can be signed in to both and a token only ever goes to the region that issued
-it. The region switched to is kept in `globalState` and used on the next start,
+it. The person selects the region when signing in; the region switched to is
+kept in `globalState` and used on the next start,
 as long as the settings still name the same environment. A variable that names
 the environment, a URL or client id override, or an injected token fixes the
 environment as it is, and `regions` then holds only it.

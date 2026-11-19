@@ -96,6 +96,15 @@ export const ENVIRONMENTS: Readonly<Record<CloudEnvName, CloudEnvironment>> = {
 	},
 };
 
+/**
+ * Whether `name` names a deployment as a person chooses one in the settings:
+ * `dev`, `stage` or `prod`. Production's region is chosen when signing in, so
+ * the settings name no region; a variable can (the cloud editor's).
+ */
+export function isCloudDeploymentName(value: unknown): value is CloudEnvName {
+	return isCloudEnvName(value) && regionsOf(value)[0] === value;
+}
+
 /** The environments that are regions of one deployment, in the order they are offered. */
 const REGION_GROUPS: readonly (readonly CloudEnvName[])[] = [["prod", "prod-eu"]];
 

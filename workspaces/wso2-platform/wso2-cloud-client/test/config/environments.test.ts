@@ -20,6 +20,7 @@ import * as assert from "node:assert/strict";
 import {
 	ENVIRONMENTS,
 	assertEnvironmentConfigured,
+	isCloudDeploymentName,
 	isCloudEnvName,
 	missingEnvironmentUrls,
 	regionsOf,
@@ -32,6 +33,8 @@ describe("environments", () => {
 		assert.deepEqual(regionsOf("prod"), ["prod", "prod-eu"]);
 		assert.deepEqual(regionsOf("prod-eu"), ["prod", "prod-eu"]);
 		assert.deepEqual(regionsOf("stage"), ["stage"]);
+		assert.ok(isCloudDeploymentName("prod") && isCloudDeploymentName("stage") && isCloudDeploymentName("dev"));
+		assert.ok(!isCloudDeploymentName("prod-eu"), "a region of production is not a deployment of its own");
 		const us = ENVIRONMENTS.prod;
 		const eu = ENVIRONMENTS["prod-eu"];
 		assert.equal(us.region?.code, "US");
