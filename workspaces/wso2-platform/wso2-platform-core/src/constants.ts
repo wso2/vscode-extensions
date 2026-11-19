@@ -45,6 +45,7 @@ export const WICommandIds = {
 	SignIn: "wso2.integrator.cloud.auth.signIn",
 	SignOut: "wso2.integrator.cloud.auth.signOut",
 	CancelSignIn: "wso2.integrator.cloud.auth.cancelSignIn",
+	SwitchRegion: "wso2.integrator.cloud.auth.switchRegion",
 	CreateNewComponent: "wso2.integrator.cloud.integration.create",
 	DeleteComponent: "wso2.integrator.cloud.integration.delete",
 	OpenInConsole: "wso2.integrator.cloud.integration.openInConsole",
