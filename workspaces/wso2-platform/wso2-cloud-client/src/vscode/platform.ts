@@ -144,6 +144,7 @@ class SwitchablePlatformClients implements PlatformClients {
 	private stopForwarding: () => void = () => undefined;
 	/** The region a switch is moving to, so a second one waits for it. */
 	private switching: Promise<void> = Promise.resolve();
+	private disposed = false;
 
 	constructor(private readonly options: PlatformClientsOptions) {
 		this.logger = options.logger ?? silentLogger;
@@ -199,6 +200,9 @@ class SwitchablePlatformClients implements PlatformClients {
 	}
 
 	private async switchNow(name: CloudEnvName): Promise<void> {
+		if (this.disposed) {
+			throw new BadRequestError("Choreo Cloud cannot switch regions after the extension was disposed.");
+		}
 		if (name === this.current.environment.name) {
 			return;
 		}
@@ -210,13 +214,17 @@ class SwitchablePlatformClients implements PlatformClients {
 		}
 		const previous = this.current;
 		previous.login?.cancel();
+		// The clients, the provider and the key move together, before anything is awaited: no moment
+		// has the new region's clients beside the old region's provider or a key still valid for it.
 		this.current = this.buildRegion(target);
 		this.forwardSessionEvents();
-		await this.saveRegion(target.name);
-		this.logger.info(`Switched Choreo Cloud to ${target.name} (${target.apiBaseUrl})`);
-		this.environmentEmitter.fire(target);
-		await this.auth.useRegion(this.providerRegion(this.current));
+		const reported = this.auth.useRegion(this.providerRegion(this.current));
 		disposeRegion(previous);
+		this.logger.info(`Switched Choreo Cloud to ${target.name} (${target.apiBaseUrl})`);
+		// Before the provider reports the change of session, which waits for the new region's session to be read.
+		this.environmentEmitter.fire(target);
+		await reported;
+		await this.saveRegion(target.name);
 	}
 
 	/** Builds a region's sessions, token source, login and API client. */
@@ -311,6 +319,7 @@ class SwitchablePlatformClients implements PlatformClients {
 	}
 
 	dispose(): void {
+		this.disposed = true;
 		this.stopForwarding();
 		this.sessionListeners.clear();
 		this.environmentEmitter.dispose();

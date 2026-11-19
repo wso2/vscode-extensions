@@ -126,9 +126,11 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 	}
 
 	/**
-	 * Serves another region from now on. A sign-in still waiting in the region
-	 * left is given up, the key is replaced, and VS Code is told the session
-	 * there was is gone and the new region's, if it holds one, is there.
+	 * Serves another region from now on. Before this returns its promise, the
+	 * sign-in still waiting in the region left is given up, the region is
+	 * served, and the key is replaced. Once the new region's session is read,
+	 * VS Code is told the session there was is gone and the new region's, if
+	 * it holds one, is there.
 	 */
 	async useRegion(region: AuthProviderRegion): Promise<void> {
 		this.region.cancelLogin?.();
@@ -181,36 +183,47 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 		return orgs.length === 0 || orgs.some((s) => session.scopes.includes(s));
 	}
 
-	/** The session for this environment; none when the scopes name another environment or no one is signed in. */
+	/**
+	 * The session for this environment; none when the scopes name another
+	 * environment or no one is signed in. A read that a region switch
+	 * overtakes answers nothing: the switch reports the change.
+	 */
 	async getSessions(scopes?: readonly string[]): Promise<vscode.AuthenticationSession[]> {
+		const region = this.region;
 		if (!this.serves(scopes)) {
 			return [];
 		}
-		if (this.region.tokenSource.kind === "injected") {
+		if (region.tokenSource.kind === "injected") {
 			// The editor's token is what the host uses; a browser session left in storage from before is not handed out.
 			const injected = await this.injectedSession();
-			if (injected) {
+			if (injected && region === this.region) {
 				this.last = injected;
 				return this.answers(injected, scopes) ? [injected] : [];
 			}
 			return [];
 		}
 		// The WSO2 Cloud token is refreshed where it is used, in the host; the key handed out does not expire with it.
-		const current = await this.region.sessions.current();
-		if (!current) {
+		const current = await region.sessions.current();
+		if (!current || region !== this.region) {
 			return [];
 		}
 		this.last = this.toSession(current);
 		return this.answers(this.last, scopes) ? [this.last] : [];
 	}
 
-	/** Signs in through the browser and keeps the session; `prompt:login` in the scopes asks to choose the organization again. */
+	/**
+	 * Signs in through the browser and keeps the session; `prompt:login` in
+	 * the scopes asks to choose the organization again. The sign-in stays in
+	 * the region it started in: a session it produced is kept there, and a
+	 * region switch before it finishes ends it as cancelled.
+	 */
 	async createSession(scopes: readonly string[]): Promise<vscode.AuthenticationSession> {
+		const region = this.region;
 		if (!this.serves(scopes)) {
-			throw new LoginError("provider_error", `This provider signs in to ${this.region.env.name}; ${scopes.join(" ")} names another environment.`);
+			throw new LoginError("provider_error", `This provider signs in to ${region.env.name}; ${scopes.join(" ")} names another environment.`);
 		}
-		if (!this.region.startLogin) {
-			if (this.region.tokenSource.kind === "injected") {
+		if (!region.startLogin) {
+			if (region.tokenSource.kind === "injected") {
 				throw new LoginError(
 					"not_available_in_cloud_editor",
 					"This editor was started with a Choreo Cloud token and cannot sign in as someone else.",
@@ -218,28 +231,35 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 			}
 			throw new LoginError(
 				"no_redirect_available",
-				`Signing in to Choreo Cloud is not available in this editor: ${this.region.loginUnavailable ?? "no sign-in was set up"}`,
+				`Signing in to Choreo Cloud is not available in this editor: ${region.loginUnavailable ?? "no sign-in was set up"}`,
 			);
 		}
-		this.region.cancelLogin?.();
+		const stillCurrent = () => {
+			if (region !== this.region) {
+				throw new LoginError("cancelled", `The Choreo Cloud region changed while signing in to ${region.env.name}.`);
+			}
+		};
+		region.cancelLogin?.();
 		const prompt = scopes.includes(PROMPT_LOGIN_SCOPE) ? { prompt: "login" } : undefined;
-		const session = await this.region.startLogin({ extraAuthParams: prompt });
+		const session = await region.startLogin({ extraAuthParams: prompt });
 		// Stored first, so the organization is read with the token just issued, not the one before.
-		await this.region.sessions.setSession(session);
-		const generation = this.region.sessions.sessionGeneration;
-		if (this.region.resolveOrg) {
+		await region.sessions.setSession(session);
+		stillCurrent();
+		const generation = region.sessions.sessionGeneration;
+		if (region.resolveOrg) {
 			try {
-				const org = await this.region.resolveOrg(session);
+				const org = await region.resolveOrg(session);
 				// Not onto a session another sign-in put there meanwhile.
-				if (generation === this.region.sessions.sessionGeneration) {
-					await this.region.sessions.update((stored) => ({ ...stored, org: { ...stored.org, ...org } }));
+				if (generation === region.sessions.sessionGeneration) {
+					await region.sessions.update((stored) => ({ ...stored, org: { ...stored.org, ...org } }));
 				}
 			} catch (error) {
 				this.logger.warn(`Signed in, but the organization could not be read from the API: ${errorMessage(error)}`);
 			}
 		}
 		// What is held now: a sign-out or another sign-in while the organization was read wins.
-		const current = await this.region.sessions.current();
+		const current = await region.sessions.current();
+		stillCurrent();
 		if (!current) {
 			throw new LoginError("cancelled", "The session ended while the sign-in was finishing.");
 		}

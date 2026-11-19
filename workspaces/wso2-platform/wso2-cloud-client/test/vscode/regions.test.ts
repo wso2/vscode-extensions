@@ -17,8 +17,16 @@
  */
 
 import assert from "node:assert/strict";
-import { type StoredSession, isCloudError } from "../../src";
-import { CLOUD_ENV_VARS, CLOUD_REGION_STATE_KEY, SecretStorageSessionStore, createPlatformClients } from "../../src/vscode";
+import { ENVIRONMENTS, InMemorySessionStore, SessionManager, type StoredSession, isCloudError } from "../../src";
+import {
+	ApiKeys,
+	CLOUD_ENV_VARS,
+	CLOUD_REGION_STATE_KEY,
+	SecretStorageSessionStore,
+	WSO2CloudAuthenticationProvider,
+	createPlatformClients,
+} from "../../src/vscode";
+import { StaticTokenSource } from "../doubles";
 import { FakeSecretStorage, resetVscode } from "../doubles/vscode";
 import { rejection } from "../support";
 
@@ -33,6 +41,23 @@ const VARS = [
 	"WSO2_CLOUD_TOKEN",
 	"WSO2_CLOUD_TOKEN_FILE",
 ];
+
+/** Secret storage whose reads wait until `release` is called, to hold a session read in flight. */
+class HeldSecretStorage extends FakeSecretStorage {
+	private gate: Promise<void> = Promise.resolve();
+	release: () => void = () => undefined;
+	hold(): void {
+		this.gate = new Promise((resolve) => {
+			this.release = resolve;
+		});
+	}
+	override async get(key: string): Promise<string | undefined> {
+		await this.gate;
+		return super.get(key);
+	}
+}
+
+const tick = () => new Promise((resolve) => setImmediate(resolve));
 
 class FakeMemento {
 	readonly values = new Map<string, unknown>();
@@ -147,6 +172,72 @@ describe("production regions", () => {
 		} finally {
 			platform.dispose();
 		}
+	});
+
+	it("moves the clients, the provider and the key together, and drops a session read the switch overtook", async () => {
+		const secrets = new HeldSecretStorage();
+		await new SecretStorageSessionStore(secrets as never).save(session("prod", "us@example.com"));
+		const platform = createPlatformClients({ extensionId: "wso2.wso2-integrator", context: context(secrets, new FakeMemento()) });
+		try {
+			const usKey = platform.apiKeys.current();
+			const seen: { oldKeyValid: boolean; served: Promise<unknown[]> }[] = [];
+			platform.onDidChangeEnvironment(() =>
+				seen.push({ oldKeyValid: platform.apiKeys.verify(usKey), served: platform.auth.getSessions(["env:prod"]) }),
+			);
+			secrets.hold();
+			const usRead = platform.auth.getSessions(["env:prod"]);
+			const switching = platform.switchEnvironment("prod-eu");
+			await tick();
+			secrets.release();
+			await switching;
+			assert.deepEqual(await usRead, [], "the United States session is not handed out with Europe's key");
+			assert.equal(seen.length, 1);
+			assert.equal(seen[0].oldKeyValid, false, "the old key is gone when the switch is announced");
+			assert.deepEqual(await seen[0].served, [], "the provider already serves Europe");
+		} finally {
+			platform.dispose();
+		}
+	});
+
+	it("keeps a sign-in in the region it started in, and ends it as cancelled when the region changes", async () => {
+		const store = new InMemorySessionStore();
+		const fetch = async () => new Response("{}");
+		let finishLogin: (value: StoredSession) => void = () => undefined;
+		const us = {
+			env: ENVIRONMENTS.prod,
+			sessions: new SessionManager({ env: ENVIRONMENTS.prod, store, fetch }),
+			tokenSource: new StaticTokenSource("t"),
+			startLogin: () =>
+				new Promise<StoredSession>((resolve) => {
+					finishLogin = resolve;
+				}),
+		};
+		const eu = {
+			env: ENVIRONMENTS["prod-eu"],
+			sessions: new SessionManager({ env: ENVIRONMENTS["prod-eu"], store, fetch }),
+			tokenSource: new StaticTokenSource("t"),
+		};
+		const provider = new WSO2CloudAuthenticationProvider({ ...us, apiKeys: new ApiKeys() });
+		try {
+			const signingIn = provider.createSession(["env:prod"]);
+			await tick();
+			await provider.useRegion(eu);
+			finishLogin(session("prod", "us@example.com"));
+			const refused = await rejection(signingIn);
+			assert.ok(isCloudError(refused) && refused.code === "login_cancelled", String(refused));
+			assert.equal((await us.sessions.current())?.account.id, "us@example.com", "the session is kept in its own region");
+			assert.equal(await eu.sessions.current(), undefined, "and not in the region switched to");
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	it("does not switch once disposed", async () => {
+		const platform = createPlatformClients({ extensionId: "wso2.wso2-integrator", context: context(new FakeSecretStorage(), new FakeMemento()) });
+		const queued = platform.switchEnvironment("prod-eu");
+		platform.dispose();
+		assert.ok(isCloudError(await rejection(queued)));
+		assert.equal(platform.environment.name, "prod");
 	});
 
 	it("does not switch an environment a variable or an override fixes, nor take a choice made under another setting", async () => {
