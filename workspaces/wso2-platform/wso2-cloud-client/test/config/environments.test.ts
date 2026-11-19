@@ -17,9 +17,31 @@
  */
 
 import * as assert from "node:assert/strict";
-import { ENVIRONMENTS, assertEnvironmentConfigured, missingEnvironmentUrls, resolveCloudEnvironment } from "../../src/config/environments";
+import {
+	ENVIRONMENTS,
+	assertEnvironmentConfigured,
+	isCloudEnvName,
+	missingEnvironmentUrls,
+	regionsOf,
+	resolveCloudEnvironment,
+} from "../../src/config/environments";
 
 describe("environments", () => {
+	it("runs production in the United States and Europe, each on its own hosts", () => {
+		assert.ok(isCloudEnvName("prod-eu"));
+		assert.deepEqual(regionsOf("prod"), ["prod", "prod-eu"]);
+		assert.deepEqual(regionsOf("prod-eu"), ["prod", "prod-eu"]);
+		assert.deepEqual(regionsOf("stage"), ["stage"]);
+		const us = ENVIRONMENTS.prod;
+		const eu = ENVIRONMENTS["prod-eu"];
+		assert.equal(us.region?.code, "US");
+		assert.equal(eu.region?.code, "EU");
+		for (const key of ["apiBaseUrl", "issuer", "observabilityBaseUrl", "consoleUrl"] as const) {
+			assert.ok(eu[key].startsWith("https://"), key);
+			assert.notEqual(new URL(eu[key]).host, new URL(us[key]).host, `${key} is Europe's own`);
+		}
+	});
+
 	it("falls back to prod for an unknown name and keeps the built-in hosts", () => {
 		const env = resolveCloudEnvironment("nope");
 		assert.equal(env.name, "prod");

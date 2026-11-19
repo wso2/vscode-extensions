@@ -53,6 +53,30 @@ export function readCloudEnvName(env: NodeJS.ProcessEnv = process.env): CloudEnv
 	return isCloudEnvName(setting) ? setting : "prod";
 }
 
+/** The variables that point one of an environment's hosts, or its client, elsewhere. */
+const ENVIRONMENT_OVERRIDE_VARS = [
+	CLOUD_API_URL_VAR,
+	CLOUD_ISSUER_VAR,
+	CLOUD_OBSERVABILITY_URL_VAR,
+	CLOUD_CONSOLE_URL_VAR,
+	CLOUD_CLIENT_ID_VAR,
+] as const;
+
+/**
+ * Whether the environment is fixed from outside: a variable names it (the
+ * cloud editor, a developer), or an override points one of its hosts or its
+ * client elsewhere. Switching to another region would leave those behind,
+ * so it is not offered.
+ */
+export function isCloudEnvironmentPinned(env: NodeJS.ProcessEnv = process.env): boolean {
+	return (
+		CLOUD_ENV_VARS.some((name) => isCloudEnvName(env[name]?.trim().toLowerCase())) ||
+		ENVIRONMENT_OVERRIDE_VARS.some((name) => !!env[name]?.trim()) ||
+		!!userSetting(CLOUD_CLIENT_ID_SETTING) ||
+		!!userSetting(CLOUD_API_URL_SETTING)
+	);
+}
+
 /**
  * A setting's value from the person's own (user) settings only. The hosts
  * contribute these settings with `"scope": "machine"`, which keeps a

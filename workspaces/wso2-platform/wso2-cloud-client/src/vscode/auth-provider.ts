@@ -22,6 +22,7 @@ import type { SessionManager } from "../auth/session-manager";
 import type { OrgInfo, StoredSession, TokenSource } from "../auth/types";
 import { accountOf, orgOf } from "../auth/types";
 import type { CloudEnvName, CloudEnvironment } from "../config/environments";
+import { ENVIRONMENTS } from "../config/environments";
 import { LoginError, errorMessage } from "../errors";
 import type { Logger } from "../logger";
 import { silentLogger } from "../logger";
@@ -45,12 +46,11 @@ export function scopeForOrg(handle: string): string {
 	return `org:${handle}`;
 }
 
-export interface AuthProviderDeps {
+/** What the provider needs of the region it serves; {@link WSO2CloudAuthenticationProvider.useRegion} replaces it. */
+export interface AuthProviderRegion {
 	env: CloudEnvironment;
 	sessions: SessionManager;
 	tokenSource: TokenSource;
-	/** The key the sessions carry in place of the WSO2 Cloud token. */
-	apiKeys: ApiKeys;
 	/** Runs a browser sign-in and answers the session it produced. Absent where no browser can be used. */
 	startLogin?: (options: { extraAuthParams?: Record<string, string> }) => Promise<StoredSession>;
 	/** Abandons a sign-in waiting for the browser. */
@@ -59,6 +59,11 @@ export interface AuthProviderDeps {
 	loginUnavailable?: string;
 	/** Fills in what only the API knows about the organization, once per session. */
 	resolveOrg?: (session: StoredSession) => Promise<OrgInfo>;
+}
+
+export interface AuthProviderDeps extends AuthProviderRegion {
+	/** The key the sessions carry in place of the WSO2 Cloud token. */
+	apiKeys: ApiKeys;
 	logger?: Logger;
 }
 
@@ -69,43 +74,83 @@ export interface AuthProviderDeps {
  * `vscode.authentication.getSession("wso2-cloud", ["env:prod"])`, which is
  * where VS Code checks that extension's access to the account.
  *
- * One provider serves the environment it was made for; a session for
- * another environment is not surfaced until the setting changes and the
- * window reloads, which is how the setting already behaves.
+ * The provider serves one region at a time: a session is surfaced for the
+ * current region's scope only. A switch to another region of the deployment
+ * ({@link useRegion}) reports the session of the region left as removed and
+ * the one of the region reached, if any, as added, and replaces the key.
  */
 export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationProvider, vscode.Disposable {
 	private readonly emitter = new vscode.EventEmitter<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>();
 	readonly onDidChangeSessions = this.emitter.event;
 	private readonly logger: Logger;
-	private readonly disposables: (() => void)[] = [];
 	/** The session last handed out, so its removal can be reported. */
 	private last?: vscode.AuthenticationSession;
 
+	/** The region served now. */
+	private region: AuthProviderRegion;
+	private stopListening: () => void = () => undefined;
+
 	constructor(private readonly deps: AuthProviderDeps) {
 		this.logger = deps.logger ?? silentLogger;
-		this.disposables.push(
-			deps.sessions.onDidChange((event) => {
-				if (deps.tokenSource.kind === "injected") {
-					// The stored session is not this editor's; its changes are not reported.
-					return;
-				}
-				if (event.reason === "refreshed") {
-					// A new WSO2 Cloud token is no change to the session handed out: its key stays.
-					return;
-				}
-				// Another person or organization, or none: the key handed out for the session before stops working.
-				this.deps.apiKeys.rotate();
-				this.deps.sessions.current().then(
-					(session) => {
-						const converted = session ? [this.toSession(session)] : [];
-						const removed = this.last ? [this.last] : [];
-						this.last = converted[0];
-						this.emitter.fire({ added: event.reason === "signed-in" ? converted : [], removed, changed: [] });
-					},
-					(error) => this.logger.error("The Choreo Cloud session could not be read after it changed", error),
-				);
-			}),
-		);
+		this.region = deps;
+		this.listen();
+	}
+
+	/** Reports the current region's session changes as changes of this provider's sessions. */
+	private listen(): void {
+		this.stopListening();
+		const region = this.region;
+		this.stopListening = region.sessions.onDidChange((event) => {
+			if (region.tokenSource.kind === "injected") {
+				// The stored session is not this editor's; its changes are not reported.
+				return;
+			}
+			if (event.reason === "refreshed") {
+				// A new WSO2 Cloud token is no change to the session handed out: its key stays.
+				return;
+			}
+			// Another person or organization, or none: the key handed out for the session before stops working.
+			this.deps.apiKeys.rotate();
+			region.sessions.current().then(
+				(session) => {
+					if (region !== this.region) {
+						return; // switched away meanwhile; the switch reported the change
+					}
+					const converted = session ? [this.toSession(session)] : [];
+					const removed = this.last ? [this.last] : [];
+					this.last = converted[0];
+					this.emitter.fire({ added: event.reason === "signed-in" ? converted : [], removed, changed: [] });
+				},
+				(error) => this.logger.error("The Choreo Cloud session could not be read after it changed", error),
+			);
+		});
+	}
+
+	/**
+	 * Serves another region from now on. A sign-in still waiting in the region
+	 * left is given up, the key is replaced, and VS Code is told the session
+	 * there was is gone and the new region's, if it holds one, is there.
+	 */
+	async useRegion(region: AuthProviderRegion): Promise<void> {
+		this.region.cancelLogin?.();
+		this.region = region;
+		this.listen();
+		this.deps.apiKeys.rotate();
+		const removed = this.last ? [this.last] : [];
+		this.last = undefined;
+		let added: vscode.AuthenticationSession[] = [];
+		try {
+			const session = await region.sessions.current();
+			if (session && region === this.region) {
+				this.last = this.toSession(session);
+				added = [this.last];
+			}
+		} catch (error) {
+			this.logger.error(`The Choreo Cloud session for ${region.env.name} could not be read`, error);
+		}
+		if (region === this.region) {
+			this.emitter.fire({ added, removed, changed: [] });
+		}
 	}
 
 	/** Registers the provider with VS Code for the extension's lifetime. */
@@ -120,7 +165,7 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 	/** Whether `scopes` name this provider's environment, or name none. */
 	private serves(scopes: readonly string[] | undefined): boolean {
 		const named = (scopes ?? []).filter((s) => s.startsWith("env:"));
-		return named.length === 0 || named.includes(scopeForEnv(this.deps.env.name));
+		return named.length === 0 || named.includes(scopeForEnv(this.region.env.name));
 	}
 
 	/**
@@ -142,7 +187,7 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 		if (!this.serves(scopes)) {
 			return [];
 		}
-		if (this.deps.tokenSource.kind === "injected") {
+		if (this.region.tokenSource.kind === "injected") {
 			// The editor's token is what the host uses; a browser session left in storage from before is not handed out.
 			const injected = await this.injectedSession();
 			if (injected) {
@@ -152,7 +197,7 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 			return [];
 		}
 		// The WSO2 Cloud token is refreshed where it is used, in the host; the key handed out does not expire with it.
-		const current = await this.deps.sessions.current();
+		const current = await this.region.sessions.current();
 		if (!current) {
 			return [];
 		}
@@ -163,36 +208,39 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 	/** Signs in through the browser and keeps the session; `prompt:login` in the scopes asks to choose the organization again. */
 	async createSession(scopes: readonly string[]): Promise<vscode.AuthenticationSession> {
 		if (!this.serves(scopes)) {
-			throw new LoginError("provider_error", `This provider signs in to ${this.deps.env.name}; ${scopes.join(" ")} names another environment.`);
+			throw new LoginError("provider_error", `This provider signs in to ${this.region.env.name}; ${scopes.join(" ")} names another environment.`);
 		}
-		if (!this.deps.startLogin) {
-			if (this.deps.tokenSource.kind === "injected") {
-				throw new LoginError("not_available_in_cloud_editor", "This editor was started with a Choreo Cloud token and cannot sign in as someone else.");
+		if (!this.region.startLogin) {
+			if (this.region.tokenSource.kind === "injected") {
+				throw new LoginError(
+					"not_available_in_cloud_editor",
+					"This editor was started with a Choreo Cloud token and cannot sign in as someone else.",
+				);
 			}
 			throw new LoginError(
 				"no_redirect_available",
-				`Signing in to Choreo Cloud is not available in this editor: ${this.deps.loginUnavailable ?? "no sign-in was set up"}`,
+				`Signing in to Choreo Cloud is not available in this editor: ${this.region.loginUnavailable ?? "no sign-in was set up"}`,
 			);
 		}
-		this.deps.cancelLogin?.();
+		this.region.cancelLogin?.();
 		const prompt = scopes.includes(PROMPT_LOGIN_SCOPE) ? { prompt: "login" } : undefined;
-		const session = await this.deps.startLogin({ extraAuthParams: prompt });
+		const session = await this.region.startLogin({ extraAuthParams: prompt });
 		// Stored first, so the organization is read with the token just issued, not the one before.
-		await this.deps.sessions.setSession(session);
-		const generation = this.deps.sessions.sessionGeneration;
-		if (this.deps.resolveOrg) {
+		await this.region.sessions.setSession(session);
+		const generation = this.region.sessions.sessionGeneration;
+		if (this.region.resolveOrg) {
 			try {
-				const org = await this.deps.resolveOrg(session);
+				const org = await this.region.resolveOrg(session);
 				// Not onto a session another sign-in put there meanwhile.
-				if (generation === this.deps.sessions.sessionGeneration) {
-					await this.deps.sessions.update((stored) => ({ ...stored, org: { ...stored.org, ...org } }));
+				if (generation === this.region.sessions.sessionGeneration) {
+					await this.region.sessions.update((stored) => ({ ...stored, org: { ...stored.org, ...org } }));
 				}
 			} catch (error) {
 				this.logger.warn(`Signed in, but the organization could not be read from the API: ${errorMessage(error)}`);
 			}
 		}
 		// What is held now: a sign-out or another sign-in while the organization was read wins.
-		const current = await this.deps.sessions.current();
+		const current = await this.region.sessions.current();
 		if (!current) {
 			throw new LoginError("cancelled", "The session ended while the sign-in was finishing.");
 		}
@@ -202,7 +250,7 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 
 	/** Signs out; the session manager's event reports the removal. */
 	async removeSession(_sessionId: string): Promise<void> {
-		await this.deps.sessions.signOut({ revoke: true });
+		await this.region.sessions.signOut({ revoke: true });
 	}
 
 	/**
@@ -212,23 +260,23 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 	 * since the token can be rotated in place.
 	 */
 	private async injectedSession(): Promise<vscode.AuthenticationSession | undefined> {
-		if (this.deps.tokenSource.kind !== "injected") {
+		if (this.region.tokenSource.kind !== "injected") {
 			return undefined;
 		}
 		try {
-			const claims = await this.deps.tokenSource.getClaims();
+			const claims = await this.region.tokenSource.getClaims();
 			if (!claims) {
 				return undefined;
 			}
 			// Read to tell a token that can no longer be used from one that can; it is not handed out.
-			await this.deps.tokenSource.getAccessToken();
+			await this.region.tokenSource.getAccessToken();
 			const org = orgOf(claims);
 			const account = accountOf(claims);
 			return {
-				id: sessionId({ env: this.deps.env.name, account, org }),
+				id: sessionId({ env: this.region.env.name, account, org }),
 				accessToken: this.deps.apiKeys.current(),
-				account: { id: account.id, label: `${account.label} (${org.name})` },
-				scopes: [scopeForEnv(this.deps.env.name), scopeForOrg(org.handle)],
+				account: { id: account.id, label: `${account.label} (${placeOf(org.name, this.region.env.name)})` },
+				scopes: [scopeForEnv(this.region.env.name), scopeForOrg(org.handle)],
 			};
 		} catch (error) {
 			this.logger.warn(`The editor's Choreo Cloud token could not be read: ${errorMessage(error)}`);
@@ -238,12 +286,12 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 
 	/** The stored session, with the platform's claims, for the host's own UI. */
 	getStoredSession(): Promise<StoredSession | undefined> {
-		return this.deps.sessions.current();
+		return this.region.sessions.current();
 	}
 
 	/** Abandons a sign-in that waits for the browser. */
 	cancelPendingLogin(): void {
-		this.deps.cancelLogin?.();
+		this.region.cancelLogin?.();
 	}
 
 	/** A stored session as VS Code shows and hands it out, with the key in place of its token. */
@@ -251,18 +299,22 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 		return {
 			id: sessionId(session),
 			accessToken: this.deps.apiKeys.current(),
-			account: { id: session.account.id, label: `${session.account.label} (${session.org.name})` },
+			account: { id: session.account.id, label: `${session.account.label} (${placeOf(session.org.name, session.env)})` },
 			scopes: [scopeForEnv(session.env), scopeForOrg(session.org.handle)],
 		};
 	}
 
 	/** Stops listening to the session manager. */
 	dispose(): void {
-		for (const dispose of this.disposables) {
-			dispose();
-		}
+		this.stopListening();
 		this.emitter.dispose();
 	}
+}
+
+/** The organization, and the region for a deployment that runs in several: `Acme, EU`. */
+function placeOf(orgName: string, env: CloudEnvName): string {
+	const region = ENVIRONMENTS[env]?.region;
+	return region ? `${orgName}, ${region.code}` : orgName;
 }
 
 /** Stable across refreshes: the environment, the person and the organization. */

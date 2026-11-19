@@ -85,14 +85,24 @@ Without it, a sign-in that comes back by URI waits until it times out.
 
 ## Environments
 
-The environment, `prod`, `stage` or `dev`, is the first of these that names
-one:
+The environment, `prod`, `prod-eu`, `stage` or `dev`, is the first of these
+that names one:
 
 1. the environment variable `WSO2_CLOUD_ENV`,
 2. the environment variable `CLOUD_ENV`,
 3. the user setting `integrator.advanced.cloudEnv` (a workspace or folder
    value is ignored, so a cloned repository cannot choose it),
 4. `prod`.
+
+Production runs in two regions, each with its own identity provider, API and
+hosts: `prod` in the United States and `prod-eu` in Europe. The host can move
+between them while the editor runs (`PlatformClients.switchEnvironment`, with
+`regions` listing the choice). Each region keeps its own session, so a person
+can be signed in to both and a token only ever goes to the region that issued
+it. The region switched to is kept in `globalState` and used on the next start,
+as long as the settings still name the same environment. A variable that names
+the environment, a URL or client id override, or an injected token fixes the
+environment as it is, and `regions` then holds only it.
 
 Production and staging hosts are built in. The development deployment is
 internal, so its hosts are not in this repository: with `dev`, set

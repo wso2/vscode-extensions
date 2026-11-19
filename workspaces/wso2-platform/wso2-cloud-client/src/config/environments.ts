@@ -16,10 +16,21 @@
  * under the License.
  */
 
-/** The WSO2 Cloud deployments the Integration Platform runs in. */
-export type CloudEnvName = "dev" | "stage" | "prod";
+/**
+ * The WSO2 Cloud deployments the Integration Platform runs in. Production
+ * runs in two regions, each a deployment of its own with its own identity
+ * provider and API: `prod` in the United States and `prod-eu` in Europe.
+ */
+export type CloudEnvName = "dev" | "stage" | "prod" | "prod-eu";
 
-export const CLOUD_ENV_NAMES: readonly CloudEnvName[] = ["dev", "stage", "prod"];
+export const CLOUD_ENV_NAMES: readonly CloudEnvName[] = ["dev", "stage", "prod", "prod-eu"];
+
+/** Where a deployment that runs in more than one region runs, as the person choosing one is shown it. */
+export interface CloudRegion {
+	/** Short, for labels: `US`, `EU`. */
+	readonly code: string;
+	readonly label: string;
+}
 
 /**
  * Everything the client needs to know about one WSO2 Cloud deployment.
@@ -39,14 +50,15 @@ export interface CloudEnvironment {
 	readonly consoleUrl: string;
 	/** The public OAuth client registered for VS Code at this deployment's ThunderID. */
 	readonly clientId: string;
+	/** Set for an environment that is one region of a deployment running in several: see {@link regionsOf}. */
+	readonly region?: CloudRegion;
 }
 
-// Stage and prod carry the documented API and issuer hosts; their observability
-// proxy, console URL and client id are platform dependencies to be confirmed
-// before those environments are used. The development deployment is internal
-// and its hosts stay out of this repository: with `dev`, every URL comes from
-// the overrides (`WSO2_CLOUD_API_URL`, `WSO2_CLOUD_ISSUER`,
-// `WSO2_CLOUD_OBSERVABILITY_URL`, `WSO2_CLOUD_CONSOLE_URL`).
+// Stage and the two production regions carry their published hosts. The
+// development deployment is internal and its hosts stay out of this
+// repository: with `dev`, every URL comes from the overrides
+// (`WSO2_CLOUD_API_URL`, `WSO2_CLOUD_ISSUER`, `WSO2_CLOUD_OBSERVABILITY_URL`,
+// `WSO2_CLOUD_CONSOLE_URL`).
 export const ENVIRONMENTS: Readonly<Record<CloudEnvName, CloudEnvironment>> = {
 	dev: {
 		name: "dev",
@@ -71,8 +83,31 @@ export const ENVIRONMENTS: Readonly<Record<CloudEnvName, CloudEnvironment>> = {
 		observabilityBaseUrl: "https://cloud-obs-proxy.obs.dp.us.cloud.choreolabs.io/wso2cloud-obs",
 		consoleUrl: "https://console.cloud.choreolabs.com",
 		clientId: "WSO2_INTEGRATOR_EXTENSION",
+		region: { code: "US", label: "United States" },
+	},
+	"prod-eu": {
+		name: "prod-eu",
+		apiBaseUrl: "https://api.eu.cloud.choreolabs.com/ipaas-service-ipaas-api-endpoint",
+		issuer: "https://accounts.eu.cloud.choreolabs.com",
+		observabilityBaseUrl: "https://cloud-obs-proxy.obs.dp.eu.cloud.choreolabs.io/wso2cloud-obs",
+		consoleUrl: "https://console.eu.cloud.choreolabs.com",
+		clientId: "WSO2_INTEGRATOR_EXTENSION",
+		region: { code: "EU", label: "Europe" },
 	},
 };
+
+/** The environments that are regions of one deployment, in the order they are offered. */
+const REGION_GROUPS: readonly (readonly CloudEnvName[])[] = [["prod", "prod-eu"]];
+
+/**
+ * The regions of the deployment `name` belongs to, `name` among them. A
+ * deployment that runs in one region has only `name`. Each region keeps its
+ * own sessions: a person may be signed in to each, and a token is only ever
+ * sent to its own region's hosts.
+ */
+export function regionsOf(name: CloudEnvName): readonly CloudEnvName[] {
+	return REGION_GROUPS.find((group) => group.includes(name)) ?? [name];
+}
 
 /** Whether `value` names one of the environments. */
 export function isCloudEnvName(value: unknown): value is CloudEnvName {
