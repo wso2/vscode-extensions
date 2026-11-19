@@ -82,6 +82,8 @@ export class SessionManager {
 	private refreshing?: { generation: number; promise: Promise<RefreshOutcome> };
 	/** Bumped whenever the session is replaced or ended, so a refresh in flight for the old one is dropped. */
 	private generation = 0;
+	/** Set once the manager is disposed: a newer manager for the environment may hold a newer session, so this one writes nothing more. */
+	private retired = false;
 	private readonly listeners = new Set<(event: SessionChangeEvent) => void>();
 	/** This manager's own writes to the store still in flight, and how many it has started, so a reload never takes an older value for a newer one. */
 	private readonly pendingWrites = new Set<Promise<void>>();
@@ -116,6 +118,9 @@ export class SessionManager {
 	/** Keeps a session a sign-in produced. The refresh token of a session it replaces is revoked, best effort. */
 	async setSession(session: StoredSession): Promise<void> {
 		const replaced = await this.current();
+		if (this.retired) {
+			throw new UnauthenticatedError("no_session", "The sign-in finished after its Choreo Cloud session manager was retired; it was not kept.");
+		}
 		this.generation++;
 		this.session = session;
 		this.loaded = true;
@@ -134,7 +139,7 @@ export class SessionManager {
 	async update(change: (session: StoredSession) => StoredSession): Promise<StoredSession | undefined> {
 		const generation = this.generation;
 		const session = await this.current();
-		if (!session || generation !== this.generation) {
+		if (!session || generation !== this.generation || this.retired) {
 			return undefined;
 		}
 		this.session = change(session);
@@ -205,6 +210,9 @@ export class SessionManager {
 
 	/** One refresh against the issuer. The result is merged onto the current session and kept only if the session was not replaced or ended meanwhile. */
 	private async refreshOnce(session: StoredSession): Promise<RefreshOutcome> {
+		if (this.retired) {
+			throw new UnauthenticatedError("no_session");
+		}
 		const generation = this.generation;
 		if (!session.tokens.refreshToken) {
 			await this.expire("the session holds no refresh token");
@@ -331,7 +339,7 @@ export class SessionManager {
 	 */
 	private async reload(): Promise<void> {
 		for (;;) {
-			if (!this.loaded) {
+			if (!this.loaded || this.retired) {
 				// Nothing is cached yet; the first read will see the change.
 				return;
 			}
@@ -384,6 +392,10 @@ export class SessionManager {
 	/** Ends the session, asking the issuer to revoke the refresh token first when it can. */
 	async signOut(options: { revoke?: boolean; signal?: AbortSignal } = {}): Promise<void> {
 		const session = await this.current();
+		if (this.retired) {
+			// What the store holds now may be a newer manager's sign-in.
+			return;
+		}
 		this.generation++;
 		this.session = undefined;
 		await this.persist(this.deps.store.clear(this.deps.env.name));
@@ -420,8 +432,15 @@ export class SessionManager {
 		return () => this.listeners.delete(listener);
 	}
 
-	/** Stops following the store's changes. */
+	/**
+	 * Retires the manager: it stops following the store's changes, and a
+	 * refresh, sign-in or sign-out still in flight, or asked for later, neither
+	 * saves nor clears the stored session, which a newer manager for the same
+	 * environment may hold by then.
+	 */
 	dispose(): void {
+		this.retired = true;
+		this.generation++;
 		this.unsubscribeStore?.();
 	}
 

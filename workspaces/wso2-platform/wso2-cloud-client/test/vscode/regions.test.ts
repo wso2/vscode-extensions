@@ -268,6 +268,76 @@ describe("production regions", () => {
 		}
 	});
 
+	it("does not let a sign-in whose first store read a switch away and back overtook write over a newer sign-in", async () => {
+		const store = new InMemorySessionStore();
+		let releaseFirstRead: (() => void) | undefined;
+		// The first read of the store, the one the first sign-in makes before it stores its session, is held.
+		const heldStore = {
+			load: async (name: StoredSession["env"]) => {
+				if (!releaseFirstRead) {
+					await new Promise<void>((resolve) => {
+						releaseFirstRead = resolve;
+					});
+				}
+				return store.load(name);
+			},
+			save: (stored: StoredSession) => store.save(stored),
+			clear: (name: StoredSession["env"]) => store.clear(name),
+		};
+		const fetch = async () => new Response("{}");
+		const region = (env: "prod" | "prod-eu") => ({
+			env: ENVIRONMENTS[env],
+			sessions: new SessionManager({ env: ENVIRONMENTS[env], store: heldStore, fetch }),
+			tokenSource: new StaticTokenSource("t"),
+		});
+		const usBefore = { ...region("prod"), startLogin: async () => session("prod", "first@example.com") };
+		const provider = new WSO2CloudAuthenticationProvider({ ...usBefore, apiKeys: new ApiKeys() });
+		try {
+			const first = provider.createSession(["env:prod"]);
+			while (!releaseFirstRead) {
+				await tick();
+			}
+			const europe = region("prod-eu");
+			await provider.useRegion(europe);
+			// As the platform clients do with the region they leave.
+			usBefore.sessions.dispose();
+			const usAgain = region("prod");
+			await provider.useRegion(usAgain);
+			europe.sessions.dispose();
+			await usAgain.sessions.setSession(session("prod", "second@example.com"));
+			releaseFirstRead();
+			const refused = await rejection(first);
+			assert.ok(isCloudError(refused) && refused.code === "login_cancelled", String(refused));
+			assert.equal((await store.load("prod"))?.account.id, "second@example.com", "the newer sign-in is kept");
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	it("signs out only of the session the id names, not of a region switched to meanwhile", async () => {
+		const store = new InMemorySessionStore();
+		await store.save(session("prod", "us@example.com"));
+		await store.save(session("prod-eu", "eu@example.com"));
+		const fetch = async () => new Response("{}");
+		const region = (env: "prod" | "prod-eu") => ({
+			env: ENVIRONMENTS[env],
+			sessions: new SessionManager({ env: ENVIRONMENTS[env], store, fetch }),
+			tokenSource: new StaticTokenSource("t"),
+		});
+		const provider = new WSO2CloudAuthenticationProvider({ ...region("prod"), apiKeys: new ApiKeys() });
+		try {
+			const [us] = await provider.getSessions();
+			await provider.useRegion(region("prod-eu"));
+			await provider.removeSession(us.id);
+			assert.equal((await store.load("prod-eu"))?.account.id, "eu@example.com", "a stale id removes nothing");
+			const [eu] = await provider.getSessions();
+			await provider.removeSession(eu.id);
+			assert.equal(await store.load("prod-eu"), undefined, "the id of the session held is signed out");
+		} finally {
+			provider.dispose();
+		}
+	});
+
 	it("does not remember a region a switch reached after the clients were disposed", async () => {
 		const secrets = new HeldSecretStorage();
 		const globalState = new FakeMemento();

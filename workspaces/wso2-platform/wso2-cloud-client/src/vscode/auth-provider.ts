@@ -243,7 +243,13 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 		const prompt = scopes.includes(PROMPT_LOGIN_SCOPE) ? { prompt: "login" } : undefined;
 		const session = await region.startLogin({ extraAuthParams: prompt });
 		// Stored first, so the organization is read with the token just issued, not the one before.
-		await region.sessions.setSession(session);
+		try {
+			await region.sessions.setSession(session);
+		} catch (error) {
+			// A region left meanwhile retired its session manager, which refuses the write.
+			stillCurrent();
+			throw error;
+		}
 		stillCurrent();
 		const generation = region.sessions.sessionGeneration;
 		if (region.resolveOrg) {
@@ -272,9 +278,18 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 		return this.last;
 	}
 
-	/** Signs out; the session manager's event reports the removal. */
-	async removeSession(_sessionId: string): Promise<void> {
-		await this.region.sessions.signOut({ revoke: true });
+	/**
+	 * Signs out of the session `id` names; the session manager's event reports
+	 * the removal. An id that is not the session held now, such as one of a
+	 * region switched away from, removes nothing.
+	 */
+	async removeSession(id: string): Promise<void> {
+		const region = this.region;
+		const current = await region.sessions.current();
+		if (region !== this.region || !current || sessionId(current) !== id) {
+			return;
+		}
+		await region.sessions.signOut({ revoke: true });
 	}
 
 	/**

@@ -369,6 +369,51 @@ describe("SessionManager races", () => {
 		assert.equal(await manager.current(), undefined, "the refused refresh still ended the session");
 	});
 
+	for (const answer of ["new tokens", "a refusal"] as const) {
+		it(`does not let a refresh of a retired manager write over a newer manager's sign-in, the issuer answering ${answer}`, async () => {
+			const clock = clockFrom(new Date("2026-11-05T10:00:00Z"));
+			const issuer = new FakeIssuer({ expiresIn: 600, now: clock.now });
+			let release: (() => void) | undefined;
+			const fetch: typeof issuer.fetch = async (input, init) => {
+				if (!release && String(init?.body ?? "").includes("grant_type=refresh_token")) {
+					await new Promise<void>((resolve) => {
+						release = resolve;
+					});
+				}
+				return issuer.fetch(input, init);
+			};
+			const store = new InMemorySessionStore();
+			const retired = new SessionManager({ env, store, fetch, now: clock.now });
+			await retired.setSession(await signIn(issuer, clock.now));
+			clock.advance(11 * 60_000);
+			const refreshing = rejection(retired.getAccessToken());
+			while (!release) {
+				await new Promise((resolve) => setImmediate(resolve));
+			}
+
+			// The region is left and chosen again: a new manager, and a new sign-in through it.
+			retired.dispose();
+			const next = await signIn(issuer, clock.now);
+			await new SessionManager({ env, store, fetch: issuer.fetch, now: clock.now }).setSession(next);
+			if (answer === "a refusal") {
+				issuer.refreshRefusal = "invalid_grant";
+			}
+			release();
+
+			const failed = (await refreshing) as CloudError;
+			// The refusal reaches the caller as it came, not as the end of a session.
+			assert.notEqual(failed.code, "session_expired");
+			if (answer === "new tokens") {
+				assert.equal(failed.details.reason, "no_session");
+			}
+			assert.equal((await store.load("dev"))?.tokens.accessToken, next.tokens.accessToken, "the newer sign-in is kept");
+			assert.equal(((await rejection(retired.setSession(next))) as CloudError).details.reason, "no_session");
+			await retired.signOut({ revoke: false });
+			assert.equal(await retired.update((s) => ({ ...s, org: { ...s.org, uuid: "late" } })), undefined);
+			assert.equal((await store.load("dev"))?.tokens.accessToken, next.tokens.accessToken, "nor written over or cleared later");
+		});
+	}
+
 	it("drops an update decided before the session was replaced", async () => {
 		const issuer = new FakeIssuer();
 		const manager = new SessionManager({ env, store: new InMemorySessionStore(), fetch: issuer.fetch });
