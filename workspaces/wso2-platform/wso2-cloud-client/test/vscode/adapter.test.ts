@@ -63,6 +63,10 @@ describe("VS Code adapter", () => {
 		state.settings[CLOUD_ENV_SETTING] = { globalValue: " Stage " };
 		assert.equal(readCloudEnvName({}), "stage");
 		assert.equal(readCloudEnvName({ WSO2_CLOUD_ENV: "dev" }), "dev", "the variable comes first");
+
+		state.settings[CLOUD_ENV_SETTING] = { globalValue: "prod-eu" };
+		assert.equal(readCloudEnvName({}), "prod", "the setting names a deployment; production's region is chosen at sign-in");
+		assert.equal(readCloudEnvName({ WSO2_CLOUD_ENV: "prod-eu" }), "prod-eu", "a variable may name a region");
 	});
 
 	it("takes the URI for a known scheme, listens on the loopback for an unknown desktop fork, and refuses an unknown remote", () => {
