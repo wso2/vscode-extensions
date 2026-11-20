@@ -36,6 +36,7 @@ export const CLOUD_API_URL_VAR = "WSO2_CLOUD_API_URL";
 export const CLOUD_ISSUER_VAR = "WSO2_CLOUD_ISSUER";
 export const CLOUD_OBSERVABILITY_URL_VAR = "WSO2_CLOUD_OBSERVABILITY_URL";
 export const CLOUD_CONSOLE_URL_VAR = "WSO2_CLOUD_CONSOLE_URL";
+export const CLOUD_COPILOT_URL_VAR = "WSO2_CLOUD_COPILOT_URL";
 export const CLOUD_CLIENT_ID_VAR = "WSO2_CLOUD_CLIENT_ID";
 
 /**
@@ -61,6 +62,7 @@ const ENVIRONMENT_OVERRIDE_VARS = [
 	CLOUD_ISSUER_VAR,
 	CLOUD_OBSERVABILITY_URL_VAR,
 	CLOUD_CONSOLE_URL_VAR,
+	CLOUD_COPILOT_URL_VAR,
 	CLOUD_CLIENT_ID_VAR,
 ] as const;
 
@@ -103,6 +105,7 @@ export function readCloudEnvironment(env: NodeJS.ProcessEnv = process.env): Clou
 		issuer: env[CLOUD_ISSUER_VAR],
 		observabilityBaseUrl: env[CLOUD_OBSERVABILITY_URL_VAR],
 		consoleUrl: env[CLOUD_CONSOLE_URL_VAR],
+		copilotUrl: env[CLOUD_COPILOT_URL_VAR],
 	});
 	return assertEnvironmentConfigured(
 		environment,

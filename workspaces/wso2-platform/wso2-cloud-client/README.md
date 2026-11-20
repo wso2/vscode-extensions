@@ -107,7 +107,8 @@ as long as the settings still name the same environment. A variable that names
 the environment, a URL or client id override, or an injected token fixes the
 environment as it is, and `regions` then holds only it.
 
-Production and staging hosts are built in. The development deployment is
+Production and staging hosts are built in, the Copilot backend among them for
+production (staging has none yet). The development deployment is
 internal, so its hosts are not in this repository: with `dev`, set
 
 | Variable | Overrides |
@@ -116,6 +117,7 @@ internal, so its hosts are not in this repository: with `dev`, set
 | `WSO2_CLOUD_ISSUER` | the ThunderID issuer |
 | `WSO2_CLOUD_OBSERVABILITY_URL` | the observability proxy |
 | `WSO2_CLOUD_CONSOLE_URL` | the console, for links |
+| `WSO2_CLOUD_COPILOT_URL` | the WSO2 Integrator Copilot backend: where the WSO2 Cloud token is exchanged for a Copilot token, and Copilot requests go |
 | `WSO2_CLOUD_CLIENT_ID` | the OAuth client id (also `integrator.advanced.cloudClientId`) |
 
 The same variables override the built-in values for any environment. A URL

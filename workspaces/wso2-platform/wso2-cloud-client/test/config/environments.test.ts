@@ -39,7 +39,7 @@ describe("environments", () => {
 		const eu = ENVIRONMENTS["prod-eu"];
 		assert.equal(us.region?.code, "US");
 		assert.equal(eu.region?.code, "EU");
-		for (const key of ["apiBaseUrl", "issuer", "observabilityBaseUrl", "consoleUrl"] as const) {
+		for (const key of ["apiBaseUrl", "issuer", "observabilityBaseUrl", "consoleUrl", "copilotUrl"] as const) {
 			assert.ok(eu[key].startsWith("https://"), key);
 			assert.notEqual(new URL(eu[key]).host, new URL(us[key]).host, `${key} is Europe's own`);
 		}
@@ -70,6 +70,21 @@ describe("environments", () => {
 		assert.equal(env.issuer, "https://idp.dev.example");
 		assert.equal(env.clientId, "WSO2_INTEGRATOR_EXTENSION", "an empty or undefined override keeps the default");
 		assert.equal(assertEnvironmentConfigured(env), env);
+	});
+
+	it("names Copilot's backend for production only, and takes dev's from an override", () => {
+		assert.equal(ENVIRONMENTS.prod.copilotUrl, "https://apis.devant.dev/copilot");
+		assert.ok(ENVIRONMENTS["prod-eu"].copilotUrl.startsWith("https://"));
+		assert.equal(ENVIRONMENTS.stage.copilotUrl, "", "stage has no Copilot backend yet");
+		assert.equal(ENVIRONMENTS.dev.copilotUrl, "", "dev's hosts are not in the package");
+		assert.equal(
+			resolveCloudEnvironment("dev", { copilotUrl: "https://copilot.dev.example/copilot" }).copilotUrl,
+			"https://copilot.dev.example/copilot",
+		);
+		assert.throws(
+			() => resolveCloudEnvironment("dev", { copilotUrl: "http://copilot.dev.example/copilot" }),
+			/copilotUrl override .* must use https/,
+		);
 	});
 
 	it("applies overrides to a built-in environment too", () => {

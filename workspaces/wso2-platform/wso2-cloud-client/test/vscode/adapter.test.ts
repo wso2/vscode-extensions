@@ -14,6 +14,7 @@ import {
 import {
 	ApiKeys,
 	CLOUD_API_URL_VAR,
+	CLOUD_COPILOT_URL_VAR,
 	CLOUD_ENV_SETTING,
 	CLOUD_ENV_VARS,
 	CLOUD_ISSUER_VAR,
@@ -22,7 +23,9 @@ import {
 	WSO2CloudAuthenticationProvider,
 	chooseReceivers,
 	createPlatformClients,
+	isCloudEnvironmentPinned,
 	readCloudEnvName,
+	readCloudEnvironment,
 	scopeForOrg,
 	sessionId,
 	userSetting,
@@ -87,6 +90,21 @@ describe("VS Code adapter", () => {
 		);
 	});
 
+	it("takes Copilot's backend from WSO2_CLOUD_COPILOT_URL, as the other hosts, and keeps the region then", () => {
+		const dev = readCloudEnvironment({
+			WSO2_CLOUD_ENV: "dev",
+			[CLOUD_API_URL_VAR]: "https://api.dev.example/ipaas",
+			[CLOUD_ISSUER_VAR]: "https://idp.dev.example",
+			[CLOUD_COPILOT_URL_VAR]: "https://copilot.dev.example/copilot",
+		});
+		assert.equal(dev.copilotUrl, "https://copilot.dev.example/copilot");
+		assert.equal(readCloudEnvironment({}).copilotUrl, "https://apis.devant.dev/copilot");
+		assert.ok(
+			isCloudEnvironmentPinned({ [CLOUD_COPILOT_URL_VAR]: "https://copilot.example.com/copilot" }),
+			"another region would leave the override behind",
+		);
+	});
+
 	it("activates on a configuration it cannot use, with a warning, instead of throwing", () => {
 		const keys = [
 			...CLOUD_ENV_VARS,
@@ -94,6 +112,7 @@ describe("VS Code adapter", () => {
 			CLOUD_ISSUER_VAR,
 			"WSO2_CLOUD_OBSERVABILITY_URL",
 			"WSO2_CLOUD_CONSOLE_URL",
+			CLOUD_COPILOT_URL_VAR,
 			"WSO2_CLOUD_CLIENT_ID",
 		];
 		const saved = Object.fromEntries(keys.map((key) => [key, process.env[key]]));

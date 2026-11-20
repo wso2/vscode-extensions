@@ -48,6 +48,11 @@ export interface CloudEnvironment {
 	readonly observabilityBaseUrl: string;
 	/** The Integration Platform console, for links. */
 	readonly consoleUrl: string;
+	/**
+	 * The WSO2 Integrator Copilot backend, empty where the deployment has none. A host exchanges the WSO2 Cloud token
+	 * for a Copilot token only here, and a consumer sends its Copilot requests here.
+	 */
+	readonly copilotUrl: string;
 	/** The public OAuth client registered for VS Code at this deployment's ThunderID. */
 	readonly clientId: string;
 	/** Set for an environment that is one region of a deployment running in several: see {@link regionsOf}. */
@@ -58,7 +63,8 @@ export interface CloudEnvironment {
 // development deployment is internal and its hosts stay out of this
 // repository: with `dev`, every URL comes from the overrides
 // (`WSO2_CLOUD_API_URL`, `WSO2_CLOUD_ISSUER`, `WSO2_CLOUD_OBSERVABILITY_URL`,
-// `WSO2_CLOUD_CONSOLE_URL`).
+// `WSO2_CLOUD_CONSOLE_URL`, `WSO2_CLOUD_COPILOT_URL`). Stage has no Copilot
+// backend yet.
 export const ENVIRONMENTS: Readonly<Record<CloudEnvName, CloudEnvironment>> = {
 	dev: {
 		name: "dev",
@@ -66,6 +72,7 @@ export const ENVIRONMENTS: Readonly<Record<CloudEnvName, CloudEnvironment>> = {
 		issuer: "",
 		observabilityBaseUrl: "",
 		consoleUrl: "",
+		copilotUrl: "",
 		clientId: "WSO2_INTEGRATOR_EXTENSION",
 	},
 	stage: {
@@ -74,6 +81,7 @@ export const ENVIRONMENTS: Readonly<Record<CloudEnvName, CloudEnvironment>> = {
 		issuer: "https://accounts.stg.cloud.choreolabs.com",
 		observabilityBaseUrl: "https://cloud-obs-proxy.obs.dp.stg.cloud.choreolabs.io/wso2cloud-obs",
 		consoleUrl: "https://console.stg.cloud.choreolabs.com",
+		copilotUrl: "",
 		clientId: "WSO2_INTEGRATOR_EXTENSION",
 	},
 	prod: {
@@ -82,6 +90,7 @@ export const ENVIRONMENTS: Readonly<Record<CloudEnvName, CloudEnvironment>> = {
 		issuer: "https://accounts.cloud.choreolabs.com",
 		observabilityBaseUrl: "https://cloud-obs-proxy.obs.dp.us.cloud.choreolabs.io/wso2cloud-obs",
 		consoleUrl: "https://console.cloud.choreolabs.com",
+		copilotUrl: "https://apis.devant.dev/copilot",
 		clientId: "WSO2_INTEGRATOR_EXTENSION",
 		region: { code: "US", label: "United States" },
 	},
@@ -91,6 +100,7 @@ export const ENVIRONMENTS: Readonly<Record<CloudEnvName, CloudEnvironment>> = {
 		issuer: "https://accounts.eu.cloud.choreolabs.com",
 		observabilityBaseUrl: "https://cloud-obs-proxy.obs.dp.eu.cloud.choreolabs.io/wso2cloud-obs",
 		consoleUrl: "https://console.eu.cloud.choreolabs.com",
+		copilotUrl: "https://366b8031-ab7f-4a98-a1bd-3369fbd00eee-prod.e1-eu-west-cdp.choreoapis.dev/copilot",
 		clientId: "WSO2_INTEGRATOR_EXTENSION",
 		region: { code: "EU", label: "Europe" },
 	},
@@ -142,7 +152,7 @@ export function resolveCloudEnvironment(name: string | undefined, overrides: Par
 }
 
 /** The members of an environment that are URLs a token or a browser is sent to. */
-export const ENVIRONMENT_URL_KEYS = ["apiBaseUrl", "issuer", "observabilityBaseUrl", "consoleUrl"] as const;
+export const ENVIRONMENT_URL_KEYS = ["apiBaseUrl", "issuer", "observabilityBaseUrl", "consoleUrl", "copilotUrl"] as const;
 
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 

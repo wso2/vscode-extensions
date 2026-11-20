@@ -164,7 +164,6 @@ export interface ContextStoreState {
 /** Static facts about the deployment in use, for consumers that build links. */
 export interface PlatformEnvConfig extends CloudEnvironment {
 	billingUrl?: string;
-	copilotBaseUrl?: string;
 	managedTokensBaseUrl?: string;
 }
 
