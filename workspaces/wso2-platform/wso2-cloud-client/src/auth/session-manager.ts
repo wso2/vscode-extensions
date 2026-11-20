@@ -74,6 +74,13 @@ export interface SessionManagerDeps {
  * here when the store reports it, and a refused refresh first checks
  * whether another window already rotated the refresh token.
  */
+/**
+ * Refreshes in flight in this window, by the refresh token they spend, across session managers: a manager built for a
+ * region chosen again waits for the one its predecessor started, and stored, before it refreshes with the same token.
+ * Settled whatever the refresh's outcome.
+ */
+const refreshesInFlight = new Map<string, Promise<void>>();
+
 /** `session` with the tokens a refresh got. */
 function withTokens(session: StoredSession, tokens: TokenResponse, claims: StoredSession["claims"], issuedAt: Date): StoredSession {
 	return {
@@ -236,18 +243,57 @@ export class SessionManager {
 			await this.expire("the session holds no refresh token");
 			throw new UnauthenticatedError("session_expired");
 		}
-		let discovery: Awaited<ReturnType<typeof discover>>;
-		try {
-			discovery = await discover(session.issuer, this.deps.fetch);
-		} catch (error) {
-			return this.keepIfUnexpired(session, error, generation);
+		const refreshToken = session.tokens.refreshToken;
+		const earlier = refreshesInFlight.get(refreshToken);
+		if (earlier) {
+			// A manager this one replaced (a region left and chosen again) is refreshing with the same token, which the
+			// issuer may already have rotated: what it stores is taken, rather than spending the token a second time.
+			await earlier;
+			const stored = await this.loadQuietly();
+			if (generation !== this.generation) {
+				throw new UnauthenticatedError("no_session");
+			}
+			if (stored && (stored.tokens.refreshToken !== refreshToken || stored.tokens.accessToken !== session.tokens.accessToken)) {
+				if (!this.adopt(stored)) {
+					throw new UnauthenticatedError("no_session");
+				}
+				return { session: stored };
+			}
 		}
+		let settle: () => void = () => undefined;
+		const settled = new Promise<void>((resolve) => {
+			settle = resolve;
+		});
+		refreshesInFlight.set(refreshToken, settled);
+		try {
+			let discovery: Awaited<ReturnType<typeof discover>>;
+			try {
+				discovery = await discover(session.issuer, this.deps.fetch);
+			} catch (error) {
+				return this.keepIfUnexpired(session, error, generation);
+			}
+			return await this.refreshWith(session, refreshToken, discovery, generation);
+		} finally {
+			if (refreshesInFlight.get(refreshToken) === settled) {
+				refreshesInFlight.delete(refreshToken);
+			}
+			settle();
+		}
+	}
+
+	/** The refresh itself, with the issuer's endpoints known; see {@link refreshOnce}. */
+	private async refreshWith(
+		session: StoredSession,
+		refreshToken: string,
+		discovery: Awaited<ReturnType<typeof discover>>,
+		generation: number,
+	): Promise<RefreshOutcome> {
 		try {
 			const tokens = await refreshTokens({
 				tokenEndpoint: discovery.token_endpoint,
 				clientId: session.clientId,
 				fetch: this.deps.fetch,
-				refreshToken: session.tokens.refreshToken,
+				refreshToken,
 				scope: session.tokens.scope,
 			});
 			const issuedAt = this.now();

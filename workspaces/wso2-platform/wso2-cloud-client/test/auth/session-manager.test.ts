@@ -449,6 +449,43 @@ describe("SessionManager races", () => {
 		assert.equal((await next.current())?.account.id, signedIn.account.id, "and the person stays signed in");
 	});
 
+	it("lets the manager that follows wait for its predecessor's refresh instead of spending the rotated token again", async () => {
+		const clock = clockFrom(new Date("2026-11-05T10:00:00Z"));
+		const issuer = new FakeIssuer({ expiresIn: 600, now: clock.now });
+		let release: (() => void) | undefined;
+		// The issuer has rotated the token and answered; the answer reaches the retired manager late.
+		const fetch: typeof issuer.fetch = async (input, init) => {
+			const response = await issuer.fetch(input, init);
+			if (!release && String(init?.body ?? "").includes("grant_type=refresh_token")) {
+				await new Promise<void>((resolve) => {
+					release = resolve;
+				});
+			}
+			return response;
+		};
+		const store = new InMemorySessionStore();
+		const retired = new SessionManager({ env, store, fetch, now: clock.now });
+		const signedIn = await signIn(issuer, clock.now);
+		await retired.setSession(signedIn);
+		clock.advance(11 * 60_000);
+		const refreshing = rejection(retired.getAccessToken());
+		while (!release) {
+			await new Promise((resolve) => setImmediate(resolve));
+		}
+
+		// The region is left and chosen again before the answer arrives, and the new manager needs a token.
+		retired.dispose();
+		const next = new SessionManager({ env, store, fetch: issuer.fetch, now: clock.now });
+		const token = next.getAccessToken({ forceRefresh: true });
+		await new Promise((resolve) => setImmediate(resolve));
+		release();
+
+		assert.equal(((await refreshing) as CloudError).details.reason, "no_session");
+		assert.ok(await token, "the new manager takes the tokens its predecessor stored");
+		assert.equal((await next.current())?.account.id, signedIn.account.id, "and the person stays signed in");
+		assert.equal(issuer.calls.filter((c) => c.form.grant_type === "refresh_token").length, 1, "the token is spent once");
+	});
+
 	it("drops an update decided before the session was replaced", async () => {
 		const issuer = new FakeIssuer();
 		const manager = new SessionManager({ env, store: new InMemorySessionStore(), fetch: issuer.fetch });
