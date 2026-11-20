@@ -24,20 +24,24 @@ import { defaultFetch } from "../api/http";
 import { LoginFlow } from "../auth/login-flow";
 import { SessionManager } from "../auth/session-manager";
 import { BrowserLoginTokenSource, InjectedTokenSource, hasInjectedToken } from "../auth/sources";
-import type { StoredSession, TokenSource } from "../auth/types";
-import type { CloudEnvironment } from "../config/environments";
-import { ENVIRONMENTS, missingEnvironmentUrls } from "../config/environments";
-import { LoginError, errorMessage } from "../errors";
+import type { SessionChangeEvent, SessionStore, StoredSession, TokenSource } from "../auth/types";
+import type { CloudEnvName, CloudEnvironment } from "../config/environments";
+import { ENVIRONMENTS, missingEnvironmentUrls, regionsOf } from "../config/environments";
+import { BadRequestError, LoginError, errorMessage } from "../errors";
 import type { UnauthenticatedError } from "../errors";
 import type { Logger } from "../logger";
 import { silentLogger } from "../logger";
 import { ApiKeys } from "./api-key";
+import type { AuthProviderRegion } from "./auth-provider";
 import { WSO2CloudAuthenticationProvider } from "./auth-provider";
 import { SecretStorageSessionStore } from "./secret-session-store";
-import { readCloudEnvName, readCloudEnvironment } from "./settings";
+import { isCloudEnvironmentPinned, readCloudEnvName, readCloudEnvironment } from "./settings";
 import type { UriCallbackReceiver } from "./uri-callback";
 import type { ChosenReceivers } from "./uri-callback";
 import { chooseReceivers } from "./uri-callback";
+
+/** The `globalState` key the region the person last switched to is kept under. */
+export const CLOUD_REGION_STATE_KEY = "wso2-cloud.region";
 
 export interface PlatformClientsOptions {
 	/** `publisher.name` of the hosting extension; the sign-in URI's authority. */
@@ -45,6 +49,7 @@ export interface PlatformClientsOptions {
 	/** The product the browser's sign-in pages name. */
 	productName?: string;
 	context: vscode.ExtensionContext;
+	/** An environment to use as it is, with no switching to another region; read from the settings when absent. */
 	environment?: CloudEnvironment;
 	fetch?: FetchLike;
 	userAgent?: string;
@@ -59,9 +64,17 @@ export interface PlatformClientsOptions {
  * Everything a hosting extension holds for the platform: the environment,
  * the sessions, the token source, the API client, the authentication
  * provider, and the login the provider runs.
+ *
+ * A deployment that runs in several regions (production: the United States
+ * and Europe) can be switched between while the editor runs. Each region has
+ * its own sessions, login and API client, so a token is only ever sent to the
+ * region that issued it; the members here answer for the current region, so
+ * read them when they are used rather than keeping them.
  */
 export interface PlatformClients extends vscode.Disposable {
 	readonly environment: CloudEnvironment;
+	/** The regions {@link switchEnvironment} can move between, the current one among them; only it where there is no choice. */
+	readonly regions: readonly CloudEnvironment[];
 	readonly sessions: SessionManager;
 	readonly tokenSource: TokenSource;
 	readonly cloud: CloudClient;
@@ -74,6 +87,34 @@ export interface PlatformClients extends vscode.Disposable {
 	readonly uriReceiver?: UriCallbackReceiver;
 	/** Whether the editor was started with a token, which cannot be signed out of. */
 	readonly injected: boolean;
+	/**
+	 * Moves to another of {@link regions}, and remembers it for the next start.
+	 * The session kept for that region, if any, becomes the one in use; the one
+	 * left stays stored for coming back. A sign-in waiting for the browser is
+	 * given up. The authentication provider reports the change of session.
+	 */
+	switchEnvironment(name: CloudEnvName): Promise<void>;
+	/** Fires with the new environment after a switch, before the provider reports the change of session. */
+	readonly onDidChangeEnvironment: vscode.Event<CloudEnvironment>;
+	/** The current region's session changes, whichever region that is; a switch itself is reported by {@link onDidChangeEnvironment}. */
+	onDidChangeSession(listener: (event: SessionChangeEvent) => void): () => void;
+}
+
+/** One region's own pieces: nothing in it is shared with another region. */
+interface RegionClients {
+	environment: CloudEnvironment;
+	sessions: SessionManager;
+	tokenSource: TokenSource;
+	cloud: CloudClient;
+	login?: LoginFlow;
+	uriReceiver?: UriCallbackReceiver;
+	loginUnavailable?: string;
+}
+
+/** What the region choice is kept as: the region chosen, under the environment the settings named then. */
+interface SavedRegion {
+	configured: CloudEnvName;
+	chosen: CloudEnvName;
 }
 
 /**
@@ -84,90 +125,220 @@ export interface PlatformClients extends vscode.Disposable {
  * {@link readEnvironmentOrFallback}.
  */
 export function createPlatformClients(options: PlatformClientsOptions): PlatformClients {
-	const logger = options.logger ?? silentLogger;
-	const environment = options.environment ?? readEnvironmentOrFallback(logger);
-	const fetchImpl: FetchLike = options.fetch ?? defaultFetch;
-	const store = new SecretStorageSessionStore(options.context.secrets);
-	const sessions = new SessionManager({ env: environment, store, fetch: fetchImpl, logger });
-	const injected = !options.tokenSource && hasInjectedToken();
+	return new SwitchablePlatformClients(options);
+}
 
-	let login: LoginFlow | undefined;
-	let uriReceiver: UriCallbackReceiver | undefined;
-	let tokenSource: TokenSource;
-	let loginUnavailable: string | undefined;
-	if (options.tokenSource) {
-		tokenSource = options.tokenSource;
-	} else if (injected) {
-		tokenSource = new InjectedTokenSource();
-	} else {
-		let chosen: ChosenReceivers | undefined;
-		try {
-			chosen = chooseReceivers({ extensionId: options.extensionId, productName: options.productName });
-		} catch (error) {
-			// Sign-in is what this editor lacks, not the rest of the extension; a stored session still works.
-			loginUnavailable = errorMessage(error);
-			logger.warn(`Choreo Cloud sign-in is not available in this editor: ${loginUnavailable}`);
-		}
-		uriReceiver = chosen?.uriReceiver;
-		login = chosen
-			? new LoginFlow({
-					env: environment,
-					fetch: fetchImpl,
-					receiver: chosen.receiver,
-					openBrowser: async (url) => {
-						// False when the person declined to open the site; waiting for a callback then would only time out.
-						if (!(await vscode.env.openExternal(vscode.Uri.parse(url)))) {
-							throw new LoginError("cancelled", "The sign-in page was not opened.");
-						}
-					},
-					logger,
-				})
-			: undefined;
-		tokenSource = new BrowserLoginTokenSource(sessions);
+class SwitchablePlatformClients implements PlatformClients {
+	readonly regions: readonly CloudEnvironment[];
+	readonly auth: WSO2CloudAuthenticationProvider;
+	readonly apiKeys = new ApiKeys();
+	readonly injected: boolean;
+	private current: RegionClients;
+	private readonly configured: CloudEnvironment;
+	private readonly logger: Logger;
+	private readonly fetchImpl: FetchLike;
+	private readonly store: SessionStore;
+	private readonly environmentEmitter = new vscode.EventEmitter<CloudEnvironment>();
+	readonly onDidChangeEnvironment = this.environmentEmitter.event;
+	private readonly sessionListeners = new Set<(event: SessionChangeEvent) => void>();
+	private stopForwarding: () => void = () => undefined;
+	/** The region a switch is moving to, so a second one waits for it. */
+	private switching: Promise<void> = Promise.resolve();
+	private disposed = false;
+
+	constructor(private readonly options: PlatformClientsOptions) {
+		this.logger = options.logger ?? silentLogger;
+		this.fetchImpl = options.fetch ?? defaultFetch;
+		this.store = new SecretStorageSessionStore(options.context.secrets);
+		this.injected = !options.tokenSource && hasInjectedToken();
+		this.configured = options.environment ?? readEnvironmentOrFallback(this.logger);
+		// An environment handed in, a token the editor was started with, or one chosen by a variable or
+		// pointed elsewhere by an override is used as it is: another region would leave those behind.
+		const pinned = !!options.environment || !!options.tokenSource || this.injected || isCloudEnvironmentPinned();
+		this.regions = pinned ? [this.configured] : regionsOf(this.configured.name).map((name) => ENVIRONMENTS[name]);
+		const saved = this.savedRegion();
+		this.current = this.buildRegion(this.regions.find((region) => region.name === saved) ?? this.configured);
+		this.forwardSessionEvents();
+
+		this.auth = new WSO2CloudAuthenticationProvider({ ...this.providerRegion(this.current), apiKeys: this.apiKeys, logger: this.logger });
+		this.auth.register(options.context);
 	}
 
-	const cloud = createCloudClient({
-		environment,
-		tokenSource,
-		fetch: fetchImpl,
-		userAgent: options.userAgent,
-		logger,
-		onUnauthenticated: options.onUnauthenticated,
-	});
+	get environment(): CloudEnvironment {
+		return this.current.environment;
+	}
 
-	const apiKeys = new ApiKeys();
-	const auth = new WSO2CloudAuthenticationProvider({
-		env: environment,
-		sessions,
-		tokenSource,
-		apiKeys,
-		startLogin: login ? (runOptions) => (login as LoginFlow).run(runOptions) : undefined,
-		cancelLogin: login ? () => login?.cancel() : undefined,
-		loginUnavailable,
-		resolveOrg: async (session: StoredSession) => {
-			const org = await cloud.orgs.current();
-			return { ...session.org, uuid: org?.uuid, numericId: org?.numericId };
-		},
-		logger,
-	});
-	auth.register(options.context);
+	get sessions(): SessionManager {
+		return this.current.sessions;
+	}
 
-	return {
-		environment,
-		sessions,
-		tokenSource,
-		apiKeys,
-		cloud,
-		auth,
-		login,
-		uriReceiver,
-		injected,
-		dispose: () => {
-			sessions.dispose();
-			uriReceiver?.dispose();
-			login?.cancel();
-		},
-	};
+	get tokenSource(): TokenSource {
+		return this.current.tokenSource;
+	}
+
+	get cloud(): CloudClient {
+		return this.current.cloud;
+	}
+
+	get login(): LoginFlow | undefined {
+		return this.current.login;
+	}
+
+	get uriReceiver(): UriCallbackReceiver | undefined {
+		return this.current.uriReceiver;
+	}
+
+	onDidChangeSession(listener: (event: SessionChangeEvent) => void): () => void {
+		this.sessionListeners.add(listener);
+		return () => this.sessionListeners.delete(listener);
+	}
+
+	switchEnvironment(name: CloudEnvName): Promise<void> {
+		const run = this.switching.then(() => this.switchNow(name));
+		this.switching = run.catch(() => undefined);
+		return run;
+	}
+
+	private async switchNow(name: CloudEnvName): Promise<void> {
+		if (this.disposed) {
+			throw new BadRequestError("Choreo Cloud cannot switch regions after the extension was disposed.");
+		}
+		if (name === this.current.environment.name) {
+			return;
+		}
+		const target = this.regions.find((region) => region.name === name);
+		if (!target) {
+			throw new BadRequestError(
+				`Choreo Cloud cannot switch from ${this.current.environment.name} to ${name} here; the regions on offer are ${this.regions.map((region) => region.name).join(", ")}.`,
+			);
+		}
+		const previous = this.current;
+		previous.login?.cancel();
+		// The clients, the provider and the key move together, before anything is awaited: no moment
+		// has the new region's clients beside the old region's provider or a key still valid for it.
+		this.current = this.buildRegion(target);
+		this.forwardSessionEvents();
+		const reported = this.auth.useRegion(this.providerRegion(this.current));
+		disposeRegion(previous);
+		this.logger.info(`Switched Choreo Cloud to ${target.name} (${target.apiBaseUrl})`);
+		// Before the provider reports the change of session, which waits for the new region's session to be read.
+		this.environmentEmitter.fire(target);
+		await reported;
+		if (!this.disposed) {
+			await this.saveRegion(target.name);
+		}
+	}
+
+	/** Builds a region's sessions, token source, login and API client. */
+	private buildRegion(environment: CloudEnvironment): RegionClients {
+		const { options, logger } = this;
+		const sessions = new SessionManager({ env: environment, store: this.store, fetch: this.fetchImpl, logger });
+		let login: LoginFlow | undefined;
+		let uriReceiver: UriCallbackReceiver | undefined;
+		let tokenSource: TokenSource;
+		let loginUnavailable: string | undefined;
+		if (options.tokenSource) {
+			tokenSource = options.tokenSource;
+		} else if (this.injected) {
+			tokenSource = new InjectedTokenSource();
+		} else {
+			let chosen: ChosenReceivers | undefined;
+			try {
+				chosen = chooseReceivers({ extensionId: options.extensionId, productName: options.productName });
+			} catch (error) {
+				// Sign-in is what this editor lacks, not the rest of the extension; a stored session still works.
+				loginUnavailable = errorMessage(error);
+				logger.warn(`Choreo Cloud sign-in is not available in this editor: ${loginUnavailable}`);
+			}
+			uriReceiver = chosen?.uriReceiver;
+			login = chosen
+				? new LoginFlow({
+						env: environment,
+						fetch: this.fetchImpl,
+						receiver: chosen.receiver,
+						openBrowser: async (url) => {
+							// False when the person declined to open the site; waiting for a callback then would only time out.
+							if (!(await vscode.env.openExternal(vscode.Uri.parse(url)))) {
+								throw new LoginError("cancelled", "The sign-in page was not opened.");
+							}
+						},
+						logger,
+					})
+				: undefined;
+			tokenSource = new BrowserLoginTokenSource(sessions);
+		}
+		const cloud = createCloudClient({
+			environment,
+			tokenSource,
+			fetch: this.fetchImpl,
+			userAgent: options.userAgent,
+			logger,
+			onUnauthenticated: (error) => {
+				// The host signs out of the region in use: a request of a region left must not end that session.
+				if (this.current === region && !this.disposed) {
+					options.onUnauthenticated?.(error);
+				}
+			},
+		});
+		const region: RegionClients = { environment, sessions, tokenSource, cloud, login, uriReceiver, loginUnavailable };
+		return region;
+	}
+
+	/** What the authentication provider needs of a region. */
+	private providerRegion(region: RegionClients): AuthProviderRegion {
+		const { login, cloud } = region;
+		return {
+			env: region.environment,
+			sessions: region.sessions,
+			tokenSource: region.tokenSource,
+			startLogin: login ? (runOptions) => login.run(runOptions) : undefined,
+			cancelLogin: login ? () => login.cancel() : undefined,
+			loginUnavailable: region.loginUnavailable,
+			resolveOrg: async (session: StoredSession) => {
+				const org = await cloud.orgs.current();
+				return { ...session.org, uuid: org?.uuid, numericId: org?.numericId };
+			},
+		};
+	}
+
+	/** Passes the current region's session changes on to {@link onDidChangeSession}'s listeners. */
+	private forwardSessionEvents(): void {
+		this.stopForwarding();
+		this.stopForwarding = this.current.sessions.onDidChange((event) => {
+			for (const listener of [...this.sessionListeners]) {
+				listener(event);
+			}
+		});
+	}
+
+	/** The region last switched to, when it was chosen under the environment the settings name now. */
+	private savedRegion(): CloudEnvName | undefined {
+		const saved = this.options.context.globalState?.get<SavedRegion>(CLOUD_REGION_STATE_KEY);
+		return saved?.configured === this.configured.name ? saved.chosen : undefined;
+	}
+
+	private async saveRegion(chosen: CloudEnvName): Promise<void> {
+		const saved: SavedRegion = { configured: this.configured.name, chosen };
+		try {
+			await this.options.context.globalState?.update(CLOUD_REGION_STATE_KEY, saved);
+		} catch (error) {
+			this.logger.warn(`The Choreo Cloud region could not be remembered: ${errorMessage(error)}`);
+		}
+	}
+
+	dispose(): void {
+		this.disposed = true;
+		this.stopForwarding();
+		this.sessionListeners.clear();
+		this.environmentEmitter.dispose();
+		disposeRegion(this.current);
+	}
+}
+
+function disposeRegion(region: RegionClients): void {
+	region.sessions.dispose();
+	region.uriReceiver?.dispose();
+	region.login?.cancel();
 }
 
 /**

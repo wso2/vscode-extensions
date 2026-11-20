@@ -24,6 +24,7 @@ import type { Logger } from "../logger";
 import { silentLogger } from "../logger";
 import { discover } from "./discovery";
 import { expiryOf, readClaims } from "./login-flow";
+import type { TokenResponse } from "./token-endpoint";
 import { OAuthError, refreshTokens, revokeToken } from "./token-endpoint";
 import type { SessionChangeEvent, SessionStore, StoredSession } from "./types";
 
@@ -73,6 +74,30 @@ export interface SessionManagerDeps {
  * here when the store reports it, and a refused refresh first checks
  * whether another window already rotated the refresh token.
  */
+/**
+ * Refreshes in flight in this window, by the refresh token they spend, across session managers: a manager built for a
+ * region chosen again waits for the one its predecessor started, and stored, before it refreshes with the same token.
+ * Settled whatever the refresh's outcome.
+ */
+const refreshesInFlight = new Map<string, Promise<void>>();
+
+/** `session` with the tokens a refresh got. */
+function withTokens(session: StoredSession, tokens: TokenResponse, claims: StoredSession["claims"], issuedAt: Date): StoredSession {
+	return {
+		...session,
+		claims,
+		tokens: {
+			...session.tokens,
+			accessToken: tokens.access_token,
+			// A provider that rotates refresh tokens sends a new one; one that does not sends none.
+			refreshToken: tokens.refresh_token ?? session.tokens.refreshToken,
+			idToken: tokens.id_token ?? session.tokens.idToken,
+			expiresAt: expiryOf(tokens.expires_in, claims, issuedAt),
+			scope: tokens.scope ?? session.tokens.scope,
+		},
+	};
+}
+
 export class SessionManager {
 	private readonly logger: Logger;
 	private readonly margin: number;
@@ -82,6 +107,8 @@ export class SessionManager {
 	private refreshing?: { generation: number; promise: Promise<RefreshOutcome> };
 	/** Bumped whenever the session is replaced or ended, so a refresh in flight for the old one is dropped. */
 	private generation = 0;
+	/** Set once the manager is disposed: a newer manager for the environment may hold a newer session, so this one writes nothing more. */
+	private retired = false;
 	private readonly listeners = new Set<(event: SessionChangeEvent) => void>();
 	/** This manager's own writes to the store still in flight, and how many it has started, so a reload never takes an older value for a newer one. */
 	private readonly pendingWrites = new Set<Promise<void>>();
@@ -116,6 +143,9 @@ export class SessionManager {
 	/** Keeps a session a sign-in produced. The refresh token of a session it replaces is revoked, best effort. */
 	async setSession(session: StoredSession): Promise<void> {
 		const replaced = await this.current();
+		if (this.retired) {
+			throw new UnauthenticatedError("no_session", "The sign-in finished after its Choreo Cloud session manager was retired; it was not kept.");
+		}
 		this.generation++;
 		this.session = session;
 		this.loaded = true;
@@ -134,7 +164,7 @@ export class SessionManager {
 	async update(change: (session: StoredSession) => StoredSession): Promise<StoredSession | undefined> {
 		const generation = this.generation;
 		const session = await this.current();
-		if (!session || generation !== this.generation) {
+		if (!session || generation !== this.generation || this.retired) {
 			return undefined;
 		}
 		this.session = change(session);
@@ -205,46 +235,81 @@ export class SessionManager {
 
 	/** One refresh against the issuer. The result is merged onto the current session and kept only if the session was not replaced or ended meanwhile. */
 	private async refreshOnce(session: StoredSession): Promise<RefreshOutcome> {
+		if (this.retired) {
+			throw new UnauthenticatedError("no_session");
+		}
 		const generation = this.generation;
 		if (!session.tokens.refreshToken) {
 			await this.expire("the session holds no refresh token");
 			throw new UnauthenticatedError("session_expired");
 		}
-		let discovery: Awaited<ReturnType<typeof discover>>;
-		try {
-			discovery = await discover(session.issuer, this.deps.fetch);
-		} catch (error) {
-			return this.keepIfUnexpired(session, error, generation);
+		const refreshToken = session.tokens.refreshToken;
+		const earlier = refreshesInFlight.get(refreshToken);
+		if (earlier) {
+			// A manager this one replaced (a region left and chosen again) is refreshing with the same token, which the
+			// issuer may already have rotated: what it stores is taken, rather than spending the token a second time.
+			await earlier;
+			const stored = await this.loadQuietly();
+			if (generation !== this.generation) {
+				throw new UnauthenticatedError("no_session");
+			}
+			if (stored && (stored.tokens.refreshToken !== refreshToken || stored.tokens.accessToken !== session.tokens.accessToken)) {
+				if (!this.adopt(stored)) {
+					throw new UnauthenticatedError("no_session");
+				}
+				return { session: stored };
+			}
 		}
+		let settle: () => void = () => undefined;
+		const settled = new Promise<void>((resolve) => {
+			settle = resolve;
+		});
+		refreshesInFlight.set(refreshToken, settled);
+		try {
+			let discovery: Awaited<ReturnType<typeof discover>>;
+			try {
+				discovery = await discover(session.issuer, this.deps.fetch);
+			} catch (error) {
+				return this.keepIfUnexpired(session, error, generation);
+			}
+			return await this.refreshWith(session, refreshToken, discovery, generation);
+		} finally {
+			if (refreshesInFlight.get(refreshToken) === settled) {
+				refreshesInFlight.delete(refreshToken);
+			}
+			settle();
+		}
+	}
+
+	/** The refresh itself, with the issuer's endpoints known; see {@link refreshOnce}. */
+	private async refreshWith(
+		session: StoredSession,
+		refreshToken: string,
+		discovery: Awaited<ReturnType<typeof discover>>,
+		generation: number,
+	): Promise<RefreshOutcome> {
 		try {
 			const tokens = await refreshTokens({
 				tokenEndpoint: discovery.token_endpoint,
 				clientId: session.clientId,
 				fetch: this.deps.fetch,
-				refreshToken: session.tokens.refreshToken,
+				refreshToken,
 				scope: session.tokens.scope,
 			});
 			const issuedAt = this.now();
 			const claims = readClaims(tokens.access_token);
+			if (this.retired) {
+				// The issuer may have rotated away the refresh token the store still holds: the newer manager would refresh
+				// with a dead one and end the session. The tokens are stored for it, unless the store moved on meanwhile.
+				await this.storeForSuccessor(session, (stored) => withTokens(stored, tokens, claims, issuedAt));
+				throw new UnauthenticatedError("no_session");
+			}
 			if (generation !== this.generation || !this.session) {
 				// Signed out, or signed in as someone else, while this refresh ran: it is not kept.
 				throw new UnauthenticatedError("no_session");
 			}
 			// The current session, not the one the refresh started from: an update made meanwhile (the org's uuid) stays.
-			const current = this.session;
-			const refreshed: StoredSession = {
-				...current,
-				claims,
-				tokens: {
-					...current.tokens,
-					accessToken: tokens.access_token,
-					// A provider that rotates refresh tokens sends a new one; one that does not sends none.
-					refreshToken: tokens.refresh_token ?? current.tokens.refreshToken,
-					idToken: tokens.id_token ?? current.tokens.idToken,
-					expiresAt: expiryOf(tokens.expires_in, claims, issuedAt),
-					scope: tokens.scope ?? current.tokens.scope,
-				},
-			};
+			const refreshed = withTokens(this.session, tokens, claims, issuedAt);
 			this.session = refreshed;
 			await this.persist(this.deps.store.save(refreshed));
 			this.logger.debug("Refreshed the Choreo Cloud session");
@@ -273,6 +338,22 @@ export class SessionManager {
 				throw new UnauthenticatedError("session_expired", undefined, { apiError: error.error, apiMessage: error.errorDescription });
 			}
 			return this.keepIfUnexpired(session, error, generation);
+		}
+	}
+
+	/**
+	 * Stores what a refresh that finished after this manager was retired got, for the manager that follows, when the
+	 * store still holds the refresh token the refresh started from; a session stored since is left as it is.
+	 */
+	private async storeForSuccessor(from: StoredSession, refresh: (stored: StoredSession) => StoredSession): Promise<void> {
+		const stored = await this.loadQuietly();
+		if (!stored || stored.tokens.refreshToken !== from.tokens.refreshToken) {
+			return;
+		}
+		try {
+			await this.deps.store.save(refresh(stored));
+		} catch (error) {
+			this.logger.warn(`The refreshed Choreo Cloud session could not be stored: ${errorMessage(error)}`);
 		}
 	}
 
@@ -331,7 +412,7 @@ export class SessionManager {
 	 */
 	private async reload(): Promise<void> {
 		for (;;) {
-			if (!this.loaded) {
+			if (!this.loaded || this.retired) {
 				// Nothing is cached yet; the first read will see the change.
 				return;
 			}
@@ -381,9 +462,21 @@ export class SessionManager {
 		}
 	}
 
-	/** Ends the session, asking the issuer to revoke the refresh token first when it can. */
-	async signOut(options: { revoke?: boolean; signal?: AbortSignal } = {}): Promise<void> {
+	/**
+	 * Ends the session, asking the issuer to revoke the refresh token first
+	 * when it can. With `only`, the session held is ended only when `only`
+	 * accepts it, checked with no wait before it is ended, so a sign-in that
+	 * lands meanwhile is not the one ended.
+	 */
+	async signOut(options: { revoke?: boolean; signal?: AbortSignal; only?: (session: StoredSession) => boolean } = {}): Promise<void> {
 		const session = await this.current();
+		if (this.retired) {
+			// What the store holds now may be a newer manager's sign-in.
+			return;
+		}
+		if (options.only && !(session && options.only(session))) {
+			return;
+		}
 		this.generation++;
 		this.session = undefined;
 		await this.persist(this.deps.store.clear(this.deps.env.name));
@@ -420,8 +513,17 @@ export class SessionManager {
 		return () => this.listeners.delete(listener);
 	}
 
-	/** Stops following the store's changes. */
+	/**
+	 * Retires the manager: it stops following the store's changes, and a
+	 * refresh, sign-in or sign-out still in flight, or asked for later, neither
+	 * saves nor clears the stored session, which a newer manager for the same
+	 * environment may hold by then. One exception: a refresh in flight that
+	 * succeeds is stored while the store still holds the refresh token it
+	 * started from, since the issuer may have rotated that token away.
+	 */
 	dispose(): void {
+		this.retired = true;
+		this.generation++;
 		this.unsubscribeStore?.();
 	}
 

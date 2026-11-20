@@ -18,7 +18,7 @@
 
 import * as vscode from "vscode";
 import type { CloudEnvName, CloudEnvironment } from "../config/environments";
-import { assertEnvironmentConfigured, isCloudEnvName, resolveCloudEnvironment } from "../config/environments";
+import { assertEnvironmentConfigured, isCloudDeploymentName, isCloudEnvName, resolveCloudEnvironment } from "../config/environments";
 
 /** The setting both extensions read for the WSO2 Cloud deployment to use. */
 export const CLOUD_ENV_SETTING = "integrator.advanced.cloudEnv";
@@ -40,7 +40,9 @@ export const CLOUD_CLIENT_ID_VAR = "WSO2_CLOUD_CLIENT_ID";
 
 /**
  * Which deployment to use: an environment variable first, then the setting,
- * then `prod`. The cloud editor sets the variable; a person sets the setting.
+ * then `prod`. The cloud editor sets the variable, which may name a region
+ * (`prod-eu`); a person sets the setting, which names a deployment only, and
+ * chooses production's region when signing in.
  */
 export function readCloudEnvName(env: NodeJS.ProcessEnv = process.env): CloudEnvName {
 	for (const name of CLOUD_ENV_VARS) {
@@ -50,7 +52,31 @@ export function readCloudEnvName(env: NodeJS.ProcessEnv = process.env): CloudEnv
 		}
 	}
 	const setting = userSetting(CLOUD_ENV_SETTING)?.toLowerCase();
-	return isCloudEnvName(setting) ? setting : "prod";
+	return isCloudDeploymentName(setting) ? setting : "prod";
+}
+
+/** The variables that point one of an environment's hosts, or its client, elsewhere. */
+const ENVIRONMENT_OVERRIDE_VARS = [
+	CLOUD_API_URL_VAR,
+	CLOUD_ISSUER_VAR,
+	CLOUD_OBSERVABILITY_URL_VAR,
+	CLOUD_CONSOLE_URL_VAR,
+	CLOUD_CLIENT_ID_VAR,
+] as const;
+
+/**
+ * Whether the environment is fixed from outside: a variable names it (the
+ * cloud editor, a developer), or an override points one of its hosts or its
+ * client elsewhere. Switching to another region would leave those behind,
+ * so it is not offered.
+ */
+export function isCloudEnvironmentPinned(env: NodeJS.ProcessEnv = process.env): boolean {
+	return (
+		CLOUD_ENV_VARS.some((name) => isCloudEnvName(env[name]?.trim().toLowerCase())) ||
+		ENVIRONMENT_OVERRIDE_VARS.some((name) => !!env[name]?.trim()) ||
+		!!userSetting(CLOUD_CLIENT_ID_SETTING) ||
+		!!userSetting(CLOUD_API_URL_SETTING)
+	);
 }
 
 /**
