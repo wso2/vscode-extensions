@@ -289,12 +289,8 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 	 * region switched away from, removes nothing.
 	 */
 	async removeSession(id: string): Promise<void> {
-		const region = this.region;
-		const current = await region.sessions.current();
-		if (region !== this.region || !current || sessionId(current) !== id) {
-			return;
-		}
-		await region.sessions.signOut({ revoke: true });
+		// The manager checks the id against the session it holds as it ends it; one of a region left is retired and ends nothing.
+		await this.region.sessions.signOut({ revoke: true, only: (session) => sessionId(session) === id });
 	}
 
 	/**

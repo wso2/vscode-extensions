@@ -340,6 +340,27 @@ describe("production regions", () => {
 		}
 	});
 
+	it("does not sign out of a session a sign-in stored while the removal of the one before was under way", async () => {
+		const store = new InMemorySessionStore();
+		await store.save(session("prod", "first@example.com"));
+		const sessions = new SessionManager({ env: ENVIRONMENTS.prod, store, fetch: async () => new Response("{}") });
+		const provider = new WSO2CloudAuthenticationProvider({
+			env: ENVIRONMENTS.prod,
+			sessions,
+			tokenSource: new StaticTokenSource("t"),
+			apiKeys: new ApiKeys(),
+		});
+		try {
+			const [first] = await provider.getSessions();
+			const removing = provider.removeSession(first.id);
+			const signingIn = sessions.setSession(session("prod", "second@example.com"));
+			await Promise.all([removing, signingIn]);
+			assert.equal((await store.load("prod"))?.account.id, "second@example.com");
+		} finally {
+			provider.dispose();
+		}
+	});
+
 	it("signs out on a rejected token only for a request of the region in use", async () => {
 		const secrets = new FakeSecretStorage();
 		const store = new SecretStorageSessionStore(secrets as never);

@@ -389,11 +389,19 @@ export class SessionManager {
 		}
 	}
 
-	/** Ends the session, asking the issuer to revoke the refresh token first when it can. */
-	async signOut(options: { revoke?: boolean; signal?: AbortSignal } = {}): Promise<void> {
+	/**
+	 * Ends the session, asking the issuer to revoke the refresh token first
+	 * when it can. With `only`, the session held is ended only when `only`
+	 * accepts it, checked with no wait before it is ended, so a sign-in that
+	 * lands meanwhile is not the one ended.
+	 */
+	async signOut(options: { revoke?: boolean; signal?: AbortSignal; only?: (session: StoredSession) => boolean } = {}): Promise<void> {
 		const session = await this.current();
 		if (this.retired) {
 			// What the store holds now may be a newer manager's sign-in.
+			return;
+		}
+		if (options.only && !(session && options.only(session))) {
 			return;
 		}
 		this.generation++;
