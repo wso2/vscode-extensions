@@ -23,9 +23,6 @@ import { assertEnvironmentConfigured, isCloudDeploymentName, isCloudEnvName, res
 /** The setting both extensions read for the WSO2 Cloud deployment to use. */
 export const CLOUD_ENV_SETTING = "integrator.advanced.cloudEnv";
 
-/** A hidden override for rolling a new client id out without a release. Hosts are overridden by the WSO2_CLOUD_* variables. */
-export const CLOUD_CLIENT_ID_SETTING = "integrator.advanced.cloudClientId";
-
 /** The environment variables an environment may be chosen by, in the order they are read. */
 export const CLOUD_ENV_VARS = ["WSO2_CLOUD_ENV", "CLOUD_ENV"] as const;
 
@@ -73,9 +70,7 @@ const ENVIRONMENT_OVERRIDE_VARS = [
  */
 export function isCloudEnvironmentPinned(env: NodeJS.ProcessEnv = process.env): boolean {
 	return (
-		CLOUD_ENV_VARS.some((name) => isCloudEnvName(env[name]?.trim().toLowerCase())) ||
-		ENVIRONMENT_OVERRIDE_VARS.some((name) => !!env[name]?.trim()) ||
-		!!userSetting(CLOUD_CLIENT_ID_SETTING)
+		CLOUD_ENV_VARS.some((name) => isCloudEnvName(env[name]?.trim().toLowerCase())) || ENVIRONMENT_OVERRIDE_VARS.some((name) => !!env[name]?.trim())
 	);
 }
 
@@ -98,7 +93,7 @@ export function userSetting(key: string): string | undefined {
  */
 export function readCloudEnvironment(env: NodeJS.ProcessEnv = process.env): CloudEnvironment {
 	const environment = resolveCloudEnvironment(readCloudEnvName(env), {
-		clientId: env[CLOUD_CLIENT_ID_VAR] || userSetting(CLOUD_CLIENT_ID_SETTING),
+		clientId: env[CLOUD_CLIENT_ID_VAR],
 		apiBaseUrl: env[CLOUD_API_URL_VAR],
 		issuer: env[CLOUD_ISSUER_VAR],
 		observabilityBaseUrl: env[CLOUD_OBSERVABILITY_URL_VAR],

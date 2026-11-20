@@ -118,7 +118,7 @@ internal, so its hosts are not in this repository: with `dev`, set
 | `WSO2_CLOUD_OBSERVABILITY_URL` | the observability proxy |
 | `WSO2_CLOUD_CONSOLE_URL` | the console, for links |
 | `WSO2_CLOUD_COPILOT_URL` | the WSO2 Integrator Copilot backend: where the WSO2 Cloud token is exchanged for a Copilot token, and Copilot requests go |
-| `WSO2_CLOUD_CLIENT_ID` | the OAuth client id (also `integrator.advanced.cloudClientId`) |
+| `WSO2_CLOUD_CLIENT_ID` | the OAuth client id |
 
 The same variables override the built-in values for any environment. A URL
 override must be `https` (`http` only for localhost); the client id is not a

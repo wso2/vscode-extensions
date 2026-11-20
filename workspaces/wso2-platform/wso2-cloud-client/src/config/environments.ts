@@ -135,7 +135,7 @@ export function isCloudEnvName(value: unknown): value is CloudEnvName {
 
 /**
  * Picks the environment `name` names, `prod` when it names none, and applies
- * any overrides on top (a hidden setting, an environment variable).
+ * any overrides on top (the WSO2_CLOUD_* environment variables).
  */
 export function resolveCloudEnvironment(name: string | undefined, overrides: Partial<Omit<CloudEnvironment, "name">> = {}): CloudEnvironment {
 	const base = ENVIRONMENTS[isCloudEnvName(name) ? name : "prod"];
