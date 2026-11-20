@@ -104,7 +104,6 @@ const SubPanelContainer = styled.div<SidePanelProps>`
     @media (prefers-reduced-motion: reduce) {
         transform: ${OPEN_TRANSFORM};
     }
-    ${(props: SidePanelProps) => props.sx};
 `;
 
 export const SidePanel: React.FC<SidePanelProps> = (props: SidePanelProps) => {
@@ -146,9 +145,9 @@ export const SidePanel: React.FC<SidePanelProps> = (props: SidePanelProps) => {
 
     const showSubPanel = !!subPanel && isOpen;
     // The last sub panel stays mounted while it animates out, so it fades instead of vanishing.
-    const shownSubPanel = useRef({ content: subPanel, width: subPanelWidth, sx });
+    const shownSubPanel = useRef({ content: subPanel, width: subPanelWidth });
     if (subPanel) {
-        shownSubPanel.current = { content: subPanel, width: subPanelWidth, sx };
+        shownSubPanel.current = { content: subPanel, width: subPanelWidth };
     }
     useEffect(() => {
         if (!showSubPanel) {
@@ -188,7 +187,6 @@ export const SidePanel: React.FC<SidePanelProps> = (props: SidePanelProps) => {
                             alignment={alignment}
                             width={width}
                             subPanelWidth={shownSubPanel.current.width}
-                            sx={shownSubPanel.current.sx}
                             onTransitionEnd={handleSubPanelTransitionEnd}
                         >
                             {shownSubPanel.current.content}
