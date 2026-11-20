@@ -414,6 +414,41 @@ describe("SessionManager races", () => {
 		});
 	}
 
+	it("stores a refresh that finishes after its manager was retired, for the manager that follows", async () => {
+		const clock = clockFrom(new Date("2026-11-05T10:00:00Z"));
+		// Rotates refresh tokens: the one the refresh used is dead once it answers.
+		const issuer = new FakeIssuer({ expiresIn: 600, now: clock.now });
+		let release: (() => void) | undefined;
+		const fetch: typeof issuer.fetch = async (input, init) => {
+			if (!release && String(init?.body ?? "").includes("grant_type=refresh_token")) {
+				await new Promise<void>((resolve) => {
+					release = resolve;
+				});
+			}
+			return issuer.fetch(input, init);
+		};
+		const store = new InMemorySessionStore();
+		const retired = new SessionManager({ env, store, fetch, now: clock.now });
+		const signedIn = await signIn(issuer, clock.now);
+		await retired.setSession(signedIn);
+		clock.advance(11 * 60_000);
+		const refreshing = rejection(retired.getAccessToken());
+		while (!release) {
+			await new Promise((resolve) => setImmediate(resolve));
+		}
+
+		// The region is left while the refresh is under way, and chosen again once it answered.
+		retired.dispose();
+		release();
+		assert.equal(((await refreshing) as CloudError).details.reason, "no_session");
+		const next = new SessionManager({ env, store, fetch: issuer.fetch, now: clock.now });
+		const token = await next.getAccessToken({ forceRefresh: true });
+
+		assert.ok(token, "the manager that follows refreshes with the rotated refresh token");
+		assert.notEqual((await store.load("dev"))?.tokens.refreshToken, signedIn.tokens.refreshToken);
+		assert.equal((await next.current())?.account.id, signedIn.account.id, "and the person stays signed in");
+	});
+
 	it("drops an update decided before the session was replaced", async () => {
 		const issuer = new FakeIssuer();
 		const manager = new SessionManager({ env, store: new InMemorySessionStore(), fetch: issuer.fetch });

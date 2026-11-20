@@ -24,6 +24,7 @@ import type { Logger } from "../logger";
 import { silentLogger } from "../logger";
 import { discover } from "./discovery";
 import { expiryOf, readClaims } from "./login-flow";
+import type { TokenResponse } from "./token-endpoint";
 import { OAuthError, refreshTokens, revokeToken } from "./token-endpoint";
 import type { SessionChangeEvent, SessionStore, StoredSession } from "./types";
 
@@ -73,6 +74,23 @@ export interface SessionManagerDeps {
  * here when the store reports it, and a refused refresh first checks
  * whether another window already rotated the refresh token.
  */
+/** `session` with the tokens a refresh got. */
+function withTokens(session: StoredSession, tokens: TokenResponse, claims: StoredSession["claims"], issuedAt: Date): StoredSession {
+	return {
+		...session,
+		claims,
+		tokens: {
+			...session.tokens,
+			accessToken: tokens.access_token,
+			// A provider that rotates refresh tokens sends a new one; one that does not sends none.
+			refreshToken: tokens.refresh_token ?? session.tokens.refreshToken,
+			idToken: tokens.id_token ?? session.tokens.idToken,
+			expiresAt: expiryOf(tokens.expires_in, claims, issuedAt),
+			scope: tokens.scope ?? session.tokens.scope,
+		},
+	};
+}
+
 export class SessionManager {
 	private readonly logger: Logger;
 	private readonly margin: number;
@@ -234,25 +252,18 @@ export class SessionManager {
 			});
 			const issuedAt = this.now();
 			const claims = readClaims(tokens.access_token);
+			if (this.retired) {
+				// The issuer may have rotated away the refresh token the store still holds: the newer manager would refresh
+				// with a dead one and end the session. The tokens are stored for it, unless the store moved on meanwhile.
+				await this.storeForSuccessor(session, (stored) => withTokens(stored, tokens, claims, issuedAt));
+				throw new UnauthenticatedError("no_session");
+			}
 			if (generation !== this.generation || !this.session) {
 				// Signed out, or signed in as someone else, while this refresh ran: it is not kept.
 				throw new UnauthenticatedError("no_session");
 			}
 			// The current session, not the one the refresh started from: an update made meanwhile (the org's uuid) stays.
-			const current = this.session;
-			const refreshed: StoredSession = {
-				...current,
-				claims,
-				tokens: {
-					...current.tokens,
-					accessToken: tokens.access_token,
-					// A provider that rotates refresh tokens sends a new one; one that does not sends none.
-					refreshToken: tokens.refresh_token ?? current.tokens.refreshToken,
-					idToken: tokens.id_token ?? current.tokens.idToken,
-					expiresAt: expiryOf(tokens.expires_in, claims, issuedAt),
-					scope: tokens.scope ?? current.tokens.scope,
-				},
-			};
+			const refreshed = withTokens(this.session, tokens, claims, issuedAt);
 			this.session = refreshed;
 			await this.persist(this.deps.store.save(refreshed));
 			this.logger.debug("Refreshed the Choreo Cloud session");
@@ -281,6 +292,22 @@ export class SessionManager {
 				throw new UnauthenticatedError("session_expired", undefined, { apiError: error.error, apiMessage: error.errorDescription });
 			}
 			return this.keepIfUnexpired(session, error, generation);
+		}
+	}
+
+	/**
+	 * Stores what a refresh that finished after this manager was retired got, for the manager that follows, when the
+	 * store still holds the refresh token the refresh started from; a session stored since is left as it is.
+	 */
+	private async storeForSuccessor(from: StoredSession, refresh: (stored: StoredSession) => StoredSession): Promise<void> {
+		const stored = await this.loadQuietly();
+		if (!stored || stored.tokens.refreshToken !== from.tokens.refreshToken) {
+			return;
+		}
+		try {
+			await this.deps.store.save(refresh(stored));
+		} catch (error) {
+			this.logger.warn(`The refreshed Choreo Cloud session could not be stored: ${errorMessage(error)}`);
 		}
 	}
 
@@ -444,7 +471,9 @@ export class SessionManager {
 	 * Retires the manager: it stops following the store's changes, and a
 	 * refresh, sign-in or sign-out still in flight, or asked for later, neither
 	 * saves nor clears the stored session, which a newer manager for the same
-	 * environment may hold by then.
+	 * environment may hold by then. One exception: a refresh in flight that
+	 * succeeds is stored while the store still holds the refresh token it
+	 * started from, since the issuer may have rotated that token away.
 	 */
 	dispose(): void {
 		this.retired = true;
