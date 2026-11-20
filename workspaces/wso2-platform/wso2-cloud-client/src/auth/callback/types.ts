@@ -28,6 +28,14 @@ export interface CallbackReceiver {
 	readonly redirectUri: string;
 	/** Makes the receiver ready, when it has anything to prepare. */
 	start?(): Promise<void>;
+	/**
+	 * The `state` to put on the authorization request, for a receiver whose
+	 * address the provider cannot be given directly and which therefore has to
+	 * carry it in `state`. The sign-in goes on waiting for the state it
+	 * generated, so such a receiver maps the wire form back before it matches a
+	 * callback against it.
+	 */
+	wireState?(state: string): string;
 	/** Resolves with the code once the browser comes back with `state`. */
 	waitForCode(state: string, signal?: AbortSignal): Promise<string>;
 	dispose?(): void;

@@ -17,6 +17,7 @@ import {
 	CLOUD_ENV_SETTING,
 	CLOUD_ENV_VARS,
 	CLOUD_ISSUER_VAR,
+	ConsoleForwardReceiver,
 	SecretStorageSessionStore,
 	UriCallbackReceiver,
 	WSO2CloudAuthenticationProvider,
@@ -43,6 +44,15 @@ async function signIn(issuer: FakeIssuer): Promise<StoredSession> {
 			setImmediate(() => receiver.push(issuer.authorize(url)));
 		},
 	}).run();
+}
+
+/**
+ * A URI as a web host hands it to the extension. Its callback page serializes
+ * the parameters with `URLSearchParams.toString()`, so the query arrives
+ * percent-encoded -- unlike the desktop URI handler's, which VS Code decodes.
+ */
+function browserCallback(path: string, params: Record<string, string>): { path: string; query: string } {
+	return { path, query: new URLSearchParams(params).toString() };
 }
 
 describe("VS Code adapter", () => {
@@ -84,6 +94,130 @@ describe("VS Code adapter", () => {
 		assert.throws(
 			() => chooseReceivers({ extensionId: "wso2.wso2-integrator" }, { uriScheme: "code-oss", uiKind: 1, remoteName: "ssh-remote" }),
 			/not supported/,
+		);
+	});
+
+	it("signs a browser editor in through the console, which forwards the result to the address in `state`", async () => {
+		// A cloud editor as code-server reports it: no registered scheme, a web
+		// UI, and its own per-component address.
+		state.uriScheme = "code-oss";
+		state.uiKind = 2;
+		state.remoteName = "editor-code-server-abc-development.dp1.us.cloud.choreolabs.io";
+		state.externalUriOrigin = "https://editor-code-server-abc-development.dp1.us.cloud.choreolabs.io/stable-x/callback";
+
+		const issuer = new FakeIssuer();
+		const chosen = chooseReceivers(
+			{ extensionId: "wso2.wso2-integrator", consoleUrl: "https://console.cloud.choreolabs.com" },
+			{ uriScheme: state.uriScheme, uiKind: state.uiKind, remoteName: state.remoteName },
+		);
+		const receiver = chosen.receiver as ConsoleForwardReceiver;
+		assert.ok(receiver instanceof ConsoleForwardReceiver);
+		assert.equal(
+			receiver.redirectUri,
+			"https://console.cloud.choreolabs.com/signin",
+			"the provider redirects to the console, which has a registered callback",
+		);
+		assert.equal(chosen.uriReceiver, receiver, "the result comes home through the extension's URI handler");
+
+		const session = await new LoginFlow({
+			env: { ...env, issuer: issuer.issuer },
+			fetch: issuer.fetch,
+			receiver,
+			openBrowser: async (authorizeUrl) => {
+				setImmediate(() => {
+					// The provider redirects to the console with the state it was given.
+					const atConsole = issuer.authorize(authorizeUrl);
+					// The console reads where to forward from `state`, exactly as
+					// its editorCallbackUri does, and hands `state` back untouched.
+					const wire = atConsole.searchParams.get("state") ?? "";
+					const { callbackUri } = JSON.parse(atob(wire)) as { callbackUri: string };
+					assert.equal(new URL(callbackUri).origin, "https://editor-code-server-abc-development.dp1.us.cloud.choreolabs.io");
+					const toEditor = new URL(callbackUri);
+					toEditor.searchParams.set("code", atConsole.searchParams.get("code") ?? "");
+					toEditor.searchParams.set("state", wire);
+					// The editor's origin routes it back into the URI handler.
+					receiver.pushUri(browserCallback("/signin", Object.fromEntries(toEditor.searchParams)) as never);
+				});
+			},
+		}).run();
+
+		assert.ok(session.tokens.accessToken, "the code was exchanged with the redirect the provider was given");
+	});
+
+	it("ignores a forwarded result that belongs to no sign-in of this editor", async () => {
+		state.uriScheme = "code-oss";
+		state.uiKind = 2;
+		state.externalUriOrigin = "https://editor-abc.dp1.us.cloud.choreolabs.io/callback";
+
+		const receiver = new ConsoleForwardReceiver({ extensionId: "wso2.wso2-integrator", consoleUrl: "https://console.cloud.choreolabs.com" });
+		await receiver.start();
+		const waiting = receiver.waitForCode("s1");
+		const foreign = btoa(JSON.stringify({ callbackUri: "https://editor-abc.dp1.us.cloud.choreolabs.io/callback", nonce: "another" }));
+
+		assert.equal(receiver.pushUri(browserCallback("/signin", { code: "c", state: foreign }) as never), false);
+		assert.equal(
+			receiver.pushUri(browserCallback("/signin", { code: "c", state: "opaque" }) as never),
+			false,
+			"a state that is not an editor's is nobody's",
+		);
+
+		const mine = btoa(JSON.stringify({ callbackUri: "https://editor-abc.dp1.us.cloud.choreolabs.io/callback", nonce: "s1" }));
+		assert.equal(receiver.pushUri(browserCallback("/signin", { code: "mine", state: mine }) as never), true);
+		assert.equal(await waiting, "mine");
+	});
+
+	it("reads a browser callback's query as the callback page serialized it, `+`, `/` and padding included", async () => {
+		state.uriScheme = "code-oss";
+		state.uiKind = 2;
+		state.externalUriOrigin = "https://editor-abc.dp1.us.cloud.choreolabs.io/callback";
+
+		const receiver = new ConsoleForwardReceiver({ extensionId: "wso2.wso2-integrator", consoleUrl: "https://console.cloud.choreolabs.com" });
+		await receiver.start();
+		const waiting = receiver.waitForCode("s1");
+		const wire = receiver.wireState("s1");
+		// base64 of the editor's address: the characters a query has to carry
+		// through encoding, which is where this used to come apart.
+		assert.ok(/[+/=]/.test(wire), `the state carried needs encoding: ${wire}`);
+
+		const callback = browserCallback("/signin", { code: "ab+cd/ef=", state: wire });
+		assert.ok(/%2B|%2F|%3D/.test(callback.query), `the callback page encodes them: ${callback.query}`);
+
+		assert.equal(receiver.pushUri(callback as never), true);
+		assert.equal(await waiting, "ab+cd/ef=", "the code comes out as the provider sent it");
+	});
+
+	it("sends the provider to the console's /signin whatever path the result comes back to in the editor", async () => {
+		state.uriScheme = "code-oss";
+		state.uiKind = 2;
+		state.externalUriOrigin = "https://editor-abc.dp1.us.cloud.choreolabs.io/callback";
+
+		const receiver = new ConsoleForwardReceiver({
+			extensionId: "wso2.wso2-integrator",
+			path: "/cloud-signin",
+			consoleUrl: "https://console.cloud.choreolabs.com/",
+		});
+		assert.equal(
+			receiver.redirectUri,
+			"https://console.cloud.choreolabs.com/signin",
+			"the console forwards from one endpoint, and a trailing slash does not double it",
+		);
+
+		await receiver.start();
+		const waiting = receiver.waitForCode("s1");
+		const wire = receiver.wireState("s1");
+		const { callbackUri } = JSON.parse(atob(wire)) as { callbackUri: string };
+		assert.ok(/[?&]vscode-path=(%2F|\/)cloud-signin/.test(callbackUri), `the editor is still returned to its own path: ${callbackUri}`);
+
+		assert.equal(receiver.pushUri(browserCallback("/cloud-signin", { code: "c1", state: wire }) as never), true);
+		assert.equal(await waiting, "c1");
+	});
+
+	it("refuses a browser editor when the deployment names no console to come back through", () => {
+		state.uriScheme = "code-oss";
+		state.uiKind = 2;
+		assert.throws(
+			() => chooseReceivers({ extensionId: "wso2.wso2-integrator" }, { uriScheme: "code-oss", uiKind: 2, remoteName: "editor-abc" }),
+			/names no console/,
 		);
 	});
 

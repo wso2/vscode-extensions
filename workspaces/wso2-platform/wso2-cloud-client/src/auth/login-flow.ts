@@ -211,7 +211,10 @@ export class LoginFlow {
 				clientId: env.clientId,
 				redirectUri: receiver.redirectUri,
 				scopes,
-				state,
+				// A receiver the provider cannot redirect to directly carries its
+				// own address in `state`; the wait below still matches on the
+				// state this sign-in generated.
+				state: receiver.wireState?.(state) ?? state,
 				nonce,
 				codeChallenge: challengeS256(verifier),
 				// At authorization time only: ThunderID decides the granted scopes during sign-in and keeps the resource on the code.
