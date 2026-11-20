@@ -113,7 +113,7 @@ internal, so its hosts are not in this repository: with `dev`, set
 
 | Variable | Overrides |
 | --- | --- |
-| `WSO2_CLOUD_API_URL` | the API base URL (also the hidden setting `integrator.advanced.cloudApiBaseUrl`) |
+| `WSO2_CLOUD_API_URL` | the API base URL |
 | `WSO2_CLOUD_ISSUER` | the ThunderID issuer |
 | `WSO2_CLOUD_OBSERVABILITY_URL` | the observability proxy |
 | `WSO2_CLOUD_CONSOLE_URL` | the console, for links |
