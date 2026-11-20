@@ -45,8 +45,9 @@ A host exports the contract's `IWso2PlatformExtensionGate` (WSO2 Integrator as
 answers only to a key: the `wso2-cloud` provider's sessions carry that key
 (`apiKeys`) as their `accessToken`, never the WSO2 Cloud token, and an
 extension gets one with
-`vscode.authentication.getSession("wso2-cloud", ["env:<env>"])`, where VS Code
-checks that extension's access (an editor build can trust extensions up front
+`vscode.authentication.getSession("wso2-cloud", ["env:<env>"])` (any region of
+the deployment answers with the region in use, so `env:prod` serves Europe
+too), where VS Code checks that extension's access (an editor build can trust extensions up front
 with `trustedExtensionAuthAccess` in its `product.json`). It then calls
 `cloudAPIs.connect(session.accessToken)`. The key is random, lives in the
 window's memory, and is replaced when the person, the organization or the

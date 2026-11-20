@@ -26,7 +26,7 @@ import {
 	WSO2CloudAuthenticationProvider,
 	createPlatformClients,
 } from "../../src/vscode";
-import { StaticTokenSource } from "../doubles";
+import { StaticTokenSource, unsignedJwt } from "../doubles";
 import { FakeSecretStorage, resetVscode } from "../doubles/vscode";
 import { rejection } from "../support";
 
@@ -149,7 +149,9 @@ describe("production regions", () => {
 				"eu@example.com (Acme)",
 				"the label stays the same across regions, so access granted to another extension carries over",
 			);
-			assert.deepEqual(await platform.auth.getSessions(["env:prod"]), [], "the region left is not served");
+			const [asked] = await platform.auth.getSessions(["env:prod"]);
+			assert.equal(asked?.id, granted.id, "an extension that asks for the deployment, not the region, gets the region in use");
+			assert.deepEqual(await platform.auth.getSessions(["env:stage"]), [], "another deployment is not served");
 			assert.deepEqual(globalState.get(CLOUD_REGION_STATE_KEY), { configured: "prod", chosen: "prod-eu" });
 
 			const restarted = createPlatformClients({ extensionId: "wso2.wso2-integrator", context: context(secrets, globalState) });
@@ -335,6 +337,64 @@ describe("production regions", () => {
 			assert.equal(await store.load("prod-eu"), undefined, "the id of the session held is signed out");
 		} finally {
 			provider.dispose();
+		}
+	});
+
+	it("signs out on a rejected token only for a request of the region in use", async () => {
+		const secrets = new FakeSecretStorage();
+		const store = new SecretStorageSessionStore(secrets as never);
+		const us = session("prod", "us@example.com");
+		await store.save({ ...us, tokens: { ...us.tokens, refreshToken: "us-refresh" } });
+		await store.save(session("prod-eu", "eu@example.com"));
+		const usIssuer = us.issuer;
+		let held: Promise<void> | undefined;
+		let release: () => void = () => undefined;
+		let apiCalls = 0;
+		const fetch = async (input: string): Promise<Response> => {
+			if (input === `${usIssuer}/.well-known/openid-configuration`) {
+				return Response.json({
+					issuer: usIssuer,
+					authorization_endpoint: `${usIssuer}/authorize`,
+					token_endpoint: `${usIssuer}/token`,
+					code_challenge_methods_supported: ["S256"],
+				});
+			}
+			if (input === `${usIssuer}/token`) {
+				return Response.json({ access_token: unsignedJwt(us.claims), token_type: "Bearer", expires_in: 3600 });
+			}
+			apiCalls++;
+			// The request retried with the refreshed token is held until the test lets it go.
+			if (apiCalls % 2 === 0 && held) {
+				await held;
+			}
+			return Response.json({ error: "invalid_token" }, { status: 401 });
+		};
+		const signedOut: string[] = [];
+		const platform = createPlatformClients({
+			extensionId: "wso2.wso2-integrator",
+			context: context(secrets, new FakeMemento()),
+			fetch,
+			onUnauthenticated: () => signedOut.push(platform.environment.name),
+		});
+		try {
+			held = new Promise<void>((resolve) => {
+				release = resolve;
+			});
+			const usRequest = rejection(platform.cloud.orgs.current());
+			while (apiCalls < 2) {
+				await tick();
+			}
+			await platform.switchEnvironment("prod-eu");
+			release();
+			assert.ok(isCloudError(await usRequest));
+			assert.deepEqual(signedOut, [], "a request of the region left does not sign out of Europe");
+
+			held = undefined;
+			await platform.switchEnvironment("prod");
+			assert.ok(isCloudError(await rejection(platform.cloud.orgs.current())));
+			assert.deepEqual(signedOut, ["prod"], "one of the region in use still does");
+		} finally {
+			platform.dispose();
 		}
 	});
 

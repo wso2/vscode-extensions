@@ -273,9 +273,15 @@ class SwitchablePlatformClients implements PlatformClients {
 			fetch: this.fetchImpl,
 			userAgent: options.userAgent,
 			logger,
-			onUnauthenticated: options.onUnauthenticated,
+			onUnauthenticated: (error) => {
+				// The host signs out of the region in use: a request of a region left must not end that session.
+				if (this.current === region && !this.disposed) {
+					options.onUnauthenticated?.(error);
+				}
+			},
 		});
-		return { environment, sessions, tokenSource, cloud, login, uriReceiver, loginUnavailable };
+		const region: RegionClients = { environment, sessions, tokenSource, cloud, login, uriReceiver, loginUnavailable };
+		return region;
 	}
 
 	/** What the authentication provider needs of a region. */

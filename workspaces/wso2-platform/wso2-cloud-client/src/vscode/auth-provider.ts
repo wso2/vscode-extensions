@@ -22,6 +22,7 @@ import type { SessionManager } from "../auth/session-manager";
 import type { OrgInfo, StoredSession, TokenSource } from "../auth/types";
 import { accountOf, orgOf } from "../auth/types";
 import type { CloudEnvName, CloudEnvironment } from "../config/environments";
+import { regionsOf } from "../config/environments";
 import { LoginError, errorMessage } from "../errors";
 import type { Logger } from "../logger";
 import { silentLogger } from "../logger";
@@ -73,8 +74,11 @@ export interface AuthProviderDeps extends AuthProviderRegion {
  * `vscode.authentication.getSession("wso2-cloud", ["env:prod"])`, which is
  * where VS Code checks that extension's access to the account.
  *
- * The provider serves one region at a time: a session is surfaced for the
- * current region's scope only. A switch to another region of the deployment
+ * The provider serves one region at a time: the current region's session,
+ * asked for with the scope of any region of the deployment. Another
+ * extension knows the deployment from the setting, not the region chosen
+ * here, and the key it gets reaches the host, which sends each request to
+ * the region in use. A switch to another region of the deployment
  * ({@link useRegion}) reports the session of the region left as removed and
  * the one of the region reached, if any, as added, and replaces the key.
  */
@@ -163,10 +167,11 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 		return registration;
 	}
 
-	/** Whether `scopes` name this provider's environment, or name none. */
+	/** Whether `scopes` name a region of this provider's deployment, or name none. */
 	private serves(scopes: readonly string[] | undefined): boolean {
 		const named = (scopes ?? []).filter((s) => s.startsWith("env:"));
-		return named.length === 0 || named.includes(scopeForEnv(this.region.env.name));
+		const served = regionsOf(this.region.env.name).map(scopeForEnv);
+		return named.length === 0 || named.some((s) => served.includes(s));
 	}
 
 	/**
