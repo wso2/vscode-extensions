@@ -244,7 +244,7 @@ class SwitchablePlatformClients implements PlatformClients {
 		} else {
 			let chosen: ChosenReceivers | undefined;
 			try {
-				chosen = chooseReceivers({ extensionId: options.extensionId, productName: options.productName });
+				chosen = chooseReceivers({ extensionId: options.extensionId, productName: options.productName, consoleUrl: environment.consoleUrl });
 			} catch (error) {
 				// Sign-in is what this editor lacks, not the rest of the extension; a stored session still works.
 				loginUnavailable = errorMessage(error);

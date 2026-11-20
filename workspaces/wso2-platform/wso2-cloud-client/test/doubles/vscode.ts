@@ -27,6 +27,8 @@ export const state: {
 	uiKind: number;
 	remoteName: string | undefined;
 	openExternalAnswer: boolean;
+	/** The origin `asExternalUri` answers on, as a web host does; undefined gives the URI back unchanged. */
+	externalUriOrigin: string | undefined;
 	opened: string[];
 	warnings: string[];
 	settings: Record<string, { globalValue?: unknown; workspaceValue?: unknown; workspaceFolderValue?: unknown }>;
@@ -35,6 +37,7 @@ export const state: {
 	uiKind: 1,
 	remoteName: undefined,
 	openExternalAnswer: true,
+	externalUriOrigin: undefined,
 	opened: [],
 	warnings: [],
 	settings: {},
@@ -46,6 +49,7 @@ export function resetVscode(): void {
 	state.uiKind = 1;
 	state.remoteName = undefined;
 	state.openExternalAnswer = true;
+	state.externalUriOrigin = undefined;
 	state.opened = [];
 	state.warnings = [];
 	state.settings = {};
@@ -106,6 +110,17 @@ export const env = {
 	async openExternal(uri: Uri): Promise<boolean> {
 		state.opened.push(uri.toString());
 		return state.openExternalAnswer;
+	},
+	/** As a web host resolves it: a URL on the editor's own origin that routes the URI back in. */
+	async asExternalUri(uri: Uri): Promise<Uri> {
+		if (!state.externalUriOrigin) {
+			return uri;
+		}
+		const url = new URL(state.externalUriOrigin);
+		url.searchParams.set("vscode-scheme", uri.scheme);
+		url.searchParams.set("vscode-authority", uri.authority);
+		url.searchParams.set("vscode-path", uri.path);
+		return Uri.parse(url.toString());
 	},
 };
 
