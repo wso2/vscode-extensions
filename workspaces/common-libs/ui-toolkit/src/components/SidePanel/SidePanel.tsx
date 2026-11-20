@@ -152,7 +152,9 @@ export const SidePanel: React.FC<SidePanelProps> = (props: SidePanelProps) => {
     useEffect(() => {
         if (!showSubPanel) {
             setSubPanelOpen(false);
-            return;
+            // A sub panel closed before its open frame ran never transitions, so transitionend cannot unmount it.
+            const timer = setTimeout(() => setSubPanelMounted(false), 500);
+            return () => clearTimeout(timer);
         }
         setSubPanelMounted(true);
         return afterPaint(() => setSubPanelOpen(true));
