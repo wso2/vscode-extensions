@@ -90,7 +90,7 @@ describe("environments", () => {
 	it("applies overrides to a built-in environment too", () => {
 		const env = resolveCloudEnvironment("prod", { clientId: "WSO2_INTEGRATOR_EXTENSION_CANARY", apiBaseUrl: "http://localhost:8080/" });
 		assert.equal(env.clientId, "WSO2_INTEGRATOR_EXTENSION_CANARY");
-		assert.equal(env.apiBaseUrl, "http://localhost:8080/");
+		assert.equal(env.apiBaseUrl, "http://localhost:8080", "a URL override loses its trailing slash, as the built-in values have none");
 		assert.equal(env.issuer, ENVIRONMENTS.prod.issuer);
 	});
 });

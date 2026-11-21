@@ -95,8 +95,9 @@ describe("VS Code adapter", () => {
 			WSO2_CLOUD_ENV: "dev",
 			[CLOUD_API_URL_VAR]: "https://api.dev.example/ipaas",
 			[CLOUD_ISSUER_VAR]: "https://idp.dev.example",
-			[CLOUD_COPILOT_URL_VAR]: "https://copilot.dev.example/copilot",
+			[CLOUD_COPILOT_URL_VAR]: "https://copilot.dev.example/copilot/",
 		});
+		// Without the trailing slash: the exchange endpoint built on it must be the exact one the host allows.
 		assert.equal(dev.copilotUrl, "https://copilot.dev.example/copilot");
 		assert.equal(readCloudEnvironment({}).copilotUrl, "https://apis.devant.dev/copilot");
 		assert.ok(

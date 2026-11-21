@@ -142,10 +142,13 @@ export function resolveCloudEnvironment(name: string | undefined, overrides: Par
 	const applied: Partial<CloudEnvironment> = {};
 	for (const [key, value] of Object.entries(overrides)) {
 		if (value !== undefined && value !== "") {
-			if ((ENVIRONMENT_URL_KEYS as readonly string[]).includes(key)) {
+			const isUrl = (ENVIRONMENT_URL_KEYS as readonly string[]).includes(key);
+			if (isUrl) {
 				assertSecureUrl(key, value as string);
 			}
-			(applied as Record<string, unknown>)[key] = value;
+			// Without a trailing slash, as the built-in values: a consumer appends paths to it, and the host compares the
+			// result with its own (the Copilot token exchange accepts one exact URL).
+			(applied as Record<string, unknown>)[key] = isUrl ? trimBaseUrl(value as string) : value;
 		}
 	}
 	return { ...base, ...applied };
