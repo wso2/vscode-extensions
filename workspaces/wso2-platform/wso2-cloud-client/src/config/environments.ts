@@ -128,6 +128,12 @@ export function regionsOf(name: CloudEnvName): readonly CloudEnvName[] {
 	return REGION_GROUPS.find((group) => group.includes(name)) ?? [name];
 }
 
+/** The built-in environment whose identity provider is `issuer`, if any: the one a token it issued can be used in. */
+export function environmentIssuedBy(issuer: string): CloudEnvironment | undefined {
+	const wanted = trimBaseUrl(issuer);
+	return Object.values(ENVIRONMENTS).find((environment) => !!environment.issuer && trimBaseUrl(environment.issuer) === wanted);
+}
+
 /** Whether `value` names one of the environments. */
 export function isCloudEnvName(value: unknown): value is CloudEnvName {
 	return typeof value === "string" && (CLOUD_ENV_NAMES as readonly string[]).includes(value);

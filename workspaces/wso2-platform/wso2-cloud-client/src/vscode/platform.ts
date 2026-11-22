@@ -23,19 +23,20 @@ import type { FetchLike } from "../api/http";
 import { defaultFetch } from "../api/http";
 import { LoginFlow } from "../auth/login-flow";
 import { SessionManager } from "../auth/session-manager";
-import { BrowserLoginTokenSource, InjectedTokenSource, hasInjectedToken } from "../auth/sources";
+import { BrowserLoginTokenSource, InjectedTokenSource, hasInjectedToken, readInjectedToken } from "../auth/sources";
 import type { SessionChangeEvent, SessionStore, StoredSession, TokenSource } from "../auth/types";
 import type { CloudEnvName, CloudEnvironment } from "../config/environments";
-import { ENVIRONMENTS, missingEnvironmentUrls, regionsOf } from "../config/environments";
+import { ENVIRONMENTS, environmentIssuedBy, missingEnvironmentUrls, regionsOf } from "../config/environments";
 import { BadRequestError, LoginError, errorMessage } from "../errors";
 import type { UnauthenticatedError } from "../errors";
+import { decodeJwtPayload } from "../jwt";
 import type { Logger } from "../logger";
 import { silentLogger } from "../logger";
 import { ApiKeys } from "./api-key";
 import type { AuthProviderRegion } from "./auth-provider";
 import { WSO2CloudAuthenticationProvider } from "./auth-provider";
 import { SecretStorageSessionStore } from "./secret-session-store";
-import { isCloudEnvironmentPinned, readCloudEnvName, readCloudEnvironment } from "./settings";
+import { CLOUD_ENV_VARS, isCloudEnvironmentPinned, readCloudEnvName, readCloudEnvironment } from "./settings";
 import type { UriCallbackReceiver } from "./uri-callback";
 import type { ChosenReceivers } from "./uri-callback";
 import { chooseReceivers } from "./uri-callback";
@@ -151,7 +152,8 @@ class SwitchablePlatformClients implements PlatformClients {
 		this.fetchImpl = options.fetch ?? defaultFetch;
 		this.store = new SecretStorageSessionStore(options.context.secrets);
 		this.injected = !options.tokenSource && hasInjectedToken();
-		this.configured = options.environment ?? readEnvironmentOrFallback(this.logger);
+		this.configured =
+			options.environment ?? (this.injected ? injectedTokenEnvironment(this.logger) : undefined) ?? readEnvironmentOrFallback(this.logger);
 		// An environment handed in, a token the editor was started with, or one chosen by a variable or
 		// pointed elsewhere by an override is used as it is: another region would leave those behind.
 		const pinned = !!options.environment || !!options.tokenSource || this.injected || isCloudEnvironmentPinned();
@@ -240,7 +242,9 @@ class SwitchablePlatformClients implements PlatformClients {
 		if (options.tokenSource) {
 			tokenSource = options.tokenSource;
 		} else if (this.injected) {
-			tokenSource = new InjectedTokenSource();
+			// Only for the environment that issued it: a configuration that cannot be used falls back to
+			// another environment, and the editor's token must not follow it there.
+			tokenSource = new InjectedTokenSource({ issuer: environment.issuer });
 		} else {
 			let chosen: ChosenReceivers | undefined;
 			try {
@@ -339,6 +343,36 @@ function disposeRegion(region: RegionClients): void {
 	region.sessions.dispose();
 	region.uriReceiver?.dispose();
 	region.login?.cancel();
+}
+
+/**
+ * The environment whose identity provider issued the token the editor was
+ * started with: the one that token can be used in. The cloud editor names no
+ * environment of its own, so without this a Europe or staging editor would
+ * take the configured one (production in the United States, by default) and
+ * send its token there. Overrides (URLs, client id) still apply. Undefined
+ * when the issuer is not a built-in environment's.
+ */
+function injectedTokenEnvironment(logger: Logger): CloudEnvironment | undefined {
+	const token = readInjectedToken();
+	const issuer = token ? decodeJwtPayload(token)?.iss : undefined;
+	const issued = typeof issuer === "string" ? environmentIssuedBy(issuer) : undefined;
+	if (!issued) {
+		return undefined;
+	}
+	const named = readCloudEnvName();
+	if (named !== issued.name) {
+		logger.info(`The editor's Choreo Cloud token was issued in ${issued.name}; using ${issued.name}, not ${named}.`);
+	}
+	try {
+		return readCloudEnvironment({ ...process.env, [CLOUD_ENV_VARS[0]]: issued.name });
+	} catch (error) {
+		// As for a configured environment: an override that cannot be used is said, not dropped in silence.
+		const message = `The Choreo Cloud settings cannot be used (${errorMessage(error)}); using the ${issued.name} environment without overrides instead.`;
+		logger.warn(message);
+		void Promise.resolve(vscode.window.showWarningMessage(message)).catch(() => undefined);
+		return issued;
+	}
 }
 
 /**
