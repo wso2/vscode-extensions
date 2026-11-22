@@ -117,7 +117,7 @@ export function readCloudEnvironment(env: NodeJS.ProcessEnv = process.env): Clou
 		apiBaseUrl: env[CLOUD_API_URL_VAR] || (inEditor ? env[CLOUD_EDITOR_API_URL_VAR]?.trim() : undefined),
 		issuer: env[CLOUD_ISSUER_VAR] || (inEditor && !ENVIRONMENTS[name].issuer ? editorTokenIssuer(env) : undefined),
 		observabilityBaseUrl: env[CLOUD_OBSERVABILITY_URL_VAR],
-		consoleUrl: env[CLOUD_CONSOLE_URL_VAR] || (inEditor ? env[CLOUD_EDITOR_CONSOLE_URL_VAR]?.trim().replace(/\/+$/, "") : undefined),
+		consoleUrl: env[CLOUD_CONSOLE_URL_VAR] || (inEditor ? env[CLOUD_EDITOR_CONSOLE_URL_VAR]?.trim() : undefined),
 		copilotUrl: env[CLOUD_COPILOT_URL_VAR],
 	});
 	return assertEnvironmentConfigured(

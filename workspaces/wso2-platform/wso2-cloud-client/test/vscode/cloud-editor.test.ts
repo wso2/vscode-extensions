@@ -82,6 +82,23 @@ describe("WSO2 Cloud's cloud editor", () => {
 		assert.equal(hasInjectedToken({}), false);
 	});
 
+	it("takes the marker the platform leaves there for a cloud editor, never for a token", async () => {
+		// The token is in a mounted file now; with no file to read, the editor was started without one.
+		assert.equal(hasInjectedToken({ [CLOUD_EDITOR_TOKEN_ENV]: "file" }), true, "still a cloud editor: no browser sign-in");
+		assert.equal(readInjectedToken({ [CLOUD_EDITOR_TOKEN_ENV]: "file" }), undefined);
+		assert.equal(readInjectedToken({ [CLOUD_EDITOR_TOKEN_ENV]: " file " }), undefined);
+		assert.equal(readInjectedToken({ [CLOUD_EDITOR_TOKEN_ENV]: "file", [INJECTED_TOKEN_FILE_ENV]: "/nonexistent/token" }), undefined);
+
+		process.env[CLOUD_EDITOR_TOKEN_ENV] = "file";
+		const platform = createPlatformClients({ extensionId: "wso2.wso2-integrator", context: context() });
+		try {
+			assert.equal(platform.injected, true);
+			await assert.rejects(platform.tokenSource.getAccessToken(), /started without a Choreo Cloud token/);
+		} finally {
+			platform.dispose();
+		}
+	});
+
 	for (const name of ["prod", "prod-eu", "stage"] as const) {
 		it(`works in the environment that issued its token, ${name}, though it names none`, () => {
 			process.env[CLOUD_EDITOR_TOKEN_ENV] = editorToken(ENVIRONMENTS[name].issuer);

@@ -47,11 +47,15 @@ export class BrowserLoginTokenSource implements TokenSource {
 export const INJECTED_TOKEN_ENV = "WSO2_CLOUD_TOKEN";
 export const INJECTED_TOKEN_FILE_ENV = "WSO2_CLOUD_TOKEN_FILE";
 /**
- * The one WSO2 Cloud's cloud editor is started with: the platform puts the
- * person's platform token in it when it deploys the editor, and replaces it,
- * restarting the editor, when the editor is opened again near its expiry.
+ * The one WSO2 Cloud's cloud editor is started with. The platform first put
+ * the person's platform token in it; it now mounts the token as a file
+ * (`WSO2_CLOUD_TOKEN_FILE`) and leaves this set to {@link CLOUD_EDITOR_TOKEN_MARKER},
+ * so that it still says "this is a cloud editor". Either way its presence
+ * replaces the browser sign-in.
  */
 export const CLOUD_EDITOR_TOKEN_ENV = "CLOUD_STS_TOKEN";
+/** What `CLOUD_STS_TOKEN` holds when the token is in a mounted file: a marker, never a token. */
+export const CLOUD_EDITOR_TOKEN_MARKER = "file";
 
 export interface InjectedTokenOptions {
 	/** Where the token comes from; defaults to the environment variables above. */
@@ -77,7 +81,16 @@ export function readInjectedToken(env: NodeJS.ProcessEnv = process.env): string 
 			// A missing or unreadable file is the same as no token.
 		}
 	}
-	return env[INJECTED_TOKEN_ENV]?.trim() || env[CLOUD_EDITOR_TOKEN_ENV]?.trim() || undefined;
+	return env[INJECTED_TOKEN_ENV]?.trim() || cloudEditorToken(env) || undefined;
+}
+
+/**
+ * The token in the cloud editor's own variable, from a platform that still puts one there. The marker
+ * is not a token: read as one it would be sent as `Bearer file`, where "started without a token" is the answer.
+ */
+function cloudEditorToken(env: NodeJS.ProcessEnv): string | undefined {
+	const value = env[CLOUD_EDITOR_TOKEN_ENV]?.trim();
+	return value && value !== CLOUD_EDITOR_TOKEN_MARKER ? value : undefined;
 }
 
 /** Whether the editor was started with a WSO2 Cloud token (the cloud editor), which replaces the browser sign-in. */
