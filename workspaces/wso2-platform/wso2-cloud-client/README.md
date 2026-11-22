@@ -127,9 +127,14 @@ cannot be used, `createPlatformClients` does not throw: it warns and uses the
 chosen environment without overrides, or `prod` when that environment has no
 built-in hosts (`dev`).
 
-A token injected by the cloud editor (`WSO2_CLOUD_TOKEN_FILE`, re-read on every
-call, or `WSO2_CLOUD_TOKEN`) replaces the
-browser sign-in.
+A token the editor is started with replaces the browser sign-in:
+`WSO2_CLOUD_TOKEN_FILE` (re-read on every call), `WSO2_CLOUD_TOKEN`, or
+`CLOUD_STS_TOKEN`, which WSO2 Cloud's cloud editor is started with. The
+environment is then the one whose identity provider issued the token, when it
+is a built-in one, since the cloud editor names none of its own. In such an
+editor the API and the console are also taken from `CLOUD_API_BASE_URL` and
+`CLOUD_CONSOLE_URL`, after the `WSO2_CLOUD_` variables, and an environment with
+no identity provider of its own (`dev`) takes its issuer from the token.
 
 ## Developing
 

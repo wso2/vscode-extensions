@@ -45,6 +45,12 @@ export class BrowserLoginTokenSource implements TokenSource {
 /** The names a hosting environment may hand a token in by. */
 export const INJECTED_TOKEN_ENV = "WSO2_CLOUD_TOKEN";
 export const INJECTED_TOKEN_FILE_ENV = "WSO2_CLOUD_TOKEN_FILE";
+/**
+ * The one WSO2 Cloud's cloud editor is started with: the platform puts the
+ * person's platform token in it when it deploys the editor, and replaces it,
+ * restarting the editor, when the editor is opened again near its expiry.
+ */
+export const CLOUD_EDITOR_TOKEN_ENV = "CLOUD_STS_TOKEN";
 
 export interface InjectedTokenOptions {
 	/** Where the token comes from; defaults to the environment variables above. */
@@ -52,7 +58,7 @@ export interface InjectedTokenOptions {
 	now?: () => Date;
 }
 
-/** Reads the variables an injected token may arrive in, the file form first. */
+/** Reads the variables an injected token may arrive in: the file form first, the cloud editor's last. */
 export function readInjectedToken(env: NodeJS.ProcessEnv = process.env): string | undefined {
 	const file = env[INJECTED_TOKEN_FILE_ENV];
 	if (file) {
@@ -65,12 +71,12 @@ export function readInjectedToken(env: NodeJS.ProcessEnv = process.env): string 
 			// A missing or unreadable file is the same as no token.
 		}
 	}
-	return env[INJECTED_TOKEN_ENV]?.trim() || undefined;
+	return env[INJECTED_TOKEN_ENV]?.trim() || env[CLOUD_EDITOR_TOKEN_ENV]?.trim() || undefined;
 }
 
 /** Whether the editor was started with a WSO2 Cloud token (the cloud editor), which replaces the browser sign-in. */
 export function hasInjectedToken(env: NodeJS.ProcessEnv = process.env): boolean {
-	return !!(env[INJECTED_TOKEN_FILE_ENV] || env[INJECTED_TOKEN_ENV]);
+	return !!(env[INJECTED_TOKEN_FILE_ENV] || env[INJECTED_TOKEN_ENV] || env[CLOUD_EDITOR_TOKEN_ENV]);
 }
 
 /**

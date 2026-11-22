@@ -17,8 +17,10 @@
  */
 
 import * as vscode from "vscode";
+import { hasInjectedToken, readInjectedToken } from "../auth/sources";
 import type { CloudEnvName, CloudEnvironment } from "../config/environments";
-import { assertEnvironmentConfigured, isCloudDeploymentName, isCloudEnvName, resolveCloudEnvironment } from "../config/environments";
+import { ENVIRONMENTS, assertEnvironmentConfigured, isCloudDeploymentName, isCloudEnvName, resolveCloudEnvironment } from "../config/environments";
+import { decodeJwtPayload } from "../jwt";
 
 /** The setting both extensions read for the WSO2 Cloud deployment to use. */
 export const CLOUD_ENV_SETTING = "integrator.advanced.cloudEnv";
@@ -34,6 +36,12 @@ export const CLOUD_OBSERVABILITY_URL_VAR = "WSO2_CLOUD_OBSERVABILITY_URL";
 export const CLOUD_CONSOLE_URL_VAR = "WSO2_CLOUD_CONSOLE_URL";
 export const CLOUD_COPILOT_URL_VAR = "WSO2_CLOUD_COPILOT_URL";
 export const CLOUD_CLIENT_ID_VAR = "WSO2_CLOUD_CLIENT_ID";
+/**
+ * The names WSO2 Cloud's cloud editor is given its API and its console by. They are read only in an editor started
+ * with a token, after the `WSO2_CLOUD_` ones: the platform that started the editor knows its own hosts.
+ */
+export const CLOUD_EDITOR_API_URL_VAR = "CLOUD_API_BASE_URL";
+export const CLOUD_EDITOR_CONSOLE_URL_VAR = "CLOUD_CONSOLE_URL";
 
 /**
  * Which deployment to use: an environment variable first, then the setting,
@@ -88,16 +96,28 @@ export function userSetting(key: string): string | undefined {
 }
 
 /**
+ * The issuer of the token an editor was started with. An environment with no identity provider of its own, as `dev`,
+ * takes it: the editor never signs in there, so nothing more than the token's own word is needed for it.
+ */
+function editorTokenIssuer(env: NodeJS.ProcessEnv): string | undefined {
+	const token = readInjectedToken(env);
+	const issuer = token ? decodeJwtPayload(token)?.iss : undefined;
+	return typeof issuer === "string" && /^https:\/\//.test(issuer) ? issuer : undefined;
+}
+
+/**
  * The environment with every override applied. Throws when it lacks the API
  * or issuer URL, which `dev` does unless the variables are set.
  */
 export function readCloudEnvironment(env: NodeJS.ProcessEnv = process.env): CloudEnvironment {
-	const environment = resolveCloudEnvironment(readCloudEnvName(env), {
+	const inEditor = hasInjectedToken(env);
+	const name = readCloudEnvName(env);
+	const environment = resolveCloudEnvironment(name, {
 		clientId: env[CLOUD_CLIENT_ID_VAR],
-		apiBaseUrl: env[CLOUD_API_URL_VAR],
-		issuer: env[CLOUD_ISSUER_VAR],
+		apiBaseUrl: env[CLOUD_API_URL_VAR] || (inEditor ? env[CLOUD_EDITOR_API_URL_VAR]?.trim() : undefined),
+		issuer: env[CLOUD_ISSUER_VAR] || (inEditor && !ENVIRONMENTS[name].issuer ? editorTokenIssuer(env) : undefined),
 		observabilityBaseUrl: env[CLOUD_OBSERVABILITY_URL_VAR],
-		consoleUrl: env[CLOUD_CONSOLE_URL_VAR],
+		consoleUrl: env[CLOUD_CONSOLE_URL_VAR] || (inEditor ? env[CLOUD_EDITOR_CONSOLE_URL_VAR]?.trim().replace(/\/+$/, "") : undefined),
 		copilotUrl: env[CLOUD_COPILOT_URL_VAR],
 	});
 	return assertEnvironmentConfigured(
