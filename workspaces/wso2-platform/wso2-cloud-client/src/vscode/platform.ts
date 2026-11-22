@@ -242,7 +242,9 @@ class SwitchablePlatformClients implements PlatformClients {
 		if (options.tokenSource) {
 			tokenSource = options.tokenSource;
 		} else if (this.injected) {
-			tokenSource = new InjectedTokenSource();
+			// Only for the environment that issued it: a configuration that cannot be used falls back to
+			// another environment, and the editor's token must not follow it there.
+			tokenSource = new InjectedTokenSource({ issuer: environment.issuer });
 		} else {
 			let chosen: ChosenReceivers | undefined;
 			try {
@@ -364,7 +366,11 @@ function injectedTokenEnvironment(logger: Logger): CloudEnvironment | undefined 
 	}
 	try {
 		return readCloudEnvironment({ ...process.env, [CLOUD_ENV_VARS[0]]: issued.name });
-	} catch {
+	} catch (error) {
+		// As for a configured environment: an override that cannot be used is said, not dropped in silence.
+		const message = `The Choreo Cloud settings cannot be used (${errorMessage(error)}); using the ${issued.name} environment without overrides instead.`;
+		logger.warn(message);
+		void Promise.resolve(vscode.window.showWarningMessage(message)).catch(() => undefined);
 		return issued;
 	}
 }

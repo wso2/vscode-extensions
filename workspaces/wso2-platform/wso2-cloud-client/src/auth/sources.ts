@@ -17,9 +17,10 @@
  */
 
 import { readFileSync } from "node:fs";
+import { trimBaseUrl } from "../config/environments";
 import { UnauthenticatedError } from "../errors";
 import type { PlatformClaims } from "../jwt";
-import { isExpired, readPlatformClaims } from "../jwt";
+import { decodeJwtPayload, isExpired, readPlatformClaims } from "../jwt";
 import type { SessionManager } from "./session-manager";
 import type { GetAccessTokenOptions, SessionChangeEvent, TokenSource } from "./types";
 
@@ -56,6 +57,11 @@ export interface InjectedTokenOptions {
 	/** Where the token comes from; defaults to the environment variables above. */
 	read?: () => string | undefined;
 	now?: () => Date;
+	/**
+	 * The identity provider of the environment the token is used in. A token that names another
+	 * issuer is not given out: it would be sent to an environment it was not issued for.
+	 */
+	issuer?: string;
 }
 
 /** Reads the variables an injected token may arrive in: the file form first, the cloud editor's last. */
@@ -89,15 +95,30 @@ export class InjectedTokenSource implements TokenSource {
 	private readonly read: () => string | undefined;
 	private readonly now: () => Date;
 
+	private readonly issuer: string | undefined;
+
 	constructor(options: InjectedTokenOptions = {}) {
 		this.read = options.read ?? (() => readInjectedToken());
 		this.now = options.now ?? (() => new Date());
+		this.issuer = options.issuer ? trimBaseUrl(options.issuer) : undefined;
+	}
+
+	/** Whether the token names an issuer other than the environment's; one that names none cannot be told, and is used. */
+	private issuedElsewhere(token: string): boolean {
+		const issuer = decodeJwtPayload(token)?.iss;
+		return !!this.issuer && typeof issuer === "string" && trimBaseUrl(issuer) !== this.issuer;
 	}
 
 	async getAccessToken(): Promise<string> {
 		const token = this.read();
 		if (!token) {
 			throw new UnauthenticatedError("no_session", "This editor was started without a Choreo Cloud token.");
+		}
+		if (this.issuedElsewhere(token)) {
+			throw new UnauthenticatedError(
+				"no_session",
+				"This editor's Choreo Cloud token was issued for another environment than the one in use, so it is not sent there.",
+			);
 		}
 		const claims = readPlatformClaims(token);
 		if (claims && isExpired(claims, this.now())) {
@@ -108,6 +129,6 @@ export class InjectedTokenSource implements TokenSource {
 
 	async getClaims(): Promise<PlatformClaims | undefined> {
 		const token = this.read();
-		return token ? readPlatformClaims(token) : undefined;
+		return token && !this.issuedElsewhere(token) ? readPlatformClaims(token) : undefined;
 	}
 }

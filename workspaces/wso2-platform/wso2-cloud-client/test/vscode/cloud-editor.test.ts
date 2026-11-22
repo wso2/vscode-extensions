@@ -20,7 +20,7 @@ import assert from "node:assert/strict";
 import { CLOUD_EDITOR_TOKEN_ENV, ENVIRONMENTS, INJECTED_TOKEN_ENV, INJECTED_TOKEN_FILE_ENV, hasInjectedToken, readInjectedToken } from "../../src";
 import { CLOUD_ENV_VARS, createPlatformClients } from "../../src/vscode";
 import { unsignedJwt } from "../doubles";
-import { FakeSecretStorage, resetVscode } from "../doubles/vscode";
+import { FakeSecretStorage, resetVscode, state as vscodeState } from "../doubles/vscode";
 
 /** The variables that choose an environment or hand in a token; cleared so each test sets its own. */
 const VARS = [
@@ -30,7 +30,13 @@ const VARS = [
 	CLOUD_EDITOR_TOKEN_ENV,
 	"CLOUD_API_BASE_URL",
 	"CLOUD_CONSOLE_URL",
+	// Every override the environment is read from: one inherited from the shell would decide these tests.
+	"WSO2_CLOUD_API_URL",
+	"WSO2_CLOUD_ISSUER",
+	"WSO2_CLOUD_OBSERVABILITY_URL",
 	"WSO2_CLOUD_CONSOLE_URL",
+	"WSO2_CLOUD_COPILOT_URL",
+	"WSO2_CLOUD_CLIENT_ID",
 ];
 
 /** A platform token as WSO2 Cloud's cloud editor is started with, issued by `issuer`. */
@@ -106,12 +112,40 @@ describe("WSO2 Cloud's cloud editor", () => {
 		}
 	});
 
-	it("uses the configured environment when the token's issuer is not a built-in one", () => {
+	it("uses the configured environment when the token's issuer is not a built-in one, and does not send the token there", async () => {
 		process.env[CLOUD_EDITOR_TOKEN_ENV] = editorToken("https://idp.example.invalid");
 		const platform = createPlatformClients({ extensionId: "wso2.wso2-integrator", context: context() });
 		try {
 			assert.equal(platform.injected, true);
 			assert.equal(platform.environment.name, "prod");
+			await assert.rejects(platform.tokenSource.getAccessToken(), /issued for another environment/);
+			assert.equal(await platform.tokenSource.getClaims(), undefined);
+		} finally {
+			platform.dispose();
+		}
+	});
+
+	it("does not send a development token to production when the development deployment names no API", async () => {
+		process.env.CLOUD_ENV = "dev";
+		process.env[CLOUD_EDITOR_TOKEN_ENV] = editorToken("https://accounts.dev.example.com");
+		const platform = createPlatformClients({ extensionId: "wso2.wso2-integrator", context: context() });
+		try {
+			assert.equal(platform.environment.name, "prod", "dev cannot be used without its API, so production is what is left");
+			await assert.rejects(platform.tokenSource.getAccessToken(), /issued for another environment/);
+		} finally {
+			platform.dispose();
+		}
+	});
+
+	it("says so when an override cannot be used, and stays in the environment that issued the token", () => {
+		process.env.WSO2_CLOUD_CONSOLE_URL = "http://console.example.com";
+		process.env[CLOUD_EDITOR_TOKEN_ENV] = editorToken(ENVIRONMENTS["prod-eu"].issuer);
+		const platform = createPlatformClients({ extensionId: "wso2.wso2-integrator", context: context() });
+		try {
+			assert.equal(platform.environment.name, "prod-eu");
+			assert.equal(platform.environment.consoleUrl, ENVIRONMENTS["prod-eu"].consoleUrl);
+			assert.equal(vscodeState.warnings.length, 1);
+			assert.match(vscodeState.warnings[0], /cannot be used .* using the prod-eu environment without overrides/);
 		} finally {
 			platform.dispose();
 		}
