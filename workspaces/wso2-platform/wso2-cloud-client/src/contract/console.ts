@@ -34,6 +34,17 @@ export interface ConsoleLink {
  */
 export const CONSOLE_PRODUCT_PATH = "/integration";
 
+/** The Integration Platform's root at `base`: under {@link CONSOLE_PRODUCT_PATH} on a bare host, `base` itself when it already has a path. */
+function productRoot(base: string): string {
+	let path = "";
+	try {
+		path = new URL(base).pathname.replace(/\/+$/, "");
+	} catch {
+		// Not a URL: joined as it always was.
+	}
+	return path ? base : `${base}${CONSOLE_PRODUCT_PATH}`;
+}
+
 /**
  * A link into the Integration Platform console:
  * `<console>/integration/organizations/<org>/projects/<project>/components/<integration>/<page>`,
@@ -46,7 +57,7 @@ export function buildConsoleUrl(consoleUrl: string, link: ConsoleLink = {}): str
 	if (!link.orgHandle) {
 		return base;
 	}
-	let url = `${base}${CONSOLE_PRODUCT_PATH}/organizations/${encodeURIComponent(link.orgHandle)}`;
+	let url = `${productRoot(base)}/organizations/${encodeURIComponent(link.orgHandle)}`;
 	if (link.section) {
 		const segments = link.section.split("/").filter((segment) => segment.length > 0);
 		return `${url}/${segments.map(encodeURIComponent).join("/")}`;

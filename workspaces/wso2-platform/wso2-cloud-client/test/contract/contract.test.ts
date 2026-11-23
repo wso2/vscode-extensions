@@ -67,6 +67,16 @@ describe("context document", () => {
 });
 
 describe("console links", () => {
+	it("takes a console address that has a path of its own as the Integration Platform's root", () => {
+		const link = { orgHandle: "acme", project: "orders", integration: "order-api" };
+		const page = "/organizations/acme/projects/orders/components/order-api/overview";
+		assert.equal(buildConsoleUrl("https://console.example/integration", link), `https://console.example/integration${page}`);
+		assert.equal(buildConsoleUrl("https://console.example/integration/", link), `https://console.example/integration${page}`);
+		assert.equal(buildConsoleUrl("https://console.example/integration-platform", link), `https://console.example/integration-platform${page}`);
+		assert.equal(buildConsoleUrl("https://console.example/", link), `https://console.example/integration${page}`);
+		assert.equal(buildConsoleUrl("https://console.example/integration"), "https://console.example/integration");
+	});
+
 	it("builds the organization, project and integration pages under the integration section", () => {
 		assert.equal(buildConsoleUrl("https://console.example/"), "https://console.example");
 		assert.equal(buildConsoleUrl("https://console.example", { orgHandle: "acme" }), "https://console.example/integration/organizations/acme");
