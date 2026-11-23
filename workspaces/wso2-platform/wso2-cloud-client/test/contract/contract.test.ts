@@ -67,14 +67,26 @@ describe("context document", () => {
 });
 
 describe("console links", () => {
-	it("takes a console address that has a path of its own as the Integration Platform's root", () => {
+	describe("the Integration Platform's root in a console address", () => {
 		const link = { orgHandle: "acme", project: "orders", integration: "order-api" };
 		const page = "/organizations/acme/projects/orders/components/order-api/overview";
-		assert.equal(buildConsoleUrl("https://console.example/integration", link), `https://console.example/integration${page}`);
-		assert.equal(buildConsoleUrl("https://console.example/integration/", link), `https://console.example/integration${page}`);
-		assert.equal(buildConsoleUrl("https://console.example/integration-platform", link), `https://console.example/integration-platform${page}`);
-		assert.equal(buildConsoleUrl("https://console.example/", link), `https://console.example/integration${page}`);
-		assert.equal(buildConsoleUrl("https://console.example/integration"), "https://console.example/integration");
+
+		it("is under /integration on a bare host", () => {
+			assert.equal(buildConsoleUrl("https://console.example/", link), `https://console.example/integration${page}`);
+		});
+
+		it("is the address itself when it ends in /integration, with or without a trailing slash", () => {
+			assert.equal(buildConsoleUrl("https://console.example/integration", link), `https://console.example/integration${page}`);
+			assert.equal(buildConsoleUrl("https://console.example/integration/", link), `https://console.example/integration${page}`);
+		});
+
+		it("is the address itself under any other base path", () => {
+			assert.equal(buildConsoleUrl("https://console.example/integration-platform", link), `https://console.example/integration-platform${page}`);
+		});
+
+		it("is joined as before for an address that is not a URL", () => {
+			assert.equal(buildConsoleUrl("console.example", link), `console.example/integration${page}`);
+		});
 	});
 
 	it("builds the organization, project and integration pages under the integration section", () => {
