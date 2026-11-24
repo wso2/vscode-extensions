@@ -35,18 +35,31 @@ export interface ConsoleLink {
 export const CONSOLE_PRODUCT_PATH = "/integration";
 
 /**
+ * The Integration Platform's root at `base`: under {@link CONSOLE_PRODUCT_PATH} on a bare host. An address with any
+ * path is taken as that root already, whatever the path, since a deployment chooses the console's base path.
+ */
+function productRoot(base: string): string {
+	let path = "";
+	try {
+		path = new URL(base).pathname.replace(/\/+$/, "");
+	} catch {
+		// Not a URL: joined as it always was.
+	}
+	return path ? base : `${base}${CONSOLE_PRODUCT_PATH}`;
+}
+
+/**
  * A link into the Integration Platform console:
- * `<console>/integration/organizations/<org>/projects/<project>/components/<integration>/<page>`,
- * which is the route the development console serves (confirmed 2026-11-06).
- * The project and organization pages are the same route cut short; the
- * console picks their default view.
+ * `<root>/organizations/<org>/projects/<project>/components/<integration>/<page>`, where `<root>` is
+ * {@link productRoot} of `consoleUrl`. The project and organization pages are the same route cut short; the
+ * console picks their default view. Without an organization it is `consoleUrl` itself.
  */
 export function buildConsoleUrl(consoleUrl: string, link: ConsoleLink = {}): string {
 	const base = trimBaseUrl(consoleUrl);
 	if (!link.orgHandle) {
 		return base;
 	}
-	let url = `${base}${CONSOLE_PRODUCT_PATH}/organizations/${encodeURIComponent(link.orgHandle)}`;
+	let url = `${productRoot(base)}/organizations/${encodeURIComponent(link.orgHandle)}`;
 	if (link.section) {
 		const segments = link.section.split("/").filter((segment) => segment.length > 0);
 		return `${url}/${segments.map(encodeURIComponent).join("/")}`;
