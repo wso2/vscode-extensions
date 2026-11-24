@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import {
+	CLOUD_EDITOR_COMPONENT_ENV,
+	CLOUD_EDITOR_COMPONENT_HEADER,
 	type CloudError,
+	type CreateComponentRequest,
 	buildCreateComponentRequest,
+	editorComponentHeader,
 	findComponent,
 	integrationRuntimeOf,
 	integrationTypeOf,
@@ -349,5 +353,53 @@ describe("RuntimeConfigApi links", () => {
 
 		assert.equal(fake.last()?.line, `${api("GET /components/consumer/links")}?projectName=shop`);
 		assert.deepEqual(links.endpointLinks, { "acme/consumer:ordersUrl": "shop/orders/api" });
+	});
+});
+
+describe("naming the cloud editor on a create", () => {
+	const request = { metadata: { name: "orders" }, spec: {} } as CreateComponentRequest;
+
+	it("sends the editor's own component name", async () => {
+		const { client, fake } = harness([{ match: "POST /projects/shop/components", status: 201, body: { id: "orders" } }]);
+		const previous = process.env[CLOUD_EDITOR_COMPONENT_ENV];
+		process.env[CLOUD_EDITOR_COMPONENT_ENV] = "code-server-a1b2c3d4e5f6";
+
+		try {
+			await client.components.createRaw("shop", request);
+		} finally {
+			if (previous === undefined) {
+				delete process.env[CLOUD_EDITOR_COMPONENT_ENV];
+			} else {
+				process.env[CLOUD_EDITOR_COMPONENT_ENV] = previous;
+			}
+		}
+
+		assert.equal(fake.last()?.headers[CLOUD_EDITOR_COMPONENT_HEADER.toLowerCase()], "code-server-a1b2c3d4e5f6");
+	});
+
+	// Outside a cloud editor there is no editor to bind, and an empty header
+	// would claim there is one.
+	it("sends no header when the variable is unset", async () => {
+		const { client, fake } = harness([{ match: "POST /projects/shop/components", status: 201, body: { id: "orders" } }]);
+		const previous = process.env[CLOUD_EDITOR_COMPONENT_ENV];
+		delete process.env[CLOUD_EDITOR_COMPONENT_ENV];
+
+		try {
+			await client.components.createRaw("shop", request);
+		} finally {
+			if (previous !== undefined) {
+				process.env[CLOUD_EDITOR_COMPONENT_ENV] = previous;
+			}
+		}
+
+		assert.equal(fake.last()?.headers[CLOUD_EDITOR_COMPONENT_HEADER.toLowerCase()], undefined);
+	});
+
+	it("reads the name from the environment it is given, trimming it", () => {
+		assert.deepEqual(editorComponentHeader({ [CLOUD_EDITOR_COMPONENT_ENV]: "  code-server-abc  " }), {
+			[CLOUD_EDITOR_COMPONENT_HEADER]: "code-server-abc",
+		});
+		assert.deepEqual(editorComponentHeader({}), {});
+		assert.deepEqual(editorComponentHeader({ [CLOUD_EDITOR_COMPONENT_ENV]: "   " }), {});
 	});
 });

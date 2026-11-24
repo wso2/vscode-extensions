@@ -23,6 +23,31 @@ import { projectPath } from "./projects";
 import type { Schemas } from "./schema";
 import { itemsOf } from "./schema";
 
+/**
+ * The variable WSO2 Cloud's cloud editor is started with, holding the name of
+ * the editor's own component.
+ */
+export const CLOUD_EDITOR_COMPONENT_ENV = "CLOUD_EDITOR_COMPONENT_NAME";
+
+/** The header the platform reads that name back from on a create. */
+export const CLOUD_EDITOR_COMPONENT_HEADER = "X-Cloud-Editor-Component";
+
+/**
+ * Names this cloud editor on a create, so that the platform can bind the editor
+ * to the integration it creates. The integration then reopens in the workspace
+ * it was written in, and deleting it takes that workspace with it.
+ *
+ * A create from an editor and one from the console reach the platform as the
+ * same person with the same token, so nothing but this says which is which. The
+ * name is a claim, not a credential: the platform checks the editor named is
+ * one of the caller's own before it records anything against it. Outside a
+ * cloud editor the variable is unset and no header is sent.
+ */
+export function editorComponentHeader(env: NodeJS.ProcessEnv = process.env): Record<string, string> {
+	const name = env[CLOUD_EDITOR_COMPONENT_ENV]?.trim();
+	return name ? { [CLOUD_EDITOR_COMPONENT_HEADER]: name } : {};
+}
+
 export type Component = Schemas["Component"];
 export type ComponentDetail = Schemas["ComponentDetail"];
 export type CreatedComponent = Schemas["CreatedComponent"];
@@ -286,7 +311,9 @@ export class ComponentsApi {
 	 * component exists by then either way.
 	 */
 	async createRaw(projectName: string, request: CreateComponentRequest): Promise<CreatedComponent> {
-		const created = await this.http.post<CreatedComponent | undefined>(`${projectPath(projectName)}/components`, request);
+		const created = await this.http.post<CreatedComponent | undefined>(`${projectPath(projectName)}/components`, request, {
+			headers: editorComponentHeader(),
+		});
 		return {
 			...(created as CreatedComponent),
 			id: created?.id || request.metadata.name,
