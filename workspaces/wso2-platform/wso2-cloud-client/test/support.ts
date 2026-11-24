@@ -19,10 +19,16 @@ export interface Harness {
 }
 
 /** A client against a fake API whose routes are given by path, with the API's prefix added here. */
-export function harness(routes: FakeRoute[] = [], options: { onUnauthenticated?: () => void } = {}): Harness {
+export function harness(routes: FakeRoute[] = [], options: { onUnauthenticated?: () => void; cloudEditorComponent?: string } = {}): Harness {
 	const fake = fakeFetch(routes.map(prefixed));
 	const tokens = new StaticTokenSource("t0");
-	const client = createCloudClient({ environment: DEV, tokenSource: tokens, fetch: fake.fetch, onUnauthenticated: options.onUnauthenticated });
+	const client = createCloudClient({
+		environment: DEV,
+		tokenSource: tokens,
+		fetch: fake.fetch,
+		onUnauthenticated: options.onUnauthenticated,
+		cloudEditorComponent: options.cloudEditorComponent,
+	});
 	return { client, fake, tokens };
 }
 

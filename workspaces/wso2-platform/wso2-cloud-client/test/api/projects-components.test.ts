@@ -1,11 +1,9 @@
 import assert from "node:assert/strict";
 import {
-	CLOUD_EDITOR_COMPONENT_ENV,
 	CLOUD_EDITOR_COMPONENT_HEADER,
 	type CloudError,
 	type CreateComponentRequest,
 	buildCreateComponentRequest,
-	editorComponentHeader,
 	findComponent,
 	integrationRuntimeOf,
 	integrationTypeOf,
@@ -358,48 +356,36 @@ describe("RuntimeConfigApi links", () => {
 
 describe("naming the cloud editor on a create", () => {
 	const request = { metadata: { name: "orders" }, spec: {} } as CreateComponentRequest;
+	const header = CLOUD_EDITOR_COMPONENT_HEADER.toLowerCase();
+	const created = { match: "POST /projects/shop/components", status: 201, body: { id: "orders" } };
 
 	it("sends the editor's own component name", async () => {
-		const { client, fake } = harness([{ match: "POST /projects/shop/components", status: 201, body: { id: "orders" } }]);
-		const previous = process.env[CLOUD_EDITOR_COMPONENT_ENV];
-		process.env[CLOUD_EDITOR_COMPONENT_ENV] = "code-server-a1b2c3d4e5f6";
+		const { client, fake } = harness([created], { cloudEditorComponent: "code-server-a1b2c3d4e5f6" });
 
-		try {
-			await client.components.createRaw("shop", request);
-		} finally {
-			if (previous === undefined) {
-				delete process.env[CLOUD_EDITOR_COMPONENT_ENV];
-			} else {
-				process.env[CLOUD_EDITOR_COMPONENT_ENV] = previous;
-			}
-		}
+		await client.components.createRaw("shop", request);
 
-		assert.equal(fake.last()?.headers[CLOUD_EDITOR_COMPONENT_HEADER.toLowerCase()], "code-server-a1b2c3d4e5f6");
+		assert.equal(fake.last()?.headers[header], "code-server-a1b2c3d4e5f6");
 	});
 
 	// Outside a cloud editor there is no editor to bind, and an empty header
 	// would claim there is one.
-	it("sends no header when the variable is unset", async () => {
-		const { client, fake } = harness([{ match: "POST /projects/shop/components", status: 201, body: { id: "orders" } }]);
-		const previous = process.env[CLOUD_EDITOR_COMPONENT_ENV];
-		delete process.env[CLOUD_EDITOR_COMPONENT_ENV];
+	it("sends no header when the host is not a cloud editor", async () => {
+		const { client, fake } = harness([created]);
 
-		try {
-			await client.components.createRaw("shop", request);
-		} finally {
-			if (previous !== undefined) {
-				process.env[CLOUD_EDITOR_COMPONENT_ENV] = previous;
-			}
-		}
+		await client.components.createRaw("shop", request);
 
-		assert.equal(fake.last()?.headers[CLOUD_EDITOR_COMPONENT_HEADER.toLowerCase()], undefined);
+		assert.equal(fake.last()?.headers[header], undefined);
 	});
 
-	it("reads the name from the environment it is given, trimming it", () => {
-		assert.deepEqual(editorComponentHeader({ [CLOUD_EDITOR_COMPONENT_ENV]: "  code-server-abc  " }), {
-			[CLOUD_EDITOR_COMPONENT_HEADER]: "code-server-abc",
-		});
-		assert.deepEqual(editorComponentHeader({}), {});
-		assert.deepEqual(editorComponentHeader({ [CLOUD_EDITOR_COMPONENT_ENV]: "   " }), {});
+	// `fetch` throws on a header value it cannot send, which would fail the
+	// create itself rather than the binding it was only asked to carry.
+	it("sends no header for a value that is not a component name", async () => {
+		for (const name of ["code-server-abc\n", "Code-Server-ABC", "-code-server", "code server", "   ", ""]) {
+			const { client, fake } = harness([created], { cloudEditorComponent: name });
+
+			await client.components.createRaw("shop", request);
+
+			assert.equal(fake.last()?.headers[header], undefined, `expected no header for ${JSON.stringify(name)}`);
+		}
 	});
 });

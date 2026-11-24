@@ -18,7 +18,7 @@
 
 import assert from "node:assert/strict";
 import { CLOUD_EDITOR_TOKEN_ENV, ENVIRONMENTS, INJECTED_TOKEN_ENV, INJECTED_TOKEN_FILE_ENV, hasInjectedToken, readInjectedToken } from "../../src";
-import { CLOUD_ENV_VARS, createPlatformClients } from "../../src/vscode";
+import { CLOUD_EDITOR_COMPONENT_VAR, CLOUD_ENV_VARS, createPlatformClients, readCloudEditorComponent } from "../../src/vscode";
 import { unsignedJwt } from "../doubles";
 import { FakeSecretStorage, resetVscode, state as vscodeState } from "../doubles/vscode";
 
@@ -30,6 +30,7 @@ const VARS = [
 	CLOUD_EDITOR_TOKEN_ENV,
 	"CLOUD_API_BASE_URL",
 	"CLOUD_CONSOLE_URL",
+	CLOUD_EDITOR_COMPONENT_VAR,
 	// Every override the environment is read from: one inherited from the shell would decide these tests.
 	"WSO2_CLOUD_API_URL",
 	"WSO2_CLOUD_ISSUER",
@@ -80,6 +81,15 @@ describe("WSO2 Cloud's cloud editor", () => {
 		assert.equal(readInjectedToken({ [CLOUD_EDITOR_TOKEN_ENV]: " editor " }), "editor");
 		assert.equal(readInjectedToken({ [CLOUD_EDITOR_TOKEN_ENV]: "editor", [INJECTED_TOKEN_ENV]: "named" }), "named");
 		assert.equal(hasInjectedToken({}), false);
+	});
+
+	it("takes the name of its own component, and only in an editor", () => {
+		const token = editorToken(ENVIRONMENTS.prod.issuer);
+		assert.equal(readCloudEditorComponent({ [CLOUD_EDITOR_TOKEN_ENV]: token, [CLOUD_EDITOR_COMPONENT_VAR]: " code-server-abc " }), "code-server-abc");
+		assert.equal(readCloudEditorComponent({ [CLOUD_EDITOR_TOKEN_ENV]: token }), undefined);
+		assert.equal(readCloudEditorComponent({ [CLOUD_EDITOR_TOKEN_ENV]: token, [CLOUD_EDITOR_COMPONENT_VAR]: "   " }), undefined);
+		// A desktop host runs as no component; the variable there is whatever the shell carried.
+		assert.equal(readCloudEditorComponent({ [CLOUD_EDITOR_COMPONENT_VAR]: "code-server-abc" }), undefined);
 	});
 
 	it("takes the marker the platform leaves there for a cloud editor, never for a token", async () => {

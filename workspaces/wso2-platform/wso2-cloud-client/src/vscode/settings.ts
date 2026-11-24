@@ -42,6 +42,17 @@ export const CLOUD_CLIENT_ID_VAR = "WSO2_CLOUD_CLIENT_ID";
  */
 export const CLOUD_EDITOR_API_URL_VAR = "CLOUD_API_BASE_URL";
 export const CLOUD_EDITOR_CONSOLE_URL_VAR = "CLOUD_CONSOLE_URL";
+/** The name the cloud editor is given its own component by, read in an editor started with a token, as the two above are. */
+export const CLOUD_EDITOR_COMPONENT_VAR = "CLOUD_EDITOR_COMPONENT_NAME";
+
+/**
+ * The component this host runs as, for the calls that name it to the platform.
+ * Outside an editor started with a token there is none: a desktop host runs as
+ * no component, and the variable would be whatever the shell happened to carry.
+ */
+export function readCloudEditorComponent(env: NodeJS.ProcessEnv = process.env): string | undefined {
+	return hasInjectedToken(env) ? env[CLOUD_EDITOR_COMPONENT_VAR]?.trim() || undefined : undefined;
+}
 
 /**
  * Which deployment to use: an environment variable first, then the setting,
