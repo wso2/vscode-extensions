@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import {
+	CLOUD_EDITOR_COMPONENT_HEADER,
 	type CloudError,
+	type CreateComponentRequest,
 	buildCreateComponentRequest,
 	findComponent,
 	integrationRuntimeOf,
@@ -349,5 +351,41 @@ describe("RuntimeConfigApi links", () => {
 
 		assert.equal(fake.last()?.line, `${api("GET /components/consumer/links")}?projectName=shop`);
 		assert.deepEqual(links.endpointLinks, { "acme/consumer:ordersUrl": "shop/orders/api" });
+	});
+});
+
+describe("naming the cloud editor on a create", () => {
+	const request = { metadata: { name: "orders" }, spec: {} } as CreateComponentRequest;
+	const header = CLOUD_EDITOR_COMPONENT_HEADER.toLowerCase();
+	const created = { match: "POST /projects/shop/components", status: 201, body: { id: "orders" } };
+
+	it("sends the editor's own component name", async () => {
+		const { client, fake } = harness([created], { cloudEditorComponent: "code-server-a1b2c3d4e5f6" });
+
+		await client.components.createRaw("shop", request);
+
+		assert.equal(fake.last()?.headers[header], "code-server-a1b2c3d4e5f6");
+	});
+
+	// Outside a cloud editor there is no editor to bind, and an empty header
+	// would claim there is one.
+	it("sends no header when the host is not a cloud editor", async () => {
+		const { client, fake } = harness([created]);
+
+		await client.components.createRaw("shop", request);
+
+		assert.equal(fake.last()?.headers[header], undefined);
+	});
+
+	// `fetch` throws on a header value it cannot send, which would fail the
+	// create itself rather than the binding it was only asked to carry.
+	it("sends no header for a value that is not a component name", async () => {
+		for (const name of ["code-server-abc\n", "Code-Server-ABC", "-code-server", "code server", "   ", ""]) {
+			const { client, fake } = harness([created], { cloudEditorComponent: name });
+
+			await client.components.createRaw("shop", request);
+
+			assert.equal(fake.last()?.headers[header], undefined, `expected no header for ${JSON.stringify(name)}`);
+		}
 	});
 });

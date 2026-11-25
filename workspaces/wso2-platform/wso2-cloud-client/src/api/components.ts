@@ -23,6 +23,20 @@ import { projectPath } from "./projects";
 import type { Schemas } from "./schema";
 import { itemsOf } from "./schema";
 
+/** The header the platform reads the name of a cloud editor's own component from on a create. */
+export const CLOUD_EDITOR_COMPONENT_HEADER = "X-Cloud-Editor-Component";
+
+/** The shape of a component name, the only thing this header may carry. */
+const COMPONENT_NAME = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
+
+/** The header naming this cloud editor on a create; none outside a cloud editor. */
+function editorComponentHeader(name?: string): Record<string, string> {
+	// A value that is not a component name names nothing the platform would bind,
+	// and one that is not a valid header value makes `fetch` throw instead, which
+	// would fail every create from that editor.
+	return name && COMPONENT_NAME.test(name) ? { [CLOUD_EDITOR_COMPONENT_HEADER]: name } : {};
+}
+
 export type Component = Schemas["Component"];
 export type ComponentDetail = Schemas["ComponentDetail"];
 export type CreatedComponent = Schemas["CreatedComponent"];
@@ -231,7 +245,11 @@ export function findComponent(components: Component[], ref: string): Component {
 }
 
 export class ComponentsApi {
-	constructor(private readonly http: HttpClient) {}
+	/** `cloudEditorComponent` is the cloud editor these calls are made from, if any; see {@link CLOUD_EDITOR_COMPONENT_HEADER}. */
+	constructor(
+		private readonly http: HttpClient,
+		private readonly cloudEditorComponent?: string,
+	) {}
 
 	/**
 	 * `GET /projects/{projectName}/components`: at most 100 per project, no
@@ -286,7 +304,9 @@ export class ComponentsApi {
 	 * component exists by then either way.
 	 */
 	async createRaw(projectName: string, request: CreateComponentRequest): Promise<CreatedComponent> {
-		const created = await this.http.post<CreatedComponent | undefined>(`${projectPath(projectName)}/components`, request);
+		const created = await this.http.post<CreatedComponent | undefined>(`${projectPath(projectName)}/components`, request, {
+			headers: editorComponentHeader(this.cloudEditorComponent),
+		});
 		return {
 			...(created as CreatedComponent),
 			id: created?.id || request.metadata.name,

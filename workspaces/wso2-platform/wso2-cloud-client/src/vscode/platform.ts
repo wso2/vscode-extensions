@@ -36,7 +36,7 @@ import { ApiKeys } from "./api-key";
 import type { AuthProviderRegion } from "./auth-provider";
 import { WSO2CloudAuthenticationProvider } from "./auth-provider";
 import { SecretStorageSessionStore } from "./secret-session-store";
-import { CLOUD_ENV_VARS, isCloudEnvironmentPinned, readCloudEnvName, readCloudEnvironment } from "./settings";
+import { CLOUD_ENV_VARS, isCloudEnvironmentPinned, readCloudEditorComponent, readCloudEnvName, readCloudEnvironment } from "./settings";
 import type { UriCallbackReceiver } from "./uri-callback";
 import type { ChosenReceivers } from "./uri-callback";
 import { chooseReceivers } from "./uri-callback";
@@ -276,6 +276,7 @@ class SwitchablePlatformClients implements PlatformClients {
 			tokenSource,
 			fetch: this.fetchImpl,
 			userAgent: options.userAgent,
+			cloudEditorComponent: readCloudEditorComponent(),
 			logger,
 			onUnauthenticated: (error) => {
 				// The host signs out of the region in use: a request of a region left must not end that session.

@@ -39,6 +39,13 @@ export interface CloudClientOptions {
 	fetch?: FetchLike;
 	timeoutMs?: number;
 	userAgent?: string;
+	/**
+	 * The cloud editor the host runs as, which names it on a create so that the
+	 * platform can bind the editor to the integration it creates. A claim, not a
+	 * credential: the platform checks the editor named is one of the caller's
+	 * own before it records anything against it. None outside a cloud editor.
+	 */
+	cloudEditorComponent?: string;
 	logger?: Logger;
 	onUnauthenticated?: (error: UnauthenticatedError) => void;
 }
@@ -72,7 +79,7 @@ export interface CloudClient {
 
 /** Builds the API client for one environment: one HTTP client for the API, one for the observability proxy, and a resource API over each. */
 export function createCloudClient(options: CloudClientOptions): CloudClient {
-	const { environment, ...rest } = options;
+	const { environment, cloudEditorComponent, ...rest } = options;
 	const http = new HttpClient({ ...rest, baseUrl: environment.apiBaseUrl });
 	const observabilityHttp = new HttpClient({ ...rest, baseUrl: environment.observabilityBaseUrl });
 	const environments = new EnvironmentsApi(http);
@@ -83,7 +90,7 @@ export function createCloudClient(options: CloudClientOptions): CloudClient {
 		http,
 		orgs: new OrgsApi(http),
 		projects: new ProjectsApi(http),
-		components: new ComponentsApi(http),
+		components: new ComponentsApi(http, cloudEditorComponent),
 		builds,
 		deployments: new DeploymentsApi(http, environments, pipelines, builds),
 		environments,
