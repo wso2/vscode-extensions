@@ -26,15 +26,14 @@ import { itemsOf } from "./schema";
 /** The header the platform reads the name of a cloud editor's own component from on a create. */
 export const CLOUD_EDITOR_COMPONENT_HEADER = "X-Cloud-Editor-Component";
 
-/** The shape of a component name, the only thing this header may carry. */
-const COMPONENT_NAME = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
+/** Whether `name` is a name the platform gives a component: a DNS label, as its resources are named. */
+export function isComponentName(name: string): boolean {
+	return name.length <= 63 && /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(name);
+}
 
-/** The header naming this cloud editor on a create; none outside a cloud editor. */
+/** The header naming this cloud editor on a create; none outside a cloud editor, or for a value that is not a component name. */
 function editorComponentHeader(name?: string): Record<string, string> {
-	// A value that is not a component name names nothing the platform would bind,
-	// and one that is not a valid header value makes `fetch` throw instead, which
-	// would fail every create from that editor.
-	return name && COMPONENT_NAME.test(name) ? { [CLOUD_EDITOR_COMPONENT_HEADER]: name } : {};
+	return name && isComponentName(name) ? { [CLOUD_EDITOR_COMPONENT_HEADER]: name } : {};
 }
 
 export type Component = Schemas["Component"];

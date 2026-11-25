@@ -17,6 +17,7 @@
  */
 
 import * as vscode from "vscode";
+import { isComponentName } from "../api/components";
 import { hasInjectedToken, readInjectedToken } from "../auth/sources";
 import type { CloudEnvName, CloudEnvironment } from "../config/environments";
 import { ENVIRONMENTS, assertEnvironmentConfigured, isCloudDeploymentName, isCloudEnvName, resolveCloudEnvironment } from "../config/environments";
@@ -49,9 +50,16 @@ export const CLOUD_EDITOR_COMPONENT_VAR = "CLOUD_EDITOR_COMPONENT_NAME";
  * The component this host runs as, for the calls that name it to the platform.
  * Outside an editor started with a token there is none: a desktop host runs as
  * no component, and the variable would be whatever the shell happened to carry.
+ * A value that is not a component name is none either, for every caller alike.
  */
 export function readCloudEditorComponent(env: NodeJS.ProcessEnv = process.env): string | undefined {
-	return hasInjectedToken(env) ? env[CLOUD_EDITOR_COMPONENT_VAR]?.trim() || undefined : undefined;
+	const name = hasInjectedToken(env) ? env[CLOUD_EDITOR_COMPONENT_VAR]?.trim() : undefined;
+	return name && isComponentName(name) ? name : undefined;
+}
+
+/** Whether the editor was given a value for its own component that {@link readCloudEditorComponent} does not take. */
+export function hasUnusableCloudEditorComponent(env: NodeJS.ProcessEnv = process.env): boolean {
+	return hasInjectedToken(env) && !!env[CLOUD_EDITOR_COMPONENT_VAR]?.trim() && !readCloudEditorComponent(env);
 }
 
 /**

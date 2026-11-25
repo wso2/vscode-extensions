@@ -36,7 +36,14 @@ import { ApiKeys } from "./api-key";
 import type { AuthProviderRegion } from "./auth-provider";
 import { WSO2CloudAuthenticationProvider } from "./auth-provider";
 import { SecretStorageSessionStore } from "./secret-session-store";
-import { CLOUD_ENV_VARS, isCloudEnvironmentPinned, readCloudEditorComponent, readCloudEnvName, readCloudEnvironment } from "./settings";
+import {
+	CLOUD_ENV_VARS,
+	hasUnusableCloudEditorComponent,
+	isCloudEnvironmentPinned,
+	readCloudEditorComponent,
+	readCloudEnvName,
+	readCloudEnvironment,
+} from "./settings";
 import type { UriCallbackReceiver } from "./uri-callback";
 import type { ChosenReceivers } from "./uri-callback";
 import { chooseReceivers } from "./uri-callback";
@@ -152,6 +159,9 @@ class SwitchablePlatformClients implements PlatformClients {
 		this.fetchImpl = options.fetch ?? defaultFetch;
 		this.store = new SecretStorageSessionStore(options.context.secrets);
 		this.injected = !options.tokenSource && hasInjectedToken();
+		if (hasUnusableCloudEditorComponent()) {
+			this.logger.warn("The editor's own component name is not a component name, so this editor is not named to the platform.");
+		}
 		this.configured =
 			options.environment ?? (this.injected ? injectedTokenEnvironment(this.logger) : undefined) ?? readEnvironmentOrFallback(this.logger);
 		// An environment handed in, a token the editor was started with, or one chosen by a variable or
