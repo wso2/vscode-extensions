@@ -136,7 +136,9 @@ environment is then the one whose identity provider issued the token, when it
 is a built-in one, since the cloud editor names none of its own. In such an
 editor the API and the console are also taken from `CLOUD_API_BASE_URL` and
 `CLOUD_CONSOLE_URL`, after the `WSO2_CLOUD_` variables, and an environment with
-no identity provider of its own (`dev`) takes its issuer from the token.
+no identity provider of its own (`dev`) takes its issuer from the token. The
+editor's own component name is read from `CLOUD_EDITOR_COMPONENT_NAME`, also
+only there, and names the editor on the integrations it creates.
 
 ## Developing
 

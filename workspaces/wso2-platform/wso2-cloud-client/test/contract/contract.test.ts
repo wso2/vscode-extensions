@@ -86,6 +86,7 @@ describe("console links", () => {
 
 		it("is joined as before for an address that is not a URL", () => {
 			assert.equal(buildConsoleUrl("console.example", link), `console.example/integration${page}`);
+			assert.equal(buildConsoleUrl("console.example:8080/x", link), `console.example:8080/x/integration${page}`);
 		});
 	});
 

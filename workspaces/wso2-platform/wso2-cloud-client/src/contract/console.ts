@@ -41,7 +41,9 @@ export const CONSOLE_PRODUCT_PATH = "/integration";
 function productRoot(base: string): string {
 	let path = "";
 	try {
-		path = new URL(base).pathname.replace(/\/+$/, "");
+		const url = new URL(base);
+		// Only a web address has a path to speak of: `host:8080/x` parses too, with `host:` for its scheme.
+		path = /^https?:$/.test(url.protocol) ? url.pathname.replace(/\/+$/, "") : "";
 	} catch {
 		// Not a URL: joined as it always was.
 	}

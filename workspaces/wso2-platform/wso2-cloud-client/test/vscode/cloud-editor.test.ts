@@ -18,7 +18,13 @@
 
 import assert from "node:assert/strict";
 import { CLOUD_EDITOR_TOKEN_ENV, ENVIRONMENTS, INJECTED_TOKEN_ENV, INJECTED_TOKEN_FILE_ENV, hasInjectedToken, readInjectedToken } from "../../src";
-import { CLOUD_EDITOR_COMPONENT_VAR, CLOUD_ENV_VARS, createPlatformClients, readCloudEditorComponent } from "../../src/vscode";
+import {
+	CLOUD_EDITOR_COMPONENT_VAR,
+	CLOUD_ENV_VARS,
+	createPlatformClients,
+	hasUnusableCloudEditorComponent,
+	readCloudEditorComponent,
+} from "../../src/vscode";
 import { unsignedJwt } from "../doubles";
 import { FakeSecretStorage, resetVscode, state as vscodeState } from "../doubles/vscode";
 
@@ -90,6 +96,14 @@ describe("WSO2 Cloud's cloud editor", () => {
 		assert.equal(readCloudEditorComponent({ [CLOUD_EDITOR_TOKEN_ENV]: token, [CLOUD_EDITOR_COMPONENT_VAR]: "   " }), undefined);
 		// A desktop host runs as no component; the variable there is whatever the shell carried.
 		assert.equal(readCloudEditorComponent({ [CLOUD_EDITOR_COMPONENT_VAR]: "code-server-abc" }), undefined);
+		for (const value of ["Code-Server", "code_server", "code-server-", "a".repeat(64), "code server"]) {
+			const env = { [CLOUD_EDITOR_TOKEN_ENV]: token, [CLOUD_EDITOR_COMPONENT_VAR]: value };
+			assert.equal(readCloudEditorComponent(env), undefined, value);
+			assert.equal(hasUnusableCloudEditorComponent(env), true, value);
+		}
+		assert.equal(readCloudEditorComponent({ [CLOUD_EDITOR_TOKEN_ENV]: token, [CLOUD_EDITOR_COMPONENT_VAR]: "a".repeat(63) }), "a".repeat(63));
+		assert.equal(hasUnusableCloudEditorComponent({ [CLOUD_EDITOR_TOKEN_ENV]: token, [CLOUD_EDITOR_COMPONENT_VAR]: "code-server-abc" }), false);
+		assert.equal(hasUnusableCloudEditorComponent({ [CLOUD_EDITOR_TOKEN_ENV]: token }), false);
 	});
 
 	it("takes the marker the platform leaves there for a cloud editor, never for a token", async () => {
