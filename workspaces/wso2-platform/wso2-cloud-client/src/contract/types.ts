@@ -103,6 +103,8 @@ export interface PlatformSession {
 	expiresAt: string;
 	/** `injected` when the editor was started with a token and cannot sign out. */
 	obtainedVia: StoredSession["obtainedVia"];
+	/** The platform the session is for, when it is not Choreo Cloud. */
+	platform?: string;
 }
 
 export type AuthStatus = "signed-out" | "signing-in" | "signed-in" | "expired";
@@ -165,6 +167,8 @@ export interface ContextStoreState {
 export interface PlatformEnvConfig extends CloudEnvironment {
 	billingUrl?: string;
 	managedTokensBaseUrl?: string;
+	/** The platform in use, when it is not Choreo Cloud; a consumer then asks for sessions naming it. */
+	platform?: string;
 }
 
 export interface OpenClonedDirRequest {
@@ -563,4 +567,10 @@ export interface IWso2PlatformExtensionAPI {
 		writeConnectionReference(request: { componentDir: string; name: string; resourceRef: string }): Promise<string>;
 		deleteConnectionReference(request: { componentDir: string; name: string }): void;
 	};
+
+	/**
+	 * What another platform offers beside this API, by platform name, while that platform is in use. Its shape is
+	 * the platform's own; the namespaces above throw a `NotSupportedError` for what that platform does not serve.
+	 */
+	readonly platformApis?: Readonly<Record<string, object>>;
 }

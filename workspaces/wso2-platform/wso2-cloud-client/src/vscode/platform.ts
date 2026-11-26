@@ -27,7 +27,7 @@ import { BrowserLoginTokenSource, InjectedTokenSource, hasInjectedToken, readInj
 import type { SessionChangeEvent, SessionStore, StoredSession, TokenSource } from "../auth/types";
 import type { CloudEnvName, CloudEnvironment } from "../config/environments";
 import { ENVIRONMENTS, environmentIssuedBy, missingEnvironmentUrls, regionsOf } from "../config/environments";
-import { BadRequestError, LoginError, errorMessage } from "../errors";
+import { BadRequestError, LoginError, NotSupportedError, errorMessage } from "../errors";
 import type { UnauthenticatedError } from "../errors";
 import { decodeJwtPayload } from "../jwt";
 import type { Logger } from "../logger";
@@ -51,6 +51,55 @@ import { chooseReceivers } from "./uri-callback";
 /** The `globalState` key the region the person last switched to is kept under. */
 export const CLOUD_REGION_STATE_KEY = "wso2-cloud.region";
 
+/** The `globalState` key the platform the person last switched to is kept under. */
+export const CLOUD_PLATFORM_STATE_KEY = "wso2-cloud.platform";
+
+/** The platform these clients serve themselves; any other comes from a {@link PlatformBackend}. */
+export const CHOREO_CLOUD_PLATFORM = "choreo-cloud";
+
+/** A platform the clients can switch to, as a person picks it. */
+export interface PlatformChoice {
+	name: string;
+	label: string;
+}
+
+/** What a {@link PlatformBackend} is given to build its pieces with. */
+export interface PlatformBackendHost {
+	readonly context: vscode.ExtensionContext;
+	readonly fetch: FetchLike;
+	readonly logger: Logger;
+	readonly extensionId: string;
+	readonly productName?: string;
+	readonly userAgent?: string;
+	/** Reports the API rejecting the session's token; passed on to the host only while the backend is the one in use. */
+	onUnauthenticated(error: UnauthenticatedError): void;
+}
+
+/** One build of a {@link PlatformBackend}'s pieces, used until the clients switch away from it. */
+export interface PlatformBundle {
+	/** The deployment in use; it may change while the bundle is used, as {@link onDidChangeEnvironment} reports. */
+	readonly environment: CloudEnvironment;
+	readonly sessions: SessionManager;
+	readonly tokenSource: TokenSource;
+	readonly uriReceiver?: UriCallbackSink;
+	/** The platform's own API client, as {@link PlatformClients.backendClient} hands it out. */
+	readonly client: unknown;
+	/** What the authentication provider serves while the bundle is in use; its `platform` names the backend. */
+	providerRegion(): AuthProviderRegion;
+	/** Abandons a sign-in waiting for the browser. */
+	cancelLogin(): void;
+	onDidChangeEnvironment?(listener: (environment: CloudEnvironment) => void): () => void;
+	dispose(): void;
+}
+
+/** Another platform the clients can serve beside Choreo Cloud, through the same provider and the same key. */
+export interface PlatformBackend {
+	readonly name: string;
+	readonly label: string;
+	/** Builds the platform's pieces; called each time the clients switch to it, and the result disposed when they leave. */
+	build(host: PlatformBackendHost): PlatformBundle;
+}
+
 export interface PlatformClientsOptions {
 	/** `publisher.name` of the hosting extension; the sign-in URI's authority. */
 	extensionId: string;
@@ -66,6 +115,10 @@ export interface PlatformClientsOptions {
 	onUnauthenticated?: (error: UnauthenticatedError) => void;
 	/** For tests: where the token comes from instead of the browser or the environment. */
 	tokenSource?: TokenSource;
+	/** Platforms to offer beside Choreo Cloud. None are offered in an editor whose environment or token is fixed. */
+	backends?: readonly PlatformBackend[];
+	/** The platform to start on; the one last switched to when absent, else Choreo Cloud. */
+	initialPlatform?: string;
 }
 
 /**
@@ -83,8 +136,13 @@ export interface PlatformClients extends vscode.Disposable {
 	readonly environment: CloudEnvironment;
 	/** The regions {@link switchEnvironment} can move between, the current one among them; only it where there is no choice. */
 	readonly regions: readonly CloudEnvironment[];
+	/** The platform in use: {@link CHOREO_CLOUD_PLATFORM} or a backend's name. */
+	readonly platform: string;
+	/** The platforms {@link switchPlatform} can move between, the current one among them. */
+	readonly platforms: readonly PlatformChoice[];
 	readonly sessions: SessionManager;
 	readonly tokenSource: TokenSource;
+	/** Choreo Cloud's API client; a `NotSupportedError` (`platform_mismatch`) while another platform is in use. */
 	readonly cloud: CloudClient;
 	readonly auth: WSO2CloudAuthenticationProvider;
 	/** The key the provider's sessions carry; the host's exported API answers only to it. */
@@ -106,6 +164,15 @@ export interface PlatformClients extends vscode.Disposable {
 	readonly onDidChangeEnvironment: vscode.Event<CloudEnvironment>;
 	/** The current region's session changes, whichever region that is; a switch itself is reported by {@link onDidChangeEnvironment}. */
 	onDidChangeSession(listener: (event: SessionChangeEvent) => void): () => void;
+	/**
+	 * Moves to another of {@link platforms}, and remembers it for the next start. As with a region, the session kept
+	 * for that platform becomes the one in use, the one left stays stored, and the key is replaced.
+	 */
+	switchPlatform(name: string): Promise<void>;
+	/** Fires with the platform's name after a platform switch, before {@link onDidChangeEnvironment} and the provider's report. */
+	readonly onDidChangePlatform: vscode.Event<string>;
+	/** The API client of the backend `name` names, while that platform is in use; undefined otherwise. */
+	backendClient<T>(name: string): T | undefined;
 }
 
 /** One region's own pieces: nothing in it is shared with another region. */
@@ -117,6 +184,25 @@ interface RegionClients {
 	login?: LoginFlow;
 	uriReceiver?: UriCallbackSink;
 	loginUnavailable?: string;
+}
+
+/** The pieces in use: Choreo Cloud's region, or a backend's bundle. */
+interface ActivePlatform {
+	readonly name: string;
+	readonly environment: CloudEnvironment;
+	readonly sessions: SessionManager;
+	readonly tokenSource: TokenSource;
+	readonly uriReceiver?: UriCallbackSink;
+	readonly cloud?: CloudClient;
+	readonly login?: LoginFlow;
+	readonly client?: unknown;
+	/** Set for Choreo Cloud. */
+	readonly region?: RegionClients;
+	/** Set for a backend. */
+	readonly bundle?: PlatformBundle;
+	providerRegion(): AuthProviderRegion;
+	cancelLogin(): void;
+	dispose(): void;
 }
 
 /** What the region choice is kept as: the region chosen, under the environment the settings named then. */
@@ -137,20 +223,24 @@ export function createPlatformClients(options: PlatformClientsOptions): Platform
 }
 
 class SwitchablePlatformClients implements PlatformClients {
-	readonly regions: readonly CloudEnvironment[];
 	readonly auth: WSO2CloudAuthenticationProvider;
 	readonly apiKeys = new ApiKeys();
 	readonly injected: boolean;
-	private current: RegionClients;
+	readonly platforms: readonly PlatformChoice[];
+	private readonly builtinRegions: readonly CloudEnvironment[];
+	private readonly backends: readonly PlatformBackend[];
+	private active: ActivePlatform;
 	private readonly configured: CloudEnvironment;
 	private readonly logger: Logger;
 	private readonly fetchImpl: FetchLike;
 	private readonly store: SessionStore;
 	private readonly environmentEmitter = new vscode.EventEmitter<CloudEnvironment>();
 	readonly onDidChangeEnvironment = this.environmentEmitter.event;
+	private readonly platformEmitter = new vscode.EventEmitter<string>();
+	readonly onDidChangePlatform = this.platformEmitter.event;
 	private readonly sessionListeners = new Set<(event: SessionChangeEvent) => void>();
 	private stopForwarding: () => void = () => undefined;
-	/** The region a switch is moving to, so a second one waits for it. */
+	/** The region or platform a switch is moving to, so a second one waits for it. */
 	private switching: Promise<void> = Promise.resolve();
 	private disposed = false;
 
@@ -167,37 +257,57 @@ class SwitchablePlatformClients implements PlatformClients {
 		// An environment handed in, a token the editor was started with, or one chosen by a variable or
 		// pointed elsewhere by an override is used as it is: another region would leave those behind.
 		const pinned = !!options.environment || !!options.tokenSource || this.injected || isCloudEnvironmentPinned();
-		this.regions = pinned ? [this.configured] : regionsOf(this.configured.name).map((name) => ENVIRONMENTS[name]);
-		const saved = this.savedRegion();
-		this.current = this.buildRegion(this.regions.find((region) => region.name === saved) ?? this.configured);
+		this.builtinRegions = pinned ? [this.configured] : regionsOf(this.configured.name).map((name) => ENVIRONMENTS[name]);
+		// The editor's token, or a source or environment handed in, is Choreo Cloud's: no other platform is offered.
+		const platformPinned = !!options.environment || !!options.tokenSource || this.injected;
+		this.backends = platformPinned ? [] : (options.backends ?? []).filter((backend) => backend.name !== CHOREO_CLOUD_PLATFORM);
+		this.platforms = [{ name: CHOREO_CLOUD_PLATFORM, label: "Choreo Cloud" }, ...this.backends.map(({ name, label }) => ({ name, label }))];
+
+		const initial = this.backendNamed(options.initialPlatform ?? this.savedPlatform());
+		this.active = initial ? this.buildBackend(initial) : this.buildBuiltin(this.startingRegion());
 		this.forwardSessionEvents();
 
-		this.auth = new WSO2CloudAuthenticationProvider({ ...this.providerRegion(this.current), apiKeys: this.apiKeys, logger: this.logger });
+		this.auth = new WSO2CloudAuthenticationProvider({ ...this.active.providerRegion(), apiKeys: this.apiKeys, logger: this.logger });
 		this.auth.register(options.context);
 	}
 
 	get environment(): CloudEnvironment {
-		return this.current.environment;
+		return this.active.environment;
+	}
+
+	get regions(): readonly CloudEnvironment[] {
+		return this.active.region ? this.builtinRegions : [this.active.environment];
+	}
+
+	get platform(): string {
+		return this.active.name;
 	}
 
 	get sessions(): SessionManager {
-		return this.current.sessions;
+		return this.active.sessions;
 	}
 
 	get tokenSource(): TokenSource {
-		return this.current.tokenSource;
+		return this.active.tokenSource;
 	}
 
 	get cloud(): CloudClient {
-		return this.current.cloud;
+		if (!this.active.cloud) {
+			throw new NotSupportedError(`This is not available on ${this.active.name}; it is a Choreo Cloud feature.`, { reason: "platform_mismatch" });
+		}
+		return this.active.cloud;
 	}
 
 	get login(): LoginFlow | undefined {
-		return this.current.login;
+		return this.active.login;
 	}
 
 	get uriReceiver(): UriCallbackSink | undefined {
-		return this.current.uriReceiver;
+		return this.active.uriReceiver;
+	}
+
+	backendClient<T>(name: string): T | undefined {
+		return this.active.name === name && this.active.bundle ? (this.active.client as T) : undefined;
 	}
 
 	onDidChangeSession(listener: (event: SessionChangeEvent) => void): () => void {
@@ -211,27 +321,26 @@ class SwitchablePlatformClients implements PlatformClients {
 		return run;
 	}
 
+	switchPlatform(name: string): Promise<void> {
+		const run = this.switching.then(() => this.switchPlatformNow(name));
+		this.switching = run.catch(() => undefined);
+		return run;
+	}
+
 	private async switchNow(name: CloudEnvName): Promise<void> {
 		if (this.disposed) {
 			throw new BadRequestError("Choreo Cloud cannot switch regions after the extension was disposed.");
 		}
-		if (name === this.current.environment.name) {
+		if (name === this.active.environment.name) {
 			return;
 		}
 		const target = this.regions.find((region) => region.name === name);
-		if (!target) {
+		if (!this.active.region || !target) {
 			throw new BadRequestError(
-				`Choreo Cloud cannot switch from ${this.current.environment.name} to ${name} here; the regions on offer are ${this.regions.map((region) => region.name).join(", ")}.`,
+				`${this.labelOf(this.active.name)} cannot switch from ${this.active.environment.name} to ${name} here; the regions on offer are ${this.regions.map((region) => region.name).join(", ")}.`,
 			);
 		}
-		const previous = this.current;
-		previous.login?.cancel();
-		// The clients, the provider and the key move together, before anything is awaited: no moment
-		// has the new region's clients beside the old region's provider or a key still valid for it.
-		this.current = this.buildRegion(target);
-		this.forwardSessionEvents();
-		const reported = this.auth.useRegion(this.providerRegion(this.current));
-		disposeRegion(previous);
+		const reported = this.activate(this.buildBuiltin(target));
 		this.logger.info(`Switched Choreo Cloud to ${target.name} (${target.apiBaseUrl})`);
 		// Before the provider reports the change of session, which waits for the new region's session to be read.
 		this.environmentEmitter.fire(target);
@@ -239,6 +348,118 @@ class SwitchablePlatformClients implements PlatformClients {
 		if (!this.disposed) {
 			await this.saveRegion(target.name);
 		}
+	}
+
+	private async switchPlatformNow(name: string): Promise<void> {
+		if (this.disposed) {
+			throw new BadRequestError("The platform cannot be switched after the extension was disposed.");
+		}
+		if (name === this.active.name) {
+			return;
+		}
+		const backend = this.backendNamed(name);
+		if (name !== CHOREO_CLOUD_PLATFORM && !backend) {
+			throw new BadRequestError(`${name} cannot be switched to here; the platforms on offer are ${this.platforms.map((p) => p.name).join(", ")}.`);
+		}
+		const reported = this.activate(backend ? this.buildBackend(backend) : this.buildBuiltin(this.startingRegion()));
+		this.logger.info(`Switched to ${this.labelOf(name)} (${this.active.environment.name})`);
+		// Before the provider reports the change of session, as for a region.
+		this.platformEmitter.fire(name);
+		this.environmentEmitter.fire(this.active.environment);
+		await reported;
+		if (!this.disposed) {
+			await this.savePlatform(name);
+		}
+	}
+
+	/**
+	 * Puts `next` in use. The pieces, the provider and the key move together, before anything is awaited: no moment
+	 * has the new pieces beside the old provider or a key still valid for it. The promise settles once the provider
+	 * has reported the change of session.
+	 */
+	private activate(next: ActivePlatform): Promise<void> {
+		const previous = this.active;
+		previous.cancelLogin();
+		this.active = next;
+		this.forwardSessionEvents();
+		const reported = this.auth.useRegion(next.providerRegion());
+		previous.dispose();
+		return reported;
+	}
+
+	/** Choreo Cloud's region in use: the one last switched to, when chosen under the environment the settings name now. */
+	private startingRegion(): CloudEnvironment {
+		const saved = this.savedRegion();
+		return this.builtinRegions.find((region) => region.name === saved) ?? this.configured;
+	}
+
+	private backendNamed(name: string | undefined): PlatformBackend | undefined {
+		return name ? this.backends.find((backend) => backend.name === name) : undefined;
+	}
+
+	private labelOf(name: string): string {
+		return this.platforms.find((p) => p.name === name)?.label ?? name;
+	}
+
+	/** Choreo Cloud's pieces for `environment`. */
+	private buildBuiltin(environment: CloudEnvironment): ActivePlatform {
+		const region = this.buildRegion(environment);
+		return {
+			name: CHOREO_CLOUD_PLATFORM,
+			environment: region.environment,
+			sessions: region.sessions,
+			tokenSource: region.tokenSource,
+			uriReceiver: region.uriReceiver,
+			cloud: region.cloud,
+			login: region.login,
+			region,
+			providerRegion: () => this.providerRegion(region),
+			cancelLogin: () => region.login?.cancel(),
+			dispose: () => disposeRegion(region),
+		};
+	}
+
+	/** A backend's pieces, with its environment changes passed on while it is in use. */
+	private buildBackend(backend: PlatformBackend): ActivePlatform {
+		// Filled once the backend has built its bundle; a report before then is no report of the bundle in use.
+		const built: { bundle?: PlatformBundle } = {};
+		const host: PlatformBackendHost = {
+			context: this.options.context,
+			fetch: this.fetchImpl,
+			logger: this.logger,
+			extensionId: this.options.extensionId,
+			productName: this.options.productName,
+			userAgent: this.options.userAgent,
+			onUnauthenticated: (error) => {
+				if (built.bundle && this.active.bundle === built.bundle && !this.disposed) {
+					this.options.onUnauthenticated?.(error);
+				}
+			},
+		};
+		const bundle = backend.build(host);
+		built.bundle = bundle;
+		const stopFollowing = bundle.onDidChangeEnvironment?.((environment) => {
+			if (this.active.bundle === bundle && !this.disposed) {
+				this.environmentEmitter.fire(environment);
+			}
+		});
+		return {
+			name: backend.name,
+			get environment() {
+				return bundle.environment;
+			},
+			sessions: bundle.sessions,
+			tokenSource: bundle.tokenSource,
+			uriReceiver: bundle.uriReceiver,
+			client: bundle.client,
+			bundle,
+			providerRegion: () => ({ ...bundle.providerRegion(), platform: backend.name }),
+			cancelLogin: () => bundle.cancelLogin(),
+			dispose: () => {
+				stopFollowing?.();
+				bundle.dispose();
+			},
+		};
 	}
 
 	/** Builds a region's sessions, token source, login and API client. */
@@ -290,7 +511,7 @@ class SwitchablePlatformClients implements PlatformClients {
 			logger,
 			onUnauthenticated: (error) => {
 				// The host signs out of the region in use: a request of a region left must not end that session.
-				if (this.current === region && !this.disposed) {
+				if (this.active.region === region && !this.disposed) {
 					options.onUnauthenticated?.(error);
 				}
 			},
@@ -319,7 +540,7 @@ class SwitchablePlatformClients implements PlatformClients {
 	/** Passes the current region's session changes on to {@link onDidChangeSession}'s listeners. */
 	private forwardSessionEvents(): void {
 		this.stopForwarding();
-		this.stopForwarding = this.current.sessions.onDidChange((event) => {
+		this.stopForwarding = this.active.sessions.onDidChange((event) => {
 			for (const listener of [...this.sessionListeners]) {
 				listener(event);
 			}
@@ -330,6 +551,19 @@ class SwitchablePlatformClients implements PlatformClients {
 	private savedRegion(): CloudEnvName | undefined {
 		const saved = this.options.context.globalState?.get<SavedRegion>(CLOUD_REGION_STATE_KEY);
 		return saved?.configured === this.configured.name ? saved.chosen : undefined;
+	}
+
+	/** The platform last switched to. */
+	private savedPlatform(): string | undefined {
+		return this.options.context.globalState?.get<string>(CLOUD_PLATFORM_STATE_KEY);
+	}
+
+	private async savePlatform(name: string): Promise<void> {
+		try {
+			await this.options.context.globalState?.update(CLOUD_PLATFORM_STATE_KEY, name);
+		} catch (error) {
+			this.logger.warn(`The platform could not be remembered: ${errorMessage(error)}`);
+		}
 	}
 
 	private async saveRegion(chosen: CloudEnvName): Promise<void> {
@@ -346,7 +580,8 @@ class SwitchablePlatformClients implements PlatformClients {
 		this.stopForwarding();
 		this.sessionListeners.clear();
 		this.environmentEmitter.dispose();
-		disposeRegion(this.current);
+		this.platformEmitter.dispose();
+		this.active.dispose();
 	}
 }
 
