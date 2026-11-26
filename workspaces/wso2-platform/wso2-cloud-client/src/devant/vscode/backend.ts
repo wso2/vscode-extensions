@@ -1,0 +1,182 @@
+/**
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ *
+ * WSO2 LLC. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import * as vscode from "vscode";
+import { SessionManager } from "../../auth/session-manager";
+import { BrowserLoginTokenSource } from "../../auth/sources";
+import type { CloudEnvName, CloudEnvironment } from "../../config/environments";
+import { LoginError, errorMessage } from "../../errors";
+import type { PlatformBackend, PlatformBackendHost, PlatformBundle } from "../../vscode/platform";
+import { SecretStorageSessionStore } from "../../vscode/secret-session-store";
+import { DevantLogin, switchOrganization } from "../auth/login";
+import type { DevantOrganization, DevantStoredSession } from "../auth/session";
+import { devantRefresher, isDevantSession } from "../auth/session";
+import type { DevantDeployment, DevantRegion } from "../environments";
+import { asCloudEnvironment, devantDeployment } from "../environments";
+import { DevantUriReceiver } from "./uri-receiver";
+
+export const DEVANT_PLATFORM = "devant";
+export const DEVANT_LABEL = "Devant";
+/** Where the region last signed in to is kept, so the next sign-in starts on its console. */
+export const DEVANT_REGION_STATE_KEY = "wso2-cloud.devant.region";
+/** The namespace Devant's sessions are stored under, apart from Choreo Cloud's. */
+export const DEVANT_SESSION_NAMESPACE = "devant";
+
+/** What a host reaches Devant through beyond the shared pieces, as `backendClient("devant")` answers it. */
+export interface DevantClient {
+	readonly deployments: Readonly<Record<DevantRegion, DevantDeployment>>;
+	/** The region in use: the session's, else the one last signed in to. */
+	readonly region: DevantRegion;
+	deployment(): DevantDeployment;
+	session(): Promise<DevantStoredSession | undefined>;
+	/** The organizations the person signed in can switch to; none when signed out. */
+	organizations(): Promise<DevantOrganization[]>;
+	/** Moves the session to another of the person's organizations, with no browser. */
+	selectOrganization(handle: string): Promise<DevantStoredSession>;
+}
+
+export interface DevantBackendOptions {
+	/** The deployment to reach, as the host's configuration names it; `prod-eu` is the same deployment as `prod`. */
+	deployment?: CloudEnvName;
+	env?: NodeJS.ProcessEnv;
+	/** For tests: the time sessions are stamped with. */
+	now?: () => Date;
+}
+
+/**
+ * Devant as a platform the clients can switch to. Undefined when the deployment is not described: development and
+ * staging are, only through the file `WSO2_DEVANT_CONFIG` names.
+ */
+export function devantBackend(options: DevantBackendOptions = {}): PlatformBackend | undefined {
+	const name = options.deployment ?? "prod";
+	const deployments = devantDeployment(name, options.env);
+	if (!deployments) {
+		return undefined;
+	}
+	return {
+		name: DEVANT_PLATFORM,
+		label: DEVANT_LABEL,
+		build: (host) => buildDevant(host, deployments, options.now),
+	};
+}
+
+function buildDevant(host: PlatformBackendHost, deployments: Readonly<Record<DevantRegion, DevantDeployment>>, now?: () => Date): PlatformBundle {
+	const { context, fetch, logger } = host;
+	const keyEnvironment: CloudEnvironment = { ...asCloudEnvironment(deployments.US), name: deployments.US.deployment };
+	const sessions = new SessionManager({
+		env: keyEnvironment,
+		store: new SecretStorageSessionStore(context.secrets, DEVANT_SESSION_NAMESPACE),
+		fetch,
+		logger,
+		now,
+		refresher: devantRefresher(deployments, fetch),
+		serviceName: DEVANT_LABEL,
+	});
+	const tokenSource = new BrowserLoginTokenSource(sessions);
+	const receiver = new DevantUriReceiver(host.extensionId);
+	const login = new DevantLogin({
+		deployments,
+		fetch,
+		callback: receiver,
+		logger,
+		now,
+		openBrowser: async (url) => {
+			if (!(await vscode.env.openExternal(vscode.Uri.parse(url)))) {
+				throw new LoginError("cancelled", "The Devant sign-in page was not opened.");
+			}
+		},
+	});
+
+	const listeners = new Set<(environment: CloudEnvironment) => void>();
+	let region: DevantRegion = context.globalState.get<string>(DEVANT_REGION_STATE_KEY) === "EU" ? "EU" : "US";
+	let disposed = false;
+
+	const follow = (session: DevantStoredSession | undefined) => {
+		if (disposed || !session || session.devant.region === region) {
+			return;
+		}
+		region = session.devant.region;
+		void Promise.resolve(context.globalState.update(DEVANT_REGION_STATE_KEY, region)).catch(() => undefined);
+		const environment = asCloudEnvironment(deployments[region]);
+		for (const listener of listeners) {
+			listener(environment);
+		}
+	};
+	const current = async (): Promise<DevantStoredSession | undefined> => {
+		const session = await sessions.current();
+		return isDevantSession(session) ? session : undefined;
+	};
+	const refollow = () => {
+		current().then(follow, (error) => logger.warn(`The Devant session could not be read: ${errorMessage(error)}`));
+	};
+	const stopWatching = sessions.onDidChange(refollow);
+	refollow();
+
+	const client: DevantClient = {
+		deployments,
+		get region() {
+			return region;
+		},
+		deployment: () => deployments[region],
+		session: current,
+		organizations: async () => (await current())?.devant.organizations ?? [],
+		selectOrganization: async (handle) => {
+			const session = await current();
+			if (!session) {
+				throw new LoginError("provider_error", "Sign in to Devant before choosing an organization.");
+			}
+			const org = session.devant.organizations.find((item) => item.handle === handle);
+			if (!org) {
+				throw new LoginError("provider_error", `You do not belong to a Devant organization ${handle}.`);
+			}
+			const next = await switchOrganization(session, org, deployments, fetch, now?.());
+			await sessions.setSession(next);
+			return next;
+		},
+	};
+
+	return {
+		get environment() {
+			return asCloudEnvironment(deployments[region]);
+		},
+		sessions,
+		tokenSource,
+		uriReceiver: receiver,
+		client,
+		providerRegion: () => ({
+			env: asCloudEnvironment(deployments[region]),
+			sessions,
+			tokenSource,
+			startLogin: async () => login.run({ region, organization: (await current().catch(() => undefined))?.org.handle }),
+			cancelLogin: () => login.cancel(),
+		}),
+		cancelLogin: () => login.cancel(),
+		onDidChangeEnvironment: (listener) => {
+			listeners.add(listener);
+			return () => listeners.delete(listener);
+		},
+		dispose: () => {
+			disposed = true;
+			listeners.clear();
+			stopWatching();
+			login.cancel();
+			receiver.dispose();
+			sessions.dispose();
+		},
+	};
+}

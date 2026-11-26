@@ -16,4 +16,11 @@ describe("package hygiene", () => {
 		const offenders = sources(root).filter((file) => /(import|export) \{[^}]*\btype /.test(readFileSync(file, "utf8")));
 		assert.deepEqual(offenders, []);
 	});
+
+	it("keeps Devant to src/devant, so deleting that folder leaves the rest building", () => {
+		const root = join(__dirname, "..", "src");
+		const devant = join(root, "devant");
+		const offenders = sources(root).filter((file) => !file.startsWith(devant) && /from "[./]*\/devant(\/|")/.test(readFileSync(file, "utf8")));
+		assert.deepEqual(offenders, []);
+	});
 });

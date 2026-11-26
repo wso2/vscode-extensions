@@ -103,6 +103,9 @@ export const env = {
 	get remoteName() {
 		return state.remoteName;
 	},
+	async asExternalUri(uri: Uri): Promise<Uri> {
+		return uri;
+	},
 	async openExternal(uri: Uri): Promise<boolean> {
 		state.opened.push(uri.toString());
 		return state.openExternalAnswer;
