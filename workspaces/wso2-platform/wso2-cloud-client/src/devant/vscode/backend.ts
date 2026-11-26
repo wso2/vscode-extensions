@@ -23,6 +23,8 @@ import type { CloudEnvName, CloudEnvironment } from "../../config/environments";
 import { LoginError, errorMessage } from "../../errors";
 import type { PlatformBackend, PlatformBackendHost, PlatformBundle } from "../../vscode/platform";
 import { SecretStorageSessionStore } from "../../vscode/secret-session-store";
+import { DevantApiClient } from "../api/client";
+import { DevantHttp } from "../api/http";
 import { DevantLogin, switchOrganization } from "../auth/login";
 import type { DevantOrganization, DevantStoredSession } from "../auth/session";
 import { devantRefresher, isDevantSession } from "../auth/session";
@@ -39,6 +41,8 @@ export const DEVANT_SESSION_NAMESPACE = "devant";
 
 /** What a host reaches Devant through beyond the shared pieces, as `backendClient("devant")` answers it. */
 export interface DevantClient {
+	/** Devant's API, with the Choreo CLI editor client's methods, on the session in use. */
+	readonly api: DevantApiClient;
 	readonly deployments: Readonly<Record<DevantRegion, DevantDeployment>>;
 	/** The region in use: the session's, else the one last signed in to. */
 	readonly region: DevantRegion;
@@ -127,7 +131,16 @@ function buildDevant(host: PlatformBackendHost, deployments: Readonly<Record<Dev
 	const stopWatching = sessions.onDidChange(refollow);
 	refollow();
 
+	const http = new DevantHttp({
+		deployment: () => deployments[region],
+		tokenSource,
+		fetch,
+		logger,
+		userAgent: host.userAgent,
+		onUnauthenticated: (error) => host.onUnauthenticated(error),
+	});
 	const client: DevantClient = {
+		api: new DevantApiClient(http, async () => (await current())?.devant.organizations ?? []),
 		deployments,
 		get region() {
 			return region;

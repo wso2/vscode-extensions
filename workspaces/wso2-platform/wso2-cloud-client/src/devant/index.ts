@@ -24,3 +24,8 @@ export { devantRefresher, isDevantSession, sessionFor, validateUser } from "./au
 export { exchangeConsoleCode, exchangeForOrganization, refreshOrganizationTokens } from "./auth/tokens";
 export type { DevantDeployment, DevantRegion } from "./environments";
 export { DEVANT_CONFIG_VAR, DEVANT_PRODUCTION, DEVANT_REGIONS, asCloudEnvironment, devantDeployment } from "./environments";
+export { DevantApiClient } from "./api/client";
+export type { DevantHttpOptions, GraphqlOptions } from "./api/http";
+export { DEVANT_SERVICE, DevantHttp, gql } from "./api/http";
+export { projectHandle } from "./api/projects";
+export { parseGitUrl } from "./api/repos";

@@ -127,6 +127,11 @@ describe("Devant as a platform", () => {
 			assert.equal(platform.environment.apiBaseUrl, EU.apiHost);
 			assert.deepEqual(environments, [EU.apiHost]);
 			assert.equal(globalState.get(DEVANT_REGION_STATE_KEY), "EU");
+			fake.route({ match: "POST /projects/1.0.0/graphql", body: { data: { projects: [{ id: "p1" }] } } });
+			assert.deepEqual(await client.api.getProjects("101"), [{ id: "p1" }]);
+			const call = fake.last("POST /projects/1.0.0/graphql");
+			assert.equal(call?.url.host, "apis.eu.choreo.dev", "the API follows the region signed in to");
+			assert.equal(call?.headers.authorization, `Bearer ${(await platform.sessions.current())?.tokens.accessToken}`);
 			assert.ok(await secrets.get("wso2-cloud.devant.session.prod"), "Devant's session is kept apart from Choreo Cloud's");
 			assert.equal(await secrets.get("wso2-cloud.session.prod"), undefined);
 
