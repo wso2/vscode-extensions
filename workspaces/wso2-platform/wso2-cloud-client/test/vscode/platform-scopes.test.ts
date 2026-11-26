@@ -60,7 +60,10 @@ describe("sessions of another platform", () => {
 
 	it("are refused a sign-in a request starts without naming the platform", async () => {
 		const { auth } = await signedInProvider("devant");
+		const refused: string[] = [];
+		auth.onDidRefuseUnawareRequest(({ platform }) => refused.push(platform));
 		await assert.rejects(auth.createSession(["env:dev"]), /which the extension asking does not support/);
+		assert.deepEqual(refused, ["devant"]);
 	});
 
 	it("leave the default platform's sessions to requests that name no platform", async () => {

@@ -99,6 +99,9 @@ export interface AuthProviderDeps extends AuthProviderRegion {
 export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationProvider, vscode.Disposable {
 	private readonly emitter = new vscode.EventEmitter<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>();
 	readonly onDidChangeSessions = this.emitter.event;
+	private readonly refusedEmitter = new vscode.EventEmitter<{ platform: string }>();
+	/** Fires when an extension that names no platform asks while another platform's session is in use, and is refused. */
+	readonly onDidRefuseUnawareRequest = this.refusedEmitter.event;
 	private readonly logger: Logger;
 	/** The session last handed out, so its removal can be reported. */
 	private last?: vscode.AuthenticationSession;
@@ -249,6 +252,9 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 		if (!this.serves(scopes)) {
 			const platform = region.platform;
 			const unaware = platform && !scopes.some((scope) => scope.startsWith(PLATFORM_SCOPE_PREFIX));
+			if (unaware) {
+				this.refusedEmitter.fire({ platform });
+			}
 			throw new LoginError(
 				"provider_error",
 				unaware
@@ -384,6 +390,7 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 	dispose(): void {
 		this.stopListening();
 		this.emitter.dispose();
+		this.refusedEmitter.dispose();
 	}
 }
 
