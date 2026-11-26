@@ -44,7 +44,7 @@ import {
 	readCloudEnvName,
 	readCloudEnvironment,
 } from "./settings";
-import type { UriCallbackReceiver } from "./uri-callback";
+import type { UriCallbackReceiver, UriCallbackSink } from "./uri-callback";
 import type { ChosenReceivers } from "./uri-callback";
 import { chooseReceivers } from "./uri-callback";
 
@@ -92,7 +92,7 @@ export interface PlatformClients extends vscode.Disposable {
 	/** Set when sign-in happens in the browser; absent in a cloud editor started with a token. */
 	readonly login?: LoginFlow;
 	/** The URI receiver to feed from the extension's `handleUri`, when the sign-in comes back that way. */
-	readonly uriReceiver?: UriCallbackReceiver;
+	readonly uriReceiver?: UriCallbackSink;
 	/** Whether the editor was started with a token, which cannot be signed out of. */
 	readonly injected: boolean;
 	/**
@@ -115,7 +115,7 @@ interface RegionClients {
 	tokenSource: TokenSource;
 	cloud: CloudClient;
 	login?: LoginFlow;
-	uriReceiver?: UriCallbackReceiver;
+	uriReceiver?: UriCallbackSink;
 	loginUnavailable?: string;
 }
 
@@ -196,7 +196,7 @@ class SwitchablePlatformClients implements PlatformClients {
 		return this.current.login;
 	}
 
-	get uriReceiver(): UriCallbackReceiver | undefined {
+	get uriReceiver(): UriCallbackSink | undefined {
 		return this.current.uriReceiver;
 	}
 

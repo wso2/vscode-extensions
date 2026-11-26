@@ -30,27 +30,31 @@ import { CLOUD_ENV_NAMES } from "../config/environments";
  * it, so a change one window makes is reported to the others.
  */
 export class SecretStorageSessionStore implements SessionStore {
-	constructor(private readonly secrets: vscode.SecretStorage) {}
+	/** `namespace` keeps a platform's sessions apart from the default ones; see {@link sessionKey}. */
+	constructor(
+		private readonly secrets: vscode.SecretStorage,
+		private readonly namespace?: string,
+	) {}
 
 	/** The session kept for `env` in SecretStorage, if any and readable. */
 	async load(env: CloudEnvName): Promise<StoredSession | undefined> {
-		return parseStoredSession(await this.secrets.get(sessionKey(env)));
+		return parseStoredSession(await this.secrets.get(sessionKey(env, this.namespace)));
 	}
 
 	/** Keeps the session in SecretStorage. */
 	async save(session: StoredSession): Promise<void> {
-		await this.secrets.store(sessionKey(session.env), JSON.stringify(session));
+		await this.secrets.store(sessionKey(session.env, this.namespace), JSON.stringify(session));
 	}
 
 	/** Removes the session for `env` from SecretStorage. */
 	async clear(env: CloudEnvName): Promise<void> {
-		await this.secrets.delete(sessionKey(env));
+		await this.secrets.delete(sessionKey(env, this.namespace));
 	}
 
 	/** Reports a change to an environment's session key, whichever window made it. */
 	onDidChange(listener: (env: CloudEnvName) => void): () => void {
 		const subscription = this.secrets.onDidChange((event) => {
-			const env = CLOUD_ENV_NAMES.find((name) => sessionKey(name) === event.key);
+			const env = CLOUD_ENV_NAMES.find((name) => sessionKey(name, this.namespace) === event.key);
 			if (env) {
 				listener(env);
 			}

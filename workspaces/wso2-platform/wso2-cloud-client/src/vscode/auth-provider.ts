@@ -46,6 +46,11 @@ export function scopeForOrg(handle: string): string {
 	return `org:${handle}`;
 }
 
+/** The scope that names the platform a session is for, when it is not the default one. */
+export function scopeForPlatform(platform: string): string {
+	return `platform:${platform}`;
+}
+
 /** What the provider needs of the region it serves; {@link WSO2CloudAuthenticationProvider.useRegion} replaces it. */
 export interface AuthProviderRegion {
 	env: CloudEnvironment;
@@ -59,6 +64,13 @@ export interface AuthProviderRegion {
 	loginUnavailable?: string;
 	/** Fills in what only the API knows about the organization, once per session. */
 	resolveOrg?: (session: StoredSession) => Promise<OrgInfo>;
+	/**
+	 * The platform the region's sessions are for, when it is not the default one. Its sessions then go only to a
+	 * request that names it ({@link scopeForPlatform}) along with an environment, and a request naming another
+	 * platform gets none of the default's: an extension that knows only the default platform never gets a key to
+	 * another one.
+	 */
+	platform?: string;
 }
 
 export interface AuthProviderDeps extends AuthProviderRegion {
@@ -167,11 +179,19 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 		return registration;
 	}
 
-	/** Whether `scopes` name a region of this provider's deployment, or name none. */
+	/** Whether `scopes` name a region of this provider's deployment, or name none, and name the platform served. */
 	private serves(scopes: readonly string[] | undefined): boolean {
 		const named = (scopes ?? []).filter((s) => s.startsWith("env:"));
 		const served = regionsOf(this.region.env.name).map(scopeForEnv);
-		return named.length === 0 || named.some((s) => served.includes(s));
+		if (named.length > 0 && !named.some((s) => served.includes(s))) {
+			return false;
+		}
+		const platforms = (scopes ?? []).filter((s) => s.startsWith("platform:"));
+		const platform = this.region.platform;
+		if (!platform) {
+			return platforms.length === 0;
+		}
+		return platforms.includes(scopeForPlatform(platform)) || (named.length === 0 && platforms.length === 0);
 	}
 
 	/**
@@ -225,7 +245,10 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 	async createSession(scopes: readonly string[]): Promise<vscode.AuthenticationSession> {
 		const region = this.region;
 		if (!this.serves(scopes)) {
-			throw new LoginError("provider_error", `This provider signs in to ${region.env.name}; ${scopes.join(" ")} names another environment.`);
+			throw new LoginError(
+				"provider_error",
+				`This provider signs in to ${region.platform ? `${region.platform} ` : ""}${region.env.name}; ${scopes.join(" ") || "the request"} names another platform or environment.`,
+			);
 		}
 		if (!region.startLogin) {
 			if (region.tokenSource.kind === "injected") {
@@ -290,7 +313,8 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 	 */
 	async removeSession(id: string): Promise<void> {
 		// The manager checks the id against the session it holds as it ends it; one of a region left is retired and ends nothing.
-		await this.region.sessions.signOut({ revoke: true, only: (session) => sessionId(session) === id });
+		const platform = this.region.platform;
+		await this.region.sessions.signOut({ revoke: true, only: (session) => sessionId(session, platform) === id });
 	}
 
 	/**
@@ -313,10 +337,10 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 			const org = orgOf(claims);
 			const account = accountOf(claims);
 			return {
-				id: sessionId({ env: this.region.env.name, account, org }),
+				id: sessionId({ env: this.region.env.name, account, org }, this.region.platform),
 				accessToken: this.deps.apiKeys.current(),
 				account: { id: account.id, label: `${account.label} (${org.name})` },
-				scopes: [scopeForEnv(this.region.env.name), scopeForOrg(org.handle)],
+				scopes: this.scopesOf(this.region.env.name, org.handle),
 			};
 		} catch (error) {
 			this.logger.warn(`The editor's Choreo Cloud token could not be read: ${errorMessage(error)}`);
@@ -337,11 +361,17 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 	/** A stored session as VS Code shows and hands it out, with the key in place of its token. */
 	toSession(session: StoredSession): vscode.AuthenticationSession {
 		return {
-			id: sessionId(session),
+			id: sessionId(session, this.region.platform),
 			accessToken: this.deps.apiKeys.current(),
 			account: { id: session.account.id, label: `${session.account.label} (${session.org.name})` },
-			scopes: [scopeForEnv(session.env), scopeForOrg(session.org.handle)],
+			scopes: this.scopesOf(session.env, session.org.handle),
 		};
+	}
+
+	/** The scopes a session of the region served carries. */
+	private scopesOf(env: CloudEnvName, orgHandle: string): string[] {
+		const platform = this.region.platform;
+		return [scopeForEnv(env), scopeForOrg(orgHandle), ...(platform ? [scopeForPlatform(platform)] : [])];
 	}
 
 	/** Stops listening to the session manager. */
@@ -351,7 +381,8 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 	}
 }
 
-/** Stable across refreshes: the environment, the person and the organization. */
-export function sessionId(session: Pick<StoredSession, "env" | "account" | "org">): string {
-	return createHash("sha256").update(`${session.env}|${session.account.id}|${session.org.id}`).digest("hex").slice(0, 16);
+/** Stable across refreshes: the platform when not the default one, the environment, the person and the organization. */
+export function sessionId(session: Pick<StoredSession, "env" | "account" | "org">, platform?: string): string {
+	const prefix = platform ? `${platform}|` : "";
+	return createHash("sha256").update(`${prefix}${session.env}|${session.account.id}|${session.org.id}`).digest("hex").slice(0, 16);
 }
