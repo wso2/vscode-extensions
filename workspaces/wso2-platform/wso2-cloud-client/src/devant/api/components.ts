@@ -62,7 +62,8 @@ const PROXY_COMPONENT_FIELDS = `${COMPONENT_FIELDS}, repository { ${REPOSITORY_F
 
 const GIT_PROXY = "gitProxy";
 /** Where the code server image is pulled from. */
-const SAMPLES_REGISTRY_HOST = "choreoanonymouspullable.azurecr.io";
+/** The public registry Devant's sample and system images are pulled from. */
+export const SAMPLES_REGISTRY_HOST = "choreoanonymouspullable.azurecr.io";
 /** At most this many component reads run at once when a list is filled in. */
 const FAN_OUT = 4;
 
@@ -744,7 +745,8 @@ function yamlString(value: string): string {
 }
 
 /** The registry Devant's sample images are pulled from, registered for the organization when it is not yet. */
-async function samplesRegistry(http: DevantHttp, orgUuid: string): Promise<string> {
+/** The id of the samples registry, registered for the organization when it is not yet. */
+export async function samplesRegistry(http: DevantHttp, orgUuid: string): Promise<string> {
 	const path = `${DEVOPS_API}/api/v1/container-registries`;
 	const query = { organization_id: orgUuid };
 	const find = async () => {
