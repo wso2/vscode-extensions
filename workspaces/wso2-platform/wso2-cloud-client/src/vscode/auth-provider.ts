@@ -47,8 +47,10 @@ export function scopeForOrg(handle: string): string {
 }
 
 /** The scope that names the platform a session is for, when it is not the default one. */
+const PLATFORM_SCOPE_PREFIX = "platform:";
+
 export function scopeForPlatform(platform: string): string {
-	return `platform:${platform}`;
+	return `${PLATFORM_SCOPE_PREFIX}${platform}`;
 }
 
 /** What the provider needs of the region it serves; {@link WSO2CloudAuthenticationProvider.useRegion} replaces it. */
@@ -245,9 +247,13 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 	async createSession(scopes: readonly string[]): Promise<vscode.AuthenticationSession> {
 		const region = this.region;
 		if (!this.serves(scopes)) {
+			const platform = region.platform;
+			const unaware = platform && !scopes.some((scope) => scope.startsWith(PLATFORM_SCOPE_PREFIX));
 			throw new LoginError(
 				"provider_error",
-				`This provider signs in to ${region.platform ? `${region.platform} ` : ""}${region.env.name}; ${scopes.join(" ") || "the request"} names another platform or environment.`,
+				unaware
+					? `The session in use is for ${platform}, which the extension asking does not support. Update it, or switch to Choreo Cloud.`
+					: `This provider signs in to ${platform ? `${platform} ` : ""}${region.env.name}; ${scopes.join(" ") || "the request"} names another platform or environment.`,
 			);
 		}
 		if (!region.startLogin) {

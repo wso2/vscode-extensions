@@ -140,6 +140,8 @@ export function organizationClaims(
 		exp,
 		email: idp.email ?? user.userEmail,
 		name: idp.name ?? user.displayName,
+		// The user service's picture; the token service's tokens carry none.
+		...(user.userProfilePictureUrl?.startsWith("https://") ? { picture: user.userProfilePictureUrl } : {}),
 	};
 }
 

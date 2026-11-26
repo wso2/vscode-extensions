@@ -88,6 +88,7 @@ describe("Devant sign-in", () => {
 		assert.equal(session.account.label, "dev@example.com");
 		assert.equal(session.tokens.refreshToken, "rt-beta");
 		assert.equal(session.claims.ouHandle, "beta");
+		assert.equal(session.claims.picture, "https://pictures.example.invalid/dev.png");
 		assert.deepEqual(
 			session.devant.organizations.map((org) => org.handle),
 			["acme", "beta"],
