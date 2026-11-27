@@ -72,6 +72,7 @@ export function fakeDevant(
 							body: {
 								displayName: "Dev",
 								userEmail: "dev@example.com",
+								userProfilePictureUrl: "https://pictures.example.invalid/dev.png",
 								idpId: "idp-user-1",
 								userId: "user-1",
 								organizations: options.organizations ?? ORGS,

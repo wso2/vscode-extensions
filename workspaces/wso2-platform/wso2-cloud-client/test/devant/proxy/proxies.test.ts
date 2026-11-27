@@ -179,6 +179,17 @@ describe("Devant local proxies", () => {
 		assert.match((error as Error).message, /no server found running on port 1/);
 	});
 
+	it("stops the proxies running when the session they were started for ends, and starts again after", async () => {
+		const api = devant(bridge.url);
+		proxies = new DevantProxies(api.http, { organizations: ORGANIZATIONS });
+		const first = await proxies.start({ orgId: "101", project: "shop" });
+		await proxies.stopAll();
+		assert.deepEqual(proxies.ports(), []);
+		await assert.rejects(viaProxy(first.proxyServerPort, "http://a.internal/"), /ECONNREFUSED/);
+		const again = await proxies.start({ orgId: "101", project: "shop" });
+		assert.deepEqual(proxies.ports(), [again.proxyServerPort]);
+	});
+
 	it("closes every proxy it started when disposed", async () => {
 		const api = devant(bridge.url);
 		proxies = new DevantProxies(api.http, { organizations: ORGANIZATIONS });

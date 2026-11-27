@@ -17,6 +17,8 @@ No runtime dependencies. `vscode` is an optional peer, needed only by the
 | `@wso2/wso2-cloud-client/vscode` | The `wso2-cloud` authentication provider, a SecretStorage session store, the URI callback receiver, settings readers and `createPlatformClients`, which wires all of it for an extension host. |
 | `@wso2/wso2-cloud-client/contract` | The extension contract, its vocabulary, `buildConsoleUrl` and the context document only: no Node built-ins, so a webview bundle can import it. The root entry pulls in the loopback listener and the token sources, which need `node:http`, `node:crypto` and `node:fs`, and webpack refuses those in a browser target. |
 | `@wso2/wso2-cloud-client/openapi` | The types generated from the platform's OpenAPI document. |
+| `@wso2/wso2-cloud-client/devant` | Devant, the platform Choreo Cloud replaces, for the people still on it: its sign-in, an API client with the Choreo CLI editor client's methods (`DevantApiClient`) and the local connect proxy. Its declarations use types from `@wso2/wso2-platform-core`, which a consumer must have. Kept in `src/devant` alone, to be deleted whole when the migration ends. |
+| `@wso2/wso2-cloud-client/devant/vscode` | `devantBackend()`, which offers Devant to `createPlatformClients` as a platform beside Choreo Cloud. |
 
 ## How the pieces fit
 
@@ -83,6 +85,22 @@ context.subscriptions.push(
 ```
 
 Without it, a sign-in that comes back by URI waits until it times out.
+
+## Other platforms
+
+`createPlatformClients({ backends })` offers other platforms beside Choreo
+Cloud; `switchPlatform(name)` moves between them while the editor runs, as
+`switchEnvironment` moves between production's regions, and each keeps its own
+session. None is offered when an environment, a token source or a token is
+handed to the editor, as in the cloud editor.
+
+A platform's sessions go only to a request that names it with the scope
+`platform:<name>` (`scopeForPlatform`), beside the `env:` scope: an extension
+that knows only Choreo Cloud is refused, and `onDidRefuseUnawareRequest` on the
+provider tells the host so it can say which extension needs an update.
+
+Devant's production regions are built in. Another Devant deployment is
+described by the JSON file the variable `WSO2_DEVANT_CONFIG` names.
 
 ## Environments
 
@@ -154,4 +172,5 @@ these declarations still run TypeScript 4.2, so the source uses `import type`
 and `export type` statements rather than inline `type` modifiers, which older
 compilers cannot parse. And the host extensions resolve modules the classic
 Node way, which ignores `exports`, so `typesVersions` in package.json maps
-the `./contract`, `./vscode` and `./openapi` subpaths to their declarations.
+the `./contract`, `./vscode`, `./openapi`, `./devant` and `./devant/vscode`
+subpaths to their declarations.

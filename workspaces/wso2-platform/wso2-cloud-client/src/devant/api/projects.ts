@@ -59,7 +59,7 @@ export async function createProject(http: DevantHttp, params: CreateProjectReq):
 		{
 			mapStatus: (status, body, text) =>
 				status === 403 && errorField(text, "metadata", "additionalData") === "MAX_PROJECT_LIMIT_REACHED"
-					? new PlanLimitError("The organization has as many projects as its Devant plan allows.", { status, apiMessage: body.message })
+					? new PlanLimitError("The organization has as many projects as its WSO2 Cloud plan allows.", { status, apiMessage: body.message })
 					: undefined,
 		},
 	);

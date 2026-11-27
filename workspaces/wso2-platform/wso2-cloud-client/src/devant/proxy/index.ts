@@ -54,7 +54,8 @@ export interface DevantProxiesOptions {
  */
 export class DevantProxies {
 	private readonly servers = new Map<number, LocalProxy>();
-	private readonly disposing = new AbortController();
+	private starting = new AbortController();
+	private disposed = false;
 	private readonly logger: Logger;
 
 	constructor(
@@ -69,7 +70,10 @@ export class DevantProxies {
 	 * port with the variables a local run needs: the connections' values, `http_proxy` and `no_proxy`.
 	 */
 	async start(params: StartProxyServerReq): Promise<StartProxyServerResp> {
-		const signal = this.disposing.signal;
+		if (this.disposed) {
+			throw new TimeoutError("Starting the local proxy was cancelled.", { reason: "cancelled", retryable: false });
+		}
+		const signal = this.starting.signal;
 		const org = await this.organization(params.orgId);
 		const project = (await getProjects(this.http, org.id)).find(
 			(item) => item.id === params.project || item.handler === params.project || item.name === params.project,
@@ -132,12 +136,19 @@ export class DevantProxies {
 		await proxy.close();
 	}
 
-	/** Stops every proxy started and cancels starts in progress. */
-	async dispose(): Promise<void> {
-		this.disposing.abort();
+	/** Stops every proxy started and cancels starts in progress, as when the session they were started for ends. */
+	async stopAll(): Promise<void> {
+		this.starting.abort();
+		this.starting = new AbortController();
 		const proxies = [...this.servers.values()];
 		this.servers.clear();
 		await Promise.all(proxies.map((proxy) => proxy.close()));
+	}
+
+	/** Stops every proxy for good; a later start is refused. */
+	async dispose(): Promise<void> {
+		this.disposed = true;
+		await this.stopAll();
 	}
 
 	/** The ports of the proxies running. */

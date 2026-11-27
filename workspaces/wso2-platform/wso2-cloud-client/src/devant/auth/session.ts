@@ -75,7 +75,7 @@ export async function validateUser(
 			signal: signal ?? AbortSignal.timeout(30_000),
 		});
 	} catch (error) {
-		throw new NetworkError("Devant's user service could not be reached.", { cause: error });
+		throw new NetworkError("WSO2 Cloud's user service could not be reached.", { cause: error });
 	}
 	const text = await response.text().catch(() => "");
 	let body: Record<string, unknown> = {};
@@ -88,13 +88,13 @@ export async function validateUser(
 		if (body.code === 1003) {
 			throw new LoginError(
 				"no_account",
-				"There is no Devant account for this sign-in. Devant is being replaced by Choreo Cloud: sign in to Choreo Cloud instead.",
+				"There is no WSO2 Cloud account for this sign-in. WSO2 Cloud is being replaced by Choreo Cloud: sign in to Choreo Cloud instead.",
 				{ status: response.status },
 			);
 		}
 		throw new LoginError(
 			"provider_error",
-			`Devant's user service answered ${response.status}: ${typeof body.message === "string" ? body.message : text}`,
+			`WSO2 Cloud's user service answered ${response.status}: ${typeof body.message === "string" ? body.message : text}`,
 			{
 				status: response.status,
 			},
@@ -140,6 +140,8 @@ export function organizationClaims(
 		exp,
 		email: idp.email ?? user.userEmail,
 		name: idp.name ?? user.displayName,
+		// The user service's picture; the token service's tokens carry none.
+		...(user.userProfilePictureUrl?.startsWith("https://") ? { picture: user.userProfilePictureUrl } : {}),
 	};
 }
 
@@ -187,12 +189,12 @@ export function devantRefresher(deployments: Readonly<Record<DevantRegion, Devan
 	return {
 		async prepare(session) {
 			if (!isDevantSession(session)) {
-				throw new LoginError("provider_error", "The stored session is not a Devant session.");
+				throw new LoginError("provider_error", "The stored session is not a WSO2 Cloud session.");
 			}
 			const deployment = deployments[session.devant.region];
 			const org = session.devant.organizations.find((item) => item.handle === session.org.handle);
 			if (!org) {
-				throw new LoginError("provider_error", `The organization ${session.org.handle} is not among the person's Devant organizations.`);
+				throw new LoginError("provider_error", `The organization ${session.org.handle} is not among the person's WSO2 Cloud organizations.`);
 			}
 			return async (refreshToken): Promise<RefreshedTokens> => {
 				const tokens = await refreshOrganizationTokens(deployment, refreshToken, org.handle, fetch);
@@ -210,5 +212,5 @@ export function signInFailure(step: string, error: unknown): LoginError {
 	if (error instanceof LoginError) {
 		return error;
 	}
-	return new LoginError("token_endpoint_failed", `Signing in to Devant failed while ${step}: ${errorMessage(error)}`, { cause: error });
+	return new LoginError("token_endpoint_failed", `Signing in to WSO2 Cloud failed while ${step}: ${errorMessage(error)}`, { cause: error });
 }

@@ -107,16 +107,18 @@ export class DevantLogin {
 			const waiting = this.options.callback.waitForCallback(nonce, controller.signal);
 			// Settled either way before it is awaited, so a failure to open the browser leaves no unhandled rejection.
 			waiting.catch(() => undefined);
-			await this.options.openBrowser(this.signInUrl(run.region ?? "US", callbackUri, verifier));
+			const startRegion = run.region ?? "US";
+			await this.options.openBrowser(this.signInUrl(startRegion, callbackUri, verifier));
 			const { code, region } = await waiting;
-			const signedInRegion: DevantRegion = region === "EU" ? "EU" : "US";
+			// The console names the region signed in to; without it, the one the sign-in started on.
+			const signedInRegion: DevantRegion = region === "EU" || region === "US" ? region : startRegion;
 			return await this.complete(signedInRegion, code, verifier, run.organization, controller.signal);
 		} catch (error) {
 			if (controller.signal.aborted && this.pending !== controller) {
-				throw new LoginError("cancelled", "The Devant sign-in was cancelled.");
+				throw new LoginError("cancelled", "The WSO2 Cloud sign-in was cancelled.");
 			}
 			if (controller.signal.aborted) {
-				throw new LoginError("timed_out", "The Devant sign-in did not come back from the browser in time.");
+				throw new LoginError("timed_out", "The WSO2 Cloud sign-in did not come back from the browser in time.");
 			}
 			throw error;
 		} finally {
@@ -152,7 +154,7 @@ export class DevantLogin {
 		}
 		const { user, organizations } = await validateUser(deployment, asgardeo.access_token, fetch, signal);
 		if (organizations.length === 0) {
-			throw new LoginError("no_account", "This Devant account belongs to no organization. Sign in to Choreo Cloud instead.");
+			throw new LoginError("no_account", "This WSO2 Cloud account belongs to no organization. Sign in to Choreo Cloud instead.");
 		}
 		const org = organizations.find((item) => item.handle === preferred) ?? organizations[0];
 		let tokens: Awaited<ReturnType<typeof exchangeForOrganization>>;

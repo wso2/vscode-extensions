@@ -148,7 +148,12 @@ export class DevantApiClient implements IChoreoRPCClient {
 		return this.proxies.stop(params);
 	}
 
-	/** Stops every local proxy this client started. */
+	/** Stops the local proxies running, as when the session they were started for ends. */
+	stopProxies(): Promise<void> {
+		return this.proxies.stopAll();
+	}
+
+	/** Stops every local proxy this client started, for good. */
 	dispose(): Promise<void> {
 		return this.proxies.dispose();
 	}

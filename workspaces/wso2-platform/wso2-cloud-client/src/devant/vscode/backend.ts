@@ -17,6 +17,7 @@
  */
 
 import * as vscode from "vscode";
+import { segment } from "../../api/path";
 import { SessionManager } from "../../auth/session-manager";
 import { BrowserLoginTokenSource } from "../../auth/sources";
 import type { CloudEnvName, CloudEnvironment } from "../../config/environments";
@@ -29,11 +30,11 @@ import { DevantLogin, switchOrganization } from "../auth/login";
 import type { DevantOrganization, DevantStoredSession } from "../auth/session";
 import { devantRefresher, isDevantSession } from "../auth/session";
 import type { DevantDeployment, DevantRegion } from "../environments";
-import { asCloudEnvironment, devantDeployment } from "../environments";
+import { DEVANT_LABEL, asCloudEnvironment, devantDeployment } from "../environments";
 import { DevantUriReceiver } from "./uri-receiver";
 
 export const DEVANT_PLATFORM = "devant";
-export const DEVANT_LABEL = "Devant";
+export { DEVANT_LABEL };
 /** Where the region last signed in to is kept, so the next sign-in starts on its console. */
 export const DEVANT_REGION_STATE_KEY = "wso2-cloud.devant.region";
 /** The namespace Devant's sessions are stored under, apart from Choreo Cloud's. */
@@ -101,7 +102,7 @@ function buildDevant(host: PlatformBackendHost, deployments: Readonly<Record<Dev
 		now,
 		openBrowser: async (url) => {
 			if (!(await vscode.env.openExternal(vscode.Uri.parse(url)))) {
-				throw new LoginError("cancelled", "The Devant sign-in page was not opened.");
+				throw new LoginError("cancelled", "The sign-in page was not opened.");
 			}
 		},
 	});
@@ -125,14 +126,35 @@ function buildDevant(host: PlatformBackendHost, deployments: Readonly<Record<Dev
 		const session = await sessions.current();
 		return isDevantSession(session) ? session : undefined;
 	};
+	// Organizations whose region was looked at in this window, or is being looked at; one that failed is tried again.
+	const initialized = new Set<string>();
+	// The organization the proxies running were started for; they stop when the session leaves it.
+	let proxiesFor: string | undefined;
+	let settled: Promise<void> = Promise.resolve();
 	const refollow = () => {
-		current().then(follow, (error) => logger.warn(`The Devant session could not be read: ${errorMessage(error)}`));
+		settled = current().then(
+			(session) => {
+				follow(session);
+				if (session?.org.handle !== proxiesFor) {
+					proxiesFor = session?.org.handle;
+					void client.api.stopProxies().catch((error) => logger.warn(`The local proxies did not all stop: ${errorMessage(error)}`));
+				}
+				if (session && !initialized.has(session.org.handle)) {
+					const handle = session.org.handle;
+					initialized.add(handle);
+					void initOrganization(http, session).catch((error) => {
+						initialized.delete(handle);
+						logger.debug(`The organization's region was not initialized: ${errorMessage(error)}`);
+					});
+				}
+			},
+			(error) => logger.warn(`The session could not be read: ${errorMessage(error)}`),
+		);
 	};
-	const stopWatching = sessions.onDidChange(refollow);
-	refollow();
 
 	const http = new DevantHttp({
 		deployment: () => deployments[region],
+		ready: () => settled,
 		tokenSource,
 		fetch,
 		logger,
@@ -149,19 +171,28 @@ function buildDevant(host: PlatformBackendHost, deployments: Readonly<Record<Dev
 		session: current,
 		organizations: async () => (await current())?.devant.organizations ?? [],
 		selectOrganization: async (handle) => {
-			const session = await current();
-			if (!session) {
-				throw new LoginError("provider_error", "Sign in to Devant before choosing an organization.");
+			if (!(await current())) {
+				throw new LoginError("provider_error", `Sign in to ${DEVANT_LABEL} before choosing an organization.`);
 			}
-			const org = session.devant.organizations.find((item) => item.handle === handle);
-			if (!org) {
-				throw new LoginError("provider_error", `You do not belong to a Devant organization ${handle}.`);
+			// The exchange takes the session's token: refreshed first when it has aged.
+			await sessions.getAccessToken();
+			const generation = sessions.sessionGeneration;
+			const session = await current();
+			const org = session?.devant.organizations.find((item) => item.handle === handle);
+			if (!session || !org) {
+				throw new LoginError("provider_error", `You do not belong to an organization ${handle}.`);
 			}
 			const next = await switchOrganization(session, org, deployments, fetch, now?.());
+			// A sign-out, a sign-in or another switch meanwhile wins: this one is dropped.
+			if (disposed || sessions.sessionGeneration !== generation) {
+				throw new LoginError("cancelled", "The sign-in changed while the organization was being switched.");
+			}
 			await sessions.setSession(next);
 			return next;
 		},
 	};
+	const stopWatching = sessions.onDidChange(refollow);
+	refollow();
 
 	return {
 		get environment() {
@@ -175,7 +206,12 @@ function buildDevant(host: PlatformBackendHost, deployments: Readonly<Record<Dev
 			env: asCloudEnvironment(deployments[region]),
 			sessions,
 			tokenSource,
-			startLogin: async () => login.run({ region, organization: (await current().catch(() => undefined))?.org.handle }),
+			startLogin: async () => {
+				const session = await login.run({ region, organization: (await current().catch(() => undefined))?.org.handle });
+				// The region signed in to is known before the session is stored, so the first calls go to its host.
+				follow(session);
+				return session;
+			},
 			cancelLogin: () => login.cancel(),
 		}),
 		cancelLogin: () => login.cancel(),
@@ -193,4 +229,20 @@ function buildDevant(host: PlatformBackendHost, deployments: Readonly<Record<Dev
 			sessions.dispose();
 		},
 	};
+}
+
+/**
+ * An organization that never deployed has no deployment pipeline until its region is initialized, which the editor
+ * does on the organization's first use, as the Choreo CLI did.
+ */
+async function initOrganization(http: DevantHttp, session: DevantStoredSession): Promise<void> {
+	const uuid = session.org.uuid;
+	if (!uuid) {
+		return;
+	}
+	const base = `/devops/1.0.0/api/v1/organizations/${segment(uuid)}`;
+	const pipelines = await http.rest<{ data?: unknown[] | null } | null>("GET", `${base}/deployment-pipelines`);
+	if (pipelines?.data && pipelines.data.length === 0) {
+		await http.text("POST", `${base}/projects/init`, { body: { region: session.devant.region } });
+	}
 }

@@ -17,6 +17,7 @@
  */
 
 import type { GetSubscriptionsReq, SubscriptionItem, SubscriptionsResp } from "@wso2/wso2-platform-core";
+import { segment } from "../../api/path";
 import { NotFoundError, NotSupportedError } from "../../errors";
 import type { DevantHttp } from "./http";
 
@@ -51,14 +52,14 @@ export async function getSubscriptions(
 ): Promise<SubscriptionsResp> {
 	const billing = http.deployment.billingUrl;
 	if (!billing) {
-		throw new NotSupportedError("This Devant deployment names no billing service.");
+		throw new NotSupportedError("This WSO2 Cloud deployment names no billing service.");
 	}
 	const known = organizations ?? (await http.rest<OrganizationRef[] | null>("GET", ORGS_PATH)) ?? [];
 	const org = known.find((item) => String(item.id) === params.orgId);
 	if (!org) {
 		throw new NotFoundError(`organization with id ${params.orgId} not found`);
 	}
-	const answer = await http.rest<Record<string, unknown> | null>("GET", `/api/organizations/${encodeURIComponent(org.uuid)}/subscriptions`, {
+	const answer = await http.rest<Record<string, unknown> | null>("GET", `/api/organizations/${segment(org.uuid)}/subscriptions`, {
 		baseUrl: billing,
 		query: { cloudType: params.cloudType || "choreo", origin: "choreo-console" },
 	});

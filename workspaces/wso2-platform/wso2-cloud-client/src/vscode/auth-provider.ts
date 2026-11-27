@@ -47,8 +47,10 @@ export function scopeForOrg(handle: string): string {
 }
 
 /** The scope that names the platform a session is for, when it is not the default one. */
+const PLATFORM_SCOPE_PREFIX = "platform:";
+
 export function scopeForPlatform(platform: string): string {
-	return `platform:${platform}`;
+	return `${PLATFORM_SCOPE_PREFIX}${platform}`;
 }
 
 /** What the provider needs of the region it serves; {@link WSO2CloudAuthenticationProvider.useRegion} replaces it. */
@@ -71,6 +73,8 @@ export interface AuthProviderRegion {
 	 * another one.
 	 */
 	platform?: string;
+	/** That platform as messages name it; its name when absent. */
+	platformLabel?: string;
 }
 
 export interface AuthProviderDeps extends AuthProviderRegion {
@@ -97,6 +101,9 @@ export interface AuthProviderDeps extends AuthProviderRegion {
 export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationProvider, vscode.Disposable {
 	private readonly emitter = new vscode.EventEmitter<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>();
 	readonly onDidChangeSessions = this.emitter.event;
+	private readonly refusedEmitter = new vscode.EventEmitter<{ platform: string }>();
+	/** Fires when an extension that names no platform asks while another platform's session is in use, and is refused. */
+	readonly onDidRefuseUnawareRequest = this.refusedEmitter.event;
 	private readonly logger: Logger;
 	/** The session last handed out, so its removal can be reported. */
 	private last?: vscode.AuthenticationSession;
@@ -179,6 +186,15 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 		return registration;
 	}
 
+	/** Tells the host of a request that names no platform while another platform's session is in use; answers whether it was one. */
+	private reportUnaware(region: AuthProviderRegion, scopes: readonly string[] | undefined): boolean {
+		if (!region.platform || !scopes || scopes.some((scope) => scope.startsWith(PLATFORM_SCOPE_PREFIX))) {
+			return false;
+		}
+		this.refusedEmitter.fire({ platform: region.platform });
+		return true;
+	}
+
 	/**
 	 * Whether `scopes` name a region of this provider's deployment, or name none, and name the platform served. A
 	 * platform's session is otherwise seen only by VS Code's own account list, which asks with no scopes at all.
@@ -189,7 +205,7 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 		if (named.length > 0 && !named.some((s) => served.includes(s))) {
 			return false;
 		}
-		const platforms = (scopes ?? []).filter((s) => s.startsWith("platform:"));
+		const platforms = (scopes ?? []).filter((s) => s.startsWith(PLATFORM_SCOPE_PREFIX));
 		const platform = this.region.platform;
 		if (!platform) {
 			return platforms.length === 0;
@@ -219,6 +235,7 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 	async getSessions(scopes?: readonly string[]): Promise<vscode.AuthenticationSession[]> {
 		const region = this.region;
 		if (!this.serves(scopes)) {
+			this.reportUnaware(region, scopes);
 			return [];
 		}
 		if (region.tokenSource.kind === "injected") {
@@ -248,9 +265,12 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 	async createSession(scopes: readonly string[]): Promise<vscode.AuthenticationSession> {
 		const region = this.region;
 		if (!this.serves(scopes)) {
+			const platform = region.platformLabel ?? region.platform;
 			throw new LoginError(
 				"provider_error",
-				`This provider signs in to ${region.platform ? `${region.platform} ` : ""}${region.env.name}; ${scopes.join(" ") || "the request"} names another platform or environment.`,
+				this.reportUnaware(region, scopes)
+					? `The session in use is for ${platform}, which the extension asking does not support. Update it, or switch to Choreo Cloud.`
+					: `This provider signs in to ${platform ? `${platform} ` : ""}${region.env.name}; ${scopes.join(" ") || "the request"} names another platform or environment.`,
 			);
 		}
 		if (!region.startLogin) {
@@ -381,6 +401,7 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 	dispose(): void {
 		this.stopListening();
 		this.emitter.dispose();
+		this.refusedEmitter.dispose();
 	}
 }
 

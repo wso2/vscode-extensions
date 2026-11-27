@@ -17,13 +17,14 @@
  */
 
 import type { DatabaseAdminCredential, DatabaseCredential, DatabaseServer, GetDatabaseServerReq } from "@wso2/wso2-platform-core";
+import { segment } from "../../api/path";
 import type { DevantHttp } from "./http";
 import { goBool, goList, goString, record } from "./marketplace";
 
 const PLATFORM_SERVICES = "/platform-services/v1.0";
 
 function serverPath(databaseServerId: string): string {
-	return `${PLATFORM_SERVICES}/db-servers/${encodeURIComponent(databaseServerId)}`;
+	return `${PLATFORM_SERVICES}/db-servers/${segment(databaseServerId)}`;
 }
 
 /** A database server with the fields, and the omissions, of the CLI's `DatabaseServer`. */

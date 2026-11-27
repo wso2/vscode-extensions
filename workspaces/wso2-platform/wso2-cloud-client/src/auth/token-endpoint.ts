@@ -106,7 +106,6 @@ export async function revokeToken(options: {
 	}
 }
 
-/** One form POST to the token endpoint within its timeout; a refusal is an `OAuthError` carrying the OAuth error code. */
 /**
  * One form POST to a token endpoint, for a grant the functions above do not cover. A refusal is an
  * {@link OAuthError} carrying the OAuth error code, as for them.
@@ -115,6 +114,7 @@ export function requestTokens(options: TokenEndpointOptions, form: Record<string
 	return postForm(options, form);
 }
 
+/** One form POST to the token endpoint within its timeout; a refusal is an `OAuthError` carrying the OAuth error code. */
 async function postForm(options: TokenEndpointOptions, form: Record<string, string>): Promise<TokenResponse> {
 	let response: Response;
 	const abort = linkAbort(options.signal, TOKEN_ENDPOINT_TIMEOUT_MS);

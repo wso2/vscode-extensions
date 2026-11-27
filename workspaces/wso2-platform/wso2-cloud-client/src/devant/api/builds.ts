@@ -30,6 +30,7 @@ import type {
 	ToggleAutoBuildReq,
 	ToggleAutoBuildResp,
 } from "@wso2/wso2-platform-core";
+import { segment } from "../../api/path";
 import { BadRequestError, NotFoundError } from "../../errors";
 import type { CommitHistoryWithAuthor } from "./components";
 import { COMPONENT_MGT_API, DECLARATIVE_API, DEVOPS_API, commitHistory } from "./components";
@@ -77,7 +78,7 @@ interface BuildResource extends Omit<BuildKind, "status"> {
 
 /** Starts a build of a deployment track at a commit. */
 export async function createBuild(http: DevantHttp, params: CreateBuildReq): Promise<BuildKind> {
-	const path = `${DECLARATIVE_API}/projects/${encodeURIComponent(params.projectHandle)}/components/${encodeURIComponent(params.componentName)}/deploymentTracks/${encodeURIComponent(params.deploymentTrackId)}/builds`;
+	const path = `${DECLARATIVE_API}/projects/${segment(params.projectHandle)}/components/${segment(params.componentName)}/deploymentTracks/${segment(params.deploymentTrackId)}/builds`;
 	const build = await http.rest<Record<string, unknown> | null>("POST", path, {
 		body: {
 			apiVersion: "core.choreo.dev/v1alpha1",
@@ -172,7 +173,7 @@ export async function getBuildLogs(http: DevantHttp, params: GetBuildLogsReq): P
 	} else {
 		answer = await http.rest(
 			"GET",
-			`${COMPONENT_MGT_API}/orgs/${encodeURIComponent(params.orgHandler)}/projects/${encodeURIComponent(params.projectId)}/components/${encodeURIComponent(params.componentId)}/runs/${encodeURIComponent(String(params.buildId))}/logs`,
+			`${COMPONENT_MGT_API}/orgs/${segment(params.orgHandler)}/projects/${segment(params.projectId)}/components/${segment(params.componentId)}/runs/${segment(String(params.buildId))}/logs`,
 		);
 	}
 	return buildLogsOf(answer?.data ?? {});
@@ -322,5 +323,5 @@ async function dataPlaneHost(http: DevantHttp, orgId: string, orgUuid: string, c
 	if (inOrg) {
 		return str(inOrg.externalGatewayVirtualHost);
 	}
-	throw new NotFoundError(`Devant knows no data plane ${clusterId} for the organization.`);
+	throw new NotFoundError(`WSO2 Cloud knows no data plane ${clusterId} for the organization.`);
 }

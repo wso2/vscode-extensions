@@ -115,7 +115,7 @@ export interface PlatformClientsOptions {
 	onUnauthenticated?: (error: UnauthenticatedError) => void;
 	/** For tests: where the token comes from instead of the browser or the environment. */
 	tokenSource?: TokenSource;
-	/** Platforms to offer beside Choreo Cloud. None are offered in an editor whose environment or token is fixed. */
+	/** Platforms to offer beside Choreo Cloud. None are offered when an environment, a token source or a token is handed to the editor. */
 	backends?: readonly PlatformBackend[];
 	/** The platform to start on; the one last switched to when absent, else Choreo Cloud. */
 	initialPlatform?: string;
@@ -293,7 +293,9 @@ class SwitchablePlatformClients implements PlatformClients {
 
 	get cloud(): CloudClient {
 		if (!this.active.cloud) {
-			throw new NotSupportedError(`This is not available on ${this.active.name}; it is a Choreo Cloud feature.`, { reason: "platform_mismatch" });
+			throw new NotSupportedError(`This is not available on ${this.labelOf(this.active.name)}; it is a Choreo Cloud feature.`, {
+				reason: "platform_mismatch",
+			});
 		}
 		return this.active.cloud;
 	}
@@ -453,7 +455,7 @@ class SwitchablePlatformClients implements PlatformClients {
 			uriReceiver: bundle.uriReceiver,
 			client: bundle.client,
 			bundle,
-			providerRegion: () => ({ ...bundle.providerRegion(), platform: backend.name }),
+			providerRegion: () => ({ ...bundle.providerRegion(), platform: backend.name, platformLabel: backend.label }),
 			cancelLogin: () => bundle.cancelLogin(),
 			dispose: () => {
 				stopFollowing?.();

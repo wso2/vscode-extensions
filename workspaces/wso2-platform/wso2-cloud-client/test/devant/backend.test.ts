@@ -92,14 +92,26 @@ describe("Devant as a platform", () => {
 
 	it("signs in through the console, follows the region signed in to, and switches organization", async () => {
 		const fake = fakeDevant();
+		// An organization that never deployed: no pipeline until its region is initialized.
+		fake.route({ match: /^GET \/devops\/1\.0\.0\/api\/v1\/organizations\/[^/]+\/deployment-pipelines/, body: { data: [] } });
+		fake.route({ match: /^POST \/devops\/1\.0\.0\/api\/v1\/organizations\/[^/]+\/projects\/init/, body: "" });
 		const secrets = new FakeSecretStorage();
 		const globalState = new FakeMemento();
 		const backend = devantBackend({ env: {} });
 		assert.ok(backend);
+		// Holds the exchange for an organization open once set, so a test can act while it is under way.
+		let held: { handle: string; reached: () => void; release: Promise<void> } | undefined;
+		const fetch: typeof fake.fetch = async (input, init) => {
+			if (held && String(init?.body ?? "").includes(`orgHandle=${held.handle}`)) {
+				held.reached();
+				await held.release;
+			}
+			return fake.fetch(input, init);
+		};
 		const platform = createPlatformClients({
 			extensionId: "wso2.wso2-integrator",
 			context: { secrets, globalState, subscriptions: [] } as never,
-			fetch: fake.fetch,
+			fetch,
 			backends: [backend],
 			initialPlatform: DEVANT_PLATFORM,
 		});
@@ -120,10 +132,7 @@ describe("Devant as a platform", () => {
 
 			const client = platform.backendClient<DevantClient>(DEVANT_PLATFORM);
 			assert.ok(client);
-			for (let i = 0; i < 100 && client.region !== "EU"; i++) {
-				await new Promise((resolve) => setTimeout(resolve, 5));
-			}
-			assert.equal(client.region, "EU");
+			assert.equal(client.region, "EU", "the region signed in to is known as soon as the sign-in answers");
 			assert.equal(platform.environment.apiBaseUrl, EU.apiHost);
 			assert.deepEqual(environments, [EU.apiHost]);
 			assert.equal(globalState.get(DEVANT_REGION_STATE_KEY), "EU");
@@ -132,6 +141,8 @@ describe("Devant as a platform", () => {
 			const call = fake.last("POST /projects/1.0.0/graphql");
 			assert.equal(call?.url.host, "apis.eu.choreo.dev", "the API follows the region signed in to");
 			assert.equal(call?.headers.authorization, `Bearer ${(await platform.sessions.current())?.tokens.accessToken}`);
+			const init = fake.last(/^POST \/devops\/1\.0\.0\/api\/v1\/organizations\/uuid-acme\/projects\/init/);
+			assert.deepEqual(init?.body, { region: "EU" }, "the organization's region is initialized on its first use");
 			assert.ok(await secrets.get("wso2-cloud.devant.session.prod"), "Devant's session is kept apart from Choreo Cloud's");
 			assert.equal(await secrets.get("wso2-cloud.session.prod"), undefined);
 
@@ -140,6 +151,21 @@ describe("Devant as a platform", () => {
 			assert.equal((await platform.sessions.current())?.org.handle, "beta");
 			assert.equal(fake.stsForms().at(-1)?.get("orgHandle"), "beta");
 			await rejection(client.selectOrganization("gamma"));
+
+			// A sign-out while the exchange is under way wins: the switch does not sign the person back in.
+			let release: () => void = () => undefined;
+			const reached = new Promise<void>((resolve) => {
+				const freed = new Promise<void>((free) => {
+					release = free;
+				});
+				held = { handle: "acme", reached: resolve, release: freed };
+			});
+			const switching = client.selectOrganization("acme");
+			await reached;
+			await platform.sessions.signOut({ revoke: false });
+			release();
+			assert.equal(((await rejection(switching)) as LoginError).details.reason, "cancelled");
+			assert.equal(await platform.sessions.current(), undefined);
 		} finally {
 			platform.dispose();
 		}

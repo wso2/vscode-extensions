@@ -28,6 +28,7 @@ import type {
 	ResolveConnectionSecretsReq,
 	ResolveConnectionSecretsResp,
 } from "@wso2/wso2-platform-core";
+import { segment } from "../../api/path";
 import type { DevantHttp } from "./http";
 import { orgNumber } from "./http";
 import { getConnectionConfiguration, goBool, goList, goMap, goString, record } from "./marketplace";
@@ -100,7 +101,7 @@ export async function getConnections(http: DevantHttp, params: GetConnectionsReq
 }
 
 export async function getConnectionItem(http: DevantHttp, params: GetConnectionItemReq): Promise<ConnectionDetailed> {
-	return connection(await http.rest<unknown>("GET", `${SERVICE_CONFIGS}/connections/${encodeURIComponent(params.connectionGroupId)}`));
+	return connection(await http.rest<unknown>("GET", `${SERVICE_CONFIGS}/connections/${segment(params.connectionGroupId)}`));
 }
 
 /** Connects to a Devant service, with credentials for every environment of the project. */
@@ -192,13 +193,13 @@ export async function createDatabaseConnection(http: DevantHttp, params: CreateD
 }
 
 export async function deleteConnection(http: DevantHttp, params: DeleteConnectionReq): Promise<void> {
-	await http.text("DELETE", `${SERVICE_CONFIGS}/choreo-connections/${encodeURIComponent(params.connectionId)}`);
+	await http.text("DELETE", `${SERVICE_CONFIGS}/choreo-connections/${segment(params.connectionId)}`);
 }
 
 /** The values behind a connection's secret references, for one environment. The answer carries secrets. */
 export async function resolveConnectionSecrets(http: DevantHttp, params: ResolveConnectionSecretsReq): Promise<ResolveConnectionSecretsResp> {
 	const answer = record(
-		await http.rest<unknown>("POST", `${CONFIG_SVC}/configs/groups/${encodeURIComponent(params.groupId)}/resolve-secrets`, {
+		await http.rest<unknown>("POST", `${CONFIG_SVC}/configs/groups/${segment(params.groupId)}/resolve-secrets`, {
 			body: {
 				projectId: params.projectId,
 				componentId: params.componentId,
