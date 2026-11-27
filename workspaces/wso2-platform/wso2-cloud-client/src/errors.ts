@@ -201,7 +201,8 @@ export type LoginFailureReason =
 	| "claims_missing"
 	| "no_redirect_available"
 	| "not_available_in_cloud_editor"
-	| "token_endpoint_failed";
+	| "token_endpoint_failed"
+	| "no_account";
 
 export class LoginError extends CloudError {
 	constructor(reason: LoginFailureReason, message: string, details: CloudErrorDetails = {}) {

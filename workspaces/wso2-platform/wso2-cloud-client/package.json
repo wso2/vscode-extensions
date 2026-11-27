@@ -21,13 +21,23 @@
 		"./openapi": {
 			"types": "./lib/api/generated/ipaas.d.ts",
 			"default": "./lib/api/generated/ipaas.js"
+		},
+		"./devant": {
+			"types": "./lib/devant/index.d.ts",
+			"default": "./lib/devant/index.js"
+		},
+		"./devant/vscode": {
+			"types": "./lib/devant/vscode/index.d.ts",
+			"default": "./lib/devant/vscode/index.js"
 		}
 	},
 	"typesVersions": {
 		"*": {
 			"contract": ["lib/contract/index.d.ts"],
 			"vscode": ["lib/vscode/index.d.ts"],
-			"openapi": ["lib/api/generated/ipaas.d.ts"]
+			"openapi": ["lib/api/generated/ipaas.d.ts"],
+			"devant": ["lib/devant/index.d.ts"],
+			"devant/vscode": ["lib/devant/vscode/index.d.ts"]
 		}
 	},
 	"scripts": {
