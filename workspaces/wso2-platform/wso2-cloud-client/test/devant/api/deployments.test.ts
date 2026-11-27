@@ -18,6 +18,7 @@
 
 import assert from "node:assert/strict";
 import type { CreateDeploymentReq } from "@wso2/wso2-platform-core";
+import type { CloudError } from "../../../src";
 import { BadRequestError, ServerError } from "../../../src";
 import {
 	cancelApprovalRequest,
@@ -26,6 +27,7 @@ import {
 	getDeploymentStatus,
 	getProxyDeploymentInfo,
 	promoteProxyDeployment,
+	readDeployment,
 	requestPromoteApproval,
 } from "../../../src/devant/api/deployments";
 import { rejection } from "../../support";
@@ -89,6 +91,17 @@ describe("Devant deployments", () => {
 		assert.equal(none?.build.buildId, "");
 		const failing = devantApi([{ match: GRAPHQL, status: 500, body: { message: "boom" } }]);
 		assert.equal(await getDeploymentStatus(failing.http, STATUS_REQ), null);
+	});
+
+	it("tells a deployment that is not there from a read that failed", async () => {
+		const empty = devantApi([graphqlRoute({ componentDeployment: null })]);
+		assert.equal(await readDeployment(empty.http, STATUS_REQ), null);
+		const gone = devantApi([{ match: GRAPHQL, status: 404, body: { message: "no such component" } }]);
+		assert.equal(await readDeployment(gone.http, STATUS_REQ), null);
+		const failing = devantApi([{ match: GRAPHQL, status: 500, body: { message: "boom" } }]);
+		assert.equal(((await rejection(readDeployment(failing.http, STATUS_REQ))) as CloudError).code, "server");
+		const forbidden = devantApi([{ match: GRAPHQL, status: 403, body: { message: "no" } }]);
+		assert.equal(((await rejection(readDeployment(forbidden.http, STATUS_REQ))) as CloudError).code, "forbidden");
 	});
 
 	it("reads a proxy's deployment", async () => {

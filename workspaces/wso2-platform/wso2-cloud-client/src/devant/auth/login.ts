@@ -185,5 +185,6 @@ export async function switchOrganization(
 ): Promise<DevantStoredSession> {
 	const deployment = deployments[session.devant.region];
 	const tokens = await exchangeForOrganization(deployment, session.tokens.accessToken, org.handle, fetch);
-	return sessionFor(deployment, tokens, org, session.devant, now);
+	// An exchange that answers no refresh token leaves the session's own, which refreshes for any organization.
+	return sessionFor(deployment, { ...tokens, refresh_token: tokens.refresh_token ?? session.tokens.refreshToken }, org, session.devant, now);
 }

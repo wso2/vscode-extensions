@@ -19,11 +19,11 @@
 import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
 import type { ComponentEP } from "@wso2/wso2-platform-core";
-import { ConflictError, NotFoundError, ServerError, TimeoutError } from "../../../src";
+import { ConflictError, ForbiddenError, NotFoundError, ServerError, TimeoutError } from "../../../src";
 import type { ProjectComponent } from "../../../src/devant/proxy/bridge";
 import { BRIDGE_IMAGE, bridgeApiKey, bridgeRestEndpoint, listProjectComponents, provisionBridge } from "../../../src/devant/proxy/bridge";
 import { rejection } from "../../support";
-import { devantApi } from "../api/support";
+import { GRAPHQL, devantApi } from "../api/support";
 import { DEV_ENV, ORG, endpoint, graphqlBy } from "./support";
 
 const TRACK = { id: "track-1", apiVersion: "v1.0.2", branch: "", latest: true };
@@ -148,6 +148,40 @@ describe("Devant bridge component", () => {
 		assert.match(deploy, /imageId: "", cron: "", cronTimezone: ""/);
 		assert.equal(queries.filter((query) => /componentDeployment/.test(query)).length, 3);
 		assert.equal(queries.filter((query) => /componentEndpoints/.test(query)).length, 3);
+	});
+
+	it("waits for an endpoint just created to be listed, however soon the deployment is active", async () => {
+		const api = devantApi([
+			graphqlBy([
+				[/component\(componentHandler/, COMPONENT_INFO],
+				[/deployImage/, { deployImage: { success: true } }],
+				[/componentDeployment/, { componentDeployment: { deploymentStatusV2: "ACTIVE" } }],
+				[/componentEndpoints/, (_query: string, call: number) => ({ componentEndpoints: call < 2 ? [] : [endpoint()] })],
+			]),
+			{ match: ENDPOINTS_CREATE, body: {} },
+		]);
+		const bridge = await provisionBridge(api.http, target([bridgeComponent()]), { pollIntervalMs: 1, readyTimeoutMs: 5_000 });
+		assert.equal(bridgeRestEndpoint(bridge.endpoints, DEV_ENV.id).state, "Active");
+		assert.equal(api.queries().filter((query) => /componentEndpoints/.test(query)).length, 3);
+	});
+
+	it("reports a deployment read that is refused, instead of deploying again or waiting it out", async () => {
+		const answers = graphqlBy([
+			[/component\(componentHandler/, COMPONENT_INFO],
+			[/componentEndpoints/, { componentEndpoints: [endpoint()] }],
+		]);
+		const api = devantApi([
+			{
+				match: GRAPHQL,
+				respond: (request) =>
+					/componentDeployment/.test((request.body as { query: string }).query)
+						? { status: 403, body: { message: "not allowed" } }
+						: (answers.respond?.(request) ?? { status: 500 }),
+			},
+		]);
+		const error = await rejection(provisionBridge(api.http, target([bridgeComponent()]), { pollIntervalMs: 1, readyTimeoutMs: 5_000 }));
+		assert.ok(error instanceof ForbiddenError);
+		assert.equal(api.queries().filter((query) => /deployImage/.test(query)).length, 0);
 	});
 
 	it("gives up when the bridge does not come up in time", async () => {

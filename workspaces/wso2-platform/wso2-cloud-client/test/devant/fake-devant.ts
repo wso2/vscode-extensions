@@ -35,12 +35,18 @@ export interface FakeDevant extends FakeFetch {
 }
 
 /** Devant's sign-in services for both regions: Asgardeo's token endpoint, the user service and the token service. */
-export function fakeDevant(options: { noAccount?: boolean; organizations?: typeof ORGS } = {}): FakeDevant {
+export function fakeDevant(
+	options: { noAccount?: boolean; organizations?: typeof ORGS; exchangeStatus?: () => number | undefined; exchangeRefreshToken?: boolean } = {},
+): FakeDevant {
 	let issued = 0;
 	const sts = (request: RecordedRequest) => {
 		const form = new URLSearchParams(request.rawBody);
 		if (form.get("grant_type") === "refresh_token") {
 			return { body: { access_token: "plain-refreshed", refresh_token: "rt-rotated", token_type: "Bearer", expires_in: 900 } };
+		}
+		const failed = options.exchangeStatus?.();
+		if (failed) {
+			return { status: failed, body: { error: "server_error" } };
 		}
 		const handle = form.get("orgHandle");
 		const now = Math.floor(Date.now() / 1000);
@@ -52,7 +58,8 @@ export function fakeDevant(options: { noAccount?: boolean; organizations?: typeo
 			exp: now + 3600,
 			jti: `t-${++issued}`,
 		});
-		return { body: { access_token: token, refresh_token: `rt-${handle}`, token_type: "Bearer", expires_in: 3600 } };
+		const refresh = options.exchangeRefreshToken === false ? {} : { refresh_token: `rt-${handle}` };
+		return { body: { access_token: token, ...refresh, token_type: "Bearer", expires_in: 3600 } };
 	};
 	const fake = fakeFetch([
 		{ match: "POST /t/a/oauth2/token", body: { access_token: "asgardeo-token", token_type: "Bearer", expires_in: 3600 } },

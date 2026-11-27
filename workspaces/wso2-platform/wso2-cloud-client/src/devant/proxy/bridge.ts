@@ -24,7 +24,7 @@ import { poll } from "../../api/wait";
 import { BadRequestError, ConflictError, NotFoundError, ServerError, TimeoutError } from "../../errors";
 import { getTestKey } from "../api/apim";
 import { DEVOPS_API, SAMPLES_REGISTRY_HOST, deleteComponent, getComponentEndpoints, samplesRegistry } from "../api/components";
-import { getDeploymentStatus } from "../api/deployments";
+import { readDeployment } from "../api/deployments";
 import type { DevantHttp } from "../api/http";
 import { gql } from "../api/http";
 
@@ -139,7 +139,7 @@ export async function provisionBridge(http: DevantHttp, target: BridgeTarget, op
 		deploymentTrackId: track.id,
 		envId: env.id,
 	};
-	const deployment = await getDeploymentStatus(http, statusReq);
+	const deployment = await readDeployment(http, statusReq);
 	const active = endpoints.filter((endpoint) => endpoint.state === "Active").length;
 	if (endpointsCreated || deployment?.deploymentStatusV2 !== "ACTIVE" || active < endpoints.length) {
 		checkAborted(options.signal);
@@ -153,7 +153,7 @@ export async function provisionBridge(http: DevantHttp, target: BridgeTarget, op
 			describe: () => describe,
 		});
 		await poll(async () => {
-			const status = await getDeploymentStatus(http, statusReq);
+			const status = await readDeployment(http, statusReq);
 			return { done: status?.deploymentStatusV2 === "ACTIVE", value: undefined };
 		}, waitOptions("The bridge component's deployment"));
 		endpoints = await poll(async () => {
@@ -168,7 +168,9 @@ export async function provisionBridge(http: DevantHttp, target: BridgeTarget, op
 				const reason = failed.stateReason ?? { message: "", details: "", code: "", workerId: "" };
 				throw new ServerError(`${reason.message}, Details:${reason.details}, Code:${reason.code}, WorkerId:${reason.workerId} `);
 			}
-			return { done: current.every((endpoint) => endpoint.state === "Active"), value: current };
+			// An endpoint just created may not be listed yet: an empty list is not a bridge that is up.
+			const listed = current.some((endpoint) => endpoint.environmentId === env.id && endpoint.type === "REST");
+			return { done: listed && current.every((endpoint) => endpoint.state === "Active"), value: current };
 		}, waitOptions("The bridge component's endpoints"));
 	}
 	return { component, endpoints, components };

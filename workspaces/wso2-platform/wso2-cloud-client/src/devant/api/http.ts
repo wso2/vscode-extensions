@@ -76,18 +76,25 @@ export class DevantHttp {
 		return this.options.tokenSource.getClaims();
 	}
 
-	/** A call under the API host, or under `baseUrl` (the APIM publisher, billing, a system API host) when given. */
+	/**
+	 * A call under the API host, or under `baseUrl` (the APIM publisher, billing, a system API host) when given. A 401
+	 * of another host is thrown without `onUnauthenticated`: only the API host's says the session is over.
+	 */
 	async rest<T>(method: HttpMethod, path: string, options: RequestOptions & { baseUrl?: string } = {}): Promise<T> {
 		const { baseUrl, ...rest } = options;
 		await this.options.ready?.();
-		return this.client(baseUrl ?? this.deployment.apiHost).request<T>(method, path, rest);
+		return this.client(baseUrl ?? this.deployment.apiHost).request<T>(method, path, this.forHost(baseUrl, rest));
 	}
 
 	/** Like {@link rest}, answering the body as text, for routes that answer Markdown or a body nobody reads. */
 	async text(method: HttpMethod, path: string, options: RequestOptions & { baseUrl?: string } = {}): Promise<string> {
 		const { baseUrl, ...rest } = options;
 		await this.options.ready?.();
-		return this.client(baseUrl ?? this.deployment.apiHost).text(method, path, rest);
+		return this.client(baseUrl ?? this.deployment.apiHost).text(method, path, this.forHost(baseUrl, rest));
+	}
+
+	private forHost(baseUrl: string | undefined, options: RequestOptions): RequestOptions {
+		return baseUrl && baseUrl !== this.deployment.apiHost ? { ...options, passThrough: true } : options;
 	}
 
 	/**

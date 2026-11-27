@@ -161,6 +161,11 @@ export class LocalProxy {
 			plain(res, 405, "CONNECT is not supported");
 			return;
 		}
+		if (!authorityOf(req.url ?? "")) {
+			// A proxy's client names the host in the request line; a page open in a browser cannot.
+			refuse(req, res, 400, "the local proxy takes requests in absolute form only");
+			return;
+		}
 		const body = await this.readBody(req, res);
 		if (!body) {
 			return;
@@ -310,7 +315,7 @@ class KeyCache {
 /** The request as the bridge takes it, with the fields the Choreo CLI sent. */
 export function requestDetails(req: IncomingMessage, body: Buffer, secureHosts: ReadonlySet<string>): RequestDetails {
 	const rawUrl = req.url ?? "/";
-	const domain = domainOf(rawUrl) || (req.headers.host ?? "");
+	const domain = domainOf(rawUrl);
 	const isSecure = secureHosts.has(domain);
 	let port = splitHostPort(authorityOf(rawUrl))?.port ?? "";
 	if (port === "80" && isSecure) {
@@ -421,8 +426,13 @@ function writeBack(res: ServerResponse, response: ResponseDetails): void {
 
 /** Answers 413 and closes the connection; the rest of the body is read and dropped meanwhile. */
 function tooLarge(req: IncomingMessage, res: ServerResponse, limit: number): void {
+	refuse(req, res, 413, `request body exceeds ${limit} bytes`);
+}
+
+/** Answers a request whose body is not read, and closes its connection. */
+function refuse(req: IncomingMessage, res: ServerResponse, status: number, message: string): void {
 	res.setHeader("Connection", "close");
-	plain(res, 413, `request body exceeds ${limit} bytes`);
+	plain(res, status, message);
 	req.resume();
 }
 

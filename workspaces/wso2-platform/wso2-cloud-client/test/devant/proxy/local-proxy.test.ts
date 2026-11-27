@@ -105,12 +105,13 @@ describe("Devant local proxy", () => {
 		assert.equal(details.path, "/health");
 	});
 
-	it("takes the domain from the Host header for a request that names no host", async () => {
+	it("refuses a request that names no host in its request line, whatever its Host header says", async () => {
 		const { port } = await start();
-		await viaProxy(port, "/direct", { headers: { host: "plain.internal:9090" } });
-		const details = JSON.parse(bridge.received[0].body);
-		assert.equal(details.domain, "plain.internal:9090");
-		assert.equal(details.port, "");
+		const answer = await viaProxy(port, "/direct", { method: "POST", body: "x", headers: { host: "plain.internal:9090" } });
+		assert.equal(answer.status, 400);
+		assert.match(answer.body, /absolute form/);
+		assert.equal(bridge.received.length, 0);
+		assert.equal(keyFetches, 0);
 	});
 
 	it("fetches the key once for many requests", async () => {

@@ -35,6 +35,20 @@ export interface RefreshedTokens {
 }
 
 /**
+ * A refresh that got a new refresh token and failed at a later step. The token is kept, since the provider may have
+ * ended the one it replaces; `failure` is then handled as any failed refresh.
+ */
+export class RefreshInterruptedError extends Error {
+	constructor(
+		readonly refreshToken: string,
+		readonly failure: unknown,
+	) {
+		super(errorMessage(failure));
+		this.name = "RefreshInterruptedError";
+	}
+}
+
+/**
  * How a session's tokens are refreshed and revoked. The default asks the
  * session's OpenID issuer; another identity provider supplies its own.
  */
@@ -44,7 +58,8 @@ export interface SessionRefresher {
 	 * and answers the refresh itself. A failure here is never a refusal: it
 	 * keeps a session that has not expired. The refresh throws an
 	 * {@link OAuthError} when the provider answers one, which ends the session
-	 * when it is a refusal.
+	 * when it is a refusal, and a {@link RefreshInterruptedError} when it fails
+	 * after the provider gave a new refresh token.
 	 */
 	prepare(session: StoredSession): Promise<(refreshToken: string) => Promise<RefreshedTokens>>;
 	/** Asks the provider to revoke the session's refresh token; best effort, it never throws. */
@@ -378,7 +393,10 @@ export class SessionManager {
 			this.logger.debug(`Refreshed the ${this.service} session`);
 			this.emit({ reason: "refreshed" });
 			return { session: refreshed };
-		} catch (error) {
+		} catch (thrown) {
+			const interrupted = thrown instanceof RefreshInterruptedError ? thrown : undefined;
+			const held = interrupted ? await this.keepRefreshToken(session, interrupted.refreshToken, generation) : session;
+			const error = interrupted ? interrupted.failure : thrown;
 			if (generation !== this.generation) {
 				throw error;
 			}
@@ -388,7 +406,7 @@ export class SessionManager {
 				if (generation !== this.generation) {
 					throw error;
 				}
-				if (stored && stored.tokens.refreshToken !== session.tokens.refreshToken) {
+				if (stored && stored.tokens.refreshToken !== held.tokens.refreshToken) {
 					this.logger.debug(`Took the ${this.service} session another window refreshed`);
 					const sameAccount = this.adopt(stored);
 					if (!sameAccount) {
@@ -400,8 +418,27 @@ export class SessionManager {
 				await this.expire(`the identity provider answered ${error.error}`);
 				throw new UnauthenticatedError("session_expired", undefined, { apiError: error.error, apiMessage: error.errorDescription });
 			}
-			return this.keepIfUnexpired(session, error, generation);
+			return this.keepIfUnexpired(held, error, generation);
 		}
+	}
+
+	/** Keeps the refresh token an interrupted refresh got, and answers the session holding it. */
+	private async keepRefreshToken(session: StoredSession, refreshToken: string, generation: number): Promise<StoredSession> {
+		const withToken = (kept: StoredSession): StoredSession => ({ ...kept, tokens: { ...kept.tokens, refreshToken } });
+		if (this.retired) {
+			await this.storeForSuccessor(session, withToken);
+			return session;
+		}
+		if (generation !== this.generation || !this.session) {
+			return session;
+		}
+		this.session = withToken(this.session);
+		try {
+			await this.persist(this.deps.store.save(this.session));
+		} catch (error) {
+			this.logger.warn(`The ${this.service} session's new refresh token could not be stored: ${errorMessage(error)}`);
+		}
+		return this.session;
 	}
 
 	/**
