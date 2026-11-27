@@ -29,7 +29,7 @@ import type {
 	ProxyDeploymentInfo,
 	RequestPromoteApprovalReq,
 } from "@wso2/wso2-platform-core";
-import { BadRequestError, NotSupportedError } from "../../errors";
+import { BadRequestError, NotSupportedError, isCloudError } from "../../errors";
 import type { DevantHttp } from "./http";
 import { gql } from "./http";
 
@@ -67,9 +67,18 @@ const PROXY_DEPLOYMENT_FIELDS = `apiId environment { choreoEnv name id } lifecyc
 
 /**
  * The component's deployment in an environment, every field present ("" or 0 when the backend has none); null when
- * the read fails, which the console takes as nothing to show.
+ * the read fails, as the Choreo CLI answered it and its callers expect. {@link readDeployment} tells a failure apart.
  */
 export async function getDeploymentStatus(http: DevantHttp, params: GetDeploymentStatusReq): Promise<ComponentDeployment | null> {
+	try {
+		return (await readDeployment(http, params)) ?? componentDeployment({});
+	} catch {
+		return null;
+	}
+}
+
+/** The component's deployment in an environment; null when it has none. A read that fails is thrown. */
+export async function readDeployment(http: DevantHttp, params: GetDeploymentStatusReq): Promise<ComponentDeployment | null> {
 	const args = [
 		`orgHandler: ${gql(params.orgHandler)}`,
 		`orgUuid: ${gql(params.orgUuid)}`,
@@ -81,9 +90,12 @@ export async function getDeploymentStatus(http: DevantHttp, params: GetDeploymen
 		const data = await http.graphql<{ componentDeployment: Record<string, unknown> | null }>(
 			`query { componentDeployment(${args.join(", ")}) { ${DEPLOYMENT_FIELDS} } }`,
 		);
-		return componentDeployment(data.componentDeployment ?? {});
-	} catch {
-		return null;
+		return data.componentDeployment ? componentDeployment(data.componentDeployment) : null;
+	} catch (error) {
+		if (isCloudError(error) && error.code === "not_found") {
+			return null;
+		}
+		throw error;
 	}
 }
 
