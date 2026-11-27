@@ -28,6 +28,68 @@ import type { TokenResponse } from "./token-endpoint";
 import { OAuthError, refreshTokens, revokeToken } from "./token-endpoint";
 import type { SessionChangeEvent, SessionStore, StoredSession } from "./types";
 
+/** The tokens a refresh got, and the claims of its access token. */
+export interface RefreshedTokens {
+	tokens: TokenResponse;
+	claims: StoredSession["claims"];
+}
+
+/**
+ * How a session's tokens are refreshed and revoked. The default asks the
+ * session's OpenID issuer; another identity provider supplies its own.
+ */
+export interface SessionRefresher {
+	/**
+	 * Finds what a refresh of `session` needs, such as the issuer's endpoints,
+	 * and answers the refresh itself. A failure here is never a refusal: it
+	 * keeps a session that has not expired. The refresh throws an
+	 * {@link OAuthError} when the provider answers one, which ends the session
+	 * when it is a refusal.
+	 */
+	prepare(session: StoredSession): Promise<(refreshToken: string) => Promise<RefreshedTokens>>;
+	/** Asks the provider to revoke the session's refresh token; best effort, it never throws. */
+	revoke(session: StoredSession, signal?: AbortSignal): Promise<void>;
+}
+
+/** Refreshes and revokes against the session's issuer, found through OpenID discovery. */
+export function oidcRefresher(fetch: FetchLike): SessionRefresher {
+	return {
+		async prepare(session) {
+			const discovery = await discover(session.issuer, fetch);
+			return async (refreshToken) => {
+				const tokens = await refreshTokens({
+					tokenEndpoint: discovery.token_endpoint,
+					clientId: session.clientId,
+					fetch,
+					refreshToken,
+					scope: session.tokens.scope,
+				});
+				return { tokens, claims: readClaims(tokens.access_token) };
+			};
+		},
+		async revoke(session, signal) {
+			if (!session.tokens.refreshToken) {
+				return;
+			}
+			try {
+				const discovery = await discover(session.issuer, fetch, { signal });
+				if (discovery.revocation_endpoint) {
+					await revokeToken({
+						revocationEndpoint: discovery.revocation_endpoint,
+						clientId: session.clientId,
+						token: session.tokens.refreshToken,
+						tokenTypeHint: "refresh_token",
+						fetch,
+						signal,
+					});
+				}
+			} catch {
+				// The session is gone locally either way.
+			}
+		},
+	};
+}
+
 /** A token this close to expiry is refreshed before it is used. */
 export const REFRESH_MARGIN_MS = 60_000;
 
@@ -56,6 +118,10 @@ export interface SessionManagerDeps {
 	now?: () => Date;
 	logger?: Logger;
 	refreshMarginMs?: number;
+	/** How tokens are refreshed and revoked; {@link oidcRefresher} when none is given. */
+	refresher?: SessionRefresher;
+	/** The service the session is for, as log lines and messages name it. */
+	serviceName?: string;
 }
 
 /**
@@ -100,6 +166,8 @@ function withTokens(session: StoredSession, tokens: TokenResponse, claims: Store
 
 export class SessionManager {
 	private readonly logger: Logger;
+	private readonly refresher: SessionRefresher;
+	private readonly service: string;
 	private readonly margin: number;
 	private readonly now: () => Date;
 	private loaded = false;
@@ -117,6 +185,8 @@ export class SessionManager {
 
 	constructor(private readonly deps: SessionManagerDeps) {
 		this.logger = deps.logger ?? silentLogger;
+		this.refresher = deps.refresher ?? oidcRefresher(deps.fetch);
+		this.service = deps.serviceName ?? "Choreo Cloud";
 		this.margin = deps.refreshMarginMs ?? REFRESH_MARGIN_MS;
 		this.now = deps.now ?? (() => new Date());
 		this.unsubscribeStore = deps.store.onDidChange?.((env) => {
@@ -144,7 +214,7 @@ export class SessionManager {
 	async setSession(session: StoredSession): Promise<void> {
 		const replaced = await this.current();
 		if (this.retired) {
-			throw new UnauthenticatedError("no_session", "The sign-in finished after its Choreo Cloud session manager was retired; it was not kept.");
+			throw new UnauthenticatedError("no_session", `The sign-in finished after its ${this.service} session manager was retired; it was not kept.`);
 		}
 		this.generation++;
 		this.session = session;
@@ -266,13 +336,13 @@ export class SessionManager {
 		});
 		refreshesInFlight.set(refreshToken, settled);
 		try {
-			let discovery: Awaited<ReturnType<typeof discover>>;
+			let refresh: (refreshToken: string) => Promise<RefreshedTokens>;
 			try {
-				discovery = await discover(session.issuer, this.deps.fetch);
+				refresh = await this.refresher.prepare(session);
 			} catch (error) {
 				return this.keepIfUnexpired(session, error, generation);
 			}
-			return await this.refreshWith(session, refreshToken, discovery, generation);
+			return await this.refreshWith(session, refreshToken, refresh, generation);
 		} finally {
 			if (refreshesInFlight.get(refreshToken) === settled) {
 				refreshesInFlight.delete(refreshToken);
@@ -285,19 +355,12 @@ export class SessionManager {
 	private async refreshWith(
 		session: StoredSession,
 		refreshToken: string,
-		discovery: Awaited<ReturnType<typeof discover>>,
+		refresh: (refreshToken: string) => Promise<RefreshedTokens>,
 		generation: number,
 	): Promise<RefreshOutcome> {
 		try {
-			const tokens = await refreshTokens({
-				tokenEndpoint: discovery.token_endpoint,
-				clientId: session.clientId,
-				fetch: this.deps.fetch,
-				refreshToken,
-				scope: session.tokens.scope,
-			});
+			const { tokens, claims } = await refresh(refreshToken);
 			const issuedAt = this.now();
-			const claims = readClaims(tokens.access_token);
 			if (this.retired) {
 				// The issuer may have rotated away the refresh token the store still holds: the newer manager would refresh
 				// with a dead one and end the session. The tokens are stored for it, unless the store moved on meanwhile.
@@ -312,7 +375,7 @@ export class SessionManager {
 			const refreshed = withTokens(this.session, tokens, claims, issuedAt);
 			this.session = refreshed;
 			await this.persist(this.deps.store.save(refreshed));
-			this.logger.debug("Refreshed the Choreo Cloud session");
+			this.logger.debug(`Refreshed the ${this.service} session`);
 			this.emit({ reason: "refreshed" });
 			return { session: refreshed };
 		} catch (error) {
@@ -326,7 +389,7 @@ export class SessionManager {
 					throw error;
 				}
 				if (stored && stored.tokens.refreshToken !== session.tokens.refreshToken) {
-					this.logger.debug("Took the Choreo Cloud session another window refreshed");
+					this.logger.debug(`Took the ${this.service} session another window refreshed`);
 					const sameAccount = this.adopt(stored);
 					if (!sameAccount) {
 						// Another person or organization: a request made for the session before must not go out with its token.
@@ -353,7 +416,7 @@ export class SessionManager {
 		try {
 			await this.deps.store.save(refresh(stored));
 		} catch (error) {
-			this.logger.warn(`The refreshed Choreo Cloud session could not be stored: ${errorMessage(error)}`);
+			this.logger.warn(`The refreshed ${this.service} session could not be stored: ${errorMessage(error)}`);
 		}
 	}
 
@@ -364,7 +427,7 @@ export class SessionManager {
 			throw new UnauthenticatedError("no_session");
 		}
 		if (!this.isExpired(session)) {
-			this.logger.warn(`Could not refresh the Choreo Cloud session (${errorMessage(error)}); using the current token while it lasts`);
+			this.logger.warn(`Could not refresh the ${this.service} session (${errorMessage(error)}); using the current token while it lasts`);
 			return { session, failure: error };
 		}
 		if (isCloudError(error)) {
@@ -375,7 +438,7 @@ export class SessionManager {
 
 	/** Ends the session because the issuer will not refresh it, and says so. */
 	private async expire(why: string): Promise<void> {
-		this.logger.info(`The Choreo Cloud session has ended: ${why}`);
+		this.logger.info(`The ${this.service} session has ended: ${why}`);
 		this.generation++;
 		this.session = undefined;
 		await this.persist(this.deps.store.clear(this.deps.env.name));
@@ -387,7 +450,7 @@ export class SessionManager {
 		try {
 			return await this.deps.store.load(this.deps.env.name);
 		} catch (error) {
-			this.logger.warn(`The stored Choreo Cloud session could not be read: ${errorMessage(error)}`);
+			this.logger.warn(`The stored ${this.service} session could not be read: ${errorMessage(error)}`);
 			return undefined;
 		}
 	}
@@ -425,7 +488,7 @@ export class SessionManager {
 				stored = await this.deps.store.load(this.deps.env.name);
 			} catch (error) {
 				// Unreadable is not signed out: what is cached stays.
-				this.logger.warn(`The stored Choreo Cloud session could not be read after it changed: ${errorMessage(error)}`);
+				this.logger.warn(`The stored ${this.service} session could not be read after it changed: ${errorMessage(error)}`);
 				return;
 			}
 			if (generation !== this.generation || writes !== this.writeCount || this.pendingWrites.size > 0) {
@@ -486,23 +549,10 @@ export class SessionManager {
 		this.emit({ reason: "signed-out" });
 	}
 
-	/** Asks the issuer to revoke a session's refresh token; best effort, it never throws. */
+	/** Asks the provider to revoke a session's refresh token; best effort, it never throws. */
 	private async revoke(session: StoredSession, signal?: AbortSignal): Promise<void> {
-		if (!session.tokens.refreshToken) {
-			return;
-		}
 		try {
-			const discovery = await discover(session.issuer, this.deps.fetch, { signal });
-			if (discovery.revocation_endpoint) {
-				await revokeToken({
-					revocationEndpoint: discovery.revocation_endpoint,
-					clientId: session.clientId,
-					token: session.tokens.refreshToken,
-					tokenTypeHint: "refresh_token",
-					fetch: this.deps.fetch,
-					signal,
-				});
-			}
+			await this.refresher.revoke(session, signal);
 		} catch {
 			// The session is gone locally either way.
 		}

@@ -19,9 +19,9 @@
 import type { CloudEnvName } from "../config/environments";
 import type { SessionStore, StoredSession } from "./types";
 
-/** The key a session is kept under, one per environment. */
-export function sessionKey(env: CloudEnvName): string {
-	return `wso2-cloud.session.${env}`;
+/** The key a session is kept under, one per environment, and per platform when `namespace` names one. */
+export function sessionKey(env: CloudEnvName, namespace?: string): string {
+	return namespace ? `wso2-cloud.${namespace}.session.${env}` : `wso2-cloud.session.${env}`;
 }
 
 /** A store that forgets on restart, for tests and for hosts without secure storage. */

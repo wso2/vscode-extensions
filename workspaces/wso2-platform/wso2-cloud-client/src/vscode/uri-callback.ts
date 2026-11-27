@@ -32,6 +32,13 @@ export const REGISTERED_URI_SCHEMES: readonly string[] = ["vscode", "vscode-insi
 /** The path, under the extension's URI authority, the sign-in comes back to. */
 export const SIGN_IN_PATH = "/signin";
 
+/** A sign-in callback fed by the host's URI handler: one that `accepts` a URI is handed it with `pushUri`. */
+export interface UriCallbackSink {
+	accepts(uri: vscode.Uri): boolean;
+	pushUri(uri: vscode.Uri): boolean;
+	dispose(): void;
+}
+
 export interface UriCallbackOptions {
 	/** The extension's id, `publisher.name`, which is the URI's authority. */
 	extensionId: string;
@@ -44,7 +51,7 @@ export interface UriCallbackOptions {
  * the local client opens it and routes it back to this extension host, so
  * nothing changes there. The host calls `push` from `handleUri`.
  */
-export class UriCallbackReceiver extends DeferredReceiver {
+export class UriCallbackReceiver extends DeferredReceiver implements UriCallbackSink {
 	readonly path: string;
 
 	constructor(options: UriCallbackOptions) {
