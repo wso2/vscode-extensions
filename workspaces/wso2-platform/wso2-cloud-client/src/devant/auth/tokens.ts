@@ -17,6 +17,7 @@
  */
 
 import type { FetchLike } from "../../api/http";
+import { RefreshInterruptedError } from "../../auth/session-manager";
 import type { TokenResponse } from "../../auth/token-endpoint";
 import { exchangeCode, requestTokens } from "../../auth/token-endpoint";
 import type { DevantDeployment } from "../environments";
@@ -81,7 +82,14 @@ export async function refreshOrganizationTokens(
 		{ tokenEndpoint: deployment.stsTokenUrl, clientId: deployment.stsClientId, fetch, signal },
 		{ grant_type: "refresh_token", client_id: deployment.stsClientId, refresh_token: refreshToken },
 	);
-	const exchanged = await exchangeForOrganization(deployment, refreshed.access_token, orgHandle, fetch, signal);
+	let exchanged: TokenResponse;
+	try {
+		exchanged = await exchangeForOrganization(deployment, refreshed.access_token, orgHandle, fetch, signal);
+	} catch (error) {
+		// The refresh grant may have ended `refreshToken`; the one it gave is what the next refresh needs.
+		const rotated = refreshed.refresh_token && refreshed.refresh_token !== refreshToken;
+		throw rotated ? new RefreshInterruptedError(refreshed.refresh_token as string, error) : error;
+	}
 	// A token service that does not rotate refresh tokens on exchange keeps the one the refresh gave.
 	return { ...exchanged, refresh_token: exchanged.refresh_token ?? refreshed.refresh_token ?? refreshToken };
 }
