@@ -51,6 +51,8 @@ export interface HttpClientOptions {
 	fetch?: FetchLike;
 	timeoutMs?: number;
 	userAgent?: string;
+	/** The service messages name; Choreo Cloud when absent. */
+	serviceName?: string;
 	logger?: Logger;
 	/**
 	 * Called once when the API rejects the token twice in a row, which means the
@@ -76,7 +78,7 @@ export interface RequestOptions {
 	 * answers mean something other than what the status says (the build read
 	 * answers an unknown name with a 500).
 	 */
-	mapStatus?: (status: number, body: ApiErrorBody) => CloudError | undefined;
+	mapStatus?: (status: number, body: ApiErrorBody, text: string) => CloudError | undefined;
 	/** The timeout for this call alone. */
 	timeoutMs?: number;
 	/**
@@ -109,6 +111,7 @@ export class HttpClient {
 	private readonly fetchImpl: FetchLike;
 	private readonly timeoutMs: number;
 	private readonly userAgent?: string;
+	private readonly service: string;
 	private readonly logger: Logger;
 	private readonly onUnauthenticated?: (error: UnauthenticatedError) => void;
 
@@ -118,6 +121,7 @@ export class HttpClient {
 		this.fetchImpl = options.fetch ?? defaultFetch;
 		this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 		this.userAgent = options.userAgent;
+		this.service = options.serviceName ?? "Choreo Cloud";
 		this.logger = options.logger ?? silentLogger;
 		this.onUnauthenticated = options.onUnauthenticated;
 	}
@@ -149,23 +153,31 @@ export class HttpClient {
 
 	/** Sends one request and decodes its JSON answer. */
 	async request<T>(method: HttpMethod, path: string, options: RequestOptions = {}): Promise<T> {
-		const { response, abort } = await this.exchange(method, path, options);
-		let text: string;
-		try {
-			text = await readWithin(response, path, abort);
-		} finally {
-			abort.dispose();
-		}
+		const { status, text } = await this.read(method, path, options);
 		if (text.length === 0) {
 			if (options.emptyBodyAs === "error") {
-				throw new NetworkError(`Choreo Cloud answered ${path} with no body.`, { status: response.status, path });
+				throw new NetworkError(`${this.service} answered ${path} with no body.`, { status, path });
 			}
 			return undefined as T;
 		}
 		try {
 			return JSON.parse(text) as T;
 		} catch (error) {
-			throw new NetworkError(`Choreo Cloud answered ${path} with something other than JSON.`, { status: response.status, path, cause: error });
+			throw new NetworkError(`${this.service} answered ${path} with something other than JSON.`, { status, path, cause: error });
+		}
+	}
+
+	/** Sends one request and answers its body as text, unparsed. */
+	async text(method: HttpMethod, path: string, options: RequestOptions = {}): Promise<string> {
+		return (await this.read(method, path, options)).text;
+	}
+
+	private async read(method: HttpMethod, path: string, options: RequestOptions): Promise<{ status: number; text: string }> {
+		const { response, abort } = await this.exchange(method, path, options);
+		try {
+			return { status: response.status, text: await readWithin(response, path, abort, this.service) };
+		} finally {
+			abort.dispose();
 		}
 	}
 
@@ -191,7 +203,7 @@ export class HttpClient {
 				}
 				if (response.status >= 300 && response.status < 400) {
 					await response.body?.cancel().catch(() => undefined);
-					throw new ServerError(`Choreo Cloud answered ${path} with a redirect (${response.status}), which the client does not follow.`, {
+					throw new ServerError(`${this.service} answered ${path} with a redirect (${response.status}), which the client does not follow.`, {
 						status: response.status,
 						path,
 					});
@@ -200,11 +212,16 @@ export class HttpClient {
 					const kept = abort;
 					return { response, abort: kept };
 				}
-				const text = await readWithin(response, path, abort);
+				const text = await readWithin(response, path, abort, this.service);
 				const body = parseApiErrorBody(text);
-				const mapped = options.mapStatus?.(response.status, body);
+				const mapped = options.mapStatus?.(response.status, body, text);
 				const error =
-					mapped ?? fromHttpResponse(response.status, body, path, { retryAfterSeconds: retryAfter(response), statusText: response.statusText });
+					mapped ??
+					fromHttpResponse(response.status, body, path, {
+						retryAfterSeconds: retryAfter(response),
+						statusText: response.statusText,
+						serviceName: this.service,
+					});
 				if (!options.passThrough && isCloudError(error) && error.code === "unauthenticated") {
 					this.onUnauthenticated?.(error as UnauthenticatedError);
 				}
@@ -259,12 +276,12 @@ export class HttpClient {
 			abort.dispose();
 			const path = new URL(url).pathname;
 			if (abort.timedOut()) {
-				throw new TimeoutError(`Choreo Cloud did not answer ${path} within ${Math.round(timeoutMs / 1000)} seconds.`, { path, cause: error });
+				throw new TimeoutError(`${this.service} did not answer ${path} within ${Math.round(timeoutMs / 1000)} seconds.`, { path, cause: error });
 			}
 			if (abort.signal.aborted) {
 				throw new TimeoutError(`The call to ${path} was cancelled.`, { path, cause: error, reason: "cancelled", retryable: false });
 			}
-			throw new NetworkError(`Choreo Cloud could not be reached at ${this.baseUrl}: ${errorMessage(error)}`, { path, cause: error });
+			throw new NetworkError(`${this.service} could not be reached at ${this.baseUrl}: ${errorMessage(error)}`, { path, cause: error });
 		}
 	}
 }
@@ -273,13 +290,13 @@ export class HttpClient {
  * Reads the body within the call's abort: a read the timer or the caller cut
  * off is a `TimeoutError`, like a request that never answered.
  */
-async function readWithin(response: Response, path: string, abort: LinkedAbort): Promise<string> {
+async function readWithin(response: Response, path: string, abort: LinkedAbort, service: string): Promise<string> {
 	try {
-		return await readBounded(response, path);
+		return await readBounded(response, path, service);
 	} catch (error) {
 		if (!isCloudError(error) && abort.signal.aborted) {
 			throw abort.timedOut()
-				? new TimeoutError(`Choreo Cloud did not finish answering ${path} in time.`, { path, cause: error })
+				? new TimeoutError(`${service} did not finish answering ${path} in time.`, { path, cause: error })
 				: new TimeoutError(`The call to ${path} was cancelled.`, { path, cause: error, reason: "cancelled", retryable: false });
 		}
 		throw error;
@@ -287,9 +304,9 @@ async function readWithin(response: Response, path: string, abort: LinkedAbort):
 }
 
 /** Reads the body up to {@link RESPONSE_LIMIT_BYTES}; a longer one is cut off and refused. */
-async function readBounded(response: Response, path: string): Promise<string> {
+async function readBounded(response: Response, path: string, service: string): Promise<string> {
 	const tooLong = () =>
-		new NetworkError(`Choreo Cloud answered ${path} with more than ${RESPONSE_LIMIT_BYTES >> 20} MiB.`, { status: response.status, path });
+		new NetworkError(`${service} answered ${path} with more than ${RESPONSE_LIMIT_BYTES >> 20} MiB.`, { status: response.status, path });
 	const declared = Number(response.headers.get("content-length"));
 	if (Number.isFinite(declared) && declared > RESPONSE_LIMIT_BYTES) {
 		await response.body?.cancel().catch(() => undefined);

@@ -66,6 +66,7 @@
 		"@types/mocha": "10.0.1",
 		"@types/node": "22.15.21",
 		"@types/vscode": "1.100.0",
+		"@wso2/wso2-platform-core": "workspace:*",
 		"mocha": "11.5.0",
 		"ts-node": "10.9.2",
 		"typescript": "5.8.3"
