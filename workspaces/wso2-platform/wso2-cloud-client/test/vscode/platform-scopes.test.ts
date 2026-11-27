@@ -56,6 +56,10 @@ describe("sessions of another platform", () => {
 		assert.equal(named.id, sessionId(session, "devant"));
 		assert.deepEqual(await auth.getSessions(["env:dev", scopeForPlatform("other")]), []);
 		assert.equal((await auth.getSessions()).length, 1, "VS Code's own account list still sees the session");
+		// Scopes that name neither an environment nor the platform are no request for this platform's key.
+		assert.deepEqual(await auth.getSessions([]), []);
+		assert.deepEqual(await auth.getSessions(["org:acme"]), []);
+		await assert.rejects(auth.createSession(["prompt:login"]));
 	});
 
 	it("are refused a sign-in a request starts without naming the platform", async () => {
