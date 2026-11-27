@@ -99,6 +99,9 @@ import type {
 	RequestPromoteApprovalReq,
 	ResolveConnectionSecretsReq,
 	ResolveConnectionSecretsResp,
+	StartProxyServerReq,
+	StartProxyServerResp,
+	StopProxyServerReq,
 	SubscriptionsResp,
 	ToggleAutoBuildReq,
 	ToggleAutoBuildResp,
@@ -106,6 +109,8 @@ import type {
 	UpdateProjectReq,
 } from "@wso2/wso2-platform-core";
 import type { DevantOrganization } from "../auth/session";
+import type { DevantProxiesOptions } from "../proxy";
+import { DevantProxies } from "../proxy";
 import * as apim from "./apim";
 import * as builds from "./builds";
 import * as components from "./components";
@@ -120,14 +125,33 @@ import * as subscriptions from "./subscriptions";
 
 /**
  * Devant's API with the methods, requests and answers of the Choreo CLI's editor client, so code written against that
- * client runs unchanged. Signing in, switching organization and the local proxy are elsewhere.
+ * client runs unchanged. Signing in and switching organization are elsewhere.
  */
 export class DevantApiClient implements IChoreoRPCClient {
+	private readonly proxies: DevantProxies;
+
 	constructor(
 		readonly http: DevantHttp,
-		/** The person's organizations, which the billing service is addressed by. */
+		/** The person's organizations, which the billing service and the proxy address them by. */
 		private readonly organizations: () => Promise<readonly DevantOrganization[]>,
-	) {}
+		proxyOptions: Omit<DevantProxiesOptions, "organizations"> = {},
+	) {
+		this.proxies = new DevantProxies(http, { ...proxyOptions, organizations });
+	}
+
+	/** Starts a local proxy through the project's bridge, deploying the bridge when needed. */
+	startProxyServer(params: StartProxyServerReq): Promise<StartProxyServerResp> {
+		return this.proxies.start(params);
+	}
+
+	stopProxyServer(params: StopProxyServerReq): Promise<void> {
+		return this.proxies.stop(params);
+	}
+
+	/** Stops every local proxy this client started. */
+	dispose(): Promise<void> {
+		return this.proxies.dispose();
+	}
 
 	createProject(params: CreateProjectReq): Promise<Project> {
 		return projects.createProject(this.http, params);

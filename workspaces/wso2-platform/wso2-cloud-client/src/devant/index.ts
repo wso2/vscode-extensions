@@ -29,3 +29,5 @@ export type { DevantHttpOptions, GraphqlOptions } from "./api/http";
 export { DEVANT_SERVICE, DevantHttp, gql } from "./api/http";
 export { projectHandle } from "./api/projects";
 export { parseGitUrl } from "./api/repos";
+export type { DevantProxiesOptions } from "./proxy";
+export { DevantProxies } from "./proxy";

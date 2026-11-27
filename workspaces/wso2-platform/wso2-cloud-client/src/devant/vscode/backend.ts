@@ -140,7 +140,7 @@ function buildDevant(host: PlatformBackendHost, deployments: Readonly<Record<Dev
 		onUnauthenticated: (error) => host.onUnauthenticated(error),
 	});
 	const client: DevantClient = {
-		api: new DevantApiClient(http, async () => (await current())?.devant.organizations ?? []),
+		api: new DevantApiClient(http, async () => (await current())?.devant.organizations ?? [], { fetch, logger }),
 		deployments,
 		get region() {
 			return region;
@@ -188,6 +188,7 @@ function buildDevant(host: PlatformBackendHost, deployments: Readonly<Record<Dev
 			listeners.clear();
 			stopWatching();
 			login.cancel();
+			void client.api.dispose().catch((error) => logger.warn(`Devant's local proxies did not all stop: ${errorMessage(error)}`));
 			receiver.dispose();
 			sessions.dispose();
 		},
