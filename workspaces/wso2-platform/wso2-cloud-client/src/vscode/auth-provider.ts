@@ -179,7 +179,10 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 		return registration;
 	}
 
-	/** Whether `scopes` name a region of this provider's deployment, or name none, and name the platform served. */
+	/**
+	 * Whether `scopes` name a region of this provider's deployment, or name none, and name the platform served. A
+	 * platform's session is otherwise seen only by VS Code's own account list, which asks with no scopes at all.
+	 */
 	private serves(scopes: readonly string[] | undefined): boolean {
 		const named = (scopes ?? []).filter((s) => s.startsWith("env:"));
 		const served = regionsOf(this.region.env.name).map(scopeForEnv);
@@ -191,7 +194,7 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 		if (!platform) {
 			return platforms.length === 0;
 		}
-		return platforms.includes(scopeForPlatform(platform)) || (named.length === 0 && platforms.length === 0);
+		return platforms.includes(scopeForPlatform(platform)) || scopes === undefined;
 	}
 
 	/**
