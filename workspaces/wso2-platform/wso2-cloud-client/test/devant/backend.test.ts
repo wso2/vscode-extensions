@@ -99,10 +99,19 @@ describe("Devant as a platform", () => {
 		const globalState = new FakeMemento();
 		const backend = devantBackend({ env: {} });
 		assert.ok(backend);
+		// Holds the exchange for an organization open once set, so a test can act while it is under way.
+		let held: { handle: string; reached: () => void; release: Promise<void> } | undefined;
+		const fetch: typeof fake.fetch = async (input, init) => {
+			if (held && String(init?.body ?? "").includes(`orgHandle=${held.handle}`)) {
+				held.reached();
+				await held.release;
+			}
+			return fake.fetch(input, init);
+		};
 		const platform = createPlatformClients({
 			extensionId: "wso2.wso2-integrator",
 			context: { secrets, globalState, subscriptions: [] } as never,
-			fetch: fake.fetch,
+			fetch,
 			backends: [backend],
 			initialPlatform: DEVANT_PLATFORM,
 		});
@@ -144,9 +153,18 @@ describe("Devant as a platform", () => {
 			await rejection(client.selectOrganization("gamma"));
 
 			// A sign-out while the exchange is under way wins: the switch does not sign the person back in.
+			let release: () => void = () => undefined;
+			const reached = new Promise<void>((resolve) => {
+				const freed = new Promise<void>((free) => {
+					release = free;
+				});
+				held = { handle: "acme", reached: resolve, release: freed };
+			});
 			const switching = client.selectOrganization("acme");
+			await reached;
 			await platform.sessions.signOut({ revoke: false });
-			await rejection(switching);
+			release();
+			assert.equal(((await rejection(switching)) as LoginError).details.reason, "cancelled");
 			assert.equal(await platform.sessions.current(), undefined);
 		} finally {
 			platform.dispose();

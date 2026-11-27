@@ -126,7 +126,7 @@ function buildDevant(host: PlatformBackendHost, deployments: Readonly<Record<Dev
 		const session = await sessions.current();
 		return isDevantSession(session) ? session : undefined;
 	};
-	// Organizations whose region was looked at in this window.
+	// Organizations whose region was looked at in this window, or is being looked at; one that failed is tried again.
 	const initialized = new Set<string>();
 	// The organization the proxies running were started for; they stop when the session leaves it.
 	let proxiesFor: string | undefined;
@@ -140,10 +140,12 @@ function buildDevant(host: PlatformBackendHost, deployments: Readonly<Record<Dev
 					void client.api.stopProxies().catch((error) => logger.warn(`The local proxies did not all stop: ${errorMessage(error)}`));
 				}
 				if (session && !initialized.has(session.org.handle)) {
-					initialized.add(session.org.handle);
-					void initOrganization(http, session).catch((error) =>
-						logger.debug(`The organization's region was not initialized: ${errorMessage(error)}`),
-					);
+					const handle = session.org.handle;
+					initialized.add(handle);
+					void initOrganization(http, session).catch((error) => {
+						initialized.delete(handle);
+						logger.debug(`The organization's region was not initialized: ${errorMessage(error)}`);
+					});
 				}
 			},
 			(error) => logger.warn(`The session could not be read: ${errorMessage(error)}`),
