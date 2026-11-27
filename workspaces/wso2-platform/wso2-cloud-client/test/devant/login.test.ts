@@ -17,7 +17,7 @@
  */
 
 import assert from "node:assert/strict";
-import { LoginError } from "../../src";
+import { LoginError, RefreshInterruptedError } from "../../src";
 import { challengeS256 } from "../../src/auth/pkce";
 import { DevantLogin, devantRefresher, isDevantSession, switchOrganization } from "../../src/devant";
 import { rejection } from "../support";
@@ -137,6 +137,34 @@ describe("Devant sign-in", () => {
 		assert.equal(exchangeForm.get("orgHandle"), "acme");
 		assert.equal(tokens.refresh_token, "rt-acme");
 		assert.equal(claims.ouHandle, "acme");
+	});
+
+	it("hands back the refresh token the refresh grant gave when the exchange after it fails", async () => {
+		let down = false;
+		const fake = fakeDevant({ exchangeStatus: () => (down ? 503 : undefined) });
+		const callback = new ManualCallback();
+		const running = login(fake, callback).run({ organization: "acme" });
+		await callback.send({ code: "code-1" });
+		const session = await running;
+
+		const refresh = await devantRefresher(DEPLOYMENTS, fake.fetch).prepare(session);
+		down = true;
+		const error = await rejection(refresh("rt-acme"));
+		assert.ok(error instanceof RefreshInterruptedError);
+		assert.equal(error.refreshToken, "rt-rotated");
+	});
+
+	it("keeps the session's refresh token when moving to an organization answers none", async () => {
+		const fake = fakeDevant();
+		const callback = new ManualCallback();
+		const running = login(fake, callback).run();
+		await callback.send({ code: "code-1" });
+		const session = await running;
+
+		const bare = fakeDevant({ exchangeRefreshToken: false });
+		const next = await switchOrganization(session, session.devant.organizations[1], DEPLOYMENTS, bare.fetch);
+		assert.equal(next.org.handle, "beta");
+		assert.equal(next.tokens.refreshToken, session.tokens.refreshToken);
 	});
 
 	it("moves a session to another of the person's organizations without the browser", async () => {

@@ -5,6 +5,7 @@ import {
 	InMemorySessionStore,
 	LoginFlow,
 	OAuthError,
+	RefreshInterruptedError,
 	type RefreshedTokens,
 	SessionManager,
 	type SessionRefresher,
@@ -123,5 +124,52 @@ describe("SessionManager with another identity provider's refresher", () => {
 		t += 60_000;
 		const error = (await rejection(manager.getAccessToken())) as CloudError;
 		assert.equal(error.code, "network");
+	});
+
+	it("keeps the refresh token a refresh got before it failed, and refreshes with it next", async () => {
+		let t = start.getTime();
+		const now = () => new Date(t);
+		const issuer = new FakeIssuer({ expiresIn: 600, now });
+		const session = await signIn(issuer, now);
+		let interrupted = true;
+		const { refresher, calls } = scriptedRefresher({
+			refresh: async () => {
+				if (interrupted) {
+					throw new RefreshInterruptedError("refresh-2", new TypeError("fetch failed"));
+				}
+				return { tokens: { access_token: "access-3", refresh_token: "refresh-3", expires_in: 600 }, claims: session.claims };
+			},
+		});
+		const store = new InMemorySessionStore();
+		const manager = new SessionManager({ env, store, fetch: issuer.fetch, now, refresher });
+		await manager.setSession(session);
+
+		t += 9.5 * 60_000;
+		assert.equal(await manager.getAccessToken(), session.tokens.accessToken, "the current token while it lasts");
+		assert.equal((await store.load("dev"))?.tokens.refreshToken, "refresh-2");
+		assert.equal((await store.load("dev"))?.tokens.accessToken, session.tokens.accessToken);
+
+		interrupted = false;
+		assert.equal(await manager.getAccessToken({ forceRefresh: true }), "access-3");
+		assert.deepEqual(calls.refreshed, [session.tokens.refreshToken, "refresh-2"]);
+	});
+
+	it("ends the session when the step after the new refresh token is refused", async () => {
+		let t = start.getTime();
+		const now = () => new Date(t);
+		const issuer = new FakeIssuer({ expiresIn: 600, now });
+		const { refresher } = scriptedRefresher({
+			refresh: async () => {
+				throw new RefreshInterruptedError("refresh-2", new OAuthError("invalid_grant", "no longer a member", 400));
+			},
+		});
+		const store = new InMemorySessionStore();
+		const manager = new SessionManager({ env, store, fetch: issuer.fetch, now, refresher });
+		await manager.setSession(await signIn(issuer, now));
+
+		t += 9.5 * 60_000;
+		const error = (await rejection(manager.getAccessToken())) as CloudError;
+		assert.equal(error.code, "session_expired");
+		assert.equal(await store.load("dev"), undefined);
 	});
 });
