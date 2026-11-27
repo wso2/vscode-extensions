@@ -226,6 +226,10 @@ describe("Devant connections", () => {
 		const route = `DELETE ${CONFIGS}/choreo-connections/g1`;
 		const api = devantApi([{ match: route, status: 204 }]);
 		await deleteConnection(api.http, { orgId: "101", connectionId: "g1", connectionName: "weather", componentPath: "" });
+		await assert.rejects(
+			deleteConnection(api.http, { orgId: "101", connectionId: "..", connectionName: "weather", componentPath: "" }),
+			/cannot name a resource/,
+		);
 		assert.equal(api.fake.calls(route).length, 1);
 	});
 

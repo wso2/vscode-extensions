@@ -107,6 +107,15 @@ describe("Devant sign-in", () => {
 		assert.equal(session.org.handle, "acme", "the first organization when none is asked for");
 	});
 
+	it("stays in the region the sign-in started on when the console names none", async () => {
+		const fake = fakeDevant();
+		const callback = new ManualCallback();
+		const running = login(fake, callback).run({ region: "EU" });
+		await callback.send({ code: "code-1" });
+		assert.equal((await running).devant.region, "EU");
+		assert.equal(fake.last("POST /oauth2/token")?.url.host, "sts.eu.choreo.dev");
+	});
+
 	it("points a person with no Devant account to Choreo Cloud", async () => {
 		const callback = new ManualCallback();
 		const running = login(fakeDevant({ noAccount: true }), callback).run();

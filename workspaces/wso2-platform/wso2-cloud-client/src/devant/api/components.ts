@@ -42,6 +42,7 @@ import type {
 	GetDeploymentTracksReq,
 	UpdateCodeServerReq,
 } from "@wso2/wso2-platform-core";
+import { segment } from "../../api/path";
 import { BadRequestError, ConflictError, NotFoundError, PlanLimitError, UnauthenticatedError } from "../../errors";
 import type { DevantHttp } from "./http";
 import { gql, orgNumber } from "./http";
@@ -61,7 +62,6 @@ const FULL_COMPONENT_FIELDS = `${COMPONENT_FIELDS}, repository { ${REPOSITORY_FI
 const PROXY_COMPONENT_FIELDS = `${COMPONENT_FIELDS}, repository { ${REPOSITORY_FIELDS} }`;
 
 const GIT_PROXY = "gitProxy";
-/** Where the code server image is pulled from. */
 /** The public registry Devant's sample and system images are pulled from. */
 export const SAMPLES_REGISTRY_HOST = "choreoanonymouspullable.azurecr.io";
 /** At most this many component reads run at once when a list is filled in. */
@@ -169,7 +169,7 @@ export async function getComponentList(http: DevantHttp, params: GetComponentsRe
 export async function getComponentItem(http: DevantHttp, params: GetComponentItemReq): Promise<ComponentKind> {
 	const raw = await http.rest<RawComponentKind>(
 		"GET",
-		`${DECLARATIVE_API}/projects/${encodeURIComponent(params.projectHandle)}/components/${encodeURIComponent(params.componentName)}`,
+		`${DECLARATIVE_API}/projects/${segment(params.projectHandle)}/components/${segment(params.componentName)}`,
 	);
 	return componentResourceOf(raw) as unknown as ComponentKind;
 }
@@ -195,11 +195,11 @@ export async function getBuildPacks(http: DevantHttp, params: BuildPackReq): Pro
 export async function createComponent(http: DevantHttp, params: CreateComponentReq): Promise<ComponentKind> {
 	const subPath = await repositorySubPath(params.componentDir);
 	assertGitUrl(params.repoUrl);
-	const created = await http.rest<RawComponentKind>("POST", `${DECLARATIVE_API}/projects/${encodeURIComponent(params.projectHandle)}/components`, {
+	const created = await http.rest<RawComponentKind>("POST", `${DECLARATIVE_API}/projects/${segment(params.projectHandle)}/components`, {
 		body: componentRequest(params, subPath),
 		mapStatus: (status, body) =>
 			(status === 403 || status === 404) && body.message?.includes("free tier")
-				? new PlanLimitError("The organization has as many components as its Devant plan allows.", { status, apiMessage: body.message })
+				? new PlanLimitError("The organization has as many components as its WSO2 Cloud plan allows.", { status, apiMessage: body.message })
 				: undefined,
 	});
 	const metadata = created?.metadata ?? {};
@@ -234,7 +234,7 @@ export async function deleteComponent(http: DevantHttp, params: DeleteCompReq): 
 	);
 	const answer = data.deleteComponentV2;
 	if (answer?.status === "error") {
-		throw new ConflictError(answer.message || "Devant did not delete the component.", { apiMessage: answer.message });
+		throw new ConflictError(answer.message || "WSO2 Cloud did not delete the component.", { apiMessage: answer.message });
 	}
 }
 
@@ -275,7 +275,7 @@ export async function getComponentEndpoints(http: DevantHttp, params: GetCompone
 
 /** How many components the organization has against its plan's limits. */
 export async function getComponentUsage(http: DevantHttp, params: GetComponentUsageReq): Promise<GetComponentUsageResp> {
-	return http.rest<GetComponentUsageResp>("GET", `${COMPONENT_MGT_API}/orgs/${encodeURIComponent(params.orgUuid)}/component-limits`, {
+	return http.rest<GetComponentUsageResp>("GET", `${COMPONENT_MGT_API}/orgs/${segment(params.orgUuid)}/component-limits`, {
 		query: { originCloud: params.cloudOrigin },
 	});
 }
@@ -291,7 +291,7 @@ export async function updateCodeServer(http: DevantHttp, params: UpdateCodeServe
 	);
 	const image = samples?.data?.images?.find((item) => item.name === "Code Server");
 	if (!image) {
-		throw new NotFoundError("Devant offers no code server image.");
+		throw new NotFoundError("WSO2 Cloud offers no code server image.");
 	}
 	const input = [
 		`userId: ${gql(userId)}`,
@@ -744,7 +744,6 @@ function yamlString(value: string): string {
 	return /^[A-Za-z_/][\w./-]*$/.test(value) && !/^(true|false|null|yes|no|on|off|y|n)$/i.test(value) ? value : JSON.stringify(value);
 }
 
-/** The registry Devant's sample images are pulled from, registered for the organization when it is not yet. */
 /** The id of the samples registry, registered for the organization when it is not yet. */
 export async function samplesRegistry(http: DevantHttp, orgUuid: string): Promise<string> {
 	const path = `${DEVOPS_API}/api/v1/container-registries`;
@@ -763,7 +762,7 @@ export async function samplesRegistry(http: DevantHttp, orgUuid: string): Promis
 	});
 	const registered = await find();
 	if (!registered) {
-		throw new NotFoundError("Devant did not register its samples registry for the organization.");
+		throw new NotFoundError("WSO2 Cloud did not register its samples registry for the organization.");
 	}
 	return registered;
 }
@@ -772,7 +771,7 @@ export async function samplesRegistry(http: DevantHttp, orgUuid: string): Promis
 async function signedInUserId(http: DevantHttp): Promise<string> {
 	const sub = (await http.claims())?.sub;
 	if (!sub) {
-		throw new UnauthenticatedError("no_session", "Not signed in to Devant.");
+		throw new UnauthenticatedError("no_session", "Not signed in to WSO2 Cloud.");
 	}
 	return sub;
 }

@@ -17,16 +17,16 @@
  */
 
 import type { GetSwaggerSpecReq, GetTestKeyReq, GetTestKeyResp } from "@wso2/wso2-platform-core";
+import { segment } from "../../api/path";
 import { NotSupportedError } from "../../errors";
 import type { DevantHttp } from "./http";
 
 /** A short-lived API key for trying an endpoint in an environment (`envName` is the key type). */
 export async function getTestKey(http: DevantHttp, params: GetTestKeyReq): Promise<GetTestKeyResp> {
-	const answer = await http.rest<{ apikey?: unknown; validityTime?: unknown } | null>(
-		"POST",
-		`/apis/${encodeURIComponent(params.apimId)}/generate-key`,
-		{ baseUrl: publisher(http), query: { organizationId: params.orgUuid, keyType: params.envName } },
-	);
+	const answer = await http.rest<{ apikey?: unknown; validityTime?: unknown } | null>("POST", `/apis/${segment(params.apimId)}/generate-key`, {
+		baseUrl: publisher(http),
+		query: { organizationId: params.orgUuid, keyType: params.envName },
+	});
 	return {
 		apiKey: typeof answer?.apikey === "string" ? answer.apikey : "",
 		validityTime: typeof answer?.validityTime === "number" ? answer.validityTime : 0,
@@ -35,7 +35,7 @@ export async function getTestKey(http: DevantHttp, params: GetTestKeyReq): Promi
 
 /** The OpenAPI document of an API revision, as the publisher answers it. */
 export async function getSwaggerSpec(http: DevantHttp, params: GetSwaggerSpecReq): Promise<object> {
-	return http.rest<object>("GET", `/apis/${encodeURIComponent(params.apimRevisionId)}/swagger`, {
+	return http.rest<object>("GET", `/apis/${segment(params.apimRevisionId)}/swagger`, {
 		baseUrl: publisher(http),
 		query: { organizationId: params.orgUuid },
 	});
@@ -44,7 +44,7 @@ export async function getSwaggerSpec(http: DevantHttp, params: GetSwaggerSpecReq
 function publisher(http: DevantHttp): string {
 	const url = http.deployment.apimPublisherUrl;
 	if (!url) {
-		throw new NotSupportedError("This Devant deployment names no API publisher.");
+		throw new NotSupportedError("This WSO2 Cloud deployment names no API publisher.");
 	}
 	return url;
 }

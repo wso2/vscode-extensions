@@ -19,6 +19,7 @@
 import { Buffer } from "node:buffer";
 import { randomUUID } from "node:crypto";
 import type { ComponentEP, DeploymentTrack, Environment, GetTestKeyResp } from "@wso2/wso2-platform-core";
+import { segment } from "../../api/path";
 import { poll } from "../../api/wait";
 import { BadRequestError, ConflictError, NotFoundError, ServerError, TimeoutError } from "../../errors";
 import { getTestKey } from "../api/apim";
@@ -189,7 +190,7 @@ export function bridgeRestEndpoint(endpoints: readonly ComponentEP[], envId: str
 export async function bridgeApiKey(http: DevantHttp, org: BridgeOrg, endpoint: ComponentEP, env: Environment): Promise<GetTestKeyResp> {
 	const answer = await getTestKey(http, { apimId: endpoint.apimId, orgUuid: org.uuid, orgId: org.id, envName: env.name });
 	if (!answer.apiKey) {
-		throw new ServerError("Devant answered no API key for the bridge component.");
+		throw new ServerError("WSO2 Cloud answered no API key for the bridge component.");
 	}
 	return answer;
 }
@@ -259,17 +260,13 @@ async function releaseIdOf(http: DevantHttp, component: ProjectComponent, projec
 }
 
 async function createBridgeEndpoints(http: DevantHttp, org: BridgeOrg, projectId: string, componentId: string, releaseId: string): Promise<void> {
-	await http.text(
-		"POST",
-		`${DEVOPS_API}/api/v1/byoi/components/${encodeURIComponent(componentId)}/releases/${encodeURIComponent(releaseId)}/endpoints`,
-		{
-			query: { organization_id: org.uuid, project_id: projectId },
-			body: {
-				main: base64(endpointsYaml(`rest-bridge-${randomUUID()}`)),
-				apiSchemas: [{ filename: "openapi.yaml", content: base64(OPENAPI_SPEC) }],
-			},
+	await http.text("POST", `${DEVOPS_API}/api/v1/byoi/components/${segment(componentId)}/releases/${segment(releaseId)}/endpoints`, {
+		query: { organization_id: org.uuid, project_id: projectId },
+		body: {
+			main: base64(endpointsYaml(`rest-bridge-${randomUUID()}`)),
+			apiSchemas: [{ filename: "openapi.yaml", content: base64(OPENAPI_SPEC) }],
 		},
-	);
+	});
 }
 
 async function deployBridgeImage(http: DevantHttp, componentId: string, releaseId: string): Promise<void> {

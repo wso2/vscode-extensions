@@ -1,3 +1,21 @@
+/**
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ *
+ * WSO2 LLC. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import assert from "node:assert/strict";
 import {
 	BrowserLoginTokenSource,
@@ -49,7 +67,10 @@ describe("sessions of another platform", () => {
 	it("hand a session to a request naming an environment only when it also names the platform", async () => {
 		const { auth, session } = await signedInProvider("devant");
 
+		const refused: string[] = [];
+		auth.onDidRefuseUnawareRequest(({ platform }) => refused.push(platform));
 		assert.deepEqual(await auth.getSessions(["env:dev"]), [], "an extension that knows only the default platform gets no key to another");
+		assert.deepEqual(refused, ["devant"], "the host hears of it, to say which extension needs an update");
 		const [named] = await auth.getSessions(["env:dev", scopeForPlatform("devant")]);
 		assert.ok(named);
 		assert.ok(named.scopes.includes(scopeForPlatform("devant")));

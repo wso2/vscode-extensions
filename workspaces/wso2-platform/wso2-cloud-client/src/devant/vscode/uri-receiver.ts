@@ -43,13 +43,13 @@ export class DevantUriReceiver implements DevantCallback, UriCallbackSink {
 	}
 
 	waitForCallback(nonce: string, signal?: AbortSignal): Promise<DevantCallbackResult> {
-		this.pending?.reject(new LoginError("cancelled", "Another Devant sign-in was started."));
+		this.pending?.reject(new LoginError("cancelled", "Another WSO2 Cloud sign-in was started."));
 		const promise = new Promise<DevantCallbackResult>((resolve, reject) => {
 			this.pending = { nonce, resolve, reject };
 		});
 		return untilAborted(promise, signal, () => {
 			this.pending = undefined;
-			return new LoginError("cancelled", "The Devant sign-in was cancelled.");
+			return new LoginError("cancelled", "The WSO2 Cloud sign-in was cancelled.");
 		});
 	}
 
@@ -67,7 +67,7 @@ export class DevantUriReceiver implements DevantCallback, UriCallbackSink {
 		this.pending = undefined;
 		const code = params.get("code");
 		if (!code) {
-			pending.reject(new LoginError("provider_error", "Devant's console sent no authorization code."));
+			pending.reject(new LoginError("provider_error", "WSO2 Cloud's console sent no authorization code."));
 			return true;
 		}
 		pending.resolve({ code, region: params.get("region") ?? undefined });
@@ -75,7 +75,7 @@ export class DevantUriReceiver implements DevantCallback, UriCallbackSink {
 	}
 
 	dispose(): void {
-		this.pending?.reject(new LoginError("cancelled", "The Devant sign-in was cancelled."));
+		this.pending?.reject(new LoginError("cancelled", "The WSO2 Cloud sign-in was cancelled."));
 		this.pending = undefined;
 	}
 }

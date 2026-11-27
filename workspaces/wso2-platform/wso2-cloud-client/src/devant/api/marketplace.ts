@@ -29,6 +29,7 @@ import type {
 	MarketplaceListResp,
 	RegisterMarketplaceConnectionReq,
 } from "@wso2/wso2-platform-core";
+import { segment } from "../../api/path";
 import { ServerError } from "../../errors";
 import { DEVANT_SERVICE } from "./http";
 import type { DevantHttp } from "./http";
@@ -167,7 +168,7 @@ function databaseEntry(value: unknown): MarketplaceItem {
 }
 
 function servicePath(serviceId: string): string {
-	return `${MARKETPLACE}/services/${encodeURIComponent(serviceId)}`;
+	return `${MARKETPLACE}/services/${segment(serviceId)}`;
 }
 
 /** The marketplace's services. Every non-optional filter is sent, its zero value when absent, as the CLI sent them. */
@@ -221,35 +222,31 @@ export async function getMarketplaceDatabases(http: DevantHttp, _params: { orgId
 }
 
 export async function getMarketplaceDatabaseItem(http: DevantHttp, params: GetDatabaseItemReq): Promise<MarketplaceItem> {
-	return databaseEntry(await http.rest<unknown>("GET", `${MARKETPLACE}/databases/${encodeURIComponent(params.resourceId)}`));
+	return databaseEntry(await http.rest<unknown>("GET", `${MARKETPLACE}/databases/${segment(params.resourceId)}`));
 }
 
 /** The per-environment configuration of a service's connection schema. */
 export async function getConnectionConfiguration(http: DevantHttp, serviceId: string, schemaId: string): Promise<Raw> {
-	const answer = record(await http.rest<unknown>("GET", `${servicePath(serviceId)}/connection-schemas/${encodeURIComponent(schemaId)}/config`));
+	const answer = record(await http.rest<unknown>("GET", `${servicePath(serviceId)}/connection-schemas/${segment(schemaId)}/config`));
 	return record(answer.configs);
 }
 
 /** The developer guide of a connection, in Markdown. */
 export async function getConnectionGuide(http: DevantHttp, params: GetConnectionGuideReq): Promise<GetConnectionGuideResp> {
-	const guide = await http.text(
-		"GET",
-		`${servicePath(params.serviceId)}/connection-schemas/${encodeURIComponent(params.connectionSchemaId)}/how-to-use`,
-		{
-			// Every field is sent, empty ones too.
-			query: {
-				configGroupId: params.configGroupId ?? "",
-				audience: params.audience ?? "",
-				orgId: params.orgUuid ?? "",
-				componentType: params.isSpa ? "WEB_APP_SPA" : "SERVICE",
-				isProjectLvlConnection: params.isProjectLvlConnection === true,
-				configFileType: params.configFileType ?? "",
-				connectionName: params.connectionName ?? "",
-				buildpackType: params.buildpackType ?? "",
-			},
-			headers: { Accept: "application/json, text/plain, */*" },
+	const guide = await http.text("GET", `${servicePath(params.serviceId)}/connection-schemas/${segment(params.connectionSchemaId)}/how-to-use`, {
+		// Every field is sent, empty ones too.
+		query: {
+			configGroupId: params.configGroupId ?? "",
+			audience: params.audience ?? "",
+			orgId: params.orgUuid ?? "",
+			componentType: params.isSpa ? "WEB_APP_SPA" : "SERVICE",
+			isProjectLvlConnection: params.isProjectLvlConnection === true,
+			configFileType: params.configFileType ?? "",
+			connectionName: params.connectionName ?? "",
+			buildpackType: params.buildpackType ?? "",
 		},
-	);
+		headers: { Accept: "application/json, text/plain, */*" },
+	});
 	return { guide };
 }
 
@@ -289,7 +286,7 @@ export async function registerMarketplaceConnection(http: DevantHttp, params: Re
 	if (schemaId === undefined) {
 		throw new ServerError(`${DEVANT_SERVICE} registered ${params.name} with no connection schema to configure.`);
 	}
-	await http.rest<unknown>("POST", `${servicePath(service.serviceId)}/connection-schemas/${encodeURIComponent(schemaId)}/config`, {
+	await http.rest<unknown>("POST", `${servicePath(service.serviceId)}/connection-schemas/${segment(schemaId)}/config`, {
 		body: { configs: goMap(params.configs, envConfig), message: "" },
 	});
 	// A failure here leaves a registered service still in CREATED, which the CLI ignored too.

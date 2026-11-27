@@ -73,6 +73,8 @@ export interface AuthProviderRegion {
 	 * another one.
 	 */
 	platform?: string;
+	/** That platform as messages name it; its name when absent. */
+	platformLabel?: string;
 }
 
 export interface AuthProviderDeps extends AuthProviderRegion {
@@ -184,6 +186,15 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 		return registration;
 	}
 
+	/** Tells the host of a request that names no platform while another platform's session is in use; answers whether it was one. */
+	private reportUnaware(region: AuthProviderRegion, scopes: readonly string[] | undefined): boolean {
+		if (!region.platform || !scopes || scopes.some((scope) => scope.startsWith(PLATFORM_SCOPE_PREFIX))) {
+			return false;
+		}
+		this.refusedEmitter.fire({ platform: region.platform });
+		return true;
+	}
+
 	/**
 	 * Whether `scopes` name a region of this provider's deployment, or name none, and name the platform served. A
 	 * platform's session is otherwise seen only by VS Code's own account list, which asks with no scopes at all.
@@ -194,7 +205,7 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 		if (named.length > 0 && !named.some((s) => served.includes(s))) {
 			return false;
 		}
-		const platforms = (scopes ?? []).filter((s) => s.startsWith("platform:"));
+		const platforms = (scopes ?? []).filter((s) => s.startsWith(PLATFORM_SCOPE_PREFIX));
 		const platform = this.region.platform;
 		if (!platform) {
 			return platforms.length === 0;
@@ -224,6 +235,7 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 	async getSessions(scopes?: readonly string[]): Promise<vscode.AuthenticationSession[]> {
 		const region = this.region;
 		if (!this.serves(scopes)) {
+			this.reportUnaware(region, scopes);
 			return [];
 		}
 		if (region.tokenSource.kind === "injected") {
@@ -253,14 +265,10 @@ export class WSO2CloudAuthenticationProvider implements vscode.AuthenticationPro
 	async createSession(scopes: readonly string[]): Promise<vscode.AuthenticationSession> {
 		const region = this.region;
 		if (!this.serves(scopes)) {
-			const platform = region.platform;
-			const unaware = platform && !scopes.some((scope) => scope.startsWith(PLATFORM_SCOPE_PREFIX));
-			if (unaware) {
-				this.refusedEmitter.fire({ platform });
-			}
+			const platform = region.platformLabel ?? region.platform;
 			throw new LoginError(
 				"provider_error",
-				unaware
+				this.reportUnaware(region, scopes)
 					? `The session in use is for ${platform}, which the extension asking does not support. Update it, or switch to Choreo Cloud.`
 					: `This provider signs in to ${platform ? `${platform} ` : ""}${region.env.name}; ${scopes.join(" ") || "the request"} names another platform or environment.`,
 			);

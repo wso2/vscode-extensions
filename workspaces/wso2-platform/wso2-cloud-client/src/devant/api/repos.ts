@@ -102,7 +102,7 @@ export async function obtainGithubToken(http: DevantHttp, params: { code: string
 		`mutation { obtainUserToken(authorizationCode: ${gql(params.code)}) { success message } }`,
 	);
 	if (!data.obtainUserToken?.success) {
-		throw new BadRequestError(`Devant could not obtain a GitHub token: ${data.obtainUserToken?.message || "no reason given"}`);
+		throw new BadRequestError(`WSO2 Cloud could not obtain a GitHub token: ${data.obtainUserToken?.message || "no reason given"}`);
 	}
 }
 

@@ -21,6 +21,9 @@ import type { CloudEnvName, CloudEnvironment } from "../config/environments";
 import { ENVIRONMENTS } from "../config/environments";
 import { BadRequestError, errorMessage } from "../errors";
 
+/** Devant as its users have always seen it named in the editor. */
+export const DEVANT_LABEL = "WSO2 Cloud";
+
 /** The regions Devant runs in; a person's organizations live in one of them. */
 export type DevantRegion = "US" | "EU";
 

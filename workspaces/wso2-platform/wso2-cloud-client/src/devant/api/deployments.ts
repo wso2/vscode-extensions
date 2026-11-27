@@ -29,6 +29,7 @@ import type {
 	ProxyDeploymentInfo,
 	RequestPromoteApprovalReq,
 } from "@wso2/wso2-platform-core";
+import { segment } from "../../api/path";
 import { BadRequestError, NotSupportedError } from "../../errors";
 import type { DevantHttp } from "./http";
 import { gql } from "./http";
@@ -173,7 +174,7 @@ export async function createDeployment(http: DevantHttp, params: CreateDeploymen
 		}
 		spec.proxyConfig = { keys };
 	}
-	const path = `${DECLARATIVE_API}/projects/${encodeURIComponent(params.projectHandle)}/components/${encodeURIComponent(params.componentName)}/deploymentTracks/${encodeURIComponent(params.versionId)}/deployments`;
+	const path = `${DECLARATIVE_API}/projects/${segment(params.projectHandle)}/components/${segment(params.componentName)}/deploymentTracks/${segment(params.versionId)}/deployments`;
 	await http.rest("POST", path, {
 		body: {
 			apiVersion: "core.choreo.dev/v1alpha1",
@@ -227,7 +228,7 @@ export async function checkWorkflowStatus(http: DevantHttp, params: CheckWorkflo
 
 export async function cancelApprovalRequest(http: DevantHttp, params: CancelApprovalReq): Promise<void> {
 	// The workflow service may answer plain text, such as an instance id; the answer is not read.
-	await http.text("POST", `${WORKFLOW_API}/workflow-instances/${encodeURIComponent(params.wkfInstanceId)}/cancellation`);
+	await http.text("POST", `${WORKFLOW_API}/workflow-instances/${segment(params.wkfInstanceId)}/cancellation`);
 }
 
 /** Asks for approval to promote a build into an environment. */
@@ -254,20 +255,16 @@ export async function requestPromoteApproval(http: DevantHttp, params: RequestPr
 
 /** Promotes a proxy's build from one environment to another. */
 export async function promoteProxyDeployment(http: DevantHttp, params: PromoteProxyDeploymentReq): Promise<void> {
-	await http.rest(
-		"POST",
-		`${PROXY_DEPLOYER}/components/${encodeURIComponent(params.componentId)}/versions/${encodeURIComponent(params.apiId)}/promote`,
-		{
-			baseUrl: appHost(http),
-			query: { fromEnv: params.promoteFromEnvId, targetEnv: params.envId, buildId: params.buildId, accessMode: "external" },
-		},
-	);
+	await http.rest("POST", `${PROXY_DEPLOYER}/components/${segment(params.componentId)}/versions/${segment(params.apiId)}/promote`, {
+		baseUrl: appHost(http),
+		query: { fromEnv: params.promoteFromEnvId, targetEnv: params.envId, buildId: params.buildId, accessMode: "external" },
+	});
 }
 
 function appHost(http: DevantHttp): string {
 	const host = http.deployment.appHost;
 	if (!host) {
-		throw new NotSupportedError("This Devant deployment names no app host, which proxies are deployed through.");
+		throw new NotSupportedError("This WSO2 Cloud deployment names no app host, which proxies are deployed through.");
 	}
 	return host;
 }
