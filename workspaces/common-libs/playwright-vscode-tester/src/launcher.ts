@@ -20,13 +20,17 @@ export const startVSCode = async (resourcesFolder: string, vscodeVersion: string
         executablePath: browser.path,
         args,
         env: browserOptions.env,
-        recordVideo: {
-            dir: path.join(resourcesFolder, 'videos'),
-            size: {
-                width: 1920,
-                height: 1080,
+        // On macOS, Playwright's video recording leaves the VS Code window on an empty page:
+        // the window opens but never loads the workbench, so the launch times out.
+        ...(process.platform === 'darwin' ? {} : {
+            recordVideo: {
+                dir: path.join(resourcesFolder, 'videos'),
+                size: {
+                    width: 1920,
+                    height: 1080,
+                },
             },
-        },
+        }),
     });
 
     // Get the first window that the app opens, wait if necessary.
